@@ -50,34 +50,25 @@
                         }
                         $shuffledMatchingOptions = $matchingRightOptions;
                         shuffle($shuffledMatchingOptions);
-                        $existingMatches = [];
-                        if ($userAnswerDetail && is_array($userAnswerDetail->answer_json) && isset($userAnswerDetail->answer_json['matches'])) {
-                            $existingMatches = $userAnswerDetail->answer_json['matches'];
-                        }
                         $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ? $metadata['short_answer'] : [];
                         $audioMeta = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ? $metadata['audio_answer'] : [];
-                        $pendingReview = $userAnswerDetail && is_array($userAnswerDetail->answer_json) ? (bool)($userAnswerDetail->answer_json['pending_review'] ?? false) : false;
+                        $pendingReview = false;
                     @endphp
 
                     <form id="answerForm" enctype="multipart/form-data">
                         @csrf
                         <input type="hidden" name="question_id" value="{{ $currentQuestion->question_id }}">
-                        <input type="hidden" name="option_id" id="selectedOptionId">
-                        <input type="hidden" name="selected_option" id="selectedOption">
                         <input type="hidden" id="questionType" value="{{ $questionType }}">
 
                         @if(in_array($questionType, ['multiple_choice', 'true_false']))
                         <div class="space-y-3" id="multipleChoiceOptions">
                             @foreach($currentQuestion->questionOptions as $option)
                             <label
-                                class="flex items-center p-4 border rounded-lg cursor-pointer transition-all duration-200
-                                          hover:border-primary hover:bg-primary/5 answer-option-label
-                                          {{ $userAnswerDetail && $userAnswerDetail->question_option_id == $option->question_option_id ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-gray-200' }}"
+                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
                                 for="option_{{ $option->question_option_id }}">
                                 <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
                                     value="{{ $option->question_option_id }}"
                                     data-option-key="{{ $option->option_key ?? 'A' }}"
-                                    {{ $userAnswerDetail && $userAnswerDetail->question_option_id == $option->question_option_id ? 'checked' : '' }}
                                     class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
                                 <span class="ml-4 flex-1 text-gray-700">
                                     {!! $option->option_text !!}
@@ -95,7 +86,6 @@
                             @foreach($matchingPairs as $index => $pair)
                             @php
                                 $leftLabel = trim((string)($pair['left'] ?? 'Item ' . ($index + 1)));
-                                $selectedValue = $existingMatches[$leftLabel] ?? '';
                             @endphp
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                                 <div class="font-medium text-gray-800">{{ $leftLabel }}</div>
@@ -104,7 +94,7 @@
                                         data-left="{{ $leftLabel }}">
                                         <option value="">Pilih jawaban</option>
                                         @foreach($shuffledMatchingOptions as $option)
-                                        <option value="{{ $option }}" {{ $selectedValue === $option ? 'selected' : '' }}>{{ $option }}</option>
+                                        <option value="{{ $option }}">{{ $option }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -118,7 +108,7 @@
                             <label for="shortAnswerInput" class="block text-sm font-medium text-gray-700">Jawabanmu</label>
                             <textarea id="shortAnswerInput" rows="4"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Ketik jawaban singkatmu di sini">{{ $userAnswerDetail ? $userAnswerDetail->answer_text : '' }}</textarea>
+                                placeholder="Ketik jawaban singkatmu di sini"></textarea>
                             @if(!empty($shortMeta['expected_answers']))
                             <p class="text-xs text-gray-500">Saran: Jawaban otomatis benar jika sesuai dengan salah satu kunci.</p>
                             @endif
@@ -132,17 +122,7 @@
 
                         @elseif($questionType === 'audio')
                         <div class="space-y-4" id="audioAnswerWrapper">
-                            @if($userAnswerDetail && $userAnswerDetail->answer_file_path)
-                            <div id="audioAnswerPreview" class="space-y-2">
-                                <p class="text-sm text-gray-600">Jawaban audio terakhir:</p>
-                                <audio controls class="w-full">
-                                    <source src="{{ Storage::url($userAnswerDetail->answer_file_path) }}" type="audio/mpeg">
-                                    Browser Anda tidak mendukung audio.
-                                </audio>
-                            </div>
-                            @else
-                            <div id="audioAnswerPreview"></div>
-                            @endif
+                            <div id="audioAnswerPreview" class="space-y-2"></div>
                             <div>
                                 <label for="audioAnswerInput" class="block text-sm font-medium text-gray-700 mb-2">Unggah
                                     Jawaban Audio</label>
@@ -194,8 +174,10 @@
                                 @else
                                 <form
                                     action="{{ route('user.tryout.finish', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"
-                                    method="POST" class="inline">
+                                    method="POST" class="inline" id="finishForm">
                                     @csrf
+                                    <input type="hidden" name="answers_payload" id="answersPayloadInput">
+                                    <input type="hidden" name="attempt_token" value="{{ $attemptToken }}">
                                     <button type="submit"
                                         onclick="return confirm('Apakah Anda yakin ingin menyelesaikan tryout ini?')"
                                         class="px-6 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors">
@@ -219,23 +201,21 @@
                     <div class="mb-6">
                         <h3 class="font-semibold text-gray-800 mb-4">Navigasi Soal</h3>
                         <div class="grid grid-cols-5 gap-2">
-                            @foreach($allQuestions as $index => $question)
-                            @php
+                        @foreach($allQuestions as $index => $question)
+                        @php
                             $questionNumber = $index + 1;
-                            $isAnswered = in_array($question->question_id, $userAnswerDetails);
-                            $isFlagged = in_array($question->question_id, $flaggedQuestions);
                             $isCurrent = $questionNumber == $number;
-                            @endphp
-                            <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
-                                class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors
-                                      {{ $isCurrent ? 'bg-primary text-white' :
-                                         ($isAnswered ? 'bg-green text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200') }}">
-                                {{ $questionNumber }}
-                                @if($isFlagged)
-                                <i class="ri-flag-fill absolute -top-1 -right-1 text-xs text-red"></i>
-                                @endif
-                            </a>
-                            @endforeach
+                            $isFlagged = in_array($question->question_id, $flaggedQuestions);
+                        @endphp
+                        <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
+                            class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
+                            data-question-id="{{ $question->question_id }}">
+                            {{ $questionNumber }}
+                            @if($isFlagged)
+                            <i class="ri-flag-fill absolute -top-1 -right-1 text-xs text-red"></i>
+                            @endif
+                        </a>
+                        @endforeach
                         </div>
                     </div>
 
@@ -306,294 +286,417 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-    const saveUrl = '{{ route("user.tryout.save", [$package ? $package->package_id : "free", $tryout->tryout_id, $number]) }}';
-    const csrfToken = '{{ csrf_token() }}';
-    const questionTypeInput = document.getElementById('questionType');
-    const questionType = questionTypeInput ? questionTypeInput.value : 'multiple_choice';
-    const normalizedType = questionType === 'true_false' ? 'multiple_choice' : questionType;
+        console.log('Tryout page loaded (client-first mode)');
 
-    // Timer configuration
-    @php
-        $now = \Carbon\Carbon::now('Asia/Jakarta');
-        $startTime = \Carbon\Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
+        const attemptToken = '{{ $attemptToken }}';
+        const answersKey = `tryout_answers_${attemptToken}`;
+        const questionId = {{ $currentQuestion->question_id }};
+        const questionType = (document.getElementById('questionType')?.value || 'multiple_choice');
+        const normalizedType = questionType === 'true_false' ? 'multiple_choice' : questionType;
+        const csrfToken = '{{ csrf_token() }}';
+        const finishForm = document.getElementById('finishForm');
+        const answersPayloadInput = document.getElementById('answersPayloadInput');
 
-        if (isset($tryoutDetails) && $tryoutDetails->count() > 1) {
-            $totalDuration = $tryoutDetails->sum('duration');
-        } else {
-            $totalDuration = $tryoutDetails->first()->duration ?? 60;
+        let answerCache = loadAnswers();
+
+        function loadAnswers() {
+            try {
+                const raw = localStorage.getItem(answersKey);
+                if (!raw) {
+                    return {};
+                }
+                const parsed = JSON.parse(raw);
+                return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (error) {
+                console.warn('Gagal memuat jawaban lokal', error);
+                return {};
+            }
         }
 
-        $endTime = $startTime->copy()->addMinutes($totalDuration);
-
-        if ($now->lt($endTime)) {
-            $remainingSecondsCalc = (int) $now->diffInSeconds($endTime);
-        } else {
-            $remainingSecondsCalc = 0;
-        }
-    @endphp
-
-    let timeLeft = {{ $remainingSecondsCalc }};
-    let timerInterval;
-
-    function updateTimer() {
-        if (timeLeft <= 0) {
-            document.getElementById('timer').textContent = '00:00:00';
-            document.getElementById('timer-display').textContent = '00:00:00';
-
-            clearInterval(timerInterval);
-
-            alert('Waktu ujian telah habis!');
-
-            const finishForm = document.createElement('form');
-            finishForm.method = 'POST';
-            finishForm.action = '{{ route("user.tryout.finish", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}';
-
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_token';
-            csrfInput.value = csrfToken;
-            finishForm.appendChild(csrfInput);
-
-            document.body.appendChild(finishForm);
-            finishForm.submit();
-            return;
+        function persistAnswers() {
+            try {
+                localStorage.setItem(answersKey, JSON.stringify(answerCache));
+            } catch (error) {
+                console.warn('Tidak dapat menyimpan jawaban lokal', error);
+            }
         }
 
-        const hours = Math.floor(timeLeft / 3600);
-        const minutes = Math.floor((timeLeft % 3600) / 60);
-        const seconds = timeLeft % 60;
-
-        const display = hours.toString().padStart(2, '0') + ':' +
-                       minutes.toString().padStart(2, '0') + ':' +
-                       seconds.toString().padStart(2, '0');
-
-        document.getElementById('timer').textContent = display;
-        document.getElementById('timer-display').textContent = display;
-
-        if (timeLeft <= 300) {
-            document.getElementById('timer').style.color = '#dc2626';
-            document.getElementById('timer-display').style.color = '#dc2626';
-        } else if (timeLeft <= 600) {
-            document.getElementById('timer').style.color = '#f59e0b';
-            document.getElementById('timer-display').style.color = '#f59e0b';
+        function getAnswer(qid) {
+            return answerCache[qid] || null;
         }
 
-        timeLeft--;
-    }
+        function isAnswered(qid) {
+            const answer = getAnswer(qid);
+            if (!answer) {
+                return false;
+            }
 
-    timerInterval = setInterval(updateTimer, 1000);
-    updateTimer();
-
-    if (normalizedType === 'multiple_choice') {
-        const radioButtons = document.querySelectorAll('.answer-radio');
-        radioButtons.forEach(radio => {
-            radio.addEventListener('change', function() {
-                document.getElementById('selectedOptionId').value = this.value;
-                document.getElementById('selectedOption').value = this.dataset.optionKey;
-
-                document.querySelectorAll('.answer-option-label').forEach(label => {
-                    label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-                    label.classList.add('border-gray-200');
-                });
-
-                this.closest('.answer-option-label').classList.remove('border-gray-200');
-                this.closest('.answer-option-label').classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-
-                submitFormDataAnswer(new FormData(document.getElementById('answerForm')));
-            });
-        });
-    }
-
-    if (normalizedType === 'matching') {
-        const matchingSelects = document.querySelectorAll('.matching-select');
-        if (matchingSelects.length) {
-            const scheduleMatchingSave = () => {
-                const answers = {};
-                let hasEmpty = false;
-                matchingSelects.forEach(select => {
-                    const left = select.dataset.left;
-                    const value = (select.value || '').trim();
-                    if (!value) {
-                        hasEmpty = true;
+            switch (answer.type) {
+                case 'multiple_choice':
+                case 'true_false':
+                    return !!answer.option_id;
+                case 'matching':
+                    if (!answer.matching_answers) {
+                        return false;
                     }
-                    answers[left] = value;
-                });
+                    return Object.values(answer.matching_answers).every(value => (value || '').trim() !== '');
+                case 'short_answer':
+                case 'essay':
+                    return !!(answer.answer_text && answer.answer_text.trim().length > 0);
+                case 'audio':
+                    return !!answer.answer_audio_base64;
+                default:
+                    return false;
+            }
+        }
 
-                if (hasEmpty) {
-                    return;
-                }
+        function updateNavigation(qid) {
+            const navItem = document.querySelector(`.question-nav-item[data-question-id="${qid}"]`);
+            if (!navItem) {
+                return;
+            }
 
-                submitJsonAnswer({
-                    question_id: '{{ $currentQuestion->question_id }}',
-                    matching_answers: answers,
-                });
+            const isCurrent = navItem.classList.contains('bg-primary');
+            if (isAnswered(qid) && !isCurrent) {
+                navItem.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+                navItem.classList.add('bg-green', 'text-white');
+            } else if (!isCurrent) {
+                navItem.classList.remove('bg-green', 'text-white');
+                navItem.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+            }
+        }
+
+        function setAnswer(qid, data) {
+            answerCache[qid] = {
+                question_id: qid,
+                ...data,
+                updated_at: Date.now()
             };
-
-            matchingSelects.forEach(select => {
-                select.addEventListener('change', scheduleMatchingSave);
-            });
+            persistAnswers();
+            updateNavigation(qid);
+            showSaveIndicator(true, 'Jawaban tersimpan sementara');
         }
-    }
 
-    if (normalizedType === 'short_answer' || normalizedType === 'essay') {
-        const shortInput = document.getElementById('shortAnswerInput');
-        if (shortInput) {
-            let shortAnswerTimer;
-            const submitShortAnswer = () => {
-                const value = (shortInput.value || '').trim();
-                if (!value) {
-                    return;
-                }
-                submitJsonAnswer({
-                    question_id: '{{ $currentQuestion->question_id }}',
-                    answer_text: value,
+        function clearAnswer(qid) {
+            delete answerCache[qid];
+            persistAnswers();
+            updateNavigation(qid);
+        }
+
+        function highlightSelectedOption(radio) {
+            document.querySelectorAll('.answer-option-label').forEach(label => {
+                label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+                label.classList.add('border-gray-200');
+            });
+            const label = radio.closest('.answer-option-label');
+            if (label) {
+                label.classList.remove('border-gray-200');
+                label.classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+            }
+        }
+
+        function applyAnswerToUI() {
+            const saved = getAnswer(questionId);
+            if (!saved) {
+                return;
+            }
+
+            switch (questionType) {
+                case 'multiple_choice':
+                case 'true_false':
+                    if (saved.option_id) {
+                        const radio = document.querySelector(`input[name="answer_option"][value="${saved.option_id}"]`);
+                        if (radio) {
+                            radio.checked = true;
+                            highlightSelectedOption(radio);
+                        }
+                    }
+                    break;
+                case 'matching':
+                    if (saved.matching_answers) {
+                        document.querySelectorAll('.matching-select').forEach(select => {
+                            const left = select.dataset.left;
+                            if (saved.matching_answers[left]) {
+                                select.value = saved.matching_answers[left];
+                            }
+                        });
+                    }
+                    break;
+                case 'short_answer':
+                case 'essay':
+                    if (saved.answer_text) {
+                        const textarea = document.getElementById('shortAnswerInput');
+                        if (textarea) {
+                            textarea.value = saved.answer_text;
+                        }
+                    }
+                    break;
+                case 'audio':
+                    updateAudioPreview();
+                    break;
+            }
+        }
+
+        function updateAudioPreview() {
+            const previewWrapper = document.getElementById('audioAnswerPreview');
+            if (!previewWrapper) {
+                return;
+            }
+            previewWrapper.innerHTML = '';
+
+            const saved = getAnswer(questionId);
+            if (saved && saved.answer_audio_base64) {
+                const info = document.createElement('p');
+                info.className = 'text-sm text-gray-600';
+                info.textContent = 'Jawaban audio tersimpan di perangkat.';
+
+                const audioEl = document.createElement('audio');
+                audioEl.controls = true;
+                audioEl.className = 'w-full';
+                audioEl.src = saved.answer_audio_base64;
+
+                previewWrapper.appendChild(info);
+                previewWrapper.appendChild(audioEl);
+            }
+        }
+
+        if (['multiple_choice', 'true_false'].includes(questionType)) {
+            document.querySelectorAll('.answer-radio').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    setAnswer(questionId, {
+                        type: questionType,
+                        option_id: this.value,
+                        option_key: this.dataset.optionKey || null
+                    });
+                    highlightSelectedOption(this);
                 });
-            };
-
-            shortInput.addEventListener('input', function() {
-                clearTimeout(shortAnswerTimer);
-                shortAnswerTimer = setTimeout(submitShortAnswer, 600);
-            });
-
-            shortInput.addEventListener('blur', function() {
-                clearTimeout(shortAnswerTimer);
-                submitShortAnswer();
             });
         }
-    }
 
-    if (normalizedType === 'audio') {
-        const audioInput = document.getElementById('audioAnswerInput');
-        if (audioInput) {
-            audioInput.addEventListener('change', function() {
-                if (!audioInput.files || !audioInput.files.length) {
-                    return;
-                }
+        if (normalizedType === 'matching') {
+            const selects = document.querySelectorAll('.matching-select');
+            if (selects.length) {
+                selects.forEach(select => {
+                    select.addEventListener('change', function() {
+                        const matches = {};
+                        selects.forEach(sel => {
+                            const left = sel.dataset.left;
+                            matches[left] = (sel.value || '').trim();
+                        });
 
-                const formData = new FormData();
-                formData.append('_token', csrfToken);
-                formData.append('question_id', '{{ $currentQuestion->question_id }}');
-                formData.append('answer_audio', audioInput.files[0]);
+                        setAnswer(questionId, {
+                            type: 'matching',
+                            matching_answers: matches
+                        });
+                    });
+                });
+            }
+        }
 
-                submitFormDataAnswer(formData);
+        if (normalizedType === 'short_answer' || normalizedType === 'essay') {
+            const textarea = document.getElementById('shortAnswerInput');
+            if (textarea) {
+                let debounceTimer;
+                const persistShortAnswer = () => {
+                    const value = textarea.value || '';
+                    setAnswer(questionId, {
+                        type: questionType,
+                        answer_text: value
+                    });
+                };
+
+                textarea.addEventListener('input', function() {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(persistShortAnswer, 500);
+                });
+
+                textarea.addEventListener('blur', function() {
+                    clearTimeout(debounceTimer);
+                    persistShortAnswer();
+                });
+            }
+        }
+
+        if (normalizedType === 'audio') {
+            const audioInput = document.getElementById('audioAnswerInput');
+            if (audioInput) {
+                audioInput.addEventListener('change', function() {
+                    const file = audioInput.files && audioInput.files[0];
+                    if (!file) {
+                        clearAnswer(questionId);
+                        updateAudioPreview();
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const dataUrl = event.target?.result;
+                        if (!dataUrl) {
+                            showSaveIndicator(false, 'Gagal membaca file audio');
+                            return;
+                        }
+
+                        setAnswer(questionId, {
+                            type: 'audio',
+                            answer_audio_base64: dataUrl,
+                            answer_audio_name: file.name,
+                            answer_audio_mime: file.type || 'audio/mpeg'
+                        });
+                        updateAudioPreview();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function buildAnswersPayload() {
+            return JSON.stringify(Object.values(answerCache));
+        }
+
+        if (finishForm && answersPayloadInput) {
+            finishForm.addEventListener('submit', function() {
+                answersPayloadInput.value = buildAnswersPayload();
             });
         }
-    }
 
-    function submitJsonAnswer(payload) {
-        fetch(saveUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(handleResponse)
-        .catch(handleError);
-    }
+        function showSaveIndicator(success, message) {
+            const existingIndicators = document.querySelectorAll('.save-indicator');
+            existingIndicators.forEach(indicator => indicator.remove());
 
-    function submitFormDataAnswer(formData) {
-        if (!formData.has('_token')) {
-            formData.append('_token', csrfToken);
+            const indicator = document.createElement('div');
+            indicator.className = `save-indicator fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white ${success ? 'bg-green' : 'bg-red'}`;
+            indicator.textContent = message || (success ? 'Jawaban tersimpan sementara' : 'Gagal menyimpan');
+
+            document.body.appendChild(indicator);
+
+            setTimeout(() => {
+                indicator.remove();
+            }, 2000);
         }
 
-        fetch(saveUrl, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: formData
-        })
-        .then(handleResponse)
-        .catch(handleError);
-    }
-
-    function handleResponse(response) {
-        if (!response.ok) {
-            return response.json()
-                .then(data => {
-                    const errors = data?.errors ? Object.values(data.errors).flat() : [];
-                    const message = errors.length ? errors[0] : (data?.message || 'Gagal menyimpan jawaban');
-                    showSaveIndicator(false, message);
-                    throw new Error(message);
+        window.flagQuestion = function() {
+            fetch('{{ route("user.tryout.flag", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    question_id: {{ $currentQuestion->question_id }}
                 })
-                .catch(() => {
-                    showSaveIndicator(false);
-                    throw new Error('Gagal menyimpan jawaban');
-                });
-        }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const flagBtn = document.querySelector('.flag-btn');
+                    const flagText = document.querySelector('.flag-text');
+                    const flagIcon = flagBtn.querySelector('i');
 
-        return response.json().then(data => {
-            if (data.success) {
-                showSaveIndicator(true);
-
-                if (data.file_url) {
-                    const previewWrapper = document.getElementById('audioAnswerPreview');
-                    if (previewWrapper) {
-                        previewWrapper.innerHTML = `<audio controls class="w-full"><source src="${data.file_url}?t=${Date.now()}" type="audio/mpeg">Browser tidak mendukung audio.</audio>`;
+                    if (data.flagged) {
+                        flagText.textContent = 'Batal Tandai';
+                        flagIcon.className = 'ri-flag-fill mr-2';
+                    } else {
+                        flagText.textContent = 'Tandai';
+                        flagIcon.className = 'ri-flag-line mr-2';
                     }
                 }
-            } else {
-                showSaveIndicator(false, data.message || 'Gagal menyimpan jawaban');
-            }
-        });
-    }
-
-    function handleError(error) {
-        console.error('Error saving answer:', error);
-        showSaveIndicator(false);
-    }
-
-    function showSaveIndicator(success, message) {
-        const existingIndicators = document.querySelectorAll('.save-indicator');
-        existingIndicators.forEach(indicator => indicator.remove());
-
-        const indicator = document.createElement('div');
-        indicator.className = `save-indicator fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white ${success ? 'bg-green' : 'bg-red'}`;
-        indicator.textContent = message || (success ? 'Jawaban tersimpan' : 'Gagal menyimpan');
-
-        document.body.appendChild(indicator);
-
-        setTimeout(() => {
-            indicator.remove();
-        }, 2000);
-    }
-
-    window.flagQuestion = function() {
-        fetch('{{ route("user.tryout.flag", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                question_id: {{ $currentQuestion->question_id }}
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const flagBtn = document.querySelector('.flag-btn');
-                const flagText = document.querySelector('.flag-text');
-                const flagIcon = flagBtn.querySelector('i');
+            .catch(error => console.error('Error:', error));
+        };
 
-                if (data.flagged) {
-                    flagText.textContent = 'Batal Tandai';
-                    flagIcon.className = 'ri-flag-fill mr-2';
+        function setupTimer() {
+            @php
+                $now = \Carbon\Carbon::now('Asia/Jakarta');
+                $startTime = \Carbon\Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
+
+                if (isset($tryoutDetails) && $tryoutDetails->count() > 1) {
+                    $totalDuration = $tryoutDetails->sum('duration');
                 } else {
-                    flagText.textContent = 'Tandai';
-                    flagIcon.className = 'ri-flag-line mr-2';
+                    $totalDuration = $tryoutDetails->first()->duration ?? 60;
+                }
+
+                $endTime = $startTime->copy()->addMinutes($totalDuration);
+
+                if ($now->lt($endTime)) {
+                    $remainingSecondsCalc = (int) $now->diffInSeconds($endTime);
+                } else {
+                    $remainingSecondsCalc = 0;
+                }
+            @endphp
+
+            let timeLeft = {{ $remainingSecondsCalc }};
+            const timerEl = document.getElementById('timer');
+            const timerDisplayEl = document.getElementById('timer-display');
+
+            function renderTimer() {
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                const seconds = timeLeft % 60;
+                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                if (timerEl) timerEl.textContent = display;
+                if (timerDisplayEl) timerDisplayEl.textContent = display;
+
+                if (timeLeft <= 300) {
+                    if (timerEl) timerEl.style.color = '#dc2626';
+                    if (timerDisplayEl) timerDisplayEl.style.color = '#dc2626';
+                } else if (timeLeft <= 600) {
+                    if (timerEl) timerEl.style.color = '#f59e0b';
+                    if (timerDisplayEl) timerDisplayEl.style.color = '#f59e0b';
                 }
             }
-        })
-        .catch(error => console.error('Error:', error));
-    };
-});
+
+            function triggerAutoFinish() {
+                alert('Waktu ujian telah habis!');
+                const autoForm = document.createElement('form');
+                autoForm.method = 'POST';
+                autoForm.action = '{{ route("user.tryout.finish", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}';
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = '_token';
+                csrfInput.value = csrfToken;
+                autoForm.appendChild(csrfInput);
+
+                const attemptInput = document.createElement('input');
+                attemptInput.type = 'hidden';
+                attemptInput.name = 'attempt_token';
+                attemptInput.value = attemptToken;
+                autoForm.appendChild(attemptInput);
+
+                const answersInput = document.createElement('input');
+                answersInput.type = 'hidden';
+                answersInput.name = 'answers_payload';
+                answersInput.value = buildAnswersPayload();
+                autoForm.appendChild(answersInput);
+
+                document.body.appendChild(autoForm);
+                autoForm.submit();
+            }
+
+            renderTimer();
+
+            const interval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    if (timerEl) timerEl.textContent = '00:00:00';
+                    if (timerDisplayEl) timerDisplayEl.textContent = '00:00:00';
+                    triggerAutoFinish();
+                } else {
+                    renderTimer();
+                }
+            }, 1000);
+        }
+
+        Object.keys(answerCache).forEach(updateNavigation);
+        applyAnswerToUI();
+        if (questionType === 'audio') {
+            updateAudioPreview();
+        }
+        setupTimer();
+    });
 </script>
 
 <script>

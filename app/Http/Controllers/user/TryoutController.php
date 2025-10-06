@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
 
@@ -29,7 +30,7 @@ class TryoutController extends Controller
         date_default_timezone_set('Asia/Jakarta');
     }
 
-    private function processAnswerByType(Request $request, Question $question, ?UserAnswerDetail $existingDetail): array
+    private function processAnswerByType(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
     {
         $type = $question->question_type ?? 'multiple_choice';
 
@@ -39,25 +40,25 @@ class TryoutController extends Controller
 
         switch ($type) {
             case 'matching':
-                return $this->handleMatchingAnswer($request, $question);
+                return $this->handleMatchingAnswer($data, $question);
             case 'short_answer':
             case 'essay':
-                return $this->handleShortAnswer($request, $question);
+                return $this->handleShortAnswer($data, $question);
             case 'audio':
-                return $this->handleAudioAnswer($request, $question, $existingDetail);
+                return $this->handleAudioAnswer($data, $question, $existingDetail);
             default:
-                return $this->handleMultipleChoiceAnswer($request, $question);
+                return $this->handleMultipleChoiceAnswer($data, $question);
         }
     }
 
-    private function handleMultipleChoiceAnswer(Request $request, Question $question): array
+    private function handleMultipleChoiceAnswer(array $data, Question $question): array
     {
-        $request->validate([
+        Validator::make($data, [
             'option_id' => 'required|exists:question_options,question_option_id'
-        ]);
+        ])->validate();
 
         $selectedOption = $question->questionOptions()
-            ->where('question_option_id', $request->option_id)
+            ->where('question_option_id', $data['option_id'])
             ->first();
 
         if (!$selectedOption) {
@@ -84,13 +85,13 @@ class TryoutController extends Controller
         ];
     }
 
-    private function handleShortAnswer(Request $request, Question $question): array
+    private function handleShortAnswer(array $data, Question $question): array
     {
-        $request->validate([
+        Validator::make($data, [
             'answer_text' => 'required|string'
-        ]);
+        ])->validate();
 
-        $answerText = trim($request->input('answer_text'));
+        $answerText = trim((string) ($data['answer_text'] ?? ''));
         $metadata = is_array($question->metadata) ? $question->metadata : [];
         $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ? $metadata['short_answer'] : [];
 
@@ -140,9 +141,9 @@ class TryoutController extends Controller
         ];
     }
 
-    private function handleMatchingAnswer(Request $request, Question $question): array
+    private function handleMatchingAnswer(array $data, Question $question): array
     {
-        $input = $request->input('matching_answers');
+        $input = $data['matching_answers'] ?? null;
 
         if (is_string($input)) {
             $decoded = json_decode($input, true);
@@ -220,7 +221,7 @@ class TryoutController extends Controller
         ];
     }
 
-    private function handleAudioAnswer(Request $request, Question $question, ?UserAnswerDetail $existingDetail): array
+    private function handleAudioAnswer(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
     {
         $metadata = is_array($question->metadata) ? $question->metadata : [];
         $audioMeta = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ? $metadata['audio_answer'] : [];
@@ -228,19 +229,84 @@ class TryoutController extends Controller
         $maxSizeMb = isset($audioMeta['max_size']) ? (int) $audioMeta['max_size'] : 15;
         $allowedExtensions = ['mp3', 'wav', 'm4a'];
 
-        $request->validate([
-            'answer_audio' => 'required|file|mimes:' . implode(',', $allowedExtensions) . '|max:' . ($maxSizeMb * 1024)
-        ], [], [
-            'answer_audio' => 'jawaban audio'
-        ]);
+        $file = $data['answer_audio_file'] ?? null;
 
-        $file = $request->file('answer_audio');
-        $storagePath = $file->store('user_answers/audio/' . Auth::id(), 'public');
+        if ($file) {
+            Validator::make([
+                'answer_audio' => $file,
+            ], [
+                'answer_audio' => 'required|file|mimes:' . implode(',', $allowedExtensions) . '|max:' . ($maxSizeMb * 1024),
+            ], [], [
+                'answer_audio' => 'jawaban audio'
+            ])->validate();
+
+            $storagePath = $file->store('user_answers/audio/' . Auth::id(), 'public');
+
+            $answerJson = [
+                'pending_review' => true,
+                'original_name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+            ];
+
+            return [
+                'detail' => [
+                    'question_option_id' => null,
+                    'answer_text' => null,
+                    'answer_json' => $answerJson,
+                    'answer_file_path' => $storagePath,
+                    'is_correct' => false,
+                ],
+                'response' => [
+                    'file_url' => Storage::disk('public')->url($storagePath),
+                    'manual_review' => true,
+                ],
+                'delete_file' => true,
+            ];
+        }
+
+        $base64Data = $data['answer_audio_base64'] ?? null;
+        $fileName = $data['answer_audio_name'] ?? ('audio_' . Str::uuid()->toString() . '.mp3');
+        $mimeType = $data['answer_audio_mime'] ?? 'audio/mpeg';
+
+        if (!$base64Data) {
+            throw ValidationException::withMessages([
+                'answer_audio' => 'Jawaban audio tidak ditemukan.'
+            ]);
+        }
+
+        if (preg_match('/^data:(.*?);base64,(.*)$/', $base64Data, $matches)) {
+            $mimeType = $matches[1];
+            $base64Data = $matches[2];
+        }
+
+        $extension = explode('/', $mimeType)[1] ?? 'mp3';
+        if (!in_array(strtolower($extension), $allowedExtensions)) {
+            throw ValidationException::withMessages([
+                'answer_audio' => 'Format audio tidak didukung.'
+            ]);
+        }
+
+        $decoded = base64_decode($base64Data);
+        if ($decoded === false) {
+            throw ValidationException::withMessages([
+                'answer_audio' => 'Data audio tidak valid.'
+            ]);
+        }
+
+        $maxBytes = $maxSizeMb * 1024 * 1024;
+        if (strlen($decoded) > $maxBytes) {
+            throw ValidationException::withMessages([
+                'answer_audio' => 'Ukuran audio melebihi batas ' . $maxSizeMb . ' MB.'
+            ]);
+        }
+
+        $storagePath = 'user_answers/audio/' . Auth::id() . '/' . Str::uuid()->toString() . '.' . $extension;
+        Storage::disk('public')->put($storagePath, $decoded);
 
         $answerJson = [
             'pending_review' => true,
-            'original_name' => $file->getClientOriginalName(),
-            'size' => $file->getSize(),
+            'original_name' => $fileName,
+            'size' => strlen($decoded),
         ];
 
         return [
@@ -611,7 +677,12 @@ class TryoutController extends Controller
                 ->where('question_id', $question->question_id)
                 ->first();
 
-            $result = $this->processAnswerByType($request, $question, $existingDetail);
+            $payload = $request->all();
+            if ($request->hasFile('answer_audio')) {
+                $payload['answer_audio_file'] = $request->file('answer_audio');
+            }
+
+            $result = $this->processAnswerByType($payload, $question, $existingDetail);
 
             $detailPayload = $result['detail'];
             $detailPayload['answered_at'] = $now;
@@ -800,7 +871,7 @@ class TryoutController extends Controller
         return $maxScore;
     }
 
-    public function finishTryout($id_package, $id_tryout)
+    public function finishTryout(Request $request, $id_package, $id_tryout)
     {
         $now = Carbon::now('Asia/Jakarta');
 
@@ -818,6 +889,85 @@ class TryoutController extends Controller
             return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
         }
 
+        $answersPayload = $request->input('answers_payload');
+        $answers = [];
+        if (!empty($answersPayload)) {
+            $decoded = json_decode($answersPayload, true);
+            if (is_array($decoded)) {
+                $answers = array_values($decoded);
+            }
+        }
+
+        if (!empty($answers)) {
+            DB::beginTransaction();
+            try {
+                foreach ($answers as $answer) {
+                    if (!is_array($answer) || empty($answer['question_id'])) {
+                        continue;
+                    }
+
+                    $question = Question::with('tryoutDetail')->find($answer['question_id']);
+                    if (!$question) {
+                        continue;
+                    }
+
+                    $userAnswer = UserAnswer::where('user_id', Auth::id())
+                        ->where('tryout_id', $id_tryout)
+                        ->where('tryout_detail_id', $question->tryout_detail_id)
+                        ->where('status', 'in_progress')
+                        ->first();
+
+                    if (!$userAnswer) {
+                        $userAnswer = UserAnswer::create([
+                            'user_id' => Auth::id(),
+                            'tryout_id' => $id_tryout,
+                            'tryout_detail_id' => $question->tryout_detail_id,
+                            'attempt_token' => $userAnswers->first()->attempt_token,
+                            'started_at' => $now,
+                            'status' => 'in_progress'
+                        ]);
+                    }
+
+                    $existingDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                        ->where('question_id', $question->question_id)
+                        ->first();
+
+                    $result = $this->processAnswerByType($answer, $question, $existingDetail);
+                    $detailPayload = $result['detail'];
+                    $detailPayload['answered_at'] = $now;
+
+                    $userAnswerDetail = UserAnswerDetail::updateOrCreate(
+                        [
+                            'user_answer_id' => $userAnswer->user_answer_id,
+                            'question_id' => $question->question_id
+                        ],
+                        $detailPayload
+                    );
+
+                    if (!empty($result['delete_file']) && $existingDetail && $existingDetail->answer_file_path && Storage::disk('public')->exists($existingDetail->answer_file_path)) {
+                        Storage::disk('public')->delete($existingDetail->answer_file_path);
+                    }
+                }
+
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'error' => 'Gagal menyimpan jawaban akhir',
+                        'message' => $e->getMessage()
+                    ], 500);
+                }
+                throw $e;
+            }
+
+            $userAnswers = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('status', 'in_progress')
+                ->with(['tryoutDetail'])
+                ->get();
+        }
+
         // Check if this is a TOEFL test
         if ($tryout->is_toefl == 1) {
             // Use TOEFL scoring system
@@ -825,6 +975,13 @@ class TryoutController extends Controller
         } else {
             // Use regular scoring system
             $this->processRegularScoring($userAnswers, $now);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('user.tryout.result', [$id_package, $id_tryout])
+            ]);
         }
 
         return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
