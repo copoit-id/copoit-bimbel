@@ -1,0 +1,30 @@
+/* ...existing code... */
+
+/* Sidebar dropdown animations */
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+/* Smooth transitions for dropdown arrows */
+[data-collapse-toggle] svg {
+    transition: transform 0.2s ease;
+}
+
+/* Package dropdown styling */
+.package-dropdown {
+    transition: all 0.2s ease;
+}
+
+/* Active state for package items */
+.bg-primary\/10 {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+/* Hover effects for sidebar items */
+.sidebar-item {
+    transition: all 0.2s ease;
+}
+
+.sidebar-item:hover {
+    transform: translateX(2px);
+}
