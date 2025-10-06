@@ -53,6 +53,44 @@
                         $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ? $metadata['short_answer'] : [];
                         $audioMeta = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ? $metadata['audio_answer'] : [];
                         $pendingReview = false;
+
+                        $initialAnswer = null;
+                        if ($userAnswerDetail) {
+                            switch ($questionType) {
+                                case 'multiple_choice':
+                                case 'true_false':
+                                    $initialAnswer = [
+                                        'question_id' => $currentQuestion->question_id,
+                                        'type' => $questionType,
+                                        'option_id' => $userAnswerDetail->question_option_id,
+                                        'option_key' => optional($userAnswerDetail->questionOption)->option_key,
+                                    ];
+                                    break;
+                                case 'matching':
+                                    $initialAnswer = [
+                                        'question_id' => $currentQuestion->question_id,
+                                        'type' => 'matching',
+                                        'matching_answers' => $userAnswerDetail->answer_json['matches'] ?? [],
+                                    ];
+                                    break;
+                                case 'short_answer':
+                                case 'essay':
+                                    $initialAnswer = [
+                                        'question_id' => $currentQuestion->question_id,
+                                        'type' => $questionType,
+                                        'answer_text' => $userAnswerDetail->answer_text,
+                                    ];
+                                    break;
+                                case 'audio':
+                                    $initialAnswer = [
+                                        'question_id' => $currentQuestion->question_id,
+                                        'type' => 'audio',
+                                        'answer_audio_remote' => $userAnswerDetail->answer_file_path ? Storage::url($userAnswerDetail->answer_file_path) : null,
+                                        'answer_audio_name' => $userAnswerDetail->answer_json['original_name'] ?? basename($userAnswerDetail->answer_file_path ?? ''),
+                                    ];
+                                    break;
+                            }
+                        }
                     @endphp
 
                     <form id="answerForm" enctype="multipart/form-data">
@@ -296,8 +334,35 @@
         const csrfToken = '{{ csrf_token() }}';
         const finishForm = document.getElementById('finishForm');
         const answersPayloadInput = document.getElementById('answersPayloadInput');
+        const serverAnswered = @json($userAnswerDetails);
+        const initialAnswer = @json($initialAnswer);
 
         let answerCache = loadAnswers();
+
+        if (Array.isArray(serverAnswered)) {
+            serverAnswered.forEach(id => {
+                const key = id.toString();
+                if (!answerCache[key]) {
+                    answerCache[key] = {
+                        question_id: id,
+                        type: 'synced',
+                        answered: true,
+                        synced_at: Date.now()
+                    };
+                }
+            });
+        }
+
+        if (initialAnswer && (!answerCache[questionId] || !answerCache[questionId].updated_at)) {
+            answerCache[questionId] = {
+                question_id: questionId,
+                ...initialAnswer,
+                answered: true,
+                updated_at: Date.now()
+            };
+        }
+
+        persistAnswers();
 
         function loadAnswers() {
             try {
@@ -331,6 +396,10 @@
                 return false;
             }
 
+             if (answer.answered) {
+                return true;
+            }
+
             switch (answer.type) {
                 case 'multiple_choice':
                 case 'true_false':
@@ -344,9 +413,9 @@
                 case 'essay':
                     return !!(answer.answer_text && answer.answer_text.trim().length > 0);
                 case 'audio':
-                    return !!answer.answer_audio_base64;
+                    return !!(answer.answer_audio_base64 || answer.answer_audio_remote);
                 default:
-                    return false;
+                    return !!answer.answer_audio_remote;
             }
         }
 
@@ -370,6 +439,7 @@
             answerCache[qid] = {
                 question_id: qid,
                 ...data,
+                answered: true,
                 updated_at: Date.now()
             };
             persistAnswers();
@@ -454,6 +524,18 @@
                 audioEl.controls = true;
                 audioEl.className = 'w-full';
                 audioEl.src = saved.answer_audio_base64;
+
+                previewWrapper.appendChild(info);
+                previewWrapper.appendChild(audioEl);
+            } else if (saved && saved.answer_audio_remote) {
+                const info = document.createElement('p');
+                info.className = 'text-sm text-gray-600';
+                info.textContent = 'Jawaban audio tersimpan di server.';
+
+                const audioEl = document.createElement('audio');
+                audioEl.controls = true;
+                audioEl.className = 'w-full';
+                audioEl.src = saved.answer_audio_remote;
 
                 previewWrapper.appendChild(info);
                 previewWrapper.appendChild(audioEl);

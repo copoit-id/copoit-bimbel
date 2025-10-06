@@ -34,4 +34,21 @@ class ClassModel extends Model
     {
         return $this->morphToMany(Package::class, 'detailable', 'detail_packages', 'detailable_id', 'package_id');
     }
+
+    public function assessments()
+    {
+        return $this->belongsToMany(Tryout::class, 'class_assessments', 'class_id', 'tryout_id')
+            ->withPivot('assessment_type')
+            ->withTimestamps();
+    }
+
+    public function preTest()
+    {
+        return $this->assessments()->wherePivot('assessment_type', 'pre_test');
+    }
+
+    public function postTest()
+    {
+        return $this->assessments()->wherePivot('assessment_type', 'post_test');
+    }
 }

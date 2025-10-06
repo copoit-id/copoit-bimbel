@@ -208,6 +208,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::resource('tryout', AdminTryoutController::class);
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
 
+    Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
+    Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
+    Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
     Route::resource('class', ClassController::class);
     Route::resource('certification', CertificationController::class);
     Route::resource('user', UserController::class);

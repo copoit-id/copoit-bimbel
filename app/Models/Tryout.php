@@ -18,6 +18,7 @@ class Tryout extends Model
         'is_active' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
+        'assessment_type' => 'string',
     ];
 
     // Direct relationship (untuk tryout yang dibuat langsung di package)
@@ -47,6 +48,13 @@ class Tryout extends Model
     public function userAnswers()
     {
         return $this->hasMany(UserAnswer::class, 'tryout_id', 'tryout_id');
+    }
+
+    public function classes()
+    {
+        return $this->belongsToMany(ClassModel::class, 'class_assessments', 'tryout_id', 'class_id')
+            ->withPivot('assessment_type')
+            ->withTimestamps();
     }
 
     // Helper method untuk mendapatkan total soal

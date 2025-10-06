@@ -50,6 +50,10 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex justify-center items-center gap-2">
+                            <a href="{{ route('admin.class.assessments', $class->class_id) }}"
+                                class="text-gray-500 hover:text-primary" title="Kelola Pre/Post Test">
+                                <i class="ri-file-list-3-line text-xl"></i>
+                            </a>
                             @if($class->zoom_link)
                             <a href="{{ $class->zoom_link }}" target="_blank" class="text-gray-500 hover:text-primary">
                                 <i class="ri-video-on-line text-xl"></i>

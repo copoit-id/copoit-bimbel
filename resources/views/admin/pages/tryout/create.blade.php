@@ -93,6 +93,17 @@
                                 old('type_tryout') === 'general' ? 'selected' : '' }}>General</option>
                         </select>
                     </div>
+
+                    <div>
+                        <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">Kategori Penilaian <span class="text-red-500">*</span></label>
+                        <select id="assessment_type" name="assessment_type" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="standard" {{ (isset($tryout) && $tryout->assessment_type === 'standard') || old('assessment_type', 'standard') === 'standard' ? 'selected' : '' }}>Tryout Reguler</option>
+                            <option value="pre_test" {{ (isset($tryout) && $tryout->assessment_type === 'pre_test') || old('assessment_type') === 'pre_test' ? 'selected' : '' }}>Pre Test</option>
+                            <option value="post_test" {{ (isset($tryout) && $tryout->assessment_type === 'post_test') || old('assessment_type') === 'post_test' ? 'selected' : '' }}>Post Test</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas.</p>
+                    </div>
                 </div>
 
                 <div>

@@ -59,6 +59,7 @@
         @forelse($tryouts as $tryout)
         <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200"
             data-name="{{ strtolower($tryout->name) }}" data-type="{{ strtoupper($tryout->type_tryout) }}"
+            data-assessment="{{ $tryout->assessment_type ?? 'standard' }}"
             data-status="{{ $tryout->start_date > now() ? 'akan_datang' : ($tryout->end_date < now() ? 'selesai' : 'aktif') }}">
             <div class="flex items-center justify-between mb-3">
                 <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
@@ -70,6 +71,14 @@
                 </span>
                 @endif
             </div>
+
+            @if(($tryout->assessment_type ?? 'standard') !== 'standard')
+            <div class="flex justify-center mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-medium {{ $tryout->assessment_type === 'pre_test' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700' }}">
+                    {{ strtoupper(str_replace('_', ' ', $tryout->assessment_type)) }}
+                </span>
+            </div>
+            @endif
 
             <p class="text-lg font-bold text-black text-center mb-4">{{ $tryout->name }}</p>
 
