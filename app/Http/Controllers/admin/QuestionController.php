@@ -10,12 +10,22 @@ use App\Models\Tryout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class QuestionController extends Controller
 {
+    private const SUPPORTED_TYPES = [
+        'multiple_choice',
+        'matching',
+        'short_answer',
+        'essay',
+        'audio',
+        'true_false',
+    ];
+
     public function index($tryout_detail_id)
     {
         try {
@@ -46,92 +56,134 @@ class QuestionController extends Controller
     public function store(Request $request, $tryout_detail_id)
     {
         try {
-            // Validation
-            $request->validate([
-                'question_text' => 'required|string',
-                'option_a' => 'required|string|max:255',
-                'option_b' => 'required|string|max:255',
-                'option_c' => 'required|string|max:255',
-                'option_d' => 'required|string|max:255',
-                'option_e' => 'nullable|string|max:255',
-                'correct_answer' => 'required|in:A,B,C,D,E',
-                'explanation' => 'nullable|string',
-                // 'sound' => 'nullable|file|mimes:mp3,mp3a,wav,m4a|max:10120',
-                'sound' => 'nullable|file|max:512000',
-                'use_custom_scores' => 'nullable|boolean',
-                'score_a' => 'nullable|numeric|min:0|max:5',
-                'score_b' => 'nullable|numeric|min:0|max:5',
-                'score_c' => 'nullable|numeric|min:0|max:5',
-                'score_d' => 'nullable|numeric|min:0|max:5',
-                'score_e' => 'nullable|numeric|min:0|max:5',
-            ]);
-
-            if ($request->correct_answer === 'E' && empty($request->option_e)) {
-                return redirect()->back()
-                    ->with('error', 'Pilihan E tidak boleh kosong jika dipilih sebagai jawaban benar')
-                    ->withInput();
-            }
-
             $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::find($tryoutDetail->tryout_id);
 
-            $soundPath = null;
-            if ($request->hasFile('sound')) {
-                $soundPath = $request->file('sound')->store('questions/audio', 'public');
-            }
+            $questionType = $request->input('question_type', 'multiple_choice');
 
-            // Determine if this is SKD type
-            $isSKDType = in_array($tryoutDetail->type_subtest, ['twk', 'tiu', 'tkp']);
-            $useCustomScores = $request->use_custom_scores || ($isSKDType && $tryoutDetail->type_subtest === 'tkp');
-
-            $question = Question::create([
-                'tryout_detail_id' => $tryout_detail_id,
-                'question_type' => 'multiple_choice',
-                'question_text' => $request->question_text,
-                'sound' => $soundPath,
-                'explanation' => $request->explanation,
-                'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                'custom_score' => $useCustomScores ? 'yes' : 'no',
-            ]);
-
-            $options = [
-                ['key' => 'A', 'text' => $request->option_a],
-                ['key' => 'B', 'text' => $request->option_b],
-                ['key' => 'C', 'text' => $request->option_c],
-                ['key' => 'D', 'text' => $request->option_d],
+            $baseRules = [
+                'question_text' => 'required|string',
+                'question_type' => 'required|in:' . implode(',', self::SUPPORTED_TYPES),
+                'explanation' => 'nullable|string',
+                'sound' => 'nullable|file|max:512000',
             ];
 
-            if (!empty($request->option_e)) {
-                $options[] = ['key' => 'E', 'text' => $request->option_e];
+            $request->validate($baseRules);
+
+            $soundPath = $this->handleSoundUpload($request);
+
+            switch ($questionType) {
+                case 'matching':
+                    $this->validateMatchingQuestion($request);
+                    $metadata = $this->buildMatchingMetadata($request);
+
+                    Question::create([
+                        'tryout_detail_id' => $tryout_detail_id,
+                        'question_type' => 'matching',
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => 'no',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $this->validateShortAnswerQuestion($request);
+                    $metadata = $this->buildShortAnswerMetadata($request, $questionType);
+
+                    Question::create([
+                        'tryout_detail_id' => $tryout_detail_id,
+                        'question_type' => $questionType,
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => 'no',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
+                case 'audio':
+                    $this->validateAudioAnswerQuestion($request);
+                    $metadata = $this->buildAudioMetadata($request);
+
+                    Question::create([
+                        'tryout_detail_id' => $tryout_detail_id,
+                        'question_type' => 'audio',
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => 'no',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
+                default:
+                    $this->validateMultipleChoiceQuestion($request, $tryoutDetail, $questionType);
+
+                    if ($questionType !== 'true_false' && $request->correct_answer === 'E' && empty($request->option_e)) {
+                        throw ValidationException::withMessages([
+                            'option_e' => 'Pilihan E tidak boleh kosong jika dipilih sebagai jawaban benar',
+                        ]);
+                    }
+
+                    $isSKDType = in_array($tryoutDetail->type_subtest, ['twk', 'tiu', 'tkp']);
+                    $useCustomScores = $request->boolean('use_custom_scores') || ($isSKDType && $tryoutDetail->type_subtest === 'tkp');
+
+                    if ($questionType === 'true_false') {
+                        $useCustomScores = false;
+                        $request->merge([
+                            'option_a' => $request->filled('option_a') ? $request->option_a : 'Benar',
+                            'option_b' => $request->filled('option_b') ? $request->option_b : 'Salah',
+                            'option_c' => null,
+                            'option_d' => null,
+                            'option_e' => null,
+                            'correct_answer' => in_array($request->correct_answer, ['A', 'B']) ? $request->correct_answer : 'A',
+                        ]);
+                    }
+
+                    $question = Question::create([
+                        'tryout_detail_id' => $tryout_detail_id,
+                        'question_type' => $questionType,
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => $useCustomScores ? 'yes' : 'no',
+                        'metadata' => [],
+                    ]);
+
+                    foreach ($this->prepareMultipleChoiceOptions($request, $questionType) as $option) {
+                        $isCorrect = ($option['key'] === $request->correct_answer);
+                        $weight = $this->calculateOptionWeight(
+                            $tryoutDetail->type_subtest,
+                            $option['key'],
+                            $isCorrect,
+                            $request,
+                            $useCustomScores
+                        );
+
+                        QuestionOption::create([
+                            'question_id' => $question->question_id,
+                            'option_text' => $option['text'],
+                            'weight' => $weight,
+                            'is_correct' => $this->determineIsCorrect($tryoutDetail->type_subtest, $isCorrect, $weight),
+                        ]);
+                    }
+
+                    $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
+                    $question->update(['default_weight' => $maxWeight]);
+                    break;
             }
-
-            foreach ($options as $option) {
-                $isCorrect = ($option['key'] === $request->correct_answer);
-                $weight = $this->calculateOptionWeight(
-                    $tryoutDetail->type_subtest,
-                    $option['key'],
-                    $isCorrect,
-                    $request,
-                    $useCustomScores
-                );
-
-                QuestionOption::create([
-                    'question_id' => $question->question_id,
-                    'option_text' => $option['text'],
-                    'weight' => $weight,
-                    'is_correct' => $this->determineIsCorrect($tryoutDetail->type_subtest, $isCorrect, $weight),
-                ]);
-            }
-
-            // Update question default weight based on maximum option weight
-            $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
-            $question->update(['default_weight' => $maxWeight]);
 
             return redirect()->route('admin.question.index', $tryout_detail_id)
-                ->with('success', 'Soal berhasil ditambahkan dengan aturan ' . strtoupper($tryoutDetail->type_subtest));
+                ->with('success', 'Soal berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menambahkan soal: ' . $e->getMessage())
+                ->with('error', 'Gagal menyimpan soal: ' . $e->getMessage())
                 ->withInput();
         }
     }
@@ -157,86 +209,137 @@ class QuestionController extends Controller
     public function update(Request $request, $tryout_detail_id, $question_id)
     {
         try {
-            $request->validate([
-                'question_text' => 'required|string',
-                'option_a' => 'required|string|max:255',
-                'option_b' => 'required|string|max:255',
-                'option_c' => 'required|string|max:255',
-                'option_d' => 'required|string|max:255',
-                'option_e' => 'nullable|string|max:255',
-                'correct_answer' => 'required|in:A,B,C,D,E',
-                'explanation' => 'nullable|string',
-                // 'sound' => 'nullable|file|mimes:mp3,wav,m4a|max:5120',
-                'use_custom_scores' => 'nullable|boolean',
-                'score_a' => 'nullable|numeric|min:0|max:5',
-                'score_b' => 'nullable|numeric|min:0|max:5',
-                'score_c' => 'nullable|numeric|min:0|max:5',
-                'score_d' => 'nullable|numeric|min:0|max:5',
-                'score_e' => 'nullable|numeric|min:0|max:5',
-            ]);
+            $question = Question::where('question_id', $question_id)
+                ->where('tryout_detail_id', $tryout_detail_id)
+                ->firstOrFail();
 
-            if ($request->correct_answer === 'E' && empty($request->option_e)) {
-                return redirect()->back()
-                    ->with('error', 'Pilihan E tidak boleh kosong jika dipilih sebagai jawaban benar')
-                    ->withInput();
-            }
-
-            $question = Question::where('question_id', $question_id)->firstOrFail();
             $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
+            $questionType = $request->input('question_type', $question->question_type);
 
-            $soundPath = $question->sound;
-            if ($request->hasFile('sound')) {
-                $soundPath = $request->file('sound')->store('questions/audio', 'public');
-            }
-
-            // Determine if this is SKD type
-            $isSKDType = in_array($tryoutDetail->type_subtest, ['twk', 'tiu', 'tkp']);
-            $useCustomScores = $request->use_custom_scores || ($isSKDType && $tryoutDetail->type_subtest === 'tkp');
-
-            $question->update([
-                'question_text' => $request->question_text,
-                'sound' => $soundPath,
-                'explanation' => $request->explanation,
-                'custom_score' => $useCustomScores ? 'yes' : 'no',
-            ]);
-
-            // Delete existing options
-            QuestionOption::where('question_id', $question_id)->delete();
-
-            $newOptions = [
-                ['key' => 'A', 'text' => $request->option_a],
-                ['key' => 'B', 'text' => $request->option_b],
-                ['key' => 'C', 'text' => $request->option_c],
-                ['key' => 'D', 'text' => $request->option_d],
+            $baseRules = [
+                'question_text' => 'required|string',
+                'question_type' => 'required|in:' . implode(',', self::SUPPORTED_TYPES),
+                'explanation' => 'nullable|string',
+                'sound' => 'nullable|file|max:512000',
             ];
 
-            if (!empty($request->option_e)) {
-                $newOptions[] = ['key' => 'E', 'text' => $request->option_e];
+            $request->validate($baseRules);
+
+            $soundPath = $this->handleSoundUpload($request, $question->sound);
+
+            switch ($questionType) {
+                case 'matching':
+                    $this->validateMatchingQuestion($request);
+                    $metadata = $this->buildMatchingMetadata($request);
+
+                    QuestionOption::where('question_id', $question->question_id)->delete();
+
+                    $question->update([
+                        'question_type' => 'matching',
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => 'no',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $this->validateShortAnswerQuestion($request);
+                    $metadata = $this->buildShortAnswerMetadata($request, $questionType);
+
+                    QuestionOption::where('question_id', $question->question_id)->delete();
+
+                    $question->update([
+                        'question_type' => $questionType,
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => 'no',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
+                case 'audio':
+                    $this->validateAudioAnswerQuestion($request);
+                    $metadata = $this->buildAudioMetadata($request);
+
+                    QuestionOption::where('question_id', $question->question_id)->delete();
+
+                    $question->update([
+                        'question_type' => 'audio',
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
+                        'custom_score' => 'no',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
+                default:
+                    $this->validateMultipleChoiceQuestion($request, $tryoutDetail, $questionType);
+
+                    if ($questionType !== 'true_false' && $request->correct_answer === 'E' && empty($request->option_e)) {
+                        throw ValidationException::withMessages([
+                            'option_e' => 'Pilihan E tidak boleh kosong jika dipilih sebagai jawaban benar',
+                        ]);
+                    }
+
+                    $isSKDType = in_array($tryoutDetail->type_subtest, ['twk', 'tiu', 'tkp']);
+                    $useCustomScores = $request->boolean('use_custom_scores') || ($isSKDType && $tryoutDetail->type_subtest === 'tkp');
+
+                    if ($questionType === 'true_false') {
+                        $useCustomScores = false;
+                        $request->merge([
+                            'option_a' => $request->filled('option_a') ? $request->option_a : 'Benar',
+                            'option_b' => $request->filled('option_b') ? $request->option_b : 'Salah',
+                            'option_c' => null,
+                            'option_d' => null,
+                            'option_e' => null,
+                            'correct_answer' => in_array($request->correct_answer, ['A', 'B']) ? $request->correct_answer : 'A',
+                        ]);
+                    }
+
+                    $question->update([
+                        'question_type' => $questionType,
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'custom_score' => $useCustomScores ? 'yes' : 'no',
+                        'metadata' => [],
+                    ]);
+
+                    QuestionOption::where('question_id', $question->question_id)->delete();
+
+                    foreach ($this->prepareMultipleChoiceOptions($request, $questionType) as $option) {
+                        $isCorrect = ($option['key'] === $request->correct_answer);
+                        $weight = $this->calculateOptionWeight(
+                            $tryoutDetail->type_subtest,
+                            $option['key'],
+                            $isCorrect,
+                            $request,
+                            $useCustomScores
+                        );
+
+                        QuestionOption::create([
+                            'question_id' => $question->question_id,
+                            'option_text' => $option['text'],
+                            'weight' => $weight,
+                            'is_correct' => $this->determineIsCorrect($tryoutDetail->type_subtest, $isCorrect, $weight),
+                        ]);
+                    }
+
+                    $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
+                    $question->update(['default_weight' => $maxWeight]);
+                    break;
             }
-
-            foreach ($newOptions as $newOption) {
-                $isCorrect = ($newOption['key'] === $request->correct_answer);
-                $weight = $this->calculateOptionWeight(
-                    $tryoutDetail->type_subtest,
-                    $newOption['key'],
-                    $isCorrect,
-                    $request,
-                    $useCustomScores
-                );
-
-                QuestionOption::create([
-                    'question_id' => $question->question_id,
-                    'option_text' => $newOption['text'],
-                    'weight' => $weight,
-                    'is_correct' => $this->determineIsCorrect($tryoutDetail->type_subtest, $isCorrect, $weight),
-                ]);
-            }
-
-            $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
-            $question->update(['default_weight' => $maxWeight]);
 
             return redirect()->route('admin.question.index', $tryout_detail_id)
-                ->with('success', 'Soal berhasil diperbarui dengan aturan ' . strtoupper($tryoutDetail->type_subtest));
+                ->with('success', 'Soal berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()
                 ->with('error', 'Gagal memperbarui soal: ' . $e->getMessage())
@@ -268,6 +371,200 @@ class QuestionController extends Controller
             return redirect()->back()
                 ->with('error', 'Gagal menghapus soal: ' . $e->getMessage());
         }
+    }
+
+    private function handleSoundUpload(Request $request, ?string $existingSound = null): ?string
+    {
+        if ($request->hasFile('sound')) {
+            $soundPath = $request->file('sound')->store('questions/audio', 'public');
+
+            if ($existingSound && $existingSound !== $soundPath && Storage::disk('public')->exists($existingSound)) {
+                Storage::disk('public')->delete($existingSound);
+            }
+
+            return $soundPath;
+        }
+
+        return $existingSound;
+    }
+
+    private function validateMultipleChoiceQuestion(Request $request, TryoutDetail $tryoutDetail, string $questionType = 'multiple_choice'): void
+    {
+        $rules = [
+            'option_a' => 'required|string|max:255',
+            'option_b' => 'required|string|max:255',
+            'option_c' => 'required|string|max:255',
+            'option_d' => 'required|string|max:255',
+            'option_e' => 'nullable|string|max:255',
+            'correct_answer' => 'required|in:A,B,C,D,E',
+            'use_custom_scores' => 'nullable|boolean',
+            'score_a' => 'nullable|numeric|min:0|max:5',
+            'score_b' => 'nullable|numeric|min:0|max:5',
+            'score_c' => 'nullable|numeric|min:0|max:5',
+            'score_d' => 'nullable|numeric|min:0|max:5',
+            'score_e' => 'nullable|numeric|min:0|max:5',
+        ];
+
+        if ($questionType === 'true_false') {
+            $rules = [
+                'option_a' => 'nullable|string|max:255',
+                'option_b' => 'nullable|string|max:255',
+                'option_c' => 'nullable|string|max:255',
+                'option_d' => 'nullable|string|max:255',
+                'option_e' => 'nullable|string|max:255',
+                'correct_answer' => 'required|in:A,B',
+            ];
+        }
+
+        $attributes = [
+            'option_a' => 'Opsi A',
+            'option_b' => 'Opsi B',
+            'option_c' => 'Opsi C',
+            'option_d' => 'Opsi D',
+            'option_e' => 'Opsi E',
+            'correct_answer' => 'Jawaban benar',
+        ];
+
+        $request->validate($rules, [], $attributes);
+    }
+
+    private function prepareMultipleChoiceOptions(Request $request, string $questionType = 'multiple_choice'): array
+    {
+        if ($questionType === 'true_false') {
+            return [
+                ['key' => 'A', 'text' => $request->option_a ?: 'Benar'],
+                ['key' => 'B', 'text' => $request->option_b ?: 'Salah'],
+            ];
+        }
+
+        $options = [
+            ['key' => 'A', 'text' => $request->option_a],
+            ['key' => 'B', 'text' => $request->option_b],
+            ['key' => 'C', 'text' => $request->option_c],
+            ['key' => 'D', 'text' => $request->option_d],
+        ];
+
+        if ($request->filled('option_e')) {
+            $options[] = ['key' => 'E', 'text' => $request->option_e];
+        }
+
+        return $options;
+    }
+
+    private function validateMatchingQuestion(Request $request): void
+    {
+        $rules = [
+            'matching_pairs' => 'required|array|min:2',
+            'matching_pairs.*.left' => 'required|string|min:1',
+            'matching_pairs.*.right' => 'required|string|min:1',
+        ];
+
+        $attributes = [
+            'matching_pairs' => 'Pasangan pencocokan',
+            'matching_pairs.*.left' => 'Item kiri',
+            'matching_pairs.*.right' => 'Item kanan',
+        ];
+
+        $request->validate($rules, [], $attributes);
+    }
+
+    private function buildMatchingMetadata(Request $request): array
+    {
+        $pairs = [];
+        foreach ($request->input('matching_pairs', []) as $pair) {
+            $left = isset($pair['left']) ? trim($pair['left']) : '';
+            $right = isset($pair['right']) ? trim($pair['right']) : '';
+
+            if ($left === '' || $right === '') {
+                continue;
+            }
+
+            $pairs[] = [
+                'left' => $left,
+                'right' => $right,
+            ];
+        }
+
+        return [
+            'matching_pairs' => $pairs,
+        ];
+    }
+
+    private function validateShortAnswerQuestion(Request $request): void
+    {
+        $rules = [
+            'short_answer_expected' => 'nullable|string',
+            'short_answer_case_sensitive' => 'nullable|boolean',
+        ];
+
+        $request->validate($rules);
+    }
+
+    private function buildShortAnswerMetadata(Request $request, string $questionType): array
+    {
+        $expectedRaw = $request->input('short_answer_expected');
+        $expectedAnswers = [];
+
+        if ($expectedRaw !== null) {
+            $lines = preg_split("/\r\n|\r|\n/", $expectedRaw);
+            foreach ($lines as $line) {
+                $trimmed = trim($line);
+                if ($trimmed !== '') {
+                    $expectedAnswers[] = $trimmed;
+                }
+            }
+        }
+
+        return [
+            'short_answer' => [
+                'expected_answers' => array_values($expectedAnswers),
+                'case_sensitive' => $request->boolean('short_answer_case_sensitive'),
+                'manual_review' => $questionType === 'essay' || empty($expectedAnswers),
+            ],
+        ];
+    }
+
+    private function validateAudioAnswerQuestion(Request $request): void
+    {
+        $rules = [
+            'audio_instructions' => 'nullable|string',
+            'audio_max_duration' => 'nullable|integer|min:5|max:600',
+            'audio_max_size' => 'nullable|integer|min:1|max:100',
+        ];
+
+        $request->validate($rules);
+    }
+
+    private function buildAudioMetadata(Request $request): array
+    {
+        $config = [
+            'instructions' => $request->input('audio_instructions'),
+            'max_duration' => $request->filled('audio_max_duration') ? (int) $request->input('audio_max_duration') : null,
+            'max_size' => $request->filled('audio_max_size') ? (int) $request->input('audio_max_size') : null,
+            'allowed_mimes' => [
+                'audio/mpeg',
+                'audio/mp3',
+                'audio/wav',
+                'audio/x-wav',
+                'audio/m4a',
+                'audio/x-m4a',
+            ],
+        ];
+
+        $config = array_filter(
+            $config,
+            function ($value, $key) {
+                if ($key === 'allowed_mimes') {
+                    return true;
+                }
+                return $value !== null && $value !== '';
+            },
+            ARRAY_FILTER_USE_BOTH
+        );
+
+        return [
+            'audio_answer' => $config,
+        ];
     }
 
     /**

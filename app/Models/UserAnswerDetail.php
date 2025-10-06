@@ -16,13 +16,17 @@ class UserAnswerDetail extends Model
         'user_answer_id',
         'question_id',
         'question_option_id', // Sesuai dengan migration
+        'answer_text',
+        'answer_json',
+        'answer_file_path',
         'is_correct',
         'answered_at'
     ];
 
     protected $casts = [
         'is_correct' => 'boolean',
-        'answered_at' => 'datetime'
+        'answered_at' => 'datetime',
+        'answer_json' => 'array',
     ];
 
     public function userAnswer()

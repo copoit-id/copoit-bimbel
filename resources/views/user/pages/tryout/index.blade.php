@@ -37,13 +37,37 @@
                     </div>
 
                     <!-- Answer Options -->
-                    <form id="answerForm">
+                    @php
+                        $questionType = $currentQuestion->question_type ?? 'multiple_choice';
+                        $metadata = is_array($currentQuestion->metadata) ? $currentQuestion->metadata : [];
+                        $matchingPairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs']) ? $metadata['matching_pairs'] : [];
+                        $matchingRightOptions = [];
+                        foreach ($matchingPairs as $pair) {
+                            $right = trim((string)($pair['right'] ?? ''));
+                            if ($right !== '' && !in_array($right, $matchingRightOptions, true)) {
+                                $matchingRightOptions[] = $right;
+                            }
+                        }
+                        $shuffledMatchingOptions = $matchingRightOptions;
+                        shuffle($shuffledMatchingOptions);
+                        $existingMatches = [];
+                        if ($userAnswerDetail && is_array($userAnswerDetail->answer_json) && isset($userAnswerDetail->answer_json['matches'])) {
+                            $existingMatches = $userAnswerDetail->answer_json['matches'];
+                        }
+                        $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ? $metadata['short_answer'] : [];
+                        $audioMeta = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ? $metadata['audio_answer'] : [];
+                        $pendingReview = $userAnswerDetail && is_array($userAnswerDetail->answer_json) ? (bool)($userAnswerDetail->answer_json['pending_review'] ?? false) : false;
+                    @endphp
+
+                    <form id="answerForm" enctype="multipart/form-data">
                         @csrf
                         <input type="hidden" name="question_id" value="{{ $currentQuestion->question_id }}">
                         <input type="hidden" name="option_id" id="selectedOptionId">
                         <input type="hidden" name="selected_option" id="selectedOption">
+                        <input type="hidden" id="questionType" value="{{ $questionType }}">
 
-                        <div class="space-y-3">
+                        @if(in_array($questionType, ['multiple_choice', 'true_false']))
+                        <div class="space-y-3" id="multipleChoiceOptions">
                             @foreach($currentQuestion->questionOptions as $option)
                             <label
                                 class="flex items-center p-4 border rounded-lg cursor-pointer transition-all duration-200
@@ -52,16 +76,94 @@
                                 for="option_{{ $option->question_option_id }}">
                                 <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
                                     value="{{ $option->question_option_id }}"
-                                    data-option-key="{{ $option->option_key ?? 'A' }}" {{ $userAnswerDetail &&
-                                    $userAnswerDetail->question_option_id == $option->question_option_id ? 'checked' :
-                                '' }}
-                                class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
+                                    data-option-key="{{ $option->option_key ?? 'A' }}"
+                                    {{ $userAnswerDetail && $userAnswerDetail->question_option_id == $option->question_option_id ? 'checked' : '' }}
+                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
                                 <span class="ml-4 flex-1 text-gray-700">
                                     {!! $option->option_text !!}
                                 </span>
                             </label>
                             @endforeach
                         </div>
+
+                        @elseif($questionType === 'matching')
+                        <div class="space-y-4" id="matchingAnswerContainer">
+                            @if(empty($matchingPairs))
+                            <p class="text-sm text-gray-500">Belum ada pasangan jawaban untuk soal ini.</p>
+                            @else
+                            <p class="text-sm text-gray-600">Cocokkan kolom di kiri dengan jawaban yang tepat di kolom kanan.</p>
+                            @foreach($matchingPairs as $index => $pair)
+                            @php
+                                $leftLabel = trim((string)($pair['left'] ?? 'Item ' . ($index + 1)));
+                                $selectedValue = $existingMatches[$leftLabel] ?? '';
+                            @endphp
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                                <div class="font-medium text-gray-800">{{ $leftLabel }}</div>
+                                <div>
+                                    <select class="matching-select w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        data-left="{{ $leftLabel }}">
+                                        <option value="">Pilih jawaban</option>
+                                        @foreach($shuffledMatchingOptions as $option)
+                                        <option value="{{ $option }}" {{ $selectedValue === $option ? 'selected' : '' }}>{{ $option }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            @endforeach
+                            @endif
+                        </div>
+
+                        @elseif(in_array($questionType, ['short_answer', 'essay']))
+                        <div class="space-y-3" id="shortAnswerWrapper">
+                            <label for="shortAnswerInput" class="block text-sm font-medium text-gray-700">Jawabanmu</label>
+                            <textarea id="shortAnswerInput" rows="4"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="Ketik jawaban singkatmu di sini">{{ $userAnswerDetail ? $userAnswerDetail->answer_text : '' }}</textarea>
+                            @if(!empty($shortMeta['expected_answers']))
+                            <p class="text-xs text-gray-500">Saran: Jawaban otomatis benar jika sesuai dengan salah satu kunci.</p>
+                            @endif
+                            @if($pendingReview)
+                            <div class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200">
+                                <i class="ri-hourglass-line"></i>
+                                Menunggu penilaian manual
+                            </div>
+                            @endif
+                        </div>
+
+                        @elseif($questionType === 'audio')
+                        <div class="space-y-4" id="audioAnswerWrapper">
+                            @if($userAnswerDetail && $userAnswerDetail->answer_file_path)
+                            <div id="audioAnswerPreview" class="space-y-2">
+                                <p class="text-sm text-gray-600">Jawaban audio terakhir:</p>
+                                <audio controls class="w-full">
+                                    <source src="{{ Storage::url($userAnswerDetail->answer_file_path) }}" type="audio/mpeg">
+                                    Browser Anda tidak mendukung audio.
+                                </audio>
+                            </div>
+                            @else
+                            <div id="audioAnswerPreview"></div>
+                            @endif
+                            <div>
+                                <label for="audioAnswerInput" class="block text-sm font-medium text-gray-700 mb-2">Unggah
+                                    Jawaban Audio</label>
+                                <input type="file" id="audioAnswerInput" accept="audio/*"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <p class="text-xs text-gray-500 mt-2">
+                                    {{ isset($audioMeta['instructions']) ? $audioMeta['instructions'] : 'Rekam jawabanmu lalu unggah (format MP3/WAV/M4A).' }}
+                                </p>
+                                @if(!empty($audioMeta['max_duration']))
+                                <p class="text-xs text-gray-500">Durasi maksimal: {{ $audioMeta['max_duration'] }} detik.</p>
+                                @endif
+                                @if(!empty($audioMeta['max_size']))
+                                <p class="text-xs text-gray-500">Ukuran file maksimal: {{ $audioMeta['max_size'] }} MB.</p>
+                                @endif
+                            </div>
+                            <div class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200">
+                                <i class="ri-hourglass-line"></i>
+                                Jawaban audio akan dinilai manual oleh mentor
+                            </div>
+                        </div>
+                        @endif
                     </form>
 
                     <!-- Navigation -->
@@ -204,10 +306,11 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-    console.log('Tryout page loaded');
-
-    const form = document.getElementById('answerForm');
     const saveUrl = '{{ route("user.tryout.save", [$package ? $package->package_id : "free", $tryout->tryout_id, $number]) }}';
+    const csrfToken = '{{ csrf_token() }}';
+    const questionTypeInput = document.getElementById('questionType');
+    const questionType = questionTypeInput ? questionTypeInput.value : 'multiple_choice';
+    const normalizedType = questionType === 'true_false' ? 'multiple_choice' : questionType;
 
     // Timer configuration
     @php
@@ -241,16 +344,15 @@
 
             alert('Waktu ujian telah habis!');
 
-            // Auto submit finish form
             const finishForm = document.createElement('form');
             finishForm.method = 'POST';
             finishForm.action = '{{ route("user.tryout.finish", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}';
 
-            const csrfToken = document.createElement('input');
-            csrfToken.type = 'hidden';
-            csrfToken.name = '_token';
-            csrfToken.value = '{{ csrf_token() }}';
-            finishForm.appendChild(csrfToken);
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = csrfToken;
+            finishForm.appendChild(csrfInput);
 
             document.body.appendChild(finishForm);
             finishForm.submit();
@@ -268,11 +370,10 @@
         document.getElementById('timer').textContent = display;
         document.getElementById('timer-display').textContent = display;
 
-        // Warning colors
-        if (timeLeft <= 300) { // 5 minutes
+        if (timeLeft <= 300) {
             document.getElementById('timer').style.color = '#dc2626';
             document.getElementById('timer-display').style.color = '#dc2626';
-        } else if (timeLeft <= 600) { // 10 minutes
+        } else if (timeLeft <= 600) {
             document.getElementById('timer').style.color = '#f59e0b';
             document.getElementById('timer-display').style.color = '#f59e0b';
         }
@@ -280,114 +381,194 @@
         timeLeft--;
     }
 
-    // Start timer
     timerInterval = setInterval(updateTimer, 1000);
-    updateTimer(); // Run immediately
+    updateTimer();
 
-    // Auto-save on answer selection
-    const radioButtons = document.querySelectorAll('.answer-radio');
-    console.log('Found radio buttons:', radioButtons.length);
+    if (normalizedType === 'multiple_choice') {
+        const radioButtons = document.querySelectorAll('.answer-radio');
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('selectedOptionId').value = this.value;
+                document.getElementById('selectedOption').value = this.dataset.optionKey;
 
-    radioButtons.forEach(radio => {
-        radio.addEventListener('change', function(e) {
-            console.log('Radio button changed:', this.value, this.dataset.optionKey);
+                document.querySelectorAll('.answer-option-label').forEach(label => {
+                    label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+                    label.classList.add('border-gray-200');
+                });
 
-            // Update hidden fields
-            document.getElementById('selectedOptionId').value = this.value;
-            document.getElementById('selectedOption').value = this.dataset.optionKey;
+                this.closest('.answer-option-label').classList.remove('border-gray-200');
+                this.closest('.answer-option-label').classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
 
-            // Update visual feedback
-            document.querySelectorAll('.answer-option-label').forEach(label => {
-                label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-                label.classList.add('border-gray-200');
+                submitFormDataAnswer(new FormData(document.getElementById('answerForm')));
             });
-
-            this.closest('.answer-option-label').classList.remove('border-gray-200');
-            this.closest('.answer-option-label').classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-
-            // Auto-save immediately
-            autoSaveAnswer();
-        });
-    });
-
-    function autoSaveAnswer() {
-        const selectedOption = document.querySelector('.answer-radio:checked');
-        if (!selectedOption) {
-            console.log('No option selected');
-            return;
-        }
-
-        console.log('Auto-saving answer...');
-
-        const formData = new FormData();
-        formData.append('_token', '{{ csrf_token() }}');
-        formData.append('question_id', '{{ $currentQuestion->question_id }}');
-        formData.append('option_id', selectedOption.value);
-        formData.append('selected_option', selectedOption.dataset.optionKey);
-
-        // Log what we're sending
-        console.log('Sending data:', {
-            question_id: '{{ $currentQuestion->question_id }}',
-            option_id: selectedOption.value,
-            selected_option: selectedOption.dataset.optionKey
-        });
-
-        fetch(saveUrl, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => {
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Save response:', data);
-            if (data.success) {
-                console.log('Answer saved successfully');
-                showSaveIndicator(true);
-            } else {
-                console.error('Failed to save answer:', data.message);
-                showSaveIndicator(false);
-            }
-        })
-        .catch(error => {
-            console.error('Error saving answer:', error);
-            showSaveIndicator(false);
         });
     }
 
-    function showSaveIndicator(success) {
-        // Remove existing indicators
+    if (normalizedType === 'matching') {
+        const matchingSelects = document.querySelectorAll('.matching-select');
+        if (matchingSelects.length) {
+            const scheduleMatchingSave = () => {
+                const answers = {};
+                let hasEmpty = false;
+                matchingSelects.forEach(select => {
+                    const left = select.dataset.left;
+                    const value = (select.value || '').trim();
+                    if (!value) {
+                        hasEmpty = true;
+                    }
+                    answers[left] = value;
+                });
+
+                if (hasEmpty) {
+                    return;
+                }
+
+                submitJsonAnswer({
+                    question_id: '{{ $currentQuestion->question_id }}',
+                    matching_answers: answers,
+                });
+            };
+
+            matchingSelects.forEach(select => {
+                select.addEventListener('change', scheduleMatchingSave);
+            });
+        }
+    }
+
+    if (normalizedType === 'short_answer' || normalizedType === 'essay') {
+        const shortInput = document.getElementById('shortAnswerInput');
+        if (shortInput) {
+            let shortAnswerTimer;
+            const submitShortAnswer = () => {
+                const value = (shortInput.value || '').trim();
+                if (!value) {
+                    return;
+                }
+                submitJsonAnswer({
+                    question_id: '{{ $currentQuestion->question_id }}',
+                    answer_text: value,
+                });
+            };
+
+            shortInput.addEventListener('input', function() {
+                clearTimeout(shortAnswerTimer);
+                shortAnswerTimer = setTimeout(submitShortAnswer, 600);
+            });
+
+            shortInput.addEventListener('blur', function() {
+                clearTimeout(shortAnswerTimer);
+                submitShortAnswer();
+            });
+        }
+    }
+
+    if (normalizedType === 'audio') {
+        const audioInput = document.getElementById('audioAnswerInput');
+        if (audioInput) {
+            audioInput.addEventListener('change', function() {
+                if (!audioInput.files || !audioInput.files.length) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('_token', csrfToken);
+                formData.append('question_id', '{{ $currentQuestion->question_id }}');
+                formData.append('answer_audio', audioInput.files[0]);
+
+                submitFormDataAnswer(formData);
+            });
+        }
+    }
+
+    function submitJsonAnswer(payload) {
+        fetch(saveUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(handleResponse)
+        .catch(handleError);
+    }
+
+    function submitFormDataAnswer(formData) {
+        if (!formData.has('_token')) {
+            formData.append('_token', csrfToken);
+        }
+
+        fetch(saveUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(handleResponse)
+        .catch(handleError);
+    }
+
+    function handleResponse(response) {
+        if (!response.ok) {
+            return response.json()
+                .then(data => {
+                    const errors = data?.errors ? Object.values(data.errors).flat() : [];
+                    const message = errors.length ? errors[0] : (data?.message || 'Gagal menyimpan jawaban');
+                    showSaveIndicator(false, message);
+                    throw new Error(message);
+                })
+                .catch(() => {
+                    showSaveIndicator(false);
+                    throw new Error('Gagal menyimpan jawaban');
+                });
+        }
+
+        return response.json().then(data => {
+            if (data.success) {
+                showSaveIndicator(true);
+
+                if (data.file_url) {
+                    const previewWrapper = document.getElementById('audioAnswerPreview');
+                    if (previewWrapper) {
+                        previewWrapper.innerHTML = `<audio controls class="w-full"><source src="${data.file_url}?t=${Date.now()}" type="audio/mpeg">Browser tidak mendukung audio.</audio>`;
+                    }
+                }
+            } else {
+                showSaveIndicator(false, data.message || 'Gagal menyimpan jawaban');
+            }
+        });
+    }
+
+    function handleError(error) {
+        console.error('Error saving answer:', error);
+        showSaveIndicator(false);
+    }
+
+    function showSaveIndicator(success, message) {
         const existingIndicators = document.querySelectorAll('.save-indicator');
         existingIndicators.forEach(indicator => indicator.remove());
 
-        // Create new indicator
         const indicator = document.createElement('div');
         indicator.className = `save-indicator fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white ${success ? 'bg-green' : 'bg-red'}`;
-        indicator.textContent = success ? 'Jawaban tersimpan' : 'Gagal menyimpan';
+        indicator.textContent = message || (success ? 'Jawaban tersimpan' : 'Gagal menyimpan');
 
         document.body.appendChild(indicator);
 
-        // Remove after 2 seconds
         setTimeout(() => {
             indicator.remove();
         }, 2000);
     }
 
-    // Flag question function
     window.flagQuestion = function() {
         fetch('{{ route("user.tryout.flag", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
@@ -408,8 +589,6 @@
                     flagText.textContent = 'Tandai';
                     flagIcon.className = 'ri-flag-line mr-2';
                 }
-
-                console.log('Flag toggled successfully');
             }
         })
         .catch(error => console.error('Error:', error));
@@ -420,6 +599,10 @@
 <script>
     document.addEventListener("DOMContentLoaded", function() {
     const audio = document.getElementById("audio-{{ $currentQuestion->question_id }}");
+    if (!audio) {
+        return;
+    }
+
     let alreadyMarked = {{ $userAnswerDetail && $userAnswerDetail->is_played ? 'true' : 'false' }};
 
    if (alreadyMarked) {

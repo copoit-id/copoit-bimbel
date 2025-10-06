@@ -121,11 +121,23 @@
                     Soal #{{ $index + 1 }}
                 </span>
                 @php
-                    $maxWeight = optional($question->questionOptions)->max(function($opt){
-                        return is_null($opt->weight) ? 0 : (float)$opt->weight;
-                    });
-                    $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                $maxWeight = optional($question->questionOptions)->max(function($opt){
+                return is_null($opt->weight) ? 0 : (float)$opt->weight;
+                });
+                $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                $metadata = is_array($question->metadata) ? $question->metadata : [];
+                $typeLabels = [
+                'multiple_choice' => 'Multiple Choice',
+                'true_false' => 'Benar/Salah',
+                'matching' => 'Pencocokan',
+                'essay' => 'Essay',
+                'audio' => 'Jawaban Audio',
+                ];
                 @endphp
+                <span
+                    class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type))
+                    }}</span>
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
                     {{ (float) $displayWeight }} poin
@@ -153,11 +165,86 @@
             @endif
 
             <div class="mb-2">
-                <div class="font-semibold text-gray-700 mb-1">Opsi Jawaban:</div>
+                <div class="font-semibold text-gray-700 mb-1">Detail Jawaban:</div>
+                @switch($question->question_type)
+                @case('matching')
+                @php $pairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs']) ?
+                $metadata['matching_pairs'] : []; @endphp
+                @if(!empty($pairs))
                 <ul class="space-y-2 text-gray-600">
-                    @foreach ($question->questionOptions as $index => $option)
+                    @foreach($pairs as $pair)
+                    <li class="flex items-center gap-2">
+                        <span class="font-medium text-gray-800">{{ $pair['left'] ?? '-' }}</span>
+                        <i class="ri-arrow-right-line text-gray-400"></i>
+                        <span class="text-gray-600">{{ $pair['right'] ?? '-' }}</span>
+                    </li>
+                    @endforeach
+                </ul>
+                @else
+                <p class="text-sm text-gray-500">Belum ada pasangan pencocokan yang tersimpan.</p>
+                @endif
+                @break
+
+                @case('short_answer')
+                @case('essay')
+                @php
+                $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ?
+                $metadata['short_answer'] : [];
+                $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers']) ?
+                $shortMeta['expected_answers'] : [];
+                $caseSensitive = $shortMeta['case_sensitive'] ?? false;
+                $manualReview = $shortMeta['manual_review'] ?? empty($expectedAnswers);
+                @endphp
+                @if(!empty($expectedAnswers))
+                <ul class="list-disc list-inside text-gray-600 space-y-1">
+                    @foreach($expectedAnswers as $answer)
+                    <li>{{ $answer }}</li>
+                    @endforeach
+                </ul>
+                <p class="text-xs text-gray-500 mt-2">
+                    Penilaian otomatis {{ $caseSensitive ? 'memperhatikan' : 'mengabaikan' }} huruf besar-kecil.
+                </p>
+                @else
+                <p class="text-sm text-gray-500">Tidak ada jawaban referensi. Penilaian dilakukan manual.</p>
+                @endif
+                @if($manualReview)
+                <span
+                    class="inline-flex mt-2 px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-700 border border-amber-200">
+                    Perlu penilaian manual
+                </span>
+                @endif
+                @break
+
+                @case('audio')
+                @php
+                $audioConfig = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ?
+                $metadata['audio_answer'] : [];
+                $allowedMimes = isset($audioConfig['allowed_mimes']) && is_array($audioConfig['allowed_mimes']) ?
+                implode(', ', $audioConfig['allowed_mimes']) : 'audio/mpeg, audio/wav, audio/m4a';
+                @endphp
+                <ul class="space-y-1 text-gray-600 text-sm">
+                    @if(!empty($audioConfig['instructions']))
+                    <li><span class="font-semibold text-gray-700">Instruksi:</span> {{ $audioConfig['instructions'] }}
+                    </li>
+                    @endif
+                    @if(!empty($audioConfig['max_duration']))
+                    <li><span class="font-semibold text-gray-700">Durasi maks:</span> {{ $audioConfig['max_duration'] }}
+                        detik</li>
+                    @endif
+                    @if(!empty($audioConfig['max_size']))
+                    <li><span class="font-semibold text-gray-700">Ukuran maks:</span> {{ $audioConfig['max_size'] }} MB
+                    </li>
+                    @endif
+                    <li><span class="font-semibold text-gray-700">Format:</span> {{ $allowedMimes }}</li>
+                </ul>
+                <p class="text-xs text-gray-500 mt-2">Jawaban audio memerlukan evaluasi manual.</p>
+                @break
+
+                @default
+                <ul class="space-y-2 text-gray-600">
+                    @foreach ($question->questionOptions as $optIndex => $option)
                     @php
-                    $optionLabel = chr(65 + $index); // A, B, C, D, E
+                    $optionLabel = chr(65 + $optIndex);
                     @endphp
                     <li class="flex items-center gap-2 {{ $option->is_correct == 1 ? 'text-green font-medium' : '' }}">
                         <i
@@ -169,6 +256,8 @@
                     </li>
                     @endforeach
                 </ul>
+                @break
+                @endswitch
             </div>
 
             @if ($question->explanation)

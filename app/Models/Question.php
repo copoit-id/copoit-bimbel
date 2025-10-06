@@ -19,6 +19,7 @@ class Question extends Model
     protected $casts = [
         'default_weight' => 'decimal:2',
         'is_active' => 'boolean',
+        'metadata' => 'array',
     ];
 
     public function tryoutDetail()
@@ -58,5 +59,20 @@ class Question extends Model
     public function isEssay()
     {
         return $this->question_type === 'essay';
+    }
+
+    public function isShortAnswer()
+    {
+        return in_array($this->question_type, ['short_answer', 'essay']);
+    }
+
+    public function isMatching()
+    {
+        return $this->question_type === 'matching';
+    }
+
+    public function requiresAudioAnswer()
+    {
+        return $this->question_type === 'audio';
     }
 }

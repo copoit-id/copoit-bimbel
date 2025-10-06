@@ -29,7 +29,10 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return redirect()->back();
+            $user = Auth::user();
+            return $user->role === 'admin'
+                ? redirect()->route('admin.dashboard')
+                : redirect()->route('user.dashboard.index');
         }
         return view('auth.login', [
             'recaptcha_site_key' => $this->recaptchaService->getSiteKey(),

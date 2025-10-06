@@ -16,6 +16,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
 
 class TryoutController extends Controller
@@ -25,6 +27,236 @@ class TryoutController extends Controller
         // Set timezone untuk semua method dalam controller ini
         Carbon::setLocale('id');
         date_default_timezone_set('Asia/Jakarta');
+    }
+
+    private function processAnswerByType(Request $request, Question $question, ?UserAnswerDetail $existingDetail): array
+    {
+        $type = $question->question_type ?? 'multiple_choice';
+
+        if ($type === 'true_false') {
+            $type = 'multiple_choice';
+        }
+
+        switch ($type) {
+            case 'matching':
+                return $this->handleMatchingAnswer($request, $question);
+            case 'short_answer':
+            case 'essay':
+                return $this->handleShortAnswer($request, $question);
+            case 'audio':
+                return $this->handleAudioAnswer($request, $question, $existingDetail);
+            default:
+                return $this->handleMultipleChoiceAnswer($request, $question);
+        }
+    }
+
+    private function handleMultipleChoiceAnswer(Request $request, Question $question): array
+    {
+        $request->validate([
+            'option_id' => 'required|exists:question_options,question_option_id'
+        ]);
+
+        $selectedOption = $question->questionOptions()
+            ->where('question_option_id', $request->option_id)
+            ->first();
+
+        if (!$selectedOption) {
+            throw ValidationException::withMessages([
+                'option_id' => 'Pilihan jawaban tidak valid untuk soal ini.'
+            ]);
+        }
+
+        $isCorrect = $this->determineCorrectAnswer($question, $selectedOption);
+
+        return [
+            'detail' => [
+                'question_option_id' => $selectedOption->question_option_id,
+                'answer_text' => null,
+                'answer_json' => null,
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'option_id' => $selectedOption->question_option_id,
+                'is_correct' => $isCorrect,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function handleShortAnswer(Request $request, Question $question): array
+    {
+        $request->validate([
+            'answer_text' => 'required|string'
+        ]);
+
+        $answerText = trim($request->input('answer_text'));
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+        $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ? $metadata['short_answer'] : [];
+
+        $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers']) ? $shortMeta['expected_answers'] : [];
+        $caseSensitive = $shortMeta['case_sensitive'] ?? false;
+        $manualReview = $shortMeta['manual_review'] ?? false;
+
+        $isCorrect = false;
+
+        if (!empty($expectedAnswers)) {
+            foreach ($expectedAnswers as $expected) {
+                $expectedValue = trim((string) $expected);
+                $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
+                $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
+
+                if ($userComparable === $expectedComparable) {
+                    $isCorrect = true;
+                    break;
+                }
+            }
+        }
+
+        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
+            $manualReview = true;
+            $isCorrect = false;
+        }
+
+        $answerJson = [
+            'pending_review' => $manualReview,
+            'case_sensitive' => $caseSensitive,
+            'expected_answers' => $expectedAnswers,
+        ];
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => $answerText,
+                'answer_json' => $answerJson,
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'is_correct' => $isCorrect,
+                'manual_review' => $manualReview,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function handleMatchingAnswer(Request $request, Question $question): array
+    {
+        $input = $request->input('matching_answers');
+
+        if (is_string($input)) {
+            $decoded = json_decode($input, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $input = $decoded;
+            }
+        }
+
+        if (!is_array($input)) {
+            throw ValidationException::withMessages([
+                'matching_answers' => 'Jawaban pencocokan tidak valid.'
+            ]);
+        }
+
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+        $pairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs']) ? $metadata['matching_pairs'] : [];
+
+        if (empty($pairs)) {
+            throw ValidationException::withMessages([
+                'matching_answers' => 'Soal pencocokan belum memiliki pasangan jawaban.'
+            ]);
+        }
+
+        $correctMap = [];
+        foreach ($pairs as $pair) {
+            $left = trim((string) ($pair['left'] ?? ''));
+            $right = trim((string) ($pair['right'] ?? ''));
+            if ($left === '' || $right === '') {
+                continue;
+            }
+            $correctMap[$left] = $right;
+        }
+
+        $selected = [];
+        $correctCount = 0;
+
+        foreach ($correctMap as $left => $right) {
+            if (!array_key_exists($left, $input)) {
+                throw ValidationException::withMessages([
+                    'matching_answers' => 'Harap lengkapi jawaban untuk semua pasangan.'
+                ]);
+            }
+
+            $chosen = trim((string) $input[$left]);
+            $selected[$left] = $chosen;
+
+            if ($chosen !== '' && $chosen === $right) {
+                $correctCount++;
+            }
+        }
+
+        $total = count($correctMap);
+        $isCorrect = $total > 0 ? $correctCount === $total : false;
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => null,
+                'answer_json' => [
+                    'matches' => $selected,
+                    'summary' => [
+                        'correct' => $correctCount,
+                        'total' => $total,
+                    ],
+                ],
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'is_correct' => $isCorrect,
+                'correct' => $correctCount,
+                'total' => $total,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function handleAudioAnswer(Request $request, Question $question, ?UserAnswerDetail $existingDetail): array
+    {
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+        $audioMeta = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ? $metadata['audio_answer'] : [];
+
+        $maxSizeMb = isset($audioMeta['max_size']) ? (int) $audioMeta['max_size'] : 15;
+        $allowedExtensions = ['mp3', 'wav', 'm4a'];
+
+        $request->validate([
+            'answer_audio' => 'required|file|mimes:' . implode(',', $allowedExtensions) . '|max:' . ($maxSizeMb * 1024)
+        ], [], [
+            'answer_audio' => 'jawaban audio'
+        ]);
+
+        $file = $request->file('answer_audio');
+        $storagePath = $file->store('user_answers/audio/' . Auth::id(), 'public');
+
+        $answerJson = [
+            'pending_review' => true,
+            'original_name' => $file->getClientOriginalName(),
+            'size' => $file->getSize(),
+        ];
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => null,
+                'answer_json' => $answerJson,
+                'answer_file_path' => $storagePath,
+                'is_correct' => false,
+            ],
+            'response' => [
+                'file_url' => Storage::disk('public')->url($storagePath),
+                'manual_review' => true,
+            ],
+            'delete_file' => true,
+        ];
     }
 
     public function indexLobby($id_package, $id_tryout)
@@ -328,16 +560,12 @@ class TryoutController extends Controller
     public function saveAnswer(Request $request, $id_package, $id_tryout, $number)
     {
         try {
-
-            // Validasi input yang lebih sederhana
             $request->validate([
                 'question_id' => 'required|exists:questions,question_id',
-                'option_id' => 'required|exists:question_options,question_option_id'
             ]);
 
             $now = Carbon::now('Asia/Jakarta');
 
-            // Get the question to find which subtest it belongs to
             $question = Question::with(['questionOptions', 'tryoutDetail'])->find($request->question_id);
 
             if (!$question) {
@@ -347,7 +575,6 @@ class TryoutController extends Controller
                 return redirect()->back()->with('error', 'Soal tidak ditemukan');
             }
 
-            // Find the correct UserAnswer based on the question's subtest
             $userAnswer = UserAnswer::where('user_id', Auth::id())
                 ->where('tryout_id', $id_tryout)
                 ->where('tryout_detail_id', $question->tryout_detail_id)
@@ -355,14 +582,12 @@ class TryoutController extends Controller
                 ->first();
 
             if (!$userAnswer) {
-
                 if ($request->expectsJson()) {
                     return response()->json(['error' => 'Session not found'], 404);
                 }
                 return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
             }
 
-            // Check if time is up untuk SKD Full
             $tryout = Tryout::findOrFail($id_tryout);
             $tryoutDetails = $tryout->tryoutDetails()->get();
             $totalDuration = $tryoutDetails->sum('duration');
@@ -382,57 +607,44 @@ class TryoutController extends Controller
                     ->with('error', 'Waktu ujian telah habis');
             }
 
-            // Find the correct option based on option_id
-            $selectedQuestionOption = $question->questionOptions()
-                ->where('question_option_id', $request->option_id)
+            $existingDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                ->where('question_id', $question->question_id)
                 ->first();
 
-            if (!$selectedQuestionOption) {
-                if ($request->expectsJson()) {
-                    return response()->json([
-                        'error' => 'Invalid option selected',
-                        'message' => 'The selected option is not valid for this question'
-                    ], 400);
-                }
-                return redirect()->back()->with('error', 'Pilihan jawaban tidak valid');
-            }
+            $result = $this->processAnswerByType($request, $question, $existingDetail);
 
-            // Check if the selected option is correct based on subtest rules
-            $isCorrect = $this->determineCorrectAnswer($question->tryoutDetail->type_subtest, $selectedQuestionOption);
+            $detailPayload = $result['detail'];
+            $detailPayload['answered_at'] = $now;
 
-            // Save or update answer detail ke UserAnswer yang sesuai dengan subtest
             $userAnswerDetail = UserAnswerDetail::updateOrCreate(
                 [
                     'user_answer_id' => $userAnswer->user_answer_id,
-                    'question_id' => $request->question_id
+                    'question_id' => $question->question_id
                 ],
-                [
-                    'question_option_id' => $request->option_id,
-                    'is_correct' => $isCorrect,
-                    'answered_at' => $now
-                ]
+                $detailPayload
             );
 
-            // Update statistik untuk subtest yang bersangkutan
+            if (!empty($result['delete_file']) && $existingDetail && $existingDetail->answer_file_path && Storage::disk('public')->exists($existingDetail->answer_file_path)) {
+                Storage::disk('public')->delete($existingDetail->answer_file_path);
+            }
+
             $this->updateSingleSubtestStats($userAnswer);
 
+            $responsePayload = array_merge([
+                'success' => true,
+                'message' => 'Jawaban berhasil disimpan',
+                'question_id' => $question->question_id,
+                'question_type' => $question->question_type,
+                'answered_at' => $now->toDateTimeString(),
+            ], $result['response'] ?? []);
+
             if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Jawaban berhasil disimpan',
-                    'data' => [
-                        'question_id' => $request->question_id,
-                        'option_id' => $request->option_id,
-                        'is_correct' => $isCorrect,
-                        'answered_at' => $now->toDateTimeString()
-                    ]
-                ]);
+                return response()->json($responsePayload);
             }
 
             return redirect()->route('user.tryout.index', [$id_package, $id_tryout, $number])
                 ->with('success', 'Jawaban berhasil disimpan');
         } catch (\Exception $e) {
-
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Gagal menyimpan jawaban',
@@ -447,26 +659,24 @@ class TryoutController extends Controller
     /**
      * Determine if answer is correct based on subtest type and rules
      */
-    private function determineCorrectAnswer($subtestType, $selectedOption)
+    private function determineCorrectAnswer(Question $question, QuestionOption $selectedOption)
     {
+        $subtestType = optional($question->tryoutDetail)->type_subtest;
+
         switch ($subtestType) {
             case 'twk':
             case 'tiu':
-                // SKD TWK/TIU: hanya jawaban yang benar-benar correct
                 return (bool) $selectedOption->is_correct;
 
             case 'tkp':
-                // SKD TKP: Semua jawaban dianggap "benar" karena ada bobot
                 return $selectedOption->weight > 0;
 
             case 'writing':
             case 'reading':
             case 'listening':
-                // Certification tests: standard correct/incorrect
                 return (bool) $selectedOption->is_correct;
 
             default:
-                // Tryout biasa: hanya jawaban yang benar-benar correct
                 return (bool) $selectedOption->is_correct;
         }
     }
@@ -483,30 +693,70 @@ class TryoutController extends Controller
             ->get();
 
         foreach ($userAnswerDetails as $detail) {
-            if ($detail->questionOption) {
-                switch ($type_subtest) {
-                    case 'twk':
-                    case 'tiu':
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
-                        break;
+            $question = $detail->question;
+            if (!$question) {
+                continue;
+            }
 
-                    case 'tkp':
-                        $totalScore += (float) ($detail->questionOption->weight ?? 0);
-                        break;
+            $questionType = $question->question_type ?? 'multiple_choice';
+            $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            $pendingReview = $answerMeta['pending_review'] ?? false;
 
-                    case 'writing':
-                    case 'reading':
-                    case 'listening':
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
-                        break;
+            switch ($questionType) {
+                case 'matching':
+                    if ($detail->is_correct) {
+                        $weight = (float) ($question->default_weight ?? 1);
+                        if ($weight <= 0) {
+                            $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
+                            $weight = max(1, $pairs);
+                        }
+                        $totalScore += $weight;
+                    }
+                    break;
 
-                    default:
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                case 'short_answer':
+                case 'essay':
+                    if ($pendingReview) {
                         break;
-                }
+                    }
+
+                    if ($detail->is_correct) {
+                        $weight = (float) ($question->default_weight ?? 1);
+                        $totalScore += $weight > 0 ? $weight : 1;
+                    }
+                    break;
+
+                case 'audio':
+                    // Manual scoring
+                    break;
+
+                default:
+                    if ($detail->questionOption) {
+                        switch ($type_subtest) {
+                            case 'twk':
+                            case 'tiu':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                break;
+
+                            case 'tkp':
+                                $totalScore += (float) ($detail->questionOption->weight ?? 0);
+                                break;
+
+                            case 'writing':
+                            case 'reading':
+                            case 'listening':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                break;
+
+                            default:
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                break;
+                        }
+                    }
+                    break;
             }
         }
 
@@ -943,34 +1193,84 @@ class TryoutController extends Controller
         $totalScore = 0;
 
         foreach ($userAnswerDetails as $detail) {
-            if ($detail->questionOption) {
-                if ($detail->is_correct) {
-                    $correctAnswers++;
-                } else {
-                    $wrongAnswers++;
-                }
+            $question = $detail->question;
+            if (!$question) {
+                continue;
+            }
 
-                // Calculate score based on subtest type + template weight
-                switch ($userAnswer->tryoutDetail->type_subtest) {
-                    case 'twk':
-                    case 'tiu':
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
-                        break;
-                    case 'tkp':
-                        $totalScore += (float) ($detail->questionOption->weight ?? 0);
-                        break;
-                    case 'writing':
-                    case 'reading':
-                    case 'listening':
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
-                        break;
-                    default:
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
-                        break;
-                }
+            $questionType = $question->question_type ?? 'multiple_choice';
+            $pendingReview = false;
+            $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            if (isset($answerMeta['pending_review'])) {
+                $pendingReview = (bool) $answerMeta['pending_review'];
+            }
+
+            switch ($questionType) {
+                case 'matching':
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+
+                    $weight = (float) ($question->default_weight ?? 1);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $totalScore += $detail->is_correct ? $weight : 0;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    if ($pendingReview) {
+                        continue 2;
+                    }
+
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    break;
+
+                case 'audio':
+                    // Audio answers require manual review, skip scoring for now
+                    continue 2;
+
+                default:
+                    if ($detail->questionOption) {
+                        if ($detail->is_correct) {
+                            $correctAnswers++;
+                        } else {
+                            $wrongAnswers++;
+                        }
+
+                        switch ($userAnswer->tryoutDetail->type_subtest) {
+                            case 'twk':
+                            case 'tiu':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                break;
+                            case 'tkp':
+                                $totalScore += (float) ($detail->questionOption->weight ?? 0);
+                                break;
+                            case 'writing':
+                            case 'reading':
+                            case 'listening':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                break;
+                            default:
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                break;
+                        }
+                    }
+                    break;
             }
         }
 
@@ -992,49 +1292,75 @@ class TryoutController extends Controller
     // Maksimum skor dinamis berdasarkan bobot pada template
     private function getMaxPossibleScoreForDetail(int $tryoutDetailId, string $type_subtest)
     {
-        $questionIds = Question::where('tryout_detail_id', $tryoutDetailId)
-            ->pluck('question_id');
+        $questions = Question::where('tryout_detail_id', $tryoutDetailId)
+            ->with('questionOptions')
+            ->get();
 
-        if ($questionIds->isEmpty()) return 0;
-
-        switch ($type_subtest) {
-            case 'tkp':
-                $rows = QuestionOption::whereIn('question_id', $questionIds)
-                    ->selectRaw('question_id, MAX(COALESCE(weight,0)) as mw')
-                    ->groupBy('question_id')
-                    ->get();
-                return (float) $rows->sum('mw');
-            case 'twk':
-            case 'tiu':
-                $sum = 0;
-                foreach ($questionIds as $qid) {
-                    $w = (float) (QuestionOption::where('question_id', $qid)
-                        ->where('is_correct', true)
-                        ->value('weight') ?? 0);
-                    $sum += ($w > 0 ? $w : 5);
-                }
-                return $sum;
-            case 'writing':
-            case 'reading':
-            case 'listening':
-                $sum = 0;
-                foreach ($questionIds as $qid) {
-                    $w = (float) (QuestionOption::where('question_id', $qid)
-                        ->where('is_correct', true)
-                        ->value('weight') ?? 0);
-                    $sum += ($w > 0 ? $w : 10);
-                }
-                return $sum;
-            default:
-                $sum = 0;
-                foreach ($questionIds as $qid) {
-                    $w = (float) (QuestionOption::where('question_id', $qid)
-                        ->where('is_correct', true)
-                        ->value('weight') ?? 0);
-                    $sum += ($w > 0 ? $w : 1);
-                }
-                return $sum;
+        if ($questions->isEmpty()) {
+            return 0;
         }
+
+        $total = 0;
+
+        foreach ($questions as $question) {
+            $questionType = $question->question_type ?? 'multiple_choice';
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 0);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
+                case 'audio':
+                    $total += (float) ($question->default_weight ?? 0);
+                    break;
+
+                default:
+                    $options = $question->questionOptions;
+                    switch ($type_subtest) {
+                        case 'tkp':
+                            $maxWeight = $options->max(function ($opt) {
+                                return (float) ($opt->weight ?? 0);
+                            });
+                            $total += $maxWeight ?? 0;
+                            break;
+
+                        case 'twk':
+                        case 'tiu':
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 5;
+                            break;
+
+                        case 'writing':
+                        case 'reading':
+                        case 'listening':
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 10;
+                            break;
+
+                        default:
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 1;
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        return $total;
     }
 
     public function markPlayed($id_package, $id_tryout, $question_id)

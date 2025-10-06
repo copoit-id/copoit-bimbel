@@ -21,6 +21,7 @@ use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Middleware\AdminMiddleware;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 // routes/web.php
 Route::get('/phpinfo', function () {
@@ -28,6 +29,12 @@ Route::get('/phpinfo', function () {
 });
 
 Route::get('/', function () {
+    if (Auth::check()) {
+        return Auth::user()->role === 'admin'
+            ? redirect()->route('admin.dashboard')
+            : redirect()->route('user.dashboard.index');
+    }
+
     return redirect()->route('login');
 });
 
