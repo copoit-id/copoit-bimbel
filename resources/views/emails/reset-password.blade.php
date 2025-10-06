@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - CPNS Academy</title>
+    <title>Reset Password - Copoit Academy</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -90,13 +90,13 @@
     <div class="container">
         <div class="header">
             <div class="logo">🎓</div>
-            <h1 class="title">CPNS Academy</h1>
+            <h1 class="title">Copoit Academy</h1>
         </div>
 
         <div class="content">
             <h2>Halo, {{ $user->name }}!</h2>
 
-            <p>Kami menerima permintaan untuk reset password akun Anda di CPNS Academy.</p>
+            <p>Kami menerima permintaan untuk reset password akun Anda di Copoit Academy.</p>
 
             <p>Jika Anda meminta reset password, klik tombol di bawah ini untuk melanjutkan:</p>
 
@@ -117,8 +117,8 @@
         </div>
 
         <div class="footer">
-            <p>Email ini dikirim otomatis oleh sistem CPNS Academy.</p>
-            <p>© {{ date('Y') }} CPNS Academy. All rights reserved.</p>
+            <p>Email ini dikirim otomatis oleh sistem Copoit Academy.</p>
+            <p>© {{ date('Y') }} Copoit Academy. All rights reserved.</p>
         </div>
     </div>
 </body>

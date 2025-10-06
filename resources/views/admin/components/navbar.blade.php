@@ -14,10 +14,10 @@
                     </svg>
                 </button>
                 <a href="#" class="flex ms-2 md:me-12 items-center">
-                    <img src="{{ asset('img/logo/logo.png') }}" class="w-18 h-8 object-cover me-1"
-                        alt="CPNS Academy Logo" />
+                    <img src="{{ asset('img/logo/logo.png') }}" class="w-12 h-12 object-cover me-1"
+                        alt="Copoit Academy Logo" />
                     <div class="flex flex-col justify-start">
-                        <p class="text-[20px] text-dark font-bold">CPNS Academy</p>
+                        <p class="text-[20px] text-dark font-bold">COPOIT ACADEMY</p>
                         <p class="font-light text-[13px] mt-[-8px]">Admin Panel</p>
                     </div>
                 </a>

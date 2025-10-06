@@ -34,10 +34,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             Institusi Penerbit <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" name="institution_name" value="{{ old('institution_name', 'CPNS Academy') }}"
-                            required
+                        <input type="text" name="institution_name"
+                            value="{{ old('institution_name', 'Copoit Academy') }}" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="CPNS Academy">
+                            placeholder="Copoit Academy">
                         @error('institution_name')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -160,10 +160,10 @@
     const newRow = document.createElement('div');
     newRow.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 metadata-row';
     newRow.innerHTML = `
-        <input type="text" name="metadata[key][]" placeholder="Key" 
+        <input type="text" name="metadata[key][]" placeholder="Key"
             class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
         <div class="flex gap-2">
-            <input type="text" name="metadata[value][]" placeholder="Value" 
+            <input type="text" name="metadata[value][]" placeholder="Value"
                 class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
             <button type="button" onclick="removeMetadata(this)" class="text-red-600 hover:text-red-800 px-2">
                 <i class="ri-delete-bin-line"></i>

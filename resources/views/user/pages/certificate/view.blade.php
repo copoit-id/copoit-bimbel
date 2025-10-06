@@ -244,7 +244,7 @@
             <div>Verification: {{ substr($certificate->verification_code, 0, 8) }}</div>
         </div>
         <div class="footer-right">
-            <div class="institution-name">CPNS Academy</div>
+            <div class="institution-name">Copoit Academy</div>
             <div>Director</div>
         </div>
     </div>

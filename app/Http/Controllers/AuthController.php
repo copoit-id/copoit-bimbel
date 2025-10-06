@@ -133,7 +133,7 @@ class AuthController extends Controller
             Auth::login($user);
 
             return redirect()->route('user.dashboard.index')
-                ->with('success', 'Akun berhasil dibuat! Selamat datang di CPNS Academy.');
+                ->with('success', 'Akun berhasil dibuat! Selamat datang di Copoit Academy.');
         } catch (\Exception $e) {
             return back()->withErrors([
                 'email' => 'Terjadi kesalahan saat membuat akun. Silakan coba lagi.',
@@ -220,7 +220,7 @@ class AuthController extends Controller
                 'resetUrl' => route('password.reset', $token)
             ], function ($message) use ($user) {
                 $message->to($user->email);
-                $message->subject('Reset Password - CPNS Academy');
+                $message->subject('Reset Password - Copoit Academy');
             });
 
             return redirect()->back()->with('success', 'Link reset password telah dikirim ke email Anda');
