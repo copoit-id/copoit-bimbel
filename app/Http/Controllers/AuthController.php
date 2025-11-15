@@ -123,6 +123,8 @@ class AuthController extends Controller
             }
         }
 
+        $brandName = $this->getBrandName();
+
         try {
             $user = User::create([
                 'name' => $validatedData['name'],
@@ -136,7 +138,7 @@ class AuthController extends Controller
             Auth::login($user);
 
             return redirect()->route('user.dashboard.index')
-                ->with('success', 'Akun berhasil dibuat! Selamat datang di Copoit Academy.');
+                ->with('success', "Akun berhasil dibuat! Selamat datang di {$brandName}.");
         } catch (\Exception $e) {
             return back()->withErrors([
                 'email' => 'Terjadi kesalahan saat membuat akun. Silakan coba lagi.',
@@ -216,14 +218,16 @@ class AuthController extends Controller
         ]);
 
         // Send email
+        $brandName = $this->getBrandName();
+
         try {
             Mail::send('emails.reset-password', [
                 'user' => $user,
                 'token' => $token,
                 'resetUrl' => route('password.reset', $token)
-            ], function ($message) use ($user) {
+            ], function ($message) use ($user, $brandName) {
                 $message->to($user->email);
-                $message->subject('Reset Password - Copoit Academy');
+                $message->subject("Reset Password - {$brandName}");
             });
 
             return redirect()->back()->with('success', 'Link reset password telah dikirim ke email Anda');
@@ -272,5 +276,10 @@ class AuthController extends Controller
         ]);
 
         return redirect()->route('login')->with('success', 'Password berhasil direset. Silakan login dengan password baru');
+    }
+
+    private function getBrandName(): string
+    {
+        return config('client.branding.name', config('app.name', 'Bimbel'));
     }
 }

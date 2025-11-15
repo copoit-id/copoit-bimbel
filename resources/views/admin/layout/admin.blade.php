@@ -6,13 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Copoit Academy - Admin Dashboard</title>
+    <title>{{ $clientBranding['name'] }} - Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.tiny.cloud/1/{{ env('TINYMCE_API_KEY') }}/tinymce/8/tinymce.min.js"
         referrerpolicy="origin"></script>
 
     @vite('resources/css/app.css')
+    @include('components.branding-styles')
 </head>
 
 <body>

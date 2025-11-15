@@ -5,7 +5,7 @@
     <!-- Page Header -->
     <div>
         <h2 class="text-2xl font-bold">Dashboard</h2>
-        <p class="text-gray-500">Selamat datang di panel admin Copoit Academy</p>
+        <p class="text-gray-500">Selamat datang di panel admin {{ $clientBranding['name'] }}</p>
     </div>
 
     <!-- Stats Overview -->

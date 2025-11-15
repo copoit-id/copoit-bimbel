@@ -866,7 +866,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                 'certificate_name' => $tryout->name,
                 'date_of_birth' => Auth::user()->date_of_birth ?? Carbon::now()->subYears(25),
                 'description' => 'Certificate of completion for TOEFL ITP test',
-                'institution_name' => 'Copoit Academy',
+                'institution_name' => $this->getBrandName(),
                 'issued_date' => Carbon::now(),
                 'expired_date' => Carbon::now()->addYear(),
                 'verification_code' => Str::random(16),
@@ -893,7 +893,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                 'certificate_name' => $tryout->name,
                 'date_of_birth' => Auth::user()->date_of_birth ?? Carbon::now()->subYears(25),
                 'description' => 'Certificate of completion for TOEFL ITP test',
-                'institution_name' => 'Copoit Academy',
+                'institution_name' => $this->getBrandName(),
                 'issued_date' => Carbon::now(),
                 'expired_date' => Carbon::now()->addYear(),
                 'verification_code' => Str::random(16),
@@ -967,5 +967,10 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
         $count = count($nums);
         if ($count === 0) return 0.0;
         return array_sum($nums) / $count;
+    }
+
+    private function getBrandName(): string
+    {
+        return config('client.branding.name', config('app.name', 'Bimbel'));
     }
 }

@@ -14,10 +14,10 @@
                     </svg>
                 </button>
                 <a href="/" class="flex ms-2 md:me-12 items-center">
-                    <img src="{{ asset('img/logo/logo.png') }}" class="w-12 h-12 object-cover me-1"
-                        alt="FlowBite Logo" />
+                    <img src="{{ $clientBranding['logo_url'] }}" class="w-12 h-12 object-cover me-1"
+                        alt="{{ $clientBranding['name'] }} Logo" />
                     <div class="flex flex-col justify-start">
-                        <p class="text-[20px] text-dark font-bold">COPOIT ACADEMY</p>
+                        <p class="text-[20px] text-dark font-bold">{{ $clientBranding['name'] }}</p>
                         <p class="font-light text-[13px] mt-[-8px]">Learning Platform</p>
                     </div>
                 </a>

@@ -7,7 +7,8 @@
 @source '../**/*.js';
 
 @theme {
-    --color-primary: #1C3259;
+    --color-primary: var(--client-color-primary, #1C3259);
+    --color-secondary: var(--client-color-secondary, #F3F3F3);
     --color-border : #F3F3F3;
     --color-dark : #444444;
     --color-blue-light : #DBEAFE;

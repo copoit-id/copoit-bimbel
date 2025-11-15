@@ -175,7 +175,7 @@
                 <ul class="text-sm text-red-700 space-y-1">
                     <li>• Nomor sertifikat salah atau tidak sesuai format</li>
                     <li>• Sertifikat sudah kadaluarsa atau dibatalkan</li>
-                    <li>• Sertifikat palsu atau tidak dikeluarkan oleh Copoit Academy</li>
+                    <li>• Sertifikat palsu atau tidak dikeluarkan oleh {{ $clientBranding['name'] }}</li>
                 </ul>
             </div>
 

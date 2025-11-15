@@ -15,7 +15,7 @@ return new class extends Migration
             $table->date('date_of_birth');
             $table->text('description')->nullable();
             $table->string('template_path')->nullable();
-            $table->string('institution_name')->default('Copoit Academy');
+            $table->string('institution_name')->default('Bimbel');
             $table->date('issued_date');
             $table->date('expired_date')->nullable();
             $table->enum('status', ['active', 'revoked', 'expired'])->default('active');

@@ -206,7 +206,7 @@
                     </div>
                     <div class="header-item">
                         <span class="header-label">Lembaga:</span>
-                        <span class="header-value">Copoit Academy</span>
+                        <span class="header-value">{{ $clientBranding['name'] }}</span>
                     </div>
                     <div class="header-item">
                         <span class="header-label">Status:</span>
@@ -267,7 +267,7 @@
                     substr($certificate->verification_code, 0, 8) : 'ABC12345' }}</div>
             </div>
             <div class="institution">
-                <div>Copoit Academy</div>
+                <div>{{ $clientBranding['name'] }}</div>
                 <div style="font-size: 11px; font-weight: normal;">Director</div>
             </div>
         </div>

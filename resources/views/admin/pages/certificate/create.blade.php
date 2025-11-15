@@ -35,9 +35,9 @@
                             Institusi Penerbit <span class="text-red-500">*</span>
                         </label>
                         <input type="text" name="institution_name"
-                            value="{{ old('institution_name', 'Copoit Academy') }}" required
+                            value="{{ old('institution_name', $clientBranding['name']) }}" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Copoit Academy">
+                            placeholder="{{ $clientBranding['name'] }}">
                         @error('institution_name')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror

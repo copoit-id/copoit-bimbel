@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Lupa Password - Copoit Academy</title>
+    <title>Lupa Password - {{ $clientBranding['name'] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet" />
     @vite('resources/css/app.css')
+    @include('components.branding-styles')
 </head>
 
 <body class="bg-white min-h-screen flex items-center justify-center p-4">
