@@ -280,6 +280,6 @@ class AuthController extends Controller
 
     private function getBrandName(): string
     {
-        return config('client.branding.name', config('app.name', 'Bimbel'));
+        return config('client.branding.name', 'Copoit Academy');
     }
 }

@@ -971,6 +971,6 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
 
     private function getBrandName(): string
     {
-        return config('client.branding.name', config('app.name', 'Bimbel'));
+        return config('client.branding.name', 'Copoit Academy');
     }
 }

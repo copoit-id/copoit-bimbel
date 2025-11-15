@@ -22,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $defaults = [
-            'name' => config('app.name', 'Bimbel'),
+            'name' => 'Copoit Academy',
             'logo' => 'img/logo/logo.png',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
@@ -43,7 +43,10 @@ class AppServiceProvider extends ServiceProvider
             'logo_url' => asset($defaults['logo']),
         ]);
 
-        config(['client.branding' => $branding]);
+        config([
+            'client.branding' => $branding,
+            'app.name' => $branding['name'],
+        ]);
 
         view()->share('clientProfile', $clientProfile);
         view()->share('clientBranding', $branding);
