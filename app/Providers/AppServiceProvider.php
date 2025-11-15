@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
             'logo' => 'img/logo/logo.png',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
+            'certificate_management_enabled' => true,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -37,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
             $defaults['secondary_color'] = $clientProfile->warna_secondary ?: $defaults['secondary_color'];
+            $defaults['certificate_management_enabled'] = $clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled'];
         }
 
         $branding = array_merge($defaults, [

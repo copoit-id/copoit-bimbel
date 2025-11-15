@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('logo');
             $table->string('warna_primary');
             $table->string('warna_secondary')->nullable();
+            $table->boolean('enable_certificate_management')->default(true);
             $table->timestamps();
         });
     }

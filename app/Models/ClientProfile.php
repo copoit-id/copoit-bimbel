@@ -13,5 +13,10 @@ class ClientProfile extends Model
         'logo',
         'warna_primary',
         'warna_secondary',
+        'enable_certificate_management',
+    ];
+
+    protected $casts = [
+        'enable_certificate_management' => 'boolean',
     ];
 }

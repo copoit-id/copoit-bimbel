@@ -157,7 +157,7 @@
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali
         </a>
-        @if($tryout->is_certification)
+        @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
         <a href="{{ route('user.certificate.preview', ['package_id' => request()->route('id_package'), 'tryout_id' => $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
             class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
             <i class="ri-award-line"></i>

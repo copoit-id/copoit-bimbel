@@ -114,7 +114,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 
     // Certificate validation routes
-    Route::prefix('sertifikat')->group(function () {
+    Route::prefix('sertifikat')->middleware('certificate.enabled')->group(function () {
         Route::get('/validasi', [CertificateValidationController::class, 'index'])->name('user.certificate.validation');
         Route::post('/validasi', [CertificateValidationController::class, 'validateCertificate'])->name('user.certificate.validate');
         Route::post('/download', [CertificateValidationController::class, 'downloadCertificate'])->name('user.certificate.download');
@@ -250,7 +250,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     });
 
     // Certificate Management Routes
-    Route::prefix('sertifikat')->name('certificate.')->group(function () {
+    Route::prefix('sertifikat')->name('certificate.')->middleware('certificate.enabled')->group(function () {
         Route::get('/', [CertificateController::class, 'index'])->name('index');
         Route::get('/create', [CertificateController::class, 'create'])->name('create');
         Route::post('/store', [CertificateController::class, 'store'])->name('store');
@@ -264,7 +264,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
 
     // Certificate download route
     Route::get('certificate/{certificate}/download', [\App\Http\Controllers\admin\CertificateController::class, 'downloadTemplate'])
+        ->middleware('certificate.enabled')
         ->name('certificate.downloadTemplate');
     Route::post('certificate/bulk-action', [\App\Http\Controllers\admin\CertificateController::class, 'bulkAction'])
+        ->middleware('certificate.enabled')
         ->name('certificate.bulkAction');
 });

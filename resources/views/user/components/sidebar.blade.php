@@ -36,6 +36,7 @@
                     <span class="ms-3">Bantuan</span>
                 </a>
             </li>
+            @if($clientBranding['certificate_management_enabled'] ?? true)
             <li>
                 <a href="{{ route('user.certificate.validation') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.certificate.*') ? 'text-white bg-primary' : 'text-black  hover:bg-gray-100' }} rounded-lg group">
@@ -44,6 +45,7 @@
                     <span class="ms-3">Validasi Sertifikat</span>
                 </a>
             </li>
+            @endif
         </ul>
         <p class="text-[#999999] text-sm mt-6">Paket Saya</p>
         <ul class="font-medium space-y-1">

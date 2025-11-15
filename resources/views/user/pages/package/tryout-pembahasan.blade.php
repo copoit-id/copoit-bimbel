@@ -375,11 +375,12 @@
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
 
-        <!-- Certificate Preview Button (only for certification tryouts) -->
+        @if($clientBranding['certificate_management_enabled'] ?? true)
         <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $token]) }}"
             class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
             <i class="ri-award-line mr-2"></i>Preview Sertifikat
         </a>
+        @endif
 
         <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center">

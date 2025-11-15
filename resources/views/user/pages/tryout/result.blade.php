@@ -128,8 +128,8 @@
             </a>
 
             {{-- Certificate Download Button for Certification Full --}}
-            @if($tryout->is_certification && ($tryout->type_tryout === 'certification' || $tryout->type_tryout ===
-            'computer'))
+            @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification &&
+            ($tryout->type_tryout === 'certification' || $tryout->type_tryout === 'computer'))
             <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                 <i class="ri-award-line mr-2"></i>Unduh Sertifikat
