@@ -239,19 +239,6 @@
     </div>
     @endif
 </div>
-
-@if(session('success'))
-<div class="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg z-50">
-    <p>{{ session('success') }}</p>
-</div>
-@endif
-
-@if(session('error'))
-<div class="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg z-50">
-    <p>{{ session('error') }}</p>
-</div>
-@endif
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('tryout-search');

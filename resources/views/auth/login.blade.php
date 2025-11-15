@@ -16,6 +16,7 @@
 </head>
 
 <body class="bg-gray-50">
+    @include('components.flash-alert')
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <div>
@@ -42,12 +43,6 @@
                     <li>{{ $error }}</li>
                     @endforeach
                 </ul>
-            </div>
-            @endif
-
-            @if(session('success'))
-            <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-                <p class="text-sm">{{ session('success') }}</p>
             </div>
             @endif
 

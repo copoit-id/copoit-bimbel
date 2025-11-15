@@ -40,33 +40,18 @@
             </div>
         </div>
 
-        @if(session('success'))
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        @if(session('import_errors') && count(session('import_errors')) > 0)
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <div class="flex">
-                <i class="ri-check-circle-line text-green-500 mr-2"></i>
+                <i class="ri-alert-line text-yellow-600 mr-2"></i>
                 <div>
-                    <p class="text-green-800">{{ session('success') }}</p>
-                    @if(session('import_errors') && count(session('import_errors')) > 0)
-                    <details class="mt-2">
-                        <summary class="cursor-pointer text-sm text-green-700">Lihat error detail ({{
-                            count(session('import_errors')) }} error)</summary>
-                        <ul class="mt-2 text-sm text-red-600 space-y-1 max-h-32 overflow-y-auto">
-                            @foreach(session('import_errors') as $error)
-                            <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </details>
-                    @endif
+                    <p class="text-yellow-800 font-medium">Beberapa baris tidak berhasil diimport:</p>
+                    <ul class="mt-2 text-sm text-yellow-700 space-y-1 max-h-32 overflow-y-auto">
+                        @foreach(session('import_errors') as $error)
+                        <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
                 </div>
-            </div>
-        </div>
-        @endif
-
-        @if(session('error'))
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div class="flex">
-                <i class="ri-error-warning-line text-red-500 mr-2"></i>
-                <p class="text-red-800">{{ session('error') }}</p>
             </div>
         </div>
         @endif

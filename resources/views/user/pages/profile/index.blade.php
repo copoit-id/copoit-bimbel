@@ -8,13 +8,6 @@
         <h2 class="text-2xl font-bold text-gray-900">Profile Saya</h2>
         <p class="text-gray-600 mt-1">Kelola informasi profile dan keamanan akun Anda</p>
     </div>
-
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-        <p>{{ session('success') }}</p>
-    </div>
-    @endif
-
     @if($errors->any())
     <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
         <ul class="list-disc list-inside text-sm">

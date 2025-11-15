@@ -12,6 +12,7 @@
 </head>
 
 <body class="bg-white min-h-screen flex items-center justify-center p-4">
+    @include('components.flash-alert')
     <div class="w-full max-w-md">
         <!-- Logo -->
         <div class="text-center mb-8">
@@ -24,23 +25,6 @@
 
         <!-- Form Card -->
         <div class="rounded-2x p-8">
-            @if(session('success'))
-            <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div class="flex items-center">
-                    <i class="ri-check-circle-line text-green-500 mr-3"></i>
-                    <p class="text-green-700 text-sm">{{ session('success') }}</p>
-                </div>
-            </div>
-            @endif
-
-            @if(session('error'))
-            <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div class="flex items-center">
-                    <i class="ri-error-warning-line text-red-500 mr-3"></i>
-                    <p class="text-red-700 text-sm">{{ session('error') }}</p>
-                </div>
-            </div>
-            @endif
 
             <form action="{{ route('password.email') }}" method="POST" class="space-y-6">
                 @csrf

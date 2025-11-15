@@ -14,19 +14,6 @@
             Tambah Paket
         </a>
     </div>
-
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-        <p>{{ session('success') }}</p>
-    </div>
-    @endif
-
-    @if(session('error'))
-    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-        <p>{{ session('error') }}</p>
-    </div>
-    @endif
-
     <!-- Package List -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach ($packages as $package)

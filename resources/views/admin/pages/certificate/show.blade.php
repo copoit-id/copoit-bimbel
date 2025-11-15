@@ -16,19 +16,6 @@
         Nomor: {{ $certificate->certificate_number }} • Status: {{ ucfirst($certificate->status) }}
     </x-slot>
 </x-page-desc>
-
-@if(session('success'))
-<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mt-4">
-    <p>{{ session('success') }}</p>
-</div>
-@endif
-
-@if(session('error'))
-<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mt-4">
-    <p>{{ session('error') }}</p>
-</div>
-@endif
-
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
     <!-- Main Certificate Details -->
     <div class="lg:col-span-2 space-y-6">

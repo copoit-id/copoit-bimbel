@@ -22,19 +22,6 @@
         </x-slot>
     </x-page-desc>
 </div>
-
-@if(session('success'))
-<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mt-4">
-    <p>{{ session('success') }}</p>
-</div>
-@endif
-
-@if(session('error'))
-<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mt-4">
-    <p>{{ session('error') }}</p>
-</div>
-@endif
-
 <div class="bg-white p-6 rounded-lg border border-border">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
