@@ -12,9 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('client_profile', function (Blueprint $table) {
-            $table->boolean('enable_certificate_management')
-                ->default(true)
-                ->after('warna_secondary');
+            if (!Schema::hasColumn('client_profile', 'enable_certificate_management')) {
+                $table->boolean('enable_certificate_management')
+                    ->default(true)
+                    ->after('warna_secondary');
+            }
         });
     }
 
@@ -24,7 +26,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('client_profile', function (Blueprint $table) {
-            $table->dropColumn('enable_certificate_management');
+            if (Schema::hasColumn('client_profile', 'enable_certificate_management')) {
+                $table->dropColumn('enable_certificate_management');
+            }
         });
     }
 };
