@@ -467,7 +467,7 @@ class TryoutController extends Controller
         }
 
         if ($number > $allQuestions->count()) {
-            return $this->finishTryout($id_package, $id_tryout);
+            return $this->finishTryout(request(), $id_package, $id_tryout);
         }
 
         $currentQuestion = $allQuestions[$number - 1];
@@ -543,7 +543,7 @@ class TryoutController extends Controller
 
         // Check if time is up - auto finish jika waktu habis
         if ($now->gte($endTime)) {
-            return $this->finishTryout($id_package, $id_tryout);
+            return $this->finishTryout(request(), $id_package, $id_tryout);
         }
 
         $remainingSeconds = $endTime->diffInSeconds($now);
