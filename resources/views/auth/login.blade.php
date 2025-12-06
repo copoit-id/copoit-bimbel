@@ -21,8 +21,9 @@
         <div class="max-w-md w-full space-y-8">
             <div>
                 <div class="flex justify-center">
-                    <div class="bg-primary p-3 rounded-full">
-                        <i class="ri-graduation-cap-line text-3xl text-white"></i>
+                    <div class="w-16 h-16 rounded-full bg-white border border-border flex items-center justify-center overflow-hidden">
+                        <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
+                            class="w-12 h-12 object-cover">
                     </div>
                 </div>
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
