@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('warna_primary');
             $table->string('warna_secondary')->nullable();
             $table->boolean('enable_certificate_management')->default(true);
+            $table->boolean('header_primary_color')->default(false);
+            $table->boolean('sidebar_primary_color')->default(false);
             $table->timestamps();
         });
     }
