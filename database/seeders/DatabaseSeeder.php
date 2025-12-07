@@ -13,24 +13,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // $this->call([
-        //     ClassSeeder::class,
-        // ]);
-
-        User::create([
-            'name' => 'Admin',
-            'username' => 'admin',
-            'email' => 'admin@gmail.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-        ]);
-
-        User::create([
-            'name' => 'user',
-            'username' => 'user',
-            'email' => 'user@gmail.com',
-            'password' => Hash::make('password'),
-            'role' => 'user',
+        $this->call([
+            CompleteSystemSeeder::class,
         ]);
     }
 }
