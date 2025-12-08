@@ -1,6 +1,10 @@
 @extends('admin.layout.admin')
 
 @section('content')
+@php
+    $utbkSubtests = $utbkSubtests ?? [];
+    $utbkSingleTypes = $utbkSingleTypes ?? [];
+@endphp
 <div class="space-y-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
@@ -56,6 +60,14 @@
                             <option value="skd_full" {{ (isset($tryout) && $tryout->type_tryout === 'skd_full') ||
                                 old('type_tryout') === 'skd_full' ? 'selected' : '' }}>SKD Full (TWK + TIU + TKP)
                             </option>
+                            <option value="utbk_full" {{ (isset($tryout) && $tryout->type_tryout === 'utbk_full') ||
+                                old('type_tryout') === 'utbk_full' ? 'selected' : '' }}>UTBK TPS (Full)</option>
+                            @foreach($utbkSingleTypes as $typeKey => $singleConfig)
+                            <option value="{{ $typeKey }}" {{ (isset($tryout) && $tryout->type_tryout === $typeKey) ||
+                                old('type_tryout') === $typeKey ? 'selected' : '' }}>
+                                {{ 'UTBK - ' . $singleConfig['label'] }}
+                            </option>
+                            @endforeach
                             <option value="twk" {{ (isset($tryout) && $tryout->type_tryout === 'twk') ||
                                 old('type_tryout') === 'twk' ? 'selected' : '' }}>TWK</option>
                             <option value="tiu" {{ (isset($tryout) && $tryout->type_tryout === 'tiu') ||
@@ -165,6 +177,19 @@
                             TOEFL IRT Scoring
                         </label>
                     </div>
+
+                    <div class="flex flex-col md:flex-row md:items-center hidden" data-irt-toggle>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="is_irt" name="is_irt" value="1" {{
+                                old('is_irt', isset($tryout) ? (bool) $tryout->is_irt : true) ? 'checked' : '' }}
+                                class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
+                            <label for="is_irt" class="ml-2 text-sm font-medium text-gray-700">
+                                Aktifkan Penilaian IRT UTBK
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2 md:mt-0 md:ml-4">Nilai dirilis otomatis setelah periode UTBK
+                            berakhir.</p>
+                    </div>
                 </div>
 
                 <!-- Dynamic Configuration Sections -->
@@ -172,6 +197,67 @@
                     <h3 class="text-lg font-medium text-gray-800 mb-4">Konfigurasi Subtest</h3>
 
                     <!-- SKD Full Configuration -->
+                    <!-- UTBK Full Configuration -->
+                    <div id="utbk_full_config" class="config-section hidden space-y-4">
+                        <h4 class="font-medium text-gray-800">Konfigurasi UTBK TPS Full</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            @foreach($utbkSubtests as $slug => $config)
+                            @php
+                                $utbkDetail = isset($tryout) ? $tryout->tryoutDetails->firstWhere('type_subtest', $slug) : null;
+                                $durationValue = old('duration_'.$slug, $utbkDetail?->duration ?? $config['default_duration']);
+                                $passingValue = old('passing_score_'.$slug, $utbkDetail?->passing_score ?? $config['default_passing']);
+                            @endphp
+                            <div class="space-y-2">
+                                <h5 class="font-medium text-sm text-gray-700">{{ $config['label'] }}</h5>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
+                                    <input type="number" name="duration_{{ $slug }}" min="1" max="300"
+                                        value="{{ $durationValue }}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
+                                    <input type="number" name="passing_score_{{ $slug }}" min="0" max="100" step="0.1"
+                                        value="{{ $passingValue }}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-500">Durasi dan passing score default mengikuti struktur TPS, tetapi
+                            masih bisa disesuaikan.</p>
+                    </div>
+
+                    <!-- UTBK Single Configuration -->
+                    <div id="utbk_single_config" class="config-section hidden space-y-4">
+                        <h4 class="font-medium text-gray-800">Konfigurasi UTBK Per Subtest</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach($utbkSubtests as $slug => $config)
+                            @php
+                                $singleDetail = isset($tryout) ? $tryout->tryoutDetails->firstWhere('type_subtest', $slug) : null;
+                                $singleDuration = old('duration_'.$slug, $singleDetail?->duration ?? $config['default_duration']);
+                                $singlePassing = old('passing_score_'.$slug, $singleDetail?->passing_score ?? $config['default_passing']);
+                            @endphp
+                            <div class="space-y-2 utbk-single-card hidden" data-utbk-single-card="{{ $slug }}">
+                                <h5 class="font-medium text-sm text-gray-700">{{ $config['label'] }}</h5>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
+                                    <input type="number" name="duration_{{ $slug }}" min="1" max="300"
+                                        value="{{ $singleDuration }}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
+                                    <input type="number" name="passing_score_{{ $slug }}" min="0" max="100" step="0.1"
+                                        value="{{ $singlePassing }}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-500">Input yang relevan akan muncul otomatis saat tipe UTBK subtest dipilih.</p>
+                    </div>
+
                     <div id="skd_config" class="config-section hidden space-y-4">
                         <h4 class="font-medium text-gray-800">Konfigurasi SKD Full</h4>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -493,6 +579,7 @@
 
 <script>
     (function () {
+  const utbkSingleTypeMap = @json(collect($utbkSingleTypes ?? [])->mapWithKeys(fn($config, $type) => [$type => $config['slug']])->toArray());
   function setSectionEnabled(sectionEl, enabled) {
     if (!sectionEl) return;
     const fields = sectionEl.querySelectorAll('input, select, textarea, button');
@@ -509,9 +596,12 @@
   function initTryoutForm(root = document) {
     const typeSelect = root.querySelector('#type_tryout');
     const configSections = root.querySelectorAll('.config-section');
+    const irtBlock = root.querySelector('[data-irt-toggle]');
+    const irtInput = irtBlock ? irtBlock.querySelector('#is_irt') : null;
     if (!typeSelect || typeSelect.__tryoutBound) return;
 
     const configSectionMap = {
+      'utbk_full': 'utbk_full_config',
       'skd_full': 'skd_config',
       'certification': 'certification_config',
       'pppk_full': 'pppk_config',
@@ -532,6 +622,9 @@
       'interview': 'general_config',
       'general': 'general_config'
     };
+    Object.keys(utbkSingleTypeMap).forEach(type => {
+      configSectionMap[type] = 'utbk_single_config';
+    });
 
     function showConfigSection() {
       const selectedType = String(typeSelect.value || '').trim();
@@ -549,6 +642,34 @@
           setSectionEnabled(target, true);
         }
       }
+
+      toggleIrtVisibility(selectedType);
+      toggleUtbkSingleCards(selectedType);
+    }
+
+    function toggleIrtVisibility(selectedType) {
+      if (!irtBlock || !irtInput) return;
+      if (selectedType === 'utbk_full') {
+        irtBlock.classList.remove('hidden');
+        irtInput.disabled = false;
+      } else {
+        irtBlock.classList.add('hidden');
+        irtInput.disabled = true;
+      }
+    }
+
+    const utbkSingleCards = root.querySelectorAll('[data-utbk-single-card]');
+    function toggleUtbkSingleCards(selectedType) {
+      const slug = utbkSingleTypeMap[selectedType] || null;
+      utbkSingleCards.forEach(card => {
+        if (slug && card.dataset.utbkSingleCard === slug) {
+          card.classList.remove('hidden');
+          setSectionEnabled(card, true);
+        } else {
+          card.classList.add('hidden');
+          setSectionEnabled(card, false);
+        }
+      });
     }
 
     function updateFieldNames() {

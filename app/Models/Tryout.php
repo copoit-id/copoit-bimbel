@@ -15,11 +15,39 @@ class Tryout extends Model
 
     protected $casts = [
         'is_certification' => 'boolean',
+        'is_toefl' => 'boolean',
+        'is_irt' => 'boolean',
         'is_active' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
+        'results_release_at' => 'datetime',
+        'results_released_at' => 'datetime',
+        'results_reset_at' => 'datetime',
         'assessment_type' => 'string',
     ];
+
+    public function requiresIrtScoring(): bool
+    {
+        return $this->type_tryout === 'utbk_full' && $this->is_irt;
+    }
+
+    public function hasReleasedUtbk(): bool
+    {
+        if (! $this->results_released_at) {
+            return false;
+        }
+
+        if (! $this->results_reset_at) {
+            return true;
+        }
+
+        return $this->results_reset_at->lt($this->results_released_at);
+    }
+
+    public function canReleaseUtbk(): bool
+    {
+        return $this->requiresIrtScoring() && ! $this->hasReleasedUtbk();
+    }
 
     // Direct relationship (untuk tryout yang dibuat langsung di package)
     public function directPackage()

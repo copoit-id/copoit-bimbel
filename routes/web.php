@@ -207,6 +207,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
 
     Route::resource('tryout', AdminTryoutController::class);
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
+    Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
+    Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
 
     Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
     Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');

@@ -6,14 +6,63 @@ use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
+use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TryoutController extends Controller
 {
+    private const UTBK_SUBTESTS = [
+        'penalaran_umum' => [
+            'label' => 'Penalaran Umum',
+            'default_duration' => 35,
+            'default_passing' => 65,
+        ],
+        'pengetahuan_umum' => [
+            'label' => 'Pengetahuan & Pemahaman Umum',
+            'default_duration' => 30,
+            'default_passing' => 65,
+        ],
+        'pengetahuan_kuantitatif' => [
+            'label' => 'Pengetahuan Kuantitatif',
+            'default_duration' => 35,
+            'default_passing' => 65,
+        ],
+        'pemahaman_bacaan_menulis' => [
+            'label' => 'Pemahaman Bacaan & Menulis',
+            'default_duration' => 45,
+            'default_passing' => 65,
+        ],
+        'literasi_bahasa_indonesia' => [
+            'label' => 'Literasi Bahasa Indonesia',
+            'default_duration' => 30,
+            'default_passing' => 65,
+        ],
+        'literasi_bahasa_inggris' => [
+            'label' => 'Literasi Bahasa Inggris',
+            'default_duration' => 30,
+            'default_passing' => 65,
+        ],
+        'penalaran_matematika' => [
+            'label' => 'Penalaran Matematika',
+            'default_duration' => 30,
+            'default_passing' => 65,
+        ],
+    ];
+
     public function index()
     {
         $tryouts = Tryout::with(['tryoutDetails.questions'])
+            ->withCount([
+                'userAnswers as utbk_pending_count' => function ($query) {
+                    $query->where('status', 'pending_release');
+                },
+                'userAnswers as utbk_released_count' => function ($query) {
+                    $query->where('status', 'completed')
+                        ->whereNotNull('utbk_total_score');
+                },
+            ])
             ->latest()
             ->paginate(10);
 
@@ -28,25 +77,29 @@ class TryoutController extends Controller
         return view('admin.pages.tryout.index', compact('tryouts', 'packages'));
     }
 
+    private const UTBK_SINGLE_TYPES = [
+        'utbk_penalaran_umum' => 'penalaran_umum',
+        'utbk_pengetahuan_umum' => 'pengetahuan_umum',
+        'utbk_pengetahuan_kuantitatif' => 'pengetahuan_kuantitatif',
+        'utbk_pemahaman_bacaan_menulis' => 'pemahaman_bacaan_menulis',
+        'utbk_literasi_bahasa_indonesia' => 'literasi_bahasa_indonesia',
+        'utbk_literasi_bahasa_inggris' => 'literasi_bahasa_inggris',
+        'utbk_penalaran_matematika' => 'penalaran_matematika',
+    ];
+
     public function create()
     {
         $packages = Package::all();
-        return view('admin.pages.tryout.create', compact('packages'));
+        $utbkSubtests = $this->getUtbkSubtests();
+        $utbkSingleTypes = $this->getUtbkSingleTypeOptions();
+
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes'));
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,certification,listening,reading,writing,pppk_full,teknis,social culture,management,interview,word,excel,ppt,computer',
-            'assessment_type' => 'required|in:standard,pre_test,post_test',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'is_certification' => 'boolean',
-            'is_active' => 'boolean',
-            'is_toefl' => 'boolean',
-        ]);
+        $request->validate($this->tryoutValidationRules());
+        $isIrtEnabled = $this->shouldEnableIrt($request);
 
         try {
             $tryout = Tryout::create([
@@ -58,7 +111,10 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
-                'is_toefl' => $request->has('is_toefl')
+                'is_toefl' => $request->has('is_toefl'),
+                'is_irt' => $isIrtEnabled,
+                'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
+                'results_released_at' => null,
             ]);
 
             $this->createTryoutDetails($tryout, $request);
@@ -76,7 +132,10 @@ class TryoutController extends Controller
     {
         try {
             $tryout = Tryout::with(['tryoutDetails'])->findOrFail($id);
-            return view('admin.pages.tryout.create', compact('tryout'));
+            $utbkSubtests = $this->getUtbkSubtests();
+            $utbkSingleTypes = $this->getUtbkSingleTypeOptions();
+
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -85,17 +144,8 @@ class TryoutController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,certification,listening,reading,writing,pppk_full,teknis,social culture,management,interview,word,excel,ppt,computer',
-            'assessment_type' => 'required|in:standard,pre_test,post_test',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'is_certification' => 'boolean',
-            'is_active' => 'boolean',
-            'is_toefl' => 'boolean',
-        ]);
+        $request->validate($this->tryoutValidationRules());
+        $isIrtEnabled = $this->shouldEnableIrt($request);
 
         try {
             $tryout = Tryout::with('tryoutDetails')->findOrFail($id);
@@ -112,7 +162,10 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
-                'is_toefl' => $request->has('is_toefl')
+                'is_toefl' => $request->has('is_toefl'),
+                'is_irt' => $isIrtEnabled,
+                'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
+                'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
             ]);
 
             // If type changed, rebuild subtests based on new type; else update existing ones
@@ -176,6 +229,9 @@ class TryoutController extends Controller
     private function createTryoutDetails($tryout, $request)
     {
         switch ($tryout->type_tryout) {
+            case 'utbk_full':
+                $this->syncUtbkFullSubtests($tryout, $request);
+                break;
             case 'skd_full':
                 $this->createSubtest($tryout->tryout_id, 'twk', $request->duration_twk ?? 35, $request->passing_score_twk ?? 65);
                 $this->createSubtest($tryout->tryout_id, 'tiu', $request->duration_tiu ?? 90, $request->passing_score_tiu ?? 80);
@@ -260,6 +316,9 @@ class TryoutController extends Controller
             case 'ppt':
                 $this->createSubtest($tryout->tryout_id, 'ppt', $request->duration_ppt ?? 30, $request->passing_score_ppt ?? 70);
                 break;
+            default:
+                $this->createUtbkSingleSubtest($tryout, $request);
+                break;
         }
     }
 
@@ -289,6 +348,9 @@ class TryoutController extends Controller
     private function updateTryoutDetails(Tryout $tryout, Request $request): void
     {
         switch ($tryout->type_tryout) {
+            case 'utbk_full':
+                $this->syncUtbkFullSubtests($tryout, $request);
+                break;
             case 'skd_full':
                 $this->updateOrCreateSubtest($tryout, 'twk', $request->duration_twk ?? 35, $request->passing_score_twk ?? 65);
                 $this->updateOrCreateSubtest($tryout, 'tiu', $request->duration_tiu ?? 90, $request->passing_score_tiu ?? 80);
@@ -348,7 +410,51 @@ class TryoutController extends Controller
             case 'ppt':
                 $this->updateOrCreateSubtest($tryout, 'ppt', $request->duration_ppt ?? $request->duration_general ?? 30, $request->passing_score_ppt ?? $request->passing_score_general ?? 70);
                 break;
+            default:
+                $this->createUtbkSingleSubtest($tryout, $request, true);
+                break;
         }
+    }
+
+    private function syncUtbkFullSubtests(Tryout $tryout, Request $request): void
+    {
+        $allowedTypes = array_keys(self::UTBK_SUBTESTS);
+
+        foreach (self::UTBK_SUBTESTS as $type => $config) {
+            $durationField = 'duration_' . $type;
+            $passingField = 'passing_score_' . $type;
+
+            $duration = $request->input($durationField, $config['default_duration']);
+            $passing = $request->input($passingField, $config['default_passing']);
+
+            $this->updateOrCreateSubtest($tryout, $type, $duration, $passing);
+        }
+
+        $tryout->tryoutDetails()->whereNotIn('type_subtest', $allowedTypes)->delete();
+    }
+
+    private function createUtbkSingleSubtest(Tryout $tryout, Request $request, bool $isUpdate = false): void
+    {
+        $slug = $this->getUtbkSlugForType($tryout->type_tryout);
+
+        if (! $slug) {
+            return;
+        }
+
+        $defaults = self::UTBK_SUBTESTS[$slug] ?? ['default_duration' => 60, 'default_passing' => 65];
+        $durationField = 'duration_' . $slug;
+        $passingField = 'passing_score_' . $slug;
+
+        $duration = $request->input($durationField, $defaults['default_duration']);
+        $passing = $request->input($passingField, $defaults['default_passing']);
+
+        if ($isUpdate) {
+            $this->updateOrCreateSubtest($tryout, $slug, $duration, $passing);
+        } else {
+            $this->createSubtest($tryout->tryout_id, $slug, $duration, $passing);
+        }
+
+        $tryout->tryoutDetails()->where('type_subtest', '!=', $slug)->delete();
     }
 
     private function subtestLabel(?string $type): string
@@ -370,10 +476,117 @@ class TryoutController extends Controller
             'excel'             => 'Microsoft Excel',
             'ppt'               => 'Microsoft PowerPoint',
             'penalaran_umum'    => 'Penalaran Umum',
-            'pengetahuan_umum'  => 'Pengetahuan Umum',
+            'pengetahuan_umum'  => 'Pengetahuan & Pemahaman Umum',
+            'pengetahuan_kuantitatif'  => 'Pengetahuan Kuantitatif',
+            'pemahaman_bacaan_menulis' => 'Pemahaman Bacaan & Menulis',
+            'literasi_bahasa_indonesia' => 'Literasi Bahasa Indonesia',
+            'literasi_bahasa_inggris' => 'Literasi Bahasa Inggris',
+            'penalaran_matematika' => 'Penalaran Matematika',
         ];
 
         // Fallback: bikin judul yang oke kalau kodenya belum dipetakan
         return $map[$key] ?? Str::headline((string) $type);
+    }
+
+    private function shouldEnableIrt(Request $request): bool
+    {
+        return $request->type_tryout === 'utbk_full' && $request->boolean('is_irt');
+    }
+
+    private function tryoutValidationRules(): array
+    {
+        $typeOptions = array_merge([
+            'tiu',
+            'twk',
+            'tkp',
+            'skd_full',
+            'general',
+            'certification',
+            'listening',
+            'reading',
+            'writing',
+            'pppk_full',
+            'teknis',
+            'social culture',
+            'management',
+            'interview',
+            'word',
+            'excel',
+            'ppt',
+            'computer',
+            'utbk_full',
+            'utbk_section',
+        ], array_keys(self::UTBK_SINGLE_TYPES));
+
+        $rules = [
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'type_tryout' => ['required', Rule::in($typeOptions)],
+            'assessment_type' => ['required', Rule::in(['standard', 'pre_test', 'post_test'])],
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'is_certification' => 'boolean',
+            'is_active' => 'boolean',
+            'is_toefl' => 'boolean',
+            'is_irt' => 'boolean',
+        ];
+
+        foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
+            $rules['duration_' . $slug] = 'nullable|integer|min:1';
+            $rules['passing_score_' . $slug] = 'nullable|numeric|min:0|max:100';
+        }
+
+        return $rules;
+    }
+
+    private function getUtbkSubtests(): array
+    {
+        return self::UTBK_SUBTESTS;
+    }
+
+    private function getUtbkSlugForType(?string $type): ?string
+    {
+        return self::UTBK_SINGLE_TYPES[$type] ?? null;
+    }
+
+    private function getUtbkSingleTypeOptions(): array
+    {
+        $options = [];
+        foreach (self::UTBK_SINGLE_TYPES as $type => $slug) {
+            $options[$type] = [
+                'slug' => $slug,
+                'label' => self::UTBK_SUBTESTS[$slug]['label'] ?? Str::headline(str_replace('utbk_', '', $type)),
+            ];
+        }
+
+        return $options;
+    }
+
+    public function releaseUtbk(Tryout $tryout, UtbkResultReleaseService $service)
+    {
+        if (! $tryout->requiresIrtScoring()) {
+            return redirect()->back()->with('error', 'Tryout ini tidak menggunakan IRT UTBK.');
+        }
+
+        $released = $service->releaseForTryout($tryout);
+
+        return redirect()->back()->with(
+            $released ? 'success' : 'info',
+            $released ? 'Hasil UTBK berhasil dirilis.' : 'Tidak ada jawaban pending untuk dirilis.'
+        );
+    }
+
+    public function resetUtbk(Tryout $tryout, UtbkResultReleaseService $service)
+    {
+        if (! $tryout->requiresIrtScoring()) {
+            return redirect()->back()->with('error', 'Tryout ini tidak menggunakan IRT UTBK.');
+        }
+
+        $reset = $service->resetResults($tryout);
+
+        return redirect()->back()->with(
+            $reset ? 'success' : 'info',
+            $reset ? 'Skor UTBK berhasil di-reset. Silakan rilis ulang.' : 'Tidak ada skor UTBK yang bisa di-reset.'
+        );
     }
 }

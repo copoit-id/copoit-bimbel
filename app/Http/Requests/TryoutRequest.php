@@ -25,7 +25,7 @@ class TryoutRequest extends FormRequest
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'package_id' => 'required|exists:packages,id',
-            'type_tryout' => 'required|in:TIU,TWK,TKP,SKD_FULL',
+            'type_tryout' => 'required|in:TIU,TWK,TKP,SKD_FULL,UTBK_FULL,UTBK_SECTION,UTBK_PENALARAN_UMUM,UTBK_PENGETAHUAN_UMUM,UTBK_PENGETAHUAN_KUANTITATIF,UTBK_PEMAHAMAN_BACAAN_MENULIS,UTBK_LITERASI_BAHASA_INDONESIA,UTBK_LITERASI_BAHASA_INGGRIS,UTBK_PENALARAN_MATEMATIKA',
             'is_certification' => 'boolean',
             'start_date' => 'required|date|after:now',
             'end_date' => 'required|date|after:start_date'

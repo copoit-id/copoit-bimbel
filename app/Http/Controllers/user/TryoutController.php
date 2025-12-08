@@ -618,6 +618,20 @@ class TryoutController extends Controller
                 return 'Microsoft Excel';
             case 'ppt':
                 return 'Microsoft PowerPoint';
+            case 'penalaran_umum':
+                return 'Penalaran Umum';
+            case 'pengetahuan_umum':
+                return 'Pengetahuan & Pemahaman Umum';
+            case 'pengetahuan_kuantitatif':
+                return 'Pengetahuan Kuantitatif';
+            case 'pemahaman_bacaan_menulis':
+                return 'Pemahaman Bacaan & Menulis';
+            case 'literasi_bahasa_indonesia':
+                return 'Literasi Bahasa Indonesia';
+            case 'literasi_bahasa_inggris':
+                return 'Literasi Bahasa Inggris';
+            case 'penalaran_matematika':
+                return 'Penalaran Matematika';
             default:
                 return ucfirst($type);
         }
@@ -968,8 +982,9 @@ class TryoutController extends Controller
                 ->get();
         }
 
-        // Check if this is a TOEFL test
-        if ($tryout->is_toefl == 1) {
+        if ($tryout->requiresIrtScoring()) {
+            $this->processUtbkDeferredScoring($userAnswers, $tryout, $now);
+        } elseif ($tryout->is_toefl == 1) {
             // Use TOEFL scoring system
             $this->processToeflScoring($userAnswers, $now);
         } else {
@@ -1039,6 +1054,24 @@ class TryoutController extends Controller
         }
     }
 
+    private function processUtbkDeferredScoring($userAnswers, Tryout $tryout, Carbon $now): void
+    {
+        foreach ($userAnswers as $userAnswer) {
+            $this->updateSingleSubtestStats($userAnswer);
+
+            $userAnswer->update([
+                'finished_at' => $now,
+                'status' => 'pending_release',
+                'utbk_total_score' => null,
+                'is_passed' => false,
+            ]);
+        }
+
+        $tryout->update([
+            'results_release_at' => $tryout->end_date ?? $now,
+        ]);
+    }
+
     /**
      * Map section type to TOEFL section key
      */
@@ -1099,10 +1132,10 @@ class TryoutController extends Controller
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
 
-        // Get all completed user answers untuk tryout ini dengan attempt_token yang sama
+        // Get all completed/pending user answers untuk tryout ini dengan attempt_token yang sama
         $userAnswers = UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'pending_release'])
             ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -1117,6 +1150,24 @@ class TryoutController extends Controller
         $latestUserAnswers = $userAnswers->where('attempt_token', $latestAttemptToken);
 
         $tryoutDetails = $tryout->tryoutDetails;
+
+        $latestStatus = $latestUserAnswers->first()->status ?? 'completed';
+
+        if ($tryout->requiresIrtScoring()) {
+            if ($latestStatus === 'pending_release') {
+                $releaseTime = $tryout->results_release_at ?? $tryout->end_date;
+                if ($releaseTime) {
+                    $releaseTime = $releaseTime->copy()->setTimezone('Asia/Jakarta');
+                }
+                return view('user.pages.tryout.waiting', [
+                    'package' => $package,
+                    'tryout' => $tryout,
+                    'releaseTime' => $releaseTime,
+                ]);
+            }
+
+            return $this->processUtbkResults($package, $tryout, $latestUserAnswers, $latestAttemptToken);
+        }
 
         // Check if this is TOEFL test and calculate accordingly
         if ($tryout->is_toefl == 1) {
@@ -1166,6 +1217,45 @@ class TryoutController extends Controller
             'latestAttemptToken',
             'overallTotal'      // opsional dipakai di blade
         ));
+    }
+
+    private function processUtbkResults($package, $tryout, $latestUserAnswers, $latestAttemptToken)
+    {
+        $order = [
+            'penalaran_umum' => 1,
+            'pengetahuan_umum' => 2,
+            'pengetahuan_kuantitatif' => 3,
+            'pemahaman_bacaan_menulis' => 4,
+            'literasi_bahasa_indonesia' => 5,
+            'literasi_bahasa_inggris' => 6,
+            'penalaran_matematika' => 7,
+        ];
+
+        $sortedAnswers = $latestUserAnswers->sortBy(function ($answer) use ($order) {
+            $type = $answer->tryoutDetail->type_subtest ?? '';
+            return $order[$type] ?? 99;
+        });
+
+        $subtests = $sortedAnswers->map(function ($answer) {
+            return [
+                'type' => $answer->tryoutDetail->type_subtest,
+                'name' => $this->getSubtestName($answer->tryoutDetail->type_subtest),
+                'correct' => $answer->correct_answers ?? 0,
+                'wrong' => $answer->wrong_answers ?? 0,
+                'unanswered' => $answer->unanswered ?? 0,
+                'score' => (int) round((float) ($answer->score ?? 0)),
+            ];
+        })->values();
+
+        $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
+
+        return view('user.pages.tryout.result-utbk', [
+            'package' => $package,
+            'tryout' => $tryout,
+            'subtests' => $subtests,
+            'totalScore' => $totalScore,
+            'attemptToken' => $latestAttemptToken,
+        ]);
     }
 
     /**

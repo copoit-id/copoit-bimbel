@@ -21,6 +21,7 @@ class UserAnswer extends Model
         'started_at',
         'finished_at',
         'score',
+        'utbk_total_score',
         'correct_answers',
         'total_questions',
         'status'
@@ -29,7 +30,8 @@ class UserAnswer extends Model
     protected $casts = [
         'started_at' => 'datetime:Y-m-d H:i:s',
         'finished_at' => 'datetime:Y-m-d H:i:s',
-        'score' => 'decimal:2'
+        'score' => 'decimal:2',
+        'utbk_total_score' => 'decimal:2'
     ];
 
     // Pastikan timezone Jakarta untuk semua datetime

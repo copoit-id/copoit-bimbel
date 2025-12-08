@@ -109,30 +109,64 @@
             </div>
 
             <div class="space-y-2">
-                @if ($tryout->tryoutDetails->count() > 1)
-                <!-- Multiple Subtest (SKD Full, Certification Full, PPPK Full, etc.) -->
-                <button data-modal-target="modal-{{ $tryout->tryout_id }}"
-                    data-modal-toggle="modal-{{ $tryout->tryout_id }}"
-                    class="flex w-full cursor-pointer justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-                    <i class="ri-list-check mr-2"></i>
-                    Kelola Soal ({{ $tryout->tryoutDetails->count() }} Subtest)
-                </button>
-                @else
-                <!-- Single Subtest -->
-                @if($tryout->tryoutDetails->first())
-                <a href="{{ route('admin.question.index', $tryout->tryoutDetails->first()->tryout_detail_id) }}"
-                    class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-                    <i class="ri-list-check mr-2"></i>
-                    Kelola Soal ({{ $tryout->tryoutDetails->first()->questions->count() ?? 0 }})
-                </a>
-                @else
-                <button disabled
-                    class="flex w-full justify-center bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm">
-                    <i class="ri-list-check mr-2"></i>
-                    Belum ada subtest
-                </button>
-                @endif
-                @endif
+                @php
+                    $canManualRelease = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
+                    $pendingCount = $tryout->utbk_pending_count ?? 0;
+                    $releasedCount = $tryout->utbk_released_count ?? 0;
+                    $showReleaseButton = $canManualRelease && $pendingCount > 0;
+                    $showResetButton = $canManualRelease && ! $showReleaseButton && $releasedCount > 0;
+                @endphp
+
+                <div class="flex items-center gap-2">
+                    @if ($tryout->tryoutDetails->count() > 1)
+                    <!-- Multiple Subtest (SKD Full, Certification Full, PPPK Full, etc.) -->
+                    <button data-modal-target="modal-{{ $tryout->tryout_id }}"
+                        data-modal-toggle="modal-{{ $tryout->tryout_id }}"
+                        class="flex-1 flex cursor-pointer justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+                        <i class="ri-list-check mr-2"></i>
+                        Kelola Soal ({{ $tryout->tryoutDetails->count() }} Subtest)
+                    </button>
+                    @else
+                    <!-- Single Subtest -->
+                    @if($tryout->tryoutDetails->first())
+                    <a href="{{ route('admin.question.index', $tryout->tryoutDetails->first()->tryout_detail_id) }}"
+                        class="flex-1 flex justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+                        <i class="ri-list-check mr-2"></i>
+                        Kelola Soal ({{ $tryout->tryoutDetails->first()->questions->count() ?? 0 }})
+                    </a>
+                    @else
+                    <button disabled
+                        class="flex-1 flex justify-center bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm">
+                        <i class="ri-list-check mr-2"></i>
+                        Belum ada subtest
+                    </button>
+                    @endif
+                    @endif
+
+                    @if($canManualRelease)
+                        @if($showResetButton)
+                        <form action="{{ route('admin.tryout.reset-utbk', $tryout->tryout_id) }}" method="POST"
+                            onsubmit="return confirm('Reset skor UTBK? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.');">
+                            @csrf
+                            <button type="submit"
+                                title="Reset skor UTBK agar bisa dirilis ulang"
+                                class="p-2 rounded-lg border border-red-400 text-red-500 text-sm flex items-center justify-center hover:bg-red-500 hover:text-white">
+                                <i class="ri-refresh-line text-base"></i>
+                            </button>
+                        </form>
+                        @elseif($showReleaseButton)
+                        <form action="{{ route('admin.tryout.release-utbk', $tryout->tryout_id) }}" method="POST"
+                            onsubmit="return confirm('Rilis hasil UTBK sekarang? Pastikan semua peserta sudah selesai.');">
+                            @csrf
+                            <button type="submit"
+                                title="Rilis nilai UTBK secara manual"
+                                class="p-2 rounded-lg border border-primary text-primary text-sm flex items-center justify-center hover:bg-primary hover:text-white">
+                                <i class="ri-sparkling-line text-base"></i>
+                            </button>
+                        </form>
+                        @endif
+                    @endif
+                </div>
 
                 <div class="flex gap-2">
                     <a href="{{ route('admin.tryout.edit', $tryout->tryout_id) }}"

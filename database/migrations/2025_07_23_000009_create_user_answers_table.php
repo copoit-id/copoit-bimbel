@@ -23,8 +23,9 @@ return new class extends Migration
             $table->integer('wrong_answers')->default(0);
             $table->integer('unanswered')->default(0);
             $table->decimal('score', 5, 2)->default(0);
+            $table->decimal('utbk_total_score', 8, 2)->nullable();
             $table->boolean('is_passed')->default(false);
-            $table->enum('status', ['in_progress', 'completed', 'abandoned'])->default('in_progress');
+            $table->enum('status', ['in_progress', 'completed', 'abandoned', 'pending_release'])->default('in_progress');
             $table->timestamps();
 
             // Index untuk query cepat berdasarkan token
