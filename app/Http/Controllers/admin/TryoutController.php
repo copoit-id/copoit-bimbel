@@ -90,10 +90,11 @@ class TryoutController extends Controller
     public function create()
     {
         $packages = Package::all();
-        $utbkSubtests = $this->getUtbkSubtests();
-        $utbkSingleTypes = $this->getUtbkSingleTypeOptions();
+        $allowUtbkTypes = $this->allowUtbkControls();
+        $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
+        $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes'));
     }
 
     public function store(Request $request)
@@ -132,10 +133,11 @@ class TryoutController extends Controller
     {
         try {
             $tryout = Tryout::with(['tryoutDetails'])->findOrFail($id);
-            $utbkSubtests = $this->getUtbkSubtests();
-            $utbkSingleTypes = $this->getUtbkSingleTypeOptions();
+            $allowUtbkTypes = $this->allowUtbkControls($tryout->type_tryout);
+            $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
+            $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -144,12 +146,17 @@ class TryoutController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate($this->tryoutValidationRules());
+        try {
+            $tryout = Tryout::with('tryoutDetails')->findOrFail($id);
+        } catch (\Exception $e) {
+            return redirect()->route('admin.tryout.index')
+                ->with('error', 'Tryout tidak ditemukan');
+        }
+
+        $request->validate($this->tryoutValidationRules($tryout->type_tryout));
         $isIrtEnabled = $this->shouldEnableIrt($request);
 
         try {
-            $tryout = Tryout::with('tryoutDetails')->findOrFail($id);
-
             $originalType = $tryout->type_tryout;
 
             // Update master tryout fields
@@ -493,9 +500,9 @@ class TryoutController extends Controller
         return $request->type_tryout === 'utbk_full' && $request->boolean('is_irt');
     }
 
-    private function tryoutValidationRules(): array
+    private function tryoutValidationRules(?string $currentType = null): array
     {
-        $typeOptions = array_merge([
+        $typeOptions = [
             'tiu',
             'twk',
             'tkp',
@@ -514,9 +521,15 @@ class TryoutController extends Controller
             'excel',
             'ppt',
             'computer',
-            'utbk_full',
-            'utbk_section',
-        ], array_keys(self::UTBK_SINGLE_TYPES));
+        ];
+
+        if ($this->allowUtbkControls($currentType)) {
+            $typeOptions = array_merge(
+                $typeOptions,
+                ['utbk_full', 'utbk_section'],
+                array_keys(self::UTBK_SINGLE_TYPES)
+            );
+        }
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -560,6 +573,27 @@ class TryoutController extends Controller
         }
 
         return $options;
+    }
+
+    private function allowUtbkControls(?string $currentType = null): bool
+    {
+        return $this->utbkEnabled() || $this->isUtbkType($currentType);
+    }
+
+    private function utbkEnabled(): bool
+    {
+        return (bool) config('client.branding.utbk_enabled', true);
+    }
+
+    private function isUtbkType(?string $type): bool
+    {
+        if (!$type) {
+            return false;
+        }
+
+        return $type === 'utbk_full'
+            || $type === 'utbk_section'
+            || array_key_exists($type, self::UTBK_SINGLE_TYPES);
     }
 
     public function releaseUtbk(Tryout $tryout, UtbkResultReleaseService $service)

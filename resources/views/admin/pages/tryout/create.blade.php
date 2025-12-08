@@ -4,6 +4,7 @@
 @php
     $utbkSubtests = $utbkSubtests ?? [];
     $utbkSingleTypes = $utbkSingleTypes ?? [];
+    $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
 @endphp
 <div class="space-y-6">
     <!-- Page Header -->
@@ -60,6 +61,7 @@
                             <option value="skd_full" {{ (isset($tryout) && $tryout->type_tryout === 'skd_full') ||
                                 old('type_tryout') === 'skd_full' ? 'selected' : '' }}>SKD Full (TWK + TIU + TKP)
                             </option>
+                            @if($allowUtbkTypes)
                             <option value="utbk_full" {{ (isset($tryout) && $tryout->type_tryout === 'utbk_full') ||
                                 old('type_tryout') === 'utbk_full' ? 'selected' : '' }}>UTBK TPS (Full)</option>
                             @foreach($utbkSingleTypes as $typeKey => $singleConfig)
@@ -68,6 +70,7 @@
                                 {{ 'UTBK - ' . $singleConfig['label'] }}
                             </option>
                             @endforeach
+                            @endif
                             <option value="twk" {{ (isset($tryout) && $tryout->type_tryout === 'twk') ||
                                 old('type_tryout') === 'twk' ? 'selected' : '' }}>TWK</option>
                             <option value="tiu" {{ (isset($tryout) && $tryout->type_tryout === 'tiu') ||
@@ -178,6 +181,7 @@
                         </label>
                     </div>
 
+                    @if($allowUtbkTypes)
                     <div class="flex flex-col md:flex-row md:items-center hidden" data-irt-toggle>
                         <div class="flex items-center">
                             <input type="checkbox" id="is_irt" name="is_irt" value="1" {{
@@ -190,6 +194,7 @@
                         <p class="text-xs text-gray-500 mt-2 md:mt-0 md:ml-4">Nilai dirilis otomatis setelah periode UTBK
                             berakhir.</p>
                     </div>
+                    @endif
                 </div>
 
                 <!-- Dynamic Configuration Sections -->

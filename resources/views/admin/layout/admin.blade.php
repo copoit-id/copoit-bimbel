@@ -14,6 +14,7 @@
 
     @vite('resources/css/app.css')
     @include('components.branding-styles')
+    @include('components.favicon-link')
 </head>
 
 <body>

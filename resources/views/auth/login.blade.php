@@ -8,6 +8,7 @@
     <title>Login - {{ $clientBranding['name'] }}</title>
     @vite('resources/css/app.css')
     @include('components.branding-styles')
+    @include('components.favicon-link')
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet" />
 
     @if($recaptcha_enabled)
