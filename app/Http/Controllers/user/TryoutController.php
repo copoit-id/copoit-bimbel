@@ -454,6 +454,7 @@ class TryoutController extends Controller
             $subtestInfo[] = [
                 'type' => $detail->type_subtest,
                 'name' => $this->getSubtestName($detail->type_subtest),
+                'alias' => $this->getSubtestAlias($detail->type_subtest),
                 'start_number' => $allQuestions->count() - $questions->count() + 1,
                 'end_number' => $allQuestions->count(),
                 'duration' => $detail->duration,
@@ -635,6 +636,21 @@ class TryoutController extends Controller
             default:
                 return ucfirst($type);
         }
+    }
+
+    private function getSubtestAlias($type)
+    {
+        $map = [
+            'penalaran_umum' => 'PU',
+            'pengetahuan_umum' => 'PPU',
+            'pengetahuan_kuantitatif' => 'PK',
+            'pemahaman_bacaan_menulis' => 'PBM',
+            'literasi_bahasa_indonesia' => 'LBI',
+            'literasi_bahasa_inggris' => 'LBE',
+            'penalaran_matematika' => 'PM',
+        ];
+
+        return $map[$type] ?? strtoupper((string) $type);
     }
 
     public function saveAnswer(Request $request, $id_package, $id_tryout, $number)

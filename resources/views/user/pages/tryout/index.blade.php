@@ -282,24 +282,29 @@
                 </div>
                 <!-- SKD Progress (if multiple subtests) -->
                 @if(isset($subtestInfo) && count($subtestInfo) > 1)
+                @php
+                    $isUtbkTryout = isset($tryout) && method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
+                    $subtestProgressTitle = $isUtbkTryout ? 'Progress UTBK' : 'Progress SKD Full';
+                @endphp
                 <div class="mb-6 p-4 bg-white border border-border mt-4 rounded-lg">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-sm font-medium text-gray-700">Progress SKD Full</span>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                        <span class="text-sm font-medium text-gray-700">{{ $subtestProgressTitle }}</span>
                         <span class="text-sm text-gray-600">{{ count($subtestInfo) }} Subtest</span>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         @foreach($subtestInfo as $index => $subtest)
                         @php
                         $isCurrentSubtest = $currentSubtest && $currentSubtest['type'] === $subtest['type'];
                         $isCompleted = $number > $subtest['end_number'];
+                        $displayLabel = $subtest['alias'] ?? \Illuminate\Support\Str::limit($subtest['name'], 18);
                         @endphp
                         <div class="text-center">
-                            <div class="w-8 h-8 rounded-full mx-auto mb-1 flex items-center justify-center text-sm font-semibold
+                            <div class="w-9 h-9 rounded-full mx-auto mb-1 flex items-center justify-center text-sm font-semibold
                                     {{ $isCompleted ? 'bg-green text-white' :
                                        ($isCurrentSubtest ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600') }}">
                                 {{ $index + 1 }}
                             </div>
-                            <p class="text-xs text-gray-600">{{ strtoupper($subtest['type']) }}</p>
+                            <p class="text-[11px] leading-tight text-gray-600">{{ $displayLabel }}</p>
                             @if($isCurrentSubtest)
                             <div class="mt-2">
                                 @php
