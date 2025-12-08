@@ -768,6 +768,31 @@ class PackageController extends Controller
             ->get()
             ->groupBy('user_id')
             ->map(function ($userAnswers) use ($tryout) {
+                $usesUtbkIrt = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
+
+                if ($usesUtbkIrt) {
+                    $attemptGroups = $userAnswers->groupBy('attempt_token');
+
+                    $bestAttempt = $attemptGroups->map(function ($attempt) {
+                        $representative = $attempt->first();
+                        $score = (float) ($representative->utbk_total_score ?? 0);
+
+                        return [
+                            'user' => $representative->user,
+                            'raw_score' => $score,
+                            'max_score' => 1000,
+                            'percentage' => $score / 10,
+                            'finished_at' => $attempt->max('finished_at'),
+                            'correct_answers' => $attempt->sum('correct_answers'),
+                            'wrong_answers' => $attempt->sum('wrong_answers'),
+                            'unanswered' => $attempt->sum('unanswered'),
+                            'is_passed' => null,
+                        ];
+                    })->filter()->sortByDesc('raw_score')->values()->first();
+
+                    return $bestAttempt;
+                }
+
                 // Untuk SKD Full, gabungkan skor dari semua subtest
                 if ($userAnswers->count() > 1) {
                     // Group by attempt_token untuk mendapatkan attempt terbaik
