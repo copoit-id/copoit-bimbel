@@ -22,6 +22,25 @@
         </div>
     </div>
 
+    @if (session('success'))
+    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+        <i class="ri-checkbox-circle-line text-lg"></i>
+        <span>{{ session('success') }}</span>
+    </div>
+    @endif
+
+    @if (session('error'))
+    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
+        <i class="ri-error-warning-line text-lg"></i>
+        <span>{{ session('error') }}</span>
+    </div>
+    @endif
+
+    <form id="bulk-delete-form" action="{{ route('admin.user.bulk-destroy') }}" method="POST" class="hidden">
+        @csrf
+        @method('DELETE')
+    </form>
+
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
         <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-2">
@@ -54,10 +73,20 @@
                 </button>
             </div>
 
-            <div id="user-count" class="text-sm text-gray-500">
-                Halaman ini: <span class="font-medium text-gray-700">{{ $users->count() }} User</span>
-                <span class="mx-1 text-gray-300">•</span>
-                Total: <span class="font-medium text-gray-700">{{ $users->total() }} User</span>
+            <div class="flex items-center gap-3">
+                <div id="user-count" class="text-sm text-gray-500">
+                    Halaman ini: <span class="font-medium text-gray-700 current-count">{{ $users->count() }} User</span>
+                    <span class="mx-1 text-gray-300">•</span>
+                    Total: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
+                </div>
+                <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
+                    class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+                    <i class="ri-delete-bin-5-line"></i>
+                    Hapus Terpilih
+                    <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                        <span id="bulk-selected-count">0</span>
+                    </span>
+                </button>
             </div>
         </div>
 
@@ -67,6 +96,10 @@
                 <table class="w-full text-sm text-left rtl:text-right text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
+                            <th scope="col" class="px-6 py-3 w-12">
+                                <input type="checkbox" id="select-all-users"
+                                    class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </th>
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
                             <th scope="col" class="px-6 py-3">Role</th>
@@ -80,6 +113,10 @@
                         <tr class="bg-white border-b border-dashed border-gray-200 user-row"
                             data-name="{{ Str::lower($user->name) }}" data-email="{{ Str::lower($user->email) }}"
                             data-role="{{ $user->role }}" data-status="{{ $user->status }}">
+                            <td class="px-6 py-4">
+                                <input type="checkbox" name="ids[]" value="{{ $user->id }}" form="bulk-delete-form"
+                                    class="user-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <img src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&background=444444&color=fff"
@@ -143,7 +180,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>
@@ -179,6 +216,10 @@
             const rows = Array.from(tbody.querySelectorAll('.user-row'));
             const noResults = document.getElementById('no-results');
             const tableContainer = document.getElementById('user-table-container');
+            const selectAll = document.getElementById('select-all-users');
+            const bulkButton = document.getElementById('bulk-delete-button');
+            const bulkCount = document.getElementById('bulk-selected-count');
+            const bulkForm = document.getElementById('bulk-delete-form');
 
             function getText(el, attr) {
                 return (el.getAttribute(attr) || '').toLowerCase();
@@ -210,12 +251,9 @@
                 tableContainer.style.display = anyVisible ? 'block' : 'none';
                 noResults.classList.toggle('hidden', anyVisible);
 
-                // Update count (hanya untuk halaman ini)
-                userCount.querySelector('span.font-medium.text-gray-7').textContent = '';
-                const spans = userCount.querySelectorAll('span.font-medium.text-gray-700');
-                if (spans.length >= 2) {
-                    spans[0].textContent = `${visible} User`;
-                    // spans[1] tetap total seluruh data (server)
+                const currentCount = userCount.querySelector('.current-count');
+                if (currentCount) {
+                    currentCount.textContent = `${visible} User`;
                 }
             }
 
@@ -226,12 +264,72 @@
                 applyFilters();
             }
 
+            function getRowCheckboxes() {
+                return Array.from(document.querySelectorAll('.user-checkbox'));
+            }
+
+            function updateBulkState() {
+                const checkboxes = getRowCheckboxes();
+                const checked = checkboxes.filter(cb => cb.checked);
+
+                if (bulkButton) {
+                    bulkButton.disabled = checked.length === 0;
+                }
+
+                if (bulkCount) {
+                    bulkCount.textContent = checked.length;
+                }
+
+                if (selectAll) {
+                    if (checked.length === 0) {
+                        selectAll.checked = false;
+                        selectAll.indeterminate = false;
+                    } else if (checked.length === checkboxes.length) {
+                        selectAll.checked = true;
+                        selectAll.indeterminate = false;
+                    } else {
+                        selectAll.checked = false;
+                        selectAll.indeterminate = true;
+                    }
+                }
+            }
+
             searchInput.addEventListener('input', applyFilters);
             roleFilter.addEventListener('change', applyFilters);
             statusFilter.addEventListener('change', applyFilters);
             resetButton.addEventListener('click', resetFilters);
 
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    getRowCheckboxes().forEach(cb => {
+                        if (!cb.disabled) {
+                            cb.checked = selectAll.checked;
+                        }
+                    });
+                    updateBulkState();
+                });
+            }
+
+            getRowCheckboxes().forEach(cb => {
+                cb.addEventListener('change', updateBulkState);
+            });
+
+            if (bulkForm) {
+                bulkForm.addEventListener('submit', function (event) {
+                    const selected = getRowCheckboxes().filter(cb => cb.checked);
+                    if (selected.length === 0) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    if (!confirm(`Hapus ${selected.length} user terpilih?`)) {
+                        event.preventDefault();
+                    }
+                });
+            }
+
             applyFilters();
+            updateBulkState();
         });
     </script>
 </div>

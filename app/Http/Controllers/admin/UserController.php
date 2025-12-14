@@ -72,6 +72,35 @@ class UserController extends Controller
             ->with('success', 'User berhasil diperbarui');
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids) || count($ids) === 0) {
+            return redirect()->route('admin.user.index')
+                ->with('error', 'Pilih minimal satu user untuk dihapus.');
+        }
+
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+
+        if (empty($ids)) {
+            return redirect()->route('admin.user.index')
+                ->with('error', 'Data user tidak valid.');
+        }
+
+        $deleted = User::where('role', 'user')
+            ->whereIn('id', $ids)
+            ->delete();
+
+        if ($deleted === 0) {
+            return redirect()->route('admin.user.index')
+                ->with('error', 'Tidak ada user yang dihapus.');
+        }
+
+        return redirect()->route('admin.user.index')
+            ->with('success', "{$deleted} user berhasil dihapus.");
+    }
+
     public function destroy($id)
     {
         $user = User::findOrFail($id);

@@ -215,6 +215,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
     Route::resource('class', ClassController::class);
     Route::resource('certification', CertificationController::class);
+    Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
     Route::resource('user', UserController::class);
 
     // Route untuk admin leaderboard
