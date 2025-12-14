@@ -391,11 +391,11 @@ class QuestionController extends Controller
     private function validateMultipleChoiceQuestion(Request $request, TryoutDetail $tryoutDetail, string $questionType = 'multiple_choice'): void
     {
         $rules = [
-            'option_a' => 'required|string|max:255',
-            'option_b' => 'required|string|max:255',
-            'option_c' => 'required|string|max:255',
-            'option_d' => 'required|string|max:255',
-            'option_e' => 'nullable|string|max:255',
+            'option_a' => 'required|string',
+            'option_b' => 'required|string',
+            'option_c' => 'required|string',
+            'option_d' => 'required|string',
+            'option_e' => 'nullable|string',
             'correct_answer' => 'required|in:A,B,C,D,E',
             'use_custom_scores' => 'nullable|boolean',
             'score_a' => 'nullable|numeric|min:0|max:5',
@@ -407,11 +407,11 @@ class QuestionController extends Controller
 
         if ($questionType === 'true_false') {
             $rules = [
-                'option_a' => 'nullable|string|max:255',
-                'option_b' => 'nullable|string|max:255',
-                'option_c' => 'nullable|string|max:255',
-                'option_d' => 'nullable|string|max:255',
-                'option_e' => 'nullable|string|max:255',
+                'option_a' => 'nullable|string',
+                'option_b' => 'nullable|string',
+                'option_c' => 'nullable|string',
+                'option_d' => 'nullable|string',
+                'option_e' => 'nullable|string',
                 'correct_answer' => 'required|in:A,B',
             ];
         }
