@@ -19,6 +19,36 @@
         </a>
     </div>
 
+    @if (session('success'))
+    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+        <i class="ri-checkbox-circle-line text-lg"></i>
+        <span>{{ session('success') }}</span>
+    </div>
+    @endif
+
+    @if (session('error'))
+    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
+        <i class="ri-error-warning-line text-lg"></i>
+        <span>{{ session('error') }}</span>
+    </div>
+    @endif
+
+    @if ($errors->any())
+    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+        <div class="flex gap-2 items-start">
+            <i class="ri-close-circle-line text-lg mt-0.5"></i>
+            <div>
+                <p class="font-semibold mb-1">Terjadi kesalahan pada data:</p>
+                <ul class="list-disc list-inside text-sm space-y-0.5">
+                    @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Create / Edit Form -->
     <div class="bg-white rounded-lg shadow border border-gray-200">
         <form action="{{ $user ? route('admin.user.update', $user->id) : route('admin.user.store') }}" method="POST">
@@ -40,7 +70,7 @@
                             required />
 
                         <x-form.input type="password" name="password" label="Password {{ $user
-                            ? '(biarkan kosong jika tidak diubah)' : '' }}" {{ $user ? '' : 'required' }} />
+                            ? '(biarkan kosong jika tidak diubah)' : '' }}" :required="!$user" autocomplete="new-password" />
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

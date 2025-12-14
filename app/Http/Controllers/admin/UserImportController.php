@@ -136,8 +136,7 @@ class UserImportController extends Controller
                     $email    = trim($data['email'] ?? $data['Email'] ?? '');
                     $name     = trim($data['name'] ?? $data['Name'] ?? $data['nama'] ?? '');
                     $username = trim($data['username'] ?? $data['Username'] ?? '');
-                    // PASSWORD SUDAH HASH → pakai apa adanya
-                    $passwordHash = trim($data['password'] ?? $data['Password'] ?? '');
+                    $passwordValue = trim($data['password'] ?? $data['Password'] ?? '');
                     $dobStr   = trim($data['date_of_birth'] ?? $data['birth_date'] ?? $data['tanggal_lahir'] ?? '');
                     $status   = trim($data['status'] ?? $data['Status'] ?? 'active');
 
@@ -146,11 +145,13 @@ class UserImportController extends Controller
                     $updatedCsv = $data['updated_at'] ?? null;
 
                     // Validasi minimal
-                    if ($email === '' || $name === '' || $passwordHash === '') {
+                    if ($email === '' || $name === '') {
                         $skipped++;
                         $processed++;
                         continue;
                     }
+
+                    $passwordHash = $this->preparePasswordValue($passwordValue);
 
                     // Username kandidat (tanpa cek DB per-row)
                     $username = $username !== '' ? Str::slug($username, '') : Str::slug($name, '');
@@ -160,7 +161,7 @@ class UserImportController extends Controller
                         'name'              => $name,
                         'username'          => $username,
                         'email'             => strtolower($email),
-                        'password'          => $passwordHash, // ← TIDAK DI-HASH ULANG
+                        'password'          => $passwordHash,
 
                         // PENTING: tabel pakai 'birthday', isi dari 'birth_date' (atau alias lain) CSV
                         'birthday'          => $this->parseBirthDate($dobStr),
@@ -271,5 +272,19 @@ class UserImportController extends Controller
     private function mapStatus($status)
     {
         return strtolower($status) === 'active' ? 'aktif' : 'nonaktif';
+    }
+
+    private function preparePasswordValue(?string $password): string
+    {
+        $rawPassword = trim((string) $password);
+
+        if ($rawPassword === '') {
+            $rawPassword = 'password123';
+        }
+
+        $info = password_get_info($rawPassword);
+        $isBcryptHash = ($info['algoName'] ?? 'unknown') === 'bcrypt';
+
+        return $isBcryptHash ? $rawPassword : Hash::make($rawPassword);
     }
 }
