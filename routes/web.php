@@ -22,10 +22,47 @@ use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 // routes/web.php
 Route::get('/phpinfo', function () {
     phpinfo();
+});
+
+Route::get('/setup-project', function () {
+    $results = [];
+
+    try {
+        if (empty(config('app.key'))) {
+            Artisan::call('key:generate', ['--force' => true]);
+            $results[] = 'APP_KEY generated.';
+        } else {
+            $results[] = 'APP_KEY sudah tersedia, skip key:generate.';
+        }
+
+        $commands = [
+            ['command' => 'storage:link', 'options' => []],
+            ['command' => 'migrate', 'options' => ['--force' => true]],
+            ['command' => 'db:seed', 'options' => ['--force' => true]],
+            ['command' => 'optimize:clear', 'options' => []],
+        ];
+
+        foreach ($commands as $item) {
+            Artisan::call($item['command'], $item['options']);
+            $results[] = sprintf('Artisan %s selesai.', $item['command']);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'steps' => $results,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
 });
 
 Route::get('/', function () {
