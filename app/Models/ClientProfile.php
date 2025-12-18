@@ -18,6 +18,7 @@ class ClientProfile extends Model
         'header_primary_color',
         'sidebar_primary_color',
         'enable_utbk_types',
+        'allow_video_thumbnail',
     ];
 
     protected $casts = [
@@ -25,5 +26,6 @@ class ClientProfile extends Model
         'header_primary_color' => 'boolean',
         'sidebar_primary_color' => 'boolean',
         'enable_utbk_types' => 'boolean',
+        'allow_video_thumbnail' => 'boolean',
     ];
 }

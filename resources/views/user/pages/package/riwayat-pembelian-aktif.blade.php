@@ -10,8 +10,17 @@
             <div>
                 <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                     @if($package->image)
-                    <img src="{{ Storage::url($package->image) }}" alt="{{ $package->name }}"
-                        class="w-full h-full object-cover">
+                        @php
+                            $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+                            $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
+                            $thumbUrl = Storage::url($package->image);
+                        @endphp
+                        @if($thumbIsVideo)
+                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" autoplay muted loop playsinline></video>
+                        @else
+                            <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
+                                class="w-full h-full object-cover">
+                        @endif
                     @else
                     <div class="w-full h-full bg-gray-200 flex items-center justify-center">
                         <i class="ri-image-line text-3xl text-gray-400"></i>

@@ -33,15 +33,22 @@ class PackageController extends Controller
     public function store(Request $request)
     {
         try {
+            $allowVideoThumbnail = config('client.branding.allow_video_thumbnail', false);
+
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
                 'type_package' => 'required|in:bimbel,tryout,sertifikasi',
                 'type_price' => 'required|in:free,paid',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
                 'features' => 'nullable|array',
             ];
+
+            $thumbnailRule = $allowVideoThumbnail
+                ? 'nullable|file|mimetypes:image/jpeg,image/png,image/jpg,image/webp,video/mp4,video/quicktime,video/webm|max:51200'
+                : 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048';
+
+            $validationRules['image'] = $thumbnailRule;
 
             // Add price validation only if type_price is 'paid'
             if ($request->type_price === 'paid') {
@@ -89,17 +96,24 @@ class PackageController extends Controller
     public function update(Request $request, $id)
     {
         try {
+            $allowVideoThumbnail = config('client.branding.allow_video_thumbnail', false);
+
             $package = Package::findOrFail($id);
 
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
                 'type_package' => 'required|in:bimbel,tryout,sertifikasi',
                 'type_price' => 'required|in:free,paid',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
                 'features' => 'nullable|array',
             ];
+
+            $thumbnailRule = $allowVideoThumbnail
+                ? 'nullable|file|mimetypes:image/jpeg,image/png,image/jpg,image/webp,video/mp4,video/quicktime,video/webm|max:51200'
+                : 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048';
+
+            $validationRules['image'] = $thumbnailRule;
 
             // Add price validation only if type_price is 'paid'
             if ($request->type_price === 'paid') {

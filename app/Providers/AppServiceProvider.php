@@ -25,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $defaults = [
             'name' => 'Copoit Academy',
-            'logo' => 'img/logo/logo-copoit.png',
+            'logo' => 'img/logo/logo.png',
             'favicon' => null,
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
@@ -33,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
             'header_primary_color' => false,
             'sidebar_primary_color' => false,
             'utbk_enabled' => true,
+            'allow_video_thumbnail' => false,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -49,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['header_primary_color'] = $clientProfile->header_primary_color ?? $defaults['header_primary_color'];
             $defaults['sidebar_primary_color'] = $clientProfile->sidebar_primary_color ?? $defaults['sidebar_primary_color'];
             $defaults['utbk_enabled'] = $clientProfile->enable_utbk_types ?? $defaults['utbk_enabled'];
+            $defaults['allow_video_thumbnail'] = $clientProfile->allow_video_thumbnail ?? $defaults['allow_video_thumbnail'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
@@ -70,7 +72,7 @@ class AppServiceProvider extends ServiceProvider
         view()->share('clientBranding', $branding);
     }
 
-    private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo-copoit.png'): string
+    private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo.png'): string
     {
         $target = $path ?: $fallback;
 

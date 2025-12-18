@@ -1,5 +1,10 @@
 @extends('admin.layout.admin')
 
+@php
+    $allowVideoThumbnail = $clientBranding['allow_video_thumbnail'] ?? false;
+    $videoExtensions = ['mp4', 'webm', 'mov', 'm4v'];
+@endphp
+
 @section('content')
 <div class="space-y-6">
     <!-- Page Header -->
@@ -48,17 +53,37 @@
                         </div>
 
                         <div>
-                            <label for="image" class="block text-sm font-medium text-gray-700 mb-2">Gambar Paket</label>
+                            <label for="image" class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ $allowVideoThumbnail ? 'Thumbnail (Gambar / Video)' : 'Gambar Paket' }}
+                            </label>
                             @if(isset($package) && $package->image)
+                            @php
+                                $currentThumb = $package->image;
+                                $currentExt = strtolower(pathinfo($currentThumb, PATHINFO_EXTENSION));
+                                $currentIsVideo = in_array($currentExt, $videoExtensions, true);
+                                $currentUrl = Storage::url($currentThumb);
+                            @endphp
                             <div class="mb-3">
-                                <img src="{{ Storage::url($package->image) }}" alt="Current image"
+                                @if($currentIsVideo)
+                                <video src="{{ $currentUrl }}" class="w-32 h-20 rounded-lg border object-cover" controls muted loop></video>
+                                <p class="text-sm text-gray-500 mt-1">Video saat ini</p>
+                                @else
+                                <img src="{{ $currentUrl }}" alt="Current image"
                                     class="w-32 h-20 object-cover rounded-lg border">
                                 <p class="text-sm text-gray-500 mt-1">Gambar saat ini</p>
+                                @endif
                             </div>
                             @endif
-                            <input type="file" id="image" name="image" accept="image/*"
+                            <input type="file" id="image" name="image"
+                                accept="{{ $allowVideoThumbnail ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*' }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <p class="text-sm text-gray-500 mt-1">Format: JPG, PNG, WEBP (Max: 2MB)</p>
+                            <p class="text-sm text-gray-500 mt-1">
+                                @if($allowVideoThumbnail)
+                                Format gambar: JPG, PNG, WEBP (2MB). Video: MP4/WEBM/MOV (maks 50MB).
+                                @else
+                                Format: JPG, PNG, WEBP (Max: 2MB)
+                                @endif
+                            </p>
                         </div>
                     </div>
 
