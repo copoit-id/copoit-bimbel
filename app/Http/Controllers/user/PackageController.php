@@ -11,16 +11,16 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PackageController extends Controller
 {
     public function index()
     {
-        // Get packages by type with user access information - HANYA PAKET BERBAYAR
         $kelasPackages = Package::where('type_package', 'bimbel')
             ->where('status', 'active')
-            ->where('price', '>', 0) // Hanya paket berbayar
+            ->where('type_price', 'paid')
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
@@ -30,7 +30,7 @@ class PackageController extends Controller
 
         $tryoutPackages = Package::where('type_package', 'tryout')
             ->where('status', 'active')
-            ->where('price', '>', 0) // Hanya paket berbayar
+            ->where('type_price', 'paid')
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
@@ -40,7 +40,7 @@ class PackageController extends Controller
 
         $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
             ->where('status', 'active')
-            ->where('price', '>', 0) // Hanya paket berbayar
+            ->where('type_price', 'paid')
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
@@ -60,53 +60,64 @@ class PackageController extends Controller
         try {
             $package = Package::findOrFail($package_id);
 
-            // Check if user already has active access
             $existingAccess = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
-                ->where('status', 'active')
-                ->where('end_date', '>', Carbon::now())
                 ->first();
 
-            if ($existingAccess) {
+            if ($existingAccess && $existingAccess->status === 'active' && $existingAccess->end_date && Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now())) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda sudah memiliki akses aktif ke paket ini'
                 ], 400);
             }
 
-            // If package is free, give direct access
-            if ($package->price == 0) {
-                UserPackageAcces::create([
-                    'user_id' => Auth::id(),
-                    'package_id' => $package_id,
-                    'start_date' => Carbon::now(),
-                    'end_date' => Carbon::now()->addDays(30), // Default 30 days for free packages
-                    'status' => 'active',
-                    'payment_amount' => 0,
-                    'payment_status' => 'free',
-                    'notes' => 'Free package access',
-                    'created_by' => Auth::id()
-                ]);
+            switch ($package->type_price) {
+                case 'free_unconditional':
+                    $this->grantFreeAccess($package_id);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Paket gratis berhasil diaktifkan!'
-                ]);
-            }
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Paket gratis berhasil diaktifkan!'
+                    ]);
 
-            // Create payment for paid packages using Xendit
-            $paymentResponse = $this->createXenditPayment($package);
+                case 'free_conditional':
+                    $validated = $request->validate([
+                        'requirement_proof' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:20480',
+                    ], [
+                        'requirement_proof.required' => 'Bukti pemenuhan syarat wajib diunggah.',
+                        'requirement_proof.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
+                        'requirement_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                    ]);
 
-            if ($paymentResponse['success']) {
-                return response()->json([
-                    'success' => true,
-                    'redirect_url' => $paymentResponse['invoice_url']
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => $paymentResponse['message']
-                ], 500);
+                    $this->saveConditionalRequest($package, $existingAccess, $request->file('requirement_proof'));
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Bukti berhasil dikirim. Mohon tunggu verifikasi admin.'
+                    ]);
+
+                case 'paid':
+                default:
+                    if ($package->price <= 0) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Paket berbayar memerlukan harga yang valid.'
+                        ], 400);
+                    }
+
+                    $paymentResponse = $this->createXenditPayment($package);
+
+                    if ($paymentResponse['success']) {
+                        return response()->json([
+                            'success' => true,
+                            'redirect_url' => $paymentResponse['invoice_url']
+                        ]);
+                    }
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => $paymentResponse['message']
+                    ], 500);
             }
         } catch (\Exception $e) {
             return response()->json([
@@ -191,6 +202,57 @@ class PackageController extends Controller
                 'message' => 'Error koneksi ke Xendit: ' . $e->getMessage()
             ];
         }
+    }
+
+    private function grantFreeAccess(int $packageId): void
+    {
+        UserPackageAcces::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'package_id' => $packageId,
+            ],
+            [
+                'start_date' => Carbon::now(),
+                'end_date' => Carbon::now()->addDays(30),
+                'status' => 'active',
+                'payment_amount' => 0,
+                'payment_status' => 'free',
+                'notes' => 'Free package access',
+                'created_by' => Auth::id(),
+                'requirement_proof_path' => null,
+                'requirement_review_notes' => null,
+                'requirement_status' => 'none',
+            ]
+        );
+    }
+
+    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, \Illuminate\Http\UploadedFile $proof): void
+    {
+        $proofPath = $proof->store('conditional-proofs', 'public');
+
+        $access = $existingAccess ?: new UserPackageAcces([
+            'user_id' => Auth::id(),
+            'package_id' => $package->package_id,
+        ]);
+
+        if ($access->requirement_proof_path && Storage::disk('public')->exists($access->requirement_proof_path)) {
+            Storage::disk('public')->delete($access->requirement_proof_path);
+        }
+
+        $access->fill([
+            'start_date' => null,
+            'end_date' => null,
+            'status' => 'pending',
+            'payment_amount' => 0,
+            'payment_status' => 'conditional',
+            'notes' => $package->conditional_requirement,
+            'requirement_proof_path' => $proofPath,
+            'requirement_review_notes' => null,
+            'requirement_status' => 'pending',
+            'created_by' => Auth::id(),
+        ]);
+
+        $access->save();
     }
 
     public function riwayatPembelian()

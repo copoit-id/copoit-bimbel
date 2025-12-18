@@ -5,18 +5,21 @@
     <x-page-desc title="Paket Aktif" description="Paket aktif yang Anda beli"></x-page-desc>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-        @foreach ($activePackages as $package)
-        <div class=" px-5 py-5 shadow rounded-lg flex flex-col justify-between">
+        @foreach ($activePackages as $access)
+        @php
+            $package = $access->package;
+            $thumbPath = $package?->image;
+            $thumbExt = $thumbPath ? strtolower(pathinfo($thumbPath, PATHINFO_EXTENSION)) : null;
+            $thumbIsVideo = $thumbPath ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
+            $thumbUrl = $thumbPath ? Storage::url($thumbPath) : null;
+            $featureList = $package && $package->features ? json_decode($package->features, true) : [];
+        @endphp
+        <div class="px-5 py-5 shadow rounded-lg flex flex-col justify-between">
             <div>
                 <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
-                    @if($package->image)
-                        @php
-                            $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
-                            $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
-                            $thumbUrl = Storage::url($package->image);
-                        @endphp
+                    @if($thumbPath)
                         @if($thumbIsVideo)
-                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" autoplay muted loop playsinline></video>
+                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                         @else
                             <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
                                 class="w-full h-full object-cover">
@@ -27,30 +30,33 @@
                     </div>
                     @endif
                 </div>
-                <p class="text-lg font-bold text-black">{{ $package->package->name }}</p>
-                <p class="font-light">{{ $package->package->description }}</p>
-                @if ($package->package->type_price == 'paid')
-                <p class="font-bold text-black">Rp {{ $package->package->price }}</p>
+                <p class="text-lg font-bold text-black">{{ $package?->name }}</p>
+                <p class="font-light">{{ $package?->description }}</p>
+                @if ($package?->type_price === 'paid')
+                <p class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</p>
                 @endif
                 <div class="flex flex-col mt-4 gap-3 font-light">
-                    @foreach (json_decode($package->package->features) as $feature)
+                    @foreach ($featureList as $feature)
                     <span>
                         <i class="ri-checkbox-circle-fill text-green"></i>
-                        50 PDF Materi Lengkap
+                        {{ $feature }}
                     </span>
                     @endforeach
+                    @if(empty($featureList))
+                    <span class="text-sm text-gray-500">Belum ada fitur terdaftar.</span>
+                    @endif
                 </div>
             </div>
-            <button data-modal-target="static-modal-{{ $package->package->package_id }}"
-                data-modal-toggle="static-modal-{{ $package->package->package_id }}"
+            <button data-modal-target="static-modal-{{ $access->package->package_id }}"
+                data-modal-toggle="static-modal-{{ $access->package->package_id }}"
                 class="flex w-full justify-center bg-primary text-white px-4 py-3 font-bold rounded-lg mt-4 uppercase text-sm">Lihat
                 Paket</button>
         </div>
         @endforeach
     </div>
 </div>
-@foreach ($activePackages as $package)
-<x-modal.type-package id_package="{{$package->package_id}}" type_package="{{ $package->package->type_package }}">
+@foreach ($activePackages as $access)
+<x-modal.type-package id_package="{{$access->package_id}}" type_package="{{ $access->package->type_package }}">
 </x-modal.type-package>
 @endforeach
 @endsection

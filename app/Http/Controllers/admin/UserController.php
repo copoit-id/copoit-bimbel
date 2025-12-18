@@ -54,19 +54,37 @@ class UserController extends Controller
     public function edit($id)
     {
         $user = User::findOrFail($id);
-        return view('admin.pages.user.edit', compact('user'));
+        return view('admin.pages.user.create', [
+            'user' => $user,
+        ]);
     }
 
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+            'username' => 'required|string|max:255|unique:users,username,' . $id,
+            'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
+            'role' => 'required|in:admin,user',
         ]);
 
         $user = User::findOrFail($id);
-        $user->update($request->only(['name', 'email', 'status']));
+
+        $user->fill([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'username' => $validated['username'],
+            'status' => $validated['status'],
+            'role' => $validated['role'],
+        ]);
+
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
+        $user->save();
 
         return redirect()->route('admin.user.index')
             ->with('success', 'User berhasil diperbarui');

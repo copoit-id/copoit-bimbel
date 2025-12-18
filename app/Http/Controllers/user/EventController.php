@@ -13,34 +13,44 @@ class EventController extends Controller
 {
     public function index()
     {
-        // Get free packages (events) - same structure as package purchase but only free ones
+        $freeTypes = ['free_unconditional', 'free_conditional'];
+
         $kelasPackages = Package::where('type_package', 'bimbel')
             ->where('status', 'active')
-            ->where('price', 0) // Only free packages
+            ->whereIn('type_price', $freeTypes)
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
                     ->where('end_date', '>', Carbon::now());
+            }])
+            ->with(['userAccess' => function ($query) {
+                $query->where('user_id', Auth::id());
             }])
             ->get();
 
         $tryoutPackages = Package::where('type_package', 'tryout')
             ->where('status', 'active')
-            ->where('price', 0) // Only free packages
+            ->whereIn('type_price', $freeTypes)
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
                     ->where('end_date', '>', Carbon::now());
             }])
+            ->with(['userAccess' => function ($query) {
+                $query->where('user_id', Auth::id());
+            }])
             ->get();
 
         $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
             ->where('status', 'active')
-            ->where('price', 0) // Only free packages
+            ->whereIn('type_price', $freeTypes)
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
                     ->where('end_date', '>', Carbon::now());
+            }])
+            ->with(['userAccess' => function ($query) {
+                $query->where('user_id', Auth::id());
             }])
             ->get();
 
@@ -54,8 +64,8 @@ class EventController extends Controller
     public function joinEvent($package_id)
     {
         $package = Package::where('package_id', $package_id)
-            ->where('price', 0)
             ->where('status', 'active')
+            ->where('type_price', 'free_unconditional')
             ->firstOrFail();
 
         // Check if user already joined
@@ -72,17 +82,24 @@ class EventController extends Controller
         }
 
         // Give free access - same as free package in PackageController
-        UserPackageAcces::create([
-            'user_id' => Auth::id(),
-            'package_id' => $package_id,
-            'start_date' => Carbon::now(),
-            'end_date' => Carbon::now()->addDays(30), // Default 30 days for free packages
-            'status' => 'active',
-            'payment_amount' => 0,
-            'payment_status' => 'free',
-            'notes' => 'Free event package access',
-            'created_by' => Auth::id()
-        ]);
+        UserPackageAcces::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'package_id' => $package_id,
+            ],
+            [
+                'start_date' => Carbon::now(),
+                'end_date' => Carbon::now()->addDays(30),
+                'status' => 'active',
+                'payment_amount' => 0,
+                'payment_status' => 'free',
+                'notes' => 'Free event package access',
+                'created_by' => Auth::id(),
+                'requirement_proof_path' => null,
+                'requirement_review_notes' => null,
+                'requirement_status' => 'none',
+            ]
+        );
 
         return response()->json([
             'success' => true,

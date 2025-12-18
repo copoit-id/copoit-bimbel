@@ -39,12 +39,12 @@ class UserPackageAcces extends Model
     // Accessors
     public function getIsActiveAttribute()
     {
-        return $this->status === 'active' && $this->end_date->isFuture();
+        return $this->status === 'active' && $this->end_date && $this->end_date->isFuture();
     }
 
     public function getIsExpiredAttribute()
     {
-        return $this->end_date->isPast();
+        return $this->end_date ? $this->end_date->isPast() : false;
     }
 
     public function getDaysRemainingAttribute()
@@ -70,6 +70,8 @@ class UserPackageAcces extends Model
                 return '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Suspended</span>';
             case 'expired':
                 return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Expired</span>';
+            case 'pending':
+                return '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Menunggu Verifikasi</span>';
             default:
                 return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Unknown</span>';
         }
@@ -91,6 +93,8 @@ class UserPackageAcces extends Model
                 return '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Gagal</span>';
             case 'free':
                 return '<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">Gratis</span>';
+            case 'conditional':
+                return '<span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">Verifikasi</span>';
             default:
                 return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Unknown</span>';
         }

@@ -29,10 +29,10 @@ class AppServiceProvider extends ServiceProvider
             'favicon' => null,
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
-            'certificate_management_enabled' => true,
+            'certificate_management_enabled' => false,
             'header_primary_color' => false,
             'sidebar_primary_color' => false,
-            'utbk_enabled' => true,
+            'utbk_enabled' => false,
             'allow_video_thumbnail' => false,
         ];
 
@@ -46,14 +46,18 @@ class AppServiceProvider extends ServiceProvider
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
             $defaults['secondary_color'] = $clientProfile->warna_secondary ?: $defaults['secondary_color'];
-            $defaults['certificate_management_enabled'] = $clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled'];
+            $defaults['certificate_management_enabled'] = (bool) ($clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled']);
             $defaults['header_primary_color'] = $clientProfile->header_primary_color ?? $defaults['header_primary_color'];
             $defaults['sidebar_primary_color'] = $clientProfile->sidebar_primary_color ?? $defaults['sidebar_primary_color'];
-            $defaults['utbk_enabled'] = $clientProfile->enable_utbk_types ?? $defaults['utbk_enabled'];
+            $defaults['utbk_enabled'] = (bool) ($clientProfile->enable_utbk_types ?? $defaults['utbk_enabled']);
             $defaults['allow_video_thumbnail'] = $clientProfile->allow_video_thumbnail ?? $defaults['allow_video_thumbnail'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
+
+        // Force-hide certificate & UTBK modules per client request
+        $defaults['certificate_management_enabled'] = false;
+        $defaults['utbk_enabled'] = false;
 
         $logoUrl = $this->makeBrandAssetUrl($defaults['logo']);
         $faviconUrl = $this->makeBrandAssetUrl($defaults['favicon'] ?? $defaults['logo']);

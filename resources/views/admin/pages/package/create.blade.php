@@ -3,6 +3,7 @@
 @php
     $allowVideoThumbnail = $clientBranding['allow_video_thumbnail'] ?? false;
     $videoExtensions = ['mp4', 'webm', 'mov', 'm4v'];
+    $selectedPriceType = old('type_price', $package->type_price ?? 'paid');
 @endphp
 
 @section('content')
@@ -65,7 +66,7 @@
                             @endphp
                             <div class="mb-3">
                                 @if($currentIsVideo)
-                                <video src="{{ $currentUrl }}" class="w-32 h-20 rounded-lg border object-cover" controls muted loop></video>
+                                <video src="{{ $currentUrl }}" class="w-32 h-20 rounded-lg border object-cover" controls preload="metadata" playsinline></video>
                                 <p class="text-sm text-gray-500 mt-1">Video saat ini</p>
                                 @else
                                 <img src="{{ $currentUrl }}" alt="Current image"
@@ -122,21 +123,31 @@
                                 <span class="text-red-500">*</span></label>
                             <select id="type_price" name="type_price" required
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                <option value="free" {{ (isset($package) && $package->type_price === 'free') ||
-                                    old('type_price') === 'free' ? 'selected' : '' }}>Gratis</option>
-                                <option value="paid" {{ (isset($package) && $package->type_price === 'paid') ||
-                                    old('type_price') === 'paid' ? 'selected' : '' }}>Berbayar</option>
+                                <option value="paid" {{ $selectedPriceType === 'paid' ? 'selected' : '' }}>Berbayar</option>
+                                <option value="free_unconditional" {{ $selectedPriceType === 'free_unconditional' ? 'selected' : '' }}>Gratis Tanpa Syarat</option>
+                                <option value="free_conditional" {{ $selectedPriceType === 'free_conditional' ? 'selected' : '' }}>Gratis Bersyarat</option>
                             </select>
                         </div>
 
                         <div id="price-field"
-                            class="{{ (isset($package) && $package->type_price === 'free') || old('type_price') === 'free' ? 'hidden' : '' }}">
+                            class="{{ $selectedPriceType === 'paid' ? '' : 'hidden' }}">
                             <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga <span
                                     class="text-red-500">*</span></label>
                             <input type="number" id="price" name="price" min="0"
                                 value="{{ isset($package) ? $package->price : old('price', 0) }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         </div>
+                    </div>
+
+                    <div id="conditional-requirement-wrapper"
+                        class="{{ $selectedPriceType === 'free_conditional' ? '' : 'hidden' }}">
+                        <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">
+                            Syarat Untuk Paket Gratis Bersyarat <span class="text-red-500">*</span>
+                        </label>
+                        <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="Contoh: Follow akun Instagram @copoit, upload bukti, dll.">{{ old('conditional_requirement', $package->conditional_requirement ?? '') }}</textarea>
+                    </div>
                     </div>
 
                     <div>
@@ -192,23 +203,32 @@
     const typePriceSelect = document.getElementById('type_price');
     const priceField = document.getElementById('price-field');
     const priceInput = document.getElementById('price');
+    const requirementWrapper = document.getElementById('conditional-requirement-wrapper');
+    const requirementInput = document.getElementById('conditional_requirement');
 
-    function togglePriceField() {
-        if (typePriceSelect.value === 'free') {
+    function toggleFields() {
+        if (typePriceSelect.value === 'paid') {
+            priceField.classList.remove('hidden');
+            priceInput.setAttribute('required', 'required');
+            requirementWrapper.classList.add('hidden');
+            requirementInput && requirementInput.removeAttribute('required');
+        } else if (typePriceSelect.value === 'free_conditional') {
             priceField.classList.add('hidden');
             priceInput.value = 0;
             priceInput.removeAttribute('required');
+            requirementWrapper.classList.remove('hidden');
+            requirementInput && requirementInput.setAttribute('required', 'required');
         } else {
-            priceField.classList.remove('hidden');
-            priceInput.setAttribute('required', 'required');
+            priceField.classList.add('hidden');
+            priceInput.value = 0;
+            priceInput.removeAttribute('required');
+            requirementWrapper.classList.add('hidden');
+            requirementInput && requirementInput.removeAttribute('required');
         }
     }
 
-    // Initial check
-    togglePriceField();
-
-    // Listen for changes
-    typePriceSelect.addEventListener('change', togglePriceField);
+    toggleFields();
+    typePriceSelect.addEventListener('change', toggleFields);
 });
 </script>
 @endsection

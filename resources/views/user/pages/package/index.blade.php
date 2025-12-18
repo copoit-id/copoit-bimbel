@@ -26,32 +26,28 @@
     <div id="kelas-package" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-gray-600">
         @forelse($kelasPackages as $package)
         <div class="bg-white px-5 py-5 shadow rounded-lg">
+            @php
+                $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
+                $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
+                $thumbUrl = $package->image ? Storage::url($package->image) : null;
+            @endphp
             <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                 @if($package->image)
-                    @php
-                        $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
-                        $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
-                        $thumbUrl = Storage::url($package->image);
-                    @endphp
                     @if($thumbIsVideo)
-                        <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" autoplay muted loop playsinline></video>
+                    <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                     @else
                         <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
                             class="w-full h-full object-cover">
                     @endif
                 @else
-                <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                    <i class="ri-image-line text-3xl text-gray-400"></i>
-                </div>
+                    <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <i class="ri-image-line text-3xl text-gray-400"></i>
+                    </div>
                 @endif
             </div>
             <p class="text-lg font-bold text-black">{{ $package->name }}</p>
             <p class="font-light">{{ $package->description }}</p>
-            @if ($package->price == 0)
-            <p class="font-bold text-black">Gratis</p>
-            @else
-            <p class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</p>
-            @endif
+            <span class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
 
             <div class="flex flex-col mt-4 gap-3 font-light">
                 @if($package->features)
@@ -75,7 +71,7 @@
                     class="buy-package-form">
                     @csrf
                     <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                        {{ $package->price == 0 ? 'AMBIL GRATIS' : 'BELI SEKARANG' }}
+                        BELI SEKARANG
                     </button>
                 </form>
                 @endif
@@ -93,15 +89,15 @@
         @forelse($tryoutPackages as $package)
         <div class="flex flex-col justify-between bg-white px-5 py-5 shadow rounded-lg">
             <div>
+                @php
+                    $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
+                    $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
+                    $thumbUrl = $package->image ? Storage::url($package->image) : null;
+                @endphp
                 <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                     @if($package->image)
-                        @php
-                            $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
-                            $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
-                            $thumbUrl = Storage::url($package->image);
-                        @endphp
                         @if($thumbIsVideo)
-                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" autoplay muted loop playsinline></video>
+                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                         @else
                             <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
                                 class="w-full h-full object-cover">
@@ -114,11 +110,7 @@
                 </div>
                 <p class="text-lg font-bold text-black">{{ $package->name }}</p>
                 <p class="font-light">{{ $package->description }}</p>
-                @if ($package->price == 0)
-                <p class="font-bold text-black">Gratis</p>
-                @else
-                <p class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</p>
-                @endif
+                <span class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
 
                 <div class="flex flex-col mt-4 gap-3 font-light">
                     @if($package->features)
@@ -143,7 +135,7 @@
                     class="buy-package-form">
                     @csrf
                     <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                        {{ $package->price == 0 ? 'AMBIL GRATIS' : 'BELI SEKARANG' }}
+                        BELI SEKARANG
                     </button>
                 </form>
                 @endif
@@ -161,15 +153,15 @@
         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-gray-600 hidden">
         @forelse($sertifikasiPackages as $package)
         <div class="bg-white px-5 py-5 shadow rounded-lg">
+            @php
+                $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
+                $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
+                $thumbUrl = $package->image ? Storage::url($package->image) : null;
+            @endphp
             <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                 @if($package->image)
-                    @php
-                        $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
-                        $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
-                        $thumbUrl = Storage::url($package->image);
-                    @endphp
                     @if($thumbIsVideo)
-                        <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" autoplay muted loop playsinline></video>
+                        <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                     @else
                         <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
                             class="w-full h-full object-cover">
@@ -182,11 +174,7 @@
             </div>
             <p class="text-lg font-bold text-black">{{ $package->name }}</p>
             <p class="font-light">{{ $package->description }}</p>
-            @if ($package->price == 0)
-            <p class="font-bold text-black">Gratis</p>
-            @else
-            <p class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</p>
-            @endif
+            <span class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
 
             <div class="flex flex-col mt-4 gap-3 font-light">
                 @if($package->features)
@@ -210,7 +198,7 @@
                     class="buy-package-form">
                     @csrf
                     <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                        {{ $package->price == 0 ? 'AMBIL GRATIS' : 'BELI SEKARANG' }}
+                        BELI SEKARANG
                     </button>
                 </form>
                 @endif
@@ -272,29 +260,36 @@
             const button = form.find('button[type="submit"]');
             const originalText = button.text();
 
-            // Show loading state
             button.prop('disabled', true).text('Memproses...');
             $('#loadingModal').removeClass('hidden').addClass('flex');
 
-            // Submit form
+            const formData = new FormData(this);
+
             $.ajax({
                 url: form.attr('action'),
                 method: 'POST',
-                data: form.serialize(),
+                data: formData,
+                processData: false,
+                contentType: false,
                 success: function(response) {
-                    // Hide loading
                     $('#loadingModal').addClass('hidden').removeClass('flex');
 
                     if (response.redirect_url) {
-                        // Redirect to Xendit payment page
                         window.location.href = response.redirect_url;
-                    } else if (response.success) {
-                        // For free packages, reload page or show success
-                        location.reload();
+                        return;
                     }
+
+                    if (response.success) {
+                        if (response.message) {
+                            alert(response.message);
+                        }
+                        location.reload();
+                        return;
+                    }
+
+                    button.prop('disabled', false).text(originalText);
                 },
                 error: function(xhr) {
-                    // Hide loading
                     $('#loadingModal').addClass('hidden').removeClass('flex');
                     button.prop('disabled', false).text(originalText);
 

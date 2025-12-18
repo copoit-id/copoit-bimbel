@@ -37,8 +37,8 @@ class SettingController extends Controller
             'nama_bimbel' => ['required', 'string', 'max:255'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
-            'logo' => ['nullable', 'mimes:png,jpg,jpeg,svg', 'max:4096'],
-            'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg', 'max:2048'],
+            'logo' => ['nullable', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
+            'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,svg,webp', 'max:4096'],
         ], [
             'warna_primary.regex' => 'Warna utama harus berupa kode hex valid.',
             'warna_secondary.regex' => 'Warna sekunder harus berupa kode hex valid.',
@@ -67,14 +67,10 @@ class SettingController extends Controller
         }
 
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
-        $validated['enable_certificate_management'] = $request->has('enable_certificate_management')
-            ? $request->boolean('enable_certificate_management')
-            : ($profile->enable_certificate_management ?? true);
+        $validated['enable_certificate_management'] = false;
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
-        $validated['enable_utbk_types'] = $request->has('enable_utbk_types')
-            ? $request->boolean('enable_utbk_types')
-            : ($profile->enable_utbk_types ?? true);
+        $validated['enable_utbk_types'] = false;
 
         $profile->fill($validated);
 

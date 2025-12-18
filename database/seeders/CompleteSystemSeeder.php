@@ -153,7 +153,7 @@ class CompleteSystemSeeder extends Seeder
                 'name' => 'Tryout SKD Gratis',
                 'price' => 0,
                 'type_package' => 'tryout',
-                'type_price' => 'free',
+                'type_price' => 'free_unconditional',
                 'status' => 'active',
                 'description' => 'Tryout gratis untuk latihan CPNS bagian SKD',
                 'features' => json_encode([

@@ -38,10 +38,11 @@ class PackageController extends Controller
             $validationRules = [
                 'name' => 'required|string|max:255',
                 'type_package' => 'required|in:bimbel,tryout,sertifikasi',
-                'type_price' => 'required|in:free,paid',
+                'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
                 'features' => 'nullable|array',
+                'conditional_requirement' => 'nullable|string',
             ];
 
             $thumbnailRule = $allowVideoThumbnail
@@ -55,17 +56,23 @@ class PackageController extends Controller
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
+                $validationRules['conditional_requirement'] = $request->type_price === 'free_conditional'
+                    ? 'required|string'
+                    : 'nullable|string';
             }
 
             $validated = $request->validate($validationRules);
 
-            // Set price to 0 if type is free
-            if ($request->type_price === 'free') {
+            if ($request->type_price !== 'paid') {
                 $validated['price'] = 0;
             }
 
             $validated['features'] = isset($validated['features']) && is_array($validated['features'])
                 ? json_encode($validated['features'])
+                : null;
+
+            $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
+                ? $validated['conditional_requirement']
                 : null;
 
             if ($request->hasFile('image')) {
@@ -103,10 +110,11 @@ class PackageController extends Controller
             $validationRules = [
                 'name' => 'required|string|max:255',
                 'type_package' => 'required|in:bimbel,tryout,sertifikasi',
-                'type_price' => 'required|in:free,paid',
+                'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
                 'features' => 'nullable|array',
+                'conditional_requirement' => 'nullable|string',
             ];
 
             $thumbnailRule = $allowVideoThumbnail
@@ -120,17 +128,23 @@ class PackageController extends Controller
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
+                $validationRules['conditional_requirement'] = $request->type_price === 'free_conditional'
+                    ? 'required|string'
+                    : 'nullable|string';
             }
 
             $validated = $request->validate($validationRules);
 
-            // Set price to 0 if type is free
-            if ($request->type_price === 'free') {
+            if ($request->type_price !== 'paid') {
                 $validated['price'] = 0;
             }
 
             $validated['features'] = isset($validated['features']) && is_array($validated['features'])
                 ? json_encode($validated['features'])
+                : null;
+
+            $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
+                ? $validated['conditional_requirement']
                 : null;
 
             // Handle image upload

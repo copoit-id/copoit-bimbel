@@ -27,8 +27,8 @@
                             $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
                             $thumbUrl = Storage::url($package->image);
                         @endphp
-                        @if($thumbIsVideo)
-                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" autoplay muted loop playsinline></video>
+                    @if($thumbIsVideo)
+                    <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                         @else
                             <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
                                 class="w-full h-full object-cover">
@@ -60,11 +60,23 @@
 
                 <p class="text-lg font-bold text-black">{{ $package->name }}</p>
                 <p class="font-light text-gray-600 mb-2">{{ Str::limit($package->description, 80) }}</p>
-
-                @if ($package->price == 0)
-                <p class="font-bold text-green-600">Gratis</p>
-                @else
+                @php
+                    $typePriceLabel = [
+                        'paid' => 'Berbayar',
+                        'free_unconditional' => 'Gratis Tanpa Syarat',
+                        'free_conditional' => 'Gratis Bersyarat'
+                    ][$package->type_price] ?? ucfirst(str_replace('_', ' ', $package->type_price));
+                @endphp
+                @if ($package->type_price === 'paid')
                 <p class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</p>
+                @elseif ($package->type_price === 'free_conditional')
+                <p class="font-bold text-orange-600">{{ $typePriceLabel }}</p>
+                @else
+                <p class="font-bold text-green-600">{{ $typePriceLabel }}</p>
+                @endif
+
+                @if($package->type_price === 'free_conditional' && $package->conditional_requirement)
+                <p class="text-xs text-gray-500 mt-1">Syarat: {{ Str::limit($package->conditional_requirement, 80) }}</p>
                 @endif
 
                 <div class="flex flex-col mt-4 gap-2 font-light">
