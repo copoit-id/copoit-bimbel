@@ -9,6 +9,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::table('packages', function (Blueprint $table) {
+            if (!Schema::hasColumn('packages', 'conditional_requirement')) {
+                $table->text('conditional_requirement')->nullable()->after('type_price');
+            }
+        });
+
+        DB::statement("ALTER TABLE packages MODIFY COLUMN type_price ENUM('paid','free','free_unconditional','free_conditional') NOT NULL DEFAULT 'paid'");
+
         DB::statement("
             UPDATE packages
             SET type_price = 'paid'
@@ -20,12 +28,6 @@ return new class extends Migration
         DB::table('packages')
             ->where('type_price', 'free')
             ->update(['type_price' => 'free_unconditional']);
-
-        Schema::table('packages', function (Blueprint $table) {
-            if (!Schema::hasColumn('packages', 'conditional_requirement')) {
-                $table->text('conditional_requirement')->nullable()->after('type_price');
-            }
-        });
 
         DB::statement("ALTER TABLE packages MODIFY COLUMN type_price ENUM('paid','free_unconditional','free_conditional') NOT NULL DEFAULT 'paid'");
     }
