@@ -23,9 +23,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $defaultAsset = 'img/logo/logo-copoit.png';
+
         $defaults = [
             'name' => 'Copoit Academy',
-            'logo' => 'img/logo/logo.png',
+            'logo' => $defaultAsset,
             'favicon' => null,
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
@@ -59,8 +61,8 @@ class AppServiceProvider extends ServiceProvider
         $defaults['certificate_management_enabled'] = false;
         $defaults['utbk_enabled'] = false;
 
-        $logoUrl = $this->makeBrandAssetUrl($defaults['logo']);
-        $faviconUrl = $this->makeBrandAssetUrl($defaults['favicon'] ?? $defaults['logo']);
+        $logoUrl = $this->makeBrandAssetUrl($defaults['logo'], $defaultAsset);
+        $faviconUrl = $this->makeBrandAssetUrl($defaults['favicon'] ?? $defaults['logo'], $defaultAsset);
 
         $branding = array_merge($defaults, [
             'logo_url' => $logoUrl,
@@ -76,7 +78,7 @@ class AppServiceProvider extends ServiceProvider
         view()->share('clientBranding', $branding);
     }
 
-    private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo.png'): string
+    private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo-copoit.png'): string
     {
         $target = $path ?: $fallback;
 
