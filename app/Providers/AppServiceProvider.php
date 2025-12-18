@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\ClientProfile;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $defaults = [
             'name' => 'Copoit Academy',
-            'logo' => 'img/logo/logo.png',
+            'logo' => 'img/logo/logo-copoit.png',
             'favicon' => null,
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
@@ -69,7 +70,7 @@ class AppServiceProvider extends ServiceProvider
         view()->share('clientBranding', $branding);
     }
 
-    private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo.png'): string
+    private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo-copoit.png'): string
     {
         $target = $path ?: $fallback;
 
@@ -78,6 +79,18 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $normalized = ltrim($target, '/');
+        if (Str::startsWith($normalized, 'storage/')) {
+            return asset($normalized);
+        }
+
+        if (file_exists(public_path($normalized))) {
+            return asset($normalized);
+        }
+
+        if (Storage::disk('public')->exists($normalized)) {
+            return Storage::disk('public')->url($normalized);
+        }
+
         if (!Str::contains($normalized, '/')) {
             $normalized = 'img/logo/' . $normalized;
         }

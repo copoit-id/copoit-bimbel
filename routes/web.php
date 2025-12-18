@@ -11,6 +11,7 @@ use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\PembayaranController;
 use App\Http\Controllers\admin\QuestionController;
+use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\AuthController;
@@ -254,6 +255,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::resource('certification', CertificationController::class);
     Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
     Route::resource('user', UserController::class);
+    Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
+    Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
 
     // Route untuk admin leaderboard
     Route::prefix('leaderboard')->name('leaderboard.')->group(function () {

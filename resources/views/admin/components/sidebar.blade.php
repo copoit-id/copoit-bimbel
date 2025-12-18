@@ -96,6 +96,14 @@
                 </a>
             </li>
             @endif
+            <li>
+                <a href="{{ route('admin.settings.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.settings.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-settings-3-line text-[20px] {{ request()->routeIs('admin.settings.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Pengaturan</span>
+                </a>
+            </li>
         </ul>
     </div>
 </aside>
