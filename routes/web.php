@@ -282,6 +282,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/paket/{package_id}/user/{user_id}/extend', [AksesController::class, 'extendAccess'])->name('extend');
         Route::post('/paket/{package_id}/user/{user_id}/revoke', [AksesController::class, 'revokeAccess'])->name('revoke');
         Route::post('/paket/{package_id}/user/{user_id}/toggle', [AksesController::class, 'toggleStatus'])->name('toggle');
+        Route::post('/pengajuan/{access}/approve', [AksesController::class, 'approveRequest'])->name('requests.approve');
+        Route::post('/pengajuan/{access}/reject', [AksesController::class, 'rejectRequest'])->name('requests.reject');
     });
 
     // Route pembayaran

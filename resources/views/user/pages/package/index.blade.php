@@ -1,6 +1,12 @@
 @extends('user.layout.user')
 @section('title', 'Paket Pembelian')
 @section('content')
+@php
+    $typePriceLabels = [
+        'free_unconditional' => ['label' => 'Gratis', 'class' => 'bg-emerald-50 text-emerald-700 border border-emerald-100'],
+        'free_conditional' => ['label' => 'Gratis Bersyarat', 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
+    ];
+@endphp
 <div class="dashboard">
     <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
     <div class="flex flex-col md:flex-row md:items-center justify-between">
@@ -30,6 +36,7 @@
                 $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
                 $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
                 $thumbUrl = $package->image ? Storage::url($package->image) : null;
+                $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
             @endphp
             <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                 @if($package->image)
@@ -44,6 +51,16 @@
                         <i class="ri-image-line text-3xl text-gray-400"></i>
                     </div>
                 @endif
+            </div>
+            <div class="flex items-center justify-between text-xs font-semibold mb-2">
+                @if($typePriceStyle)
+                <span class="px-3 py-1 rounded-full {{ $typePriceStyle['class'] }}">
+                    {{ $typePriceStyle['label'] }}
+                </span>
+                @endif
+                <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
+                    {{ $package->type_package }}
+                </span>
             </div>
             <p class="text-lg font-bold text-black">{{ $package->name }}</p>
             <p class="font-light">{{ $package->description }}</p>
@@ -93,6 +110,7 @@
                     $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
                     $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
                     $thumbUrl = $package->image ? Storage::url($package->image) : null;
+                    $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
                 @endphp
                 <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                     @if($package->image)
@@ -107,6 +125,16 @@
                         <i class="ri-image-line text-3xl text-gray-400"></i>
                     </div>
                     @endif
+                </div>
+                <div class="flex items-center justify-between text-xs font-semibold mb-2">
+                    @if($typePriceStyle)
+                    <span class="px-3 py-1 rounded-full {{ $typePriceStyle['class'] }}">
+                        {{ $typePriceStyle['label'] }}
+                    </span>
+                    @endif
+                    <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
+                        {{ $package->type_package }}
+                    </span>
                 </div>
                 <p class="text-lg font-bold text-black">{{ $package->name }}</p>
                 <p class="font-light">{{ $package->description }}</p>
@@ -157,6 +185,7 @@
                 $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
                 $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
                 $thumbUrl = $package->image ? Storage::url($package->image) : null;
+                $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
             @endphp
             <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
                 @if($package->image)
@@ -171,6 +200,16 @@
                     <i class="ri-image-line text-3xl text-gray-400"></i>
                 </div>
                 @endif
+            </div>
+            <div class="flex items-center justify-between text-xs font-semibold mb-2">
+                @if($typePriceStyle)
+                <span class="px-3 py-1 rounded-full {{ $typePriceStyle['class'] }}">
+                    {{ $typePriceStyle['label'] }}
+                </span>
+                @endif
+                <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
+                    {{ $package->type_package }}
+                </span>
             </div>
             <p class="text-lg font-bold text-black">{{ $package->name }}</p>
             <p class="font-light">{{ $package->description }}</p>

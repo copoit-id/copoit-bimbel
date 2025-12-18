@@ -38,13 +38,71 @@ class AksesController extends Controller
             ->orWhere('end_date', '<', Carbon::now())
             ->count();
 
+        $pendingRequests = UserPackageAcces::where('requirement_status', 'pending')
+            ->with(['user', 'package'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $pendingRequestCount = $pendingRequests->count();
+
         return view('admin.pages.akses.index', compact(
             'packages',
             'totalPackages',
             'totalUserAccess',
             'activeAccess',
             'expiredAccess',
+            'pendingRequests',
+            'pendingRequestCount'
         ));
+    }
+
+    public function approveRequest(Request $request, UserPackageAcces $access)
+    {
+        if ($access->requirement_status !== 'pending') {
+            return redirect()->route('admin.akses.index')
+                ->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
+        }
+
+        $package = Package::findOrFail($access->package_id);
+        $startDate = Carbon::now();
+        $endDate = Carbon::now()->addDays(30);
+
+        $access->update([
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'status' => 'active',
+            'payment_amount' => 0,
+            'payment_status' => 'free',
+            'requirement_status' => 'approved',
+            'requirement_review_notes' => null,
+            'notes' => $package->conditional_requirement ?? $access->notes,
+            'created_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('admin.akses.index')
+            ->with('success', 'Pengajuan akses berhasil disetujui.');
+    }
+
+    public function rejectRequest(Request $request, UserPackageAcces $access)
+    {
+        if ($access->requirement_status !== 'pending') {
+            return redirect()->route('admin.akses.index')
+                ->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
+        }
+
+        $validated = $request->validate([
+            'review_notes' => 'nullable|string|max:500',
+        ]);
+
+        $access->update([
+            'status' => 'pending',
+            'payment_status' => 'conditional',
+            'requirement_status' => 'rejected',
+            'requirement_review_notes' => $validated['review_notes'] ?? 'Pengajuan ditolak oleh admin.',
+        ]);
+
+        return redirect()->route('admin.akses.index')
+            ->with('success', 'Pengajuan akses berhasil ditolak.');
     }
 
     public function show($package_id)

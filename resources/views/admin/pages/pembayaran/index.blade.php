@@ -22,31 +22,31 @@
             <i class="ri-money-dollar-circle-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-green-50 border border-green-500/50 rounded-lg p-4">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-green-700">Berhasil</p>
-                <p class="text-2xl font-bold text-green-700">{{ $successPayments ?? 0 }}</p>
+                <p class="text-sm text-primary">Berhasil</p>
+                <p class="text-2xl font-bold text-primary">{{ $successPayments ?? 0 }}</p>
             </div>
-            <i class="ri-check-line text-3xl text-green-700"></i>
+            <i class="ri-check-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-yellow-50 border border-yellow-500/50 rounded-lg p-4">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-yellow-700">Pending</p>
-                <p class="text-2xl font-bold text-yellow-700">{{ $pendingPayments ?? 0 }}</p>
+                <p class="text-sm text-primary">Pending</p>
+                <p class="text-2xl font-bold text-primary">{{ $pendingPayments ?? 0 }}</p>
             </div>
-            <i class="ri-time-line text-3xl text-yellow-700"></i>
+            <i class="ri-time-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-red-50 border border-red-500/50 rounded-lg p-4">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-red-700">Gagal</p>
-                <p class="text-2xl font-bold text-red-700">{{ $failedPayments ?? 0 }}</p>
+                <p class="text-sm text-primary">Gagal</p>
+                <p class="text-2xl font-bold text-primary">{{ $failedPayments ?? 0 }}</p>
             </div>
-            <i class="ri-close-line text-3xl text-red-700"></i>
+            <i class="ri-close-line text-3xl text-primary"></i>
         </div>
     </div>
 </div>
