@@ -85,7 +85,7 @@
                         <label for="question_text" class="block text-sm font-medium text-gray-700 mb-2">Teks Soal <span
                                 class="text-red-500">*</span></label>
                         <textarea id="question_text" name="question_text" required rows="4"
-                            class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Masukkan teks soal...">{{ isset($question) ? $question->question_text : old('question_text') }}</textarea>
                     </div>
 
@@ -161,7 +161,7 @@
                                 </label>
                                 <textarea id="option_{{ strtolower($optionKey) }}"
                                     name="option_{{ strtolower($optionKey) }}" {{ $optionKey==='E' ? '' : 'required' }}
-                                    class="tinymce-opsi w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                     placeholder="Pilihan {{ $optionKey }}">{{ $optionData ? $optionData->option_text : old('option_' . strtolower($optionKey)) }}</textarea>
                             </div>
                             <div class="custom-score-field w-full sm:w-1/4"
@@ -313,7 +313,7 @@
                         <label for="explanation" class="block text-sm font-medium text-gray-700 mb-2">Pembahasan
                             (Opsional)</label>
                         <textarea id="explanation" name="explanation" rows="4"
-                            class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Masukkan pembahasan soal...">{{ isset($question) ? $question->explanation : old('explanation') }}</textarea>
                     </div>
 

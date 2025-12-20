@@ -40,7 +40,7 @@
                     <label for="question_text" class="block font-medium text-gray-700 mb-2">Pertanyaan <span
                             class="text-red-500">*</span></label>
                     <textarea id="question_text" name="question_text" rows="4" required
-                        class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Tulis pertanyaan di sini...">{{ isset($question) ? $question->question_text : old('question_text') }}</textarea>
                 </div>
 
@@ -92,7 +92,7 @@
                             <label for="option_a" class="block text-sm font-medium text-gray-700 mb-2">Pilihan A <span
                                     class="text-red-500">*</span></label>
                             <textarea id="option_a" name="option_a" required
-                                class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Pilihan A">{{ isset($question->questionOptions[0]) ? $question->questionOptions[0]->option_text : old('option_a') }}</textarea>
                         </div>
                         <div class="custom-score-field col-span-3" style="{{
@@ -120,7 +120,7 @@
                             <label for="option_b" class="block text-sm font-medium text-gray-700 mb-2">Pilihan B <span
                                     class="text-red-500">*</span></label>
                             <textarea id="option_b" name="option_b" required
-                                class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Pilihan B">{{ isset($question->questionOptions[1]) ? $question->questionOptions[1]->option_text : old('option_b') }}</textarea>
                         </div>
                         <div class="custom-score-field col-span-3" style="{{
@@ -148,7 +148,7 @@
                             <label for="option_c" class="block text-sm font-medium text-gray-700 mb-2">Pilihan C <span
                                     class="text-red-500">*</span></label>
                             <textarea type="text" id="option_c" name="option_c" required
-                                class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Pilihan C">{{ isset($question->questionOptions[2]) ? $question->questionOptions[2]->option_text : old('option_c') }}</textarea>
                         </div>
                         <div class="custom-score-field col-span-3" style="{{
@@ -176,7 +176,7 @@
                             <label for="option_d" class="block text-sm font-medium text-gray-700 mb-2">Pilihan D <span
                                     class="text-red-500">*</span></label>
                             <textarea type="text" id="option_d" name="option_d" required
-                                class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Pilihan D">{{ isset($question->questionOptions[3]) ? $question->questionOptions[3]->option_text : old('option_d') }}</textarea>
                         </div>
                         <div class="custom-score-field col-span-3" style="{{
@@ -205,7 +205,7 @@
                             <label for="option_e" class="block text-sm font-medium text-gray-700 mb-2">Pilihan E
                                 (Opsional)</label>
                             <textarea type="text" id="option_e" name="option_e"
-                                class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Pilihan E (kosongkan jika tidak digunakan)">{{ isset($question->questionOptions[4]) ? $question->questionOptions[4]->option_text : old('option_e') }}</textarea>
                         </div>
                         <div class="custom-score-field col-span-3" style="{{
@@ -226,7 +226,7 @@
                     <label for="explanation" class="block font-medium text-gray-700 mb-2">Pembahasan
                         (Opsional)</label>
                     <textarea id="explanation" name="explanation" rows="4"
-                        class="tinymce w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Jelaskan mengapa jawaban tersebut benar...">{{ isset($question) ? $question->explanation : old('explanation') }}</textarea>
                 </div>
             </div>
