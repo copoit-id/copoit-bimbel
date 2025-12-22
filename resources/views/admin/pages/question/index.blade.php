@@ -49,6 +49,11 @@
                 <i class="ri-add-line"></i>
                 Tambah Soal
             </a>
+            <a href="{{ route('admin.question-bank.index', ['import_for' => $tryout_detail->tryout_detail_id]) }}"
+                class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2">
+                <i class="ri-folder-transfer-line"></i>
+                Ambil dari Bank
+            </a>
         </div>
     </div>
 

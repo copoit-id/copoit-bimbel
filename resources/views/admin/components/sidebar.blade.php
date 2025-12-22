@@ -47,6 +47,14 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('admin.question-bank.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Bank Soal</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('admin.user.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i

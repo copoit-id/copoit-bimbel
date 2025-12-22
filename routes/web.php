@@ -11,6 +11,7 @@ use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\PembayaranController;
 use App\Http\Controllers\admin\QuestionController;
+use App\Http\Controllers\admin\QuestionBankController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\UserController;
@@ -242,6 +243,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/{tryout_detail_id}/{question_id}/edit', [QuestionController::class, 'edit'])->name('edit');
         Route::put('/{tryout_detail_id}/{question_id}/update', [QuestionController::class, 'update'])->name('update');
         Route::delete('/{tryout_detail_id}/{question_id}/destroy', [QuestionController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('bank-soal')->name('question-bank.')->group(function () {
+        Route::get('/', [QuestionBankController::class, 'index'])->name('index');
+        Route::post('/', [QuestionBankController::class, 'store'])->name('store');
+        Route::get('/{questionBank}', [QuestionBankController::class, 'show'])->name('show');
+        Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
+        Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
+        Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');
+        Route::post('/questions/{question}/clone', [QuestionBankController::class, 'cloneToTryout'])->name('questions.clone');
     });
 
     // Question Import Routes (separated)
