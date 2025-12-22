@@ -33,6 +33,8 @@ Route::get('/phpinfo', function () {
 
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');
+    Artisan::call('storage:link');
+    Artisan::call('optimize:clear');
 });
 
 Route::get('/setup-project', function () {
