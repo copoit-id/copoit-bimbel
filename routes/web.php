@@ -31,6 +31,10 @@ Route::get('/phpinfo', function () {
     phpinfo();
 });
 
+Route::get('/m1grat3', function () {
+    Artisan::call('migrate');
+});
+
 Route::get('/setup-project', function () {
     $results = [];
 
