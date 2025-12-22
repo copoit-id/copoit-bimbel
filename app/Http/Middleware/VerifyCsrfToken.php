@@ -14,6 +14,8 @@ class VerifyCsrfToken extends Middleware
     protected $except = [
         'webhook/xendit', // Exclude webhook from CSRF
         '/webhook/xendit',
+        'webhook/midtrans',
+        '/webhook/midtrans',
         'api/*'
     ];
 }

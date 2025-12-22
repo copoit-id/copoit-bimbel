@@ -105,12 +105,12 @@ class PackageController extends Controller
                         ], 400);
                     }
 
-                    $paymentResponse = $this->createXenditPayment($package);
+                    $paymentResponse = $this->createPayment($package);
 
                     if ($paymentResponse['success']) {
                         return response()->json([
                             'success' => true,
-                            'redirect_url' => $paymentResponse['invoice_url']
+                            'redirect_url' => $paymentResponse['redirect_url']
                         ]);
                     }
 
@@ -127,10 +127,22 @@ class PackageController extends Controller
         }
     }
 
-    private function createXenditPayment($package)
+    private function createPayment(Package $package)
     {
-        // Pastikan Xendit secret key tersedia
-        if (!config('services.xendit.secret_key')) {
+        $gateway = strtolower((string) config('services.payment_gateway', 'xendit'));
+
+        if ($gateway === 'midtrans') {
+            return $this->createMidtransPayment($package);
+        }
+
+        return $this->createXenditPayment($package);
+    }
+
+    private function createXenditPayment(Package $package)
+    {
+        $secretKey = config('services.xendit.secret_key');
+
+        if (!$secretKey) {
             return [
                 'success' => false,
                 'message' => 'Xendit secret key tidak dikonfigurasi'
@@ -138,12 +150,13 @@ class PackageController extends Controller
         }
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
+        $baseUrl = rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/');
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . base64_encode(config('services.xendit.secret_key') . ':'),
+                'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
                 'Content-Type' => 'application/json',
-            ])->post('https://api.xendit.co/v2/invoices', [
+            ])->post($baseUrl . '/v2/invoices', [
                 'external_id' => $transactionId,
                 'amount' => $package->price,
                 'description' => 'Pembelian ' . $package->name,
@@ -172,7 +185,7 @@ class PackageController extends Controller
                     'amount' => $package->price,
                     'admin_fee' => 0,
                     'total_amount' => $package->price,
-                    'status' => 'pending',
+                    'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'xendit',
                     'payment_details' => json_encode([
                         'invoice_id' => $invoiceData['id'],
@@ -183,7 +196,7 @@ class PackageController extends Controller
 
                 return [
                     'success' => true,
-                    'invoice_url' => $invoiceData['invoice_url']
+                    'redirect_url' => $invoiceData['invoice_url']
                 ];
             } else {
                 $errorMessage = 'Gagal membuat pembayaran';
@@ -200,6 +213,91 @@ class PackageController extends Controller
             return [
                 'success' => false,
                 'message' => 'Error koneksi ke Xendit: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    private function createMidtransPayment(Package $package)
+    {
+        $serverKey = config('services.midtrans.server_key');
+        $snapUrl = config('services.midtrans.snap_url', 'https://app.sandbox.midtrans.com/snap/v1/transactions');
+
+        if (!$serverKey) {
+            return [
+                'success' => false,
+                'message' => 'Midtrans server key tidak dikonfigurasi'
+            ];
+        }
+
+        $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->post($snapUrl, [
+                'transaction_details' => [
+                    'order_id' => $transactionId,
+                    'gross_amount' => (int) round($package->price),
+                ],
+                'item_details' => [
+                    [
+                        'id' => (string) $package->package_id,
+                        'price' => (int) round($package->price),
+                        'quantity' => 1,
+                        'name' => Str::limit($package->name, 50, ''),
+                    ],
+                ],
+                'customer_details' => [
+                    'first_name' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                ],
+                'callbacks' => [
+                    'finish' => route('user.package.payment.success'),
+                    'error' => route('user.package.payment.failed'),
+                    'pending' => route('user.package.riwayatPembelian'),
+                ],
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                Payment::create([
+                    'transaction_id' => $transactionId,
+                    'user_id' => Auth::id(),
+                    'package_id' => $package->package_id,
+                    'amount' => $package->price,
+                    'admin_fee' => 0,
+                    'total_amount' => $package->price,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_method' => 'midtrans',
+                    'payment_details' => json_encode([
+                        'snap_token' => $data['token'] ?? null,
+                        'redirect_url' => $data['redirect_url'] ?? null,
+                        'external_id' => $transactionId,
+                    ]),
+                ]);
+
+                return [
+                    'success' => true,
+                    'redirect_url' => $data['redirect_url'] ?? null,
+                ];
+            }
+
+            $errorMessage = 'Gagal membuat pembayaran';
+            if ($response->json() && isset($response->json()['status_message'])) {
+                $errorMessage = $response->json()['status_message'];
+            }
+
+            return [
+                'success' => false,
+                'message' => $errorMessage,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error koneksi ke Midtrans: ' . $e->getMessage(),
             ];
         }
     }
@@ -638,40 +736,97 @@ class PackageController extends Controller
         }
 
         if ($request->status === 'PAID') {
-            // Update payment status to success
             $payment->update([
-                'status' => 'success',
+                'status' => Payment::STATUS_SUCCESS,
                 'paid_at' => Carbon::now()
             ]);
 
-            // Check if user already has access to prevent duplicate entries
-            $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
-                ->where('package_id', $payment->package_id)
-                ->where('status', 'active')
-                ->where('end_date', '>', Carbon::now())
-                ->first();
-
-            if (!$existingAccess) {
-                // Give user access to package for 1 year
-                $userAccess = UserPackageAcces::create([
-                    'user_id' => $payment->user_id,
-                    'package_id' => $payment->package_id,
-                    'start_date' => Carbon::now(),
-                    'end_date' => Carbon::now()->addYear(), // 1 year access
-                    'status' => 'active',
-                    'payment_amount' => $payment->amount,
-                    'payment_status' => 'paid',
-                    'notes' => 'Payment confirmed via Xendit - 1 year access',
-                    'created_by' => $payment->user_id
-                ]);
-            }
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via Xendit - 1 year access');
         } elseif ($request->status === 'EXPIRED') {
-            $payment->update(['status' => 'expired']);
+            $payment->update(['status' => Payment::STATUS_EXPIRED]);
         } elseif ($request->status === 'FAILED') {
-            $payment->update(['status' => 'failed']);
+            $payment->update(['status' => Payment::STATUS_FAILED]);
         }
 
         return response()->json(['message' => 'OK']);
+    }
+
+    public function midtransWebhook(Request $request)
+    {
+        $serverKey = config('services.midtrans.server_key');
+
+        if (!$serverKey) {
+            return response()->json(['message' => 'Midtrans server key tidak dikonfigurasi'], 500);
+        }
+
+        $orderId = (string) $request->input('order_id', '');
+        $signature = (string) $request->input('signature_key', '');
+        $statusCode = (string) $request->input('status_code', '');
+        $grossAmount = (string) $request->input('gross_amount', '');
+        $expectedSignature = hash('sha512', $orderId . $statusCode . $grossAmount . $serverKey);
+
+        if (!$signature || !hash_equals($expectedSignature, $signature)) {
+            return response()->json(['message' => 'Invalid signature'], 401);
+        }
+
+        if (!$orderId) {
+            return response()->json(['message' => 'Invalid payload'], 422);
+        }
+
+        $payment = Payment::where('transaction_id', $orderId)->first();
+
+        if (!$payment) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+
+        $transactionStatus = $request->input('transaction_status');
+        $fraudStatus = $request->input('fraud_status');
+
+        if (in_array($transactionStatus, ['capture', 'settlement'])) {
+            if ($transactionStatus === 'capture' && $fraudStatus === 'challenge') {
+                $payment->update(['status' => Payment::STATUS_PENDING]);
+            } else {
+                $payment->update([
+                    'status' => Payment::STATUS_SUCCESS,
+                    'paid_at' => Carbon::now(),
+                ]);
+
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via Midtrans - 1 year access');
+            }
+        } elseif ($transactionStatus === 'pending') {
+            $payment->update(['status' => Payment::STATUS_PENDING]);
+        } elseif ($transactionStatus === 'expire') {
+            $payment->update(['status' => Payment::STATUS_EXPIRED]);
+        } elseif (in_array($transactionStatus, ['cancel', 'deny', 'failure'])) {
+            $payment->update(['status' => Payment::STATUS_FAILED]);
+        }
+
+        return response()->json(['message' => 'OK']);
+    }
+
+    private function ensureUserPackageAccess(Payment $payment, string $notes): void
+    {
+        $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
+            ->where('package_id', $payment->package_id)
+            ->where('status', 'active')
+            ->where('end_date', '>', Carbon::now())
+            ->first();
+
+        if ($existingAccess) {
+            return;
+        }
+
+        UserPackageAcces::create([
+            'user_id' => $payment->user_id,
+            'package_id' => $payment->package_id,
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addYear(),
+            'status' => 'active',
+            'payment_amount' => $payment->amount,
+            'payment_status' => 'paid',
+            'notes' => $notes,
+            'created_by' => $payment->user_id
+        ]);
     }
 
     // Add method to manually check payment status (for testing)
@@ -684,11 +839,47 @@ class PackageController extends Controller
 
         $payment = Payment::findOrFail($paymentId);
 
-        if (!$payment->payment_details) {
+        if (!$payment->payment_details && $payment->payment_method === 'xendit') {
             return response()->json(['error' => 'No payment details found']);
         }
 
-        $paymentDetails = json_decode($payment->payment_details, true);
+        $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+
+        if ($payment->payment_method === 'midtrans') {
+            $orderId = $payment->transaction_id;
+            if (!$orderId) {
+                return response()->json(['error' => 'No order ID found']);
+            }
+
+            try {
+                $serverKey = config('services.midtrans.server_key');
+
+                if (!$serverKey) {
+                    return response()->json(['error' => 'Midtrans server key is not configured']);
+                }
+
+                $statusUrl = rtrim(config('services.midtrans.status_url', 'https://api.sandbox.midtrans.com/v2'), '/');
+                $response = Http::withHeaders([
+                    'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                    'Accept' => 'application/json',
+                ])->get("{$statusUrl}/{$orderId}/status");
+
+                if ($response->successful()) {
+                    $midtransData = $response->json();
+
+                    return response()->json([
+                        'payment_status' => $payment->status,
+                        'midtrans_status' => $midtransData['transaction_status'] ?? null,
+                        'midtrans_data' => $midtransData,
+                    ]);
+                }
+
+                return response()->json(['error' => 'Failed to fetch from Midtrans']);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()]);
+            }
+        }
+
         $invoiceId = $paymentDetails['invoice_id'] ?? null;
 
         if (!$invoiceId) {
@@ -696,9 +887,16 @@ class PackageController extends Controller
         }
 
         try {
+            $secretKey = config('services.xendit.secret_key');
+
+            if (!$secretKey) {
+                return response()->json(['error' => 'Xendit secret key is not configured']);
+            }
+
+            $baseUrl = rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/');
             $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . base64_encode(config('services.xendit.secret_key') . ':'),
-            ])->get("https://api.xendit.co/v2/invoices/{$invoiceId}");
+                'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
+            ])->get("{$baseUrl}/v2/invoices/{$invoiceId}");
 
             if ($response->successful()) {
                 $invoiceData = $response->json();

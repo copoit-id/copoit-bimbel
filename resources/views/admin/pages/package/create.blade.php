@@ -145,7 +145,7 @@
                             Syarat Untuk Paket Gratis Bersyarat <span class="text-red-500">*</span>
                         </label>
                         <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Contoh: Follow akun Instagram @copoit, upload bukti, dll.">{{ old('conditional_requirement', $package->conditional_requirement ?? '') }}</textarea>
                     </div>
                     </div>
@@ -153,7 +153,7 @@
                     <div>
                         <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
                         <textarea id="description" name="description" rows="4"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Masukkan deskripsi paket...">{{ isset($package) ? $package->description : old('description') }}</textarea>
                     </div>
 

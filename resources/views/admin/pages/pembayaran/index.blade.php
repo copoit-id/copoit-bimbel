@@ -75,6 +75,7 @@
                     <option value="ewallet">E-Wallet</option>
                     <option value="credit">Kartu Kredit</option>
                     <option value="xendit">Xendit</option>
+                    <option value="midtrans">Midtrans</option>
                 </select>
             </div>
             <button id="reset-payment-filters"

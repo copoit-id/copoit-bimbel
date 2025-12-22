@@ -37,7 +37,7 @@ class HelpController extends Controller
             ],
             [
                 'question' => 'Metode pembayaran apa saja yang tersedia?',
-                'answer' => 'Kami menerima pembayaran melalui transfer bank, e-wallet (OVO, GoPay, DANA), dan kartu kredit/debit melalui gateway Xendit.',
+                'answer' => 'Kami menerima pembayaran melalui transfer bank, e-wallet (OVO, GoPay, DANA), dan kartu kredit/debit melalui gateway Xendit atau Midtrans (sesuai konfigurasi).',
                 'category' => 'Pembayaran'
             ]
         ];

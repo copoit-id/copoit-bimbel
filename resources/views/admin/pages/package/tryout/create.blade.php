@@ -72,7 +72,7 @@
                 <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi <span
                         class="text-red-500">*</span></label>
                 <textarea id="description" name="description" rows="4" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    class="summernote w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="Jelaskan tentang tryout ini...">{{ old('description') }}</textarea>
             </div>
 

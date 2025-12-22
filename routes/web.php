@@ -172,6 +172,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
 // Webhook route (outside auth middleware) - make sure this is correct
 Route::post('/webhook/xendit', [PackageController::class, 'xenditWebhook'])->name('webhook.xendit');
+Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])->name('webhook.midtrans');
 
 // Add route for checking payment status (for debugging)
 Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class]);

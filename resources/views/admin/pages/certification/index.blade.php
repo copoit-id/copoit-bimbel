@@ -234,7 +234,7 @@
                             <div class="col-span-2">
                                 <label class="block mb-2 text-sm font-medium text-gray-900">Deskripsi</label>
                                 <textarea name="description" rows="4"
-                                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
+                                    class="summernote bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                     required></textarea>
                             </div>
                             <div class="col-span-2">
