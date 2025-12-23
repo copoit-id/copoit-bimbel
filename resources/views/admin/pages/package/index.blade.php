@@ -97,10 +97,12 @@
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout
                 </a>
+                @if($clientBranding['class_management_enabled'] ?? false)
                 <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Kelas
                 </a>
+                @endif
                 @elseif ($package->type_package == 'tryout')
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">

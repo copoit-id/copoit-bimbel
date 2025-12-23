@@ -46,6 +46,7 @@
             </div>
         </div>
 
+        @if($clientBranding['class_management_enabled'] ?? false)
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
@@ -57,6 +58,7 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 
     <!-- Recent Activities -->

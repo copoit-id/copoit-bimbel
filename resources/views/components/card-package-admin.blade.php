@@ -16,8 +16,10 @@
         <a href="{{ route('admin.package.tryout.index', ['package_id' => 1]) }}"
             class="flex w-full justify-center bg-primary text-white px-4 py-3 font-bold rounded-lg uppercase text-sm">LIHAT
             TRYOUT</a>
+        @if($clientBranding['class_management_enabled'] ?? false)
         <a href="{{ route('admin.package.class.index', ['package_id' => 1]) }}"
             class="flex w-full justify-center bg-primary text-white px-4 py-3 font-bold rounded-lg uppercase text-sm">LIHAT
             KELAS</a>
+        @endif
     </div>
 </div>

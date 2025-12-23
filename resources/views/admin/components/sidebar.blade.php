@@ -30,6 +30,7 @@
                     <span class="ms-3">Manajemen Tryout</span>
                 </a>
             </li>
+            @if($clientBranding['class_management_enabled'] ?? false)
             <li>
                 <a href="{{ route('admin.class.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -38,6 +39,7 @@
                     <span class="ms-3">Manajemen Kelas</span>
                 </a>
             </li>
+            @endif
             <li>
                 <a href="{{ route('admin.question-bank.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">

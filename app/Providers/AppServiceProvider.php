@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
             'certificate_management_enabled' => false,
+            'class_management_enabled' => false,
             'header_primary_color' => false,
             'sidebar_primary_color' => false,
             'utbk_enabled' => false,
@@ -49,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
             $defaults['secondary_color'] = $clientProfile->warna_secondary ?: $defaults['secondary_color'];
             $defaults['certificate_management_enabled'] = (bool) ($clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled']);
+            $defaults['class_management_enabled'] = (bool) ($clientProfile->enable_class_management ?? $defaults['class_management_enabled']);
             $defaults['header_primary_color'] = $clientProfile->header_primary_color ?? $defaults['header_primary_color'];
             $defaults['sidebar_primary_color'] = $clientProfile->sidebar_primary_color ?? $defaults['sidebar_primary_color'];
             $defaults['utbk_enabled'] = (bool) ($clientProfile->enable_utbk_types ?? $defaults['utbk_enabled']);
@@ -57,8 +59,9 @@ class AppServiceProvider extends ServiceProvider
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
 
-        // Force-hide certificate & UTBK modules per client request
+        // Force-hide modules per client request
         $defaults['certificate_management_enabled'] = false;
+        $defaults['class_management_enabled'] = false;
         $defaults['utbk_enabled'] = false;
 
         $logoUrl = $this->makeBrandAssetUrl($defaults['logo'], $defaultAsset);
