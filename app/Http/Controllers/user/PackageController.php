@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
+use App\Models\Tryout;
 use App\Services\PracticeProgressService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,19 +24,21 @@ class PackageController extends Controller
 
     public function index()
     {
-        $packages = Package::where('status', 'active')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->orderBy('package_id')
+        $tryouts = Tryout::where('is_active', true)
+            ->with(['tryoutDetails.questions', 'directPackage', 'packages'])
+            ->orderBy('tryout_id')
             ->get();
+
+        $tryouts = $tryouts->map(function ($tryout) {
+            $primaryPackage = $tryout->directPackage ?: $tryout->packages->first();
+            $tryout->setRelation('primaryPackage', $primaryPackage);
+            return $tryout;
+        });
 
         $practiceStats = $this->practiceProgress->getStatsForUser(Auth::id());
 
         return view('user.pages.package.index', compact(
-            'packages',
+            'tryouts',
             'practiceStats'
         ));
     }
@@ -49,10 +52,16 @@ class PackageController extends Controller
                 ->where('package_id', $package_id)
                 ->first();
 
-            if (!$this->practiceProgress->packageIsUnlocked(Auth::id(), $package->package_id)) {
+            $tryoutId = (int) $request->input('tryout_id');
+            if (!$tryoutId) {
+                $firstTryout = $package->tryouts()->first() ?: $package->directTryouts()->first();
+                $tryoutId = $firstTryout?->tryout_id;
+            }
+
+            if ($tryoutId && !$this->practiceProgress->tryoutIsUnlocked(Auth::id(), $tryoutId)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Paket ini masih terkunci. Selesaikan latihan soal untuk membukanya.'
+                    'message' => 'Tryout ini masih terkunci. Selesaikan latihan soal untuk membukanya.'
                 ], 403);
             }
 

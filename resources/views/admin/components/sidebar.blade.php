@@ -23,14 +23,6 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('admin.package.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.package.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-store-3-line text-[20px] {{ request()->routeIs('admin.package.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Manajemen Paket</span>
-                </a>
-            </li>
-            <li>
                 <a href="{{ route('admin.tryout.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.tryout.*')  || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i

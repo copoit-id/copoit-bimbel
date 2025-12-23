@@ -41,15 +41,7 @@
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-store-3-line text-[20px] {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Paket Pembelian</span>
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('user.event.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.event.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-calendar-event-line text-[20px] {{ request()->routeIs('user.event.index') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Event Gratis</span>
+                    <span class="ms-3">Paket Tryout</span>
                 </a>
             </li>
             <li>

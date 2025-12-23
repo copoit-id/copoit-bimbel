@@ -1,5 +1,5 @@
 @extends('user.layout.user')
-@section('title', 'Paket Pembelian')
+@section('title', 'Paket Tryout')
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     <div class="flex items-center justify-between">

@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Package;
 use App\Models\PracticeSession;
 use App\Models\QuestionBankQuestion;
-use App\Models\UserPackageUnlock;
+use App\Models\Tryout;
+use App\Models\UserTryoutUnlock;
 use Illuminate\Support\Collection;
 
 class PracticeProgressService
@@ -66,22 +66,22 @@ class PracticeProgressService
 
     public function syncUnlocks(PracticeSession $session): void
     {
-        $packages = $this->getLockablePackages();
-        if ($packages->isEmpty()) {
+        $tryouts = $this->getLockableTryouts();
+        if ($tryouts->isEmpty()) {
             return;
         }
 
-        $thresholds = $this->buildThresholdMap($packages, $session->total_questions);
+        $thresholds = $this->buildThresholdMap($tryouts, $session->total_questions);
         if (empty($thresholds)) {
             return;
         }
 
-        $existingUnlocks = UserPackageUnlock::where('user_id', $session->user_id)
-            ->pluck('package_id')
+        $existingUnlocks = UserTryoutUnlock::where('user_id', $session->user_id)
+            ->pluck('tryout_id')
             ->all();
 
-        $eligiblePackages = $packages->filter(function ($package) use ($thresholds, $session) {
-            $needed = $thresholds[$package->package_id] ?? PHP_INT_MAX;
+        $eligibleTryouts = $tryouts->filter(function ($tryout) use ($thresholds, $session) {
+            $needed = $thresholds[$tryout->tryout_id] ?? PHP_INT_MAX;
             if ($needed === PHP_INT_MAX) {
                 return false;
             }
@@ -89,24 +89,24 @@ class PracticeProgressService
             return $session->answered_questions >= $needed;
         });
 
-        $packagesToUnlock = $eligiblePackages->pluck('package_id')
+        $tryoutsToUnlock = $eligibleTryouts->pluck('tryout_id')
             ->diff($existingUnlocks);
 
-        foreach ($packagesToUnlock as $packageId) {
-            UserPackageUnlock::create([
+        foreach ($tryoutsToUnlock as $tryoutId) {
+            UserTryoutUnlock::create([
                 'user_id' => $session->user_id,
-                'package_id' => $packageId,
+                'tryout_id' => $tryoutId,
                 'progress_count' => $session->answered_questions,
                 'unlocked_at' => now(),
             ]);
         }
     }
 
-    public function packageIsUnlocked(int $userId, int $packageId): bool
+    public function tryoutIsUnlocked(int $userId, int $tryoutId): bool
     {
         $stats = $this->getStatsForUser($userId);
 
-        return in_array($packageId, $stats['unlocked_package_ids'] ?? [], true);
+        return in_array($tryoutId, $stats['unlocked_tryout_ids'] ?? [], true);
     }
 
     public function getStatsForUser(int $userId): array
@@ -122,12 +122,12 @@ class PracticeProgressService
             $this->syncUnlocks($session);
         }
 
-        $packages = $this->getLockablePackages();
-        $packageCount = $packages->count();
-        $thresholds = $this->buildThresholdMap($packages, $session->total_questions);
+        $tryouts = $this->getLockableTryouts();
+        $tryoutCount = $tryouts->count();
+        $thresholds = $this->buildThresholdMap($tryouts, $session->total_questions);
 
-        $existingUnlockIds = UserPackageUnlock::where('user_id', $userId)
-            ->pluck('package_id')
+        $existingUnlockIds = UserTryoutUnlock::where('user_id', $userId)
+            ->pluck('tryout_id')
             ->map(fn ($id) => (int) $id)
             ->all();
 
@@ -137,7 +137,7 @@ class PracticeProgressService
             : 0;
 
         $nextUnlockRemaining = 0;
-        if (!empty($thresholds)) {
+        if (!empty($thresholds) && $tryoutCount > 0) {
             $nextThreshold = collect($thresholds)
                 ->filter(fn ($threshold) => $threshold > $session->answered_questions && $threshold < PHP_INT_MAX)
                 ->min();
@@ -152,19 +152,19 @@ class PracticeProgressService
             'total_questions' => $session->total_questions,
             'answered_count' => $session->answered_questions,
             'progress_percent' => $progressPercent,
-            'packages' => $packages,
-            'package_count' => $packageCount,
-            'threshold_per_package' => $this->calculateThreshold($session->total_questions, $packageCount),
+            'tryouts' => $tryouts,
+            'tryout_count' => $tryoutCount,
+            'threshold_per_tryout' => $this->calculateThreshold($session->total_questions, $tryoutCount),
             'unlock_thresholds' => $thresholds,
-            'unlocked_package_ids' => $existingUnlockIds,
+            'unlocked_tryout_ids' => $existingUnlockIds,
             'unlocked_count' => $unlockedCount,
             'next_unlock_remaining' => $nextUnlockRemaining,
         ];
     }
 
-    private function calculateThreshold(int $totalQuestions, int $packageCount): int
+    private function calculateThreshold(int $totalQuestions, int $itemCount): int
     {
-        if ($packageCount <= 0) {
+        if ($itemCount <= 0) {
             return 0;
         }
 
@@ -172,7 +172,7 @@ class PracticeProgressService
             return 0;
         }
 
-        return (int) max(1, ceil($totalQuestions / $packageCount));
+        return (int) max(1, ceil($totalQuestions / $itemCount));
     }
 
     private function countQuestions(): int
@@ -180,33 +180,33 @@ class PracticeProgressService
         return QuestionBankQuestion::count();
     }
 
-    private function getLockablePackages(): Collection
+    private function getLockableTryouts(): Collection
     {
-        return Package::where('status', 'active')
-            ->orderBy('package_id')
+        return Tryout::where('is_active', true)
+            ->orderBy('tryout_id')
             ->get();
     }
 
-    private function buildThresholdMap(Collection $packages, int $totalQuestions): array
+    private function buildThresholdMap(Collection $tryouts, int $totalQuestions): array
     {
-        if ($packages->isEmpty()) {
+        if ($tryouts->isEmpty()) {
             return [];
         }
 
         $thresholds = [];
 
         if ($totalQuestions <= 0) {
-            foreach ($packages as $package) {
-                $thresholds[$package->package_id] = PHP_INT_MAX;
+            foreach ($tryouts as $tryout) {
+                $thresholds[$tryout->tryout_id] = PHP_INT_MAX;
             }
             return $thresholds;
         }
 
-        $questionsPerPackage = $totalQuestions / $packages->count();
+        $questionsPerTryout = $totalQuestions / $tryouts->count();
 
-        foreach ($packages->values() as $index => $package) {
+        foreach ($tryouts->values() as $index => $tryout) {
             $position = $index + 1;
-            $thresholds[$package->package_id] = (int) ceil($questionsPerPackage * $position);
+            $thresholds[$tryout->tryout_id] = (int) ceil($questionsPerTryout * $position);
         }
 
         return $thresholds;

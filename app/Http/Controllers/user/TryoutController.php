@@ -9,7 +9,6 @@ use App\Models\TryoutDetail;
 use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
-use App\Models\UserPackageAcces;
 use App\Models\QuestionOption;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,14 +19,42 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
+use App\Services\PracticeProgressService;
 
 class TryoutController extends Controller
 {
-    public function __construct()
+    public function __construct(private PracticeProgressService $practiceProgress)
     {
         // Set timezone untuk semua method dalam controller ini
         Carbon::setLocale('id');
         date_default_timezone_set('Asia/Jakarta');
+    }
+
+    private function guardLockedTryout(Tryout $tryout)
+    {
+        if ($this->practiceProgress->tryoutIsUnlocked(Auth::id(), $tryout->tryout_id)) {
+            return null;
+        }
+
+        $message = 'Tryout ini masih terkunci. Selesaikan latihan soal dahulu.';
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'error' => $message,
+            ], 403);
+        }
+
+        return redirect()->route('user.package.index')
+            ->with('error', $message);
+    }
+
+    private function resolvePackageContext($id_package): ?Package
+    {
+        if (empty($id_package) || $id_package === 'free') {
+            return null;
+        }
+
+        return Package::find($id_package);
     }
 
     private function processAnswerByType(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
@@ -327,40 +354,27 @@ class TryoutController extends Controller
 
     public function indexLobby($id_package, $id_tryout)
     {
-        if ($id_package === 'free') {
-            // Free tryout access dengan timezone Jakarta
-            $now = Carbon::now('Asia/Jakarta');
-            $tryout = Tryout::where('tryout_id', $id_tryout)
-                ->where('is_active', true)
-                ->where('start_date', '<=', $now)
-                ->where('end_date', '>=', $now)
-                ->firstOrFail();
-            $package = null;
-        } else {
-            $package = Package::findOrFail($id_package);
-            $tryout = Tryout::findOrFail($id_tryout);
+        $now = Carbon::now('Asia/Jakarta');
+        $tryout = Tryout::where('tryout_id', $id_tryout)
+            ->where('is_active', true)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('start_date')
+                    ->orWhere('start_date', '<=', $now);
+            })
+            ->where(function ($query) use ($now) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>=', $now);
+            })
+            ->firstOrFail();
+        $package = $this->resolvePackageContext($id_package);
 
-            // Check if user has access to package
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $id_package)
-                ->where('status', 'active')
-                ->where(function ($query) {
-                    $now = Carbon::now('Asia/Jakarta');
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', $now);
-                })
-                ->exists();
-
-            if (!$hasAccess) {
-                return redirect()->route('user.package.index')
-                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
-            }
+        if ($guardResponse = $this->guardLockedTryout($tryout)) {
+            return $guardResponse;
         }
 
         // Check if tryout is still active dengan timezone Jakarta
-        $now = Carbon::now('Asia/Jakarta');
-        if (Carbon::parse($tryout->end_date)->lt($now)) {
-            return redirect()->back()->with('error', 'Tryout sudah berakhir');
+        if ($tryout->end_date && Carbon::parse($tryout->end_date)->lt($now)) {
+            return redirect()->route('user.package.index')->with('error', 'Tryout sudah berakhir');
         }
 
         // Get tryout details untuk menampilkan info di lobby
@@ -392,32 +406,21 @@ class TryoutController extends Controller
     {
         $now = Carbon::now('Asia/Jakarta');
 
-        // Handle free tryouts or package tryouts
-        if ($id_package === 'free') {
-            $tryout = Tryout::where('tryout_id', $id_tryout)
-                ->where('is_active', true)
-                ->where('start_date', '<=', $now)
-                ->where('end_date', '>=', $now)
-                ->firstOrFail();
-            $package = null;
-        } else {
-            $package = Package::findOrFail($id_package);
-            $tryout = Tryout::findOrFail($id_tryout);
+        $tryout = Tryout::where('tryout_id', $id_tryout)
+            ->where('is_active', true)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('start_date')
+                    ->orWhere('start_date', '<=', $now);
+            })
+            ->where(function ($query) use ($now) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>=', $now);
+            })
+            ->firstOrFail();
+        $package = $this->resolvePackageContext($id_package);
 
-            // Check access
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $id_package)
-                ->where('status', 'active')
-                ->where(function ($query) use ($now) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', $now);
-                })
-                ->exists();
-
-            if (!$hasAccess) {
-                return redirect()->route('user.package.index')
-                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
-            }
+        if ($guardResponse = $this->guardLockedTryout($tryout)) {
+            return $guardResponse;
         }
 
         // Get all tryout details dalam urutan yang benar
@@ -656,6 +659,11 @@ class TryoutController extends Controller
     public function saveAnswer(Request $request, $id_package, $id_tryout, $number)
     {
         try {
+            $tryout = Tryout::findOrFail($id_tryout);
+            if ($guardResponse = $this->guardLockedTryout($tryout)) {
+                return $guardResponse;
+            }
+
             $request->validate([
                 'question_id' => 'required|exists:questions,question_id',
             ]);
@@ -684,7 +692,6 @@ class TryoutController extends Controller
                 return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
             }
 
-            $tryout = Tryout::findOrFail($id_tryout);
             $tryoutDetails = $tryout->tryoutDetails()->get();
             $totalDuration = $tryoutDetails->sum('duration');
 
@@ -907,6 +914,9 @@ class TryoutController extends Controller
 
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
+        if ($guardResponse = $this->guardLockedTryout($tryout)) {
+            return $guardResponse;
+        }
 
         // Get all user answers untuk tryout ini
         $userAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1121,32 +1131,13 @@ class TryoutController extends Controller
 
     public function indexResult($id_package, $id_tryout)
     {
-        $now = Carbon::now('Asia/Jakarta');
-
-        // Handle free tryouts or package tryouts
-        if ($id_package === 'free') {
-            $package = null;
-        } else {
-            $package = Package::findOrFail($id_package);
-
-            // Check access for package tryouts
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $id_package)
-                ->where('status', 'active')
-                ->where(function ($query) use ($now) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', $now);
-                })
-                ->exists();
-
-            if (!$hasAccess) {
-                return redirect()->route('user.package.index')
-                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
-            }
-        }
+        $package = $this->resolvePackageContext($id_package);
 
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
+        if ($guardResponse = $this->guardLockedTryout($tryout)) {
+            return $guardResponse;
+        }
 
         // Get all completed/pending user answers untuk tryout ini dengan attempt_token yang sama
         $userAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1398,6 +1389,11 @@ class TryoutController extends Controller
     public function toggleFlag(Request $request, $id_package, $id_tryout)
     {
         try {
+            $tryout = Tryout::findOrFail($id_tryout);
+            if ($guardResponse = $this->guardLockedTryout($tryout)) {
+                return $guardResponse;
+            }
+
             $request->validate([
                 'question_id' => 'required|exists:questions,question_id'
             ]);
@@ -1628,6 +1624,11 @@ class TryoutController extends Controller
 
     public function markPlayed($id_package, $id_tryout, $question_id)
     {
+        $tryout = Tryout::findOrFail($id_tryout);
+        if ($guardResponse = $this->guardLockedTryout($tryout)) {
+            return $guardResponse;
+        }
+
         $userId = Auth::id();
 
         $answerDetail = UserAnswerDetail::where('question_id', $question_id)

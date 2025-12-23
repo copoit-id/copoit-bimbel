@@ -1,5 +1,5 @@
 @extends('user.layout.user')
-@section('title', 'Paket Pembelian')
+@section('title', 'Paket Tryout')
 @section('content')
 @php
     $typePriceLabels = [
@@ -7,26 +7,21 @@
         'free_conditional' => ['label' => 'Gratis Bersyarat', 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
         'paid' => ['label' => 'Berbayar', 'class' => 'bg-blue-50 text-blue-700 border border-blue-100'],
     ];
-    $typePackageLabels = [
-        'bimbel' => 'Bimbel',
-        'tryout' => 'Tryout',
-        'sertifikasi' => 'Sertifikasi',
-    ];
     $practiceData = $practiceStats ?? [];
-    $practiceUnlockedIds = array_map('intval', $practiceData['unlocked_package_ids'] ?? []);
+    $practiceUnlockedIds = array_map('intval', $practiceData['unlocked_tryout_ids'] ?? []);
     $practiceAnswered = $practiceData['answered_count'] ?? 0;
     $practiceTotalQuestions = $practiceData['total_questions'] ?? 0;
     $practicePercent = $practiceData['progress_percent'] ?? 0;
     $practiceNextRemaining = $practiceData['next_unlock_remaining'] ?? 0;
     $practiceUnlockedCount = $practiceData['unlocked_count'] ?? 0;
-    $practicePackageCount = $practiceData['package_count'] ?? 0;
+    $practiceTryoutCount = $practiceData['tryout_count'] ?? 0;
     $practiceThresholdMap = $practiceData['unlock_thresholds'] ?? [];
-    $practiceAveragePerPackage = ($practicePackageCount > 0 && $practiceTotalQuestions > 0)
-        ? max(1, (int) ceil($practiceTotalQuestions / $practicePackageCount))
+    $practiceAveragePerTryout = ($practiceTryoutCount > 0 && $practiceTotalQuestions > 0)
+        ? max(1, (int) ceil($practiceTotalQuestions / $practiceTryoutCount))
         : null;
 @endphp
 <div class="dashboard">
-    <x-page-desc title="Paket" description="Semua paket berada dalam satu daftar. Buka kuncinya melalui latihan soal, lalu pilih paket yang kamu butuhkan."></x-page-desc>
+    <x-page-desc title="Paket Tryout" description="Semua tryout (gratis maupun berbayar) berada di sini. Buka kuncinya lewat latihan, lalu pilih tryout yang ingin kamu ikuti."></x-page-desc>
 
     <div class="mt-6 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -35,10 +30,10 @@
                 <p class="text-3xl font-semibold text-gray-900">{{ $practiceAnswered }} / {{ $practiceTotalQuestions }}</p>
             </div>
             <div class="text-sm text-gray-500">
-                @if($practicePackageCount > 0)
-                    <span class="font-semibold text-primary">{{ $practiceUnlockedCount }}</span> paket terbuka dari {{ $practicePackageCount }}
+                @if($practiceTryoutCount > 0)
+                    <span class="font-semibold text-primary">{{ $practiceUnlockedCount }}</span> tryout terbuka dari {{ $practiceTryoutCount }}
                 @else
-                    Belum ada paket aktif
+                    Belum ada tryout aktif
                 @endif
             </div>
             <a href="{{ route('user.practice.index') }}"
@@ -50,47 +45,46 @@
             <div class="h-full bg-primary transition-all duration-500" style="width: {{ min(100, $practicePercent) }}%"></div>
         </div>
         <p class="mt-3 text-sm text-gray-500" id="package-practice-hints">
-            @if($practicePackageCount === 0)
-                Paket akan muncul setelah admin menambahkannya.
+            @if($practiceTryoutCount === 0)
+                Tryout akan muncul setelah admin menambahkannya.
             @elseif($practiceTotalQuestions === 0)
                 Latihan belum memiliki soal. Hubungi admin untuk mengaktifkan latihan.
-            @elseif($practiceNextRemaining === 0 && $practiceUnlockedCount >= $practicePackageCount)
-                Semua paket sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.
+            @elseif($practiceNextRemaining === 0 && $practiceUnlockedCount >= $practiceTryoutCount)
+                Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.
             @else
-                Selesaikan <span class="font-semibold text-gray-800">{{ $practiceNextRemaining }}</span> soal lagi untuk membuka paket berikutnya
-                @if($practiceAveragePerPackage)
-                    (rata-rata {{ $practiceAveragePerPackage }} soal/paket).
+                Selesaikan <span class="font-semibold text-gray-800">{{ $practiceNextRemaining }}</span> soal lagi untuk membuka tryout berikutnya
+                @if($practiceAveragePerTryout)
+                    (rata-rata {{ $practiceAveragePerTryout }} soal/tryout).
                 @endif
             @endif
         </p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6 text-gray-600">
-        @forelse($packages as $package)
+        @forelse($tryouts as $tryout)
         @php
-            $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
-            $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
-            $thumbUrl = $package->image ? Storage::url($package->image) : null;
-            $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
-            $packageThreshold = $practiceThresholdMap[$package->package_id] ?? PHP_INT_MAX;
-            $isUnlocked = in_array($package->package_id, $practiceUnlockedIds, true);
-            $remainingToUnlock = $packageThreshold === PHP_INT_MAX ? null : max(0, $packageThreshold - $practiceAnswered);
-            $typeLabel = $typePackageLabels[$package->type_package] ?? ucfirst($package->type_package);
-            $detailRoute = match ($package->type_package) {
-                'bimbel' => route('user.package.bimbel', $package->package_id),
-                'tryout' => route('user.package.tryout', $package->package_id),
-                'sertifikasi' => route('user.package.tryout', $package->package_id),
-                default => '#',
-            };
+            $primaryPackage = $tryout->primaryPackage ?? null;
+            $thumbExt = $primaryPackage?->image ? strtolower(pathinfo($primaryPackage->image, PATHINFO_EXTENSION)) : null;
+            $thumbIsVideo = $primaryPackage?->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
+            $thumbUrl = $primaryPackage?->image ? Storage::url($primaryPackage->image) : null;
+            $typePrice = $primaryPackage->type_price ?? 'free_unconditional';
+            $typePriceStyle = $typePriceLabels[$typePrice] ?? null;
+            $tryoutThreshold = $practiceThresholdMap[$tryout->tryout_id] ?? PHP_INT_MAX;
+            $isUnlocked = in_array($tryout->tryout_id, $practiceUnlockedIds, true);
+            $remainingToUnlock = $tryoutThreshold === PHP_INT_MAX ? null : max(0, $tryoutThreshold - $practiceAnswered);
+            $questionCount = $tryout->tryoutDetails->sum(function ($detail) {
+                return $detail->questions->count();
+            });
+            $totalDuration = $tryout->tryoutDetails->sum('duration');
         @endphp
         <div class="flex flex-col justify-between bg-white px-5 py-5 shadow rounded-xl border border-gray-100">
             <div>
                 <div class="w-full h-36 bg-gray-200 rounded-xl mb-4 overflow-hidden">
-                    @if($package->image)
+                    @if($primaryPackage?->image)
                         @if($thumbIsVideo)
                             <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                         @else
-                            <img src="{{ $thumbUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+                            <img src="{{ $thumbUrl }}" alt="{{ $tryout->name }}" class="w-full h-full object-cover">
                         @endif
                     @else
                         <div class="w-full h-full bg-gray-100 flex items-center justify-center">
@@ -105,7 +99,7 @@
                     </span>
                     @endif
                     <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
-                        {{ $typeLabel }}
+                        {{ ucfirst($tryout->type_tryout) }}
                     </span>
                     @if(!$isUnlocked)
                         <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200 flex items-center gap-1">
@@ -113,17 +107,15 @@
                         </span>
                     @endif
                 </div>
-                <p class="text-lg font-bold text-black">{{ $package->name }}</p>
-                <p class="font-light">{{ $package->description }}</p>
-                @if($package->type_price === 'paid')
-                <span class="font-bold text-black mt-1 block">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
-                @else
-                <span class="font-bold text-black mt-1 block">{{ $typePriceLabels[$package->type_price]['label'] ?? 'Gratis' }}</span>
-                @endif
-
+                <p class="text-lg font-bold text-black">{{ $tryout->name }}</p>
+                <p class="font-light">{{ $tryout->description }}</p>
                 <div class="flex flex-col mt-4 gap-3 font-light min-h-[110px]">
-                    @if($package->features)
-                    @foreach (json_decode($package->features) as $feature)
+                    <span class="flex items-center gap-2">
+                        <i class="ri-question-line text-primary"></i>
+                        {{ $questionCount }} Soal · {{ $totalDuration }} Menit
+                    </span>
+                    @if($primaryPackage && $primaryPackage->features)
+                    @foreach (json_decode($primaryPackage->features) as $feature)
                     <span class="flex items-center gap-2">
                         <i class="ri-checkbox-circle-fill text-green-500"></i>
                         {{ $feature }}
@@ -138,9 +130,9 @@
                 <div class="px-4 py-3 rounded-lg bg-gray-100 border border-gray-200 text-sm text-gray-600 flex items-center gap-2">
                     <i class="ri-lock-line text-lg"></i>
                     @if(is_null($remainingToUnlock))
-                        Paket terkunci. Selesaikan latihan saat tersedia.
+                        Tryout terkunci. Selesaikan latihan saat tersedia.
                     @else
-                        Paket terkunci. Butuh <strong>{{ $remainingToUnlock }} soal</strong> lagi untuk membuka.
+                        Tryout terkunci. Butuh <strong>{{ $remainingToUnlock }} soal</strong> lagi untuk membuka.
                     @endif
                 </div>
                 <button type="button"
@@ -151,25 +143,17 @@
                     class="w-full border border-primary text-primary px-4 py-3 rounded-lg font-semibold text-center block hover:bg-primary hover:text-white transition-colors">
                     Buka Lewat Latihan Soal
                 </a>
-                @elseif($package->user_access_count > 0)
-                <a href="{{ $detailRoute }}"
-                    class="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-bold text-center block">
-                    SUDAH DIBELI
+                @elseif($isUnlocked)
+                <a href="{{ route('user.tryout.lobby', ['id_package' => 'free', 'id_tryout' => $tryout->tryout_id]) }}"
+                    class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold text-center block hover:bg-primary/90 transition-colors">
+                    MULAI TRYOUT
                 </a>
-                @else
-                <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                    class="buy-package-form">
-                    @csrf
-                    <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
-                        <i class="ri-shopping-bag-3-line text-lg"></i> BELI SEKARANG
-                    </button>
-                </form>
                 @endif
             </div>
         </div>
         @empty
         <div class="col-span-full text-center py-8">
-            <p class="text-gray-500">Belum ada paket tersedia saat ini.</p>
+            <p class="text-gray-500">Belum ada tryout tersedia saat ini.</p>
         </div>
         @endforelse
     </div>

@@ -230,15 +230,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (progressLabel && data.answered_count !== undefined && data.total_questions !== undefined) {
                 progressLabel.textContent = `${data.answered_count} / ${data.total_questions}`;
             }
-            if (nextUnlock && data.next_unlock_remaining !== undefined && data.package_count !== undefined) {
-                if (data.package_count === 0) {
-                    nextUnlock.textContent = 'Paket tryout akan muncul setelah admin menambahkannya.';
-                } else if (data.next_unlock_remaining === 0 && data.unlocked_count >= data.package_count) {
-                    nextUnlock.textContent = 'Semua paket tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.';
-                } else if (!data.threshold_per_package) {
-                    nextUnlock.textContent = 'Paket akan terbuka otomatis begitu tersedia.';
+            if (nextUnlock && data.next_unlock_remaining !== undefined && data.tryout_count !== undefined) {
+                if (data.tryout_count === 0) {
+                    nextUnlock.textContent = 'Tryout akan muncul setelah admin menambahkannya.';
+                } else if (data.next_unlock_remaining === 0 && data.unlocked_count >= data.tryout_count) {
+                    nextUnlock.textContent = 'Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.';
+                } else if (!data.threshold_per_tryout) {
+                    nextUnlock.textContent = 'Tryout akan terbuka otomatis begitu tersedia.';
                 } else {
-                    nextUnlock.innerHTML = `Selesaikan <span class="font-semibold text-gray-800">${data.next_unlock_remaining}</span> soal lagi untuk membuka paket berikutnya.`;
+                    nextUnlock.innerHTML = `Selesaikan <span class="font-semibold text-gray-800">${data.next_unlock_remaining}</span> soal lagi untuk membuka tryout berikutnya.`;
                 }
             }
         })

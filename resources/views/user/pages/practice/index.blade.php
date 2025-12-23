@@ -8,8 +8,8 @@
     $answeredCount = $stats['answered_count'] ?? 0;
     $progressPercent = $stats['progress_percent'] ?? 0;
     $nextUnlockRemaining = $stats['next_unlock_remaining'] ?? 0;
-    $packages = $stats['packages'] ?? collect();
-    $unlockedIds = $stats['unlocked_package_ids'] ?? [];
+    $tryouts = $stats['tryouts'] ?? collect();
+    $unlockedIds = $stats['unlocked_tryout_ids'] ?? [];
     $thresholds = $stats['unlock_thresholds'] ?? [];
 @endphp
 
@@ -24,10 +24,10 @@
                 <p class="text-4xl font-semibold text-gray-900" id="practice-progress-label">{{ $answeredCount }} / {{ $totalQuestions }}</p>
             </div>
             <div class="text-sm text-gray-500">
-                @if(($stats['package_count'] ?? 0) > 0)
-                    <span class="font-semibold text-primary">{{ $stats['unlocked_count'] ?? 0 }}</span> paket terbuka dari {{ $stats['package_count'] }}
+                @if(($stats['tryout_count'] ?? 0) > 0)
+                    <span class="font-semibold text-primary">{{ $stats['unlocked_count'] ?? 0 }}</span> tryout terbuka dari {{ $stats['tryout_count'] }}
                 @else
-                    Paket belum tersedia
+                    Tryout belum tersedia
                 @endif
             </div>
         </div>
@@ -38,12 +38,12 @@
         <p class="mt-3 text-sm text-gray-500" id="practice-next-unlock">
             @if(!$hasQuestions)
                 Belum ada soal latihan. Silakan hubungi admin untuk menambahkan bank soal.
-            @elseif(($stats['package_count'] ?? 0) === 0)
-                Paket akan muncul setelah admin menambahkannya.
-            @elseif($nextUnlockRemaining === 0 && ($stats['unlocked_count'] ?? 0) >= ($stats['package_count'] ?? 0))
-                Semua paket sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.
+            @elseif(($stats['tryout_count'] ?? 0) === 0)
+                Tryout akan muncul setelah admin menambahkannya.
+            @elseif($nextUnlockRemaining === 0 && ($stats['unlocked_count'] ?? 0) >= ($stats['tryout_count'] ?? 0))
+                Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.
             @else
-                Selesaikan <span class="font-semibold text-gray-800">{{ $nextUnlockRemaining }}</span> soal lagi untuk membuka paket berikutnya.
+                Selesaikan <span class="font-semibold text-gray-800">{{ $nextUnlockRemaining }}</span> soal lagi untuk membuka tryout berikutnya.
             @endif
         </p>
 
@@ -61,7 +61,7 @@
                     </a>
                     <a href="{{ route('user.package.index') }}"
                         class="inline-flex items-center justify-center px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">
-                        Kembali ke Paket
+                        Kembali ke Tryout
                     </a>
                 </div>
             </div>
@@ -80,7 +80,7 @@
                         <i class="ri-checkbox-circle-line text-primary"></i> History pengerjaan disimpan
                     </li>
                     <li class="flex items-center gap-2">
-                        <i class="ri-checkbox-circle-line text-primary"></i> Buka paket secara berurutan
+                        <i class="ri-checkbox-circle-line text-primary"></i> Buka tryout secara berurutan
                     </li>
                 </ul>
             </div>
@@ -88,13 +88,13 @@
     </div>
 
     <div class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-900">Status Paket</h3>
-        <p class="text-sm text-gray-500 mt-1">Latihan membuka paket dari kiri ke kanan.</p>
+        <h3 class="text-lg font-semibold text-gray-900">Status Tryout</h3>
+        <p class="text-sm text-gray-500 mt-1">Latihan membuka tryout dari kiri ke kanan.</p>
         <div class="mt-4 space-y-3">
-            @forelse($packages as $package)
+            @forelse($tryouts as $tryout)
                 @php
-                    $threshold = $thresholds[$package->package_id] ?? PHP_INT_MAX;
-                    $isUnlocked = in_array($package->package_id, $unlockedIds);
+                    $threshold = $thresholds[$tryout->tryout_id] ?? PHP_INT_MAX;
+                    $isUnlocked = in_array($tryout->tryout_id, $unlockedIds);
                     $remaining = $threshold === PHP_INT_MAX ? null : max(0, $threshold - $answeredCount);
                 @endphp
                 <div class="border border-gray-100 rounded-xl p-4 flex items-start gap-3 {{ $isUnlocked ? 'bg-emerald-50/60 border-emerald-100' : 'bg-gray-50' }}">
@@ -102,8 +102,8 @@
                         <i class="{{ $isUnlocked ? 'ri-checkbox-circle-line' : 'ri-lock-line' }} text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm font-semibold text-gray-900">{{ $package->name }}</p>
-                        <p class="text-xs text-gray-500 capitalize">{{ $package->type_package }}</p>
+                        <p class="text-sm font-semibold text-gray-900">{{ $tryout->name }}</p>
+                        <p class="text-xs text-gray-500 capitalize">{{ $tryout->type_tryout }}</p>
                         @if($threshold === PHP_INT_MAX)
                             <p class="text-xs text-gray-500 mt-1">Menunggu soal latihan.</p>
                         @elseif($isUnlocked)
@@ -115,7 +115,7 @@
                 </div>
             @empty
                 <div class="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-4 text-center">
-                    Belum ada paket tryout aktif.
+                    Belum ada tryout aktif.
                 </div>
             @endforelse
         </div>

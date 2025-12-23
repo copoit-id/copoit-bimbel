@@ -1,5 +1,5 @@
 @extends('user.layout.user')
-@section('title', 'Paket Pembelian')
+@section('title', 'Paket Tryout')
 @section('content')
 <div class="dashboard">
     <x-page-desc title="Paket Aktif" description="Paket aktif yang Anda beli"></x-page-desc>

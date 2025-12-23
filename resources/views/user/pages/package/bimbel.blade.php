@@ -1,5 +1,5 @@
 @extends('user.layout.user')
-@section('title', 'Paket Pembelian')
+@section('title', 'Paket Tryout')
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border mt-6">
     <x-page-desc title="Bimbel - Paket Bimbel A1 2024ket " description="Masuk Grup Untuk Baca Bimbel"

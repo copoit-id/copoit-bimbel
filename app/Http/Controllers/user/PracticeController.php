@@ -116,11 +116,11 @@ class PracticeController extends Controller
             'answered_count' => $stats['answered_count'],
             'total_questions' => $stats['total_questions'],
             'progress_percent' => $stats['progress_percent'],
-            'unlocked_package_ids' => $stats['unlocked_package_ids'],
+            'unlocked_tryout_ids' => $stats['unlocked_tryout_ids'],
             'unlocked_count' => $stats['unlocked_count'],
-            'package_count' => $stats['package_count'],
+            'tryout_count' => $stats['tryout_count'],
             'next_unlock_remaining' => $stats['next_unlock_remaining'],
-            'threshold_per_package' => $stats['threshold_per_package'],
+            'threshold_per_tryout' => $stats['threshold_per_tryout'],
         ]);
     }
 
