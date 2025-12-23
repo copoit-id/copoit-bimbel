@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
+use App\Services\PracticeProgressService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,42 +17,26 @@ use Illuminate\Support\Str;
 
 class PackageController extends Controller
 {
+    public function __construct(private PracticeProgressService $practiceProgress)
+    {
+    }
+
     public function index()
     {
-        $kelasPackages = Package::where('type_package', 'bimbel')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
+        $packages = Package::where('status', 'active')
             ->withCount(['userAccess' => function ($query) {
                 $query->where('user_id', Auth::id())
                     ->where('status', 'active')
                     ->where('end_date', '>', Carbon::now());
             }])
+            ->orderBy('package_id')
             ->get();
 
-        $tryoutPackages = Package::where('type_package', 'tryout')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->get();
-
-        $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->get();
+        $practiceStats = $this->practiceProgress->getStatsForUser(Auth::id());
 
         return view('user.pages.package.index', compact(
-            'kelasPackages',
-            'tryoutPackages',
-            'sertifikasiPackages'
+            'packages',
+            'practiceStats'
         ));
     }
 
@@ -63,6 +48,13 @@ class PackageController extends Controller
             $existingAccess = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
                 ->first();
+
+            if (!$this->practiceProgress->packageIsUnlocked(Auth::id(), $package->package_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Paket ini masih terkunci. Selesaikan latihan soal untuk membukanya.'
+                ], 403);
+            }
 
             if ($existingAccess && $existingAccess->status === 'active' && $existingAccess->end_date && Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now())) {
                 return response()->json([

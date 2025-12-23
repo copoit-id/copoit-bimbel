@@ -21,6 +21,7 @@ use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
+use App\Http\Controllers\user\PracticeController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
@@ -126,6 +127,14 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/', [EventController::class, 'index'])->name('user.event.index');
         Route::post('/{package_id}/join', [EventController::class, 'joinEvent'])->name('user.event.join');
         Route::post('/tryout/{tryout_id}/join', [EventController::class, 'joinFreeTryout'])->name('user.event.tryout.join');
+    });
+
+    Route::prefix('latihan-soal')->group(function () {
+        Route::get('/', [PracticeController::class, 'index'])->name('user.practice.index');
+        Route::get('/mulai/{number?}', [PracticeController::class, 'play'])
+            ->whereNumber('number')
+            ->name('user.practice.play');
+        Route::post('/jawaban/{question}', [PracticeController::class, 'saveAnswer'])->name('user.practice.answer');
     });
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
