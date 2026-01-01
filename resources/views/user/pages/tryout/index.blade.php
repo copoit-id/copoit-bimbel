@@ -705,41 +705,41 @@
             @php
                 $now = \Carbon\Carbon::now('Asia/Jakarta');
                 $startTime = \Carbon\Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
-
                 if (isset($tryoutDetails) && $tryoutDetails->count() > 1) {
                     $totalDuration = $tryoutDetails->sum('duration');
                 } else {
                     $totalDuration = $tryoutDetails->first()->duration ?? 60;
                 }
-
                 $endTime = $startTime->copy()->addMinutes($totalDuration);
-
-                if ($now->lt($endTime)) {
-                    $remainingSecondsCalc = (int) $now->diffInSeconds($endTime);
-                } else {
-                    $remainingSecondsCalc = 0;
-                }
+                $remainingSecondsCalc = $now->lt($endTime) ? (int) $now->diffInSeconds($endTime) : 0;
+                $subtestSecondsCalc = isset($subtestRemainingSeconds) ? (int) $subtestRemainingSeconds : $remainingSecondsCalc;
             @endphp
 
             let timeLeft = {{ $remainingSecondsCalc }};
+            let displayTimeLeft = {{ max(0, (int) ($subtestSecondsCalc ?? $remainingSecondsCalc)) }};
             const timerEl = document.getElementById('timer');
             const timerDisplayEl = document.getElementById('timer-display');
+            const defaultTimerColor = timerEl ? window.getComputedStyle(timerEl).color : '#0f172a';
+            const defaultDisplayColor = timerDisplayEl ? window.getComputedStyle(timerDisplayEl).color : '#0f172a';
 
-            function renderTimer() {
-                const hours = Math.floor(timeLeft / 3600);
-                const minutes = Math.floor((timeLeft % 3600) / 60);
-                const seconds = timeLeft % 60;
-                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            function renderTimer(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
                 if (timerEl) timerEl.textContent = display;
                 if (timerDisplayEl) timerDisplayEl.textContent = display;
 
-                if (timeLeft <= 300) {
+                if (seconds <= 300) {
                     if (timerEl) timerEl.style.color = '#dc2626';
                     if (timerDisplayEl) timerDisplayEl.style.color = '#dc2626';
-                } else if (timeLeft <= 600) {
+                } else if (seconds <= 600) {
                     if (timerEl) timerEl.style.color = '#f59e0b';
                     if (timerDisplayEl) timerDisplayEl.style.color = '#f59e0b';
+                } else {
+                    if (timerEl) timerEl.style.color = defaultTimerColor;
+                    if (timerDisplayEl) timerDisplayEl.style.color = defaultDisplayColor;
                 }
             }
 
@@ -771,17 +771,21 @@
                 autoForm.submit();
             }
 
-            renderTimer();
+            renderTimer(displayTimeLeft);
 
             const interval = setInterval(() => {
+                if (displayTimeLeft > 0) {
+                    displayTimeLeft--;
+                    renderTimer(displayTimeLeft);
+                } else if (displayTimeLeft === 0) {
+                    renderTimer(0);
+                }
+
                 timeLeft--;
                 if (timeLeft <= 0) {
                     clearInterval(interval);
-                    if (timerEl) timerEl.textContent = '00:00:00';
-                    if (timerDisplayEl) timerDisplayEl.textContent = '00:00:00';
+                    renderTimer(0);
                     triggerAutoFinish();
-                } else {
-                    renderTimer();
                 }
             }, 1000);
         }

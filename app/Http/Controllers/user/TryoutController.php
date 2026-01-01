@@ -635,6 +635,21 @@ class TryoutController extends Controller
 
         $remainingSeconds = $endTime->diffInSeconds($now);
 
+        // Hitung timer per subtest untuk tampilan
+        $subtestDurationMinutes = max(1, (int) ($currentSubtest['duration'] ?? 60));
+        $subtestTimerKey = sprintf('tryout_subtest_timer_%s_%s', $attemptToken, $currentSubtest['tryout_detail_id']);
+        $subtestStartIso = session($subtestTimerKey);
+        if (!$subtestStartIso) {
+            $subtestStart = Carbon::now('Asia/Jakarta');
+            session([$subtestTimerKey => $subtestStart->toIso8601String()]);
+        } else {
+            $subtestStart = Carbon::parse($subtestStartIso, 'Asia/Jakarta');
+        }
+        $subtestEnd = $subtestStart->copy()->addMinutes($subtestDurationMinutes);
+        $subtestRemainingSeconds = $subtestEnd->greaterThan($now)
+            ? $now->diffInSeconds($subtestEnd)
+            : 0;
+
         // Get user's answer for current question dari subtest yang sesuai
         $userAnswerDetail = UserAnswerDetail::where('user_answer_id', $currentUserAnswer->user_answer_id)
             ->where('question_id', $currentQuestion->question_id)
@@ -683,6 +698,7 @@ class TryoutController extends Controller
             'currentSubtestRange',
             'isLastQuestionOfSubtest',
             'remainingSeconds',
+            'subtestRemainingSeconds',
             'attemptToken'
         ));
     }
