@@ -3,143 +3,209 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Tryout;
 use App\Models\UserAnswer;
-use App\Models\UserPackageAcces;
-use App\Models\Payment;
-use Illuminate\Http\Request;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class LaporanController extends Controller
 {
     public function index()
     {
-        // Get all users with their statistics - use 'role' instead of 'is_admin'
-        $users = User::where('role', '!=', 'admin')
+        $tryouts = Tryout::with([
+            'tryoutDetails' => function ($query) {
+                $query->withCount('questions');
+            },
+            'packages',
+            'directPackage',
+        ])
             ->withCount([
-                'userAnswers as completed_tryouts' => function ($query) {
+                'userAnswers as total_attempts',
+                'userAnswers as completed_attempts' => function ($query) {
                     $query->where('status', 'completed');
-                }
+                },
             ])
-            ->paginate(15);
+            ->latest()
+            ->paginate(10);
 
-        // Calculate statistics for each user
-        $users->getCollection()->transform(function ($user) {
-            // Calculate average score from completed tryouts
-            $avgScore = $user->userAnswers()
-                ->where('status', 'completed')
-                ->avg('score') ?? 0;
+        $tryouts->getCollection()->transform(function (Tryout $tryout) {
+            $tryout->avg_score = round(
+                $tryout->userAnswers()->where('status', 'completed')->avg('score') ?? 0,
+                1
+            );
+            $tryout->completion_rate = $tryout->total_attempts > 0
+                ? round(($tryout->completed_attempts / $tryout->total_attempts) * 100)
+                : 0;
+            $tryout->total_questions = $tryout->tryoutDetails->sum('questions_count');
+            $tryout->total_duration = $tryout->tryoutDetails->sum('duration');
+            $tryout->leaderboard_package_id = optional($tryout->packages->first())->package_id
+                ?? optional($tryout->directPackage)->package_id;
 
-            // Determine if user is active (has recent activity)
-            $lastActivity = $user->userAnswers()->max('created_at') ?? $user->updated_at ?? $user->created_at;
-            $isActive = Carbon::parse($lastActivity)->gt(Carbon::now()->subDays(30));
-
-            // Add calculated fields
-            $user->avg_score = round($avgScore, 1);
-            $user->is_active_user = $isActive;
-            $user->last_activity = Carbon::parse($lastActivity);
-            $user->total_certificates = 0; // Set to 0 since certificates table doesn't exist yet
-
-            return $user;
+            return $tryout;
         });
 
-        // Get summary statistics - use 'role' instead of 'is_admin'
-        $totalUsers = User::where('role', '!=', 'admin')->count();
-        $activeUsers = User::where('role', '!=', 'admin')
-            ->whereHas('userAnswers', function ($query) {
-                $query->where('created_at', '>', Carbon::now()->subDays(30));
-            })
-            ->count();
+        $summary = [
+            'total_tryouts' => Tryout::count(),
+            'active_tryouts' => Tryout::where('is_active', true)->count(),
+            'total_attempts' => UserAnswer::count(),
+            'completed_attempts' => UserAnswer::where('status', 'completed')->count(),
+        ];
 
-        $totalCompletedTryouts = UserAnswer::where('status', 'completed')->count();
-        $totalCertificates = 0; // Will be updated when certificate system is implemented
-
-        return view('admin.pages.laporan.index', compact(
-            'users',
-            'totalUsers',
-            'activeUsers',
-            'totalCompletedTryouts',
-            'totalCertificates'
-        ));
+        return view('admin.pages.laporan.index', compact('tryouts', 'summary'));
     }
 
     public function show($id)
     {
-        $user = User::with([
-            'userAnswers' => function ($query) {
-                $query->where('status', 'completed')
-                    ->with(['tryout', 'userAnswerDetails'])
-                    ->orderBy('created_at', 'desc');
-            }
+        $tryout = Tryout::with([
+            'tryoutDetails' => function ($query) {
+                $query->withCount('questions');
+            },
+            'packages',
+            'directPackage',
         ])->findOrFail($id);
 
-        // Calculate user statistics
-        $completedTryouts = $user->userAnswers->where('status', 'completed');
-        $totalTryouts = $completedTryouts->count();
-        $avgScore = $completedTryouts->avg('score') ?? 0;
+        $participantGroups = UserAnswer::where('tryout_id', $tryout->tryout_id)
+            ->select('user_id', 'attempt_token')
+            ->groupBy('user_id', 'attempt_token')
+            ->get();
 
-        // Get recent tryout history (last 5)
-        $recentTryouts = $completedTryouts->take(5)->map(function ($answer) {
+        $completedParticipantGroups = UserAnswer::where('tryout_id', $tryout->tryout_id)
+            ->where('status', 'completed')
+            ->select('user_id', 'attempt_token')
+            ->groupBy('user_id', 'attempt_token')
+            ->get();
+
+        $attemptSummaries = UserAnswer::selectRaw("
+                user_id,
+                tryout_id,
+                attempt_token,
+                MIN(started_at) as started_at,
+                MAX(finished_at) as finished_at,
+                SUM(correct_answers) as total_correct,
+                SUM(wrong_answers) as total_wrong,
+                SUM(unanswered) as total_unanswered,
+                AVG(score) as average_score,
+                MAX(status) as attempt_status
+            ")
+            ->where('tryout_id', $tryout->tryout_id)
+            ->groupBy('user_id', 'tryout_id', 'attempt_token')
+            ->orderByDesc(DB::raw('MAX(finished_at)'))
+            ->with('user')
+            ->get();
+
+        $participants = $attemptSummaries->groupBy('user_id')
+            ->map(function ($attempts) {
+                $sortedAttempts = $attempts->sortByDesc('finished_at')->values();
+                $latest = $sortedAttempts->first();
+
+                return [
+                    'user' => $latest->user,
+                    'total_attempts' => $attempts->count(),
+                    'latest_score' => round($latest->average_score ?? 0, 1),
+                    'last_finished' => $latest->finished_at,
+                    'attempts' => $sortedAttempts,
+                ];
+            })
+            ->values();
+
+        $statistics = [
+            'total_subtests' => $tryout->tryoutDetails->count(),
+            'total_questions' => $tryout->tryoutDetails->sum('questions_count'),
+            'total_duration' => $tryout->tryoutDetails->sum('duration'),
+            'total_participants' => $participantGroups->count(),
+            'completed_participants' => $completedParticipantGroups->count(),
+            'average_score' => round(UserAnswer::where('tryout_id', $tryout->tryout_id)->where('status', 'completed')->avg('score') ?? 0, 1),
+            'highest_score' => round(UserAnswer::where('tryout_id', $tryout->tryout_id)->max('score') ?? 0, 1),
+        ];
+
+        $statistics['completion_rate'] = $statistics['total_participants'] > 0
+            ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
+            : 0;
+
+        $leaderboardPackageId = optional($tryout->packages->first())->package_id
+            ?? optional($tryout->directPackage)->package_id;
+
+        return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
+    }
+
+    public function attemptDetail($tryoutId, $attemptToken)
+    {
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
+
+        $attemptAnswers = UserAnswer::with([
+            'user',
+            'tryoutDetail',
+            'userAnswerDetails.question.questionOptions',
+            'userAnswerDetails.questionOption',
+        ])
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $attemptToken)
+            ->get();
+
+        if ($attemptAnswers->isEmpty()) {
+            abort(404);
+        }
+
+        $user = $attemptAnswers->first()->user;
+        $overallStats = [
+            'correct' => $attemptAnswers->sum('correct_answers'),
+            'wrong' => $attemptAnswers->sum('wrong_answers'),
+            'unanswered' => $attemptAnswers->sum('unanswered'),
+            'score' => round($attemptAnswers->avg('score') ?? 0, 1),
+            'started_at' => $attemptAnswers->min('started_at'),
+            'finished_at' => $attemptAnswers->max('finished_at'),
+        ];
+        $overallStats['total_questions'] = $overallStats['correct'] + $overallStats['wrong'] + $overallStats['unanswered'];
+
+        $subtests = $attemptAnswers->map(function (UserAnswer $answer) {
             return [
-                'name' => $answer->tryout->name ?? 'Unknown Tryout',
+                'name' => $this->formatSubtestName(optional($answer->tryoutDetail)->type_subtest),
+                'type' => optional($answer->tryoutDetail)->type_subtest,
+                'duration' => optional($answer->tryoutDetail)->duration,
+                'correct' => $answer->correct_answers,
+                'wrong' => $answer->wrong_answers,
+                'unanswered' => $answer->unanswered,
                 'score' => round($answer->score ?? 0, 1),
-                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
-                'is_passed' => $answer->is_passed ?? false
             ];
         });
 
-        // Calculate total study time (estimated based on tryout durations)
-        $totalStudyMinutes = $completedTryouts->sum(function ($answer) {
-            if ($answer->started_at && $answer->finished_at) {
-                return Carbon::parse($answer->started_at)->diffInMinutes(Carbon::parse($answer->finished_at));
+        $answerDetails = collect();
+
+        foreach ($attemptAnswers as $answer) {
+            foreach ($answer->userAnswerDetails as $detail) {
+                $detail->subtest_name = $this->formatSubtestName(optional($answer->tryoutDetail)->type_subtest);
+                $detail->subtest_type = optional($answer->tryoutDetail)->type_subtest;
+                $answerDetails->push($detail);
             }
-            // If no timing data, estimate based on tryout details
-            return $answer->tryoutDetail->duration ?? 60; // Default 60 minutes
-        });
-        $totalStudyHours = round($totalStudyMinutes / 60, 1);
-
-        // Get certificates (mock data for now since table doesn't exist)
-        $certificates = collect();
-
-        // Calculate activity timeline
-        $activities = collect();
-
-        // Add tryout activities
-        foreach ($completedTryouts->take(4) as $answer) {
-            $activities->push([
-                'type' => 'tryout',
-                'text' => 'Menyelesaikan tryout ' . ($answer->tryout->name ?? 'Unknown') . ' dengan skor ' . round($answer->score ?? 0, 1),
-                'icon' => 'ri-file-list-line',
-                'color' => 'blue',
-                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at)
-            ]);
         }
 
-        // Add login activities (mock data)
-        $activities->push([
-            'type' => 'login',
-            'text' => 'Login ke sistem',
-            'icon' => 'ri-login-box-line',
-            'color' => 'green',
-            'date' => Carbon::now()->subHours(2)
-        ]);
+        $answerDetails = $answerDetails->sortBy('subtest_name');
 
-        // Sort activities by date
-        $activities = $activities->sortByDesc('date')->take(8);
-
-        $statistics = [
-            'total_tryouts' => $totalTryouts,
-            'avg_score' => round($avgScore, 1),
-            'total_certificates' => $certificates->count(),
-            'study_hours' => $totalStudyHours
-        ];
-
-        return view('admin.pages.laporan.show', compact(
+        return view('admin.pages.laporan.answer', compact(
+            'tryout',
             'user',
-            'statistics',
-            'recentTryouts',
-            'certificates',
-            'activities'
+            'attemptToken',
+            'overallStats',
+            'subtests',
+            'answerDetails'
         ));
+    }
+
+    private function formatSubtestName(?string $type): string
+    {
+        if (!$type) {
+            return 'Subtest';
+        }
+
+        return [
+            'twk' => 'Tes Wawasan Kebangsaan',
+            'tiu' => 'Tes Intelegensi Umum',
+            'tkp' => 'Tes Karakteristik Pribadi',
+            'writing' => 'Writing Test',
+            'reading' => 'Reading',
+            'listening' => 'Listening',
+            'word' => 'Microsoft Word',
+            'excel' => 'Microsoft Excel',
+            'ppt' => 'Microsoft PowerPoint',
+        ][$type] ?? ucfirst(str_replace('_', ' ', $type));
     }
 }

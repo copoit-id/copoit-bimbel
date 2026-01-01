@@ -163,6 +163,10 @@
                                         class="text-primary hover:text-primary/80" title="Lihat">
                                         <i class="ri-eye-line"></i>
                                     </a>
+                                    <a href="{{ route('admin.user.report', $user->id) }}"
+                                        class="text-amber-600 hover:text-amber-700" title="Laporan">
+                                        <i class="ri-bar-chart-line"></i>
+                                    </a>
                                     <a href="{{ route('admin.user.edit', $user->id) }}"
                                         class="text-blue-600 hover:text-blue-800" title="Edit">
                                         <i class="ri-edit-line"></i>
