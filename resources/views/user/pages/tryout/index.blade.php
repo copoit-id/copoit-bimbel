@@ -204,12 +204,15 @@
                         </div>
 
                         <div class="flex gap-3">
-                            @if($number < $totalQuestions) <a
-                                href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
-                                class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                                Selanjutnya<i class="ri-arrow-right-line ml-2"></i>
+                            @if($number < $totalQuestions || $hasNextSubtest)
+                                @php
+                                    $nextLabel = $isLastQuestionOfSubtest && $hasNextSubtest ? 'Mulai Subtest Berikutnya' : 'Selanjutnya';
+                                @endphp
+                                <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
+                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                                    {{ $nextLabel }}<i class="ri-arrow-right-line ml-2"></i>
                                 </a>
-                                @else
+                            @else
                                 <form
                                     action="{{ route('user.tryout.finish', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"
                                     method="POST" class="inline" id="finishForm">
@@ -222,7 +225,7 @@
                                         <i class="ri-check-line mr-2"></i>Selesai
                                     </button>
                                 </form>
-                                @endif
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -233,27 +236,33 @@
                 <div class="bg-white rounded-lg border border-border p-6 sticky top-6 text-center">
                     <p class="text-sm text-gray-600 mb-2">Sisa Waktu</p>
                     <div id="timer-display" class="text-3xl font-bold text-primary">00:00:00</div>
+                    <p class="text-xs text-gray-500 mt-3 uppercase tracking-wide">
+                        Subtest {{ ($currentSubtestIndex ?? 0) + 1 }} / {{ $totalSubtests ?? 1 }} · {{ $currentSubtest['name'] ?? 'Subtest' }}
+                    </p>
                 </div>
                 <div class="bg-white rounded-lg border border-border p-6 sticky mt-4">
                     <!-- Question Navigation -->
                     <div class="mb-6">
                         <h3 class="font-semibold text-gray-800 mb-4">Navigasi Soal</h3>
                         <div class="grid grid-cols-5 gap-2">
-                        @foreach($allQuestions as $index => $question)
-                        @php
-                            $questionNumber = $index + 1;
-                            $isCurrent = $questionNumber == $number;
-                            $isFlagged = in_array($question->question_id, $flaggedQuestions);
-                        @endphp
-                        <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
-                            class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
-                            data-question-id="{{ $question->question_id }}">
-                            {{ $questionNumber }}
-                            @if($isFlagged)
-                            <i class="ri-flag-fill absolute -top-1 -right-1 text-xs text-red"></i>
-                            @endif
-                        </a>
-                        @endforeach
+                        @for($questionNumber = $currentSubtestRange[0]; $questionNumber <= $currentSubtestRange[1]; $questionNumber++)
+                            @php
+                                $question = $allQuestions[$questionNumber - 1] ?? null;
+                                if (!$question) {
+                                    continue;
+                                }
+                                $isCurrent = $questionNumber == $number;
+                                $isFlagged = in_array($question->question_id, $flaggedQuestions);
+                            @endphp
+                            <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
+                                class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
+                                data-question-id="{{ $question->question_id }}">
+                                {{ $questionNumber }}
+                                @if($isFlagged)
+                                <i class="ri-flag-fill absolute -top-1 -right-1 text-xs text-red"></i>
+                                @endif
+                            </a>
+                        @endfor
                         </div>
                     </div>
 

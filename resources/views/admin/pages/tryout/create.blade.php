@@ -149,6 +149,19 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="section_break_duration" class="block text-sm font-medium text-gray-700 mb-2">
+                            Durasi Jeda Antar Subtest (detik)
+                        </label>
+                        <input type="number" id="section_break_duration" name="section_break_duration" min="0" max="3600"
+                            value="{{ old('section_break_duration', isset($tryout) ? $tryout->section_break_duration : 0) }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="Contoh: 60">
+                        <p class="text-xs text-gray-500 mt-1">Saat lebih dari satu subtest, peserta akan melihat layar jeda dengan hitung mundur selama durasi ini.</p>
+                    </div>
+                </div>
+
                 <!-- Options -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="flex items-center">

@@ -25,16 +25,12 @@ abstract class Controller extends BaseController
                         $query->whereNull('end_date')
                             ->orWhere('end_date', '>', Carbon::now());
                     })
-                    // Add additional check to ensure payment is valid
-                    ->whereIn('payment_status', ['paid', 'free']) // Only show paid or free packages
                     ->with(['package' => function ($query) {
                         $query->where('status', 'active');
                     }])
                     ->get()
                     ->filter(function ($access) {
-                        // Double check that package exists and payment amount makes sense
-                        return $access->package !== null &&
-                            ($access->payment_status === 'free' || $access->payment_amount > 0);
+                        return $access->package !== null;
                     });
 
                 $view->with('sidebarPackages', $sidebarPackages);

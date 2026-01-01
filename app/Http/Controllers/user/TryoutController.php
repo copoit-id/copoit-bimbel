@@ -30,6 +30,79 @@ class TryoutController extends Controller
         date_default_timezone_set('Asia/Jakarta');
     }
 
+    private function getSubtestIndex(array $subtests, array $currentSubtest): int
+    {
+        foreach ($subtests as $index => $info) {
+            if (($info['tryout_detail_id'] ?? null) === ($currentSubtest['tryout_detail_id'] ?? null)) {
+                return $index;
+            }
+        }
+
+        return 0;
+    }
+
+    private function maybeShowSubtestBreak(
+        Tryout $tryout,
+        ?Package $package,
+        array $currentSubtest,
+        int $currentSubtestIndex,
+        string $attemptToken,
+        int $questionNumber,
+        array $subtestInfo
+    ) {
+        $breakSeconds = (int) ($tryout->section_break_duration ?? 0);
+        if ($breakSeconds <= 0 || $currentSubtestIndex <= 0) {
+            return null;
+        }
+
+        if ($questionNumber !== ($currentSubtest['start_number'] ?? $questionNumber)) {
+            return null;
+        }
+
+        $sessionPrefix = sprintf(
+            'tryout_break_%s_%s',
+            $attemptToken,
+            $currentSubtest['tryout_detail_id'] ?? 'subtest'
+        );
+
+        if (session($sessionPrefix . '_done')) {
+            return null;
+        }
+
+        $now = Carbon::now('Asia/Jakarta');
+        $breakUntilIso = session($sessionPrefix . '_until');
+
+        if (!$breakUntilIso) {
+            $breakUntil = $now->copy()->addSeconds($breakSeconds);
+            session([$sessionPrefix . '_until' => $breakUntil->toIso8601String()]);
+        } else {
+            $breakUntil = Carbon::parse($breakUntilIso, 'Asia/Jakarta');
+        }
+
+        if ($now->lt($breakUntil)) {
+            $remainingSeconds = max(1, $now->diffInSeconds($breakUntil));
+
+            return view('user.pages.tryout.break', [
+                'package' => $package,
+                'tryout' => $tryout,
+                'subtest' => $currentSubtest,
+                'subtestIndex' => $currentSubtestIndex + 1,
+                'totalSubtests' => count($subtestInfo),
+                'countdownSeconds' => $remainingSeconds,
+                'continueUrl' => route('user.tryout.index', [
+                    $package ? $package->package_id : 'free',
+                    $tryout->tryout_id,
+                    $questionNumber
+                ]),
+            ]);
+        }
+
+        session()->forget($sessionPrefix . '_until');
+        session([$sessionPrefix . '_done' => true]);
+
+        return null;
+    }
+
     private function processAnswerByType(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
     {
         $type = $question->question_type ?? 'multiple_choice';
@@ -483,6 +556,14 @@ class TryoutController extends Controller
             }
         }
 
+        if (!$currentSubtest) {
+            $currentSubtest = $subtestInfo[0] ?? null;
+        }
+
+        if (!$currentSubtest) {
+            return redirect()->back()->with('error', 'Subtest tryout tidak ditemukan');
+        }
+
         // Get or create user answer sessions untuk SKD Full
         // Cek apakah sudah ada attempt_token untuk tryout ini
         $existingUserAnswer = UserAnswer::where('user_id', Auth::id())
@@ -524,6 +605,11 @@ class TryoutController extends Controller
                     'status' => 'in_progress'
                 ]);
             }
+        }
+
+        $currentSubtestIndex = $this->getSubtestIndex($subtestInfo, $currentSubtest ?? []);
+        if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
+            return $response;
         }
 
         // Get current subtest's UserAnswer untuk menyimpan jawaban
@@ -569,6 +655,14 @@ class TryoutController extends Controller
         // Get flagged questions dari session dengan attempt_token
         $flaggedQuestions = session('flagged_questions_' . $attemptToken, []);
 
+        $totalSubtests = count($subtestInfo);
+        $hasNextSubtest = $currentSubtestIndex < ($totalSubtests - 1);
+        $currentSubtestRange = [
+            $currentSubtest['start_number'] ?? 1,
+            $currentSubtest['end_number'] ?? $number,
+        ];
+        $isLastQuestionOfSubtest = $number === ($currentSubtest['end_number'] ?? $number);
+
         return view('user.pages.tryout.index', compact(
             'package',
             'tryout',
@@ -583,10 +677,16 @@ class TryoutController extends Controller
             'flaggedQuestions',
             'subtestInfo',
             'currentSubtest',
+            'currentSubtestIndex',
+            'totalSubtests',
+            'hasNextSubtest',
+            'currentSubtestRange',
+            'isLastQuestionOfSubtest',
             'remainingSeconds',
             'attemptToken'
         ));
     }
+
 
     private function getSubtestName($type)
     {
@@ -756,6 +856,7 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Gagal menyimpan jawaban');
         }
     }
+
 
     /**
      * Determine if answer is correct based on subtest type and rules
@@ -996,6 +1097,12 @@ class TryoutController extends Controller
                 ->where('status', 'in_progress')
                 ->with(['tryoutDetail'])
                 ->get();
+
+        }
+
+        if ($userAnswers->isEmpty()) {
+            return redirect()->route('user.tryout.index', [$id_package, $id_tryout, 1])
+                ->with('error', 'Jawaban belum ditemukan. Silakan lanjutkan tryout.');
         }
 
         if ($tryout->requiresIrtScoring()) {
