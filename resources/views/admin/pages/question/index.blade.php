@@ -143,7 +143,7 @@
                 @endif
             </div>
 
-            <div class="font-bold text-lg text-gray-900 mb-2">
+            <div class="question-rich-text font-semibold text-gray-900 leading-relaxed mb-2">
                 {!! $question->question_text !!}
             </div>
 

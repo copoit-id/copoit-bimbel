@@ -201,7 +201,7 @@
                 @endif
             </div>
 
-            <div class="mt-2 font-light">
+            <div class="question-rich-text mt-2 font-light">
                 {!! $question->question_text !!}
             </div>
 

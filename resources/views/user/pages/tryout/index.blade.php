@@ -21,9 +21,9 @@
 
                     <!-- Question Content -->
                     <div class="mb-8">
-                        <div class="text-gray-700 leading-relaxed">
-                            {!! $currentQuestion->question_text !!}
-                        </div>
+                    <div class="question-rich-text text-gray-700 leading-relaxed">
+                        {!! $currentQuestion->question_text !!}
+                    </div>
 
                         @if($currentQuestion->sound)
                         <div class="mt-4">
