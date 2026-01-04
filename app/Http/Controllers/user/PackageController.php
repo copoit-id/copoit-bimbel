@@ -423,11 +423,17 @@ class PackageController extends Controller
                 ->with('error', 'Anda tidak memiliki akses ke paket ini');
         }
 
-        // Get tryouts for this package with user attempts
+        // Get active tryouts for this package (only those still running)
         $tryouts = $package->tryouts()
+            ->where('tryouts.is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('tryouts.end_date')
+                    ->orWhere('tryouts.end_date', '>', Carbon::now());
+            })
             ->with(['tryoutDetails.questions', 'userAnswers' => function ($query) {
                 $query->where('user_id', Auth::id());
-            }])->get();
+            }])
+            ->get();
 
         return view('user.pages.package.tryout', compact('package', 'tryouts'));
     }
