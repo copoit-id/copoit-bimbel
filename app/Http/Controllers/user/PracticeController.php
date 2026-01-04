@@ -15,7 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class PracticeController extends Controller
 {
-    public function __construct(private PracticeProgressService $practiceProgress) {}
+    public function __construct(private PracticeProgressService $practiceProgress)
+    {
+        parent::__construct();
+    }
 
     public function index()
     {
@@ -69,6 +72,8 @@ class PracticeController extends Controller
             ];
         });
 
+        $initialFeedback = $this->makeFeedbackPayload($question, $currentAnswer);
+
         return view('user.pages.practice.play', [
             'question' => $question,
             'currentAnswer' => $currentAnswer,
@@ -76,6 +81,7 @@ class PracticeController extends Controller
             'totalQuestions' => $totalQuestions,
             'navigation' => $navigation,
             'stats' => $stats,
+            'initialFeedback' => $initialFeedback,
         ]);
     }
 
@@ -121,6 +127,7 @@ class PracticeController extends Controller
             'tryout_count' => $stats['tryout_count'],
             'next_unlock_remaining' => $stats['next_unlock_remaining'],
             'threshold_per_tryout' => $stats['threshold_per_tryout'],
+            'feedback' => $this->makeFeedbackPayload($question, $answer),
         ]);
     }
 
@@ -303,5 +310,89 @@ class PracticeController extends Controller
             'answer_file_path' => $path,
             'is_correct' => null,
         ], true];
+    }
+
+    private function makeFeedbackPayload(QuestionBankQuestion $question, ?PracticeAnswer $answer = null): ?array
+    {
+        $correctAnswerHtml = $this->buildCorrectAnswerHtml($question);
+        $explanationHtml = $question->explanation ?: null;
+
+        if (!$answer && !$correctAnswerHtml && !$explanationHtml) {
+            return null;
+        }
+
+        return [
+            'is_correct' => $answer?->is_correct,
+            'correct_answer_html' => $correctAnswerHtml,
+            'explanation_html' => $explanationHtml,
+        ];
+    }
+
+    private function buildCorrectAnswerHtml(QuestionBankQuestion $question): ?string
+    {
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+
+        if (in_array($question->question_type, ['multiple_choice', 'true_false'], true)) {
+            $question->loadMissing('options');
+            $correctOptions = $question->options->where('is_correct', true);
+
+            if ($correctOptions->isEmpty()) {
+                return null;
+            }
+
+            return $correctOptions->map(function (QuestionBankQuestionOption $option) {
+                return '<div class="py-1">' . ($option->option_text ?? '') . '</div>';
+            })->implode('');
+        }
+
+        if ($question->question_type === 'short_answer') {
+            $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer'])
+                ? $metadata['short_answer']
+                : [];
+            $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers'])
+                ? $shortMeta['expected_answers']
+                : [];
+
+            $items = array_filter(array_map(function ($value) {
+                $text = trim((string) $value);
+                if ($text === '') {
+                    return null;
+                }
+
+                return '<li>' . e($text) . '</li>';
+            }, $expectedAnswers));
+
+            if (empty($items)) {
+                return null;
+            }
+
+            return '<ul class="list-disc pl-5 space-y-1">' . implode('', $items) . '</ul>';
+        }
+
+        if ($question->question_type === 'matching') {
+            $pairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs'])
+                ? $metadata['matching_pairs']
+                : [];
+
+            $items = [];
+            foreach ($pairs as $pair) {
+                $left = trim((string) ($pair['left'] ?? ''));
+                $right = trim((string) ($pair['right'] ?? ''));
+
+                if ($left === '' || $right === '') {
+                    continue;
+                }
+
+                $items[] = '<li><span class="font-semibold text-gray-800">' . e($left) . '</span> → <span class="text-gray-700">' . e($right) . '</span></li>';
+            }
+
+            if (empty($items)) {
+                return null;
+            }
+
+            return '<ul class="space-y-1 pl-5 list-disc">' . implode('', $items) . '</ul>';
+        }
+
+        return null;
     }
 }

@@ -18,6 +18,7 @@ class Tryout extends Model
         'is_toefl' => 'boolean',
         'is_irt' => 'boolean',
         'is_active' => 'boolean',
+        'allow_calculator' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'results_release_at' => 'datetime',

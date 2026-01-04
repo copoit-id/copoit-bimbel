@@ -124,7 +124,7 @@
                 <div>
                     <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
                     <textarea id="description" name="description" rows="4"
-                        class="summernote w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Masukkan deskripsi tryout...">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
                 </div>
 
@@ -179,6 +179,18 @@
                         <label for="is_toefl" class="ml-2 text-sm font-medium text-gray-700">
                             TOEFL IRT Scoring
                         </label>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row md:items-center md:col-span-1">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="allow_calculator" name="allow_calculator" value="1"
+                                {{ old('allow_calculator', isset($tryout) ? $tryout->allow_calculator : false) ? 'checked' : '' }}
+                                class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
+                            <label for="allow_calculator" class="ml-2 text-sm font-medium text-gray-700">
+                                Izinkan Kalkulator
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2 md:mt-0 md:ml-4">Aktifkan jika peserta boleh memakai kalkulator di halaman tryout.</p>
                     </div>
 
                     @if($allowUtbkTypes)

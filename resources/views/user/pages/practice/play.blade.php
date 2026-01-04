@@ -24,14 +24,22 @@
         <div class="flex flex-col lg:flex-row gap-6">
             <div class="lg:flex-1">
                 <div class="bg-white border border-border rounded-2xl p-6">
-                    <div class="flex justify-between items-center border-b border-gray-100 pb-4 mb-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4 mb-6">
                         <div>
                             <p class="text-sm text-gray-500">Soal Latihan</p>
                             <h2 class="text-2xl font-semibold text-gray-900">Soal {{ $number }} dari {{ $totalQuestions }}</h2>
                         </div>
-                        <a href="{{ route('user.practice.index') }}" class="inline-flex items-center text-sm text-primary hover:underline">
-                            <i class="ri-arrow-left-line mr-1"></i> Kembali ke Latihan
-                        </a>
+                        <div class="flex items-center gap-3">
+                            <button type="button"
+                                class="calculator-trigger inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                aria-haspopup="dialog" aria-controls="calculatorModal">
+                                <i class="ri-calculator-line text-lg"></i>
+                                Kalkulator
+                            </button>
+                            <a href="{{ route('user.practice.index') }}" class="inline-flex items-center text-sm text-primary hover:underline">
+                                <i class="ri-arrow-left-line mr-1"></i> Kembali ke Latihan
+                            </a>
+                        </div>
                     </div>
 
                     <div class="text-gray-700 leading-relaxed">
@@ -113,6 +121,22 @@
                         @endif
                     </form>
 
+                    <div id="practiceFeedback" class="hidden mt-6 border border-gray-100 rounded-2xl p-5 bg-gray-50">
+                        <div id="practiceFeedbackStatusWrapper" class="mb-4">
+                            <span id="practiceFeedbackStatus" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700">Jawaban tersimpan</span>
+                        </div>
+                        <div class="space-y-4 text-sm text-gray-700">
+                            <div id="practiceFeedbackCorrectWrapper">
+                                <p class="font-semibold text-gray-800">Jawaban Benar</p>
+                                <div id="practiceFeedbackCorrect" class="mt-2 text-gray-700"></div>
+                            </div>
+                            <div id="practiceFeedbackExplanationWrapper">
+                                <p class="font-semibold text-gray-800">Pembahasan</p>
+                                <div id="practiceFeedbackExplanation" class="mt-2 text-gray-700"></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mt-6 flex flex-wrap gap-3 border-t border-gray-100 pt-4">
                         <a href="{{ route('user.practice.index') }}"
                             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
@@ -155,6 +179,43 @@
         </div>
     </div>
 </div>
+
+<div id="calculatorModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <p class="text-sm text-gray-500">Kalkulator</p>
+                <h3 class="text-lg font-semibold text-gray-800">Latihan & Tryout</h3>
+            </div>
+            <button type="button" id="closeCalculator" class="text-gray-500 hover:text-gray-800">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <div class="mb-4">
+            <input id="calculatorDisplay" type="text" readonly class="w-full text-right text-3xl font-semibold px-4 py-3 bg-gray-50 rounded-lg border border-gray-200" placeholder="0">
+        </div>
+        <div class="grid grid-cols-4 gap-3">
+            <button data-calculator-key="7" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">7</button>
+            <button data-calculator-key="8" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">8</button>
+            <button data-calculator-key="9" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">9</button>
+            <button data-calculator-key="/" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-primary hover:bg-gray-200 transition">÷</button>
+            <button data-calculator-key="4" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">4</button>
+            <button data-calculator-key="5" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">5</button>
+            <button data-calculator-key="6" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">6</button>
+            <button data-calculator-key="*" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-primary hover:bg-gray-200 transition">×</button>
+            <button data-calculator-key="1" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">1</button>
+            <button data-calculator-key="2" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">2</button>
+            <button data-calculator-key="3" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">3</button>
+            <button data-calculator-key="-" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-primary hover:bg-gray-200 transition">−</button>
+            <button data-calculator-key="0" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">0</button>
+            <button data-calculator-key="." class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition">.</button>
+            <button id="calculatorClear" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-red-600 hover:bg-gray-200 transition">C</button>
+            <button data-calculator-key="+" class="w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-primary hover:bg-gray-200 transition">+</button>
+            <button data-calculator-key="=" class="col-span-4 bg-primary text-white rounded-lg py-3 text-lg font-semibold">=</button>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -164,6 +225,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!form) return;
 
     const questionType = form.dataset.questionType;
+    const initialFeedback = @json($initialFeedback);
+    const feedbackBox = document.getElementById('practiceFeedback');
+    const statusBadge = document.getElementById('practiceFeedbackStatus');
+    const correctWrapper = document.getElementById('practiceFeedbackCorrectWrapper');
+    const correctContainer = document.getElementById('practiceFeedbackCorrect');
+    const explanationWrapper = document.getElementById('practiceFeedbackExplanationWrapper');
+    const explanationContainer = document.getElementById('practiceFeedbackExplanation');
     const debounce = (fn, delay = 600) => {
         let timeout;
         return (...args) => {
@@ -225,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw data;
             }
             updateNavigation();
+            renderFeedback(data.feedback);
             const progressLabel = document.getElementById('practice-progress-label');
             const nextUnlock = document.getElementById('practice-next-unlock');
             if (progressLabel && data.answered_count !== undefined && data.total_questions !== undefined) {
@@ -266,6 +335,99 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.addEventListener('change', handleSubmit);
         }
     }
+
+    const renderFeedback = (payload) => {
+        if (!feedbackBox || !payload) {
+            return;
+        }
+
+        feedbackBox.classList.remove('hidden');
+        const status = payload.is_correct === true
+            ? { text: 'Jawaban benar', classes: 'bg-emerald-100 text-emerald-700' }
+            : (payload.is_correct === false
+                ? { text: 'Jawaban salah', classes: 'bg-red-100 text-red-700' }
+                : { text: 'Jawaban tersimpan', classes: 'bg-amber-100 text-amber-700' });
+
+        if (statusBadge) {
+            statusBadge.textContent = status.text;
+            statusBadge.className = `inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${status.classes}`;
+        }
+
+        if (correctWrapper && correctContainer) {
+            if (payload.correct_answer_html) {
+                correctWrapper.classList.remove('hidden');
+                correctContainer.innerHTML = payload.correct_answer_html;
+            } else {
+                correctWrapper.classList.add('hidden');
+                correctContainer.innerHTML = '';
+            }
+        }
+
+        if (explanationWrapper && explanationContainer) {
+            if (payload.explanation_html) {
+                explanationWrapper.classList.remove('hidden');
+                explanationContainer.innerHTML = payload.explanation_html;
+            } else {
+                explanationWrapper.classList.add('hidden');
+                explanationContainer.innerHTML = '';
+            }
+        }
+    };
+
+    if (initialFeedback) {
+        renderFeedback(initialFeedback);
+    }
+
+    setupCalculator();
 });
+
+function setupCalculator() {
+    const modal = document.getElementById('calculatorModal');
+    const display = document.getElementById('calculatorDisplay');
+    const openers = document.querySelectorAll('.calculator-trigger');
+    const closeBtn = document.getElementById('closeCalculator');
+    const clearBtn = document.getElementById('calculatorClear');
+    const buttons = document.querySelectorAll('[data-calculator-key]');
+
+    if (!modal || !display) {
+        return;
+    }
+
+    const openModal = () => {
+        modal.classList.remove('hidden');
+    };
+    const closeModal = () => {
+        modal.classList.add('hidden');
+    };
+
+    openers.forEach(btn => btn.addEventListener('click', openModal));
+    closeBtn?.addEventListener('click', closeModal);
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    clearBtn?.addEventListener('click', () => {
+        display.value = '';
+    });
+
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const key = btn.dataset.calculatorKey;
+            if (key === '=') {
+                try {
+                    const result = display.value ? eval(display.value) : '';
+                    display.value = result;
+                } catch (error) {
+                    display.value = 'Error';
+                }
+                return;
+            }
+
+            display.value += key;
+        });
+    });
+}
 </script>
 @endpush

@@ -20,6 +20,7 @@ class PackageController extends Controller
 {
     public function __construct(private PracticeProgressService $practiceProgress)
     {
+        parent::__construct();
     }
 
     public function index()

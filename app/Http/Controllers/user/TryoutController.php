@@ -25,6 +25,7 @@ class TryoutController extends Controller
 {
     public function __construct(private PracticeProgressService $practiceProgress)
     {
+        parent::__construct();
         // Set timezone untuk semua method dalam controller ini
         Carbon::setLocale('id');
         date_default_timezone_set('Asia/Jakarta');

@@ -1,5 +1,8 @@
 @extends('user.layout.tryout')
 @section('title', 'Tryout - Soal ' . $number)
+@php
+    $allowCalculator = optional($tryout)->allow_calculator ?? false;
+@endphp
 @section('content')
 <div class="min-h-screen bg-gray-50 pt-16">
     <div class="max-w-7xl mx-auto px-4 py-6">
@@ -8,15 +11,24 @@
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-lg border border-border p-6">
                     <!-- Header -->
-                    <div class="flex justify-between items-center mb-6 pb-4 border-b border-border">
-                        <div class="flex w-full justify-between">
-                            <h2 class="text-xl font-bold text-gray-800">Soal {{ $number }} dari {{ $totalQuestions }}
-                            </h2>
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">Soal {{ $number }} dari {{ $totalQuestions }}</h2>
                             @if(isset($currentSubtest))
                             <p class="text-sm text-gray-600 mt-1">{{ $currentSubtest['name'] }}</p>
                             @endif
                         </div>
-                        <div id="timer" hidden class="text-2xl font-bold text-primary">00:00:00</div>
+                        <div class="flex items-center gap-3">
+                            @if($allowCalculator)
+                            <button type="button"
+                                class="calculator-trigger inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                aria-haspopup="dialog" aria-controls="calculatorModal">
+                                <i class="ri-calculator-line text-lg"></i>
+                                Kalkulator
+                            </button>
+                            @endif
+                            <div id="timer" hidden class="text-2xl font-bold text-primary">00:00:00</div>
+                        </div>
                     </div>
 
                     <!-- Question Content -->
@@ -326,6 +338,48 @@
         </div>
     </div>
 </div>
+
+@if($allowCalculator)
+<div id="calculatorModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <p class="text-sm text-gray-500">Kalkulator</p>
+                <h3 class="text-lg font-semibold text-gray-800">Latihan & Tryout</h3>
+            </div>
+            <button type="button" id="closeCalculator" class="text-gray-500 hover:text-gray-800">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <div class="mb-4">
+            <input id="calculatorDisplay" type="text" readonly class="w-full text-right text-3xl font-semibold px-4 py-3 bg-gray-50 rounded-lg border border-gray-200" placeholder="0">
+        </div>
+        @php
+            $calcBtnClass = 'w-full py-3 rounded-lg bg-gray-100 text-lg font-semibold text-gray-700 hover:bg-gray-200 transition';
+            $calcOpClass = $calcBtnClass . ' text-primary';
+        @endphp
+        <div class="grid grid-cols-4 gap-3">
+            <button data-calculator-key="7" class="{{ $calcBtnClass }}">7</button>
+            <button data-calculator-key="8" class="{{ $calcBtnClass }}">8</button>
+            <button data-calculator-key="9" class="{{ $calcBtnClass }}">9</button>
+            <button data-calculator-key="/" class="{{ $calcOpClass }}">÷</button>
+            <button data-calculator-key="4" class="{{ $calcBtnClass }}">4</button>
+            <button data-calculator-key="5" class="{{ $calcBtnClass }}">5</button>
+            <button data-calculator-key="6" class="{{ $calcBtnClass }}">6</button>
+            <button data-calculator-key="*" class="{{ $calcOpClass }}">×</button>
+            <button data-calculator-key="1" class="{{ $calcBtnClass }}">1</button>
+            <button data-calculator-key="2" class="{{ $calcBtnClass }}">2</button>
+            <button data-calculator-key="3" class="{{ $calcBtnClass }}">3</button>
+            <button data-calculator-key="-" class="{{ $calcOpClass }}">−</button>
+            <button data-calculator-key="0" class="{{ $calcBtnClass }}">0</button>
+            <button data-calculator-key="." class="{{ $calcBtnClass }}">.</button>
+            <button id="calculatorClear" class="{{ $calcBtnClass }} text-red-600">C</button>
+            <button data-calculator-key="+" class="{{ $calcOpClass }}">+</button>
+            <button data-calculator-key="=" class="col-span-4 bg-primary text-white rounded-lg py-3 text-lg font-semibold">=</button>
+        </div>
+    </div>
+</div>
+@endif
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -783,7 +837,56 @@
             updateAudioPreview();
         }
         setupTimer();
+        setupCalculator();
     });
+
+    function setupCalculator() {
+        const modal = document.getElementById('calculatorModal');
+        const display = document.getElementById('calculatorDisplay');
+        const openers = document.querySelectorAll('.calculator-trigger');
+        const closeBtn = document.getElementById('closeCalculator');
+        const clearBtn = document.getElementById('calculatorClear');
+        const buttons = document.querySelectorAll('[data-calculator-key]');
+
+        if (!modal || !display) {
+            return;
+        }
+
+        const openModal = () => {
+            modal.classList.remove('hidden');
+        };
+        const closeModal = () => {
+            modal.classList.add('hidden');
+        };
+
+        openers.forEach(btn => btn.addEventListener('click', openModal));
+        closeBtn?.addEventListener('click', closeModal);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            display.value = '';
+        });
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.dataset.calculatorKey;
+                if (key === '=') {
+                    try {
+                        const result = display.value ? eval(display.value) : '';
+                        display.value = result;
+                    } catch (error) {
+                        display.value = 'Error';
+                    }
+                    return;
+                }
+                display.value += key;
+            });
+        });
+    }
 </script>
 
 <script>

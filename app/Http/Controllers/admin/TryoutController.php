@@ -112,6 +112,7 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
+                'allow_calculator' => $request->boolean('allow_calculator'),
                 'is_toefl' => $request->has('is_toefl'),
                 'is_irt' => $isIrtEnabled,
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
@@ -169,6 +170,7 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
+                'allow_calculator' => $request->boolean('allow_calculator'),
                 'is_toefl' => $request->has('is_toefl'),
                 'is_irt' => $isIrtEnabled,
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
@@ -540,6 +542,7 @@ class TryoutController extends Controller
             'end_date' => 'required|date|after:start_date',
             'is_certification' => 'boolean',
             'is_active' => 'boolean',
+            'allow_calculator' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
         ];
