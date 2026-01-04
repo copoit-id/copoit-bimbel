@@ -18,6 +18,8 @@
     $answeredMap = collect($navigation)->keyBy('question_id');
     $shortMeta = $metadata['short_answer'] ?? [];
     $audioMeta = $metadata['audio_answer'] ?? [];
+    $flaggedQuestions = $flaggedQuestions ?? [];
+    $isCurrentFlagged = $isCurrentFlagged ?? false;
 @endphp
 <div class="min-h-screen bg-gray-50 pt-8 pb-16">
     <div class="max-w-6xl mx-auto px-4">
@@ -29,7 +31,13 @@
                             <p class="text-sm text-gray-500">Soal Latihan</p>
                             <h2 class="text-2xl font-semibold text-gray-900">Soal {{ $number }} dari {{ $totalQuestions }}</h2>
                         </div>
-                        <div class="flex items-center gap-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" id="practiceFlagButton"
+                                data-flagged="{{ $isCurrentFlagged ? 'true' : 'false' }}"
+                                class="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-colors {{ $isCurrentFlagged ? 'border-primary text-primary bg-primary/5' : 'border-gray-300 text-gray-600 hover:bg-gray-50' }}">
+                                <i class="{{ $isCurrentFlagged ? 'ri-flag-fill text-primary' : 'ri-flag-line text-gray-500' }}"></i>
+                                <span class="flag-text">{{ $isCurrentFlagged ? 'Batalkan Tandai' : 'Tandai Soal' }}</span>
+                            </button>
                             <button type="button"
                                 class="calculator-trigger inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                                 aria-haspopup="dialog" aria-controls="calculatorModal">
@@ -163,9 +171,13 @@
                     <div class="grid grid-cols-5 gap-2 practice-nav-grid">
                         @foreach($navigation as $item)
                             <a href="{{ route('user.practice.play', ['number' => $item['number']]) }}"
-                                class="w-full h-10 flex items-center justify-center rounded-lg text-sm font-semibold
+                                data-question-id="{{ $item['question_id'] }}"
+                                class="relative w-full h-10 flex items-center justify-center rounded-lg text-sm font-semibold
                                 {{ $item['number'] === $number ? 'bg-primary text-white' : ($item['answered'] ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-600') }}">
                                 {{ $item['number'] }}
+                                @if($item['flagged'] ?? false)
+                                    <i class="flag-badge ri-flag-fill absolute -top-1 -right-1 text-xs text-red-500"></i>
+                                @endif
                             </a>
                         @endforeach
                     </div>
@@ -174,6 +186,7 @@
                     <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-primary text-white mr-2 text-xs"> &nbsp;</span> Soal aktif</p>
                     <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-emerald-100 text-emerald-700 mr-2 text-xs"> &nbsp;</span> Sudah terjawab</p>
                     <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-gray-200 mr-2 text-xs"> &nbsp;</span> Belum dijawab</p>
+                    <p class="mt-2 flex items-center"><i class="ri-flag-fill text-red-500 mr-2 text-base"></i> Soal ditandai</p>
                 </div>
             </div>
         </div>
@@ -220,6 +233,9 @@
 
 @push('scripts')
 <script>
+const PRACTICE_FLAG_TOKEN = '{{ csrf_token() }}';
+const PRACTICE_CURRENT_QUESTION_ID = {{ $question->id }};
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('practiceAnswerForm');
     if (!form) return;
@@ -379,6 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupCalculator();
+    setupPracticeFlagging();
 });
 
 function setupCalculator() {
@@ -427,6 +444,71 @@ function setupCalculator() {
 
             display.value += key;
         });
+    });
+}
+
+function setupPracticeFlagging() {
+    const flagButton = document.getElementById('practiceFlagButton');
+    if (!flagButton) {
+        return;
+    }
+
+    const flagIcon = flagButton.querySelector('i');
+    const flagText = flagButton.querySelector('.flag-text');
+    const navCurrent = document.querySelector(`.practice-nav-grid a[data-question-id="${PRACTICE_CURRENT_QUESTION_ID}"]`);
+    let state = flagButton.dataset.flagged === 'true';
+
+    const updateNavBadge = (flagged) => {
+        if (!navCurrent) {
+            return;
+        }
+        let badge = navCurrent.querySelector('.flag-badge');
+        if (flagged) {
+            if (!badge) {
+                badge = document.createElement('i');
+                badge.className = 'flag-badge ri-flag-fill absolute -top-1 -right-1 text-xs text-red-500';
+                navCurrent.appendChild(badge);
+            }
+        } else if (badge) {
+            badge.remove();
+        }
+    };
+
+    const setState = (flagged) => {
+        state = flagged;
+        flagButton.dataset.flagged = flagged ? 'true' : 'false';
+        flagIcon.className = flagged ? 'ri-flag-fill text-primary' : 'ri-flag-line text-gray-500';
+        flagText.textContent = flagged ? 'Batalkan Tandai' : 'Tandai Soal';
+        updateNavBadge(flagged);
+    };
+
+    setState(state);
+
+    flagButton.addEventListener('click', () => {
+        if (flagButton.disabled) {
+            return;
+        }
+        flagButton.disabled = true;
+        fetch('{{ route('user.practice.flag') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': PRACTICE_FLAG_TOKEN,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ question_id: PRACTICE_CURRENT_QUESTION_ID }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    throw data;
+                }
+                setState(!!data.flagged);
+            })
+            .catch(error => console.error(error))
+            .finally(() => {
+                flagButton.disabled = false;
+            });
     });
 }
 </script>

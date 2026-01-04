@@ -64,13 +64,24 @@ class PracticeController extends Controller
 
         $currentAnswer = $answers->get($question->id);
 
-        $navigation = $questions->map(function ($q, $idx) use ($answers) {
+        $flaggedQuestions = collect($session->flagged_questions ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
+
+        $flaggedLookup = array_flip($flaggedQuestions);
+
+        $navigation = $questions->map(function ($q, $idx) use ($answers, $flaggedLookup) {
             return [
                 'number' => $idx + 1,
                 'question_id' => $q->id,
                 'answered' => $answers->has($q->id),
+                'flagged' => isset($flaggedLookup[$q->id]),
             ];
         });
+
+        $isCurrentFlagged = isset($flaggedLookup[$question->id]);
 
         $initialFeedback = $this->makeFeedbackPayload($question, $currentAnswer);
 
@@ -82,6 +93,8 @@ class PracticeController extends Controller
             'navigation' => $navigation,
             'stats' => $stats,
             'initialFeedback' => $initialFeedback,
+            'flaggedQuestions' => $flaggedQuestions,
+            'isCurrentFlagged' => $isCurrentFlagged,
         ]);
     }
 
@@ -128,6 +141,40 @@ class PracticeController extends Controller
             'next_unlock_remaining' => $stats['next_unlock_remaining'],
             'threshold_per_tryout' => $stats['threshold_per_tryout'],
             'feedback' => $this->makeFeedbackPayload($question, $answer),
+        ]);
+    }
+
+    public function toggleFlag(Request $request): JsonResponse
+    {
+        $request->validate([
+            'question_id' => 'required|integer|exists:question_bank_questions,id',
+        ]);
+
+        $userId = Auth::id();
+        $session = $this->practiceProgress->getOrCreateSession($userId);
+
+        $questionId = (int) $request->input('question_id');
+        $flagged = collect($session->flagged_questions ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
+
+        $isFlagged = true;
+        if (in_array($questionId, $flagged, true)) {
+            $flagged = array_values(array_filter($flagged, fn ($id) => $id !== $questionId));
+            $isFlagged = false;
+        } else {
+            $flagged[] = $questionId;
+            $flagged = array_values(array_unique($flagged));
+        }
+
+        $session->flagged_questions = $flagged;
+        $session->save();
+
+        return response()->json([
+            'success' => true,
+            'flagged' => $isFlagged,
         ]);
     }
 

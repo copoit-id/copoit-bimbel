@@ -135,6 +135,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
             ->whereNumber('number')
             ->name('user.practice.play');
         Route::post('/jawaban/{question}', [PracticeController::class, 'saveAnswer'])->name('user.practice.answer');
+        Route::post('/flag', [PracticeController::class, 'toggleFlag'])->name('user.practice.flag');
     });
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');

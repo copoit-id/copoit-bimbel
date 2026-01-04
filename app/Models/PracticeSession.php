@@ -12,6 +12,7 @@ class PracticeSession extends Model
 
     protected $casts = [
         'last_answered_at' => 'datetime',
+        'flagged_questions' => 'array',
     ];
 
     public function user(): BelongsTo

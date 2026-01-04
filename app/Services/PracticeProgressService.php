@@ -17,6 +17,7 @@ class PracticeProgressService
             [
                 'total_questions' => $this->countQuestions(),
                 'answered_questions' => 0,
+                'flagged_questions' => [],
                 'status' => 'in_progress',
             ]
         );
