@@ -83,7 +83,9 @@ class PracticeController extends Controller
 
         $isCurrentFlagged = isset($flaggedLookup[$question->id]);
 
-        $initialFeedback = $this->makeFeedbackPayload($question, $currentAnswer);
+        $initialFeedback = $currentAnswer
+            ? $this->makeFeedbackPayload($question, $currentAnswer)
+            : null;
 
         return view('user.pages.practice.play', [
             'question' => $question,
