@@ -70,9 +70,15 @@
                         @csrf
                         @if(in_array($questionType, ['multiple_choice', 'true_false']))
                             @foreach($question->options as $option)
-                                <label class="flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/40 hover:bg-primary/5">
+                                @php
+                                    $isSelected = $currentAnswer && $currentAnswer->question_bank_question_option_id === $option->id;
+                                    $optionClasses = $isSelected
+                                        ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                                        : 'border-gray-200';
+                                @endphp
+                                <label class="flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 {{ $optionClasses }}">
                                     <input type="radio" name="option_id" value="{{ $option->id }}" class="mt-1 text-primary focus:ring-primary"
-                                        @checked($currentAnswer && $currentAnswer->question_bank_question_option_id === $option->id)>
+                                        @checked($isSelected)>
                                     <span class="flex-1 text-gray-700">{!! $option->option_text !!}</span>
                                 </label>
                             @endforeach
