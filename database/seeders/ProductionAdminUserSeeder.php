@@ -13,19 +13,27 @@ class ProductionAdminUserSeeder extends Seeder
      */
     public function run(): void
     {
+        $adminEmail = config('seeders.prod_admin.email');
+        $userEmail = config('seeders.prod_user.email');
+
+        if (empty($adminEmail) || empty($userEmail)) {
+            $this->command->error('Production seeder aborted: PROD_ADMIN_EMAIL/PROD_USER_EMAIL must be set (use config cache safe values).');
+            return;
+        }
+
         $accounts = [
             [
                 'name' => 'Production Admin',
-                'username' => env('PROD_ADMIN_USERNAME', 'prod_admin'),
-                'email' => env('PROD_ADMIN_EMAIL', 'admin@copoit.com'),
-                'password' => env('PROD_ADMIN_PASSWORD', 'Passw0rd'),
+                'username' => config('seeders.prod_admin.username'),
+                'email' => $adminEmail,
+                'password' => config('seeders.prod_admin.password'),
                 'role' => 'admin',
             ],
             [
                 'name' => 'Production User',
-                'username' => env('PROD_USER_USERNAME', 'prod_user'),
-                'email' => env('PROD_USER_EMAIL', 'user@copoit.com'),
-                'password' => env('PROD_USER_PASSWORD', 'Passw0rd'),
+                'username' => config('seeders.prod_user.username'),
+                'email' => $userEmail,
+                'password' => config('seeders.prod_user.password'),
                 'role' => 'user',
             ],
         ];
