@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 class ProductionAdminUserSeeder extends Seeder
 {
@@ -13,6 +14,13 @@ class ProductionAdminUserSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->command->info('Running ProductionAdminUserSeeder...');
+        $this->command->info(sprintf(
+            'DB connection: %s (%s)',
+            config('database.default'),
+            config('database.connections.' . config('database.default') . '.database')
+        ));
+
         $adminEmail = config('seeders.prod_admin.email');
         $userEmail = config('seeders.prod_user.email');
 
@@ -39,7 +47,7 @@ class ProductionAdminUserSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            User::updateOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $account['email']],
                 [
                     'name' => $account['name'],
@@ -50,6 +58,12 @@ class ProductionAdminUserSeeder extends Seeder
                     'email_verified_at' => now(),
                 ]
             );
+
+            $this->command->info(sprintf(
+                '%s user for %s',
+                $user->wasRecentlyCreated ? 'Created' : 'Updated',
+                $account['email']
+            ));
         }
     }
 }
