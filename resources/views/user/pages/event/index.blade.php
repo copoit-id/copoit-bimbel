@@ -11,6 +11,7 @@
         'free_unconditional' => ['label' => 'Gratis', 'class' => 'bg-emerald-50 text-emerald-700 border border-emerald-100'],
         'free_conditional' => ['label' => 'Gratis Bersyarat', 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
     ];
+    $paymentMode = config('client.branding.payment_mode', 'gateway');
 @endphp
 <div class="dashboard space-y-6">
     <x-page-desc title="Event Gratis" description="Paket gratis dengan syarat khusus untuk komunitasmu"></x-page-desc>
@@ -114,14 +115,21 @@
                     @endif
                     @endif
                 @else
-                <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                    class="buy-package-form mt-1">
-                    @csrf
-                    <button type="submit"
+                    @if($paymentMode === 'manual' && $package->type_price === 'paid')
+                    <button type="button" data-modal-open="manual-payment-{{ $package->package_id }}"
                         class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition">
-                        Ambil Gratis
+                        Beli Sekarang
                     </button>
-                </form>
+                    @else
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
+                        class="buy-package-form mt-1">
+                        @csrf
+                        <button type="submit"
+                            class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition">
+                            Ambil Gratis
+                        </button>
+                    </form>
+                    @endif
                 @endif
             </div>
         </div>
@@ -170,6 +178,64 @@
                                 <button type="submit"
                                     class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">Kirim
                                     Bukti</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+        @if($package->type_price === 'paid' && $paymentMode === 'manual')
+        <div class="event-modal hidden" data-modal="manual-payment-{{ $package->package_id }}">
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-blue-900/20 backdrop-blur-[2px] px-4 py-8"
+                data-modal-overlay="manual-payment-{{ $package->package_id }}">
+                <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
+                    data-modal-panel>
+                    <button type="button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+                        data-modal-close="manual-payment-{{ $package->package_id }}">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">Pembayaran Manual</p>
+                            <h3 class="text-xl font-semibold text-gray-900 mt-1">{{ $package->name }}</h3>
+                            <p class="text-sm text-gray-500">Upload bukti pembayaran untuk diproses admin.</p>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
+                            <div>
+                                <p class="font-semibold text-gray-900 mb-1">Total Tagihan</p>
+                                <p>Rp {{ number_format($package->price, 0, ',', '.') }}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-900 mb-1">Transfer ke</p>
+                                @if(!empty($clientBranding['payment_bank_name']) && !empty($clientBranding['payment_account_number']) && !empty($clientBranding['payment_account_holder']))
+                                    <p>{{ $clientBranding['payment_bank_name'] }} {{ $clientBranding['payment_account_number'] }}</p>
+                                    <p class="text-gray-500">a.n {{ $clientBranding['payment_account_holder'] }}</p>
+                                @else
+                                    <p class="text-gray-500">Info rekening belum diatur.</p>
+                                @endif
+                                @if(!empty($clientBranding['payment_bank_note']))
+                                    <p class="text-xs text-gray-500 mt-1">{{ $clientBranding['payment_bank_note'] }}</p>
+                                @endif
+                            </div>
+                        </div>
+                        <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
+                            enctype="multipart/form-data" class="buy-package-form space-y-4">
+                            @csrf
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti</label>
+                                <input type="file" name="payment_proof" required accept=".jpg,.jpeg,.png,.pdf"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF (maks 20MB)</p>
+                            </div>
+                            <div class="flex items-center justify-end gap-3">
+                                <button type="button"
+                                    class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                                    data-modal-close="manual-payment-{{ $package->package_id }}">Batal</button>
+                                <button type="submit"
+                                    class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                                    Kirim Bukti
+                                </button>
                             </div>
                         </form>
                     </div>

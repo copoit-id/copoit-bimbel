@@ -166,7 +166,7 @@
     </div>
 
     <div class="bg-white border border-border rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Detail Pembayaran</h3>
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Status & Bukti Pembayaran</h3>
 
         @if($payment->status == 'failed')
         <div class="text-center py-8">
@@ -175,7 +175,15 @@
             <p class="text-sm text-red-600 mt-2">{{ $payment->notes ?? 'Transaksi gagal atau dibatalkan' }}</p>
         </div>
         @else
-        <div class="space-y-3">
+        @php
+            $proofPath = $paymentDetails['proof_path'] ?? null;
+            $proofName = $paymentDetails['proof_name'] ?? null;
+            $proofUrl = $proofPath ? Storage::url($proofPath) : null;
+            $proofExt = $proofPath ? strtolower(pathinfo($proofPath, PATHINFO_EXTENSION)) : null;
+            $isProofImage = $proofExt && in_array($proofExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+            $isProofPdf = $proofExt === 'pdf';
+        @endphp
+        <div class="space-y-4">
             <div class="flex justify-between">
                 <span class="text-gray-600">Status:</span>
                 <span
@@ -190,9 +198,9 @@
             </div>
             @endif
             @if($paymentDetails)
-            <div class="mt-4 p-3 bg-gray-50 rounded-lg">
-                <p class="text-sm font-semibold text-gray-700">Detail Payment Gateway:</p>
-                <div class="text-xs text-gray-600 mt-1">
+            <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="text-sm font-semibold text-gray-700">Detail Pembayaran:</p>
+                <div class="text-xs text-gray-600 mt-1 space-y-1">
                     @if(isset($paymentDetails['invoice_id']))
                     <p>Invoice ID: {{ $paymentDetails['invoice_id'] }}</p>
                     @endif
@@ -202,6 +210,56 @@
                 </div>
             </div>
             @endif
+
+            <div class="p-4 border border-dashed border-gray-200 rounded-lg bg-white">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-sm font-semibold text-gray-800">Bukti Pembayaran</p>
+                    @if($proofUrl)
+                    <div class="flex items-center gap-2">
+                        <a href="{{ $proofUrl }}" target="_blank"
+                            class="text-xs px-3 py-1 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">
+                            Buka
+                        </a>
+                        <a href="{{ $proofUrl }}" download
+                            class="text-xs px-3 py-1 rounded-lg bg-primary text-white hover:bg-primary/90">
+                            Unduh
+                        </a>
+                    </div>
+                    @endif
+                </div>
+                @if($proofUrl)
+                    @if($isProofImage)
+                        <a href="{{ $proofUrl }}" target="_blank" class="block">
+                            <img src="{{ $proofUrl }}" alt="Bukti pembayaran"
+                                class="w-full max-h-64 object-contain rounded-lg border border-gray-100 bg-white">
+                        </a>
+                    @elseif($isProofPdf)
+                        <div class="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+                            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                                <i class="ri-file-pdf-line text-xl text-red-500"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 truncate">{{ $proofName ?? 'Bukti pembayaran.pdf' }}</p>
+                                <p class="text-xs text-gray-500">PDF</p>
+                            </div>
+                        </div>
+                    @else
+                        <div class="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                                <i class="ri-file-line text-xl text-blue-500"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 truncate">{{ $proofName ?? 'Bukti pembayaran' }}</p>
+                                <p class="text-xs text-gray-500">File terlampir</p>
+                            </div>
+                        </div>
+                    @endif
+                @else
+                    <div class="text-sm text-gray-500">
+                        Belum ada bukti pembayaran yang diunggah.
+                    </div>
+                @endif
+            </div>
         </div>
         @endif
     </div>

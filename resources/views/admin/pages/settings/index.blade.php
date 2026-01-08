@@ -156,6 +156,80 @@
             </div>
         </div>
 
+        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pembayaran</p>
+                <h2 class="text-xl font-semibold text-gray-900">Mode Pembayaran</h2>
+                <p class="text-gray-500 text-sm">Pilih apakah pembayaran diproses otomatis via gateway atau manual.</p>
+            </div>
+            @php
+            $paymentMode = old('payment_mode', $profile->payment_mode ?? ($branding['payment_mode'] ?? 'gateway'));
+            @endphp
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                    <input type="radio" name="payment_mode" value="gateway" class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $paymentMode === 'gateway' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Otomatis (Payment Gateway)</p>
+                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke Xendit/Midtrans.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                    <input type="radio" name="payment_mode" value="manual" class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $paymentMode === 'manual' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Manual (Upload Bukti)</p>
+                        <p class="text-xs text-gray-500">User mengunggah bukti, admin melakukan ACC di menu pembayaran.</p>
+                    </div>
+                </label>
+            </div>
+            @error('payment_mode')
+            <p class="text-xs text-red-500">{{ $message }}</p>
+            @enderror
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Nama Bank</label>
+                    <input type="text" name="payment_bank_name"
+                        value="{{ old('payment_bank_name', $profile->payment_bank_name ?? ($branding['payment_bank_name'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: BCA">
+                    @error('payment_bank_name')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Nomor Rekening</label>
+                    <input type="text" name="payment_account_number"
+                        value="{{ old('payment_account_number', $profile->payment_account_number ?? ($branding['payment_account_number'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: 1234567890">
+                    @error('payment_account_number')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Nama Pemilik Rekening</label>
+                    <input type="text" name="payment_account_holder"
+                        value="{{ old('payment_account_holder', $profile->payment_account_holder ?? ($branding['payment_account_holder'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: PT Bimbel Cerdas">
+                    @error('payment_account_holder')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Catatan (Opsional)</label>
+                    <input type="text" name="payment_bank_note"
+                        value="{{ old('payment_bank_note', $profile->payment_bank_note ?? ($branding['payment_bank_note'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kirim bukti max 1x24 jam">
+                    @error('payment_bank_note')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>
