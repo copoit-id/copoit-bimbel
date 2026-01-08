@@ -23,7 +23,7 @@ use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\LandingPageController;
-use App\Http\Controllers\Admin\AdminLandingPageController;
+use App\Http\Controllers\admin\AdminLandingPageController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\App;
