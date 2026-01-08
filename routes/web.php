@@ -22,6 +22,8 @@ use App\Http\Controllers\user\EventController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TryoutController;
+use App\Http\Controllers\LandingPageController;
+use App\Http\Controllers\Admin\AdminLandingPageController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\App;
@@ -82,6 +84,9 @@ Route::get('/', function () {
 
     return redirect()->route('login');
 });
+
+// Landing Page Route
+Route::get('/landing', [LandingPageController::class, 'index'])->name('landing.page');
 
 // Authentication routes
 
@@ -334,4 +339,57 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::post('certificate/bulk-action', [\App\Http\Controllers\admin\CertificateController::class, 'bulkAction'])
         ->middleware('certificate.enabled')
         ->name('certificate.bulkAction');
+
+    // Landing Page Management Routes
+    Route::prefix('landing-page')->name('landing-page.')->group(function () {
+        // Hero Section
+        Route::prefix('hero')->name('hero.')->group(function () {
+            Route::get('/', [AdminLandingPageController::class, 'heroIndex'])->name('index');
+            Route::get('/create', [AdminLandingPageController::class, 'heroCreate'])->name('create');
+            Route::post('/store', [AdminLandingPageController::class, 'heroStore'])->name('store');
+            Route::get('/{hero}/edit', [AdminLandingPageController::class, 'heroEdit'])->name('edit');
+            Route::put('/{hero}/update', [AdminLandingPageController::class, 'heroUpdate'])->name('update');
+            Route::delete('/{hero}/destroy', [AdminLandingPageController::class, 'heroDestroy'])->name('destroy');
+        });
+
+        // Features
+        Route::prefix('features')->name('features.')->group(function () {
+            Route::get('/', [AdminLandingPageController::class, 'featuresIndex'])->name('index');
+            Route::get('/create', [AdminLandingPageController::class, 'featuresCreate'])->name('create');
+            Route::post('/store', [AdminLandingPageController::class, 'featuresStore'])->name('store');
+            Route::get('/{feature}/edit', [AdminLandingPageController::class, 'featuresEdit'])->name('edit');
+            Route::put('/{feature}/update', [AdminLandingPageController::class, 'featuresUpdate'])->name('update');
+            Route::delete('/{feature}/destroy', [AdminLandingPageController::class, 'featuresDestroy'])->name('destroy');
+        });
+
+        // Gallery
+        Route::prefix('gallery')->name('gallery.')->group(function () {
+            Route::get('/', [AdminLandingPageController::class, 'galleryIndex'])->name('index');
+            Route::get('/create', [AdminLandingPageController::class, 'galleryCreate'])->name('create');
+            Route::post('/store', [AdminLandingPageController::class, 'galleryStore'])->name('store');
+            Route::get('/{gallery}/edit', [AdminLandingPageController::class, 'galleryEdit'])->name('edit');
+            Route::put('/{gallery}/update', [AdminLandingPageController::class, 'galleryUpdate'])->name('update');
+            Route::delete('/{gallery}/destroy', [AdminLandingPageController::class, 'galleryDestroy'])->name('destroy');
+        });
+
+        // Testimonials
+        Route::prefix('testimonials')->name('testimonials.')->group(function () {
+            Route::get('/', [AdminLandingPageController::class, 'testimonialsIndex'])->name('index');
+            Route::get('/create', [AdminLandingPageController::class, 'testimonialsCreate'])->name('create');
+            Route::post('/store', [AdminLandingPageController::class, 'testimonialsStore'])->name('store');
+            Route::get('/{testimonial}/edit', [AdminLandingPageController::class, 'testimonialsEdit'])->name('edit');
+            Route::put('/{testimonial}/update', [AdminLandingPageController::class, 'testimonialsUpdate'])->name('update');
+            Route::delete('/{testimonial}/destroy', [AdminLandingPageController::class, 'testimonialsDestroy'])->name('destroy');
+        });
+
+        // CTA Section
+        Route::prefix('cta')->name('cta.')->group(function () {
+            Route::get('/', [AdminLandingPageController::class, 'ctaIndex'])->name('index');
+            Route::get('/create', [AdminLandingPageController::class, 'ctaCreate'])->name('create');
+            Route::post('/store', [AdminLandingPageController::class, 'ctaStore'])->name('store');
+            Route::get('/edit', [AdminLandingPageController::class, 'ctaEdit'])->name('edit');
+            Route::put('/{cta}/update', [AdminLandingPageController::class, 'ctaUpdate'])->name('update');
+            Route::delete('/{cta}/destroy', [AdminLandingPageController::class, 'ctaDestroy'])->name('destroy');
+        });
+    });
 });

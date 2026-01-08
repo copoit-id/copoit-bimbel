@@ -105,6 +105,52 @@
             </li>
             @endif
             <li>
+                <button type="button" 
+                    class="flex items-center w-full py-2 px-4 {{ request()->routeIs('admin.landing-page.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"
+                    onclick="toggleDropdown('landing-page-dropdown')">
+                    <i class="ri-pages-line text-[20px] {{ request()->routeIs('admin.landing-page.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="flex-1 ms-3 text-left">Landing Page</span>
+                    <i class="ri-arrow-down-s-line text-[20px] transition-transform" id="landing-page-arrow"></i>
+                </button>
+                <ul class="py-2 space-y-1 {{ request()->routeIs('admin.landing-page.*') ? 'block' : 'hidden' }}" id="landing-page-dropdown">
+                    <li>
+                        <a href="{{ route('admin.landing-page.hero.index') }}"
+                            class="flex items-center w-full py-2 pl-11 pr-4 {{ request()->routeIs('admin.landing-page.hero.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                            <i class="ri-image-2-line text-[16px] {{ request()->routeIs('admin.landing-page.hero.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Hero Section</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.landing-page.features.index') }}"
+                            class="flex items-center w-full py-2 pl-11 pr-4 {{ request()->routeIs('admin.landing-page.features.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                            <i class="ri-star-line text-[16px] {{ request()->routeIs('admin.landing-page.features.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Keunggulan</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.landing-page.gallery.index') }}"
+                            class="flex items-center w-full py-2 pl-11 pr-4 {{ request()->routeIs('admin.landing-page.gallery.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                            <i class="ri-gallery-line text-[16px] {{ request()->routeIs('admin.landing-page.gallery.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Gallery</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.landing-page.testimonials.index') }}"
+                            class="flex items-center w-full py-2 pl-11 pr-4 {{ request()->routeIs('admin.landing-page.testimonials.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                            <i class="ri-chat-quote-line text-[16px] {{ request()->routeIs('admin.landing-page.testimonials.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Testimoni</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.landing-page.cta.index') }}"
+                            class="flex items-center w-full py-2 pl-11 pr-4 {{ request()->routeIs('admin.landing-page.cta.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                            <i class="ri-cursor-line text-[16px] {{ request()->routeIs('admin.landing-page.cta.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Call To Action</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            <li>
                 <a href="{{ route('admin.settings.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.settings.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
