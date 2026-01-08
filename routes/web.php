@@ -75,18 +75,8 @@ Route::get('/setup-project', function () {
     }
 });
 
-Route::get('/', function () {
-    if (Auth::check()) {
-        return Auth::user()->role === 'admin'
-            ? redirect()->route('admin.dashboard')
-            : redirect()->route('user.dashboard.index');
-    }
-
-    return redirect()->route('login');
-});
-
-// Landing Page Route
-Route::get('/landing', [LandingPageController::class, 'index'])->name('landing.page');
+Route::get('/', [LandingPageController::class, 'index'])->name('landing.page');
+Route::get('/landing', fn () => redirect()->route('landing.page'));
 
 // Authentication routes
 
