@@ -105,6 +105,40 @@ class PackageController extends Controller
                         ], 400);
                     }
 
+                    $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
+                    if ($paymentMode === 'manual') {
+                        $validated = $request->validate([
+                            'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
+                        ], [
+                            'payment_proof.required' => 'Bukti pembayaran wajib diunggah.',
+                            'payment_proof.mimes' => 'Format bukti harus berupa JPG, PNG, atau PDF.',
+                            'payment_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                        ]);
+
+                        $proofPath = $validated['payment_proof']->store('payment-proofs', 'public');
+                        $transactionId = 'MANUAL-' . $package->package_id . '-' . Auth::id() . '-' . time();
+
+                        Payment::create([
+                            'transaction_id' => $transactionId,
+                            'user_id' => Auth::id(),
+                            'package_id' => $package->package_id,
+                            'amount' => $package->price,
+                            'admin_fee' => 0,
+                            'total_amount' => $package->price,
+                            'status' => Payment::STATUS_PENDING,
+                            'payment_method' => 'manual',
+                            'payment_details' => json_encode([
+                                'proof_path' => $proofPath,
+                                'proof_name' => $validated['payment_proof']->getClientOriginalName(),
+                            ]),
+                        ]);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.'
+                        ]);
+                    }
+
                     $paymentResponse = $this->createPayment($package);
 
                     if ($paymentResponse['success']) {

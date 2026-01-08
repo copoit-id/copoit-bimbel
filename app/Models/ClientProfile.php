@@ -19,6 +19,11 @@ class ClientProfile extends Model
         'sidebar_primary_color',
         'enable_utbk_types',
         'allow_video_thumbnail',
+        'payment_mode',
+        'payment_bank_name',
+        'payment_account_number',
+        'payment_account_holder',
+        'payment_bank_note',
     ];
 
     protected $casts = [
