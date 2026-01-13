@@ -170,31 +170,41 @@ class TryoutController extends Controller
 
         $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers']) ? $shortMeta['expected_answers'] : [];
         $caseSensitive = $shortMeta['case_sensitive'] ?? false;
+        $evaluationMode = $shortMeta['evaluation_mode'] ?? null;
         $manualReview = $shortMeta['manual_review'] ?? false;
 
         $isCorrect = false;
 
-        if (!empty($expectedAnswers)) {
+        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
+            if (!$evaluationMode) {
+                $evaluationMode = $manualReview ? 'manual' : 'auto';
+            }
+
+            $manualReview = $evaluationMode !== 'auto' || empty($expectedAnswers);
+        }
+
+        if (!$manualReview && !empty($expectedAnswers)) {
             foreach ($expectedAnswers as $expected) {
                 $expectedValue = trim((string) $expected);
-                $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
-                $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
 
-                if ($userComparable === $expectedComparable) {
-                    $isCorrect = true;
+                if ($question->question_type === 'essay') {
+                    $isCorrect = $this->matchesEssayAnswer($answerText, $expectedValue);
+                } else {
+                    $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
+                    $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
+                    $isCorrect = $userComparable === $expectedComparable;
+                }
+
+                if ($isCorrect) {
                     break;
                 }
             }
         }
 
-        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
-            $manualReview = true;
-            $isCorrect = false;
-        }
-
         $answerJson = [
             'pending_review' => $manualReview,
             'case_sensitive' => $caseSensitive,
+            'evaluation_mode' => $evaluationMode,
             'expected_answers' => $expectedAnswers,
         ];
 
@@ -212,6 +222,26 @@ class TryoutController extends Controller
             ],
             'delete_file' => false,
         ];
+    }
+
+    private function matchesEssayAnswer(string $userAnswer, string $expectedAnswer): bool
+    {
+        $userNormalized = $this->normalizeEssayAnswer($userAnswer);
+        $expectedNormalized = $this->normalizeEssayAnswer($expectedAnswer);
+
+        if (is_numeric($userNormalized) && is_numeric($expectedNormalized)) {
+            return (float) $userNormalized == (float) $expectedNormalized;
+        }
+
+        return $userNormalized === $expectedNormalized;
+    }
+
+    private function normalizeEssayAnswer(string $value): string
+    {
+        $normalized = trim($value);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+
+        return mb_strtolower($normalized);
     }
 
     private function handleMatchingAnswer(array $data, Question $question): array
@@ -608,6 +638,26 @@ class TryoutController extends Controller
         }
 
         $currentSubtestIndex = $this->getSubtestIndex($subtestInfo, $currentSubtest ?? []);
+        if (count($subtestInfo) > 1) {
+            $progressKey = sprintf('tryout_subtest_progress_%s', $attemptToken);
+            $maxVisitedIndex = (int) session($progressKey, 0);
+
+            if ($currentSubtestIndex < $maxVisitedIndex) {
+                $targetSubtest = $subtestInfo[$maxVisitedIndex] ?? null;
+                $targetNumber = $targetSubtest['start_number'] ?? $number;
+
+                return redirect()->route('user.tryout.index', [
+                    $package ? $package->package_id : 'free',
+                    $tryout->tryout_id,
+                    $targetNumber
+                ])->with('error', 'Tidak bisa kembali ke subtest sebelumnya.');
+            }
+
+            if ($currentSubtestIndex > $maxVisitedIndex) {
+                session([$progressKey => $currentSubtestIndex]);
+            }
+        }
+
         if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
             return $response;
         }

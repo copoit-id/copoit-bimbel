@@ -185,13 +185,23 @@
                     </form>
 
                     <!-- Navigation -->
+                    @php
+                        $isFirstQuestionOfSubtest = $number === ($currentSubtest['start_number'] ?? $number);
+                        $canGoPrev = $number > 1 && !($isFirstQuestionOfSubtest && ($currentSubtestIndex ?? 0) > 0);
+                    @endphp
                     <div class="mt-8 flex justify-between items-center pt-6 border-t border-border">
                         @if($number > 1)
                         <div class="flex gap-3">
-                            <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
-                                class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-                                <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
-                            </a>
+                            @if($canGoPrev)
+                                <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
+                                    class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+                                    <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
+                                </a>
+                            @else
+                                <span class="px-4 py-2 border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed">
+                                    <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
+                                </span>
+                            @endif
                         </div>
                         @endif
                         <div>
