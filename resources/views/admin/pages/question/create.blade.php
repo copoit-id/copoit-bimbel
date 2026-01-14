@@ -248,7 +248,7 @@
                                 <label class="inline-flex items-center gap-2 text-sm text-gray-700">
                                     <input type="radio" name="essay_scoring_mode" value="manual" {{ $essayScoringMode !== 'auto' ? 'checked' : '' }}
                                         class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
-                                    Manual (belum dikoreksi)
+                                    Manual (perlu dikoreksi)
                                 </label>
                             </div>
                         </div>
