@@ -53,6 +53,16 @@
                     <p class="text-[12px] mt-[-6px] font-light">Tidak Dijawab</p>
                 </div>
             </div>
+            @if(!empty($overallStats['pending_review']))
+            <div class="flex w-full items-center gap-3 bg-white p-4 rounded-lg border border-border">
+                <i
+                    class="ri-time-line text-[20px] flex items-center justify-center text-white font-medium bg-amber-500 w-10 h-10 rounded-lg"></i>
+                <div>
+                    <p class="text-[24px] font-bold">{{ $overallStats['pending_review'] }}</p>
+                    <p class="text-[12px] mt-[-6px] font-light">Belum Dikoreksi</p>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 
@@ -146,6 +156,8 @@
         $correctOption = $question->questionOptions->where('is_correct', true)->first();
         $selectedOption = $detail->questionOption;
         $isCorrect = $detail->is_correct;
+        $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $isPendingReview = !empty($answerMeta['pending_review']);
         @endphp
 
         {{-- Subtest Header --}}
@@ -170,9 +182,9 @@
                     {{ strtoupper($detail->subtest_type) }}
                 </span>
                 <span
-                    class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isCorrect ? 'bg-green text-white' : 'bg-red text-white' }}">
+                    class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isPendingReview ? 'bg-amber-100 text-amber-700 border-amber-200' : ($isCorrect ? 'bg-green text-white' : 'bg-red text-white') }}">
                     <i class="ri-checkbox-circle-fill"></i>
-                    <p class="text-sm">{{ $isCorrect ? 'Benar' : 'Salah' }}</p>
+                    <p class="text-sm">{{ $isPendingReview ? 'Belum Dikoreksi' : ($isCorrect ? 'Benar' : 'Salah') }}</p>
                 </span>
                 @php
                 // Calculate score earned for this question
@@ -349,6 +361,12 @@
                         <span class="">Tidak Dijawab:</span>
                         <span class="font-semibold">{{ $overallStats['unanswered'] }} soal</span>
                     </div>
+                    @if(!empty($overallStats['pending_review']))
+                    <div class="flex justify-between">
+                        <span class="">Belum Dikoreksi:</span>
+                        <span class="font-semibold">{{ $overallStats['pending_review'] }} soal</span>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

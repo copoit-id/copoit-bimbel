@@ -94,6 +94,14 @@
                     <span class="ms-3">Laporan Tryout</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('admin.essay-review.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.essay-review.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-pencil-line text-[20px] {{ request()->routeIs('admin.essay-review.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Koreksi Essay</span>
+                </a>
+            </li>
             @if($clientBranding['certificate_management_enabled'] ?? true)
             <li>
                 <a href="{{ route('admin.certificate.index') }}"

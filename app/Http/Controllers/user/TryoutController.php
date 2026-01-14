@@ -1458,6 +1458,13 @@ class TryoutController extends Controller
         });
         $correctAnswers = $latestUserAnswers->sum('correct_answers');
         $wrongAnswers = $latestUserAnswers->sum('wrong_answers');
+        $unansweredCount = $latestUserAnswers->sum('unanswered');
+        $pendingReviewCount = $latestUserAnswers->sum(function ($ua) {
+            return $ua->userAnswerDetails->filter(function ($detail) {
+                $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                return !empty($meta['pending_review']);
+            })->count();
+        });
 
         if ($tryoutDetails->count() > 1) {
             // Multiple subtest calculation
@@ -1484,6 +1491,8 @@ class TryoutController extends Controller
             'totalQuestions',
             'correctAnswers',
             'wrongAnswers',
+            'unansweredCount',
+            'pendingReviewCount',
             'rawScore',
             'maxScore',
             'tryout',

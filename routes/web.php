@@ -6,6 +6,7 @@ use App\Http\Controllers\admin\CertificateController;
 use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\admin\DiscussionController;
+use App\Http\Controllers\admin\EssayReviewController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
@@ -284,6 +285,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     });
 
     Route::resource('discussion', DiscussionController::class);
+
+    // Koreksi essay
+    Route::prefix('essay-review')->name('essay-review.')->group(function () {
+        Route::get('/', [EssayReviewController::class, 'index'])->name('index');
+        Route::get('/{tryout}', [EssayReviewController::class, 'tryout'])->name('tryout');
+        Route::get('/{tryout}/user/{user}', [EssayReviewController::class, 'user'])->name('user');
+        Route::post('/{detail}/review', [EssayReviewController::class, 'review'])->name('review');
+    });
 
     // Route untuk laporan user
     Route::prefix('laporan')->name('laporan.')->group(function () {

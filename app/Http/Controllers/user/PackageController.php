@@ -1258,6 +1258,11 @@ class PackageController extends Controller
             $allAnswerDetails = $allAnswerDetails->concat($answerDetails);
         }
 
+        $pendingReviewCount = $allAnswerDetails->filter(function ($detail) {
+            $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            return !empty($meta['pending_review']);
+        })->count();
+
         // Calculate overall statistics
         $totalQuestions = $latestUserAnswers->sum(function ($ua) {
             return \App\Models\Question::where('tryout_detail_id', $ua->tryout_detail_id)->count();
@@ -1302,6 +1307,7 @@ class PackageController extends Controller
             'correct_answers' => $correctAnswers,
             'wrong_answers' => $wrongAnswers,
             'unanswered' => $unanswered,
+            'pending_review' => $pendingReviewCount,
             'total_score' => $totalScore,
             'max_score' => $maxScore,
             'percentage' => $percentage,

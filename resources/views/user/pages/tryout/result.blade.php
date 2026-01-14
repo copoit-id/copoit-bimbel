@@ -27,7 +27,7 @@
             </div>
 
             <!-- Quick Stats -->
-            <div class="grid grid-cols-3 gap-4 w-full mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mx-auto">
                 <div class="flex items-center gap-3 bg-white p-4 rounded-lg border border-border mt-6">
                     <i
                         class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
@@ -48,8 +48,16 @@
                     <i
                         class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
                     <div class="flex flex-col items-start text-start">
-                        <p class="text-[24px] font-bold">{{ $latestUserAnswers->sum('unanswered') ?? 0 }}</p>
+                        <p class="text-[24px] font-bold">{{ $unansweredCount ?? 0 }}</p>
                         <p class="text-[12px] mt-[-6px] font-light">Jawaban Kosong</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 bg-white p-4 rounded-lg border border-border mt-6">
+                    <i
+                        class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
+                    <div class="flex flex-col items-start text-start">
+                        <p class="text-[24px] font-bold">{{ $pendingReviewCount ?? 0 }}</p>
+                        <p class="text-[12px] mt-[-6px] font-light">Belum Dikoreksi</p>
                     </div>
                 </div>
             </div>
