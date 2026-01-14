@@ -185,17 +185,32 @@
                 $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers']) ?
                 $shortMeta['expected_answers'] : [];
                 $caseSensitive = $shortMeta['case_sensitive'] ?? false;
-                $manualReview = $shortMeta['manual_review'] ?? empty($expectedAnswers);
+                $evaluationMode = $shortMeta['evaluation_mode'] ?? (($shortMeta['manual_review'] ?? true) ? 'manual' : 'auto');
+                $manualReview = $question->question_type === 'essay'
+                    ? ($evaluationMode !== 'auto' || empty($expectedAnswers))
+                    : ($shortMeta['manual_review'] ?? empty($expectedAnswers));
+                $showAutoAnswers = !empty($expectedAnswers) && ($question->question_type !== 'essay' || $evaluationMode === 'auto');
                 @endphp
-                @if(!empty($expectedAnswers))
+                @if($showAutoAnswers)
                 <ul class="list-disc list-inside text-gray-600 space-y-1">
                     @foreach($expectedAnswers as $answer)
                     <li>{{ $answer }}</li>
                     @endforeach
                 </ul>
                 <p class="text-xs text-gray-500 mt-2">
-                    Penilaian otomatis {{ $caseSensitive ? 'memperhatikan' : 'mengabaikan' }} huruf besar-kecil.
+                    @if($question->question_type === 'essay')
+                        Penilaian otomatis mengabaikan huruf besar-kecil.
+                    @else
+                        Penilaian otomatis {{ $caseSensitive ? 'memperhatikan' : 'mengabaikan' }} huruf besar-kecil.
+                    @endif
                 </p>
+                @elseif(!empty($expectedAnswers))
+                <ul class="list-disc list-inside text-gray-600 space-y-1">
+                    @foreach($expectedAnswers as $answer)
+                    <li>{{ $answer }}</li>
+                    @endforeach
+                </ul>
+                <p class="text-xs text-gray-500 mt-2">Penilaian dilakukan manual.</p>
                 @else
                 <p class="text-sm text-gray-500">Tidak ada jawaban referensi. Penilaian dilakukan manual.</p>
                 @endif

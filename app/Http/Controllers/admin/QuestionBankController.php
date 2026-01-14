@@ -290,6 +290,7 @@ class QuestionBankController extends Controller
         $request->validate([
             'short_answer_expected' => ['nullable', 'string'],
             'short_answer_case_sensitive' => ['nullable', 'boolean'],
+            'essay_scoring_mode' => ['nullable', 'in:auto,manual'],
         ]);
     }
 
@@ -336,11 +337,26 @@ class QuestionBankController extends Controller
             ->values()
             ->all();
 
+        $evaluationMode = $type === 'essay'
+            ? $request->input('essay_scoring_mode', 'manual')
+            : 'auto';
+
+        if (!in_array($evaluationMode, ['auto', 'manual'], true)) {
+            $evaluationMode = 'manual';
+        }
+
+        $caseSensitive = $type === 'essay'
+            ? false
+            : $request->boolean('short_answer_case_sensitive');
+
         return [
             'short_answer' => [
                 'expected_answers' => $expectedAnswers,
-                'case_sensitive' => $request->boolean('short_answer_case_sensitive'),
-                'manual_review' => $type === 'essay' || empty($expectedAnswers),
+                'case_sensitive' => $caseSensitive,
+                'evaluation_mode' => $evaluationMode,
+                'manual_review' => $type === 'essay'
+                    ? ($evaluationMode !== 'auto' || empty($expectedAnswers))
+                    : empty($expectedAnswers),
             ],
         ];
     }

@@ -495,6 +495,7 @@ class QuestionController extends Controller
         $rules = [
             'short_answer_expected' => 'nullable|string',
             'short_answer_case_sensitive' => 'nullable|boolean',
+            'essay_scoring_mode' => 'nullable|in:auto,manual',
         ];
 
         $request->validate($rules);
@@ -515,11 +516,28 @@ class QuestionController extends Controller
             }
         }
 
+        $evaluationMode = $questionType === 'essay'
+            ? $request->input('essay_scoring_mode', 'manual')
+            : 'auto';
+
+        if (!in_array($evaluationMode, ['auto', 'manual'], true)) {
+            $evaluationMode = 'manual';
+        }
+
+        $caseSensitive = $questionType === 'essay'
+            ? false
+            : $request->boolean('short_answer_case_sensitive');
+
+        $manualReview = $questionType === 'essay'
+            ? ($evaluationMode !== 'auto' || empty($expectedAnswers))
+            : empty($expectedAnswers);
+
         return [
             'short_answer' => [
                 'expected_answers' => array_values($expectedAnswers),
-                'case_sensitive' => $request->boolean('short_answer_case_sensitive'),
-                'manual_review' => $questionType === 'essay' || empty($expectedAnswers),
+                'case_sensitive' => $caseSensitive,
+                'evaluation_mode' => $evaluationMode,
+                'manual_review' => $manualReview,
             ],
         ];
     }
