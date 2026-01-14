@@ -124,7 +124,7 @@
                 <div>
                     <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
                     <textarea id="description" name="description" rows="4"
-                        class="summernote w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Masukkan deskripsi tryout...">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
                 </div>
 

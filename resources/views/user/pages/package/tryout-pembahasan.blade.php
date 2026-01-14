@@ -214,6 +214,15 @@
             </div>
             @endif
 
+            @if(in_array($question->question_type ?? '', ['short_answer', 'essay']))
+            <div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg">
+                <p class="font-semibold text-gray-800 mb-1">Jawaban Peserta:</p>
+                <p class="text-gray-700">{!! nl2br(e($detail->answer_text ?? '')) ?: '-' !!}</p>
+                @if($detail->answer_json['pending_review'] ?? false)
+                <p class="text-xs text-gray-500 mt-2">Belum dikoreksi.</p>
+                @endif
+            </div>
+            @else
             <div class="flex flex-col gap-2 mt-4 w-full">
                 @foreach($question->questionOptions as $option)
                 @php
@@ -266,6 +275,7 @@
                 <p class="font-semibold text-green-800 mb-1">Jawaban Yang Benar:</p>
                 <p class="text-green-700">{{ $correctOption->option_key }}. {!! $correctOption->option_text !!}</p>
             </div>
+            @endif
             @endif
 
             @if($detail->subtest_type === 'tkp')
