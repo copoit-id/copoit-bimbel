@@ -9,14 +9,16 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
+        <a href="{{ route('admin.laporan.export-excel') }}"
+            class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
             <i class="ri-file-excel-line"></i>
             Export Excel
-        </button>
-        <button class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
+        </a>
+        <a href="{{ route('admin.laporan.export-pdf') }}"
+            class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
             <i class="ri-file-pdf-line"></i>
             Export PDF
-        </button>
+        </a>
     </div>
 </div>
 <x-page-desc title="Monitor performa setiap tryout dan akses detail jawaban peserta"></x-page-desc>

@@ -281,6 +281,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Route untuk admin leaderboard
     Route::prefix('leaderboard')->name('leaderboard.')->group(function () {
         Route::get('/', [LeaderboardController::class, 'index'])->name('index');
+        Route::get('/{package_id}/{tryout_id}/export/excel', [LeaderboardController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/{package_id}/{tryout_id}/export/pdf', [LeaderboardController::class, 'exportPdf'])->name('export-pdf');
         Route::get('/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('show');
     });
 
@@ -297,6 +299,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Route untuk laporan user
     Route::prefix('laporan')->name('laporan.')->group(function () {
         Route::get('/', [LaporanController::class, 'index'])->name('index');
+        Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
         Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
         Route::get('/{id}', [LaporanController::class, 'show'])->name('show');
     });

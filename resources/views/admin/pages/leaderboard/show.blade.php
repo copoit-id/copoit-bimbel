@@ -10,14 +10,16 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
+        <a href="{{ route('admin.leaderboard.export-excel', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
             <i class="ri-file-excel-line"></i>
             Export Excel
-        </button>
-        <button class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
+        </a>
+        <a href="{{ route('admin.leaderboard.export-pdf', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
             <i class="ri-file-pdf-line"></i>
             Export PDF
-        </button>
+        </a>
     </div>
 </div>
 <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
@@ -79,14 +81,6 @@
                 <option value="<70">
                     < 70</option>
             </select>
-        </div>
-        <div class="flex items-center gap-2">
-            <button class="text-gray-500 hover:text-gray-700">
-                <i class="ri-download-line text-lg"></i>
-            </button>
-            <button class="text-gray-500 hover:text-gray-700">
-                <i class="ri-printer-line text-lg"></i>
-            </button>
         </div>
     </div>
 
