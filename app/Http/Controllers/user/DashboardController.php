@@ -28,12 +28,33 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Get recent tryout attempts
-        $recentAttempts = UserAnswer::where('user_id', $user->id)
+        // Get recent tryout attempts (grouped per tryout attempt, not per subtest)
+        $recentAnswers = UserAnswer::where('user_id', $user->id)
             ->with('tryout')
             ->orderBy('created_at', 'desc')
-            ->limit(5)
+            ->limit(50)
             ->get();
+
+        $recentAttempts = $recentAnswers
+            ->groupBy(function (UserAnswer $answer) {
+                $attemptKey = $answer->attempt_token ?: $answer->user_answer_id;
+                return $answer->tryout_id . '|' . $attemptKey;
+            })
+            ->map(function ($answers) {
+                $latest = $answers->sortByDesc('created_at')->first();
+                $allCompleted = $answers->every(fn (UserAnswer $item) => $item->status === 'completed');
+                $overallPassed = $allCompleted && $answers->every(fn (UserAnswer $item) => (bool) $item->is_passed);
+
+                return (object) [
+                    'tryout' => $latest->tryout,
+                    'created_at' => $latest->created_at,
+                    'status' => $allCompleted ? 'completed' : ($latest->status ?? 'in_progress'),
+                    'is_passed' => $overallPassed,
+                ];
+            })
+            ->sortByDesc('created_at')
+            ->take(5)
+            ->values();
 
         // Get statistics with correct field names
         $stats = [

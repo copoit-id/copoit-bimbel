@@ -467,7 +467,7 @@ class PackageController extends Controller
     public function riwayatTryout($id_package, $id_tryout)
     {
         $package = Package::findOrFail($id_package);
-        $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
 
         // Check access - perbaiki query akses
         $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -525,12 +525,12 @@ class PackageController extends Controller
                 }
 
                 $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
-                $isPassed = $finalPercentage >= 65; // SKD minimal 65%
+                $isPassed = $this->isAttemptPassed($userAnswers, $tryout->tryoutDetails->count());
             } else {
                 // Single subtest
                 $singleAnswer = $userAnswers->first();
                 $finalPercentage = $singleAnswer->score ?? 0;
-                $isPassed = $finalPercentage >= ($singleAnswer->tryoutDetail->passing_score ?? 60);
+                $isPassed = $this->isAttemptPassed($userAnswers, 1);
                 $totalCorrect = $singleAnswer->correct_answers ?? 0;
                 $totalWrong = $singleAnswer->wrong_answers ?? 0;
                 $totalUnanswered = $singleAnswer->unanswered ?? 0;
@@ -689,6 +689,21 @@ class PackageController extends Controller
     private function isToeflPassed(int $score): bool
     {
         return $score >= 217;
+    }
+
+    private function isAttemptPassed($userAnswers, int $expectedSubtests = 0): bool
+    {
+        if ($expectedSubtests > 0 && $userAnswers->count() < $expectedSubtests) {
+            return false;
+        }
+
+        return $userAnswers->every(function ($userAnswer) {
+            $detail = $userAnswer->tryoutDetail;
+            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
+            $subtestScore = $this->calculateTotalScore($userAnswer, $detail->type_subtest);
+
+            return !is_null($passingScore) && $subtestScore >= $passingScore;
+        });
     }
 
     public function paymentSuccess()
@@ -1053,7 +1068,7 @@ class PackageController extends Controller
                 ->with('error', 'Anda tidak memiliki akses ke paket ini');
         }
 
-        $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
 
         // Get leaderboard for this tryout - ambil hasil terbaik per user
         $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
@@ -1300,7 +1315,7 @@ class PackageController extends Controller
         }
 
         $percentage = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
-        $isPassed = $percentage >= 65; // SKD minimal 65%
+        $isPassed = $this->isAttemptPassed($latestUserAnswers, $tryoutDetails->count());
 
         $overallStats = [
             'total_questions' => $totalQuestions,
