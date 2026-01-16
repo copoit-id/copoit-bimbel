@@ -240,6 +240,7 @@
                 @php
                 $isSelected = $detail->question_option_id === $option->question_option_id;
                 $isCorrectOption = $option->is_correct;
+                $optionKey = $option->option_key ?? chr(65 + $loop->index);
                 @endphp
 
                 @if($isCorrectOption)
@@ -247,7 +248,7 @@
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-green text-white border-green">
                     <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
-                    <span class="font-medium mr-2">{{ $option->option_key }}.</span>
+                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     <i class="ri-check-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
@@ -259,7 +260,7 @@
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
                     <input type="radio" disabled class="mr-2" checked>
-                    <span class="font-medium mr-2">{{ $option->option_key }}.</span>
+                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     <i class="ri-close-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
@@ -271,7 +272,7 @@
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors border-gray-900/10 hover:bg-gray-50">
                     <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
-                    <span class="font-medium mr-2">{{ $option->option_key }}.</span>
+                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     @if($detail->subtest_type === 'tkp')
                     <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Bobot: {{ $option->weight
@@ -285,7 +286,7 @@
             @if(!$isCorrect && $correctOption && in_array($detail->subtest_type, ['twk', 'tiu']))
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p class="font-semibold text-green-800 mb-1">Jawaban Yang Benar:</p>
-                <p class="text-green-700">{{ $correctOption->option_key }}. {!! $correctOption->option_text !!}</p>
+                <p class="text-green-700">{{ $correctOption->option_key ?? 'A' }}. {!! $correctOption->option_text !!}</p>
             </div>
             @endif
             @endif

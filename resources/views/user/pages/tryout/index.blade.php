@@ -101,14 +101,18 @@
                         @if(in_array($questionType, ['multiple_choice', 'true_false']))
                         <div class="space-y-3" id="multipleChoiceOptions">
                             @foreach($currentQuestion->questionOptions as $option)
+                            @php
+                                $optionKey = $option->option_key ?? chr(65 + $loop->index);
+                            @endphp
                             <label
                                 class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
                                 for="option_{{ $option->question_option_id }}">
                                 <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
                                     value="{{ $option->question_option_id }}"
-                                    data-option-key="{{ $option->option_key ?? 'A' }}"
+                                    data-option-key="{{ $optionKey }}"
                                     class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
                                 <span class="ml-4 flex-1 text-gray-700">
+                                    <span class="font-semibold mr-2">{{ $optionKey }}.</span>
                                     {!! $option->option_text !!}
                                 </span>
                             </label>

@@ -254,6 +254,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
         Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');
         Route::post('/questions/{question}/clone', [QuestionBankController::class, 'cloneToTryout'])->name('questions.clone');
+        Route::post('/questions/bulk-clone', [QuestionBankController::class, 'bulkCloneToTryout'])->name('questions.bulk-clone');
     });
 
     // Question Import Routes (separated)
