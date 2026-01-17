@@ -324,6 +324,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/paket/{package_id}/user/{user_id}', [AksesController::class, 'detail'])->name('detail');
         Route::get('/paket/{package_id}/create', [AksesController::class, 'create'])->name('create');
         Route::post('/paket/{package_id}/store', [AksesController::class, 'store'])->name('store');
+        Route::post('/paket/{package_id}/bulk-destroy', [AksesController::class, 'bulkDestroy'])->name('bulk-destroy');
         Route::post('/paket/{package_id}/user/{user_id}/extend', [AksesController::class, 'extendAccess'])->name('extend');
         Route::post('/paket/{package_id}/user/{user_id}/revoke', [AksesController::class, 'revokeAccess'])->name('revoke');
         Route::post('/paket/{package_id}/user/{user_id}/toggle', [AksesController::class, 'toggleStatus'])->name('toggle');

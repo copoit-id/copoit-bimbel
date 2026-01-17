@@ -334,4 +334,22 @@ class AksesController extends Controller
                 ->with('error', 'Terjadi kesalahan saat mengubah status akses');
         }
     }
+
+    public function bulkDestroy(Request $request, $package_id)
+    {
+        $validated = $request->validate([
+            'access_ids' => ['required', 'array', 'min:1'],
+            'access_ids.*' => ['integer'],
+        ], [], [
+            'access_ids' => 'Akses yang dipilih',
+        ]);
+
+        $deleted = UserPackageAcces::where('package_id', $package_id)
+            ->whereIn('user_package_access_id', $validated['access_ids'])
+            ->delete();
+
+        return redirect()
+            ->route('admin.akses.show', $package_id)
+            ->with('success', "Berhasil menghapus {$deleted} akses.");
+    }
 }

@@ -39,8 +39,18 @@
                 <i class="ri-refresh-line"></i> Reset
             </button>
         </div>
-        <div id="access-count" class="text-sm text-gray-500">
-            Total: <span class="font-medium text-gray-700">0 User</span>
+        <div class="flex items-center gap-3">
+            <form id="bulkAccessForm" action="{{ route('admin.akses.bulk-destroy', $package->package_id) }}" method="POST">
+                @csrf
+                <button type="submit" id="bulkDeleteButton"
+                    class="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled>
+                    <i class="ri-delete-bin-line mr-1"></i> Hapus Terpilih
+                </button>
+            </form>
+            <div id="access-count" class="text-sm text-gray-500">
+                Total: <span class="font-medium text-gray-700">0 User</span>
+            </div>
         </div>
     </div>
 
@@ -48,6 +58,10 @@
         <table class="w-full text-left rtl:text-right text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
+                    <th scope="col" class="px-6 py-3">
+                        <input type="checkbox" id="select-all-access"
+                            class="rounded border-gray-300 text-primary focus:ring-primary">
+                    </th>
                     <th scope="col" class="px-6 py-3">User</th>
                     <th scope="col" class="px-6 py-3 text-center">Tanggal Mulai</th>
                     <th scope="col" class="px-6 py-3 text-center">Tanggal Berakhir</th>
@@ -75,6 +89,11 @@
                 <tr class="access-row bg-white border-b border-dashed border-gray-200 text-grey3"
                     data-user="{{ strtolower($access->user->name ?? 'unknown') }}"
                     data-email="{{ strtolower($access->user->email ?? 'unknown') }}" data-status="{{ $status }}">
+                    <td class="py-3 px-4">
+                        <input type="checkbox" class="access-checkbox"
+                            value="{{ $access->user_package_access_id }}"
+                            data-access-id="{{ $access->user_package_access_id }}">
+                    </td>
                     <td class="py-3 px-4">
                         <div class="flex items-center gap-3">
                             <img src="https://ui-avatars.com/api/?name={{ urlencode($access->user->name ?? 'Unknown') }}&background=6366f1&color=fff"
@@ -146,7 +165,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">
                         <div class="flex flex-col items-center">
                             <i class="ri-user-line text-4xl text-gray-300 mb-2"></i>
                             <p>Belum ada user yang memiliki akses ke paket ini</p>
@@ -173,6 +192,10 @@
     const resetButton = document.getElementById('reset-access-filters');
     const accessCount = document.getElementById('access-count');
     const accessRows = document.querySelectorAll('.access-row');
+    const selectAll = document.getElementById('select-all-access');
+    const checkboxes = document.querySelectorAll('.access-checkbox');
+    const bulkDeleteButton = document.getElementById('bulkDeleteButton');
+    const bulkAccessForm = document.getElementById('bulkAccessForm');
 
     function filterAccess() {
         const searchTerm = searchInput.value.toLowerCase();
@@ -203,6 +226,31 @@
         accessCount.innerHTML = `Total: <span class="font-medium text-gray-700">${count} User</span>`;
     }
 
+    function updateBulkButtonState() {
+        const checked = Array.from(checkboxes).filter(cb => cb.checked);
+        if (bulkDeleteButton) {
+            bulkDeleteButton.disabled = checked.length === 0;
+        }
+        if (selectAll) {
+            selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+            selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+        }
+    }
+
+    function syncBulkForm() {
+        if (!bulkAccessForm) return;
+        bulkAccessForm.querySelectorAll('input[name="access_ids[]"]').forEach(input => input.remove());
+        Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .forEach(cb => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'access_ids[]';
+                input.value = cb.value;
+                bulkAccessForm.appendChild(input);
+            });
+    }
+
     function resetFilters() {
         searchInput.value = '';
         statusFilter.value = '';
@@ -214,8 +262,31 @@
     statusFilter.addEventListener('change', filterAccess);
     resetButton.addEventListener('click', resetFilters);
 
+    selectAll?.addEventListener('change', () => {
+        checkboxes.forEach(cb => {
+            cb.checked = selectAll.checked;
+        });
+        updateBulkButtonState();
+    });
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateBulkButtonState);
+    });
+
+    bulkAccessForm?.addEventListener('submit', (event) => {
+        syncBulkForm();
+        if (bulkAccessForm.querySelectorAll('input[name="access_ids[]"]').length === 0) {
+            event.preventDefault();
+            return;
+        }
+        if (!confirm('Hapus akses yang dipilih?')) {
+            event.preventDefault();
+        }
+    });
+
     // Initial render
     filterAccess();
+    updateBulkButtonState();
 });
 </script>
 @endsection
