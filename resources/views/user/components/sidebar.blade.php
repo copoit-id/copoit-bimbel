@@ -81,8 +81,7 @@
                     aria-controls="dropdown-package-{{ $access->package->package_id }}"
                     data-collapse-toggle="dropdown-package-{{ $access->package->package_id }}">
                     <i class="ri-package-line text-[20px] {{ $dropdownIconClass }} font-medium"></i>
-                    <span class="flex-1 ms-3 text-left whitespace-nowrap">{{ Str::limit($access->package->name, 20)
-                        }}</span>
+                    <span class="flex-1 ms-3 text-left break-words">{{ $access->package->name }}</span>
                     <svg class="w-3 h-3 transition-transform duration-200 {{ $sidebarPrimary ? 'text-white/80' : 'text-black' }}"
                         aria-hidden="true"
                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
@@ -90,6 +89,7 @@
                             d="m1 1 4 4 4-4" />
                     </svg>
                 </button>
+                <div class="h-px bg-gray-200/40 mx-4"></div>
                 <ul id="dropdown-package-{{ $access->package->package_id }}" class="hidden py-2 space-y-1">
                     @if($access->package->type_package === 'tryout')
                     <li>
