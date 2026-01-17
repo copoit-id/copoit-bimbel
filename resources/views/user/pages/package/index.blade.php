@@ -7,6 +7,9 @@
         'free_conditional' => ['label' => 'Gratis Bersyarat', 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
     ];
     $paymentMode = config('client.branding.payment_mode', 'gateway');
+    $kelasPackages = $kelasPackages ?? collect();
+    $tryoutPackages = $tryoutPackages ?? collect();
+    $sertifikasiPackages = $sertifikasiPackages ?? collect();
 @endphp
 <div class="dashboard">
     <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
