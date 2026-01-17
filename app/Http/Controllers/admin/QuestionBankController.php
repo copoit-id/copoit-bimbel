@@ -219,6 +219,51 @@ class QuestionBankController extends Controller
             ->with('success', 'Soal dari bank berhasil ditambahkan.');
     }
 
+    public function bulkCloneToTryout(Request $request)
+    {
+        $validated = $request->validate([
+            'tryout_detail_id' => ['required', 'exists:tryout_details,tryout_detail_id'],
+            'question_ids' => ['required', 'array', 'min:1'],
+            'question_ids.*' => ['exists:question_bank_questions,id'],
+        ], [], [
+            'question_ids' => 'Daftar soal',
+        ]);
+
+        $tryoutDetail = TryoutDetail::findOrFail($validated['tryout_detail_id']);
+
+        $questions = QuestionBankQuestion::with('options')
+            ->whereIn('id', $validated['question_ids'])
+            ->get();
+
+        DB::transaction(function () use ($questions, $tryoutDetail) {
+            foreach ($questions as $question) {
+                $newQuestion = Question::create([
+                    'tryout_detail_id' => $tryoutDetail->tryout_detail_id,
+                    'question_type' => $question->question_type,
+                    'question_text' => $question->question_text,
+                    'sound' => $question->sound,
+                    'explanation' => $question->explanation,
+                    'metadata' => $question->metadata,
+                    'default_weight' => $question->default_weight ?? 1,
+                    'custom_score' => $question->custom_score ?? 'no',
+                ]);
+
+                foreach ($question->options as $option) {
+                    QuestionOption::create([
+                        'question_id' => $newQuestion->question_id,
+                        'option_text' => $option->option_text,
+                        'weight' => $option->weight,
+                        'is_correct' => $option->is_correct,
+                    ]);
+                }
+            }
+        });
+
+        return redirect()
+            ->route('admin.question.index', $validated['tryout_detail_id'])
+            ->with('success', 'Soal dari bank berhasil ditambahkan.');
+    }
+
     public function destroyQuestion(QuestionBankQuestion $question)
     {
         $question->delete();
@@ -290,6 +335,7 @@ class QuestionBankController extends Controller
         $request->validate([
             'short_answer_expected' => ['nullable', 'string'],
             'short_answer_case_sensitive' => ['nullable', 'boolean'],
+            'essay_scoring_mode' => ['nullable', 'in:auto,manual'],
         ]);
     }
 
@@ -336,11 +382,26 @@ class QuestionBankController extends Controller
             ->values()
             ->all();
 
+        $evaluationMode = $type === 'essay'
+            ? $request->input('essay_scoring_mode', 'manual')
+            : 'auto';
+
+        if (!in_array($evaluationMode, ['auto', 'manual'], true)) {
+            $evaluationMode = 'manual';
+        }
+
+        $caseSensitive = $type === 'essay'
+            ? false
+            : $request->boolean('short_answer_case_sensitive');
+
         return [
             'short_answer' => [
                 'expected_answers' => $expectedAnswers,
-                'case_sensitive' => $request->boolean('short_answer_case_sensitive'),
-                'manual_review' => $type === 'essay' || empty($expectedAnswers),
+                'case_sensitive' => $caseSensitive,
+                'evaluation_mode' => $evaluationMode,
+                'manual_review' => $type === 'essay'
+                    ? ($evaluationMode !== 'auto' || empty($expectedAnswers))
+                    : empty($expectedAnswers),
             ],
         ];
     }

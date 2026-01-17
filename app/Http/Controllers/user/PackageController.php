@@ -107,6 +107,40 @@ class PackageController extends Controller
                         ], 400);
                     }
 
+                    $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
+                    if ($paymentMode === 'manual') {
+                        $validated = $request->validate([
+                            'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
+                        ], [
+                            'payment_proof.required' => 'Bukti pembayaran wajib diunggah.',
+                            'payment_proof.mimes' => 'Format bukti harus berupa JPG, PNG, atau PDF.',
+                            'payment_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                        ]);
+
+                        $proofPath = $validated['payment_proof']->store('payment-proofs', 'public');
+                        $transactionId = 'MANUAL-' . $package->package_id . '-' . Auth::id() . '-' . time();
+
+                        Payment::create([
+                            'transaction_id' => $transactionId,
+                            'user_id' => Auth::id(),
+                            'package_id' => $package->package_id,
+                            'amount' => $package->price,
+                            'admin_fee' => 0,
+                            'total_amount' => $package->price,
+                            'status' => Payment::STATUS_PENDING,
+                            'payment_method' => 'manual',
+                            'payment_details' => json_encode([
+                                'proof_path' => $proofPath,
+                                'proof_name' => $validated['payment_proof']->getClientOriginalName(),
+                            ]),
+                        ]);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.'
+                        ]);
+                    }
+
                     $paymentResponse = $this->createPayment($package);
 
                     if ($paymentResponse['success']) {
@@ -441,7 +475,7 @@ class PackageController extends Controller
     public function riwayatTryout($id_package, $id_tryout)
     {
         $package = Package::findOrFail($id_package);
-        $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
 
         // Check access - perbaiki query akses
         $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -499,12 +533,17 @@ class PackageController extends Controller
                 }
 
                 $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
-                $isPassed = $finalPercentage >= 65; // SKD minimal 65%
+                $isPassed = $this->isAttemptPassed($userAnswers, $tryout->tryoutDetails->count());
             } else {
                 // Single subtest
                 $singleAnswer = $userAnswers->first();
-                $finalPercentage = $singleAnswer->score ?? 0;
-                $isPassed = $finalPercentage >= ($singleAnswer->tryoutDetail->passing_score ?? 60);
+                $rawScore = $this->calculateTotalScore($singleAnswer, $singleAnswer->tryoutDetail->type_subtest);
+                $maxScore = $this->getMaxPossibleScoreForDetail(
+                    $singleAnswer->tryout_detail_id,
+                    $singleAnswer->tryoutDetail->type_subtest
+                );
+                $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+                $isPassed = $this->isAttemptPassed($userAnswers, 1);
                 $totalCorrect = $singleAnswer->correct_answers ?? 0;
                 $totalWrong = $singleAnswer->wrong_answers ?? 0;
                 $totalUnanswered = $singleAnswer->unanswered ?? 0;
@@ -520,7 +559,7 @@ class PackageController extends Controller
                 'created_at' => $firstAnswer->created_at,
                 'started_at' => $firstAnswer->started_at,
                 'finished_at' => $lastAnswer->finished_at,
-                'score' => round($finalPercentage, 0),
+                'score' => $userAnswers->count() > 1 ? round($totalScore, 0) : round($rawScore, 0),
                 'is_passed' => $isPassed,
                 'duration' => $duration->format('%H:%I:%S'),
                 'correct_answers' => $totalCorrect,
@@ -546,29 +585,64 @@ class PackageController extends Controller
             ->get();
 
         foreach ($userAnswerDetails as $detail) {
-            if ($detail->questionOption) {
-                switch ($type_subtest) {
-                    case 'twk':
-                    case 'tiu':
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
-                        break;
-                    case 'tkp':
-                        $totalScore += (float) ($detail->questionOption->weight ?? 0);
-                        break;
-                    case 'writing':
-                    case 'reading':
-                    case 'listening':
-                        // Gunakan bobot dari template jika ada; default 10
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
-                        break;
-                    default:
-                        // Default: jika ada bobot di template, pakai bobot untuk jawaban benar saja
-                        $w = (float) ($detail->questionOption->weight ?? 0);
-                        $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
-                        break;
-                }
+            $question = $detail->question;
+            if (!$question) {
+                continue;
+            }
+
+            $questionType = $question->question_type ?? 'multiple_choice';
+            $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $totalScore += $detail->is_correct ? $weight : 0;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    if ($pendingReview) {
+                        continue 2;
+                    }
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    break;
+
+                case 'audio':
+                    continue 2;
+
+                default:
+                    if ($detail->questionOption) {
+                        switch ($type_subtest) {
+                            case 'twk':
+                            case 'tiu':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                break;
+                            case 'tkp':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $w > 0 ? min($w, 1) : 1;
+                                break;
+                            case 'writing':
+                            case 'reading':
+                            case 'listening':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                break;
+                            default:
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                break;
+                        }
+                    }
+                    break;
             }
         }
 
@@ -595,52 +669,74 @@ class PackageController extends Controller
     // Versi dinamis: hitung maksimum skor berdasarkan bobot pada template
     private function getMaxPossibleScoreForDetail(int $tryoutDetailId, string $type_subtest)
     {
-        // Ambil seluruh pertanyaan untuk detail ini
-        $questionIds = \App\Models\Question::where('tryout_detail_id', $tryoutDetailId)
-            ->pluck('question_id');
+        $questions = \App\Models\Question::where('tryout_detail_id', $tryoutDetailId)
+            ->with('questionOptions')
+            ->get();
 
-        if ($questionIds->isEmpty()) return 0;
-
-        switch ($type_subtest) {
-            case 'tkp':
-                // TKP: per soal ambil bobot maksimum dari semua opsi
-                $rows = \App\Models\QuestionOption::whereIn('question_id', $questionIds)
-                    ->selectRaw('question_id, MAX(COALESCE(weight,0)) as mw')
-                    ->groupBy('question_id')
-                    ->get();
-                return (float) $rows->sum('mw');
-            case 'twk':
-            case 'tiu':
-                // Jika ada bobot pada opsi benar, gunakan itu; jika tidak, default 5 per soal
-                $sum = 0;
-                foreach ($questionIds as $qid) {
-                    $w = (float) (\App\Models\QuestionOption::where('question_id', $qid)
-                        ->where('is_correct', true)
-                        ->value('weight') ?? 0);
-                    $sum += ($w > 0 ? $w : 5);
-                }
-                return $sum;
-            case 'writing':
-            case 'reading':
-            case 'listening':
-                $sum = 0;
-                foreach ($questionIds as $qid) {
-                    $w = (float) (\App\Models\QuestionOption::where('question_id', $qid)
-                        ->where('is_correct', true)
-                        ->value('weight') ?? 0);
-                    $sum += ($w > 0 ? $w : 10);
-                }
-                return $sum;
-            default:
-                $sum = 0;
-                foreach ($questionIds as $qid) {
-                    $w = (float) (\App\Models\QuestionOption::where('question_id', $qid)
-                        ->where('is_correct', true)
-                        ->value('weight') ?? 0);
-                    $sum += ($w > 0 ? $w : 1);
-                }
-                return $sum;
+        if ($questions->isEmpty()) {
+            return 0;
         }
+
+        $total = 0;
+
+        foreach ($questions as $question) {
+            $questionType = $question->question_type ?? 'multiple_choice';
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 0);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    if ($type_subtest === 'tkp') {
+                        $weight = $weight > 0 ? min($weight, 1) : 1;
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
+                case 'audio':
+                    break;
+
+                default:
+                    $options = $question->questionOptions;
+                    switch ($type_subtest) {
+                        case 'tkp':
+                            $maxWeight = (float) ($options->max('weight') ?? 0);
+                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
+                            break;
+                        case 'twk':
+                        case 'tiu':
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 5;
+                            break;
+                        case 'writing':
+                        case 'reading':
+                        case 'listening':
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 10;
+                            break;
+                        default:
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 1;
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        return $total;
     }
 
     private function getDefaultPassingScore($type_subtest)
@@ -663,6 +759,20 @@ class PackageController extends Controller
     private function isToeflPassed(int $score): bool
     {
         return $score >= 217;
+    }
+
+    private function isAttemptPassed($userAnswers, int $expectedSubtests = 0): bool
+    {
+        if ($expectedSubtests > 0 && $userAnswers->count() < $expectedSubtests) {
+            return false;
+        }
+
+        return $userAnswers->every(function ($userAnswer) {
+            $detail = $userAnswer->tryoutDetail;
+            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
+            $rawScore = $this->calculateTotalScore($userAnswer, $detail->type_subtest);
+            return !is_null($passingScore) && $rawScore >= $passingScore;
+        });
     }
 
     public function paymentSuccess()
@@ -1027,7 +1137,7 @@ class PackageController extends Controller
                 ->with('error', 'Anda tidak memiliki akses ke paket ini');
         }
 
-        $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
 
         // Get leaderboard for this tryout - ambil hasil terbaik per user
         $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
@@ -1232,6 +1342,11 @@ class PackageController extends Controller
             $allAnswerDetails = $allAnswerDetails->concat($answerDetails);
         }
 
+        $pendingReviewCount = $allAnswerDetails->filter(function ($detail) {
+            $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            return !empty($meta['pending_review']);
+        })->count();
+
         // Calculate overall statistics
         $totalQuestions = $latestUserAnswers->sum(function ($ua) {
             return \App\Models\Question::where('tryout_detail_id', $ua->tryout_detail_id)->count();
@@ -1269,18 +1384,42 @@ class PackageController extends Controller
         }
 
         $percentage = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
-        $isPassed = $percentage >= 65; // SKD minimal 65%
+        $isPassed = $this->isAttemptPassed($latestUserAnswers, $tryoutDetails->count());
 
         $overallStats = [
             'total_questions' => $totalQuestions,
             'correct_answers' => $correctAnswers,
             'wrong_answers' => $wrongAnswers,
             'unanswered' => $unanswered,
+            'pending_review' => $pendingReviewCount,
             'total_score' => $totalScore,
             'max_score' => $maxScore,
             'percentage' => $percentage,
             'is_passed' => $isPassed
         ];
+
+        $subtestSummaries = [];
+        if ($tryoutDetails->count() > 1) {
+            $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                $type = $userAnswer->tryoutDetail->type_subtest;
+                $score = $this->calculateTotalScore($userAnswer, $type);
+                $max = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
+                $percentage = $max > 0 ? ($score / $max) * 100 : 0;
+                $passingScore = $userAnswer->tryoutDetail->passing_score ?? $this->getDefaultPassingScore($type);
+
+                return [
+                    'type' => $type,
+                    'name' => $this->getSubtestName($type),
+                    'score' => $score,
+                    'max_score' => $max,
+                    'percentage' => $percentage,
+                    'passing_score' => $passingScore,
+                    'is_passed' => !is_null($passingScore) && $score >= $passingScore,
+                    'correct_answers' => $userAnswer->correct_answers ?? 0,
+                    'wrong_answers' => $userAnswer->wrong_answers ?? 0,
+                ];
+            })->values();
+        }
 
         $token = $token;
         return view('user.pages.package.tryout-pembahasan', compact(
@@ -1290,7 +1429,8 @@ class PackageController extends Controller
             'latestUserAnswers',
             'token',
             'allAnswerDetails',
-            'overallStats'
+            'overallStats',
+            'subtestSummaries'
         ));
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\admin\CertificateController;
 use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\admin\DiscussionController;
+use App\Http\Controllers\admin\EssayReviewController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
@@ -263,6 +264,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
         Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');
         Route::post('/questions/{question}/clone', [QuestionBankController::class, 'cloneToTryout'])->name('questions.clone');
+        Route::post('/questions/bulk-clone', [QuestionBankController::class, 'bulkCloneToTryout'])->name('questions.bulk-clone');
     });
 
     // Question Import Routes (separated)
@@ -282,6 +284,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::resource('class', ClassController::class);
     Route::resource('certification', CertificationController::class);
     Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
+    Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
     Route::resource('user', UserController::class);
     Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
     Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
@@ -289,14 +292,28 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Route untuk admin leaderboard
     Route::prefix('leaderboard')->name('leaderboard.')->group(function () {
         Route::get('/', [LeaderboardController::class, 'index'])->name('index');
+        Route::get('/{package_id}/{tryout_id}/export/excel', [LeaderboardController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/{package_id}/{tryout_id}/export/pdf', [LeaderboardController::class, 'exportPdf'])->name('export-pdf');
         Route::get('/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('show');
     });
 
     Route::resource('discussion', DiscussionController::class);
+    Route::resource('faq', \App\Http\Controllers\admin\FaqController::class)->except(['show']);
+
+    // Koreksi essay
+    Route::prefix('essay-review')->name('essay-review.')->group(function () {
+        Route::get('/', [EssayReviewController::class, 'index'])->name('index');
+        Route::get('/{tryout}', [EssayReviewController::class, 'tryout'])->name('tryout');
+        Route::get('/{tryout}/user/{user}', [EssayReviewController::class, 'user'])->name('user');
+        Route::post('/{detail}/review', [EssayReviewController::class, 'review'])->name('review');
+    });
 
     // Route untuk laporan user
     Route::prefix('laporan')->name('laporan.')->group(function () {
         Route::get('/', [LaporanController::class, 'index'])->name('index');
+        Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
+        Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
         Route::get('/{id}', [LaporanController::class, 'show'])->name('show');
     });
 

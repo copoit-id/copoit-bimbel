@@ -53,6 +53,10 @@
                 implode("\n", $shortAnswerMeta['expected_answers']) : '');
                 $shortAnswerCaseSensitive = filter_var(old('short_answer_case_sensitive',
                 $shortAnswerMeta['case_sensitive'] ?? false), FILTER_VALIDATE_BOOLEAN);
+                $essayScoringMode = old(
+                    'essay_scoring_mode',
+                    $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
+                );
 
                 $audioMeta = $metadata['audio_answer'] ?? [];
                 $audioInstructions = old('audio_instructions', $audioMeta['instructions'] ?? '');
@@ -72,12 +76,10 @@
                             <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
                             </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
-                            <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay (Manual)</option>
+                            <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-2">Pilih tipe soal untuk menampilkan form yang sesuai. Pilih
-                            essay
-                            jika penilaian akan dilakukan secara manual.</p>
+                        <p class="text-xs text-gray-500 mt-2">Pilih tipe soal untuk menampilkan form yang sesuai.</p>
                     </div>
 
                     <!-- Question Text -->
@@ -232,9 +234,23 @@
                         style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Pengaturan Jawaban Teks</h3>
-                            <p class="text-sm text-gray-600">Isi daftar jawaban benar jika ingin penilaian otomatis.
-                                Kosongkan
-                                untuk penilaian manual.</p>
+                            <p class="text-sm text-gray-600" data-expected-hint>Isi daftar jawaban benar jika ingin penilaian otomatis.
+                                Kosongkan untuk penilaian manual.</p>
+                        </div>
+                        <div class="space-y-2" data-essay-scoring style="display:none;">
+                            <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
+                            <div class="flex flex-wrap gap-4">
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="radio" name="essay_scoring_mode" value="auto" {{ $essayScoringMode === 'auto' ? 'checked' : '' }}
+                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                    Otomatis (berdasarkan jawaban referensi)
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="radio" name="essay_scoring_mode" value="manual" {{ $essayScoringMode !== 'auto' ? 'checked' : '' }}
+                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                    Manual (perlu dikoreksi)
+                                </label>
+                            </div>
                         </div>
                         <div>
                             <label for="short_answer_expected"
@@ -247,7 +263,7 @@
                                 (contoh:
                                 &quot;Jakarta&quot; kemudian baris berikutnya &quot;DKI Jakarta&quot;).</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2" data-short-answer-case>
                             <input type="checkbox" id="short_answer_case_sensitive" name="short_answer_case_sensitive"
                                 value="1" {{ $shortAnswerCaseSensitive ? 'checked' : '' }}
                                 class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
@@ -365,6 +381,19 @@
                 const shouldShow = shouldShowSection(section.dataset.questionType, currentType);
                 section.style.display = shouldShow ? '' : 'none';
             });
+
+            const essayScoring = document.querySelector('[data-essay-scoring]');
+            const shortAnswerCase = document.querySelector('[data-short-answer-case]');
+            const expectedHint = document.querySelector('[data-expected-hint]');
+
+            if (essayScoring && shortAnswerCase && expectedHint) {
+                const isEssay = currentType === 'essay';
+                essayScoring.style.display = isEssay ? '' : 'none';
+                shortAnswerCase.style.display = isEssay ? 'none' : '';
+                expectedHint.textContent = isEssay
+                    ? 'Isi daftar jawaban referensi jika memilih koreksi otomatis.'
+                    : 'Isi daftar jawaban benar jika ingin penilaian otomatis. Kosongkan untuk penilaian manual.';
+            }
 
             if (customScoreToggle) {
                 const showCustomToggle = currentType === 'multiple_choice';

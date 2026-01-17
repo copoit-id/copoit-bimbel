@@ -43,8 +43,8 @@
             </span>
         </div>
 
-        <div class="font-bold text-lg text-gray-900 mb-2">
-            {{ $question->question_text }}
+        <div class="question-rich-text font-semibold text-gray-900 leading-relaxed mb-2">
+            {!! $question->question_text !!}
         </div>
 
         <div class="mb-2">

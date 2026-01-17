@@ -26,3 +26,43 @@ body {
   font-style: normal;
   @apply bg-background
 }
+
+.question-rich-text {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #0f172a;
+}
+
+.question-rich-text p {
+  margin-bottom: 0.65rem;
+}
+
+.question-rich-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85rem 0;
+  table-layout: auto;
+  font-size: 0.94rem;
+}
+
+.question-rich-text table th,
+.question-rich-text table td {
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.question-rich-text table thead th {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.question-rich-text table tbody tr:nth-child(even) td {
+  background-color: #fdfdfd;
+}
+
+.question-rich-text table tbody tr:hover td {
+  background-color: #f1f5f9;
+}

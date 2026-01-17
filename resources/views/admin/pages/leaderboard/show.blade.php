@@ -10,14 +10,16 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
+        <a href="{{ route('admin.leaderboard.export-excel', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
             <i class="ri-file-excel-line"></i>
             Export Excel
-        </button>
-        <button class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
+        </a>
+        <a href="{{ route('admin.leaderboard.export-pdf', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
             <i class="ri-file-pdf-line"></i>
             Export PDF
-        </button>
+        </a>
     </div>
 </div>
 <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
@@ -80,14 +82,6 @@
                     < 70</option>
             </select>
         </div>
-        <div class="flex items-center gap-2">
-            <button class="text-gray-500 hover:text-gray-700">
-                <i class="ri-download-line text-lg"></i>
-            </button>
-            <button class="text-gray-500 hover:text-gray-700">
-                <i class="ri-printer-line text-lg"></i>
-            </button>
-        </div>
     </div>
 
     <div class="relative overflow-x-auto mt-4">
@@ -106,7 +100,8 @@
                 @forelse($rankings as $index => $ranking)
                 @php
                 $rank = ($rankings->currentPage() - 1) * $rankings->perPage() + $index + 1;
-                $score = round($ranking->score ?? 0);
+                $rawScore = round($ranking->raw_score ?? 0);
+                $maxScore = round($ranking->max_score ?? 0);
                 $bgClass = '';
                 if($rank == 1) $bgClass = 'bg-yellow-50/50';
                 elseif($rank == 2) $bgClass = 'bg-gray-50/50';
@@ -154,8 +149,10 @@
 
                     <td class="px-6 py-4 text-center">
                         <div class="flex justify-center items-center">
-                            <span class="text-2xl font-bold text-gray-800">{{ $score }}</span>
-                            <span class="text-sm text-gray-500 ml-1">/100</span>
+                            <span class="text-2xl font-bold text-gray-800">{{ $rawScore }}</span>
+                            @if($maxScore > 0)
+                            <span class="text-sm text-gray-500 ml-1">/ {{ $maxScore }}</span>
+                            @endif
                         </div>
                     </td>
 
@@ -189,12 +186,9 @@
 
                     <td class="px-6 py-4">
                         <div class="flex justify-center items-center">
-                            @if($score >= 85)
+                            @if($ranking->is_passed)
                             <span
                                 class="px-4 py-1 border border-green-700 bg-green-100 text-green-700 rounded-full text-sm">Lulus</span>
-                            @elseif($score >= 70)
-                            <span
-                                class="px-4 py-1 border border-yellow-700 bg-yellow-100 text-yellow-700 rounded-full text-sm">Cukup</span>
                             @else
                             <span
                                 class="px-4 py-1 border border-red-700 bg-red-100 text-red-700 rounded-full text-sm">Gagal</span>

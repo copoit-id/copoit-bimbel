@@ -53,84 +53,45 @@
                     <p class="text-[12px] mt-[-6px] font-light">Tidak Dijawab</p>
                 </div>
             </div>
+            @if(!empty($overallStats['pending_review']))
+            <div class="flex w-full items-center gap-3 bg-white p-4 rounded-lg border border-border">
+                <i
+                    class="ri-time-line text-[20px] flex items-center justify-center text-white font-medium bg-amber-500 w-10 h-10 rounded-lg"></i>
+                <div>
+                    <p class="text-[24px] font-bold">{{ $overallStats['pending_review'] }}</p>
+                    <p class="text-[12px] mt-[-6px] font-light">Belum Dikoreksi</p>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 
     <!-- SKD Full Subtest Summary (if multiple subtests) -->
-    @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
+    @if(!empty($subtestSummaries))
     <div class="bg-white px-4 py-6 rounded-lg border border-border">
         <h3 class="text-lg font-bold mb-4 text-gray-800">Ringkasan Per Subtest</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            @foreach($latestUserAnswers as $userAnswer)
-            @php
-            $subtestScore = 0;
-            foreach($userAnswer->userAnswerDetails as $detail) {
-            if($detail->questionOption) {
-            switch($userAnswer->tryoutDetail->type_subtest) {
-            case 'twk':
-            case 'tiu':
-            $subtestScore += $detail->is_correct ? 5 : 0;
-            break;
-            case 'tkp':
-            $subtestScore += $detail->questionOption->weight;
-            break;
-            default:
-            $subtestScore += $detail->questionOption->weight ?? ($detail->is_correct ? 1 : 0);
-            break;
-            }
-            }
-            }
-            $maxSubtestScore = 0;
-            $questionCount = \App\Models\Question::where('tryout_detail_id', $userAnswer->tryout_detail_id)->count();
-            switch($userAnswer->tryoutDetail->type_subtest) {
-            case 'twk':
-            case 'tiu':
-            $maxSubtestScore = $questionCount * 5;
-            break;
-            case 'tkp':
-            $maxSubtestScore = $questionCount * 5;
-            break;
-            default:
-            $maxSubtestScore = $questionCount;
-            break;
-            }
-            $subtestPercentage = $maxSubtestScore > 0 ? ($subtestScore / $maxSubtestScore) * 100 : 0;
-            $subtestPassed = $subtestPercentage >= 60;
-
-            // Get subtest name using switch statement
-            $subtestName = '';
-            switch ($userAnswer->tryoutDetail->type_subtest) {
-            case 'twk':
-            $subtestName = 'Tes Wawasan Kebangsaan';
-            break;
-            case 'tiu':
-            $subtestName = 'Tes Intelegensi Umum';
-            break;
-            case 'tkp':
-            $subtestName = 'Tes Karakteristik Pribadi';
-            break;
-            default:
-            $subtestName = ucfirst($userAnswer->tryoutDetail->type_subtest);
-            break;
-            }
-            @endphp
+            @foreach($subtestSummaries as $summary)
             <div
-                class="p-4 border rounded-lg {{ $subtestPassed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50' }}">
+                class="p-4 border rounded-lg {{ $summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50' }}">
                 <div class="text-center mb-3">
-                    <h4 class="font-semibold text-gray-800">{{ strtoupper($userAnswer->tryoutDetail->type_subtest) }}
+                    <h4 class="font-semibold text-gray-800">{{ strtoupper($summary['type']) }}
                     </h4>
-                    <p class="text-sm text-gray-600">{{ $subtestName }}</p>
+                    <p class="text-sm text-gray-600">{{ $summary['name'] }}</p>
                 </div>
                 <div class="text-center">
-                    <div class="text-2xl font-bold {{ $subtestPassed ? 'text-green-600' : 'text-red-600' }}">
-                        {{ $subtestScore }}/{{ $maxSubtestScore }}
+                    <div class="text-2xl font-bold {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
+                        {{ number_format($summary['score'], 0) }}/{{ number_format($summary['max_score'], 0) }}
                     </div>
-                    <div class="text-sm {{ $subtestPassed ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($subtestPercentage, 1) }}% - {{ $subtestPassed ? 'LULUS' : 'TIDAK LULUS' }}
+                    <div class="text-sm {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
+                        {{ number_format($summary['percentage'], 1) }}% - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
                     </div>
                 </div>
                 <div class="mt-2 text-xs text-gray-600 text-center">
-                    {{ $userAnswer->correct_answers ?? 0 }} benar, {{ $userAnswer->wrong_answers ?? 0 }} salah
+                    {{ $summary['correct_answers'] }} benar, {{ $summary['wrong_answers'] }} salah
+                </div>
+                <div class="mt-1 text-xs text-gray-500 text-center">
+                    Passing grade: {{ $summary['passing_score'] ?? '-' }}
                 </div>
             </div>
             @endforeach
@@ -146,6 +107,8 @@
         $correctOption = $question->questionOptions->where('is_correct', true)->first();
         $selectedOption = $detail->questionOption;
         $isCorrect = $detail->is_correct;
+        $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $isPendingReview = !empty($answerMeta['pending_review']);
         @endphp
 
         {{-- Subtest Header --}}
@@ -170,9 +133,9 @@
                     {{ strtoupper($detail->subtest_type) }}
                 </span>
                 <span
-                    class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isCorrect ? 'bg-green text-white' : 'bg-red text-white' }}">
+                    class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isPendingReview ? 'bg-amber-100 text-amber-700 border-amber-200' : ($isCorrect ? 'bg-green text-white' : 'bg-red text-white') }}">
                     <i class="ri-checkbox-circle-fill"></i>
-                    <p class="text-sm">{{ $isCorrect ? 'Benar' : 'Salah' }}</p>
+                    <p class="text-sm">{{ $isPendingReview ? 'Belum Dikoreksi' : ($isCorrect ? 'Benar' : 'Salah') }}</p>
                 </span>
                 @php
                 // Calculate score earned for this question
@@ -201,7 +164,7 @@
                 @endif
             </div>
 
-            <div class="mt-2 font-light">
+            <div class="question-rich-text mt-2 font-light">
                 {!! $question->question_text !!}
             </div>
 
@@ -214,11 +177,21 @@
             </div>
             @endif
 
+            @if(in_array($question->question_type ?? '', ['short_answer', 'essay']))
+            <div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg">
+                <p class="font-semibold text-gray-800 mb-1">Jawaban Peserta:</p>
+                <p class="text-gray-700">{!! nl2br(e($detail->answer_text ?? '')) ?: '-' !!}</p>
+                @if($detail->answer_json['pending_review'] ?? false)
+                <p class="text-xs text-gray-500 mt-2">Belum dikoreksi.</p>
+                @endif
+            </div>
+            @else
             <div class="flex flex-col gap-2 mt-4 w-full">
                 @foreach($question->questionOptions as $option)
                 @php
                 $isSelected = $detail->question_option_id === $option->question_option_id;
                 $isCorrectOption = $option->is_correct;
+                $optionKey = $option->option_key ?? chr(65 + $loop->index);
                 @endphp
 
                 @if($isCorrectOption)
@@ -226,7 +199,7 @@
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-green text-white border-green">
                     <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
-                    <span class="font-medium mr-2">{{ $option->option_key }}.</span>
+                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     <i class="ri-check-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
@@ -238,7 +211,7 @@
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
                     <input type="radio" disabled class="mr-2" checked>
-                    <span class="font-medium mr-2">{{ $option->option_key }}.</span>
+                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     <i class="ri-close-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
@@ -250,7 +223,7 @@
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors border-gray-900/10 hover:bg-gray-50">
                     <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
-                    <span class="font-medium mr-2">{{ $option->option_key }}.</span>
+                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     @if($detail->subtest_type === 'tkp')
                     <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Bobot: {{ $option->weight
@@ -264,8 +237,9 @@
             @if(!$isCorrect && $correctOption && in_array($detail->subtest_type, ['twk', 'tiu']))
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p class="font-semibold text-green-800 mb-1">Jawaban Yang Benar:</p>
-                <p class="text-green-700">{{ $correctOption->option_key }}. {!! $correctOption->option_text !!}</p>
+                <p class="text-green-700">{{ $correctOption->option_key ?? 'A' }}. {!! $correctOption->option_text !!}</p>
             </div>
+            @endif
             @endif
 
             @if($detail->subtest_type === 'tkp')
@@ -339,6 +313,12 @@
                         <span class="">Tidak Dijawab:</span>
                         <span class="font-semibold">{{ $overallStats['unanswered'] }} soal</span>
                     </div>
+                    @if(!empty($overallStats['pending_review']))
+                    <div class="flex justify-between">
+                        <span class="">Belum Dikoreksi:</span>
+                        <span class="font-semibold">{{ $overallStats['pending_review'] }} soal</span>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

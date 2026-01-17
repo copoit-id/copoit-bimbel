@@ -16,6 +16,11 @@
         </nav>
 
         <div class="flex gap-2">
+            <a href="{{ route('admin.user.report', $user->id) }}"
+                class="flex items-center gap-2 px-4 py-2 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50">
+                <i class="ri-bar-chart-line"></i>
+                Lihat Laporan
+            </a>
             <a href="{{ route('admin.user.edit', $user->id) }}"
                 class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
                 <i class="ri-edit-line"></i>

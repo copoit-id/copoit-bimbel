@@ -33,9 +33,9 @@
 
                     <!-- Question Content -->
                     <div class="mb-8">
-                        <div class="text-gray-700 leading-relaxed">
-                            {!! $currentQuestion->question_text !!}
-                        </div>
+                    <div class="question-rich-text text-gray-700 leading-relaxed">
+                        {!! $currentQuestion->question_text !!}
+                    </div>
 
                         @if($currentQuestion->sound)
                         <div class="mt-4">
@@ -113,14 +113,18 @@
                         @if(in_array($questionType, ['multiple_choice', 'true_false']))
                         <div class="space-y-3" id="multipleChoiceOptions">
                             @foreach($currentQuestion->questionOptions as $option)
+                            @php
+                                $optionKey = $option->option_key ?? chr(65 + $loop->index);
+                            @endphp
                             <label
                                 class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
                                 for="option_{{ $option->question_option_id }}">
                                 <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
                                     value="{{ $option->question_option_id }}"
-                                    data-option-key="{{ $option->option_key ?? 'A' }}"
+                                    data-option-key="{{ $optionKey }}"
                                     class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
                                 <span class="ml-4 flex-1 text-gray-700">
+                                    <span class="font-semibold mr-2">{{ $optionKey }}.</span>
                                     {!! $option->option_text !!}
                                 </span>
                             </label>
@@ -197,13 +201,23 @@
                     </form>
 
                     <!-- Navigation -->
+                    @php
+                        $isFirstQuestionOfSubtest = $number === ($currentSubtest['start_number'] ?? $number);
+                        $canGoPrev = $number > 1 && !($isFirstQuestionOfSubtest && ($currentSubtestIndex ?? 0) > 0);
+                    @endphp
                     <div class="mt-8 flex justify-between items-center pt-6 border-t border-border">
                         @if($number > 1)
                         <div class="flex gap-3">
-                            <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
-                                class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-                                <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
-                            </a>
+                            @if($canGoPrev)
+                                <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
+                                    class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+                                    <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
+                                </a>
+                            @else
+                                <span class="px-4 py-2 border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed">
+                                    <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
+                                </span>
+                            @endif
                         </div>
                         @endif
                         <div>
@@ -216,12 +230,15 @@
                         </div>
 
                         <div class="flex gap-3">
-                            @if($number < $totalQuestions) <a
-                                href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
-                                class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                                Selanjutnya<i class="ri-arrow-right-line ml-2"></i>
+                            @if($number < $totalQuestions || $hasNextSubtest)
+                                @php
+                                    $nextLabel = $isLastQuestionOfSubtest && $hasNextSubtest ? 'Mulai Subtest Berikutnya' : 'Selanjutnya';
+                                @endphp
+                                <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
+                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                                    {{ $nextLabel }}<i class="ri-arrow-right-line ml-2"></i>
                                 </a>
-                                @else
+                            @else
                                 <form
                                     action="{{ route('user.tryout.finish', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"
                                     method="POST" class="inline" id="finishForm">
@@ -234,7 +251,7 @@
                                         <i class="ri-check-line mr-2"></i>Selesai
                                     </button>
                                 </form>
-                                @endif
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -245,27 +262,33 @@
                 <div class="bg-white rounded-lg border border-border p-6 sticky top-6 text-center">
                     <p class="text-sm text-gray-600 mb-2">Sisa Waktu</p>
                     <div id="timer-display" class="text-3xl font-bold text-primary">00:00:00</div>
+                    <p class="text-xs text-gray-500 mt-3 uppercase tracking-wide">
+                        Subtest {{ ($currentSubtestIndex ?? 0) + 1 }} / {{ $totalSubtests ?? 1 }} · {{ $currentSubtest['name'] ?? 'Subtest' }}
+                    </p>
                 </div>
                 <div class="bg-white rounded-lg border border-border p-6 sticky mt-4">
                     <!-- Question Navigation -->
                     <div class="mb-6">
                         <h3 class="font-semibold text-gray-800 mb-4">Navigasi Soal</h3>
                         <div class="grid grid-cols-5 gap-2">
-                        @foreach($allQuestions as $index => $question)
-                        @php
-                            $questionNumber = $index + 1;
-                            $isCurrent = $questionNumber == $number;
-                            $isFlagged = in_array($question->question_id, $flaggedQuestions);
-                        @endphp
-                        <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
-                            class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
-                            data-question-id="{{ $question->question_id }}">
-                            {{ $questionNumber }}
-                            @if($isFlagged)
-                            <i class="ri-flag-fill absolute -top-1 -right-1 text-xs text-red"></i>
-                            @endif
-                        </a>
-                        @endforeach
+                        @for($questionNumber = $currentSubtestRange[0]; $questionNumber <= $currentSubtestRange[1]; $questionNumber++)
+                            @php
+                                $question = $allQuestions[$questionNumber - 1] ?? null;
+                                if (!$question) {
+                                    continue;
+                                }
+                                $isCurrent = $questionNumber == $number;
+                                $isFlagged = in_array($question->question_id, $flaggedQuestions);
+                            @endphp
+                            <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
+                                class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
+                                data-question-id="{{ $question->question_id }}">
+                                {{ $questionNumber }}
+                                @if($isFlagged)
+                                <i class="ri-flag-fill absolute -top-1 -right-1 text-xs text-red"></i>
+                                @endif
+                            </a>
+                        @endfor
                         </div>
                     </div>
 
@@ -750,41 +773,41 @@
             @php
                 $now = \Carbon\Carbon::now('Asia/Jakarta');
                 $startTime = \Carbon\Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
-
                 if (isset($tryoutDetails) && $tryoutDetails->count() > 1) {
                     $totalDuration = $tryoutDetails->sum('duration');
                 } else {
                     $totalDuration = $tryoutDetails->first()->duration ?? 60;
                 }
-
                 $endTime = $startTime->copy()->addMinutes($totalDuration);
-
-                if ($now->lt($endTime)) {
-                    $remainingSecondsCalc = (int) $now->diffInSeconds($endTime);
-                } else {
-                    $remainingSecondsCalc = 0;
-                }
+                $remainingSecondsCalc = $now->lt($endTime) ? (int) $now->diffInSeconds($endTime) : 0;
+                $subtestSecondsCalc = isset($subtestRemainingSeconds) ? (int) $subtestRemainingSeconds : $remainingSecondsCalc;
             @endphp
 
             let timeLeft = {{ $remainingSecondsCalc }};
+            let displayTimeLeft = {{ max(0, (int) ($subtestSecondsCalc ?? $remainingSecondsCalc)) }};
             const timerEl = document.getElementById('timer');
             const timerDisplayEl = document.getElementById('timer-display');
+            const defaultTimerColor = timerEl ? window.getComputedStyle(timerEl).color : '#0f172a';
+            const defaultDisplayColor = timerDisplayEl ? window.getComputedStyle(timerDisplayEl).color : '#0f172a';
 
-            function renderTimer() {
-                const hours = Math.floor(timeLeft / 3600);
-                const minutes = Math.floor((timeLeft % 3600) / 60);
-                const seconds = timeLeft % 60;
-                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            function renderTimer(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
                 if (timerEl) timerEl.textContent = display;
                 if (timerDisplayEl) timerDisplayEl.textContent = display;
 
-                if (timeLeft <= 300) {
+                if (seconds <= 300) {
                     if (timerEl) timerEl.style.color = '#dc2626';
                     if (timerDisplayEl) timerDisplayEl.style.color = '#dc2626';
-                } else if (timeLeft <= 600) {
+                } else if (seconds <= 600) {
                     if (timerEl) timerEl.style.color = '#f59e0b';
                     if (timerDisplayEl) timerDisplayEl.style.color = '#f59e0b';
+                } else {
+                    if (timerEl) timerEl.style.color = defaultTimerColor;
+                    if (timerDisplayEl) timerDisplayEl.style.color = defaultDisplayColor;
                 }
             }
 
@@ -816,17 +839,21 @@
                 autoForm.submit();
             }
 
-            renderTimer();
+            renderTimer(displayTimeLeft);
 
             const interval = setInterval(() => {
+                if (displayTimeLeft > 0) {
+                    displayTimeLeft--;
+                    renderTimer(displayTimeLeft);
+                } else if (displayTimeLeft === 0) {
+                    renderTimer(0);
+                }
+
                 timeLeft--;
                 if (timeLeft <= 0) {
                     clearInterval(interval);
-                    if (timerEl) timerEl.textContent = '00:00:00';
-                    if (timerDisplayEl) timerDisplayEl.textContent = '00:00:00';
+                    renderTimer(0);
                     triggerAutoFinish();
-                } else {
-                    renderTimer();
                 }
             }, 1000);
         }

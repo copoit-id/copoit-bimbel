@@ -40,7 +40,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay (Manual)', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('question_type', 'multiple_choice') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -146,7 +146,22 @@
                         <textarea name="short_answer_expected" rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Opsional: masukkan jawaban ideal atau panduan penilaian.">{{ old('short_answer_expected') }}</textarea>
-                        <p class="text-xs text-gray-500 mt-1">Essay akan dinilai manual oleh pengajar.</p>
+                        <p class="text-xs text-gray-500 mt-1">Isi jawaban referensi jika memilih koreksi otomatis.</p>
+                    </div>
+                    <div class="space-y-2">
+                        <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input type="radio" name="essay_scoring_mode" value="auto" @checked(old('essay_scoring_mode') === 'auto')
+                                    class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                Otomatis (berdasarkan jawaban referensi)
+                            </label>
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input type="radio" name="essay_scoring_mode" value="manual" @checked(old('essay_scoring_mode', 'manual') !== 'auto')
+                                    class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                Manual (belum dikoreksi)
+                            </label>
+                        </div>
                     </div>
                 </div>
 

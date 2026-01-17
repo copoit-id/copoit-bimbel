@@ -95,10 +95,30 @@
                 <p class="text-sm text-gray-500">Soal yang disimpan dalam bank ini.</p>
             </div>
         </div>
+        @if ($tryoutDetail)
+        <div class="mb-4 flex flex-wrap items-center gap-3">
+            <button type="button" id="bulkCloneBtn"
+                class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-gray-300">
+                <i class="ri-download-line"></i>
+                Gunakan Terpilih
+            </button>
+            <span id="bulkSelectionCount" class="text-sm text-gray-500">0 dipilih</span>
+        </div>
+        <form id="bulkCloneForm" action="{{ route('admin.question-bank.questions.bulk-clone') }}" method="POST" class="hidden">
+            @csrf
+            <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
+        </form>
+        @endif
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm text-gray-600">
                 <thead class="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
                     <tr>
+                        @if ($tryoutDetail)
+                        <th class="px-4 py-3 text-left">
+                            <input type="checkbox" id="selectAllQuestions"
+                                class="rounded border-gray-300 text-primary focus:ring-primary">
+                        </th>
+                        @endif
                         <th class="px-4 py-3 text-left">Soal</th>
                         <th class="px-4 py-3 text-left">Tipe</th>
                         <th class="px-4 py-3 text-left">Bobot</th>
@@ -109,6 +129,12 @@
                 <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse ($questions as $question)
                     <tr>
+                        @if ($tryoutDetail)
+                        <td class="px-4 py-3">
+                            <input type="checkbox" class="bank-question-checkbox"
+                                value="{{ $question->id }}">
+                        </td>
+                        @endif
                         <td class="px-4 py-3">
                             <div class="font-semibold text-gray-900">{!! \Illuminate\Support\Str::limit(strip_tags($question->question_text), 80) !!}</div>
                             <div class="text-xs text-gray-500">{{ $question->options->count() }} opsi jawaban</div>
@@ -144,7 +170,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-6 text-center text-gray-500">
+                        <td colspan="{{ $tryoutDetail ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-500">
                             Belum ada soal tersimpan pada bank ini.
                         </td>
                     </tr>
@@ -219,6 +245,57 @@
             if (event.target === subBankModal) toggleModal(subBankModal, false);
         });
 
+        const bulkCloneBtn = document.getElementById('bulkCloneBtn');
+        const bulkCloneForm = document.getElementById('bulkCloneForm');
+        const selectAll = document.getElementById('selectAllQuestions');
+        const checkboxes = document.querySelectorAll('.bank-question-checkbox');
+        const bulkSelectionCount = document.getElementById('bulkSelectionCount');
+
+        const updateBulkState = () => {
+            if (!bulkCloneBtn || !bulkSelectionCount) {
+                return;
+            }
+            const checked = Array.from(checkboxes).filter(cb => cb.checked);
+            bulkCloneBtn.disabled = checked.length === 0;
+            bulkSelectionCount.textContent = `${checked.length} dipilih`;
+
+            if (selectAll) {
+                selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+                selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+            }
+        };
+
+        selectAll?.addEventListener('change', () => {
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            updateBulkState();
+        });
+
+        checkboxes.forEach(cb => cb.addEventListener('change', updateBulkState));
+
+        bulkCloneBtn?.addEventListener('click', () => {
+            if (!bulkCloneForm) {
+                return;
+            }
+
+            bulkCloneForm.querySelectorAll('input[name="question_ids[]"]').forEach(input => input.remove());
+            Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .forEach(cb => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'question_ids[]';
+                    input.value = cb.value;
+                    bulkCloneForm.appendChild(input);
+                });
+
+            if (bulkCloneForm.querySelectorAll('input[name="question_ids[]"]').length > 0) {
+                bulkCloneForm.submit();
+            }
+        });
+
+        updateBulkState();
     });
 </script>
 @endpush

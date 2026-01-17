@@ -40,7 +40,7 @@
     </div>
 
     <!-- Statistics Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
             <div class="text-2xl font-bold text-blue-600">{{ $totalQuestions }}</div>
             <div class="text-sm text-blue-600">Total Soal</div>
@@ -54,8 +54,12 @@
             <div class="text-sm text-red-600">Salah</div>
         </div>
         <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-gray-600">{{ $totalQuestions - $correctAnswers - $wrongAnswers }}</div>
+            <div class="text-2xl font-bold text-gray-600">{{ $unansweredCount ?? 0 }}</div>
             <div class="text-sm text-gray-600">Tidak Dijawab</div>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-amber-600">{{ $pendingReviewCount ?? 0 }}</div>
+            <div class="text-sm text-amber-600">Belum Dikoreksi</div>
         </div>
     </div>
 

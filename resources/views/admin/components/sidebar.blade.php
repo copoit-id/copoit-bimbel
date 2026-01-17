@@ -85,7 +85,23 @@
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.laporan.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-file-chart-line text-[20px] {{ request()->routeIs('admin.laporan.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Laporan User</span>
+                    <span class="ms-3">Laporan Tryout</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.essay-review.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.essay-review.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-pencil-line text-[20px] {{ request()->routeIs('admin.essay-review.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Koreksi Essay</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.faq.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.faq.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-question-line text-[20px] {{ request()->routeIs('admin.faq.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">FAQ</span>
                 </a>
             </li>
             @if($clientBranding['certificate_management_enabled'] ?? true)

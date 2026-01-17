@@ -23,6 +23,11 @@ class SettingController extends Controller
             'header_primary_color' => false,
             'sidebar_primary_color' => false,
             'utbk_enabled' => true,
+            'payment_mode' => 'gateway',
+            'payment_bank_name' => null,
+            'payment_account_number' => null,
+            'payment_account_holder' => null,
+            'payment_bank_note' => null,
         ]);
 
         return view('admin.pages.settings.index', [
@@ -33,15 +38,31 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'nama_bimbel' => ['required', 'string', 'max:255'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'logo' => ['nullable', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
             'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,svg,webp', 'max:4096'],
-        ], [
+            'payment_mode' => ['required', 'in:gateway,manual'],
+            'payment_bank_name' => ['nullable', 'string', 'max:255'],
+            'payment_account_number' => ['nullable', 'string', 'max:100'],
+            'payment_account_holder' => ['nullable', 'string', 'max:255'],
+            'payment_bank_note' => ['nullable', 'string', 'max:255'],
+        ];
+
+        if ($request->input('payment_mode') === 'manual') {
+            $rules['payment_bank_name'] = ['required', 'string', 'max:255'];
+            $rules['payment_account_number'] = ['required', 'string', 'max:100'];
+            $rules['payment_account_holder'] = ['required', 'string', 'max:255'];
+        }
+
+        $validated = $request->validate($rules, [
             'warna_primary.regex' => 'Warna utama harus berupa kode hex valid.',
             'warna_secondary.regex' => 'Warna sekunder harus berupa kode hex valid.',
+            'payment_bank_name.required' => 'Nama bank wajib diisi untuk pembayaran manual.',
+            'payment_account_number.required' => 'Nomor rekening wajib diisi untuk pembayaran manual.',
+            'payment_account_holder.required' => 'Nama pemilik rekening wajib diisi untuk pembayaran manual.',
         ]);
 
         $profile = ClientProfile::query()->first() ?? new ClientProfile();
@@ -71,6 +92,7 @@ class SettingController extends Controller
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['enable_utbk_types'] = false;
+        $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
 
         $profile->fill($validated);
 

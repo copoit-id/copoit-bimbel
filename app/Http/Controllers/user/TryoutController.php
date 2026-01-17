@@ -9,6 +9,7 @@ use App\Models\TryoutDetail;
 use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
+use App\Models\UserPackageAcces;
 use App\Models\QuestionOption;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,43 +20,87 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
-use App\Services\PracticeProgressService;
 
 class TryoutController extends Controller
 {
-    public function __construct(private PracticeProgressService $practiceProgress)
+    public function __construct()
     {
-        parent::__construct();
         // Set timezone untuk semua method dalam controller ini
         Carbon::setLocale('id');
         date_default_timezone_set('Asia/Jakarta');
     }
 
-    private function guardLockedTryout(Tryout $tryout)
+    private function getSubtestIndex(array $subtests, array $currentSubtest): int
     {
-        if ($this->practiceProgress->tryoutIsUnlocked(Auth::id(), $tryout->tryout_id)) {
-            return null;
+        foreach ($subtests as $index => $info) {
+            if (($info['tryout_detail_id'] ?? null) === ($currentSubtest['tryout_detail_id'] ?? null)) {
+                return $index;
+            }
         }
 
-        $message = 'Tryout ini masih terkunci. Selesaikan latihan soal dahulu.';
-
-        if (request()->expectsJson()) {
-            return response()->json([
-                'error' => $message,
-            ], 403);
-        }
-
-        return redirect()->route('user.package.index')
-            ->with('error', $message);
+        return 0;
     }
 
-    private function resolvePackageContext($id_package): ?Package
-    {
-        if (empty($id_package) || $id_package === 'free') {
+    private function maybeShowSubtestBreak(
+        Tryout $tryout,
+        ?Package $package,
+        array $currentSubtest,
+        int $currentSubtestIndex,
+        string $attemptToken,
+        int $questionNumber,
+        array $subtestInfo
+    ) {
+        $breakSeconds = (int) ($tryout->section_break_duration ?? 0);
+        if ($breakSeconds <= 0 || $currentSubtestIndex <= 0) {
             return null;
         }
 
-        return Package::find($id_package);
+        if ($questionNumber !== ($currentSubtest['start_number'] ?? $questionNumber)) {
+            return null;
+        }
+
+        $sessionPrefix = sprintf(
+            'tryout_break_%s_%s',
+            $attemptToken,
+            $currentSubtest['tryout_detail_id'] ?? 'subtest'
+        );
+
+        if (session($sessionPrefix . '_done')) {
+            return null;
+        }
+
+        $now = Carbon::now('Asia/Jakarta');
+        $breakUntilIso = session($sessionPrefix . '_until');
+
+        if (!$breakUntilIso) {
+            $breakUntil = $now->copy()->addSeconds($breakSeconds);
+            session([$sessionPrefix . '_until' => $breakUntil->toIso8601String()]);
+        } else {
+            $breakUntil = Carbon::parse($breakUntilIso, 'Asia/Jakarta');
+        }
+
+        if ($now->lt($breakUntil)) {
+            $remainingSeconds = max(1, $now->diffInSeconds($breakUntil));
+
+            return view('user.pages.tryout.break', [
+                'package' => $package,
+                'tryout' => $tryout,
+                'subtest' => $currentSubtest,
+                'subtestIndex' => $currentSubtestIndex + 1,
+                'totalSubtests' => count($subtestInfo),
+                'countdownSeconds' => $remainingSeconds,
+                'continueUrl' => route('user.tryout.index', [
+                    $package ? $package->package_id : 'free',
+                    $tryout->tryout_id,
+                    $questionNumber
+                ]),
+            ]);
+        }
+
+        session()->forget($sessionPrefix . '_until');
+        session([$sessionPrefix . '_done' => true]);
+
+        return null;
     }
 
     private function processAnswerByType(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
@@ -125,31 +170,41 @@ class TryoutController extends Controller
 
         $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers']) ? $shortMeta['expected_answers'] : [];
         $caseSensitive = $shortMeta['case_sensitive'] ?? false;
+        $evaluationMode = $shortMeta['evaluation_mode'] ?? null;
         $manualReview = $shortMeta['manual_review'] ?? false;
 
         $isCorrect = false;
 
-        if (!empty($expectedAnswers)) {
+        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
+            if (!$evaluationMode) {
+                $evaluationMode = $manualReview ? 'manual' : 'auto';
+            }
+
+            $manualReview = $evaluationMode !== 'auto' || empty($expectedAnswers);
+        }
+
+        if (!$manualReview && !empty($expectedAnswers)) {
             foreach ($expectedAnswers as $expected) {
                 $expectedValue = trim((string) $expected);
-                $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
-                $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
 
-                if ($userComparable === $expectedComparable) {
-                    $isCorrect = true;
+                if ($question->question_type === 'essay') {
+                    $isCorrect = $this->matchesEssayAnswer($answerText, $expectedValue);
+                } else {
+                    $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
+                    $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
+                    $isCorrect = $userComparable === $expectedComparable;
+                }
+
+                if ($isCorrect) {
                     break;
                 }
             }
         }
 
-        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
-            $manualReview = true;
-            $isCorrect = false;
-        }
-
         $answerJson = [
             'pending_review' => $manualReview,
             'case_sensitive' => $caseSensitive,
+            'evaluation_mode' => $evaluationMode,
             'expected_answers' => $expectedAnswers,
         ];
 
@@ -167,6 +222,26 @@ class TryoutController extends Controller
             ],
             'delete_file' => false,
         ];
+    }
+
+    private function matchesEssayAnswer(string $userAnswer, string $expectedAnswer): bool
+    {
+        $userNormalized = $this->normalizeEssayAnswer($userAnswer);
+        $expectedNormalized = $this->normalizeEssayAnswer($expectedAnswer);
+
+        if (is_numeric($userNormalized) && is_numeric($expectedNormalized)) {
+            return (float) $userNormalized == (float) $expectedNormalized;
+        }
+
+        return $userNormalized === $expectedNormalized;
+    }
+
+    private function normalizeEssayAnswer(string $value): string
+    {
+        $normalized = trim($value);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+
+        return mb_strtolower($normalized);
     }
 
     private function handleMatchingAnswer(array $data, Question $question): array
@@ -355,27 +430,40 @@ class TryoutController extends Controller
 
     public function indexLobby($id_package, $id_tryout)
     {
-        $now = Carbon::now('Asia/Jakarta');
-        $tryout = Tryout::where('tryout_id', $id_tryout)
-            ->where('is_active', true)
-            ->where(function ($query) use ($now) {
-                $query->whereNull('start_date')
-                    ->orWhere('start_date', '<=', $now);
-            })
-            ->where(function ($query) use ($now) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>=', $now);
-            })
-            ->firstOrFail();
-        $package = $this->resolvePackageContext($id_package);
+        if ($id_package === 'free') {
+            // Free tryout access dengan timezone Jakarta
+            $now = Carbon::now('Asia/Jakarta');
+            $tryout = Tryout::where('tryout_id', $id_tryout)
+                ->where('is_active', true)
+                ->where('start_date', '<=', $now)
+                ->where('end_date', '>=', $now)
+                ->firstOrFail();
+            $package = null;
+        } else {
+            $package = Package::findOrFail($id_package);
+            $tryout = Tryout::findOrFail($id_tryout);
 
-        if ($guardResponse = $this->guardLockedTryout($tryout)) {
-            return $guardResponse;
+            // Check if user has access to package
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $now = Carbon::now('Asia/Jakarta');
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
         }
 
         // Check if tryout is still active dengan timezone Jakarta
-        if ($tryout->end_date && Carbon::parse($tryout->end_date)->lt($now)) {
-            return redirect()->route('user.package.index')->with('error', 'Tryout sudah berakhir');
+        $now = Carbon::now('Asia/Jakarta');
+        if (Carbon::parse($tryout->end_date)->lt($now)) {
+            return redirect()->back()->with('error', 'Tryout sudah berakhir');
         }
 
         // Get tryout details untuk menampilkan info di lobby
@@ -407,21 +495,32 @@ class TryoutController extends Controller
     {
         $now = Carbon::now('Asia/Jakarta');
 
-        $tryout = Tryout::where('tryout_id', $id_tryout)
-            ->where('is_active', true)
-            ->where(function ($query) use ($now) {
-                $query->whereNull('start_date')
-                    ->orWhere('start_date', '<=', $now);
-            })
-            ->where(function ($query) use ($now) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>=', $now);
-            })
-            ->firstOrFail();
-        $package = $this->resolvePackageContext($id_package);
+        // Handle free tryouts or package tryouts
+        if ($id_package === 'free') {
+            $tryout = Tryout::where('tryout_id', $id_tryout)
+                ->where('is_active', true)
+                ->where('start_date', '<=', $now)
+                ->where('end_date', '>=', $now)
+                ->firstOrFail();
+            $package = null;
+        } else {
+            $package = Package::findOrFail($id_package);
+            $tryout = Tryout::findOrFail($id_tryout);
 
-        if ($guardResponse = $this->guardLockedTryout($tryout)) {
-            return $guardResponse;
+            // Check access
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) use ($now) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
         }
 
         // Get all tryout details dalam urutan yang benar
@@ -487,6 +586,14 @@ class TryoutController extends Controller
             }
         }
 
+        if (!$currentSubtest) {
+            $currentSubtest = $subtestInfo[0] ?? null;
+        }
+
+        if (!$currentSubtest) {
+            return redirect()->back()->with('error', 'Subtest tryout tidak ditemukan');
+        }
+
         // Get or create user answer sessions untuk SKD Full
         // Cek apakah sudah ada attempt_token untuk tryout ini
         $existingUserAnswer = UserAnswer::where('user_id', Auth::id())
@@ -530,6 +637,31 @@ class TryoutController extends Controller
             }
         }
 
+        $currentSubtestIndex = $this->getSubtestIndex($subtestInfo, $currentSubtest ?? []);
+        if (count($subtestInfo) > 1) {
+            $progressKey = sprintf('tryout_subtest_progress_%s', $attemptToken);
+            $maxVisitedIndex = (int) session($progressKey, 0);
+
+            if ($currentSubtestIndex < $maxVisitedIndex) {
+                $targetSubtest = $subtestInfo[$maxVisitedIndex] ?? null;
+                $targetNumber = $targetSubtest['start_number'] ?? $number;
+
+                return redirect()->route('user.tryout.index', [
+                    $package ? $package->package_id : 'free',
+                    $tryout->tryout_id,
+                    $targetNumber
+                ])->with('error', 'Tidak bisa kembali ke subtest sebelumnya.');
+            }
+
+            if ($currentSubtestIndex > $maxVisitedIndex) {
+                session([$progressKey => $currentSubtestIndex]);
+            }
+        }
+
+        if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
+            return $response;
+        }
+
         // Get current subtest's UserAnswer untuk menyimpan jawaban
         $currentUserAnswer = UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
@@ -553,6 +685,21 @@ class TryoutController extends Controller
 
         $remainingSeconds = $endTime->diffInSeconds($now);
 
+        // Hitung timer per subtest untuk tampilan
+        $subtestDurationMinutes = max(1, (int) ($currentSubtest['duration'] ?? 60));
+        $subtestTimerKey = sprintf('tryout_subtest_timer_%s_%s', $attemptToken, $currentSubtest['tryout_detail_id']);
+        $subtestStartIso = session($subtestTimerKey);
+        if (!$subtestStartIso) {
+            $subtestStart = Carbon::now('Asia/Jakarta');
+            session([$subtestTimerKey => $subtestStart->toIso8601String()]);
+        } else {
+            $subtestStart = Carbon::parse($subtestStartIso, 'Asia/Jakarta');
+        }
+        $subtestEnd = $subtestStart->copy()->addMinutes($subtestDurationMinutes);
+        $subtestRemainingSeconds = $subtestEnd->greaterThan($now)
+            ? $now->diffInSeconds($subtestEnd)
+            : 0;
+
         // Get user's answer for current question dari subtest yang sesuai
         $userAnswerDetail = UserAnswerDetail::where('user_answer_id', $currentUserAnswer->user_answer_id)
             ->where('question_id', $currentQuestion->question_id)
@@ -573,6 +720,14 @@ class TryoutController extends Controller
         // Get flagged questions dari session dengan attempt_token
         $flaggedQuestions = session('flagged_questions_' . $attemptToken, []);
 
+        $totalSubtests = count($subtestInfo);
+        $hasNextSubtest = $currentSubtestIndex < ($totalSubtests - 1);
+        $currentSubtestRange = [
+            $currentSubtest['start_number'] ?? 1,
+            $currentSubtest['end_number'] ?? $number,
+        ];
+        $isLastQuestionOfSubtest = $number === ($currentSubtest['end_number'] ?? $number);
+
         return view('user.pages.tryout.index', compact(
             'package',
             'tryout',
@@ -587,10 +742,17 @@ class TryoutController extends Controller
             'flaggedQuestions',
             'subtestInfo',
             'currentSubtest',
+            'currentSubtestIndex',
+            'totalSubtests',
+            'hasNextSubtest',
+            'currentSubtestRange',
+            'isLastQuestionOfSubtest',
             'remainingSeconds',
+            'subtestRemainingSeconds',
             'attemptToken'
         ));
     }
+
 
     private function getSubtestName($type)
     {
@@ -660,11 +822,6 @@ class TryoutController extends Controller
     public function saveAnswer(Request $request, $id_package, $id_tryout, $number)
     {
         try {
-            $tryout = Tryout::findOrFail($id_tryout);
-            if ($guardResponse = $this->guardLockedTryout($tryout)) {
-                return $guardResponse;
-            }
-
             $request->validate([
                 'question_id' => 'required|exists:questions,question_id',
             ]);
@@ -693,6 +850,7 @@ class TryoutController extends Controller
                 return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
             }
 
+            $tryout = Tryout::findOrFail($id_tryout);
             $tryoutDetails = $tryout->tryoutDetails()->get();
             $totalDuration = $tryoutDetails->sum('duration');
 
@@ -764,6 +922,7 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Gagal menyimpan jawaban');
         }
     }
+
 
     /**
      * Determine if answer is correct based on subtest type and rules
@@ -849,7 +1008,8 @@ class TryoutController extends Controller
                                 break;
 
                             case 'tkp':
-                                $totalScore += (float) ($detail->questionOption->weight ?? 0);
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $w > 0 ? min($w, 1) : 1;
                                 break;
 
                             case 'writing':
@@ -915,9 +1075,6 @@ class TryoutController extends Controller
 
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
-        if ($guardResponse = $this->guardLockedTryout($tryout)) {
-            return $guardResponse;
-        }
 
         // Get all user answers untuk tryout ini
         $userAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1007,6 +1164,12 @@ class TryoutController extends Controller
                 ->where('status', 'in_progress')
                 ->with(['tryoutDetail'])
                 ->get();
+
+        }
+
+        if ($userAnswers->isEmpty()) {
+            return redirect()->route('user.tryout.index', [$id_package, $id_tryout, 1])
+                ->with('error', 'Jawaban belum ditemukan. Silakan lanjutkan tryout.');
         }
 
         if ($tryout->requiresIrtScoring()) {
@@ -1070,7 +1233,8 @@ class TryoutController extends Controller
 
             // Determine if passed untuk subtest ini
             $passingScore = $userAnswer->tryoutDetail->passing_score ?? 60;
-            $isPassed = $userAnswer->score >= $passingScore;
+            $rawScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+            $isPassed = $rawScore >= $passingScore;
 
             // Update user answer
             $userAnswer->update([
@@ -1132,13 +1296,32 @@ class TryoutController extends Controller
 
     public function indexResult($id_package, $id_tryout)
     {
-        $package = $this->resolvePackageContext($id_package);
+        $now = Carbon::now('Asia/Jakarta');
+
+        // Handle free tryouts or package tryouts
+        if ($id_package === 'free') {
+            $package = null;
+        } else {
+            $package = Package::findOrFail($id_package);
+
+            // Check access for package tryouts
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) use ($now) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+        }
 
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
-        if ($guardResponse = $this->guardLockedTryout($tryout)) {
-            return $guardResponse;
-        }
 
         // Get all completed/pending user answers untuk tryout ini dengan attempt_token yang sama
         $userAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1277,6 +1460,13 @@ class TryoutController extends Controller
         });
         $correctAnswers = $latestUserAnswers->sum('correct_answers');
         $wrongAnswers = $latestUserAnswers->sum('wrong_answers');
+        $unansweredCount = $latestUserAnswers->sum('unanswered');
+        $pendingReviewCount = $latestUserAnswers->sum(function ($ua) {
+            return $ua->userAnswerDetails->filter(function ($detail) {
+                $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                return !empty($meta['pending_review']);
+            })->count();
+        });
 
         if ($tryoutDetails->count() > 1) {
             // Multiple subtest calculation
@@ -1303,6 +1493,8 @@ class TryoutController extends Controller
             'totalQuestions',
             'correctAnswers',
             'wrongAnswers',
+            'unansweredCount',
+            'pendingReviewCount',
             'rawScore',
             'maxScore',
             'tryout',
@@ -1344,9 +1536,7 @@ class TryoutController extends Controller
             // Set passing score based on subtest type
             $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
             $isPassed = $passingScore !== null ? $subtestScore >= $passingScore : false;
-            $passingScorePercentage = ($passingScore !== null && $maxSubtestScore > 0)
-                ? ($passingScore / $maxSubtestScore) * 100
-                : null;
+            $passingScorePercentage = $passingScore;
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
@@ -1359,10 +1549,10 @@ class TryoutController extends Controller
                 'max_score' => $maxSubtestScore,
                 'percentage' => $percentage,
                 'passing_score' => $passingScore,
-                'passing_percentage' => $passingScorePercentage,
-                'is_passed' => $isPassed
-            ];
-        }
+            'passing_percentage' => $passingScorePercentage,
+            'is_passed' => $isPassed
+        ];
+    }
 
         return $subtestResults;
     }
@@ -1387,14 +1577,10 @@ class TryoutController extends Controller
         }
     }
 
+
     public function toggleFlag(Request $request, $id_package, $id_tryout)
     {
         try {
-            $tryout = Tryout::findOrFail($id_tryout);
-            if ($guardResponse = $this->guardLockedTryout($tryout)) {
-                return $guardResponse;
-            }
-
             $request->validate([
                 'question_id' => 'required|exists:questions,question_id'
             ]);
@@ -1592,7 +1778,8 @@ class TryoutController extends Controller
                             $maxWeight = $options->max(function ($opt) {
                                 return (float) ($opt->weight ?? 0);
                             });
-                            $total += $maxWeight ?? 0;
+                            $maxWeight = (float) ($maxWeight ?? 0);
+                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
                             break;
 
                         case 'twk':
@@ -1625,11 +1812,6 @@ class TryoutController extends Controller
 
     public function markPlayed($id_package, $id_tryout, $question_id)
     {
-        $tryout = Tryout::findOrFail($id_tryout);
-        if ($guardResponse = $this->guardLockedTryout($tryout)) {
-            return $guardResponse;
-        }
-
         $userId = Auth::id();
 
         $answerDetail = UserAnswerDetail::where('question_id', $question_id)

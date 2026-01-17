@@ -123,9 +123,9 @@
                     @endif
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-4 question-rich-text">
                     <h4 class="font-semibold text-gray-900 mb-2">Pertanyaan:</h4>
-                    <p class="text-gray-800">{!! $question->question_text !!}</p>
+                    <div class="text-gray-800">{!! $question->question_text !!}</div>
                 </div>
 
                 @if($question->sound)
