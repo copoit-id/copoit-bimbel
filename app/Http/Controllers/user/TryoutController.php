@@ -1008,7 +1008,8 @@ class TryoutController extends Controller
                                 break;
 
                             case 'tkp':
-                                $totalScore += (float) ($detail->questionOption->weight ?? 0);
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $w > 0 ? min($w, 1) : 1;
                                 break;
 
                             case 'writing':
@@ -1232,7 +1233,8 @@ class TryoutController extends Controller
 
             // Determine if passed untuk subtest ini
             $passingScore = $userAnswer->tryoutDetail->passing_score ?? 60;
-            $isPassed = $userAnswer->score >= $passingScore;
+            $rawScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+            $isPassed = $rawScore >= $passingScore;
 
             // Update user answer
             $userAnswer->update([
@@ -1534,9 +1536,7 @@ class TryoutController extends Controller
             // Set passing score based on subtest type
             $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
             $isPassed = $passingScore !== null ? $subtestScore >= $passingScore : false;
-            $passingScorePercentage = ($passingScore !== null && $maxSubtestScore > 0)
-                ? ($passingScore / $maxSubtestScore) * 100
-                : null;
+            $passingScorePercentage = $passingScore;
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
@@ -1549,10 +1549,10 @@ class TryoutController extends Controller
                 'max_score' => $maxSubtestScore,
                 'percentage' => $percentage,
                 'passing_score' => $passingScore,
-                'passing_percentage' => $passingScorePercentage,
-                'is_passed' => $isPassed
-            ];
-        }
+            'passing_percentage' => $passingScorePercentage,
+            'is_passed' => $isPassed
+        ];
+    }
 
         return $subtestResults;
     }
@@ -1576,6 +1576,7 @@ class TryoutController extends Controller
                 return 60; // Default: 60%
         }
     }
+
 
     public function toggleFlag(Request $request, $id_package, $id_tryout)
     {
@@ -1777,7 +1778,8 @@ class TryoutController extends Controller
                             $maxWeight = $options->max(function ($opt) {
                                 return (float) ($opt->weight ?? 0);
                             });
-                            $total += $maxWeight ?? 0;
+                            $maxWeight = (float) ($maxWeight ?? 0);
+                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
                             break;
 
                         case 'twk':

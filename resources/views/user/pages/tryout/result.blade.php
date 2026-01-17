@@ -7,8 +7,10 @@
         <div class="bg-white rounded-lg border border-border p-4 md:p-8 text-center mb-6">
             <div>
                 @php
-                // Calculate overall pass status
-                $isOverallPassed = $overallPercentage >= 70;
+                // Calculate overall pass status based on subtest results
+                $isOverallPassed = isset($subtestResults) && count($subtestResults) > 0
+                    ? collect($subtestResults)->every('is_passed')
+                    : (bool) optional($latestUserAnswers->first())->is_passed;
                 $firstUserAnswer = $latestUserAnswers->first();
                 @endphp
                 <div class="flex flex-col justify-center items-center">

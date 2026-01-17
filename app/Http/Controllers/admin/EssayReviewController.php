@@ -215,7 +215,8 @@ class EssayReviewController extends Controller
                                 $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
                                 break;
                             case 'tkp':
-                                $totalScore += (float) ($detail->questionOption->weight ?? 0);
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $w > 0 ? min($w, 1) : 1;
                                 break;
                             case 'writing':
                             case 'reading':
@@ -292,7 +293,8 @@ class EssayReviewController extends Controller
                             $total += $maxWeight > 0 ? $maxWeight : 5;
                             break;
                         case 'tkp':
-                            $total += (float) ($question->questionOptions->max('weight') ?? 0);
+                            $maxWeight = (float) ($question->questionOptions->max('weight') ?? 0);
+                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
                             break;
                         case 'writing':
                         case 'reading':
