@@ -288,6 +288,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     });
 
     Route::resource('discussion', DiscussionController::class);
+    Route::resource('faq', \App\Http\Controllers\admin\FaqController::class)->except(['show']);
 
     // Koreksi essay
     Route::prefix('essay-review')->name('essay-review.')->group(function () {

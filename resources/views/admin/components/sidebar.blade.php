@@ -102,6 +102,14 @@
                     <span class="ms-3">Koreksi Essay</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('admin.faq.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.faq.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-question-line text-[20px] {{ request()->routeIs('admin.faq.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">FAQ</span>
+                </a>
+            </li>
             @if($clientBranding['certificate_management_enabled'] ?? true)
             <li>
                 <a href="{{ route('admin.certificate.index') }}"
