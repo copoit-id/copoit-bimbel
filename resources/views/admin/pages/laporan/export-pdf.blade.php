@@ -68,7 +68,7 @@
                     <td class="text-center">{{ $tryout->total_attempts }}</td>
                     <td class="text-center">{{ $tryout->completed_attempts }}</td>
                     <td class="text-center">{{ $tryout->completion_rate }}%</td>
-                    <td class="text-center">{{ $tryout->avg_score }}</td>
+                    <td class="text-center">{{ $tryout->avg_score }}%</td>
                     <td class="text-center">{{ $tryout->is_active ? 'Aktif' : 'Tidak Aktif' }}</td>
                 </tr>
             @empty

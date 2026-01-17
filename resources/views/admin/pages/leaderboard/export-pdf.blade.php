@@ -52,6 +52,7 @@
                 <th>Peserta</th>
                 <th>Email</th>
                 <th class="text-center">Skor</th>
+                <th class="text-center">Skor Maks</th>
                 <th class="text-center">Status</th>
                 <th class="text-center">Waktu Selesai</th>
                 <th class="text-center">Tanggal</th>
@@ -60,14 +61,16 @@
         <tbody>
             @forelse($rankings as $index => $ranking)
                 @php
-                    $score = round($ranking->score ?? 0);
-                    $status = $score >= 85 ? 'Lulus' : ($score >= 70 ? 'Cukup' : 'Gagal');
+                    $score = round($ranking->raw_score ?? 0);
+                    $maxScore = round($ranking->max_score ?? 0);
+                    $status = $ranking->is_passed ? 'Lulus' : 'Tidak Lulus';
                 @endphp
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
                     <td class="text-center">{{ $score }}</td>
+                    <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
                     <td class="text-center">{{ $status }}</td>
                     <td class="text-center">
                         {{ $ranking->finished_at ? $ranking->finished_at->format('H:i') : '-' }}
@@ -78,7 +81,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
+                    <td colspan="8" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
                 </tr>
             @endforelse
         </tbody>

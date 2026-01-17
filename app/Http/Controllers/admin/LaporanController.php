@@ -66,7 +66,7 @@ class LaporanController extends Controller
                 $tryout->total_attempts,
                 $tryout->completed_attempts,
                 $tryout->completion_rate,
-                $tryout->avg_score,
+                $tryout->avg_score . '%',
                 $tryout->is_active ? 'Aktif' : 'Tidak Aktif',
             ], null, 'A' . $row);
 
@@ -151,15 +151,32 @@ class LaporanController extends Controller
             ->with('user')
             ->get();
 
+        $answersByAttempt = UserAnswer::where('tryout_id', $tryout->tryout_id)
+            ->whereIn('user_id', $attemptSummaries->pluck('user_id')->unique())
+            ->whereIn('attempt_token', $attemptSummaries->pluck('attempt_token')->unique())
+            ->with(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption'])
+            ->get()
+            ->groupBy(['user_id', 'attempt_token']);
+
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) {
+            ->map(function ($attempts) use ($answersByAttempt) {
+                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt) {
+                    $userAnswers = $answersByAttempt[$attempt->user_id][$attempt->attempt_token] ?? collect();
+                    $rawScore = $userAnswers->sum(function ($answer) {
+                        return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
+                    });
+                    $attempt->raw_score = $rawScore;
+
+                    return $attempt;
+                });
+
                 $sortedAttempts = $attempts->sortByDesc('finished_at')->values();
                 $latest = $sortedAttempts->first();
 
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
-                    'latest_score' => round($latest->average_score ?? 0, 1),
+                    'latest_score' => round($latest->raw_score ?? 0, 1),
                     'last_finished' => $latest->finished_at,
                     'attempts' => $sortedAttempts,
                 ];
@@ -303,5 +320,74 @@ class LaporanController extends Controller
 
             return $tryout;
         });
+    }
+
+    private function calculateTotalScore(UserAnswer $userAnswer, ?string $type_subtest): float
+    {
+        $totalScore = 0.0;
+
+        foreach ($userAnswer->userAnswerDetails as $detail) {
+            $question = $detail->question;
+            if (!$question) {
+                continue;
+            }
+
+            $questionType = $question->question_type ?? 'multiple_choice';
+            $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $totalScore += $detail->is_correct ? $weight : 0;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    if ($pendingReview) {
+                        continue 2;
+                    }
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    break;
+
+                case 'audio':
+                    continue 2;
+
+                default:
+                    if ($detail->questionOption) {
+                        switch ($type_subtest) {
+                            case 'twk':
+                            case 'tiu':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                break;
+                            case 'tkp':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $w > 0 ? $w : 1;
+                                break;
+                            case 'writing':
+                            case 'reading':
+                            case 'listening':
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                break;
+                            default:
+                                $w = (float) ($detail->questionOption->weight ?? 0);
+                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                break;
+                        }
+                    }
+                    break;
+            }
+        }
+
+        return $totalScore;
     }
 }

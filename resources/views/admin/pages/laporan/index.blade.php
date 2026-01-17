@@ -128,7 +128,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}</span>
+                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}%</span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         @php
