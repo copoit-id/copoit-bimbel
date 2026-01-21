@@ -311,11 +311,12 @@ class LeaderboardController extends Controller
             $maxScore = $type
                 ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type)
                 : 0;
-            $passingScore = $ranking->tryoutDetail->passing_score ?? $this->getDefaultPassingScore($type);
+            $detail = $ranking->tryoutDetail;
+            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
 
             $ranking->raw_score = $rawScore;
             $ranking->max_score = $maxScore;
-            $ranking->is_passed = !is_null($passingScore) && $rawScore >= $passingScore;
+            $ranking->is_passed = $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
 
             return $ranking;
         });
@@ -470,6 +471,22 @@ class LeaderboardController extends Controller
             'teknis', 'social culture', 'management', 'interview' => 65,
             default => 60,
         };
+    }
+
+    private function isSubtestPassed($detail, float $rawScore, float $maxScore, ?string $type): bool
+    {
+        $passingScore = $detail?->passing_score ?? $this->getDefaultPassingScore($type);
+        if ($passingScore === null) {
+            return false;
+        }
+
+        $passingType = $detail?->passing_type ?? 'score';
+        if ($passingType === 'percentage') {
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            return $percentage >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
     }
 
     private function formatDuration(?Carbon $startedAt, ?Carbon $finishedAt): string

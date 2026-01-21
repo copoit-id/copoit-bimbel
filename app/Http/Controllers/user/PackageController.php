@@ -748,6 +748,22 @@ class PackageController extends Controller
         }
     }
 
+    private function isSubtestPassed($detail, float $rawScore, float $maxScore, string $type): bool
+    {
+        $passingScore = $detail?->passing_score ?? $this->getDefaultPassingScore($type);
+        if (is_null($passingScore)) {
+            return false;
+        }
+
+        $passingType = $detail?->passing_type ?? 'score';
+        if ($passingType === 'percentage') {
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            return $percentage >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
+    }
+
     private function isToeflPassed(int $score): bool
     {
         return $score >= 217;
@@ -761,9 +777,11 @@ class PackageController extends Controller
 
         return $userAnswers->every(function ($userAnswer) {
             $detail = $userAnswer->tryoutDetail;
-            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
-            $rawScore = $this->calculateTotalScore($userAnswer, $detail->type_subtest);
-            return !is_null($passingScore) && $rawScore >= $passingScore;
+            $type = $detail->type_subtest;
+            $rawScore = $this->calculateTotalScore($userAnswer, $type);
+            $maxScore = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
+
+            return $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
         });
     }
 
@@ -1200,10 +1218,8 @@ class PackageController extends Controller
                                 $totalScore += $subtestScore;
                                 $totalMaxScore += $maxSubtestScore;
 
-                                $passingScore = $userAnswer->tryoutDetail->passing_score
-                                    ?? $this->getDefaultPassingScore($userAnswer->tryoutDetail->type_subtest);
-
-                                if (!is_null($passingScore) && $subtestScore < $passingScore) {
+                                $detail = $userAnswer->tryoutDetail;
+                                if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
                                     $allSubtestsPassed = false;
                                 }
                             }
@@ -1253,9 +1269,12 @@ class PackageController extends Controller
                             $bestAttempt->tryoutDetail->type_subtest
                         );
                         $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
-                        $passingScore = $bestAttempt->tryoutDetail->passing_score
-                            ?? $this->getDefaultPassingScore($bestAttempt->tryoutDetail->type_subtest);
-                        $isPassed = !is_null($passingScore) ? $rawScore >= $passingScore : $percentage >= 70;
+                        $isPassed = $this->isSubtestPassed(
+                            $bestAttempt->tryoutDetail,
+                            $rawScore,
+                            $maxScore,
+                            $bestAttempt->tryoutDetail->type_subtest
+                        );
 
                         return [
                             'user' => $bestAttempt->user,
@@ -1397,7 +1416,12 @@ class PackageController extends Controller
                 $score = $this->calculateTotalScore($userAnswer, $type);
                 $max = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
                 $percentage = $max > 0 ? ($score / $max) * 100 : 0;
-                $passingScore = $userAnswer->tryoutDetail->passing_score ?? $this->getDefaultPassingScore($type);
+                $detail = $userAnswer->tryoutDetail;
+                $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
+                $passingType = $detail->passing_type ?? 'score';
+                $passingPercentage = $passingType === 'percentage'
+                    ? $passingScore
+                    : ($max > 0 ? ($passingScore / $max) * 100 : null);
 
                 return [
                     'type' => $type,
@@ -1406,7 +1430,9 @@ class PackageController extends Controller
                     'max_score' => $max,
                     'percentage' => $percentage,
                     'passing_score' => $passingScore,
-                    'is_passed' => !is_null($passingScore) && $score >= $passingScore,
+                    'passing_type' => $passingType,
+                    'passing_percentage' => $passingPercentage,
+                    'is_passed' => $this->isSubtestPassed($detail, $score, $max, $type),
                     'correct_answers' => $userAnswer->correct_answers ?? 0,
                     'wrong_answers' => $userAnswer->wrong_answers ?? 0,
                 ];

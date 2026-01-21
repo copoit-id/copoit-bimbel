@@ -1232,9 +1232,17 @@ class TryoutController extends Controller
             $this->updateSingleSubtestStats($userAnswer);
 
             // Determine if passed untuk subtest ini
-            $passingScore = $userAnswer->tryoutDetail->passing_score ?? 60;
             $rawScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
-            $isPassed = $rawScore >= $passingScore;
+            $maxScore = $this->getMaxPossibleScoreForDetail(
+                $userAnswer->tryout_detail_id,
+                $userAnswer->tryoutDetail->type_subtest
+            );
+            $isPassed = $this->isSubtestPassed(
+                $userAnswer->tryoutDetail,
+                $rawScore,
+                $maxScore,
+                $userAnswer->tryoutDetail->type_subtest
+            );
 
             // Update user answer
             $userAnswer->update([
@@ -1535,8 +1543,11 @@ class TryoutController extends Controller
 
             // Set passing score based on subtest type
             $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
-            $isPassed = $passingScore !== null ? $subtestScore >= $passingScore : false;
-            $passingScorePercentage = $passingScore;
+            $passingType = $detail->passing_type ?? 'score';
+            $isPassed = $this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest);
+            $passingScorePercentage = $passingType === 'percentage'
+                ? $passingScore
+                : ($maxSubtestScore > 0 ? ($passingScore / $maxSubtestScore) * 100 : null);
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
@@ -1549,10 +1560,11 @@ class TryoutController extends Controller
                 'max_score' => $maxSubtestScore,
                 'percentage' => $percentage,
                 'passing_score' => $passingScore,
-            'passing_percentage' => $passingScorePercentage,
-            'is_passed' => $isPassed
-        ];
-    }
+                'passing_type' => $passingType,
+                'passing_percentage' => $passingScorePercentage,
+                'is_passed' => $isPassed
+            ];
+        }
 
         return $subtestResults;
     }
@@ -1575,6 +1587,22 @@ class TryoutController extends Controller
             default:
                 return 60; // Default: 60%
         }
+    }
+
+    private function isSubtestPassed($detail, float $rawScore, float $maxScore, string $type): bool
+    {
+        $passingScore = $detail?->passing_score ?? $this->getDefaultPassingScore($type);
+        if ($passingScore === null) {
+            return false;
+        }
+
+        $passingType = $detail?->passing_type ?? 'score';
+        if ($passingType === 'percentage') {
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            return $percentage >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
     }
 
 

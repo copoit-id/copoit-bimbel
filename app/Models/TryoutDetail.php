@@ -16,12 +16,14 @@ class TryoutDetail extends Model
         'tryout_id',
         'type_subtest',
         'duration',
-        'passing_score'
+        'passing_score',
+        'passing_type',
     ];
 
     protected $casts = [
         'duration' => 'integer',
         'passing_score' => 'decimal:2',
+        'passing_type' => 'string',
     ];
 
     public function tryout()

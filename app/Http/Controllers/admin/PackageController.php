@@ -281,6 +281,11 @@ class PackageController extends Controller
             'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,certification',
             'duration_total' => 'required|integer|min:1',
             'passing_score_total' => 'required|numeric|min:0|max:100',
+            'passing_type_twk' => 'nullable|in:score,percentage',
+            'passing_type_tiu' => 'nullable|in:score,percentage',
+            'passing_type_tkp' => 'nullable|in:score,percentage',
+            'passing_type_general' => 'nullable|in:score,percentage',
+            'passing_type_certification' => 'nullable|in:score,percentage',
             'section_break_duration' => 'nullable|integer|min:0|max:3600',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
@@ -310,6 +315,7 @@ class PackageController extends Controller
                 'type_subtest' => 'twk',
                 'duration' => $request->duration_twk,
                 'passing_score' => $request->passing_score_twk,
+                'passing_type' => $request->input('passing_type_twk', 'score'),
             ]);
 
             TryoutDetail::create([
@@ -317,6 +323,7 @@ class PackageController extends Controller
                 'type_subtest' => 'tiu',
                 'duration' => $request->duration_tiu,
                 'passing_score' => $request->passing_score_tiu,
+                'passing_type' => $request->input('passing_type_tiu', 'score'),
             ]);
 
             TryoutDetail::create([
@@ -324,6 +331,7 @@ class PackageController extends Controller
                 'type_subtest' => 'tkp',
                 'duration' => $request->duration_tkp,
                 'passing_score' => $request->passing_score_tkp,
+                'passing_type' => $request->input('passing_type_tkp', 'score'),
             ]);
         } else if ($tryout && $tryout->type_tryout == 'certification') {
             // Create certification subtests: writing, reading, listening
@@ -332,6 +340,7 @@ class PackageController extends Controller
                 'type_subtest' => 'writing',
                 'duration' => $request->duration_writing ?? 60,
                 'passing_score' => $request->passing_score_writing ?? 60,
+                'passing_type' => $request->input('passing_type_certification', 'score'),
             ]);
 
             TryoutDetail::create([
@@ -339,6 +348,7 @@ class PackageController extends Controller
                 'type_subtest' => 'reading',
                 'duration' => $request->duration_reading ?? 60,
                 'passing_score' => $request->passing_score_reading ?? 60,
+                'passing_type' => $request->input('passing_type_certification', 'score'),
             ]);
 
             TryoutDetail::create([
@@ -346,6 +356,7 @@ class PackageController extends Controller
                 'type_subtest' => 'listening',
                 'duration' => $request->duration_listening ?? 60,
                 'passing_score' => $request->passing_score_listening ?? 60,
+                'passing_type' => $request->input('passing_type_certification', 'score'),
             ]);
         } else if ($tryout && $tryout->type_tryout == 'twk') {
             TryoutDetail::create([
@@ -353,6 +364,7 @@ class PackageController extends Controller
                 'type_subtest' => 'twk',
                 'duration' => $request->duration_twk,
                 'passing_score' => $request->passing_score_twk,
+                'passing_type' => $request->input('passing_type_twk', 'score'),
             ]);
         } else if ($tryout && $tryout->type_tryout == 'tiu') {
             TryoutDetail::create([
@@ -360,6 +372,7 @@ class PackageController extends Controller
                 'type_subtest' => 'tiu',
                 'duration' => $request->duration_tiu,
                 'passing_score' => $request->passing_score_tiu,
+                'passing_type' => $request->input('passing_type_tiu', 'score'),
             ]);
         } else if ($tryout && $tryout->type_tryout == 'tkp') {
             TryoutDetail::create([
@@ -367,6 +380,7 @@ class PackageController extends Controller
                 'type_subtest' => 'tkp',
                 'duration' => $request->duration_tkp,
                 'passing_score' => $request->passing_score_tkp,
+                'passing_type' => $request->input('passing_type_tkp', 'score'),
             ]);
         } else if ($tryout && $tryout->type_tryout == 'general') {
             TryoutDetail::create([
@@ -374,6 +388,7 @@ class PackageController extends Controller
                 'type_subtest' => 'general',
                 'duration' => $request->duration_general,
                 'passing_score' => $request->passing_score_general,
+                'passing_type' => $request->input('passing_type_general', 'score'),
             ]);
         }
 

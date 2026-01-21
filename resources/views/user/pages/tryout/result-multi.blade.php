@@ -99,9 +99,14 @@
 
                 @if(!is_null($subtest['passing_score']))
                 <div class="text-xs text-gray-500 mb-3">
-                    Passing Grade: {{ $subtest['passing_score'] }}
-                    @if(!is_null($subtest['passing_percentage']))
-                        ({{ number_format($subtest['passing_percentage'], 1) }}%)
+                    Passing Grade:
+                    @if(($subtest['passing_type'] ?? 'score') === 'percentage')
+                        {{ number_format($subtest['passing_score'], 1) }}%
+                    @else
+                        {{ $subtest['passing_score'] }}
+                        @if(!is_null($subtest['passing_percentage']))
+                            ({{ number_format($subtest['passing_percentage'], 1) }}%)
+                        @endif
                     @endif
                 </div>
                 @endif
