@@ -10,7 +10,7 @@
                 // Calculate overall pass status based on subtest results
                 $isOverallPassed = isset($subtestResults) && count($subtestResults) > 0
                     ? collect($subtestResults)->every('is_passed')
-                    : (bool) optional($latestUserAnswers->first())->is_passed;
+                    : (isset($singleIsPassed) ? (bool) $singleIsPassed : (bool) optional($latestUserAnswers->first())->is_passed);
                 $firstUserAnswer = $latestUserAnswers->first();
                 @endphp
                 <div class="flex flex-col justify-center items-center">

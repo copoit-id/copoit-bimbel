@@ -1483,12 +1483,19 @@ class TryoutController extends Controller
 
             // Calculate per subtest results
             $subtestResults = $this->calculateSubtestResultsFromUserAnswers($latestUserAnswers);
+            $singleIsPassed = null;
         } else {
             // Single subtest calculation
             $singleUserAnswer = $latestUserAnswers->first();
             $rawScore = $this->calculateTotalScore($singleUserAnswer, $singleUserAnswer->tryoutDetail->type_subtest);
             $maxScore = $this->getMaxPossibleScoreForDetail($singleUserAnswer->tryout_detail_id, $singleUserAnswer->tryoutDetail->type_subtest);
             $subtestResults = null;
+            $singleIsPassed = $this->isSubtestPassed(
+                $singleUserAnswer->tryoutDetail,
+                $rawScore,
+                $maxScore,
+                $singleUserAnswer->tryoutDetail->type_subtest
+            );
         }
 
         // Calculate overall percentage
@@ -1508,6 +1515,7 @@ class TryoutController extends Controller
             'tryout',
             'tryoutDetails',
             'subtestResults',
+            'singleIsPassed',
             'overallPercentage'
         ));
     }

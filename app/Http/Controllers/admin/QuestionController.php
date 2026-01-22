@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\TryoutDetail;
 use App\Models\Tryout;
+use App\Models\UserAnswer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
@@ -338,6 +339,8 @@ class QuestionController extends Controller
                     break;
             }
 
+            $this->recalculateTryoutDetailScores($tryoutDetail);
+
             return redirect()->route('admin.question.index', $tryout_detail_id)
                 ->with('success', 'Soal berhasil diperbarui');
         } catch (\Exception $e) {
@@ -644,5 +647,227 @@ class QuestionController extends Controller
                 // TWK, TIU, dan tryout biasa: hanya jawaban yang benar-benar correct
                 return $isCorrect;
         }
+    }
+
+    private function recalculateTryoutDetailScores(TryoutDetail $tryoutDetail): void
+    {
+        $tryout = $tryoutDetail->tryout;
+        if ($tryout && ($tryout->requiresIrtScoring() || $tryout->is_toefl)) {
+            return;
+        }
+
+        $totalQuestions = Question::where('tryout_detail_id', $tryoutDetail->tryout_detail_id)->count();
+
+        UserAnswer::where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
+            ->whereIn('status', ['completed', 'pending_release'])
+            ->orderBy('user_answer_id')
+            ->chunkById(200, function ($answers) use ($tryoutDetail, $totalQuestions) {
+                foreach ($answers as $answer) {
+                    $answer->loadMissing(['userAnswerDetails.question', 'userAnswerDetails.questionOption', 'tryoutDetail']);
+                    $details = $answer->userAnswerDetails;
+                    $correctAnswers = 0;
+                    $wrongAnswers = 0;
+                    $totalScore = 0.0;
+
+                    foreach ($details as $detail) {
+                        $question = $detail->question;
+                        if (! $question) {
+                            continue;
+                        }
+
+                        $questionType = $question->question_type ?? 'multiple_choice';
+                        $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                        $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
+
+                        if ($detail->questionOption) {
+                            $newIsCorrect = $this->determineIsCorrect(
+                                $tryoutDetail->type_subtest,
+                                (bool) $detail->questionOption->is_correct,
+                                (float) ($detail->questionOption->weight ?? 0)
+                            );
+                            if ($detail->is_correct !== $newIsCorrect) {
+                                $detail->update(['is_correct' => $newIsCorrect]);
+                            }
+                        }
+
+                        switch ($questionType) {
+                            case 'matching':
+                                if ($detail->is_correct) {
+                                    $correctAnswers++;
+                                } else {
+                                    $wrongAnswers++;
+                                }
+
+                                $weight = (float) ($question->default_weight ?? 1);
+                                if ($weight <= 0) {
+                                    $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                                        ? count($question->metadata['matching_pairs'])
+                                        : 1;
+                                    $weight = max(1, $pairs);
+                                }
+                                $totalScore += $detail->is_correct ? $weight : 0;
+                                break;
+
+                            case 'short_answer':
+                            case 'essay':
+                                if ($pendingReview) {
+                                    continue 2;
+                                }
+
+                                if ($detail->is_correct) {
+                                    $correctAnswers++;
+                                } else {
+                                    $wrongAnswers++;
+                                }
+
+                                $weight = (float) ($question->default_weight ?? 1);
+                                $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                                break;
+
+                            case 'audio':
+                                continue 2;
+
+                            default:
+                                if ($detail->questionOption) {
+                                    if ($detail->is_correct) {
+                                        $correctAnswers++;
+                                    } else {
+                                        $wrongAnswers++;
+                                    }
+
+                                    switch ($tryoutDetail->type_subtest) {
+                                        case 'twk':
+                                        case 'tiu':
+                                            $w = (float) ($detail->questionOption->weight ?? 0);
+                                            $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                            break;
+                                        case 'tkp':
+                                            $totalScore += (float) ($detail->questionOption->weight ?? 0);
+                                            break;
+                                        case 'writing':
+                                        case 'reading':
+                                        case 'listening':
+                                            $w = (float) ($detail->questionOption->weight ?? 0);
+                                            $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                            break;
+                                        default:
+                                            $w = (float) ($detail->questionOption->weight ?? 0);
+                                            $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                            break;
+                                    }
+                                }
+                                break;
+                        }
+                    }
+
+                    $unanswered = max(0, $totalQuestions - $details->count());
+                    $maxScore = $this->getMaxPossibleScoreForDetail($tryoutDetail->tryout_detail_id, $tryoutDetail->type_subtest);
+                    $percentage = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
+                    $isPassed = $this->isSubtestPassed($tryoutDetail, $totalScore, $maxScore, $tryoutDetail->type_subtest);
+
+                    $answer->update([
+                        'correct_answers' => $correctAnswers,
+                        'wrong_answers' => $wrongAnswers,
+                        'unanswered' => $unanswered,
+                        'score' => $percentage,
+                        'is_passed' => $isPassed,
+                    ]);
+                }
+            }, 'user_answer_id');
+    }
+
+    private function getMaxPossibleScoreForDetail(int $tryoutDetailId, string $type_subtest): float
+    {
+        $questions = Question::where('tryout_detail_id', $tryoutDetailId)
+            ->with('questionOptions')
+            ->get();
+
+        if ($questions->isEmpty()) {
+            return 0;
+        }
+
+        $total = 0.0;
+
+        foreach ($questions as $question) {
+            $questionType = $question->question_type ?? 'multiple_choice';
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 0);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
+                case 'audio':
+                    $total += (float) ($question->default_weight ?? 0);
+                    break;
+
+                default:
+                    $options = $question->questionOptions;
+                    switch ($type_subtest) {
+                        case 'tkp':
+                            $maxWeight = (float) ($options->max('weight') ?? 0);
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
+                            break;
+                        case 'twk':
+                        case 'tiu':
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 5;
+                            break;
+                        case 'writing':
+                        case 'reading':
+                        case 'listening':
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 10;
+                            break;
+                        default:
+                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
+                            $weightValue = (float) ($weight ?? 0);
+                            $total += $weightValue > 0 ? $weightValue : 1;
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        return $total;
+    }
+
+    private function getDefaultPassingScore(?string $type_subtest): int
+    {
+        return match ($type_subtest) {
+            'word', 'excel', 'ppt' => 70,
+            'teknis', 'social culture', 'management', 'interview' => 65,
+            default => 60,
+        };
+    }
+
+    private function isSubtestPassed($detail, float $rawScore, float $maxScore, ?string $type): bool
+    {
+        $passingScore = $detail?->passing_score ?? $this->getDefaultPassingScore($type);
+        if ($passingScore === null) {
+            return false;
+        }
+
+        $passingType = $detail?->passing_type ?? 'score';
+        if ($passingType === 'percentage') {
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            return $percentage >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
     }
 }
