@@ -398,11 +398,11 @@ class QuestionController extends Controller
             'option_e' => 'nullable|string',
             'correct_answer' => 'required|in:A,B,C,D,E',
             'use_custom_scores' => 'nullable|boolean',
-            'score_a' => 'nullable|numeric|min:0|max:5',
-            'score_b' => 'nullable|numeric|min:0|max:5',
-            'score_c' => 'nullable|numeric|min:0|max:5',
-            'score_d' => 'nullable|numeric|min:0|max:5',
-            'score_e' => 'nullable|numeric|min:0|max:5',
+            'score_a' => 'nullable|numeric',
+            'score_b' => 'nullable|numeric',
+            'score_c' => 'nullable|numeric',
+            'score_d' => 'nullable|numeric',
+            'score_e' => 'nullable|numeric',
         ];
 
         if ($questionType === 'true_false') {
