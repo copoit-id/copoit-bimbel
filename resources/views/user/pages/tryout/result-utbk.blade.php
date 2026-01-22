@@ -3,7 +3,7 @@
 @section('title', 'Hasil UTBK')
 
 @section('content')
-<div class="min-h-screen bg-gray-50 py-10">
+<div class="min-h-screen bg-gray-50 pt-30 pb-10">
     <div class="max-w-5xl mx-auto space-y-6">
         <div class="bg-white border border-border rounded-2xl p-8">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -16,6 +16,9 @@
                     <p class="text-sm text-gray-500">Nilai Total</p>
                     <p class="text-4xl font-bold text-primary">{{ number_format($totalScore) }}</p>
                     <p class="text-xs text-gray-400 mt-1">Skala 0 - 1000</p>
+                    <span class="inline-flex mt-2 px-3 py-1 rounded-full text-xs font-semibold {{ $overallPassed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                        {{ $overallPassed ? 'Lulus' : 'Tidak Lulus' }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -31,6 +34,7 @@
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Salah</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Kosong</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Skor Subtest</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -45,6 +49,11 @@
                             <td class="px-4 py-3 text-center text-sm text-gray-900">{{ $subtest['unanswered'] }}</td>
                             <td class="px-4 py-3 text-center">
                                 <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ number_format($subtest['score']) }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $subtest['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                    {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
+                                </span>
                             </td>
                         </tr>
                         @endforeach

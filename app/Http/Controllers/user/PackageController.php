@@ -501,6 +501,33 @@ class PackageController extends Controller
             $firstAnswer = $userAnswers->first();
             $lastAnswer = $userAnswers->sortByDesc('finished_at')->first();
 
+            if ($tryout->requiresIrtScoring()) {
+                $userAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
+                $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
+                    ->select('tryout_detail_id', \DB::raw('count(*) as total'))
+                    ->groupBy('tryout_detail_id')
+                    ->pluck('total', 'tryout_detail_id');
+
+                $totalCorrect = 0;
+                $totalWrong = 0;
+                $totalUnanswered = 0;
+                $isPassed = $userAnswers->every(function ($ua) {
+                    return $this->isUtbkSubtestPassed($ua->tryoutDetail, (float) ($ua->score ?? 0));
+                });
+
+                foreach ($userAnswers as $ua) {
+                    $answeredCount = $ua->userAnswerDetails->count();
+                    $correctCount = $ua->userAnswerDetails->where('is_correct', true)->count();
+                    $totalQuestions = (int) ($questionCounts[$ua->tryout_detail_id] ?? 0);
+
+                    $totalCorrect += $correctCount;
+                    $totalWrong += max(0, $answeredCount - $correctCount);
+                    $totalUnanswered += max(0, $totalQuestions - $answeredCount);
+                }
+
+                $totalScore = (float) ($firstAnswer->utbk_total_score ?? 0);
+                $finalPercentage = $totalScore / 10;
+            } else
             // Calculate total score untuk attempt ini
             if ($userAnswers->count() > 1) {
                 // SKD Full - hitung total dari semua subtest
@@ -639,6 +666,26 @@ class PackageController extends Controller
         }
 
         return $totalScore;
+    }
+
+    private function isUtbkSubtestPassed($detail, float $score): bool
+    {
+        if (! $detail) {
+            return false;
+        }
+
+        $passingScore = $detail->passing_score;
+        if ($passingScore === null) {
+            return false;
+        }
+
+        $passingType = $detail->passing_type ?? 'score';
+        if ($passingType === 'percentage') {
+            $percentage = ($score / 1000) * 100;
+            return $percentage >= $passingScore;
+        }
+
+        return $score >= $passingScore;
     }
 
     private function getMaxPossibleScore($type_subtest, $totalQuestions)
@@ -1164,6 +1211,10 @@ class PackageController extends Controller
                     $bestAttempt = $attemptGroups->map(function ($attempt) {
                         $representative = $attempt->first();
                         $score = (float) ($representative->utbk_total_score ?? 0);
+                        $attempt->loadMissing('tryoutDetail');
+                        $allPassed = $attempt->every(function ($ua) {
+                            return $this->isUtbkSubtestPassed($ua->tryoutDetail, (float) ($ua->score ?? 0));
+                        });
 
                         return [
                             'user' => $representative->user,
@@ -1174,7 +1225,7 @@ class PackageController extends Controller
                             'correct_answers' => $attempt->sum('correct_answers'),
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
-                            'is_passed' => null,
+                            'is_passed' => $allPassed,
                         ];
                     })->filter()->sortByDesc('raw_score')->values()->first();
 
@@ -1358,44 +1409,65 @@ class PackageController extends Controller
             return !empty($meta['pending_review']);
         })->count();
 
-        // Calculate overall statistics
-        $totalQuestions = $latestUserAnswers->sum(function ($ua) {
-            return \App\Models\Question::where('tryout_detail_id', $ua->tryout_detail_id)->count();
-        });
-        $correctAnswers = $latestUserAnswers->sum('correct_answers');
-        $wrongAnswers = $latestUserAnswers->sum('wrong_answers');
-        $unanswered = $totalQuestions - $latestUserAnswers->sum(function ($ua) {
-            return $ua->userAnswerDetails->count();
-        });
+        $latestUserAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
+        $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $latestUserAnswers->pluck('tryout_detail_id'))
+            ->select('tryout_detail_id', \DB::raw('count(*) as total'))
+            ->groupBy('tryout_detail_id')
+            ->pluck('total', 'tryout_detail_id');
 
-        // Calculate total score
-        if ($tryoutDetails->count() > 1) {
-            // SKD Full calculation
-            $totalScore = 0;
-            $maxScore = 0;
+        if ($tryout->requiresIrtScoring()) {
+            $totalQuestions = $questionCounts->sum();
+            $answeredCount = $latestUserAnswers->sum(fn ($ua) => $ua->userAnswerDetails->count());
+            $correctAnswers = $latestUserAnswers->sum(fn ($ua) => $ua->userAnswerDetails->where('is_correct', true)->count());
+            $wrongAnswers = max(0, $answeredCount - $correctAnswers);
+            $unanswered = max(0, $totalQuestions - $answeredCount);
 
-            foreach ($latestUserAnswers as $userAnswer) {
-                $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
-                $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
-                    $userAnswer->tryout_detail_id,
-                    $userAnswer->tryoutDetail->type_subtest
-                );
-
-                $totalScore += $subtestScore;
-                $maxScore += $maxSubtestScore;
-            }
+            $totalScore = (float) ($latestUserAnswers->first()->utbk_total_score ?? 0);
+            $maxScore = 1000;
+            $percentage = $totalScore / 10;
+            $isPassed = $latestUserAnswers->every(function ($ua) {
+                return $this->isUtbkSubtestPassed($ua->tryoutDetail, (float) ($ua->score ?? 0));
+            });
         } else {
-            // Single subtest
-            $singleUserAnswer = $latestUserAnswers->first();
-            $totalScore = $this->calculateTotalScore($singleUserAnswer, $singleUserAnswer->tryoutDetail->type_subtest);
-            $maxScore = $this->getMaxPossibleScoreForDetail(
-                $singleUserAnswer->tryout_detail_id,
-                $singleUserAnswer->tryoutDetail->type_subtest
-            );
-        }
+            // Calculate overall statistics
+            $totalQuestions = $latestUserAnswers->sum(function ($ua) use ($questionCounts) {
+                return (int) ($questionCounts[$ua->tryout_detail_id] ?? 0);
+            });
+            $correctAnswers = $latestUserAnswers->sum('correct_answers');
+            $wrongAnswers = $latestUserAnswers->sum('wrong_answers');
+            $unanswered = $totalQuestions - $latestUserAnswers->sum(function ($ua) {
+                return $ua->userAnswerDetails->count();
+            });
 
-        $percentage = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
-        $isPassed = $this->isAttemptPassed($latestUserAnswers, $tryoutDetails->count());
+            // Calculate total score
+            if ($tryoutDetails->count() > 1) {
+                // SKD Full calculation
+                $totalScore = 0;
+                $maxScore = 0;
+
+                foreach ($latestUserAnswers as $userAnswer) {
+                    $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+                    $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
+                        $userAnswer->tryout_detail_id,
+                        $userAnswer->tryoutDetail->type_subtest
+                    );
+
+                    $totalScore += $subtestScore;
+                    $maxScore += $maxSubtestScore;
+                }
+            } else {
+                // Single subtest
+                $singleUserAnswer = $latestUserAnswers->first();
+                $totalScore = $this->calculateTotalScore($singleUserAnswer, $singleUserAnswer->tryoutDetail->type_subtest);
+                $maxScore = $this->getMaxPossibleScoreForDetail(
+                    $singleUserAnswer->tryout_detail_id,
+                    $singleUserAnswer->tryoutDetail->type_subtest
+                );
+            }
+
+            $percentage = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
+            $isPassed = $this->isAttemptPassed($latestUserAnswers, $tryoutDetails->count());
+        }
 
         $overallStats = [
             'total_questions' => $totalQuestions,
@@ -1411,32 +1483,58 @@ class PackageController extends Controller
 
         $subtestSummaries = [];
         if ($tryoutDetails->count() > 1) {
-            $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
-                $type = $userAnswer->tryoutDetail->type_subtest;
-                $score = $this->calculateTotalScore($userAnswer, $type);
-                $max = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
-                $percentage = $max > 0 ? ($score / $max) * 100 : 0;
-                $detail = $userAnswer->tryoutDetail;
-                $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
-                $passingType = $detail->passing_type ?? 'score';
-                $passingPercentage = $passingType === 'percentage'
-                    ? $passingScore
-                    : ($max > 0 ? ($passingScore / $max) * 100 : null);
+            if ($tryout->requiresIrtScoring()) {
+                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                    $detail = $userAnswer->tryoutDetail;
+                    $type = $detail->type_subtest;
+                    $score = (float) ($userAnswer->score ?? 0);
+                    $max = 1000;
+                    $percentage = $score / 10;
+                    $passingScore = $detail->passing_score ?? null;
+                    $passingType = $detail->passing_type ?? 'score';
 
-                return [
-                    'type' => $type,
-                    'name' => $this->getSubtestName($type),
-                    'score' => $score,
-                    'max_score' => $max,
-                    'percentage' => $percentage,
-                    'passing_score' => $passingScore,
-                    'passing_type' => $passingType,
-                    'passing_percentage' => $passingPercentage,
-                    'is_passed' => $this->isSubtestPassed($detail, $score, $max, $type),
-                    'correct_answers' => $userAnswer->correct_answers ?? 0,
-                    'wrong_answers' => $userAnswer->wrong_answers ?? 0,
-                ];
-            })->values();
+                    return [
+                        'type' => $type,
+                        'name' => $this->getSubtestName($type),
+                        'score' => $score,
+                        'max_score' => $max,
+                        'percentage' => $percentage,
+                        'passing_score' => $passingScore,
+                        'passing_type' => $passingType,
+                        'passing_percentage' => $passingType === 'percentage' ? $passingScore : null,
+                        'is_passed' => $this->isUtbkSubtestPassed($detail, $score),
+                        'correct_answers' => $userAnswer->userAnswerDetails->where('is_correct', true)->count(),
+                        'wrong_answers' => max(0, $userAnswer->userAnswerDetails->count() - $userAnswer->userAnswerDetails->where('is_correct', true)->count()),
+                    ];
+                })->values();
+            } else {
+                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                    $type = $userAnswer->tryoutDetail->type_subtest;
+                    $score = $this->calculateTotalScore($userAnswer, $type);
+                    $max = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
+                    $percentage = $max > 0 ? ($score / $max) * 100 : 0;
+                    $detail = $userAnswer->tryoutDetail;
+                    $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
+                    $passingType = $detail->passing_type ?? 'score';
+                    $passingPercentage = $passingType === 'percentage'
+                        ? $passingScore
+                        : ($max > 0 ? ($passingScore / $max) * 100 : null);
+
+                    return [
+                        'type' => $type,
+                        'name' => $this->getSubtestName($type),
+                        'score' => $score,
+                        'max_score' => $max,
+                        'percentage' => $percentage,
+                        'passing_score' => $passingScore,
+                        'passing_type' => $passingType,
+                        'passing_percentage' => $passingPercentage,
+                        'is_passed' => $this->isSubtestPassed($detail, $score, $max, $type),
+                        'correct_answers' => $userAnswer->correct_answers ?? 0,
+                        'wrong_answers' => $userAnswer->wrong_answers ?? 0,
+                    ];
+                })->values();
+            }
         }
 
         $token = $token;
