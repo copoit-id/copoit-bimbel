@@ -10,7 +10,7 @@
                 // Calculate overall pass status based on subtest results
                 $isOverallPassed = isset($subtestResults) && count($subtestResults) > 0
                     ? collect($subtestResults)->every('is_passed')
-                    : (bool) optional($latestUserAnswers->first())->is_passed;
+                    : (isset($singleIsPassed) ? (bool) $singleIsPassed : (bool) optional($latestUserAnswers->first())->is_passed);
                 $firstUserAnswer = $latestUserAnswers->first();
                 @endphp
                 <div class="flex flex-col justify-center items-center">
@@ -82,9 +82,19 @@
                                 <p class="font-medium text-dark">{{ $result['name'] }}</p>
                                 {{-- <p class="text-sm text-gray-600">{{ $result['correct_answers'] }}/{{
                                     $result['total_questions'] }} benar</p> --}}
-                                <div class="font-bold text-dark">
-                                    {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                <div class="text-dark flex items-center gap-2">
+                                    <p class="font-bold">  {{ $result['raw_score'] }}/{{ $result['max_score'] }}</p>
+                                    <p>-</p>
+                                    <p class="text-sm text-gray-500">
+                                    Passing grade:
+                                    @if(($result['passing_type'] ?? 'score') === 'percentage')
+                                        {{ number_format($result['passing_score'] ?? 0, 1) }}%
+                                    @else
+                                        {{ $result['passing_score'] ?? '-' }}
+                                    @endif
+                                </p>
                                 </div>
+                               
                             </div>
                         </div>
                     </div>

@@ -76,8 +76,15 @@
             <div>
                 <h2 class="text-xl font-bold text-gray-900">
                 </h2>
-                <p class="text-gray-600">{{ $detail->questions->count() }} soal • {{ $detail->duration }} menit •
-                    Passing Score: {{ $detail->passing_score }}</p>
+                <p class="text-gray-600">
+                    {{ $detail->questions->count() }} soal • {{ $detail->duration }} menit •
+                    Passing Score:
+                    @if(($detail->passing_type ?? 'score') === 'percentage')
+                        {{ number_format($detail->passing_score ?? 0, 1) }}%
+                    @else
+                        {{ $detail->passing_score }}
+                    @endif
+                </p>
             </div>
             <div class="flex gap-2">
                 <a href="{{ route('admin.question.index', $detail->tryout_detail_id) }}"

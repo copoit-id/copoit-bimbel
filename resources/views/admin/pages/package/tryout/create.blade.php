@@ -93,9 +93,8 @@
                     </div>
 
                     <div>
-                        <label for="passing_score_total" class="block text-sm font-medium text-gray-700 mb-2">Passing
-                            Score
-                            (%) <span class="text-red-500">*</span></label>
+                    <label for="passing_score_total" class="block text-sm font-medium text-gray-700 mb-2">Passing
+                            Score <span class="text-red-500">*</span></label>
                         <input type="number" id="passing_score_total" name="passing_score_total"
                             value="{{ old('passing_score_total', 65) }}" min="0" max="100" step="0.01" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -131,12 +130,22 @@
                                 </div>
                                 <div>
                                     <label for="passing_score_twk" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Passing Score (%) <span class="text-red-500">*</span>
+                                        Passing Score <span class="text-red-500">*</span>
                                     </label>
                                     <input type="number" id="passing_score_twk" name="passing_score_twk"
-                                        value="{{ old('passing_score_twk', 65) }}" min="0" max="100" step="0.01"
+                                        value="{{ old('passing_score_twk', 65) }}" min="0" max="1000" step="0.01"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                         placeholder="65.00">
+                                </div>
+                                <div>
+                                    <label for="passing_type_twk" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipe Passing <span class="text-red-500">*</span>
+                                    </label>
+                                    <select id="passing_type_twk" name="passing_type_twk"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="score" @selected(old('passing_type_twk', 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_twk', 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -156,12 +165,22 @@
                                 </div>
                                 <div>
                                     <label for="passing_score_tiu" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Passing Score (%) <span class="text-red-500">*</span>
+                                        Passing Score <span class="text-red-500">*</span>
                                     </label>
                                     <input type="number" id="passing_score_tiu" name="passing_score_tiu"
-                                        value="{{ old('passing_score_tiu', 65) }}" min="0" max="100" step="0.01"
+                                        value="{{ old('passing_score_tiu', 65) }}" min="0" max="1000" step="0.01"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                         placeholder="65.00">
+                                </div>
+                                <div>
+                                    <label for="passing_type_tiu" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipe Passing <span class="text-red-500">*</span>
+                                    </label>
+                                    <select id="passing_type_tiu" name="passing_type_tiu"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="score" @selected(old('passing_type_tiu', 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_tiu', 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -181,12 +200,22 @@
                                 </div>
                                 <div>
                                     <label for="passing_score_tkp" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Passing Score (%) <span class="text-red-500">*</span>
+                                        Passing Score <span class="text-red-500">*</span>
                                     </label>
                                     <input type="number" id="passing_score_tkp" name="passing_score_tkp"
-                                        value="{{ old('passing_score_tkp', 65) }}" min="0" max="100" step="0.01"
+                                        value="{{ old('passing_score_tkp', 65) }}" min="0" max="1000" step="0.01"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                         placeholder="65.00">
+                                </div>
+                                <div>
+                                    <label for="passing_type_tkp" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipe Passing <span class="text-red-500">*</span>
+                                    </label>
+                                    <select id="passing_type_tkp" name="passing_type_tkp"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="score" @selected(old('passing_type_tkp', 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_tkp', 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -207,12 +236,23 @@
                                 <div>
                                     <label for="passing_score_general"
                                         class="block text-sm font-medium text-gray-700 mb-2">
-                                        Passing Score (%) <span class="text-red-500">*</span>
+                                        Passing Score <span class="text-red-500">*</span>
                                     </label>
                                     <input type="number" id="passing_score_general" name="passing_score_general"
-                                        value="{{ old('passing_score_general', 65) }}" min="0" max="100" step="0.01"
+                                        value="{{ old('passing_score_general', 65) }}" min="0" max="1000" step="0.01"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                         placeholder="65.00">
+                                </div>
+                                <div>
+                                    <label for="passing_type_general"
+                                        class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipe Passing <span class="text-red-500">*</span>
+                                    </label>
+                                    <select id="passing_type_general" name="passing_type_general"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="score" @selected(old('passing_type_general', 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_general', 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -234,14 +274,25 @@
                                 <div>
                                     <label for="passing_score_certification"
                                         class="block text-sm font-medium text-gray-700 mb-2">
-                                        Passing Score (%) <span class="text-red-500">*</span>
+                                        Passing Score <span class="text-red-500">*</span>
                                     </label>
                                     <input type="number" id="passing_score_certification"
                                         name="passing_score_certification"
-                                        value="{{ old('passing_score_certification', 70) }}" min="0" max="100"
+                                        value="{{ old('passing_score_certification', 70) }}" min="0" max="1000"
                                         step="0.01"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                         placeholder="70.00">
+                                </div>
+                                <div>
+                                    <label for="passing_type_certification"
+                                        class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipe Passing <span class="text-red-500">*</span>
+                                    </label>
+                                    <select id="passing_type_certification" name="passing_type_certification"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="score" @selected(old('passing_type_certification', 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_certification', 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -422,8 +473,68 @@
             durationTotal.value = total;
         }
 
+        function syncPassingScoreLimit(selectEl) {
+            if (!selectEl || !selectEl.name) return;
+            const scoreName = selectEl.name.replace('passing_type_', 'passing_score_');
+            const scoreInput = document.querySelector(`input[name="${scoreName}"]`);
+            if (!scoreInput) return;
+
+            if (!scoreInput.dataset.originalMax) {
+                const originalMax = scoreInput.getAttribute('max') ?? '';
+                scoreInput.dataset.originalMax = originalMax;
+            }
+
+            if (selectEl.value === 'percentage') {
+                scoreInput.setAttribute('max', '100');
+            } else if (scoreInput.dataset.originalMax) {
+                scoreInput.setAttribute('max', scoreInput.dataset.originalMax);
+            } else {
+                scoreInput.removeAttribute('max');
+            }
+
+            clampPassingScoreIfNeeded(scoreInput, selectEl.value);
+        }
+
+        function clampPassingScoreIfNeeded(scoreInput, passingType) {
+            if (!scoreInput) return;
+            if (passingType !== 'percentage') {
+                scoreInput.setCustomValidity('');
+                return;
+            }
+
+            const value = parseFloat(scoreInput.value);
+            if (!Number.isNaN(value) && value > 100) {
+                scoreInput.value = '100';
+                scoreInput.setCustomValidity('Maksimal 100 untuk persentase.');
+            } else {
+                scoreInput.setCustomValidity('');
+            }
+        }
+
+        function bindPassingScoreInputs() {
+            const scoreInputs = document.querySelectorAll('input[name^="passing_score_"]');
+            scoreInputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    const typeName = input.name.replace('passing_score_', 'passing_type_');
+                    const typeSelect = document.querySelector(`select[name="${typeName}"]`);
+                    clampPassingScoreIfNeeded(input, typeSelect?.value ?? 'score');
+                });
+            });
+        }
+
+        function syncAllPassingScoreLimits() {
+            const passingSelects = document.querySelectorAll('select[name^="passing_type_"]');
+            passingSelects.forEach(selectEl => syncPassingScoreLimit(selectEl));
+        }
+
         // Event listeners
         typeSelect.addEventListener('change', toggleDurationFields);
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.matches('select[name^="passing_type_"]')) {
+                syncPassingScoreLimit(e.target);
+            }
+        });
+        bindPassingScoreInputs();
 
         // Add event listeners to all duration inputs for real-time calculation
         // Gunakan event delegation karena input bisa muncul/hilang secara dinamis
@@ -435,6 +546,7 @@
 
         // Initialize on page load
         toggleDurationFields();
+        syncAllPassingScoreLimits();
 
         console.log('Create tryout form scripts loaded');
     });

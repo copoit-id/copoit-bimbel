@@ -91,7 +91,15 @@
                     {{ $summary['correct_answers'] }} benar, {{ $summary['wrong_answers'] }} salah
                 </div>
                 <div class="mt-1 text-xs text-gray-500 text-center">
-                    Passing grade: {{ $summary['passing_score'] ?? '-' }}
+                    Passing grade:
+                    @if(($summary['passing_type'] ?? 'score') === 'percentage')
+                        {{ number_format($summary['passing_score'] ?? 0, 1) }}%
+                    @else
+                        {{ $summary['passing_score'] ?? '-' }}
+                        @if(!is_null($summary['passing_percentage'] ?? null))
+                            ({{ number_format($summary['passing_percentage'], 1) }}%)
+                        @endif
+                    @endif
                 </div>
             </div>
             @endforeach

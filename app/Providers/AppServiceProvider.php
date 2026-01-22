@@ -69,11 +69,6 @@ class AppServiceProvider extends ServiceProvider
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
 
-        // Force-hide modules per client request
-        $defaults['certificate_management_enabled'] = false;
-        $defaults['class_management_enabled'] = false;
-        $defaults['utbk_enabled'] = false;
-
         $logoUrl = $this->makeBrandAssetUrl($defaults['logo'], $defaultAsset);
         $faviconUrl = $this->makeBrandAssetUrl($defaults['favicon'] ?? $defaults['logo'], $defaultAsset);
 

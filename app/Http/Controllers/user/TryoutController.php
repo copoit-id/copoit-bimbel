@@ -1232,9 +1232,17 @@ class TryoutController extends Controller
             $this->updateSingleSubtestStats($userAnswer);
 
             // Determine if passed untuk subtest ini
-            $passingScore = $userAnswer->tryoutDetail->passing_score ?? 60;
             $rawScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
-            $isPassed = $rawScore >= $passingScore;
+            $maxScore = $this->getMaxPossibleScoreForDetail(
+                $userAnswer->tryout_detail_id,
+                $userAnswer->tryoutDetail->type_subtest
+            );
+            $isPassed = $this->isSubtestPassed(
+                $userAnswer->tryoutDetail,
+                $rawScore,
+                $maxScore,
+                $userAnswer->tryoutDetail->type_subtest
+            );
 
             // Update user answer
             $userAnswer->update([
@@ -1427,18 +1435,40 @@ class TryoutController extends Controller
             return $order[$type] ?? 99;
         });
 
+        $sortedAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
+
         $subtests = $sortedAnswers->map(function ($answer) {
+            $detail = $answer->tryoutDetail;
+            $passingScore = $detail->passing_score ?? null;
+            $passingType = $detail->passing_type ?? 'score';
+            $subtestScore = (int) round((float) ($answer->score ?? 0));
+            $percentage = $passingType === 'percentage' ? ($subtestScore / 1000) * 100 : null;
+            $isPassed = !is_null($passingScore)
+                ? ($passingType === 'percentage'
+                    ? ($percentage >= $passingScore)
+                    : ($subtestScore >= $passingScore))
+                : false;
+            $totalQuestions = Question::where('tryout_detail_id', $answer->tryout_detail_id)->count();
+            $answeredCount = $answer->userAnswerDetails->count();
+            $correctCount = $answer->userAnswerDetails->where('is_correct', true)->count();
+            $wrongCount = max(0, $answeredCount - $correctCount);
+            $unansweredCount = max(0, $totalQuestions - $answeredCount);
+
             return [
                 'type' => $answer->tryoutDetail->type_subtest,
                 'name' => $this->getSubtestName($answer->tryoutDetail->type_subtest),
-                'correct' => $answer->correct_answers ?? 0,
-                'wrong' => $answer->wrong_answers ?? 0,
-                'unanswered' => $answer->unanswered ?? 0,
-                'score' => (int) round((float) ($answer->score ?? 0)),
+                'correct' => $correctCount,
+                'wrong' => $wrongCount,
+                'unanswered' => $unansweredCount,
+                'score' => $subtestScore,
+                'passing_score' => $passingScore,
+                'passing_type' => $passingType,
+                'is_passed' => $isPassed,
             ];
         })->values();
 
         $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
+        $overallPassed = $subtests->every('is_passed');
 
         return view('user.pages.tryout.result-utbk', [
             'package' => $package,
@@ -1446,6 +1476,7 @@ class TryoutController extends Controller
             'subtests' => $subtests,
             'totalScore' => $totalScore,
             'attemptToken' => $latestAttemptToken,
+            'overallPassed' => $overallPassed,
         ]);
     }
 
@@ -1475,12 +1506,19 @@ class TryoutController extends Controller
 
             // Calculate per subtest results
             $subtestResults = $this->calculateSubtestResultsFromUserAnswers($latestUserAnswers);
+            $singleIsPassed = null;
         } else {
             // Single subtest calculation
             $singleUserAnswer = $latestUserAnswers->first();
             $rawScore = $this->calculateTotalScore($singleUserAnswer, $singleUserAnswer->tryoutDetail->type_subtest);
             $maxScore = $this->getMaxPossibleScoreForDetail($singleUserAnswer->tryout_detail_id, $singleUserAnswer->tryoutDetail->type_subtest);
             $subtestResults = null;
+            $singleIsPassed = $this->isSubtestPassed(
+                $singleUserAnswer->tryoutDetail,
+                $rawScore,
+                $maxScore,
+                $singleUserAnswer->tryoutDetail->type_subtest
+            );
         }
 
         // Calculate overall percentage
@@ -1500,6 +1538,7 @@ class TryoutController extends Controller
             'tryout',
             'tryoutDetails',
             'subtestResults',
+            'singleIsPassed',
             'overallPercentage'
         ));
     }
@@ -1535,8 +1574,11 @@ class TryoutController extends Controller
 
             // Set passing score based on subtest type
             $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
-            $isPassed = $passingScore !== null ? $subtestScore >= $passingScore : false;
-            $passingScorePercentage = $passingScore;
+            $passingType = $detail->passing_type ?? 'score';
+            $isPassed = $this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest);
+            $passingScorePercentage = $passingType === 'percentage'
+                ? $passingScore
+                : ($maxSubtestScore > 0 ? ($passingScore / $maxSubtestScore) * 100 : null);
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
@@ -1549,10 +1591,11 @@ class TryoutController extends Controller
                 'max_score' => $maxSubtestScore,
                 'percentage' => $percentage,
                 'passing_score' => $passingScore,
-            'passing_percentage' => $passingScorePercentage,
-            'is_passed' => $isPassed
-        ];
-    }
+                'passing_type' => $passingType,
+                'passing_percentage' => $passingScorePercentage,
+                'is_passed' => $isPassed
+            ];
+        }
 
         return $subtestResults;
     }
@@ -1575,6 +1618,22 @@ class TryoutController extends Controller
             default:
                 return 60; // Default: 60%
         }
+    }
+
+    private function isSubtestPassed($detail, float $rawScore, float $maxScore, string $type): bool
+    {
+        $passingScore = $detail?->passing_score ?? $this->getDefaultPassingScore($type);
+        if ($passingScore === null) {
+            return false;
+        }
+
+        $passingType = $detail?->passing_type ?? 'score';
+        if ($passingType === 'percentage') {
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            return $percentage >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
     }
 
 
@@ -1722,17 +1781,20 @@ class TryoutController extends Controller
 
         $unanswered = $totalQuestions - $userAnswerDetails->count();
 
-        // Calculate percentage
-        $maxScore = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $userAnswer->tryoutDetail->type_subtest);
-        $percentage = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
-
-        // Update the User
-        $userAnswer->update([
+        $tryout = $userAnswer->tryoutDetail?->tryout;
+        $payload = [
             'correct_answers' => $correctAnswers,
             'wrong_answers' => $wrongAnswers,
             'unanswered' => $unanswered,
-            'score' => $percentage
-        ]);
+        ];
+
+        if (! $tryout || ! $tryout->requiresIrtScoring()) {
+            // Non-UTBK: simpan score sebagai persentase (skala 0-100)
+            $maxScore = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $userAnswer->tryoutDetail->type_subtest);
+            $payload['score'] = $maxScore > 0 ? ($totalScore / $maxScore) * 100 : 0;
+        }
+
+        $userAnswer->update($payload);
     }
 
     // Maksimum skor dinamis berdasarkan bobot pada template

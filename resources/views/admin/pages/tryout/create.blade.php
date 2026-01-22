@@ -236,6 +236,7 @@
                                 $utbkDetail = isset($tryout) ? $tryout->tryoutDetails->firstWhere('type_subtest', $slug) : null;
                                 $durationValue = old('duration_'.$slug, $utbkDetail?->duration ?? $config['default_duration']);
                                 $passingValue = old('passing_score_'.$slug, $utbkDetail?->passing_score ?? $config['default_passing']);
+                                $passingType = old('passing_type_'.$slug, $utbkDetail?->passing_type ?? 'score');
                             @endphp
                             <div class="space-y-2">
                                 <h5 class="font-medium text-sm text-gray-700">{{ $config['label'] }}</h5>
@@ -250,6 +251,14 @@
                                     <input type="number" name="passing_score_{{ $slug }}" min="0" max="100" step="0.1"
                                         value="{{ $passingValue }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_{{ $slug }}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected($passingType === 'score')>Skor</option>
+                                        <option value="percentage" @selected($passingType === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                             @endforeach
@@ -267,6 +276,7 @@
                                 $singleDetail = isset($tryout) ? $tryout->tryoutDetails->firstWhere('type_subtest', $slug) : null;
                                 $singleDuration = old('duration_'.$slug, $singleDetail?->duration ?? $config['default_duration']);
                                 $singlePassing = old('passing_score_'.$slug, $singleDetail?->passing_score ?? $config['default_passing']);
+                                $singlePassingType = old('passing_type_'.$slug, $singleDetail?->passing_type ?? 'score');
                             @endphp
                             <div class="space-y-2 utbk-single-card hidden" data-utbk-single-card="{{ $slug }}">
                                 <h5 class="font-medium text-sm text-gray-700">{{ $config['label'] }}</h5>
@@ -281,6 +291,14 @@
                                     <input type="number" name="passing_score_{{ $slug }}" min="0" max="100" step="0.1"
                                         value="{{ $singlePassing }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_{{ $slug }}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected($singlePassingType === 'score')>Skor</option>
+                                        <option value="percentage" @selected($singlePassingType === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                             @endforeach
@@ -306,6 +324,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'twk')->first()?->passing_score : old('passing_score_twk', 65) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_twk"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_twk', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'twk')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_twk', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'twk')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- TIU -->
@@ -323,6 +349,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tiu')->first()?->passing_score : old('passing_score_tiu', 80) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_tiu"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_tiu', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tiu')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_tiu', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tiu')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- TKP -->
@@ -339,6 +373,14 @@
                                     <input type="number" name="passing_score_tkp" min="0" max="300" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tkp')->first()?->passing_score : old('passing_score_tkp', 166) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_tkp"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_tkp', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tkp')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_tkp', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tkp')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -363,6 +405,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'listening')->first()?->passing_score : old('passing_score_listening', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_listening"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_listening', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'listening')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_listening', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'listening')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Structure and Written Expression -->
@@ -380,6 +430,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'writing')->first()?->passing_score : old('passing_score_writing', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_writing"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_writing', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'writing')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_writing', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'writing')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Reading Comprehension -->
@@ -396,6 +454,14 @@
                                     <input type="number" name="passing_score_reading" min="0" max="100" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'reading')->first()?->passing_score : old('passing_score_reading', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_reading"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_reading', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'reading')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_reading', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'reading')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -420,6 +486,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'teknis')->first()?->passing_score : old('passing_score_teknis', 65) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_teknis"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_teknis', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'teknis')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_teknis', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'teknis')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Sosial Kultural -->
@@ -439,6 +513,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'social culture')->first()?->passing_score : old('passing_score_social_culture', 65) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_social_culture"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_social_culture', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'social culture')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_social_culture', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'social culture')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Wawancara -->
@@ -455,6 +537,14 @@
                                     <input type="number" name="passing_score_interview" min="0" max="40" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'interview')->first()?->passing_score : old('passing_score_interview', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_interview"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_interview', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'interview')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_interview', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'interview')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -479,6 +569,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_score : old('passing_score_word', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_word"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_word', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_word', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- Excel -->
@@ -496,6 +594,14 @@
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_score : old('passing_score_excel', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_excel"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_excel', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_excel', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <!-- PowerPoint -->
@@ -512,6 +618,14 @@
                                     <input type="number" name="passing_score_ppt" min="0" max="100" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_score : old('passing_score_ppt', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                    <select name="passing_type_ppt"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="score" @selected(old('passing_type_ppt', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_ppt', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -533,6 +647,14 @@
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_score : old('passing_score_word_single', 70) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Tipe Passing</label>
+                                <select name="passing_type_word_single"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="score" @selected(old('passing_type_word_single', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                    <option value="percentage" @selected(old('passing_type_word_single', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -550,6 +672,14 @@
                                 <input type="number" name="passing_score_excel_single" min="0" max="100" step="0.1"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_score : old('passing_score_excel_single', 70) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Tipe Passing</label>
+                                <select name="passing_type_excel_single"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="score" @selected(old('passing_type_excel_single', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                    <option value="percentage" @selected(old('passing_type_excel_single', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -569,6 +699,14 @@
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_score : old('passing_score_ppt_single', 70) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Tipe Passing</label>
+                                <select name="passing_type_ppt_single"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="score" @selected(old('passing_type_ppt_single', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                    <option value="percentage" @selected(old('passing_type_ppt_single', isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -587,6 +725,14 @@
                                 <input type="number" name="passing_score_general" min="0" max="100" step="0.1"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->first()?->passing_score : old('passing_score_general', 60) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Tipe Passing</label>
+                                <select name="passing_type_general"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="score" @selected(old('passing_type_general', isset($tryout) ? $tryout->tryoutDetails->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                    <option value="percentage" @selected(old('passing_type_general', isset($tryout) ? $tryout->tryoutDetails->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -708,30 +854,97 @@
       if (selectedType === 'word') {
         const d = document.querySelector('input[name="duration_word_single"]');
         const s = document.querySelector('input[name="passing_score_word_single"]');
+        const p = document.querySelector('select[name="passing_type_word_single"]');
         if (d) d.name = 'duration_word';
         if (s) s.name = 'passing_score_word';
+        if (p) p.name = 'passing_type_word';
       } else if (selectedType === 'excel') {
         const d = document.querySelector('input[name="duration_excel_single"]');
         const s = document.querySelector('input[name="passing_score_excel_single"]');
+        const p = document.querySelector('select[name="passing_type_excel_single"]');
         if (d) d.name = 'duration_excel';
         if (s) s.name = 'passing_score_excel';
+        if (p) p.name = 'passing_type_excel';
       } else if (selectedType === 'ppt') {
         const d = document.querySelector('input[name="duration_ppt_single"]');
         const s = document.querySelector('input[name="passing_score_ppt_single"]');
+        const p = document.querySelector('select[name="passing_type_ppt_single"]');
         if (d) d.name = 'duration_ppt';
         if (s) s.name = 'passing_score_ppt';
+        if (p) p.name = 'passing_type_ppt';
       }
+    }
+
+    function syncPassingScoreLimit(selectEl) {
+      if (!selectEl || !selectEl.name) return;
+      const scoreName = selectEl.name.replace('passing_type_', 'passing_score_');
+      const scoreInput = root.querySelector(`input[name="${scoreName}"]`);
+      if (!scoreInput) return;
+
+      if (!scoreInput.dataset.originalMax) {
+        const originalMax = scoreInput.getAttribute('max') ?? '';
+        scoreInput.dataset.originalMax = originalMax;
+      }
+
+      if (selectEl.value === 'percentage') {
+        scoreInput.setAttribute('max', '100');
+      } else if (scoreInput.dataset.originalMax) {
+        scoreInput.setAttribute('max', scoreInput.dataset.originalMax);
+      } else {
+        scoreInput.removeAttribute('max');
+      }
+
+      clampPassingScoreIfNeeded(scoreInput, selectEl.value);
+    }
+
+    function clampPassingScoreIfNeeded(scoreInput, passingType) {
+      if (!scoreInput) return;
+      if (passingType !== 'percentage') {
+        scoreInput.setCustomValidity('');
+        return;
+      }
+
+      const value = parseFloat(scoreInput.value);
+      if (!Number.isNaN(value) && value > 100) {
+        scoreInput.value = '100';
+        scoreInput.setCustomValidity('Maksimal 100 untuk persentase.');
+      } else {
+        scoreInput.setCustomValidity('');
+      }
+    }
+
+    function bindPassingScoreInputs() {
+      const scoreInputs = root.querySelectorAll('input[name^="passing_score_"]');
+      scoreInputs.forEach(input => {
+        input.addEventListener('input', () => {
+          const typeName = input.name.replace('passing_score_', 'passing_type_');
+          const typeSelect = root.querySelector(`select[name="${typeName}"]`);
+          clampPassingScoreIfNeeded(input, typeSelect?.value ?? 'score');
+        });
+      });
+    }
+
+    function syncAllPassingScoreLimits() {
+      const passingSelects = root.querySelectorAll('select[name^="passing_type_"]');
+      passingSelects.forEach(selectEl => syncPassingScoreLimit(selectEl));
     }
 
     window.__tryoutChange = function () {
       showConfigSection();
       updateFieldNames();
+      syncAllPassingScoreLimits();
     };
 
     window.__tryoutChange();
 
     // bind event
     typeSelect.addEventListener('change', window.__tryoutChange);
+    root.addEventListener('change', (event) => {
+      if (event.target && event.target.matches('select[name^="passing_type_"]')) {
+        syncPassingScoreLimit(event.target);
+      }
+    });
+    bindPassingScoreInputs();
     typeSelect.__tryoutBound = true;
   }
 
