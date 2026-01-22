@@ -212,8 +212,15 @@
                             class="flex items-center justify-between w-full p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                             <div>
                                 <h4 class="font-medium text-gray-900">{{ $detail->subtest_name }}</h4>
-                                <p class="text-xs text-gray-400">{{ $detail->duration }} menit • Passing Score: {{
-                                    $detail->passing_score }} • {{ $detail->questions->count() ?? 0 }} soal</p>
+                                <p class="text-xs text-gray-400">
+                                    {{ $detail->duration }} menit • Passing Score:
+                                    @if(($detail->passing_type ?? 'score') === 'percentage')
+                                        {{ number_format($detail->passing_score ?? 0, 1) }}%
+                                    @else
+                                        {{ $detail->passing_score }}
+                                    @endif
+                                    • {{ $detail->questions->count() ?? 0 }} soal
+                                </p>
                             </div>
                             <div class="text-right">
                                 <div class="flex items-center gap-2">
