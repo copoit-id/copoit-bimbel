@@ -71,76 +71,7 @@
             </li>
             @endif
         </ul>
-        <p class="{{ $sectionLabelClass }} text-sm mt-6">Paket Saya</p>
-        <ul class="font-medium space-y-1">
-            @if(isset($sidebarPackages) && $sidebarPackages->count() > 0)
-            @foreach($sidebarPackages as $access)
-            <li>
-                <button type="button"
-                    class="flex items-center w-full py-2 px-4 {{ $dropdownButtonClass }} rounded-lg group transition-colors duration-200"
-                    aria-controls="dropdown-package-{{ $access->package->package_id }}"
-                    data-collapse-toggle="dropdown-package-{{ $access->package->package_id }}">
-                    <i class="ri-package-line text-[20px] {{ $dropdownIconClass }} font-medium"></i>
-                    <span class="flex-1 ms-3 text-left break-words">{{ $access->package->name }}</span>
-                    <svg class="w-3 h-3 transition-transform duration-200 {{ $sidebarPrimary ? 'text-white/80' : 'text-black' }}"
-                        aria-hidden="true"
-                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="m1 1 4 4 4-4" />
-                    </svg>
-                </button>
-                <div class="h-px bg-gray-200/40 mx-4"></div>
-                <ul id="dropdown-package-{{ $access->package->package_id }}" class="hidden py-2 space-y-1">
-                    @if($access->package->type_package === 'tryout')
-                    <li>
-                        <a href="{{ route('user.package.tryout', $access->package->package_id) }}"
-                            class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.package.tryout') && request()->route('id_package') == $access->package->package_id ? $dropdownLinkActive : $dropdownLinkInactive }}">
-                            <i class="ri-file-list-3-line text-[16px] mr-2"></i>
-                            Tryout
-                        </a>
-                    </li>
-                    @elseif($access->package->type_package === 'bimbel')
-                    <li>
-                        <a href="{{ route('user.package.bimbel', $access->package->package_id) }}"
-                            class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.package.bimbel') && request()->route('id_package') == $access->package->package_id ? $dropdownLinkActive : $dropdownLinkInactive }}">
-                            <i class="ri-book-open-line text-[16px] mr-2"></i>
-                            Kelas
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('user.package.tryout', $access->package->package_id) }}"
-                            class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.package.tryout') && request()->route('id_package') == $access->package->package_id ? $dropdownLinkActive : $dropdownLinkInactive }}">
-                            <i class="ri-file-list-3-line text-[16px] mr-2"></i>
-                            Tryout
-                        </a>
-                    </li>
-                    @elseif($access->package->type_package === 'sertifikasi')
-                    <li>
-                        <a href="{{ route('user.package.tryout', $access->package->package_id) }}"
-                            class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.package.tryout') && request()->route('id_package') == $access->package->package_id ? $dropdownLinkActive : $dropdownLinkInactive }}">
-                            <i class="ri-award-line text-[16px] mr-2"></i>
-                            Sertifikasi
-                        </a>
-                    </li>
-                    @endif
-                </ul>
-            </li>
-            @endforeach
-            @else
-            <li>
-                <div class="flex items-center py-2 px-4 {{ $emptyTextClass }} rounded-lg">
-                    <i class="ri-shopping-bag-line text-[20px] mr-3"></i>
-                    <span class="text-sm">Belum ada paket</span>
-                </div>
-                <div class="mt-2 px-4">
-                    <a href="{{ route('user.package.index') }}" class="{{ $emptyCtaClasses }}"
-                        @if($emptyCtaStyle) style="{{ $emptyCtaStyle }}" @endif>
-                        Beli Paket
-                    </a>
-                </div>
-            </li>
-            @endif
-        </ul>
+        
     </div>
 </aside>
 
