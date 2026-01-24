@@ -3,7 +3,7 @@
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     <x-page-desc title="Ranking - {{ $tryout->name }}" description="Leaderboard peserta tryout"
-        name_link="Kembali ke Tryout">
+        name_link="Kembali ke Tryout" url_link="{{ $backUrl }}">
     </x-page-desc>
 
     <!-- Statistics Cards -->

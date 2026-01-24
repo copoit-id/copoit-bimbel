@@ -348,29 +348,29 @@
 
     <!-- Action Buttons -->
     <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="{{ route('user.package.tryout', $package->package_id) }}"
+        <a href="{{ $backUrl }}"
             class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
         </a>
 
-        <a href="{{ route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id]) }}"
+        <a href="{{ route('user.package.tryout.riwayat', [$packageId, $tryout->tryout_id]) }}"
             class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
             <i class="ri-history-line mr-2"></i>Lihat Riwayat
         </a>
 
-        <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
+        <a href="{{ route('user.package.tryout.ranking', [$packageId, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
 
         @if($clientBranding['certificate_management_enabled'] ?? true)
-        <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $token]) }}"
+        <a href="{{ route('user.certificate.preview', [$packageId, $tryout->tryout_id, 'token' => $token]) }}"
             class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
             <i class="ri-award-line mr-2"></i>Preview Sertifikat
         </a>
         @endif
 
-        <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
+        <a href="{{ route('user.tryout.lobby', [$packageId, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center">
             <i class="ri-refresh-line mr-2"></i>Coba Lagi
         </a>

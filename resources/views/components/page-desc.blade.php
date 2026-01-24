@@ -1,6 +1,6 @@
 @props(['title' => 'Title', 'description' => null, 'name_link' => null, 'url_link' => null, 'direction' => null])
 <div class="flex flex-col {{ $direction == null ? 'items-start' : $direction }}">
-    <h1 class="text-[24px] text-dark font-bold">{{ $title }}</h1>
+    <h1 class="text-[24px] text-dark font-bold">{{ html_entity_decode($title, ENT_QUOTES, 'UTF-8') }}</h1>
     @if ($description)
     <p class="font-light text-[16px]">{{ $description }}</p>
     @endif

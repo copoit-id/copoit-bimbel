@@ -11,9 +11,6 @@
     $tryouts = $tryouts ?? collect();
     $sertifikasiPackages = $sertifikasiPackages ?? collect();
     $practiceStats = $practiceStats ?? [];
-    $unlockedIds = $practiceStats['unlocked_tryout_ids'] ?? [];
-    $thresholds = $practiceStats['unlock_thresholds'] ?? [];
-    $answeredCount = $practiceStats['answered_count'] ?? 0;
 @endphp
 <div class="dashboard">
     <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
@@ -33,16 +30,12 @@
             $primaryPackage = $tryout->primaryPackage ?? null;
             $packageId = $primaryPackage?->package_id ?? 'free';
             $packageName = $primaryPackage?->name;
-            $isUnlocked = in_array($tryout->tryout_id, $unlockedIds, true);
-            $threshold = $thresholds[$tryout->tryout_id] ?? null;
-            $remaining = $threshold ? max(0, $threshold - $answeredCount) : null;
+            $userAttempts = $tryout->userAnswers->count();
+            $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
         @endphp
         <div class="flex flex-col justify-between bg-white px-5 py-5 shadow rounded-lg">
             <div>
                 <div class="flex items-center justify-between text-xs font-semibold mb-2">
-                    <span class="px-3 py-1 rounded-full {{ $isUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100' }}">
-                        {{ $isUnlocked ? 'Terbuka' : 'Terkunci' }}
-                    </span>
                     <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
                         {{ $tryout->type_tryout }}
                     </span>
@@ -60,31 +53,45 @@
                         <p class="font-medium">Durasi:</p>
                         <p class="font-light">{{ $tryoutDetail ? $tryoutDetail->duration : 0 }} Menit</p>
                     </span>
+                    <span class="flex items-center justify-between">
+                        <p class="font-medium">Dikerjakan:</p>
+                        <p class="font-light">{{ $userAttempts }} Kali</p>
+                    </span>
+                    @if($lastAttempt)
+                        <span class="flex items-center justify-between">
+                            <p class="font-medium">Skor Terakhir:</p>
+                            <p class="font-light {{ $lastAttempt->percentage >= 70 ? 'text-green-600' : 'text-red-600' }}">
+                                {{ number_format($lastAttempt->percentage ?? 0, 1) }}%
+                            </p>
+                        </span>
+                    @endif
                 </div>
-                @if(!$isUnlocked && $remaining !== null)
-                    <p class="text-xs text-gray-500 mt-3">
-                        Selesaikan {{ $remaining }} soal lagi untuk membuka tryout ini.
-                    </p>
-                @endif
             </div>
 
-            <div class="mt-4">
-                @if($questionCount <= 0)
-                    <button type="button"
-                        class="w-full bg-gray-400 text-white px-4 py-3 rounded-lg font-bold cursor-not-allowed" disabled>
-                        Belum Ada Soal
-                    </button>
-                @elseif($isUnlocked)
+            <div class="flex gap-2 font-light mt-4">
+                @if($questionCount > 0)
                     <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                        class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold text-center block">
-                        Mulai Tryout
+                        class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                        Kerjakan
                     </a>
                 @else
                     <button type="button"
-                        class="w-full bg-gray-400 text-white px-4 py-3 rounded-lg font-bold cursor-not-allowed" disabled>
-                        Terkunci
+                        class="flex w-full justify-center bg-gray-400 text-white px-4 py-2 rounded-lg text-sm cursor-not-allowed" disabled>
+                        Belum Ada Soal
                     </button>
                 @endif
+
+                @if($userAttempts > 0)
+                    <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="flex w-full justify-center border border-primary text-primary px-4 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                        Riwayat
+                    </a>
+                @endif
+
+                <a href="{{ route('user.package.tryout.ranking', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                    class="flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                    <i class="ri-bar-chart-2-fill"></i>
+                </a>
             </div>
         </div>
         @empty

@@ -3,7 +3,7 @@
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     <x-page-desc title="Riwayat - {{ $tryout->name }}" description="Lihat riwayat pengerjaan tryout Anda"
-        name_link="Kembali ke Tryout" url_link="{{ route('user.package.tryout', $package->package_id) }}">
+        name_link="Kembali ke Tryout" url_link="{{ $backUrl }}">
     </x-page-desc>
 
     <div class="relative overflow-x-auto mt-4">
@@ -49,7 +49,7 @@
                     @if ($tryout->type_tryout !== 'certification' || $tryout->is_toefl !== 1)
                     <td class="px-6 py-4">
                         <div class="flex justify-center">
-                            <a href="{{ route('user.package.tryout.pembahasan', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id, 'token' => $attempt['attempt_token']]) }}"
+                            <a href="{{ route('user.package.tryout.pembahasan', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id, 'token' => $attempt['attempt_token']]) }}"
                                 class="flex items-center gap-2 border border-primary px-4 py-1 rounded-md">
                                 <i class="ri-line-chart-line text-primary"></i>
                                 <span class="text-primary">Pembahasan</span>
@@ -64,7 +64,7 @@
                         <div class="flex flex-col items-center gap-2">
                             <i class="ri-file-list-line text-4xl text-gray-400"></i>
                             <p>Belum ada riwayat tryout</p>
-                            <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
+                            <a href="{{ route('user.tryout.lobby', [$packageId, $tryout->tryout_id]) }}"
                                 class="mt-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
                                 Mulai Tryout
                             </a>

@@ -26,7 +26,14 @@ class PackageController extends Controller
     public function index()
     {
         $tryouts = Tryout::where('is_active', true)
-            ->with(['tryoutDetails.questions', 'directPackage', 'packages'])
+            ->with([
+                'tryoutDetails.questions',
+                'directPackage',
+                'packages',
+                'userAnswers' => function ($query) {
+                    $query->where('user_id', Auth::id());
+                },
+            ])
             ->orderBy('tryout_id')
             ->get();
 
@@ -474,22 +481,31 @@ class PackageController extends Controller
 
     public function riwayatTryout($id_package, $id_tryout)
     {
-        $package = Package::findOrFail($id_package);
         $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $isFree = $id_package === 'free';
+        $package = null;
+        $packageId = 'free';
 
-        // Check access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        if (! $isFree) {
+            $package = Package::findOrFail($id_package);
+            $packageId = (string) $package->package_id;
 
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            // Check access - perbaiki query akses
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (! $hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+        } else {
+            $package = $tryout->directPackage ?: $tryout->packages->first();
         }
 
         // Get user attempts for this tryout dengan data yang lebih lengkap
@@ -599,7 +615,9 @@ class PackageController extends Controller
         // Sort by newest first
         $attemptHistory = collect($attemptHistory)->sortByDesc('created_at')->values();
 
-        return view('user.pages.package.tryout-riwayat', compact('package', 'tryout', 'attemptHistory'));
+        $backUrl = route('user.package.index');
+
+        return view('user.pages.package.tryout-riwayat', compact('package', 'tryout', 'attemptHistory', 'packageId', 'backUrl'));
     }
 
     // Helper methods untuk calculation (tambahkan jika belum ada)
@@ -1185,24 +1203,32 @@ class PackageController extends Controller
 
     public function rankingTryout($id_package, $id_tryout)
     {
-        $package = Package::findOrFail($id_package);
-
-        // Check access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
-
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
-        }
-
         $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $isFree = $id_package === 'free';
+        $package = null;
+        $packageId = 'free';
+
+        if (! $isFree) {
+            $package = Package::findOrFail($id_package);
+            $packageId = (string) $package->package_id;
+
+            // Check access - perbaiki query akses
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (! $hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+        } else {
+            $package = $tryout->directPackage ?: $tryout->packages->first();
+        }
 
         // Get leaderboard for this tryout - ambil hasil terbaik per user
         $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
@@ -1353,27 +1379,38 @@ class PackageController extends Controller
             ->sortByDesc('raw_score')
             ->values();
 
-        return view('user.pages.package.tryout-rank', compact('package', 'tryout', 'rankings'));
+        $backUrl = route('user.package.index');
+
+        return view('user.pages.package.tryout-rank', compact('package', 'tryout', 'rankings', 'packageId', 'backUrl'));
     }
 
     public function pembahasanTryout($id_package, $id_tryout, $token)
     {
-        $package = Package::findOrFail($id_package);
         $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        $isFree = $id_package === 'free';
+        $package = null;
+        $packageId = 'free';
 
-        // Check access
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        if (! $isFree) {
+            $package = Package::findOrFail($id_package);
+            $packageId = (string) $package->package_id;
 
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            // Check access
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (! $hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+        } else {
+            $package = $tryout->directPackage ?: $tryout->packages->first();
         }
 
         // Get user's latest completed answers for this tryout
@@ -1386,7 +1423,7 @@ class PackageController extends Controller
             ->get();
 
         if ($userAnswers->isEmpty()) {
-            return redirect()->route('user.package.tryout', $id_package)
+            return redirect()->route('user.package.index')
                 ->with('error', 'Anda belum mengerjakan tryout ini');
         }
 
@@ -1546,6 +1583,8 @@ class PackageController extends Controller
         }
 
         $token = $token;
+        $backUrl = route('user.package.index');
+
         return view('user.pages.package.tryout-pembahasan', compact(
             'package',
             'tryout',
@@ -1554,7 +1593,9 @@ class PackageController extends Controller
             'token',
             'allAnswerDetails',
             'overallStats',
-            'subtestSummaries'
+            'subtestSummaries',
+            'packageId',
+            'backUrl'
         ));
     }
 
