@@ -37,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
             'sidebar_primary_color' => false,
             'utbk_enabled' => false,
             'allow_video_thumbnail' => false,
+            'allow_register' => true,
             'payment_mode' => 'gateway',
             'payment_bank_name' => null,
             'payment_account_number' => null,
@@ -60,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['sidebar_primary_color'] = $clientProfile->sidebar_primary_color ?? $defaults['sidebar_primary_color'];
             $defaults['utbk_enabled'] = (bool) ($clientProfile->enable_utbk_types ?? $defaults['utbk_enabled']);
             $defaults['allow_video_thumbnail'] = $clientProfile->allow_video_thumbnail ?? $defaults['allow_video_thumbnail'];
+            $defaults['allow_register'] = $clientProfile->allow_register ?? $defaults['allow_register'];
             $defaults['payment_mode'] = $clientProfile->payment_mode ?: $defaults['payment_mode'];
             $defaults['payment_bank_name'] = $clientProfile->payment_bank_name ?? $defaults['payment_bank_name'];
             $defaults['payment_account_number'] = $clientProfile->payment_account_number ?? $defaults['payment_account_number'];

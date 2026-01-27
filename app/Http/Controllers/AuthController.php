@@ -89,6 +89,11 @@ class AuthController extends Controller
 
     public function showRegister()
     {
+        if (!config('client.branding.allow_register', true)) {
+            return redirect()->route('login')
+                ->with('error', 'Pendaftaran akun sedang ditutup. Silakan hubungi admin.');
+        }
+
         return view('auth.register', [
             'recaptcha_site_key' => $this->recaptchaService->getSiteKey(),
             'recaptcha_enabled' => $this->recaptchaService->isEnabled()
@@ -97,6 +102,11 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        if (!config('client.branding.allow_register', true)) {
+            return redirect()->route('login')
+                ->with('error', 'Pendaftaran akun sedang ditutup. Silakan hubungi admin.');
+        }
+
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',

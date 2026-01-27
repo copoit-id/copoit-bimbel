@@ -19,6 +19,7 @@ class ClientProfile extends Model
         'sidebar_primary_color',
         'enable_utbk_types',
         'allow_video_thumbnail',
+        'allow_register',
         'payment_mode',
         'payment_bank_name',
         'payment_account_number',
@@ -32,5 +33,6 @@ class ClientProfile extends Model
         'sidebar_primary_color' => 'boolean',
         'enable_utbk_types' => 'boolean',
         'allow_video_thumbnail' => 'boolean',
+        'allow_register' => 'boolean',
     ];
 }

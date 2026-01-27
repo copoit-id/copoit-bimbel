@@ -45,6 +45,7 @@ class SettingController extends Controller
             'logo' => ['nullable', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
             'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,svg,webp', 'max:4096'],
             'payment_mode' => ['required', 'in:gateway,manual'],
+            'allow_register' => ['nullable', 'boolean'],
             'payment_bank_name' => ['nullable', 'string', 'max:255'],
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
@@ -93,6 +94,7 @@ class SettingController extends Controller
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['enable_utbk_types'] = false;
         $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
+        $validated['allow_register'] = $request->boolean('allow_register');
 
         $profile->fill($validated);
 

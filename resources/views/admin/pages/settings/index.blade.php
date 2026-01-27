@@ -158,6 +158,26 @@
 
         <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
             <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Akses Registrasi</p>
+                <h2 class="text-xl font-semibold text-gray-900">Atur Pendaftaran</h2>
+                <p class="text-gray-500 text-sm">Tentukan apakah halaman register dibuka untuk umum atau hanya admin yang menambahkan siswa.</p>
+            </div>
+            @php
+                $allowRegister = old('allow_register', $profile->allow_register ?? ($clientBranding['allow_register'] ?? true));
+            @endphp
+            <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                <input type="checkbox" name="allow_register" value="1"
+                    class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                    {{ $allowRegister ? 'checked' : '' }}>
+                <div>
+                    <p class="font-semibold text-gray-900">Izinkan register di website</p>
+                    <p class="text-xs text-gray-500">Jika dimatikan, halaman register tidak bisa diakses.</p>
+                </div>
+            </label>
+        </div>
+
+        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
+            <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pembayaran</p>
                 <h2 class="text-xl font-semibold text-gray-900">Mode Pembayaran</h2>
                 <p class="text-gray-500 text-sm">Pilih apakah pembayaran diproses otomatis via gateway atau manual.</p>
