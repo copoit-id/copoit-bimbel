@@ -19,7 +19,7 @@
             <div class="flex items-center justify-start rtl:justify-end">
                 <button data-drawer-target="logo-sidebar" data-drawer-toggle="logo-sidebar" aria-controls="logo-sidebar"
                     type="button" class="{{ $toggleButtonClasses }}">
-                    <span class="sr-only">Open sidebar</span>
+                    <span class="sr-only">{{ __('Open sidebar') }}</span>
                     <svg class="w-6 h-6" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"
                         xmlns="http://www.w3.org/2000/svg">
                         <path clip-rule="evenodd" fill-rule="evenodd"
@@ -32,12 +32,21 @@
                         alt="{{ $clientBranding['name'] }} Logo" />
                     <div class="flex flex-col justify-start">
                         <p class="text-[20px] font-bold {{ $brandTitleClass }}">{{ $clientBranding['name'] }}</p>
-                        <p class="font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">Admin Panel</p>
+                        <p class="font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">{{ __('Admin Panel') }}</p>
                     </div>
                 </a>
             </div>
 
             <div class="flex items-center gap-4">
+                <form action="{{ route('locale.set') }}" method="POST">
+                    @csrf
+                    <select name="locale"
+                        class="text-xs rounded-lg border border-gray-200 bg-white/80 px-3 py-1.5 text-gray-700 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        onchange="this.form.submit()">
+                        <option value="id" {{ app()->getLocale() === 'id' ? 'selected' : '' }}>ID</option>
+                        <option value="en" {{ app()->getLocale() === 'en' ? 'selected' : '' }}>EN</option>
+                    </select>
+                </form>
                 <!-- User Info -->
                 <a href="{{ route('admin.profile.index') }}" class="flex items-center gap-3">
                     <div class="text-right">
@@ -52,9 +61,9 @@
                 <form action="{{ route('logout') }}" method="POST" class="inline">
                     @csrf
                     <button type="submit" class="{{ $logoutButtonClasses }}"
-                        onclick="return confirm('Yakin ingin logout?')">
+                        onclick="return confirm('{{ __('Yakin ingin logout?') }}')">
                         <i class="ri-logout-circle-r-line"></i>
-                        Logout
+                        {{ __('Logout') }}
                     </button>
                 </form>
             </div>

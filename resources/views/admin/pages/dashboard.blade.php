@@ -4,8 +4,8 @@
 <div class="space-y-6">
     <!-- Page Header -->
     <div>
-        <h2 class="text-2xl font-bold">Dashboard</h2>
-        <p class="text-gray-500">Selamat datang di panel admin {{ $clientBranding['name'] }}</p>
+        <h2 class="text-2xl font-bold">{{ __('Dashboard') }}</h2>
+        <p class="text-gray-500">{{ __('Selamat datang di panel admin') }} {{ $clientBranding['name'] }}</p>
     </div>
 
     <!-- Stats Overview -->
@@ -13,7 +13,7 @@
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Total Users</p>
+                    <p class="text-gray-500 text-sm">{{ __('Total Users') }}</p>
                     <h3 class="text-2xl font-bold">{{ $count_user ?? 0 }}</h3>
                 </div>
                 <div class="bg-primary/10 p-3 rounded-lg">
@@ -25,7 +25,7 @@
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Total Pendapatan</p>
+                    <p class="text-gray-500 text-sm">{{ __('Total Pendapatan') }}</p>
                     <h3 class="text-2xl font-bold">Rp {{ $count_amount ?? 0 }}</h3>
                 </div>
                 <div class="bg-primary/10 p-3 rounded-lg">
@@ -37,7 +37,7 @@
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Total Tryout</p>
+                    <p class="text-gray-500 text-sm">{{ __('Total Tryout') }}</p>
                     <h3 class="text-2xl font-bold">{{ $count_tryout ?? 0 }}</h3>
                 </div>
                 <div class="bg-primary/10 p-3 rounded-lg">
@@ -50,7 +50,7 @@
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Total Kelas</p>
+                    <p class="text-gray-500 text-sm">{{ __('Total Kelas') }}</p>
                     <h3 class="text-2xl font-bold">{{ $count_class ?? 0 }}</h3>
                 </div>
                 <div class="bg-primary/10 p-3 rounded-lg">
@@ -66,8 +66,8 @@
         <!-- Latest Users -->
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">User Terbaru</h3>
-                <a href="{{ route('admin.user.index') }}" class="text-primary hover:underline">Lihat Semua</a>
+                <h3 class="text-lg font-semibold">{{ __('User Terbaru') }}</h3>
+                <a href="{{ route('admin.user.index') }}" class="text-primary hover:underline">{{ __('Lihat Semua') }}</a>
             </div>
             <div class="space-y-4">
                 @foreach ($users as $user)
@@ -86,7 +86,7 @@
                 @endforeach
                 @if(count($users) === 0)
                 <div class="text-center text-gray-500 py-4">
-                    Tidak ada user terbaru
+                    {{ __('Tidak ada user terbaru') }}
                 </div>
                 @endif
             </div>
@@ -95,8 +95,8 @@
         <!-- Latest Transactions -->
         <div class="bg-white p-6 rounded-lg border border-gray-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">Transaksi Terbaru</h3>
-                <a href="#" class="text-primary hover:underline">Lihat Semua</a>
+                <h3 class="text-lg font-semibold">{{ __('Transaksi Terbaru') }}</h3>
+                <a href="#" class="text-primary hover:underline">{{ __('Lihat Semua') }}</a>
             </div>
             <div class="space-y-4">
                 @foreach ($payments as $payment)
@@ -106,7 +106,7 @@
                             <i class="ri-checkbox-circle-line text-green-500"></i>
                         </div>
                         <div>
-                            <p class="font-medium">Paket Premium</p>
+                            <p class="font-medium">{{ __('Paket Premium') }}</p>
                             <p class="text-sm text-gray-500">John Doe</p>
                         </div>
                     </div>
@@ -118,7 +118,7 @@
                 @endforeach
                 @if(count($users) === 0)
                 <div class="text-center text-gray-500 py-4">
-                    Tidak ada transaksi terbaru
+                    {{ __('Tidak ada transaksi terbaru') }}
                 </div>
                 @endif
             </div>

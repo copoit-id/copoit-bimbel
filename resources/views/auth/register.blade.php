@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Register - {{ $clientBranding['name'] }}</title>
+    <title>{{ __('Register') }} - {{ $clientBranding['name'] }}</title>
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
@@ -25,13 +25,24 @@
                     <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
                         class="h-32 object-contain">
                 </div>
+                <div class="flex justify-center mt-4">
+                    <form action="{{ route('locale.set') }}" method="POST">
+                        @csrf
+                        <select name="locale"
+                            class="text-xs rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            onchange="this.form.submit()">
+                            <option value="id" {{ app()->getLocale() === 'id' ? 'selected' : '' }}>ID</option>
+                            <option value="en" {{ app()->getLocale() === 'en' ? 'selected' : '' }}>EN</option>
+                        </select>
+                    </form>
+                </div>
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Daftar Akun Baru
+                    {{ __('Daftar Akun Baru') }}
                 </h2>
                 <p class="mt-2 text-center text-sm text-gray-600">
-                    Sudah punya akun?
+                    {{ __('Sudah punya akun?') }}
                     <a href="{{ route('login') }}" class="font-medium text-primary hover:text-primary/80">
-                        Masuk di sini
+                        {{ __('Masuk di sini') }}
                     </a>
                 </p>
             </div>
@@ -51,7 +62,7 @@
                 <div class="space-y-4">
                     <div>
                         <label for="name" class="block text-sm font-medium text-gray-700">
-                            Nama Lengkap
+                            {{ __('Nama Lengkap') }}
                         </label>
                         <input id="name" name="name" type="text" autocomplete="name" required value="{{ old('name') }}"
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
@@ -59,7 +70,7 @@
 
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700">
-                            Email
+                            {{ __('Email') }}
                         </label>
                         <input id="email" name="email" type="email" autocomplete="email" required
                             value="{{ old('email') }}"
@@ -68,7 +79,7 @@
 
                     <div>
                         <label for="date_of_birth" class="block text-sm font-medium text-gray-700">
-                            Tanggal Lahir
+                            {{ __('Tanggal Lahir') }}
                         </label>
                         <input id="date_of_birth" name="date_of_birth" type="date" required
                             value="{{ old('date_of_birth') }}"
@@ -77,7 +88,7 @@
 
                     <div>
                         <label for="phone" class="block text-sm font-medium text-gray-700">
-                            No. Telepon (Opsional)
+                            {{ __('No. Telepon (Opsional)') }}
                         </label>
                         <input id="phone" name="phone" type="tel" autocomplete="tel" value="{{ old('phone') }}"
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
@@ -85,7 +96,7 @@
 
                     <div>
                         <label for="password" class="block text-sm font-medium text-gray-700">
-                            Password
+                            {{ __('Password') }}
                         </label>
                         <input id="password" name="password" type="password" autocomplete="new-password" required
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
@@ -93,7 +104,7 @@
 
                     <div>
                         <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-                            Konfirmasi Password
+                            {{ __('Konfirmasi Password') }}
                         </label>
                         <input id="password_confirmation" name="password_confirmation" type="password"
                             autocomplete="new-password" required
@@ -112,18 +123,18 @@
                         <span class="absolute left-0 inset-y-0 flex items-center pl-3">
                             <i class="ri-user-add-line text-primary/60 group-hover:text-primary/80"></i>
                         </span>
-                        Daftar
+                        {{ __('Daftar') }}
                     </button>
                 </div>
 
                 @if($recaptcha_enabled)
                 <div class="text-center">
                     <p class="text-xs text-gray-500">
-                        Situs ini dilindungi oleh reCAPTCHA dan berlaku
+                        {{ __('Situs ini dilindungi oleh reCAPTCHA dan berlaku') }}
                         <a href="https://policies.google.com/privacy" class="text-primary hover:underline"
-                            target="_blank">Kebijakan Privasi</a> dan
+                            target="_blank">{{ __('Kebijakan Privasi') }}</a> {{ __('dan') }}
                         <a href="https://policies.google.com/terms" class="text-primary hover:underline"
-                            target="_blank">Persyaratan Layanan</a> Google.
+                            target="_blank">{{ __('Persyaratan Layanan') }}</a> {{ __('Google') }}.
                     </p>
                 </div>
                 @endif

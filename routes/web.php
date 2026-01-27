@@ -25,6 +25,7 @@ use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\PracticeController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Middleware\AdminMiddleware;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Artisan;
@@ -33,6 +34,18 @@ use Illuminate\Support\Facades\Route;
 Route::get('/phpinfo', function () {
     phpinfo();
 });
+
+Route::post('/locale', function (Request $request) {
+    $locale = $request->input('locale');
+    if (!in_array($locale, ['id', 'en'], true)) {
+        $locale = 'id';
+    }
+
+    $request->session()->put('locale', $locale);
+    App::setLocale($locale);
+
+    return back();
+})->name('locale.set');
 
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');

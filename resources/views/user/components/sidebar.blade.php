@@ -26,14 +26,14 @@
     class="fixed top-0 left-0 z-40 md:z-30 w-64 h-screen pt-20 transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
-        <p class="{{ $sectionLabelClass }} text-sm">Home</p>
+        <p class="{{ $sectionLabelClass }} text-sm">{{ __('Home') }}</p>
         <ul class="font-medium space-y-1">
             <li>
                 <a href="{{ route('user.dashboard.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.dashboard.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-home-9-line text-[20px] {{ request()->routeIs('user.dashboard.index') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Dashboard</span>
+                    <span class="ms-3">{{ __('Dashboard') }}</span>
                 </a>
             </li>
             <li>
@@ -41,7 +41,7 @@
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-store-3-line text-[20px] {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Paket Tryout</span>
+                    <span class="ms-3">{{ __('Paket Tryout') }}</span>
                 </a>
             </li>
             <li>
@@ -49,7 +49,7 @@
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.practice.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-pencil-ruler-line text-[20px] {{ request()->routeIs('user.practice.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Latihan Soal</span>
+                    <span class="ms-3">{{ __('Latihan Soal') }}</span>
                 </a>
             </li>
             <li>
@@ -57,7 +57,7 @@
                     class="flex items-center py-2 px-4  {{ request()->routeIs('user.help.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-question-line text-[20px]  {{ request()->routeIs('user.help.index') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Bantuan</span>
+                    <span class="ms-3">{{ __('Bantuan') }}</span>
                 </a>
             </li>
             @if($clientBranding['certificate_management_enabled'] ?? true)
@@ -66,7 +66,7 @@
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.certificate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-award-line text-[20px] {{ request()->routeIs('user.certificate.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Validasi Sertifikat</span>
+                    <span class="ms-3">{{ __('Validasi Sertifikat') }}</span>
                 </a>
             </li>
             @endif

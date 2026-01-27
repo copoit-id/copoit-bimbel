@@ -5,13 +5,13 @@
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold">Manajemen Tryout</h2>
-            <p class="text-gray-500">Kelola semua tryout dan ujian</p>
+            <h2 class="text-2xl font-bold">{{ __('Manajemen Tryout') }}</h2>
+            <p class="text-gray-500">{{ __('Kelola semua tryout dan ujian') }}</p>
         </div>
         <a href="{{ route('admin.tryout.create') }}"
             class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
             <i class="ri-add-line"></i>
-            Tambah Tryout
+            {{ __('Tambah Tryout') }}
         </a>
     </div>
 
@@ -20,14 +20,14 @@
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
                 <div class="relative w-full sm:w-auto">
-                    <input type="text" id="tryout-search" placeholder="Cari tryout..."
+                    <input type="text" id="tryout-search" placeholder="{{ __('Cari tryout...') }}"
                         class="pl-10 pr-4 py-2 w-full sm:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <select id="type-filter"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Semua Tipe</option>
+                        <option value="">{{ __('Semua Tipe') }}</option>
                         <option value="TIU">TIU</option>
                         <option value="TWK">TWK</option>
                         <option value="TKP">TKP</option>
@@ -37,19 +37,19 @@
                     </select>
                     <select id="status-filter"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Semua Status</option>
-                        <option value="akan_datang">Akan Datang</option>
-                        <option value="aktif">Aktif</option>
-                        <option value="selesai">Selesai</option>
+                        <option value="">{{ __('Semua Status') }}</option>
+                        <option value="akan_datang">{{ __('Akan Datang') }}</option>
+                        <option value="aktif">{{ __('Aktif') }}</option>
+                        <option value="selesai">{{ __('Selesai') }}</option>
                     </select>
                 </div>
                 <button id="reset-tryout-filters"
                     class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
-                    <i class="ri-refresh-line"></i> Reset
+                    <i class="ri-refresh-line"></i> {{ __('Reset') }}
                 </button>
             </div>
             <div id="tryout-count" class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
-                Total: <span class="font-medium text-gray-700">{{ $tryouts->total() }} Tryout</span>
+                {{ __('Total') }}: <span class="font-medium text-gray-700">{{ $tryouts->total() }} {{ __('Tryout') }}</span>
             </div>
         </div>
     </div>
@@ -67,7 +67,7 @@
                 </span>
                 @if($tryout->is_certification)
                 <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">
-                    <i class="ri-award-line"></i> Sertifikasi
+                    <i class="ri-award-line"></i> {{ __('Sertifikasi') }}
                 </span>
                 @endif
             </div>
@@ -84,26 +84,26 @@
 
             <div class="flex flex-col gap-1 mb-4">
                 <span class="flex items-center justify-between">
-                    <p class="font-medium">Total Soal:</p>
-                    <p class="font-light">{{ $tryout->total_questions ?? 0 }} Soal</p>
+                    <p class="font-medium">{{ __('Total Soal') }}:</p>
+                    <p class="font-light">{{ $tryout->total_questions ?? 0 }} {{ __('Soal') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
-                    <p class="font-medium">Durasi:</p>
-                    <p class="font-light">{{ $tryout->total_duration ?? 0 }} Menit</p>
+                    <p class="font-medium">{{ __('Durasi') }}:</p>
+                    <p class="font-light">{{ $tryout->total_duration ?? 0 }} {{ __('Menit') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
-                    <p class="font-medium">Subtest:</p>
-                    <p class="font-light">{{ $tryout->tryoutDetails->count() }} Bagian</p>
+                    <p class="font-medium">{{ __('Subtest') }}:</p>
+                    <p class="font-light">{{ $tryout->tryoutDetails->count() }} {{ __('Bagian') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
-                    <p class="font-medium">Status:</p>
+                    <p class="font-medium">{{ __('Status') }}:</p>
                     @if($tryout->start_date > now())
-                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Akan Datang</span>
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">{{ __('Akan Datang') }}</span>
                     @elseif($tryout->end_date < now()) <span
-                        class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Selesai
+                    class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{{ __('Selesai') }}
                 </span>
                 @else
-                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>
+                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{{ __('Aktif') }}</span>
                 @endif
                 </span>
             </div>

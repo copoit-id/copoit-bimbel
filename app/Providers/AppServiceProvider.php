@@ -23,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $locale = session('locale', config('app.locale', 'id'));
+        app()->setLocale(in_array($locale, ['id', 'en'], true) ? $locale : 'id');
+
         $defaultAsset = 'img/logo/logo-copoit.png';
 
         $defaults = [
