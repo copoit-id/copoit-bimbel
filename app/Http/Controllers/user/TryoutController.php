@@ -1390,15 +1390,25 @@ class TryoutController extends Controller
             $sectionKey = $this->mapSectionType($sectionType);
 
             if ($sectionKey && isset($toeflResults[$sectionKey])) {
+                $totalQuestions = Question::where('tryout_detail_id', $userAnswer->tryout_detail_id)->count();
+                $answeredCount = $userAnswer->userAnswerDetails->count();
+                $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                    $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                    return empty($meta['pending_review']) && $detail->is_correct;
+                })->count();
+                $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                    $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                    return empty($meta['pending_review']) && !$detail->is_correct;
+                })->count();
                 $sectionResults[] = [
                     'type'             => $sectionType,
                     'name'             => $this->getSubtestName($sectionType),
                     'raw_score'        => $toeflResults[$sectionKey]['raw_score'],
                     'scaled_score'     => $toeflResults[$sectionKey]['scaled_score'],
-                    'correct_answers'  => $userAnswer->correct_answers ?? 0,
-                    'wrong_answers'    => $userAnswer->wrong_answers ?? 0,
-                    'unanswered'       => $userAnswer->unanswered ?? 0,
-                    'total_questions'  => $userAnswer->userAnswerDetails->count(),
+                    'correct_answers'  => $correctCount,
+                    'wrong_answers'    => $wrongCount,
+                    'unanswered'       => max(0, $totalQuestions - $answeredCount),
+                    'total_questions'  => $totalQuestions,
                     // TAMPILKAN skor seksi = scaled_score seksi tsb
                     'score'            => $toeflResults[$sectionKey]['scaled_score'],
                 ];
@@ -1486,18 +1496,36 @@ class TryoutController extends Controller
     private function processRegularResults($package, $tryout, $latestUserAnswers, $latestAttemptToken, $tryoutDetails)
     {
         // Calculate overall statistics
-        $totalQuestions = $latestUserAnswers->sum(function ($ua) {
-            return $ua->userAnswerDetails->count();
+        $latestUserAnswers->loadMissing(['userAnswerDetails']);
+        $questionCounts = Question::whereIn('tryout_detail_id', $latestUserAnswers->pluck('tryout_detail_id'))
+            ->select('tryout_detail_id', \DB::raw('count(*) as total'))
+            ->groupBy('tryout_detail_id')
+            ->pluck('total', 'tryout_detail_id');
+        $totalQuestions = $latestUserAnswers->sum(function ($ua) use ($questionCounts) {
+            return (int) ($questionCounts[$ua->tryout_detail_id] ?? 0);
         });
-        $correctAnswers = $latestUserAnswers->sum('correct_answers');
-        $wrongAnswers = $latestUserAnswers->sum('wrong_answers');
-        $unansweredCount = $latestUserAnswers->sum('unanswered');
-        $pendingReviewCount = $latestUserAnswers->sum(function ($ua) {
-            return $ua->userAnswerDetails->filter(function ($detail) {
+        $answeredCount = 0;
+        $correctAnswers = 0;
+        $wrongAnswers = 0;
+        $pendingReviewCount = 0;
+        foreach ($latestUserAnswers as $userAnswer) {
+            $details = $userAnswer->userAnswerDetails;
+            $answeredCount += $details->count();
+            foreach ($details as $detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                return !empty($meta['pending_review']);
-            })->count();
-        });
+                if (!empty($meta['pending_review'])) {
+                    $pendingReviewCount++;
+                    continue;
+                }
+
+                if ($detail->is_correct) {
+                    $correctAnswers++;
+                } else {
+                    $wrongAnswers++;
+                }
+            }
+        }
+        $unansweredCount = max(0, $totalQuestions - $answeredCount);
 
         if ($tryoutDetails->count() > 1) {
             // Multiple subtest calculation
@@ -1567,6 +1595,7 @@ class TryoutController extends Controller
         foreach ($userAnswers as $userAnswer) {
             $detail = $userAnswer->tryoutDetail;
             $totalQuestions = Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
+            $answeredCount = $userAnswer->userAnswerDetails->count();
 
             $subtestScore = $this->calculateTotalScore($userAnswer, $detail->type_subtest);
             $maxSubtestScore = $this->getMaxPossibleScoreForDetail($detail->tryout_detail_id, $detail->type_subtest);
@@ -1580,13 +1609,22 @@ class TryoutController extends Controller
                 ? $passingScore
                 : ($maxSubtestScore > 0 ? ($passingScore / $maxSubtestScore) * 100 : null);
 
+            $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                return empty($meta['pending_review']) && $detail->is_correct;
+            })->count();
+            $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                return empty($meta['pending_review']) && !$detail->is_correct;
+            })->count();
+
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
                 'name' => $this->getSubtestName($detail->type_subtest),
                 'total_questions' => $totalQuestions,
-                'correct_answers' => $userAnswer->correct_answers ?? 0,
-                'wrong_answers' => $userAnswer->wrong_answers ?? 0,
-                'unanswered' => $userAnswer->unanswered ?? 0,
+                'correct_answers' => $correctCount,
+                'wrong_answers' => $wrongCount,
+                'unanswered' => max(0, $totalQuestions - $answeredCount),
                 'raw_score' => $subtestScore,
                 'max_score' => $maxSubtestScore,
                 'percentage' => $percentage,
