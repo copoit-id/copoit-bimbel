@@ -1433,11 +1433,26 @@ class PackageController extends Controller
             $totalQuestions = $latestUserAnswers->sum(function ($ua) use ($questionCounts) {
                 return (int) ($questionCounts[$ua->tryout_detail_id] ?? 0);
             });
-            $correctAnswers = $latestUserAnswers->sum('correct_answers');
-            $wrongAnswers = $latestUserAnswers->sum('wrong_answers');
-            $unanswered = $totalQuestions - $latestUserAnswers->sum(function ($ua) {
-                return $ua->userAnswerDetails->count();
-            });
+            $answeredCount = 0;
+            $correctAnswers = 0;
+            $wrongAnswers = 0;
+            foreach ($latestUserAnswers as $userAnswer) {
+                $details = $userAnswer->userAnswerDetails;
+                $answeredCount += $details->count();
+                foreach ($details as $detail) {
+                    $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                    if (!empty($meta['pending_review'])) {
+                        continue;
+                    }
+
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+                }
+            }
+            $unanswered = max(0, $totalQuestions - $answeredCount);
 
             // Calculate total score
             if ($tryoutDetails->count() > 1) {
@@ -1519,6 +1534,14 @@ class PackageController extends Controller
                     $passingPercentage = $passingType === 'percentage'
                         ? $passingScore
                         : ($max > 0 ? ($passingScore / $max) * 100 : null);
+                    $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                        return empty($meta['pending_review']) && $detail->is_correct;
+                    })->count();
+                    $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                        return empty($meta['pending_review']) && !$detail->is_correct;
+                    })->count();
 
                     return [
                         'type' => $type,
@@ -1530,8 +1553,8 @@ class PackageController extends Controller
                         'passing_type' => $passingType,
                         'passing_percentage' => $passingPercentage,
                         'is_passed' => $this->isSubtestPassed($detail, $score, $max, $type),
-                        'correct_answers' => $userAnswer->correct_answers ?? 0,
-                        'wrong_answers' => $userAnswer->wrong_answers ?? 0,
+                        'correct_answers' => $correctCount,
+                        'wrong_answers' => $wrongCount,
                     ];
                 })->values();
             }
