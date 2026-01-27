@@ -280,7 +280,13 @@
 
     <!-- Summary Statistics -->
     <div class="bg-white px-4 py-6 rounded-lg border border-border">
-        <h3 class="text-lg font-bold mb-4 text-gray-800">Ringkasan Hasil SKD Full</h3>
+        @php
+            $summaryNames = collect($subtestSummaries ?? [])->pluck('name')->filter()->unique()->values();
+            $summaryTitle = $summaryNames->isNotEmpty()
+                ? 'Ringkasan Hasil ' . $summaryNames->implode(' - ')
+                : 'Ringkasan Hasil ' . ($tryout->title ?? $tryout->name ?? 'Tryout');
+        @endphp
+        <h3 class="text-lg font-bold mb-4 text-gray-800">{{ $summaryTitle }}</h3>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
