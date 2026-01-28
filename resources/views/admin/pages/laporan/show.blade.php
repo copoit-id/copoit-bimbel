@@ -104,7 +104,7 @@
                         </p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <a href="{{ route('admin.user.report', $user->id) }}"
                         class="px-4 py-2 text-sm border border-gray-200 rounded-full text-gray-600 hover:bg-gray-50 flex items-center gap-2 font-semibold">
                         <i class="ri-line-chart-line text-base"></i>
@@ -127,7 +127,8 @@
                                     <th class="px-4 py-2 text-center">Skor</th>
                                     <th class="px-4 py-2 text-center">Benar/Salah</th>
                                     <th class="px-4 py-2 text-center">Durasi</th>
-                                    <th class="px-4 py-2 text-center">Selesai</th>
+                                    <th class="px-4 py-2 text-center">Waktu Mulai</th>
+                                    <th class="px-4 py-2 text-center">Waktu Selesai</th>
                                     <th class="px-4 py-2 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -167,15 +168,38 @@
                                     </td>
                                     <td class="px-4 py-3 text-center text-gray-700">{{ $durationLabel }}</td>
                                     <td class="px-4 py-3 text-center">
+                                        <p class="font-medium text-gray-800">{{ $attemptStarted ? $attemptStarted->translatedFormat('d M Y') : '-' }}</p>
+                                        <p class="text-xs text-gray-500">{{ $attemptStarted ? $attemptStarted->format('H:i') : '' }}</p>
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
                                         <p class="font-medium text-gray-800">{{ $attemptFinished ? $attemptFinished->translatedFormat('d M Y') : '-' }}</p>
                                         <p class="text-xs text-gray-500">{{ $attemptFinished ? $attemptFinished->format('H:i') : '' }}</p>
                                     </td>
                                     <td class="px-4 py-3 text-center">
-                                        <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"
-                                            class="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
-                                            <i class="ri-file-list-3-line text-base"></i>
-                                            Detail Jawaban
-                                        </a>
+                                        <div class="inline-flex flex-wrap items-center justify-center gap-2">
+                                            <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"
+                                                class="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
+                                                <i class="ri-file-list-3-line text-base"></i>
+                                                Detail Jawaban
+                                            </a>
+                                            @if(!in_array($attempt->attempt_status, ['completed', 'pending_release']))
+                                                <button type="button" data-open-time-modal="time-modal-{{ $user->id }}"
+                                                    class="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
+                                                    <i class="ri-time-line text-base"></i>
+                                                    Tambah Waktu
+                                                </button>
+                                            @endif
+                                            <form action="{{ route('admin.laporan.reset-attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"
+                                                method="POST"
+                                                onsubmit="return confirm('Reset attempt ini? Semua jawaban pada attempt ini akan dihapus.');">
+                                                @csrf
+                                                <button type="submit"
+                                                    class="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full border border-red-400 text-red-600 hover:bg-red-500 hover:text-white transition">
+                                                    <i class="ri-refresh-line text-base"></i>
+                                                    Reset
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -183,6 +207,32 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div id="time-modal-{{ $user->id }}" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
+            <div class="absolute inset-0 bg-black/50" data-close-time-modal></div>
+            <div class="relative bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-sm text-gray-500">Tambah waktu</p>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ $user->name ?? 'User' }}</h3>
+                    </div>
+                    <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" data-close-time-modal>&times;</button>
+                </div>
+                <form action="{{ route('admin.laporan.add-time', [$tryout->tryout_id, $user->id]) }}" method="POST">
+                    @csrf
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tambahan menit</label>
+                    <input type="number" name="extra_minutes" min="0" max="300"
+                        value="{{ $participant['extra_minutes'] ?? 0 }}"
+                        class="w-full px-4 py-2 border border-gray-200 rounded-lg" placeholder="contoh: 15">
+                    <p class="text-xs text-gray-500 mt-2">Isi 0 untuk hapus tambahan waktu.</p>
+                    <div class="flex justify-end gap-2 mt-6">
+                        <button type="button" data-close-time-modal
+                            class="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Batal</button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Simpan</button>
+                    </div>
+                </form>
             </div>
         </div>
         @empty
@@ -222,6 +272,25 @@
                 if (label) {
                     label.textContent = target.classList.contains('hidden') ? 'Lihat Attempt' : 'Sembunyikan';
                 }
+            });
+        });
+
+        document.querySelectorAll('[data-open-time-modal]').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.getAttribute('data-open-time-modal');
+                const modal = document.getElementById(targetId);
+                if (!modal) return;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            });
+        });
+
+        document.querySelectorAll('[data-close-time-modal]').forEach(button => {
+            button.addEventListener('click', () => {
+                const modal = button.closest('[id^="time-modal-"]');
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
             });
         });
     });

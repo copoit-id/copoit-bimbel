@@ -4,7 +4,9 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tryout;
+use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -173,15 +175,31 @@ class LaporanController extends Controller
                 $sortedAttempts = $attempts->sortByDesc('finished_at')->values();
                 $latest = $sortedAttempts->first();
 
+                $status = 'belum_mengerjakan';
+                if ($attempts->where('attempt_status', 'in_progress')->count() > 0) {
+                    $status = 'sedang_mengerjakan';
+                } elseif ($attempts->whereIn('attempt_status', ['completed', 'pending_release'])->count() > 0) {
+                    $status = 'selesai';
+                }
+
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
                     'latest_score' => round($latest->raw_score ?? 0, 1),
                     'last_finished' => $latest->finished_at,
                     'attempts' => $sortedAttempts,
+                    'status' => $status,
                 ];
             })
             ->values();
+
+        $timeAdjustments = TryoutUserTimeAdjustment::where('tryout_id', $tryout->tryout_id)
+            ->pluck('extra_minutes', 'user_id');
+
+        $participants = $participants->map(function ($participant) use ($timeAdjustments) {
+            $participant['extra_minutes'] = (int) ($timeAdjustments[$participant['user']->id] ?? 0);
+            return $participant;
+        });
 
         $statistics = [
             'total_subtests' => $tryout->tryoutDetails->count(),
@@ -201,6 +219,63 @@ class LaporanController extends Controller
             ?? optional($tryout->directPackage)->package_id;
 
         return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
+    }
+
+    public function addTime(Request $request, $tryoutId, $userId)
+    {
+        $request->validate([
+            'extra_minutes' => 'required|integer|min:0|max:300',
+        ]);
+
+        $extraMinutes = (int) $request->input('extra_minutes');
+
+        if ($extraMinutes === 0) {
+            TryoutUserTimeAdjustment::where('tryout_id', $tryoutId)
+                ->where('user_id', $userId)
+                ->delete();
+        } else {
+            TryoutUserTimeAdjustment::updateOrCreate(
+                ['tryout_id' => $tryoutId, 'user_id' => $userId],
+                ['extra_minutes' => $extraMinutes]
+            );
+        }
+
+        return redirect()->route('admin.laporan.show', $tryoutId)
+            ->with('success', 'Waktu tambahan berhasil disimpan.');
+    }
+
+    public function resetUserAttempt($tryoutId, $userId)
+    {
+        DB::transaction(function () use ($tryoutId, $userId) {
+            $answers = UserAnswer::where('tryout_id', $tryoutId)
+                ->where('user_id', $userId)
+                ->pluck('user_answer_id');
+
+            if ($answers->isNotEmpty()) {
+                \App\Models\UserAnswerDetail::whereIn('user_answer_id', $answers)->delete();
+                UserAnswer::whereIn('user_answer_id', $answers)->delete();
+            }
+        });
+
+        return redirect()->route('admin.laporan.show', $tryoutId)
+            ->with('success', 'Pengerjaan user berhasil direset.');
+    }
+
+    public function resetAttempt($tryoutId, $attemptToken)
+    {
+        DB::transaction(function () use ($tryoutId, $attemptToken) {
+            $answers = UserAnswer::where('tryout_id', $tryoutId)
+                ->where('attempt_token', $attemptToken)
+                ->pluck('user_answer_id');
+
+            if ($answers->isNotEmpty()) {
+                \App\Models\UserAnswerDetail::whereIn('user_answer_id', $answers)->delete();
+                UserAnswer::whereIn('user_answer_id', $answers)->delete();
+            }
+        });
+
+        return redirect()->route('admin.laporan.show', $tryoutId)
+            ->with('success', 'Attempt berhasil direset.');
     }
 
     public function attemptDetail($tryoutId, $attemptToken)

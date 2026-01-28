@@ -9,6 +9,7 @@ use App\Models\TryoutDetail;
 use App\Models\Question;
 use App\Models\FeedbackQuestion;
 use App\Models\FeedbackSubmission;
+use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
@@ -472,7 +473,8 @@ class TryoutController extends Controller
         $tryoutDetails = $tryout->tryoutDetails()->orderBy('tryout_detail_id')->get();
 
         // Calculate total duration dan questions untuk SKD Full
-        $totalDuration = $tryoutDetails->sum('duration');
+        $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
+        $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
         $totalQuestions = 0;
         foreach ($tryoutDetails as $detail) {
             $totalQuestions += Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
@@ -676,7 +678,8 @@ class TryoutController extends Controller
         }
 
         // Calculate total time untuk SKD Full
-        $totalDuration = $tryoutDetails->sum('duration');
+        $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
+        $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
         $startTime = Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
         $endTime = $startTime->copy()->addMinutes($totalDuration);
 
@@ -751,7 +754,8 @@ class TryoutController extends Controller
             'isLastQuestionOfSubtest',
             'remainingSeconds',
             'subtestRemainingSeconds',
-            'attemptToken'
+            'attemptToken',
+            'extraMinutes'
         ));
     }
 
@@ -1320,6 +1324,13 @@ class TryoutController extends Controller
             'feedbackSubmitted' => $feedbackSubmitted,
             'feedbackAttemptToken' => $attemptToken,
         ];
+    }
+
+    private function getExtraMinutesForUser(int $tryoutId, int $userId): int
+    {
+        return (int) (TryoutUserTimeAdjustment::where('tryout_id', $tryoutId)
+            ->where('user_id', $userId)
+            ->value('extra_minutes') ?? 0);
     }
 
     public function indexResult($id_package, $id_tryout)

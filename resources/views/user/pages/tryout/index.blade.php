@@ -719,14 +719,19 @@
             @php
                 $now = \Carbon\Carbon::now('Asia/Jakarta');
                 $startTime = \Carbon\Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
+                $extraMinutes = isset($extraMinutes) ? (int) $extraMinutes : 0;
                 if (isset($tryoutDetails) && $tryoutDetails->count() > 1) {
-                    $totalDuration = $tryoutDetails->sum('duration');
+                    $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
                 } else {
-                    $totalDuration = $tryoutDetails->first()->duration ?? 60;
+                    $totalDuration = ($tryoutDetails->first()->duration ?? 60) + $extraMinutes;
                 }
                 $endTime = $startTime->copy()->addMinutes($totalDuration);
                 $remainingSecondsCalc = $now->lt($endTime) ? (int) $now->diffInSeconds($endTime) : 0;
-                $subtestSecondsCalc = isset($subtestRemainingSeconds) ? (int) $subtestRemainingSeconds : $remainingSecondsCalc;
+                if ($extraMinutes > 0) {
+                    $subtestSecondsCalc = $remainingSecondsCalc;
+                } else {
+                    $subtestSecondsCalc = isset($subtestRemainingSeconds) ? (int) $subtestRemainingSeconds : $remainingSecondsCalc;
+                }
             @endphp
 
             let timeLeft = {{ $remainingSecondsCalc }};
