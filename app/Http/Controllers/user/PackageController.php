@@ -1008,7 +1008,7 @@ class PackageController extends Controller
     public function checkPaymentStatus($paymentId)
     {
         // Use 'role' instead of 'is_admin' based on migration
-        if (Auth::user()->role !== 'admin') {
+        if (!Auth::user()->isAdmin()) {
             abort(403);
         }
 
@@ -1113,7 +1113,7 @@ class PackageController extends Controller
     public function manualActivatePayment(Request $request, $paymentId)
     {
         // Use 'role' instead of 'is_admin' based on migration
-        if (Auth::user()->role !== 'admin') {
+        if (!Auth::user()->isAdmin()) {
             abort(403, 'Only admin can manually activate payments');
         }
 

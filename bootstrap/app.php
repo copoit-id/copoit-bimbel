@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'admin.expiry' => \App\Http\Middleware\AdminExpiryMiddleware::class,
+            'super-admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'certificate.enabled' => \App\Http\Middleware\EnsureCertificateManagementEnabled::class,
         ]);
     })

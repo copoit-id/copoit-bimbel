@@ -22,14 +22,22 @@ class ProductionAdminUserSeeder extends Seeder
         ));
 
         $adminEmail = config('seeders.prod_admin.email');
+        $superAdminEmail = config('seeders.super_admin.email');
         $userEmail = config('seeders.prod_user.email');
 
-        if (empty($adminEmail) || empty($userEmail)) {
-            $this->command->error('Production seeder aborted: PROD_ADMIN_EMAIL/PROD_USER_EMAIL must be set (use config cache safe values).');
+        if (empty($adminEmail) || empty($superAdminEmail) || empty($userEmail)) {
+            $this->command->error('Production seeder aborted: SUPER_ADMIN_EMAIL/PROD_ADMIN_EMAIL/PROD_USER_EMAIL must be set (use config cache safe values).');
             return;
         }
 
         $accounts = [
+            [
+                'name' => 'Super Admin',
+                'username' => config('seeders.super_admin.username'),
+                'email' => $superAdminEmail,
+                'password' => config('seeders.super_admin.password'),
+                'role' => 'super_admin',
+            ],
             [
                 'name' => 'Production Admin',
                 'username' => config('seeders.prod_admin.username'),

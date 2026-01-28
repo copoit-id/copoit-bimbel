@@ -18,7 +18,7 @@ class AdminMiddleware
     public function handle(Request $request, Closure $next)
     {
         // Check if user is authenticated and is admin based on migration structure
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
+        if (!Auth::check() || !Auth::user()->isAdmin()) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }

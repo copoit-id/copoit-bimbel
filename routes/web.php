@@ -25,6 +25,7 @@ use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TryoutController;
+use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\App;
@@ -186,13 +187,19 @@ Route::post('/webhook/xendit', [PackageController::class, 'xenditWebhook'])->nam
 Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])->name('webhook.midtrans');
 
 // Add route for checking payment status (for debugging)
-Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class]);
+Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
 
 // Add route for manual payment activation
-Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])->middleware(['auth', AdminMiddleware::class]);
+Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+
+// Super Admin Routes
+Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin'])->group(function () {
+    Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
+    Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
+});
 
 // Admin Routes (add auth middleware)
-Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Profile routes

@@ -41,6 +41,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'admin_expires_at' => 'datetime',
         ];
     }
 
@@ -96,6 +97,11 @@ class User extends Authenticatable
     // Add helper method to check if user is admin based on migration structure
     public function isAdmin()
     {
-        return $this->role === 'admin';
+        return in_array($this->role, ['admin', 'super_admin'], true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
     }
 }
