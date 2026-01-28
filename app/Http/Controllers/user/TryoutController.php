@@ -7,6 +7,8 @@ use App\Models\Package;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\Question;
+use App\Models\FeedbackQuestion;
+use App\Models\FeedbackSubmission;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
@@ -1302,6 +1304,24 @@ class TryoutController extends Controller
         }
     }
 
+    private function buildFeedbackContext(Tryout $tryout, string $attemptToken): array
+    {
+        $feedbackQuestions = FeedbackQuestion::where('tryout_id', $tryout->tryout_id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        $feedbackSubmitted = FeedbackSubmission::where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->exists();
+
+        return [
+            'feedbackQuestions' => $feedbackQuestions,
+            'feedbackSubmitted' => $feedbackSubmitted,
+            'feedbackAttemptToken' => $attemptToken,
+        ];
+    }
+
     public function indexResult($id_package, $id_tryout)
     {
         $now = Carbon::now('Asia/Jakarta');
@@ -1418,14 +1438,16 @@ class TryoutController extends Controller
         // Simpan juga total untuk ditampilkan di header/summary
         $overallTotal = $toeflResults['total_score'] ?? null;
 
-        return view('user.pages.tryout.result-toefl', compact(
+        $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
+
+        return view('user.pages.tryout.result-toefl', array_merge(compact(
             'package',
             'tryout',
             'toeflResults',     // masih berisi total_score + detail
             'sectionResults',   // per-seksi
             'latestAttemptToken',
             'overallTotal'      // opsional dipakai di blade
-        ));
+        ), $feedbackContext));
     }
 
     private function processUtbkResults($package, $tryout, $latestUserAnswers, $latestAttemptToken)
@@ -1480,14 +1502,16 @@ class TryoutController extends Controller
         $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
         $overallPassed = $subtests->every('is_passed');
 
-        return view('user.pages.tryout.result-utbk', [
+        $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
+
+        return view('user.pages.tryout.result-utbk', array_merge([
             'package' => $package,
             'tryout' => $tryout,
             'subtests' => $subtests,
             'totalScore' => $totalScore,
             'attemptToken' => $latestAttemptToken,
             'overallPassed' => $overallPassed,
-        ]);
+        ], $feedbackContext));
     }
 
     /**
@@ -1552,7 +1576,9 @@ class TryoutController extends Controller
         // Calculate overall percentage
         $overallPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
 
-        return view('user.pages.tryout.result', compact(
+        $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
+
+        return view('user.pages.tryout.result', array_merge(compact(
             'package',
             'latestUserAnswers',
             'latestAttemptToken',
@@ -1568,7 +1594,7 @@ class TryoutController extends Controller
             'subtestResults',
             'singleIsPassed',
             'overallPercentage'
-        ));
+        ), $feedbackContext));
     }
 
     /**

@@ -199,6 +199,7 @@
     </div>
 </div>
 
+@include('user.components.feedback-modal', ['package' => $package ?? null, 'tryout' => $tryout])
 @endsection
 
 @section('styles')

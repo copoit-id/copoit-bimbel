@@ -79,6 +79,16 @@ class Tryout extends Model
         return $this->hasMany(UserAnswer::class, 'tryout_id', 'tryout_id');
     }
 
+    public function feedbackQuestions()
+    {
+        return $this->hasMany(FeedbackQuestion::class, 'tryout_id', 'tryout_id');
+    }
+
+    public function feedbackSubmissions()
+    {
+        return $this->hasMany(FeedbackSubmission::class, 'tryout_id', 'tryout_id');
+    }
+
     public function classes()
     {
         return $this->belongsToMany(ClassModel::class, 'class_assessments', 'tryout_id', 'class_id')

@@ -39,6 +39,14 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('admin.feedback.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.feedback.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-message-3-line text-[20px] {{ request()->routeIs('admin.feedback.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Feedback Tryout</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('admin.class.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i

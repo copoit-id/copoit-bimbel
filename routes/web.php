@@ -7,6 +7,7 @@ use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\admin\DiscussionController;
 use App\Http\Controllers\admin\EssayReviewController;
+use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
+use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TryoutController;
@@ -138,6 +140,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::post('/{id_package}/{id_tryout}/flag', [TryoutController::class, 'toggleFlag'])->name('user.tryout.flag');
         Route::post('/{id_package}/{id_tryout}/finish', [TryoutController::class, 'finishTryout'])->name('user.tryout.finish');
         Route::get('/{id_package}/{id_tryout}/hasil', [TryoutController::class, 'indexResult'])->name('user.tryout.result');
+        Route::post('/{id_package}/{id_tryout}/feedback', [UserFeedbackController::class, 'store'])->name('user.tryout.feedback.store');
         Route::post(
             '/listening/mark-played/{id_package}/{id_tryout}/{question_id}',
             [TryoutController::class, 'markPlayed']
@@ -267,6 +270,18 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
     Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
     Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
+
+    Route::prefix('feedback')->name('feedback.')->group(function () {
+        Route::get('/', [AdminFeedbackController::class, 'index'])->name('index');
+        Route::get('/{tryout}', [AdminFeedbackController::class, 'show'])->name('show');
+        Route::get('/{tryout}/create', [AdminFeedbackController::class, 'create'])->name('create');
+        Route::post('/{tryout}', [AdminFeedbackController::class, 'store'])->name('store');
+        Route::get('/{tryout}/{question}/edit', [AdminFeedbackController::class, 'edit'])->name('edit');
+        Route::put('/{tryout}/{question}', [AdminFeedbackController::class, 'update'])->name('update');
+        Route::delete('/{tryout}/{question}', [AdminFeedbackController::class, 'destroy'])->name('destroy');
+        Route::get('/{tryout}/responses', [AdminFeedbackController::class, 'responses'])->name('responses');
+        Route::get('/{tryout}/responses/{submission}', [AdminFeedbackController::class, 'responseDetail'])->name('responses.detail');
+    });
 
     Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
     Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
