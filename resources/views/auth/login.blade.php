@@ -18,6 +18,31 @@
 
 <body class="bg-gray-50">
     @include('components.flash-alert')
+    <div id="announcement-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-announcement-close></div>
+        <div class="relative bg-white rounded-2xl w-full max-w-lg p-6 md:p-8 shadow-2xl border border-gray-100">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
+                        <i class="ri-megaphone-line text-2xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase tracking-widest text-gray-400">Pengumuman</p>
+                        <h3 class="text-xl font-bold text-gray-900">Info Akses Demo</h3>
+                    </div>
+                </div>
+                <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" data-announcement-close>&times;</button>
+            </div>
+            <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 leading-relaxed">
+                Semua akses demo telah direset, silahkan hubungi admin untuk meminta akses demo terbaru.
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button type="button" class="px-4 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800" data-announcement-close>
+                    Mengerti
+                </button>
+            </div>
+        </div>
+    </div>
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <div>
@@ -144,6 +169,22 @@
         });
     </script>
     @endif
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('announcement-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            modal.querySelectorAll('[data-announcement-close]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                });
+            });
+        });
+    </script>
 </body>
 
 </html>
