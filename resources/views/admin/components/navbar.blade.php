@@ -38,6 +38,14 @@
             </div>
 
             <div class="flex items-center gap-4">
+                @if(auth()->user()?->role === 'admin_demo' && auth()->user()?->admin_expires_at)
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white/80 text-sm text-gray-700"
+                    data-admin-demo-expiry="{{ auth()->user()->admin_expires_at->setTimezone('Asia/Jakarta')->toIso8601String() }}">
+                    <i class="ri-timer-line text-gray-800"></i>
+                    <span class="font-semibold text-gray-800">Sisa Akses Demo:</span>
+                    <span id="admin-demo-countdown" class="tabular-nums text-gray-700">--:--:--</span>
+                </div>
+                @endif
                 <!-- User Info -->
                 <a href="{{ route('admin.profile.index') }}" class="flex items-center gap-3">
                     <div class="text-right">
@@ -61,3 +69,37 @@
         </div>
     </div>
 </nav>
+
+@if(auth()->user()?->role === 'admin_demo' && auth()->user()?->admin_expires_at)
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.querySelector('[data-admin-demo-expiry]');
+    const label = document.getElementById('admin-demo-countdown');
+    if (!container || !label) return;
+
+    const expiryIso = container.getAttribute('data-admin-demo-expiry');
+    const expiry = new Date(expiryIso).getTime();
+
+    const format = (ms) => {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (days > 0) return `${days}h ${hours}j ${minutes}m`;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    const tick = () => {
+        const now = Date.now();
+        const remaining = expiry - now;
+        label.textContent = format(remaining);
+    };
+
+    tick();
+    setInterval(tick, 1000);
+});
+</script>
+@endpush
+@endif

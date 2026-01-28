@@ -97,11 +97,16 @@ class User extends Authenticatable
     // Add helper method to check if user is admin based on migration structure
     public function isAdmin()
     {
-        return in_array($this->role, ['admin', 'super_admin'], true);
+        return in_array($this->role, ['admin', 'super_admin', 'admin_demo'], true);
     }
 
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';
+    }
+
+    public function isDemoAdmin(): bool
+    {
+        return $this->role === 'admin_demo';
     }
 }

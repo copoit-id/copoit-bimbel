@@ -33,7 +33,7 @@ class AuthController extends Controller
             if ($user->role === 'super_admin') {
                 return redirect()->route('super-admin.admins.index');
             }
-            return $user->role === 'admin'
+            return in_array($user->role, ['admin', 'admin_demo'], true)
                 ? redirect()->route('admin.dashboard')
                 : redirect()->route('user.dashboard.index');
         }
@@ -81,8 +81,19 @@ class AuthController extends Controller
             if ($user->role === 'super_admin') {
                 return redirect()->intended(route('super-admin.admins.index'));
             }
-            if ($user->role === 'admin') {
-                if ($user->admin_expires_at && Carbon::now('Asia/Jakarta')->gte($user->admin_expires_at)) {
+            if (in_array($user->role, ['admin', 'admin_demo'], true)) {
+                if ($user->role === 'admin_demo') {
+                    if (!$user->admin_expires_at || Carbon::now('Asia/Jakarta')->gte($user->admin_expires_at)) {
+                        Auth::logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+
+                        return back()->withErrors([
+                            'email' => 'Akses admin demo sudah berakhir. Silakan hubungi super admin.',
+                        ])->withInput($request->except('password'));
+                    }
+                }
+                if ($user->role === 'admin' && $user->admin_expires_at && Carbon::now('Asia/Jakarta')->gte($user->admin_expires_at)) {
                     Auth::logout();
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();

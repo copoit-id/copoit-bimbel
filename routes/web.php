@@ -196,6 +196,7 @@ Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'm
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin'])->group(function () {
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
+    Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
 });
 
 // Admin Routes (add auth middleware)

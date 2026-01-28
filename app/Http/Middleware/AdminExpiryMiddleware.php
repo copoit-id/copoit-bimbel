@@ -13,7 +13,19 @@ class AdminExpiryMiddleware
     {
         if (Auth::check()) {
             $user = Auth::user();
-            if ($user->role === 'admin' && $user->admin_expires_at) {
+            if ($user->role === 'admin_demo') {
+                if (!$user->admin_expires_at) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+
+                    if ($request->expectsJson()) {
+                        return response()->json(['message' => 'Akses admin demo belum memiliki batas waktu.'], 403);
+                    }
+
+                    return redirect()->route('login')->with('error', 'Akses admin demo belum memiliki batas waktu. Silakan hubungi super admin.');
+                }
+
                 $now = Carbon::now('Asia/Jakarta');
                 if ($now->gte($user->admin_expires_at)) {
                     Auth::logout();
