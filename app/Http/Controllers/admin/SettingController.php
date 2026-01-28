@@ -115,7 +115,7 @@ class SettingController extends Controller
         }
 
         $extension = strtolower($file->getClientOriginalExtension() ?: 'png');
-        $filename = $prefix . '.' . $extension;
+        $filename = $prefix . '-' . now()->format('YmdHis') . '.' . $extension;
 
         $relativePath = 'logo/' . $filename;
 
