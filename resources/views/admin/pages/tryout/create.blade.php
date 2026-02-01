@@ -163,49 +163,98 @@
                 </div>
 
                 <!-- Options -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="is_active" name="is_active" value="1" {{ (isset($tryout) &&
-                            $tryout->is_active) || old('is_active') ? 'checked' : '' }}
-                        class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary
-                        focus:ring-2">
-                        <label for="is_active" class="ml-2 text-sm font-medium text-gray-700">
+                <div class="space-y-4">
+                    @php
+                        $hasOldInput = session()->hasOldInput();
+                        $isActiveChecked = $hasOldInput
+                            ? (bool) old('is_active')
+                            : (isset($tryout) ? (bool) $tryout->is_active : true);
+                    @endphp
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" id="is_active" name="is_active" value="1" {{
+                            $isActiveChecked ? 'checked' : '' }} class="sr-only peer">
+                        <span
+                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span
+                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                        </span>
+                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tryout Aktif
-                        </label>
-                    </div>
+                            <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
+                                <i class="ri-information-line text-sm"></i>
+                                <span
+                                    class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
+                                    Tryout tidak akan tampil di user jika dinonaktifkan.
+                                </span>
+                            </span>
+                        </span>
+                    </label>
 
-                    <div class="flex items-center">
+                    <label class="flex items-center gap-3">
                         <input type="checkbox" id="is_certification" name="is_certification" value="1" {{
                             (isset($tryout) && $tryout->is_certification) || old('is_certification') ? 'checked' : '' }}
-                        class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary
-                        focus:ring-2">
-                        <label for="is_certification" class="ml-2 text-sm font-medium text-gray-700">
-                            Tryout Sertifikasi
-                        </label>
-                    </div>
+                            class="sr-only peer">
+                        <span
+                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span
+                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                        </span>
+                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            Generate Sertifikat Otomatis
+                            <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
+                                <i class="ri-information-line text-sm"></i>
+                                <span
+                                    class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
+                                    Sertifikat akan digenerate jika diaktifkan. Wajib memiliki template.
+                                </span>
+                            </span>
+                        </span>
+                    </label>
 
-                    <div class="flex items-center">
-                        <input type="checkbox" id="is_toefl" name="is_toefl" value="1" {{ (isset($tryout) &&
-                            $tryout->is_toefl) || old('is_toefl') ? 'checked' : '' }}
-                        class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary
-                        focus:ring-2">
-                        <label for="is_toefl" class="ml-2 text-sm font-medium text-gray-700">
-                            TOEFL IRT Scoring
+                    <div class="flex flex-col gap-2 hidden" data-toefl-toggle>
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" id="is_toefl" name="is_toefl" value="1" {{ (isset($tryout) &&
+                                $tryout->is_toefl) || old('is_toefl') ? 'checked' : '' }} class="sr-only peer">
+                            <span
+                                class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                <span
+                                    class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                            </span>
+                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                IRT TOEFL Scoring
+                                <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
+                                    <i class="ri-information-line text-sm"></i>
+                                    <span
+                                        class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
+                                        Menggunakan penilaian IRT TOEFL.
+                                    </span>
+                                </span>
+                            </span>
                         </label>
                     </div>
 
                     @if($allowUtbkTypes)
-                    <div class="flex flex-col md:flex-row md:items-center hidden" data-irt-toggle>
-                        <div class="flex items-center">
+                    <div class="flex flex-col gap-2 hidden" data-irt-toggle>
+                        <label class="flex items-center gap-3">
                             <input type="checkbox" id="is_irt" name="is_irt" value="1" {{
                                 old('is_irt', isset($tryout) ? (bool) $tryout->is_irt : true) ? 'checked' : '' }}
-                                class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
-                            <label for="is_irt" class="ml-2 text-sm font-medium text-gray-700">
-                                Aktifkan Penilaian IRT UTBK
-                            </label>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-2 md:mt-0 md:ml-4">Nilai dirilis otomatis setelah periode UTBK
-                            berakhir.</p>
+                                class="sr-only peer">
+                            <span
+                                class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                <span
+                                    class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                            </span>
+                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                IRT UTBK Scoring
+                                <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
+                                    <i class="ri-information-line text-sm"></i>
+                                    <span
+                                        class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
+                                        Nilai dirilis otomatis setelah periode UTBK berakhir.
+                                    </span>
+                                </span>
+                            </span>
+                        </label>
                     </div>
                     @endif
                 </div>
@@ -757,12 +806,14 @@
     });
   }
 
-  function initTryoutForm(root = document) {
-    const typeSelect = root.querySelector('#type_tryout');
-    const configSections = root.querySelectorAll('.config-section');
-    const irtBlock = root.querySelector('[data-irt-toggle]');
-    const irtInput = irtBlock ? irtBlock.querySelector('#is_irt') : null;
-    if (!typeSelect || typeSelect.__tryoutBound) return;
+    function initTryoutForm(root = document) {
+      const typeSelect = root.querySelector('#type_tryout');
+      const configSections = root.querySelectorAll('.config-section');
+      const irtBlock = root.querySelector('[data-irt-toggle]');
+      const irtInput = irtBlock ? irtBlock.querySelector('#is_irt') : null;
+      const toeflBlock = root.querySelector('[data-toefl-toggle]');
+      const toeflInput = toeflBlock ? toeflBlock.querySelector('#is_toefl') : null;
+      if (!typeSelect || typeSelect.__tryoutBound) return;
 
     const configSectionMap = {
       'utbk_full': 'utbk_full_config',
@@ -808,6 +859,7 @@
       }
 
       toggleIrtVisibility(selectedType);
+      toggleToeflVisibility(selectedType);
       toggleUtbkSingleCards(selectedType);
     }
 
@@ -819,6 +871,17 @@
       } else {
         irtBlock.classList.add('hidden');
         irtInput.disabled = true;
+      }
+    }
+
+    function toggleToeflVisibility(selectedType) {
+      if (!toeflBlock || !toeflInput) return;
+      if (selectedType === 'certification') {
+        toeflBlock.classList.remove('hidden');
+        toeflInput.disabled = false;
+      } else {
+        toeflBlock.classList.add('hidden');
+        toeflInput.disabled = true;
       }
     }
 
