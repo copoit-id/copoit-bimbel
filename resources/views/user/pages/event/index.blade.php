@@ -1,20 +1,20 @@
 @extends('user.layout.user')
-@section('title', 'Event Gratis')
+@section('title', __('Event Gratis'))
 @section('content')
 @php
     $tabConfig = [
-        'kelas' => ['label' => 'Kelas', 'packages' => $kelasPackages],
-        'tryout' => ['label' => 'Tryout', 'packages' => $tryoutPackages],
-        'sertifikasi' => ['label' => 'Sertifikasi', 'packages' => $sertifikasiPackages],
+        'kelas' => ['label' => __('Kelas'), 'packages' => $kelasPackages],
+        'tryout' => ['label' => __('Tryout'), 'packages' => $tryoutPackages],
+        'sertifikasi' => ['label' => __('Sertifikasi'), 'packages' => $sertifikasiPackages],
     ];
     $typePriceLabels = [
-        'free_unconditional' => ['label' => 'Gratis', 'class' => 'bg-emerald-50 text-emerald-700 border border-emerald-100'],
-        'free_conditional' => ['label' => 'Gratis Bersyarat', 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
+        'free_unconditional' => ['label' => __('Gratis'), 'class' => 'bg-emerald-50 text-emerald-700 border border-emerald-100'],
+        'free_conditional' => ['label' => __('Gratis Bersyarat'), 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
     ];
     $paymentMode = config('client.branding.payment_mode', 'gateway');
 @endphp
 <div class="dashboard space-y-6">
-    <x-page-desc title="Event Gratis" description="Paket gratis dengan syarat khusus untuk komunitasmu"></x-page-desc>
+    <x-page-desc title="{{ __('Event Gratis') }}" description="{{ __('Paket gratis dengan syarat khusus untuk komunitasmu') }}"></x-page-desc>
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div class="flex gap-2">
             @foreach($tabConfig as $key => $config)
@@ -25,7 +25,7 @@
             @endforeach
         </div>
         <a href="{{ route('user.package.riwayatPembelian') }}"
-            class="text-primary text-sm font-semibold hover:underline">Riwayat Paket</a>
+            class="text-primary text-sm font-semibold hover:underline">{{ __('Riwayat Paket') }}</a>
     </div>
 
     @foreach($tabConfig as $key => $config)
@@ -36,7 +36,7 @@
             $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
             $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
             $thumbUrl = $package->image ? Storage::url($package->image) : null;
-            $tagStyle = $typePriceLabels[$package->type_price] ?? ['label' => 'Gratis', 'class' => 'bg-gray-100 text-gray-700 border border-gray-200'];
+            $tagStyle = $typePriceLabels[$package->type_price] ?? ['label' => __('Gratis'), 'class' => 'bg-gray-100 text-gray-700 border border-gray-200'];
             $featureList = $package->features ? json_decode($package->features, true) : [];
             $currentAccess = ($package->userAccess ?? collect())->first();
             $isActive = $currentAccess && $currentAccess->status === 'active';
@@ -75,7 +75,7 @@
 
             <div>
                 <h3 class="text-lg font-semibold text-gray-900">{{ $package->name }}</h3>
-                <p class="text-sm text-gray-600 mt-1">{{ $package->description ?? 'Belum ada deskripsi.' }}</p>
+                <p class="text-sm text-gray-600 mt-1">{{ $package->description ?? __('Belum ada deskripsi.') }}</p>
             </div>
 
             <div class="space-y-2">
@@ -87,7 +87,7 @@
                     </p>
                     @endforeach
                 @else
-                    <p class="text-sm text-gray-500">Belum ada fitur terdaftar.</p>
+                    <p class="text-sm text-gray-500">{{ __('Belum ada fitur terdaftar.') }}</p>
                 @endif
             </div>
 
@@ -95,22 +95,22 @@
                 @if($isActive)
                 <a href="{{ $targetRoute }}"
                     class="inline-flex w-full items-center justify-center rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 transition">
-                    Buka Paket
+                    {{ __('Buka Paket') }}
                 </a>
                 @elseif($package->type_price === 'free_conditional')
                     @if($isPending)
                     <div
                         class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 text-center">
-                        Menunggu verifikasi admin
+                        {{ __('Menunggu verifikasi admin') }}
                     </div>
                     @else
                     <button type="button" data-modal-open="{{ $modalId }}"
                         class="inline-flex w-full items-center justify-center rounded-lg border border-primary bg-white px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition">
-                        {{ $isRejected ? 'Ajukan Ulang' : 'Ajukan Akses' }}
+                        {{ $isRejected ? __('Ajukan Ulang') : __('Ajukan Akses') }}
                     </button>
                     @if($isRejected && $currentAccess?->requirement_review_notes)
                     <p class="mt-2 text-xs text-red-500">
-                        Catatan admin: {{ $currentAccess->requirement_review_notes }}
+                        {{ __('Catatan admin: :notes', ['notes' => $currentAccess->requirement_review_notes]) }}
                     </p>
                     @endif
                     @endif
@@ -118,7 +118,7 @@
                     @if($paymentMode === 'manual' && $package->type_price === 'paid')
                     <button type="button" data-modal-open="manual-payment-{{ $package->package_id }}"
                         class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition">
-                        Beli Sekarang
+                        {{ __('Beli Sekarang') }}
                     </button>
                     @else
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
@@ -126,7 +126,7 @@
                         @csrf
                         <button type="submit"
                             class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition">
-                            Ambil Gratis
+                            {{ __('Ambil Gratis') }}
                         </button>
                     </form>
                     @endif
@@ -146,18 +146,17 @@
                     </button>
                     <div class="p-6 space-y-4">
                         <div>
-                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">Syarat Event</p>
+                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">{{ __('Syarat Event') }}</p>
                             <h3 class="text-xl font-semibold text-gray-900 mt-1">{{ $package->name }}</h3>
-                            <p class="text-sm text-gray-500">Lengkapi bukti syarat untuk mendapatkan paket ini secara
-                                gratis.</p>
+                            <p class="text-sm text-gray-500">{{ __('Lengkapi bukti syarat untuk mendapatkan paket ini secara gratis.') }}</p>
                         </div>
                         <div class="rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-gray-700">
-                            <p class="font-semibold text-blue-900 mb-1">Detail Syarat</p>
+                            <p class="font-semibold text-blue-900 mb-1">{{ __('Detail Syarat') }}</p>
                             <p class="whitespace-pre-line">{{ $package->conditional_requirement }}</p>
                         </div>
                         @if($isRejected && $currentAccess?->requirement_review_notes)
                         <div class="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
-                            <p class="font-semibold mb-1">Catatan admin</p>
+                            <p class="font-semibold mb-1">{{ __('Catatan admin') }}</p>
                             <p>{{ $currentAccess->requirement_review_notes }}</p>
                         </div>
                         @endif
@@ -165,19 +164,18 @@
                             enctype="multipart/form-data" class="buy-package-form space-y-4">
                             @csrf
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('Upload Bukti') }}</label>
                                 <input type="file" name="requirement_proof" required
                                     accept=".jpg,.jpeg,.png,.pdf,.mp4,.webm"
                                     class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF, MP4, WEBM (maks 20MB)</p>
+                                <p class="mt-2 text-xs text-gray-500">{{ __('Format: JPG, PNG, PDF, MP4, WEBM (maks 20MB)') }}</p>
                             </div>
                             <div class="flex items-center justify-end gap-3">
                                 <button type="button"
                                     class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                    data-modal-close="{{ $modalId }}">Batal</button>
+                                    data-modal-close="{{ $modalId }}">{{ __('Batal') }}</button>
                                 <button type="submit"
-                                    class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">Kirim
-                                    Bukti</button>
+                                    class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">{{ __('Kirim Bukti') }}</button>
                             </div>
                         </form>
                     </div>
@@ -197,22 +195,22 @@
                     </button>
                     <div class="p-6 space-y-4">
                         <div>
-                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">Pembayaran Manual</p>
+                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">{{ __('Pembayaran Manual') }}</p>
                             <h3 class="text-xl font-semibold text-gray-900 mt-1">{{ $package->name }}</h3>
-                            <p class="text-sm text-gray-500">Upload bukti pembayaran untuk diproses admin.</p>
+                            <p class="text-sm text-gray-500">{{ __('Upload bukti pembayaran untuk diproses admin.') }}</p>
                         </div>
                         <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
                             <div>
-                                <p class="font-semibold text-gray-900 mb-1">Total Tagihan</p>
+                                <p class="font-semibold text-gray-900 mb-1">{{ __('Total Tagihan') }}</p>
                                 <p>Rp {{ number_format($package->price, 0, ',', '.') }}</p>
                             </div>
                             <div>
-                                <p class="font-semibold text-gray-900 mb-1">Transfer ke</p>
+                                <p class="font-semibold text-gray-900 mb-1">{{ __('Transfer ke') }}</p>
                                 @if(!empty($clientBranding['payment_bank_name']) && !empty($clientBranding['payment_account_number']) && !empty($clientBranding['payment_account_holder']))
                                     <p>{{ $clientBranding['payment_bank_name'] }} {{ $clientBranding['payment_account_number'] }}</p>
-                                    <p class="text-gray-500">a.n {{ $clientBranding['payment_account_holder'] }}</p>
+                                    <p class="text-gray-500">{{ __('a.n :name', ['name' => $clientBranding['payment_account_holder']]) }}</p>
                                 @else
-                                    <p class="text-gray-500">Info rekening belum diatur.</p>
+                                    <p class="text-gray-500">{{ __('Info rekening belum diatur.') }}</p>
                                 @endif
                                 @if(!empty($clientBranding['payment_bank_note']))
                                     <p class="text-xs text-gray-500 mt-1">{{ $clientBranding['payment_bank_note'] }}</p>
@@ -223,18 +221,18 @@
                             enctype="multipart/form-data" class="buy-package-form space-y-4">
                             @csrf
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('Upload Bukti') }}</label>
                                 <input type="file" name="payment_proof" required accept=".jpg,.jpeg,.png,.pdf"
                                     class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF (maks 20MB)</p>
+                                <p class="mt-2 text-xs text-gray-500">{{ __('Format: JPG, PNG, PDF (maks 20MB)') }}</p>
                             </div>
                             <div class="flex items-center justify-end gap-3">
                                 <button type="button"
                                     class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                    data-modal-close="manual-payment-{{ $package->package_id }}">Batal</button>
+                                    data-modal-close="manual-payment-{{ $package->package_id }}">{{ __('Batal') }}</button>
                                 <button type="submit"
                                     class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                                    Kirim Bukti
+                                    {{ __('Kirim Bukti') }}
                                 </button>
                             </div>
                         </form>
@@ -245,7 +243,7 @@
         @endif
         @empty
         <div class="col-span-full rounded-lg bg-white py-12 text-center text-gray-500 shadow">
-            Belum ada paket tersedia di kategori ini.
+            {{ __('Belum ada paket tersedia di kategori ini.') }}
         </div>
         @endforelse
     </div>
@@ -257,7 +255,7 @@
     class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden items-center justify-center backdrop-blur-[1px]">
     <div class="bg-white px-6 py-5 rounded-2xl shadow-xl flex items-center gap-3">
         <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
-        <p class="text-sm font-medium text-gray-700">Memproses permintaan Anda...</p>
+        <p class="text-sm font-medium text-gray-700">{{ __('Memproses permintaan Anda...') }}</p>
     </div>
 </div>
 @endsection
@@ -332,7 +330,7 @@
             const button = form.find('button[type="submit"]');
             const originalHtml = button.html();
 
-            button.prop('disabled', true).html('Memproses...');
+            button.prop('disabled', true).html(@json(__('Memproses...')));
             $('#loadingModal').removeClass('hidden').addClass('flex');
 
             const formData = new FormData(this);
@@ -361,13 +359,13 @@
                     }
 
                     button.prop('disabled', false).html(originalHtml);
-                    alert(response.message || 'Terjadi kesalahan. Silakan coba lagi.');
+                    alert(response.message || @json(__('Terjadi kesalahan. Silakan coba lagi.')));
                 },
                 error: function (xhr) {
                     $('#loadingModal').addClass('hidden').removeClass('flex');
                     button.prop('disabled', false).html(originalHtml);
 
-                    let errorMessage = 'Terjadi kesalahan. Silakan coba lagi.';
+                    let errorMessage = @json(__('Terjadi kesalahan. Silakan coba lagi.'));
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMessage = xhr.responseJSON.message;
                     }

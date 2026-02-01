@@ -1,9 +1,9 @@
 @extends('user.layout.user')
-@section('title', 'Ranking Tryout')
+@section('title', __('Ranking Tryout'))
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
-    <x-page-desc title="Ranking - {{ $tryout->name }}" description="Leaderboard peserta tryout"
-        name_link="Kembali ke Tryout" url_link="{{ $backUrl }}">
+    <x-page-desc title="{{ __('Ranking') }} - {{ $tryout->name }}" description="{{ __('Leaderboard peserta tryout') }}"
+        name_link="{{ __('Kembali ke Tryout') }}" url_link="{{ $backUrl }}">
     </x-page-desc>
 
     <!-- Statistics Cards -->
@@ -12,7 +12,7 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Total Peserta</p>
+                    <p class="text-sm text-gray-600">{{ __('Total Peserta') }}</p>
                     <p class="text-2xl font-bold text-dark">{{ $rankings->count() }}</p>
                 </div>
                 <i class="ri-group-line text-3xl text-dark"></i>
@@ -21,7 +21,7 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Rata-rata Skor</p>
+                    <p class="text-sm text-gray-600">{{ __('Rata-rata Skor') }}</p>
                     <p class="text-2xl font-bold text-dark">{{ number_format($rankings->avg('raw_score'), 1) }}</p>
                 </div>
                 <i class="ri-bar-chart-line text-3xl text-dark"></i>
@@ -30,7 +30,7 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Skor Tertinggi</p>
+                    <p class="text-sm text-gray-600">{{ __('Skor Tertinggi') }}</p>
                     @php
                     $highestScore = $rankings->max('raw_score');
                     $highestMaxScore = $rankings->max('max_score');
@@ -49,7 +49,7 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
+                    <p class="text-sm text-gray-600">{{ __('Tingkat Kelulusan') }}</p>
                     @php
                     $passedCount = $rankings->where('is_passed', true)->count();
                     $passRate = $rankings->count() > 0 ? ($passedCount / $rankings->count()) * 100 : 0;
@@ -66,12 +66,12 @@
         <table class="w-full text-left rtl:text-right text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3">Peringkat</th>
-                    <th scope="col" class="px-6 py-3">Peserta</th>
-                    <th scope="col" class="px-6 py-3 text-center">Skor</th>
-                    <th scope="col" class="px-6 py-3 text-center">Waktu Selesai</th>
-                    <th scope="col" class="px-6 py-3 text-center">Tanggal</th>
-                    <th scope="col" class="px-6 py-3 text-center">Status</th>
+                    <th scope="col" class="px-6 py-3">{{ __('Peringkat') }}</th>
+                    <th scope="col" class="px-6 py-3">{{ __('Peserta') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Skor') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Waktu Selesai') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Tanggal') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Status') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -134,7 +134,7 @@
                                         {{ $ranking['user']->name }}
                                     </p>
                                     @if(Auth::id() == $ranking['user']->id)
-                                    <span class="text-xs bg-primary text-white px-2 py-0.5 rounded-md">Anda</span>
+                                    <span class="text-xs bg-primary text-white px-2 py-0.5 rounded-md">{{ __('Anda') }}</span>
                                     @endif
                                 </div>
                                 <p class="text-sm text-gray-500">{{ $ranking['user']->email }}</p>
@@ -159,10 +159,10 @@
                                 $finishedTime = \Carbon\Carbon::parse($ranking['finished_at']);
                                 @endphp
                                 <p class="font-medium">{{ $finishedTime->format('H:i') }}</p>
-                                <p class="text-sm text-gray-500">WIB</p>
+                                <p class="text-sm text-gray-500">{{ __('WIB') }}</p>
                                 @else
                                 <p class="font-medium text-gray-400">-</p>
-                                <p class="text-sm text-gray-400">Belum selesai</p>
+                                <p class="text-sm text-gray-400">{{ __('Belum selesai') }}</p>
                                 @endif
                             </span>
                         </div>
@@ -173,7 +173,7 @@
                             <span class="flex flex-col items-center">
                                 <p>{{ \Carbon\Carbon::parse($ranking['finished_at'])->format('d M Y') }}</p>
                                 <p class="text-sm text-gray-500">{{
-                                    \Carbon\Carbon::parse($ranking['finished_at'])->format('H:i') }} WIB</p>
+                                    \Carbon\Carbon::parse($ranking['finished_at'])->format('H:i') }} {{ __('WIB') }}</p>
                             </span>
                         </div>
                     </td>
@@ -185,14 +185,14 @@
                                 class="flex items-center gap-1 border border-green bg-green-light px-4 py-1 rounded-lg">
                                 <i class="ri-checkbox-circle-fill text-green text-lg"></i>
                                 <span class="text-green">
-                                    Lulus
+                                    {{ __('Lulus') }}
                                 </span>
                             </span>
                             @else
                             <span class="flex items-center gap-1 border border-red bg-red-light px-4 py-1 rounded-lg">
                                 <i class="ri-close-circle-fill text-red text-lg"></i>
                                 <span class="text-red">
-                                    Belum Lulus
+                                    {{ __('Belum Lulus') }}
                                 </span>
                             </span>
                             @endif
@@ -204,7 +204,7 @@
                     <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                         <div class="flex flex-col items-center">
                             <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
-                            <p>Belum ada peserta yang menyelesaikan tryout ini</p>
+                            <p>{{ __('Belum ada peserta yang menyelesaikan tryout ini') }}</p>
                         </div>
                     </td>
                 </tr>
@@ -216,7 +216,7 @@
     @if($rankings->count() > 0)
     <div class="flex justify-between items-center mt-4">
         <p class="text-gray-500 text-sm">
-            Menampilkan {{ $rankings->count() }} peserta
+            {{ __('Menampilkan') }} {{ $rankings->count() }} {{ __('peserta') }}
         </p>
     </div>
     @endif

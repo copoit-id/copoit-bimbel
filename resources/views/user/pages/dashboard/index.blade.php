@@ -79,7 +79,7 @@
             @forelse($recentAttempts as $attempt)
             <div class="flex items-center justify-between p-3 border-b border-border border-dashed last:border-b-0">
                 <div>
-                    <h4 class="font-medium text-sm">{{ $attempt->tryout->name ?? 'Tryout' }}</h4>
+                        <h4 class="font-medium text-sm">{{ $attempt->tryout->name ?? __('Tryout') }}</h4>
                     <p class="text-xs text-gray-500">{{ $attempt->created_at->format('d M Y H:i') }}</p>
                 </div>
                 <div class="text-right">

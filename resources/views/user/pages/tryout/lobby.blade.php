@@ -1,5 +1,5 @@
 @extends('user.layout.tryout')
-@section('title', 'Lobby')
+@section('title', __('Lobby'))
 @section('content')
 <div class="lobby flex justify-center items-center w-full min:h-screen text-black">
     <div class="w-3xl mx-auto p-8 mt-18 bg-white shadow rounded-lg flex justify-center items-center flex-col gap-2">
@@ -54,7 +54,7 @@
                         class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
                     <div>
                         <p class="text-[24px] font-bold">{{ $totalQuestions }}</p>
-                        <p class="text-[12px] mt-[-6px] font-light">Total Soal</p>
+                        <p class="text-[12px] mt-[-6px] font-light">{{ __('Total Soal') }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3 bg-white p-4 rounded-lg border border-border mt-6">
@@ -62,7 +62,7 @@
                         class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
                     <div>
                         <p class="text-[24px] font-bold">{{ $totalDuration }}</p>
-                        <p class="text-[12px] mt-[-6px] font-light">Total Waktu (menit)</p>
+                        <p class="text-[12px] mt-[-6px] font-light">{{ __('Total Waktu (menit)') }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3 bg-white p-4 rounded-lg border border-border mt-6">
@@ -70,7 +70,7 @@
                         class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
                     <div>
                         <p class="text-[24px] font-bold">{{ $tryoutDetails->count() }}</p>
-                        <p class="text-[12px] mt-[-6px] font-light">Jumlah Jumlah</p>
+                        <p class="text-[12px] mt-[-6px] font-light">{{ __('Jumlah Subtest') }}</p>
                     </div>
                 </div>
             </div>
@@ -79,11 +79,11 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <div class="text-2xl font-bold text-primary">{{ $totalQuestions ?? 0 }}</div>
-                    <div class="text-sm text-gray-600">Jumlah Soal</div>
+                    <div class="text-sm text-gray-600">{{ __('Jumlah Soal') }}</div>
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <div class="text-2xl font-bold text-primary">{{ $totalDuration ?? 0 }}</div>
-                    <div class="text-sm text-gray-600">Durasi (Menit)</div>
+                    <div class="text-sm text-gray-600">{{ __('Durasi (Menit)') }}</div>
                 </div>
             </div>
             @endif
@@ -91,21 +91,21 @@
             <div class="flex flex-col gap-2 mt-4">
                 <span class="flex items-center gap-2 justify-start">
                     <i class="ri-checkbox-circle-fill text-lg"></i>
-                    <p>Tidak ada aktifitas lain di akun kamu selama mengerjakan tryout.</p>
+                    <p>{{ __('Tidak ada aktifitas lain di akun kamu selama mengerjakan tryout.') }}</p>
                 </span>
                 <span class="flex items-center gap-2 justify-start">
                     <i class="ri-checkbox-circle-fill text-lg"></i>
-                    <p>Pastikan koneksi internet stabil.</p>
+                    <p>{{ __('Pastikan koneksi internet stabil.') }}</p>
                 </span>
                 <span class="flex items-center gap-2 justify-start">
                     <i class="ri-checkbox-circle-fill text-lg"></i>
-                    <p>Jawab semua soal dengan teliti.</p>
+                    <p>{{ __('Jawab semua soal dengan teliti.') }}</p>
                 </span>
             </div>
 
             <a href="{{ route('user.tryout.index', ['id_package' => $package ? $package->package_id : 'free', 'id_tryout' => $tryout->tryout_id, 'number' => 1]) }}"
                 class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl">
-                Mulai Tryout
+                {{ __('Mulai Tryout') }}
             </a>
         </div>
     </div>
@@ -113,7 +113,7 @@
 @endsection
 @section('scripts')
 <script>
-    console.log('Tryout lobby loaded');
+    console.log(@json(__('Tryout lobby loaded')));
 </script>
 @endsection
 @section('styles')

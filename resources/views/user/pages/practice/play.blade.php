@@ -1,6 +1,6 @@
 @extends('user.layout.tryout')
 
-@section('title', 'Latihan Soal - Soal ' . $number)
+@section('title', __('Latihan Soal') . ' - ' . __('Soal') . ' ' . $number)
 
 @section('content')
 @php
@@ -28,24 +28,24 @@
                 <div class="bg-white border border-border rounded-2xl p-6">
                     <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4 mb-6">
                         <div>
-                            <p class="text-sm text-gray-500">Soal Latihan</p>
-                            <h2 class="text-2xl font-semibold text-gray-900">Soal {{ $number }} dari {{ $totalQuestions }}</h2>
+                            <p class="text-sm text-gray-500">{{ __('Soal Latihan') }}</p>
+                            <h2 class="text-2xl font-semibold text-gray-900">{{ __('Soal :number dari :total', ['number' => $number, 'total' => $totalQuestions]) }}</h2>
                         </div>
                         <div class="flex flex-wrap items-center gap-3">
                             <button type="button" id="practiceFlagButton"
                                 data-flagged="{{ $isCurrentFlagged ? 'true' : 'false' }}"
                                 class="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-colors {{ $isCurrentFlagged ? 'border-primary text-primary bg-primary/5' : 'border-gray-300 text-gray-600 hover:bg-gray-50' }}">
                                 <i class="{{ $isCurrentFlagged ? 'ri-flag-fill text-primary' : 'ri-flag-line text-gray-500' }}"></i>
-                                <span class="flag-text">{{ $isCurrentFlagged ? 'Batalkan Tandai' : 'Tandai Soal' }}</span>
+                                <span class="flag-text">{{ $isCurrentFlagged ? __('Batalkan Tandai') : __('Tandai Soal') }}</span>
                             </button>
                             <button type="button"
                                 class="calculator-trigger inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                                 aria-haspopup="dialog" aria-controls="calculatorModal">
                                 <i class="ri-calculator-line text-lg"></i>
-                                Kalkulator
+                                {{ __('Kalkulator') }}
                             </button>
                             <a href="{{ route('user.practice.index') }}" class="inline-flex items-center text-sm text-primary hover:underline">
-                                <i class="ri-arrow-left-line mr-1"></i> Kembali ke Latihan
+                                <i class="ri-arrow-left-line mr-1"></i> {{ __('Kembali ke Latihan') }}
                             </a>
                         </div>
                     </div>
@@ -58,7 +58,7 @@
                         <div class="mt-4">
                             <audio controls class="w-full">
                                 <source src="{{ Storage::url($question->sound) }}" type="audio/mpeg">
-                                Browser tidak mendukung audio.
+                                {{ __('Browser tidak mendukung audio.') }}
                             </audio>
                         </div>
                     @endif
@@ -84,7 +84,7 @@
                             @endforeach
                         @elseif($questionType === 'matching')
                             <input type="hidden" name="matching_answers">
-                            <p class="text-sm text-gray-500">Cocokkan kolom kiri dengan jawaban yang tepat.</p>
+                            <p class="text-sm text-gray-500">{{ __('Cocokkan kolom kiri dengan jawaban yang tepat.') }}</p>
                             <div class="space-y-3">
                                 @foreach($matchingPairs as $pair)
                                     @php
@@ -95,7 +95,7 @@
                                         <div class="font-medium text-gray-800">{{ $leftLabel }}</div>
                                         <select class="matching-select w-full border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
                                             data-left="{{ $leftLabel }}">
-                                            <option value="">Pilih jawaban</option>
+                                            <option value="">{{ __('Pilih jawaban') }}</option>
                                             @foreach($matchingRightOptions as $rightOption)
                                                 <option value="{{ $rightOption }}" @selected($selectedRight === $rightOption)>{{ $rightOption }}</option>
                                             @endforeach
@@ -105,30 +105,30 @@
                             </div>
                         @elseif(in_array($questionType, ['essay', 'short_answer']))
                             <div>
-                                <label class="block text-sm text-gray-600 mb-1">Jawabanmu</label>
+                                <label class="block text-sm text-gray-600 mb-1">{{ __('Jawabanmu') }}</label>
                                 <textarea name="answer_text" rows="5"
                                     class="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="Tulis jawaban di sini...">{{ $currentAnswer->answer_text ?? '' }}</textarea>
+                                    placeholder="{{ __('Tulis jawaban di sini...') }}">{{ $currentAnswer->answer_text ?? '' }}</textarea>
                                 @if(!empty($shortMeta['expected_answers'] ?? []))
-                                    <p class="text-xs text-gray-500 mt-2">Jawaban otomatis benar jika sesuai salah satu kunci.</p>
+                                    <p class="text-xs text-gray-500 mt-2">{{ __('Jawaban otomatis benar jika sesuai salah satu kunci.') }}</p>
                                 @endif
                             </div>
                         @elseif($questionType === 'audio')
                             <div class="space-y-4">
                                 @if($currentAnswer && $currentAnswer->answer_file_path)
                                     <div class="bg-gray-50 border border-gray-100 rounded-xl p-4">
-                                        <p class="text-sm text-gray-600 mb-2">Jawaban tersimpan:</p>
+                                        <p class="text-sm text-gray-600 mb-2">{{ __('Jawaban tersimpan:') }}</p>
                                         <audio controls class="w-full">
                                             <source src="{{ Storage::url($currentAnswer->answer_file_path) }}" type="audio/mpeg">
                                         </audio>
                                     </div>
                                 @endif
                                 <div>
-                                    <label class="block text-sm text-gray-600 mb-1">Unggah jawaban audio (MP3/WAV/M4A)</label>
+                                    <label class="block text-sm text-gray-600 mb-1">{{ __('Unggah jawaban audio (MP3/WAV/M4A)') }}</label>
                                     <input type="file" name="answer_audio" accept="audio/*"
                                         class="w-full text-sm border border-gray-200 rounded-xl px-4 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-primary file:text-white hover:file:bg-primary/90">
                                     <p class="text-xs text-gray-500 mt-2">
-                                        {{ $audioMeta['instructions'] ?? 'Upload rekaman jawabanmu.' }}
+                                        {{ $audioMeta['instructions'] ?? __('Upload rekaman jawabanmu.') }}
                                     </p>
                                 </div>
                             </div>
@@ -137,15 +137,15 @@
 
                     <div id="practiceFeedback" class="hidden mt-6 border border-gray-100 rounded-2xl p-5 bg-gray-50">
                         <div id="practiceFeedbackStatusWrapper" class="mb-4">
-                            <span id="practiceFeedbackStatus" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700">Jawaban tersimpan</span>
+                            <span id="practiceFeedbackStatus" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700">{{ __('Jawaban tersimpan') }}</span>
                         </div>
                         <div class="space-y-4 text-sm text-gray-700">
                             <div id="practiceFeedbackCorrectWrapper">
-                                <p class="font-semibold text-gray-800">Jawaban Benar</p>
+                                <p class="font-semibold text-gray-800">{{ __('Jawaban Benar') }}</p>
                                 <div id="practiceFeedbackCorrect" class="mt-2 text-gray-700"></div>
                             </div>
                             <div id="practiceFeedbackExplanationWrapper">
-                                <p class="font-semibold text-gray-800">Pembahasan</p>
+                                <p class="font-semibold text-gray-800">{{ __('Pembahasan') }}</p>
                                 <div id="practiceFeedbackExplanation" class="mt-2 text-gray-700"></div>
                             </div>
                         </div>
@@ -154,18 +154,18 @@
                     <div class="mt-6 flex flex-wrap gap-3 border-t border-gray-100 pt-4">
                         <a href="{{ route('user.practice.index') }}"
                             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="ri-layout-grid-line mr-2"></i> Daftar Soal
+                            <i class="ri-layout-grid-line mr-2"></i> {{ __('Daftar Soal') }}
                         </a>
                         @if($number > 1)
                             <a href="{{ route('user.practice.play', ['number' => $number - 1]) }}"
                                 class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                <i class="ri-arrow-left-line mr-2"></i> Sebelumnya
+                                <i class="ri-arrow-left-line mr-2"></i> {{ __('Sebelumnya') }}
                             </a>
                         @endif
                         @if($number < $totalQuestions)
                             <a href="{{ route('user.practice.play', ['number' => $number + 1]) }}"
                                 class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-                                Selanjutnya <i class="ri-arrow-right-line ml-2"></i>
+                                {{ __('Selanjutnya') }} <i class="ri-arrow-right-line ml-2"></i>
                             </a>
                         @endif
                     </div>
@@ -173,7 +173,7 @@
             </div>
             <div class="lg:w-80">
                 <div class="bg-white border border-border rounded-2xl p-4">
-                    <p class="text-sm font-semibold text-gray-700 mb-3">Navigasi Soal</p>
+                    <p class="text-sm font-semibold text-gray-700 mb-3">{{ __('Navigasi Soal') }}</p>
                     <div class="grid grid-cols-5 gap-2 practice-nav-grid">
                         @foreach($navigation as $item)
                             <a href="{{ route('user.practice.play', ['number' => $item['number']]) }}"
@@ -189,10 +189,10 @@
                     </div>
                 </div>
                 <div class="mt-4 text-sm text-gray-500">
-                    <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-primary text-white mr-2 text-xs"> &nbsp;</span> Soal aktif</p>
-                    <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-emerald-100 text-emerald-700 mr-2 text-xs"> &nbsp;</span> Sudah terjawab</p>
-                    <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-gray-200 mr-2 text-xs"> &nbsp;</span> Belum dijawab</p>
-                    <p class="mt-2 flex items-center"><i class="ri-flag-fill text-red-500 mr-2 text-base"></i> Soal ditandai</p>
+                    <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-primary text-white mr-2 text-xs"> &nbsp;</span> {{ __('Soal aktif') }}</p>
+                    <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-emerald-100 text-emerald-700 mr-2 text-xs"> &nbsp;</span> {{ __('Sudah terjawab') }}</p>
+                    <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-gray-200 mr-2 text-xs"> &nbsp;</span> {{ __('Belum dijawab') }}</p>
+                    <p class="mt-2 flex items-center"><i class="ri-flag-fill text-red-500 mr-2 text-base"></i> {{ __('Soal ditandai') }}</p>
                 </div>
             </div>
         </div>
@@ -203,8 +203,8 @@
     <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" role="dialog" aria-modal="true">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-sm text-gray-500">Kalkulator</p>
-                <h3 class="text-lg font-semibold text-gray-800">Latihan & Tryout</h3>
+                <p class="text-sm text-gray-500">{{ __('Kalkulator') }}</p>
+                <h3 class="text-lg font-semibold text-gray-800">{{ __('Latihan & Tryout') }}</h3>
             </div>
             <button type="button" id="closeCalculator" class="text-gray-500 hover:text-gray-800">
                 <i class="ri-close-line text-2xl"></i>
@@ -323,13 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (nextUnlock && data.next_unlock_remaining !== undefined && data.tryout_count !== undefined) {
                 if (data.tryout_count === 0) {
-                    nextUnlock.textContent = 'Tryout akan muncul setelah admin menambahkannya.';
+                    nextUnlock.textContent = @json(__('Tryout akan muncul setelah admin menambahkannya.'));
                 } else if (data.next_unlock_remaining === 0 && data.unlocked_count >= data.tryout_count) {
-                    nextUnlock.textContent = 'Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.';
+                    nextUnlock.textContent = @json(__('Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.'));
                 } else if (!data.threshold_per_tryout) {
-                    nextUnlock.textContent = 'Tryout akan terbuka otomatis begitu tersedia.';
+                    nextUnlock.textContent = @json(__('Tryout akan terbuka otomatis begitu tersedia.'));
                 } else {
-                    nextUnlock.innerHTML = `Selesaikan <span class="font-semibold text-gray-800">${data.next_unlock_remaining}</span> soal lagi untuk membuka tryout berikutnya.`;
+                    nextUnlock.innerHTML = @json(__('Selesaikan <span class="font-semibold text-gray-800">:count</span> soal lagi untuk membuka tryout berikutnya.')).replace(':count', data.next_unlock_remaining);
                 }
             }
         })
@@ -365,10 +365,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         feedbackBox.classList.remove('hidden');
         const status = payload.is_correct === true
-            ? { text: 'Jawaban benar', classes: 'bg-emerald-100 text-emerald-700' }
+            ? { text: @json(__('Jawaban benar')), classes: 'bg-emerald-100 text-emerald-700' }
             : (payload.is_correct === false
-                ? { text: 'Jawaban salah', classes: 'bg-red-100 text-red-700' }
-                : { text: 'Jawaban tersimpan', classes: 'bg-amber-100 text-amber-700' });
+                ? { text: @json(__('Jawaban salah')), classes: 'bg-red-100 text-red-700' }
+                : { text: @json(__('Jawaban tersimpan')), classes: 'bg-amber-100 text-amber-700' });
 
         if (statusBadge) {
             statusBadge.textContent = status.text;
@@ -443,7 +443,7 @@ function setupCalculator() {
                     const result = display.value ? eval(display.value) : '';
                     display.value = result;
                 } catch (error) {
-                    display.value = 'Error';
+                    display.value = @json(__('Error'));
                 }
                 return;
             }
@@ -484,7 +484,7 @@ function setupPracticeFlagging() {
         state = flagged;
         flagButton.dataset.flagged = flagged ? 'true' : 'false';
         flagIcon.className = flagged ? 'ri-flag-fill text-primary' : 'ri-flag-line text-gray-500';
-        flagText.textContent = flagged ? 'Batalkan Tandai' : 'Tandai Soal';
+        flagText.textContent = flagged ? @json(__('Batalkan Tandai')) : @json(__('Tandai Soal'));
         updateNavBadge(flagged);
     };
 

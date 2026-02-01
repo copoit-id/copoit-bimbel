@@ -1,5 +1,5 @@
 @extends('user.layout.tryout')
-@section('title', 'Tryout - Soal ' . $number)
+@section('title', __('Tryout') . ' - ' . __('Soal') . ' ' . $number)
 @php
     $allowCalculator = optional($tryout)->allow_calculator ?? false;
 @endphp
@@ -13,7 +13,7 @@
                     <!-- Header -->
                     <div class="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
                         <div>
-                            <h2 class="text-xl font-bold text-gray-800">Soal {{ $number }} dari {{ $totalQuestions }}</h2>
+                            <h2 class="text-xl font-bold text-gray-800">{{ __('Soal :number dari :total', ['number' => $number, 'total' => $totalQuestions]) }}</h2>
                             @if(isset($currentSubtest))
                             <p class="text-sm text-gray-600 mt-1">{{ $currentSubtest['name'] }}</p>
                             @endif
@@ -24,7 +24,7 @@
                                 class="calculator-trigger inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                                 aria-haspopup="dialog" aria-controls="calculatorModal">
                                 <i class="ri-calculator-line text-lg"></i>
-                                Kalkulator
+                                {{ __('Kalkulator') }}
                             </button>
                             @endif
                             <div id="timer" hidden class="text-2xl font-bold text-primary">00:00:00</div>
@@ -42,7 +42,7 @@
                             <audio id="audio-{{ $currentQuestion->question_id }}" controls controlsList="nodownload"
                                 oncontextmenu="return false;" class="w-full">
                                 <source src="{{ Storage::url($currentQuestion->sound) }}" type="audio/mpeg">
-                                Browser Anda tidak mendukung audio.
+                                {{ __('Browser Anda tidak mendukung audio.') }}
                             </audio>
                         </div>
                         @endif
@@ -134,19 +134,19 @@
                         @elseif($questionType === 'matching')
                         <div class="space-y-4" id="matchingAnswerContainer">
                             @if(empty($matchingPairs))
-                            <p class="text-sm text-gray-500">Belum ada pasangan jawaban untuk soal ini.</p>
+                            <p class="text-sm text-gray-500">{{ __('Belum ada pasangan jawaban untuk soal ini.') }}</p>
                             @else
-                            <p class="text-sm text-gray-600">Cocokkan kolom di kiri dengan jawaban yang tepat di kolom kanan.</p>
+                            <p class="text-sm text-gray-600">{{ __('Cocokkan kolom di kiri dengan jawaban yang tepat di kolom kanan.') }}</p>
                             @foreach($matchingPairs as $index => $pair)
                             @php
-                                $leftLabel = trim((string)($pair['left'] ?? 'Item ' . ($index + 1)));
+                                $leftLabel = trim((string)($pair['left'] ?? __('Item') . ' ' . ($index + 1)));
                             @endphp
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                                 <div class="font-medium text-gray-800">{{ $leftLabel }}</div>
                                 <div>
                                     <select class="matching-select w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                         data-left="{{ $leftLabel }}">
-                                        <option value="">Pilih jawaban</option>
+                                        <option value="">{{ __('Pilih jawaban') }}</option>
                                         @foreach($shuffledMatchingOptions as $option)
                                         <option value="{{ $option }}">{{ $option }}</option>
                                         @endforeach
@@ -159,17 +159,17 @@
 
                         @elseif(in_array($questionType, ['short_answer', 'essay']))
                         <div class="space-y-3" id="shortAnswerWrapper">
-                            <label for="shortAnswerInput" class="block text-sm font-medium text-gray-700">Jawabanmu</label>
+                            <label for="shortAnswerInput" class="block text-sm font-medium text-gray-700">{{ __('Jawabanmu') }}</label>
                             <textarea id="shortAnswerInput" rows="4"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Ketik jawaban singkatmu di sini"></textarea>
+                                placeholder="{{ __('Ketik jawaban singkatmu di sini') }}"></textarea>
                             @if(!empty($shortMeta['expected_answers']))
-                            <p class="text-xs text-gray-500">Saran: Jawaban otomatis benar jika sesuai dengan salah satu kunci.</p>
+                            <p class="text-xs text-gray-500">{{ __('Saran: Jawaban otomatis benar jika sesuai dengan salah satu kunci.') }}</p>
                             @endif
                             @if($pendingReview)
                             <div class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200">
                                 <i class="ri-hourglass-line"></i>
-                                Menunggu penilaian manual
+                                {{ __('Menunggu penilaian manual') }}
                             </div>
                             @endif
                         </div>
@@ -178,23 +178,22 @@
                         <div class="space-y-4" id="audioAnswerWrapper">
                             <div id="audioAnswerPreview" class="space-y-2"></div>
                             <div>
-                                <label for="audioAnswerInput" class="block text-sm font-medium text-gray-700 mb-2">Unggah
-                                    Jawaban Audio</label>
+                                <label for="audioAnswerInput" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Unggah Jawaban Audio') }}</label>
                                 <input type="file" id="audioAnswerInput" accept="audio/*"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <p class="text-xs text-gray-500 mt-2">
-                                    {{ isset($audioMeta['instructions']) ? $audioMeta['instructions'] : 'Rekam jawabanmu lalu unggah (format MP3/WAV/M4A).' }}
+                                    {{ isset($audioMeta['instructions']) ? $audioMeta['instructions'] : __('Rekam jawabanmu lalu unggah (format MP3/WAV/M4A).') }}
                                 </p>
                                 @if(!empty($audioMeta['max_duration']))
-                                <p class="text-xs text-gray-500">Durasi maksimal: {{ $audioMeta['max_duration'] }} detik.</p>
+                                <p class="text-xs text-gray-500">{{ __('Durasi maksimal: :value detik.', ['value' => $audioMeta['max_duration']]) }}</p>
                                 @endif
                                 @if(!empty($audioMeta['max_size']))
-                                <p class="text-xs text-gray-500">Ukuran file maksimal: {{ $audioMeta['max_size'] }} MB.</p>
+                                <p class="text-xs text-gray-500">{{ __('Ukuran file maksimal: :value MB.', ['value' => $audioMeta['max_size']]) }}</p>
                                 @endif
                             </div>
                             <div class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200">
                                 <i class="ri-hourglass-line"></i>
-                                Jawaban audio akan dinilai manual oleh mentor
+                                {{ __('Jawaban audio akan dinilai manual oleh mentor') }}
                             </div>
                         </div>
                         @endif
@@ -211,11 +210,11 @@
                             @if($canGoPrev)
                                 <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
                                     class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
+                                    <i class="ri-arrow-left-line mr-2"></i>{{ __('Sebelumnya') }}
                                 </a>
                             @else
                                 <span class="px-4 py-2 border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed">
-                                    <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
+                                    <i class="ri-arrow-left-line mr-2"></i>{{ __('Sebelumnya') }}
                                 </span>
                             @endif
                         </div>
@@ -225,14 +224,14 @@
                                 class="px-4 py-2 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors flag-btn">
                                 <i class="ri-flag-line mr-2"></i>
                                 <span class="flag-text">{{ in_array($currentQuestion->question_id, $flaggedQuestions) ?
-                                    'Batal Tandai' : 'Tandai' }}</span>
+                                    __('Batal Tandai') : __('Tandai') }}</span>
                             </button>
                         </div>
 
                         <div class="flex gap-3">
                             @if($number < $totalQuestions || $hasNextSubtest)
                                 @php
-                                    $nextLabel = $isLastQuestionOfSubtest && $hasNextSubtest ? 'Mulai Subtest Berikutnya' : 'Selanjutnya';
+                                    $nextLabel = $isLastQuestionOfSubtest && $hasNextSubtest ? __('Mulai Subtest Berikutnya') : __('Selanjutnya');
                                 @endphp
                                 <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
                                     class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
@@ -246,9 +245,9 @@
                                     <input type="hidden" name="answers_payload" id="answersPayloadInput">
                                     <input type="hidden" name="attempt_token" value="{{ $attemptToken }}">
                                     <button type="submit"
-                                        onclick="return confirm('Apakah Anda yakin ingin menyelesaikan tryout ini?')"
+                                        onclick="return confirm(@json(__('Apakah Anda yakin ingin menyelesaikan tryout ini?')))"
                                         class="px-6 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors">
-                                        <i class="ri-check-line mr-2"></i>Selesai
+                                        <i class="ri-check-line mr-2"></i>{{ __('Selesai') }}
                                     </button>
                                 </form>
                             @endif
@@ -260,16 +259,16 @@
             <!-- Sidebar -->
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-lg border border-border p-6 sticky top-6 text-center">
-                    <p class="text-sm text-gray-600 mb-2">Sisa Waktu</p>
+                    <p class="text-sm text-gray-600 mb-2">{{ __('Sisa Waktu') }}</p>
                     <div id="timer-display" class="text-3xl font-bold text-primary">00:00:00</div>
                     <p class="text-xs text-gray-500 mt-3 uppercase tracking-wide">
-                        Subtest {{ ($currentSubtestIndex ?? 0) + 1 }} / {{ $totalSubtests ?? 1 }} · {{ $currentSubtest['name'] ?? 'Subtest' }}
+                        {{ __('Subtest') }} {{ ($currentSubtestIndex ?? 0) + 1 }} / {{ $totalSubtests ?? 1 }} · {{ $currentSubtest['name'] ?? __('Subtest') }}
                     </p>
                 </div>
                 <div class="bg-white rounded-lg border border-border p-6 sticky mt-4">
                     <!-- Question Navigation -->
                     <div class="mb-6">
-                        <h3 class="font-semibold text-gray-800 mb-4">Navigasi Soal</h3>
+                        <h3 class="font-semibold text-gray-800 mb-4">{{ __('Navigasi Soal') }}</h3>
                         <div class="grid grid-cols-5 gap-2">
                         @for($questionNumber = $currentSubtestRange[0]; $questionNumber <= $currentSubtestRange[1]; $questionNumber++)
                             @php
@@ -294,23 +293,23 @@
 
                     <!-- Legend -->
                     <div class="text-sm">
-                        <h4 class="font-semibold text-gray-800 mb-3">Keterangan</h4>
+                        <h4 class="font-semibold text-gray-800 mb-3">{{ __('Keterangan') }}</h4>
                         <div class="space-y-2">
                             <div class="flex items-center gap-2">
                                 <div class="w-4 h-4 bg-primary rounded"></div>
-                                <span class="text-gray-600">Soal saat ini</span>
+                                <span class="text-gray-600">{{ __('Soal saat ini') }}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <div class="w-4 h-4 bg-green rounded"></div>
-                                <span class="text-gray-600">Sudah dijawab</span>
+                                <span class="text-gray-600">{{ __('Sudah dijawab') }}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <div class="w-4 h-4 bg-gray-100 rounded"></div>
-                                <span class="text-gray-600">Belum dijawab</span>
+                                <span class="text-gray-600">{{ __('Belum dijawab') }}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="ri-flag-fill text-red"></i>
-                                <span class="text-gray-600">Ditandai</span>
+                                <span class="text-gray-600">{{ __('Ditandai') }}</span>
                             </div>
                         </div>
                     </div>
@@ -319,12 +318,12 @@
                 @if(isset($subtestInfo) && count($subtestInfo) > 1)
                 @php
                     $isUtbkTryout = isset($tryout) && method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
-                    $subtestProgressTitle = $isUtbkTryout ? 'Progress UTBK' : 'Progress SKD Full';
+                    $subtestProgressTitle = $isUtbkTryout ? __('Progress UTBK') : __('Progress SKD Full');
                 @endphp
                 <div class="mb-6 p-4 bg-white border border-border mt-4 rounded-lg">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                         <span class="text-sm font-medium text-gray-700">{{ $subtestProgressTitle }}</span>
-                        <span class="text-sm text-gray-600">{{ count($subtestInfo) }} Subtest</span>
+                        <span class="text-sm text-gray-600">{{ count($subtestInfo) }} {{ __('Subtest') }}</span>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         @foreach($subtestInfo as $index => $subtest)
@@ -367,8 +366,8 @@
     <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" role="dialog" aria-modal="true">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-sm text-gray-500">Kalkulator</p>
-                <h3 class="text-lg font-semibold text-gray-800">Latihan & Tryout</h3>
+                <p class="text-sm text-gray-500">{{ __('Kalkulator') }}</p>
+                <h3 class="text-lg font-semibold text-gray-800">{{ __('Latihan & Tryout') }}</h3>
             </div>
             <button type="button" id="closeCalculator" class="text-gray-500 hover:text-gray-800">
                 <i class="ri-close-line text-2xl"></i>
@@ -406,7 +405,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('Tryout page loaded (client-first mode)');
+        console.log(@json(__('Tryout page loaded (client-first mode)')));
 
         const attemptToken = '{{ $attemptToken }}';
         const answersKey = `tryout_answers_${attemptToken}`;
@@ -455,7 +454,7 @@
                 const parsed = JSON.parse(raw);
                 return (parsed && typeof parsed === 'object') ? parsed : {};
             } catch (error) {
-                console.warn('Gagal memuat jawaban lokal', error);
+                console.warn(@json(__('Gagal memuat jawaban lokal')), error);
                 return {};
             }
         }
@@ -464,7 +463,7 @@
             try {
                 localStorage.setItem(answersKey, JSON.stringify(answerCache));
             } catch (error) {
-                console.warn('Tidak dapat menyimpan jawaban lokal', error);
+                console.warn(@json(__('Tidak dapat menyimpan jawaban lokal')), error);
             }
         }
 
@@ -526,7 +525,7 @@
             };
             persistAnswers();
             updateNavigation(qid);
-            showSaveIndicator(true, 'Jawaban tersimpan sementara');
+            showSaveIndicator(true, @json(__('Jawaban tersimpan sementara')));
         }
 
         function clearAnswer(qid) {
@@ -600,7 +599,7 @@
             if (saved && saved.answer_audio_base64) {
                 const info = document.createElement('p');
                 info.className = 'text-sm text-gray-600';
-                info.textContent = 'Jawaban audio tersimpan di perangkat.';
+                info.textContent = @json(__('Jawaban audio tersimpan di perangkat.'));
 
                 const audioEl = document.createElement('audio');
                 audioEl.controls = true;
@@ -612,7 +611,7 @@
             } else if (saved && saved.answer_audio_remote) {
                 const info = document.createElement('p');
                 info.className = 'text-sm text-gray-600';
-                info.textContent = 'Jawaban audio tersimpan di server.';
+                info.textContent = @json(__('Jawaban audio tersimpan di server.'));
 
                 const audioEl = document.createElement('audio');
                 audioEl.controls = true;
@@ -696,7 +695,7 @@
                     reader.onload = function(event) {
                         const dataUrl = event.target?.result;
                         if (!dataUrl) {
-                            showSaveIndicator(false, 'Gagal membaca file audio');
+                            showSaveIndicator(false, @json(__('Gagal membaca file audio')));
                             return;
                         }
 
@@ -729,7 +728,7 @@
 
             const indicator = document.createElement('div');
             indicator.className = `save-indicator fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white ${success ? 'bg-green' : 'bg-red'}`;
-            indicator.textContent = message || (success ? 'Jawaban tersimpan sementara' : 'Gagal menyimpan');
+            indicator.textContent = message || (success ? @json(__('Jawaban tersimpan sementara')) : @json(__('Gagal menyimpan')));
 
             document.body.appendChild(indicator);
 
@@ -758,10 +757,10 @@
                     const flagIcon = flagBtn.querySelector('i');
 
                     if (data.flagged) {
-                        flagText.textContent = 'Batal Tandai';
+                        flagText.textContent = @json(__('Batal Tandai'));
                         flagIcon.className = 'ri-flag-fill mr-2';
                     } else {
-                        flagText.textContent = 'Tandai';
+                        flagText.textContent = @json(__('Tandai'));
                         flagIcon.className = 'ri-flag-line mr-2';
                     }
                 }
@@ -812,7 +811,7 @@
             }
 
             function triggerAutoFinish() {
-                alert('Waktu ujian telah habis!');
+                alert(@json(__('Waktu ujian telah habis!')));
                 const autoForm = document.createElement('form');
                 autoForm.method = 'POST';
                 autoForm.action = '{{ route("user.tryout.finish", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}';
@@ -906,7 +905,7 @@
                         const result = display.value ? eval(display.value) : '';
                         display.value = result;
                     } catch (error) {
-                        display.value = 'Error';
+                        display.value = @json(__('Error'));
                     }
                     return;
                 }
@@ -936,7 +935,7 @@
         badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                            </svg>
-                           Audio sudah diputar`;
+                           ${@json(__('Audio sudah diputar'))}`;
 
         audio.insertAdjacentElement('afterend', badge);
         return;

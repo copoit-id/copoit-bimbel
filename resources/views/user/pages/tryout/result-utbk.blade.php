@@ -1,6 +1,6 @@
 @extends('user.layout.tryout')
 
-@section('title', 'Hasil UTBK')
+@section('title', __('Hasil UTBK'))
 
 @section('content')
 <div class="min-h-screen bg-gray-50 pt-30 pb-10">
@@ -8,33 +8,33 @@
         <div class="bg-white border border-border rounded-2xl p-8">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                    <p class="text-sm text-gray-500">Tryout UTBK</p>
+                    <p class="text-sm text-gray-500">{{ __('Tryout UTBK') }}</p>
                     <h1 class="text-2xl font-semibold text-gray-900 mt-1">{{ $tryout->name }}</h1>
-                    <p class="text-gray-500 text-sm mt-2">Attempt token: {{ $attemptToken }}</p>
+                    <p class="text-gray-500 text-sm mt-2">{{ __('Attempt token: :token', ['token' => $attemptToken]) }}</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-sm text-gray-500">Nilai Total</p>
+                    <p class="text-sm text-gray-500">{{ __('Nilai Total') }}</p>
                     <p class="text-4xl font-bold text-primary">{{ number_format($totalScore) }}</p>
-                    <p class="text-xs text-gray-400 mt-1">Skala 0 - 1000</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ __('Skala 0 - 1000') }}</p>
                     <span class="inline-flex mt-2 px-3 py-1 rounded-full text-xs font-semibold {{ $overallPassed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                        {{ $overallPassed ? 'Lulus' : 'Tidak Lulus' }}
+                        {{ $overallPassed ? __('Lulus') : __('Tidak Lulus') }}
                     </span>
                 </div>
             </div>
         </div>
 
         <div class="bg-white border border-border rounded-2xl p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Rincian Subtest</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ __('Rincian Subtest') }}</h2>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtest</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Benar</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Salah</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Kosong</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Skor Subtest</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Subtest') }}</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Benar') }}</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Salah') }}</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Kosong') }}</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Skor Subtest') }}</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Status') }}</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -52,7 +52,7 @@
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $subtest['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                                    {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
+                                    {{ $subtest['is_passed'] ? __('Lulus') : __('Tidak Lulus') }}
                                 </span>
                             </td>
                         </tr>
@@ -63,10 +63,9 @@
         </div>
 
         <div class="bg-white border border-border rounded-2xl p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Catatan</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">{{ __('Catatan') }}</h2>
             <p class="text-sm text-gray-600 leading-relaxed">
-                Nilai UTBK dihitung menggunakan pendekatan IRT sederhana. Semakin banyak peserta lain yang menjawab benar pada sebuah soal,
-                semakin kecil bobot soal tersebut pada perhitungan nilai akhir Anda. Skor ditampilkan setelah seluruh peserta menyelesaikan tryout.
+                {{ __('Nilai UTBK dihitung menggunakan pendekatan IRT sederhana. Semakin banyak peserta lain yang menjawab benar pada sebuah soal, semakin kecil bobot soal tersebut pada perhitungan nilai akhir Anda. Skor ditampilkan setelah seluruh peserta menyelesaikan tryout.') }}
             </p>
         </div>
 
@@ -74,24 +73,24 @@
             @if($package)
             <a href="{{ route('user.package.tryout', $package->package_id) }}"
                 class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                <i class="ri-arrow-left-line mr-2"></i>Kembali
+                <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali') }}
             </a>
             <a href="{{ route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id]) }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                <i class="ri-history-line mr-2"></i>Riwayat
+                <i class="ri-history-line mr-2"></i>{{ __('Riwayat') }}
             </a>
             <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                <i class="ri-trophy-line mr-2"></i>Ranking
+                <i class="ri-trophy-line mr-2"></i>{{ __('Ranking') }}
             </a>
             @else
             <a href="{{ route('user.event.index') }}"
                 class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
+                <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Event') }}
             </a>
             <a href="{{ route('user.dashboard.index') }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                <i class="ri-home-2-line mr-2"></i>Dashboard
+                <i class="ri-home-2-line mr-2"></i>{{ __('Dashboard') }}
             </a>
             @endif
         </div>

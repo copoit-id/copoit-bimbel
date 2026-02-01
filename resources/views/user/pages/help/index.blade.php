@@ -1,8 +1,8 @@
 @extends('user.layout.user')
-@section('title', 'Event')
+@section('title', __('Bantuan'))
 @section('content')
 <div class="help">
-    <x-page-desc title="Bantuan" description="Pertanyaan yang sering diajukan"></x-page-desc>
+    <x-page-desc title="{{ __('Bantuan') }}" description="{{ __('Pertanyaan yang sering diajukan') }}"></x-page-desc>
     <div class="grid md:grid-cols-2 mt-6">
         @forelse($faqs as $faq)
         @php $modalId = 'faq-modal-' . $loop->index; @endphp
@@ -18,7 +18,7 @@
         </div>
         @empty
         <div class="col-span-2 bg-white px-4 py-6 border border-gray-900/10 text-center text-gray-500">
-            Belum ada FAQ yang tersedia.
+            {{ __('Belum ada FAQ yang tersedia.') }}
         </div>
         @endforelse
     </div>
@@ -42,7 +42,7 @@
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
                     </svg>
-                    <span class="sr-only">Close modal</span>
+                    <span class="sr-only">{{ __('Tutup modal') }}</span>
                 </button>
             </div>
             <div class="p-4 md:p-5 space-y-4 max-h-72 overflow-y-auto">
@@ -53,7 +53,7 @@
             <div class="flex items-center justify-center w-full p-4 md:p-5 border-t border-gray-200 rounded-b">
                 <button data-modal-hide="{{ $modalId }}" type="button"
                     class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-                    Kembali</button>
+                    {{ __('Kembali') }}</button>
             </div>
         </div>
     </div>

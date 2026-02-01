@@ -67,7 +67,7 @@
                 </span>
                 @if($tryout->is_premium)
                 <span class="px-2 py-1 bg-rose-100 text-rose-700 rounded-full text-xs">
-                    <i class="ri-vip-crown-line"></i> Premium
+                    <i class="ri-vip-crown-line"></i> {{ __('Premium') }}
                 </span>
                 @endif
                 @if($tryout->is_certification)
@@ -129,7 +129,7 @@
                         data-modal-toggle="modal-{{ $tryout->tryout_id }}"
                         class="flex-1 flex cursor-pointer justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
                         <i class="ri-list-check mr-2"></i>
-                        Kelola Soal ({{ $tryout->tryoutDetails->count() }} Subtest)
+                        {{ __('Kelola Soal (:count Subtest)', ['count' => $tryout->tryoutDetails->count()]) }}
                     </button>
                     @else
                     <!-- Single Subtest -->
@@ -137,13 +137,13 @@
                     <a href="{{ route('admin.question.index', $tryout->tryoutDetails->first()->tryout_detail_id) }}"
                         class="flex-1 flex justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
                         <i class="ri-list-check mr-2"></i>
-                        Kelola Soal ({{ $tryout->tryoutDetails->first()->questions->count() ?? 0 }})
+                        {{ __('Kelola Soal (:count)', ['count' => $tryout->tryoutDetails->first()->questions->count() ?? 0]) }}
                     </a>
                     @else
                     <button disabled
                         class="flex-1 flex justify-center bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm">
                         <i class="ri-list-check mr-2"></i>
-                        Belum ada subtest
+                        {{ __('Belum ada subtest') }}
                     </button>
                     @endif
                     @endif
@@ -151,20 +151,20 @@
                     @if($canManualRelease)
                         @if($showResetButton)
                         <form action="{{ route('admin.tryout.reset-utbk', $tryout->tryout_id) }}" method="POST"
-                            onsubmit="return confirm('Reset skor UTBK? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.');">
+                            onsubmit="return confirm(@json(__('Reset skor UTBK? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.')));">
                             @csrf
                             <button type="submit"
-                                title="Reset skor UTBK agar bisa dirilis ulang"
+                                title="{{ __('Reset skor UTBK agar bisa dirilis ulang') }}"
                                 class="p-2 rounded-lg border border-red-400 text-red-500 text-sm flex items-center justify-center hover:bg-red-500 hover:text-white">
                                 <i class="ri-refresh-line text-base"></i>
                             </button>
                         </form>
                         @elseif($showReleaseButton)
                         <form action="{{ route('admin.tryout.release-utbk', $tryout->tryout_id) }}" method="POST"
-                            onsubmit="return confirm('Rilis hasil UTBK sekarang? Pastikan semua peserta sudah selesai.');">
+                            onsubmit="return confirm(@json(__('Rilis hasil UTBK sekarang? Pastikan semua peserta sudah selesai.')));">
                             @csrf
                             <button type="submit"
-                                title="Rilis nilai UTBK secara manual"
+                                title="{{ __('Rilis nilai UTBK secara manual') }}"
                                 class="p-2 rounded-lg border border-primary text-primary text-sm flex items-center justify-center hover:bg-primary hover:text-white">
                                 <i class="ri-sparkling-line text-base"></i>
                             </button>
@@ -177,7 +177,7 @@
                 <a href="{{ route('admin.tryout.access.index', $tryout->tryout_id) }}"
                     class="flex w-full items-center justify-center gap-2 border border-rose-300 text-rose-600 px-4 py-2 rounded-lg text-sm hover:bg-rose-50 transition-colors">
                     <i class="ri-user-shared-line"></i>
-                    Kelola Akses Premium
+                    {{ __('Kelola Akses Premium') }}
                 </a>
                 @endif
 
@@ -187,7 +187,7 @@
                         <i class="ri-edit-line"></i>
                     </a>
                     <form action="{{ route('admin.tryout.destroy', $tryout->tryout_id) }}" method="POST" class="flex-1"
-                        onsubmit="return confirm('Apakah Anda yakin ingin menghapus tryout ini?')">
+                        onsubmit="return confirm(@json(__('Apakah Anda yakin ingin menghapus tryout ini?')))">
                         @csrf
                         @method('DELETE')
                         <button type="submit"
@@ -211,7 +211,7 @@
                 <div class="relative bg-white rounded-lg shadow">
                     <div class="flex items-center justify-between p-4 md:p-5 border-b border-border rounded-t">
                         <h3 class="text-xl font-semibold text-gray-900">
-                            Pilih Subtest - {{ $tryout->name }}
+                            {{ __('Pilih Subtest') }} - {{ $tryout->name }}
                         </h3>
                         <button type="button"
                             class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center"
@@ -226,24 +226,24 @@
                             <div>
                                 <h4 class="font-medium text-gray-900">{{ $detail->subtest_name }}</h4>
                                 <p class="text-xs text-gray-400">
-                                    {{ $detail->duration }} menit • Passing Score:
+                                    {{ $detail->duration }} {{ __('menit') }} • {{ __('Passing Score:') }}
                                     @if(($detail->passing_type ?? 'score') === 'percentage')
                                         {{ number_format($detail->passing_score ?? 0, 1) }}%
                                     @else
                                         {{ $detail->passing_score }}
                                     @endif
-                                    • {{ $detail->questions->count() ?? 0 }} soal
+                                    • {{ $detail->questions->count() ?? 0 }} {{ __('soal') }}
                                 </p>
                             </div>
                             <div class="text-right">
                                 <div class="flex items-center gap-2">
                                     @if($detail->questions->count() > 0)
                                     <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                        {{ $detail->questions->count() }} Soal
+                                        {{ $detail->questions->count() }} {{ __('Soal') }}
                                     </span>
                                     @else
                                     <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-                                        Belum ada soal
+                                        {{ __('Belum ada soal') }}
                                     </span>
                                     @endif
                                     <i class="ri-arrow-right-line text-gray-400"></i>
@@ -263,12 +263,12 @@
                 <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                     <i class="ri-draft-line text-3xl text-gray-400"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Belum ada tryout</h3>
-                <p class="text-gray-500 mb-4">Mulai dengan membuat tryout pertama Anda</p>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Belum ada tryout') }}</h3>
+                <p class="text-gray-500 mb-4">{{ __('Mulai dengan membuat tryout pertama Anda') }}</p>
                 <a href="{{ route('admin.tryout.create') }}"
                     class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 inline-flex items-center gap-2">
                     <i class="ri-add-line"></i>
-                    Tambah Tryout
+                    {{ __('Tambah Tryout') }}
                 </a>
             </div>
         </div>
@@ -281,8 +281,8 @@
             <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                 <i class="ri-search-line text-3xl text-gray-400"></i>
             </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada tryout ditemukan</h3>
-            <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Tidak ada tryout ditemukan') }}</h3>
+            <p class="text-gray-500">{{ __('Coba ubah kata kunci pencarian atau filter') }}</p>
         </div>
     </div>
 
@@ -341,7 +341,7 @@
     }
 
     function updateTryoutCount(count) {
-        tryoutCount.innerHTML = `Total: <span class="font-medium text-gray-700">${count} Tryout</span>`;
+        tryoutCount.innerHTML = @json(__('Total: <span class="font-medium text-gray-700">:count Tryout</span>')).replace(':count', count);
     }
 
     function resetFilters() {
@@ -357,7 +357,7 @@
     statusFilter.addEventListener('change', filterTryouts);
     resetButton.addEventListener('click', resetFilters);
 
-    console.log('Tryout management scripts loaded');
+    console.log(@json(__('Tryout management scripts loaded')));
 });
 </script>
 @endsection

@@ -1,20 +1,20 @@
 @extends('user.layout.user')
-@section('title', 'Pembahasan Tryout')
+@section('title', __('Pembahasan Tryout'))
 @section('content')
 <div class="package-bimbel flex flex-col gap-4">
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col md:flex-row gap-4 text-dark">
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
-            <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
+            <p class="font-semibold">{{ __('Pembahasan') }} - {{ $tryout->name }}</p>
             <p class="text-5xl font-medium">{{ number_format($overallStats['total_score'], 0) }}</p>
             <span
                 class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
                 <i class="ri-checkbox-circle-fill text-lg"></i>
-                <span>{{ $overallStats['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}</span>
+                <span>{{ $overallStats['is_passed'] ? __('Lulus') : __('Tidak Lulus') }}</span>
             </span>
             @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
             <div class="mt-2">
                 <span class="inline-flex px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-                    SKD Full - {{ $tryoutDetails->count() }} Subtest
+                    {{ __('SKD Full') }} - {{ $tryoutDetails->count() }} {{ __('Subtest') }}
                 </span>
             </div>
             @endif
@@ -26,7 +26,7 @@
                     class="ri-question-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
                 <div>
                     <p class="text-[24px] font-bold">{{ $overallStats['total_questions'] }}</p>
-                    <p class="text-[12px] mt-[-6px] font-light">Total Soal</p>
+                    <p class="text-[12px] mt-[-6px] font-light">{{ __('Total Soal') }}</p>
                 </div>
             </div>
             <div class="flex w-full items-center gap-3 bg-white p-4 rounded-lg border border-border">
@@ -34,7 +34,7 @@
                     class="ri-check-line text-[20px] flex items-center justify-center text-white font-medium bg-green w-10 h-10 rounded-lg"></i>
                 <div>
                     <p class="text-[24px] font-bold">{{ $overallStats['correct_answers'] }}</p>
-                    <p class="text-[12px] mt-[-6px] font-light">Jawaban Benar</p>
+                    <p class="text-[12px] mt-[-6px] font-light">{{ __('Jawaban Benar') }}</p>
                 </div>
             </div>
             <div class="flex w-full items-center gap-3 bg-white p-4 rounded-lg border border-border">
@@ -42,7 +42,7 @@
                     class="ri-close-line text-[20px] flex items-center justify-center text-white font-medium bg-red w-10 h-10 rounded-lg"></i>
                 <div>
                     <p class="text-[24px] font-bold">{{ $overallStats['wrong_answers'] }}</p>
-                    <p class="text-[12px] mt-[-6px] font-light">Jawaban Salah</p>
+                    <p class="text-[12px] mt-[-6px] font-light">{{ __('Jawaban Salah') }}</p>
                 </div>
             </div>
             <div class="flex w-full items-center gap-3 bg-white p-4 rounded-lg border border-border">
@@ -50,7 +50,7 @@
                     class="ri-question-mark-line text-[20px] flex items-center justify-center text-white font-medium bg-gray-500 w-10 h-10 rounded-lg"></i>
                 <div>
                     <p class="text-[24px] font-bold">{{ $overallStats['unanswered'] }}</p>
-                    <p class="text-[12px] mt-[-6px] font-light">Tidak Dijawab</p>
+                    <p class="text-[12px] mt-[-6px] font-light">{{ __('Tidak Dijawab') }}</p>
                 </div>
             </div>
             @if(!empty($overallStats['pending_review']))
@@ -59,7 +59,7 @@
                     class="ri-time-line text-[20px] flex items-center justify-center text-white font-medium bg-amber-500 w-10 h-10 rounded-lg"></i>
                 <div>
                     <p class="text-[24px] font-bold">{{ $overallStats['pending_review'] }}</p>
-                    <p class="text-[12px] mt-[-6px] font-light">Belum Dikoreksi</p>
+                    <p class="text-[12px] mt-[-6px] font-light">{{ __('Belum Dikoreksi') }}</p>
                 </div>
             </div>
             @endif
@@ -69,7 +69,7 @@
     <!-- SKD Full Subtest Summary (if multiple subtests) -->
     @if(!empty($subtestSummaries))
     <div class="bg-white px-4 py-6 rounded-lg border border-border">
-        <h3 class="text-lg font-bold mb-4 text-gray-800">Ringkasan Per Subtest</h3>
+        <h3 class="text-lg font-bold mb-4 text-gray-800">{{ __('Ringkasan Per Subtest') }}</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             @foreach($subtestSummaries as $summary)
             <div
@@ -84,14 +84,14 @@
                         {{ number_format($summary['score'], 0) }}/{{ number_format($summary['max_score'], 0) }}
                     </div>
                     <div class="text-sm {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($summary['percentage'], 1) }}% - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                        {{ number_format($summary['percentage'], 1) }}% - {{ $summary['is_passed'] ? __('LULUS') : __('TIDAK LULUS') }}
                     </div>
                 </div>
                 <div class="mt-2 text-xs text-gray-600 text-center">
-                    {{ $summary['correct_answers'] }} benar, {{ $summary['wrong_answers'] }} salah
+                    {{ $summary['correct_answers'] }} {{ __('benar') }}, {{ $summary['wrong_answers'] }} {{ __('salah') }}
                 </div>
                 <div class="mt-1 text-xs text-gray-500 text-center">
-                    Passing grade:
+                    {{ __('Passing grade') }}:
                     @if(($summary['passing_type'] ?? 'score') === 'percentage')
                         {{ number_format($summary['passing_score'] ?? 0, 1) }}%
                     @else
@@ -136,14 +136,14 @@
         <div
             class="card-pembahasan w-full border border-dashed p-4 rounded-lg {{ $isCorrect ? 'border-green bg-green-light/30' : 'border-red bg-red-light/30' }}">
             <div class="flex items-center justify-start gap-4">
-                <p class="font-semibold">Soal {{ $index + 1 }}</p>
+                <p class="font-semibold">{{ __('Soal') }} {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                     {{ strtoupper($detail->subtest_type) }}
                 </span>
                 <span
                     class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isPendingReview ? 'bg-amber-100 text-amber-700 border-amber-200' : ($isCorrect ? 'bg-green text-white' : 'bg-red text-white') }}">
                     <i class="ri-checkbox-circle-fill"></i>
-                    <p class="text-sm">{{ $isPendingReview ? 'Belum Dikoreksi' : ($isCorrect ? 'Benar' : 'Salah') }}</p>
+                    <p class="text-sm">{{ $isPendingReview ? __('Belum Dikoreksi') : ($isCorrect ? __('Benar') : __('Salah')) }}</p>
                 </span>
                 @php
                 // Calculate score earned for this question
@@ -167,7 +167,7 @@
                 <span
                     class="flex items-center gap-1 border border-primary bg-primary/10 text-primary px-3 py-1 rounded-lg">
                     <i class="ri-star-fill text-sm"></i>
-                    <p class="text-sm">+{{ $scoreEarned }} poin</p>
+                    <p class="text-sm">+{{ $scoreEarned }} {{ __('poin') }}</p>
                 </span>
                 @endif
             </div>
@@ -180,17 +180,17 @@
             <div class="mt-4">
                 <audio controls class="w-full">
                     <source src="{{ Storage::url($question->sound) }}" type="audio/mpeg">
-                    Browser Anda tidak mendukung audio.
+                    {{ __('Browser Anda tidak mendukung audio.') }}
                 </audio>
             </div>
             @endif
 
             @if(in_array($question->question_type ?? '', ['short_answer', 'essay']))
             <div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg">
-                <p class="font-semibold text-gray-800 mb-1">Jawaban Peserta:</p>
+                <p class="font-semibold text-gray-800 mb-1">{{ __('Jawaban Peserta') }}:</p>
                 <p class="text-gray-700">{!! nl2br(e($detail->answer_text ?? '')) ?: '-' !!}</p>
                 @if($detail->answer_json['pending_review'] ?? false)
-                <p class="text-xs text-gray-500 mt-2">Belum dikoreksi.</p>
+                <p class="text-xs text-gray-500 mt-2">{{ __('Belum dikoreksi.') }}</p>
                 @endif
             </div>
             @else
@@ -211,7 +211,7 @@
                     <p>{!! $option->option_text !!}</p>
                     <i class="ri-check-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
-                    <span class="text-xs bg-white/20 px-2 py-1 rounded">Bobot: {{ $option->weight }}</span>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded">{{ __('Bobot') }}: {{ $option->weight }}</span>
                     @endif
                 </div>
                 @elseif($isSelected && !$isCorrect)
@@ -223,7 +223,7 @@
                     <p>{!! $option->option_text !!}</p>
                     <i class="ri-close-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
-                    <span class="text-xs bg-white/20 px-2 py-1 rounded">Bobot: {{ $option->weight }}</span>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded">{{ __('Bobot') }}: {{ $option->weight }}</span>
                     @endif
                 </div>
                 @else
@@ -234,7 +234,7 @@
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
                     @if($detail->subtest_type === 'tkp')
-                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Bobot: {{ $option->weight
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ __('Bobot') }}: {{ $option->weight
                         }}</span>
                     @endif
                 </div>
@@ -244,7 +244,7 @@
 
             @if(!$isCorrect && $correctOption && in_array($detail->subtest_type, ['twk', 'tiu']))
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p class="font-semibold text-green-800 mb-1">Jawaban Yang Benar:</p>
+                <p class="font-semibold text-green-800 mb-1">{{ __('Jawaban Yang Benar') }}:</p>
                 <p class="text-green-700">{{ $correctOption->option_key ?? 'A' }}. {!! $correctOption->option_text !!}</p>
             </div>
             @endif
@@ -252,15 +252,14 @@
 
             @if($detail->subtest_type === 'tkp')
             <div class="mt-4 p-3 bg-primary/10 border border-primary/50 rounded-lg">
-                <p class="font-semibold text-primary mb-1">Info TKP:</p>
-                <p class="text-primary text-sm">Untuk TKP, setiap pilihan memiliki bobot nilai. Pilih jawaban yang
-                    paling mencerminkan karakter positif.</p>
+                <p class="font-semibold text-primary mb-1">{{ __('Info TKP') }}:</p>
+                <p class="text-primary text-sm">{{ __('Untuk TKP, setiap pilihan memiliki bobot nilai. Pilih jawaban yang paling mencerminkan karakter positif.') }}</p>
             </div>
             @endif
 
             @if($question->explanation)
             <div class="mt-4">
-                <p class="font-semibold text-gray-800 mb-2"># Pembahasan</p>
+                <p class="font-semibold text-gray-800 mb-2">{{ __('Pembahasan') }}</p>
                 <div class="font-light text-gray-700 bg-gray-50 p-3 rounded-lg">
                     {{-- {!! nl2br(e($question->explanation)) !!} --}}
                     {!! $question->explanation !!}
@@ -273,7 +272,7 @@
         @if($allAnswerDetails->isEmpty())
         <div class="text-center py-8">
             <i class="ri-file-list-line text-4xl text-gray-400 mb-4"></i>
-            <p class="text-gray-500">Tidak ada data jawaban ditemukan.</p>
+            <p class="text-gray-500">{{ __('Tidak ada data jawaban ditemukan.') }}</p>
         </div>
         @endif
     </div>
@@ -283,54 +282,54 @@
         @php
             $summaryNames = collect($subtestSummaries ?? [])->pluck('name')->filter()->unique()->values();
             $summaryTitle = $summaryNames->isNotEmpty()
-                ? 'Ringkasan Hasil ' . $summaryNames->implode(' - ')
-                : 'Ringkasan Hasil ' . ($tryout->title ?? $tryout->name ?? 'Tryout');
+                ? __('Ringkasan Hasil') . ' ' . $summaryNames->implode(' - ')
+                : __('Ringkasan Hasil') . ' ' . ($tryout->title ?? $tryout->name ?? __('Tryout'));
         @endphp
         <h3 class="text-lg font-bold mb-4 text-gray-800">{{ $summaryTitle }}</h3>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <h4 class="font-semibold text-gray-700 mb-3">Detail Skor</h4>
+                <h4 class="font-semibold text-gray-700 mb-3">{{ __('Detail Skor') }}</h4>
                 <div class="space-y-2">
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Total Skor:</span>
+                        <span class="text-gray-600">{{ __('Total Skor') }}:</span>
                         <span class="font-semibold">{{ number_format($overallStats['total_score'], 0) }}/{{
                             number_format($overallStats['max_score'], 0) }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Persentase:</span>
+                        <span class="text-gray-600">{{ __('Persentase') }}:</span>
                         <span class="font-semibold {{ $overallStats['is_passed'] ? 'text-green' : 'text-red' }}">
                             {{ number_format($overallStats['percentage'], 1) }}%
                         </span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Status:</span>
+                        <span class="text-gray-600">{{ __('Status') }}:</span>
                         <span class="font-semibold {{ $overallStats['is_passed'] ? 'text-green' : 'text-red' }}">
-                            {{ $overallStats['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                            {{ $overallStats['is_passed'] ? __('LULUS') : __('TIDAK LULUS') }}
                         </span>
                     </div>
                 </div>
             </div>
 
             <div>
-                <h4 class="font-semibold text-dark mb-3">Statistik Jawaban</h4>
+                <h4 class="font-semibold text-dark mb-3">{{ __('Statistik Jawaban') }}</h4>
                 <div class="space-y-2">
                     <div class="flex justify-between">
-                        <span class="">Benar:</span>
-                        <span class="font-semibold">{{ $overallStats['correct_answers'] }} soal</span>
+                        <span class="">{{ __('Benar') }}:</span>
+                        <span class="font-semibold">{{ $overallStats['correct_answers'] }} {{ __('soal') }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="">Salah:</span>
-                        <span class="font-semibold">{{ $overallStats['wrong_answers'] }} soal</span>
+                        <span class="">{{ __('Salah') }}:</span>
+                        <span class="font-semibold">{{ $overallStats['wrong_answers'] }} {{ __('soal') }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="">Tidak Dijawab:</span>
-                        <span class="font-semibold">{{ $overallStats['unanswered'] }} soal</span>
+                        <span class="">{{ __('Tidak Dijawab') }}:</span>
+                        <span class="font-semibold">{{ $overallStats['unanswered'] }} {{ __('soal') }}</span>
                     </div>
                     @if(!empty($overallStats['pending_review']))
                     <div class="flex justify-between">
-                        <span class="">Belum Dikoreksi:</span>
-                        <span class="font-semibold">{{ $overallStats['pending_review'] }} soal</span>
+                        <span class="">{{ __('Belum Dikoreksi') }}:</span>
+                        <span class="font-semibold">{{ $overallStats['pending_review'] }} {{ __('soal') }}</span>
                     </div>
                     @endif
                 </div>
@@ -340,7 +339,7 @@
         <!-- Progress Bar -->
         <div class="mt-6">
             <div class="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Progress Pengerjaan</span>
+                <span>{{ __('Progress Pengerjaan') }}</span>
                 <span>{{ $overallStats['total_questions'] - $overallStats['unanswered'] }}/{{
                     $overallStats['total_questions'] }}</span>
             </div>
@@ -356,29 +355,29 @@
     <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <a href="{{ $backUrl }}"
             class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+            <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Tryout') }}
         </a>
 
         <a href="{{ route('user.package.tryout.riwayat', [$packageId, $tryout->tryout_id]) }}"
             class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
-            <i class="ri-history-line mr-2"></i>Lihat Riwayat
+            <i class="ri-history-line mr-2"></i>{{ __('Lihat Riwayat') }}
         </a>
 
         <a href="{{ route('user.package.tryout.ranking', [$packageId, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
-            <i class="ri-trophy-line mr-2"></i>Lihat Ranking
+            <i class="ri-trophy-line mr-2"></i>{{ __('Lihat Ranking') }}
         </a>
 
         @if($clientBranding['certificate_management_enabled'] ?? true)
         <a href="{{ route('user.certificate.preview', [$packageId, $tryout->tryout_id, 'token' => $token]) }}"
             class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
-            <i class="ri-award-line mr-2"></i>Preview Sertifikat
+            <i class="ri-award-line mr-2"></i>{{ __('Preview Sertifikat') }}
         </a>
         @endif
 
         <a href="{{ route('user.tryout.lobby', [$packageId, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center">
-            <i class="ri-refresh-line mr-2"></i>Coba Lagi
+            <i class="ri-refresh-line mr-2"></i>{{ __('Coba Lagi') }}
         </a>
     </div>
 </div>

@@ -1,8 +1,8 @@
 @extends('user.layout.user')
-@section('title', 'Paket Tryout')
+@section('title', __('Paket Tryout'))
 @section('content')
 <div class="dashboard">
-    <x-page-desc title="Paket Aktif" description="Paket aktif yang Anda beli"></x-page-desc>
+    <x-page-desc title="{{ __('Paket Aktif') }}" description="{{ __('Paket aktif yang Anda beli') }}"></x-page-desc>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         @foreach ($activePackages as $access)
@@ -43,14 +43,13 @@
                     </span>
                     @endforeach
                     @if(empty($featureList))
-                    <span class="text-sm text-gray-500">Belum ada fitur terdaftar.</span>
+                    <span class="text-sm text-gray-500">{{ __('Belum ada fitur terdaftar.') }}</span>
                     @endif
                 </div>
             </div>
             <button data-modal-target="static-modal-{{ $access->package->package_id }}"
                 data-modal-toggle="static-modal-{{ $access->package->package_id }}"
-                class="flex w-full justify-center bg-primary text-white px-4 py-3 font-bold rounded-lg mt-4 uppercase text-sm">Lihat
-                Paket</button>
+                class="flex w-full justify-center bg-primary text-white px-4 py-3 font-bold rounded-lg mt-4 uppercase text-sm">{{ __('Lihat Paket') }}</button>
         </div>
         @endforeach
     </div>

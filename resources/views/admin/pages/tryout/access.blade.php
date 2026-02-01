@@ -4,38 +4,38 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h2 class="text-2xl font-bold">Kelola Akses Tryout</h2>
+            <h2 class="text-2xl font-bold">{{ __('Kelola Akses Tryout') }}</h2>
             <p class="text-gray-500">{{ $tryout->name }}</p>
         </div>
         <a href="{{ route('admin.tryout.index') }}"
             class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
             <i class="ri-arrow-left-line"></i>
-            Kembali
+            {{ __('Kembali') }}
         </a>
     </div>
 
     <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div class="text-sm text-gray-600">
-                Tryout ini <span class="font-semibold">{{ $tryout->is_premium ? 'Premium' : 'Non Premium' }}</span>.
-                {{ $tryout->is_premium ? 'Hanya user yang di-assign bisa mengerjakan.' : 'Semua user bisa mengerjakan (sesuai progres latihan).' }}
+                {{ __('Tryout ini') }} <span class="font-semibold">{{ $tryout->is_premium ? __('Premium') : __('Non Premium') }}</span>.
+                {{ $tryout->is_premium ? __('Hanya user yang di-assign bisa mengerjakan.') : __('Semua user bisa mengerjakan (sesuai progres latihan).') }}
             </div>
-            <div class="text-sm text-gray-500">Total akses: <span class="font-semibold">{{ count($accessUserIds) }}</span></div>
+            <div class="text-sm text-gray-500">{{ __('Total akses:') }} <span class="font-semibold">{{ count($accessUserIds) }}</span></div>
         </div>
     </div>
 
     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div class="p-4 border-b border-gray-200">
-            <input id="user-search" type="text" placeholder="Cari user..."
+            <input id="user-search" type="text" placeholder="{{ __('Cari user...') }}"
                 class="w-full md:w-72 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-600">
                     <tr>
-                        <th class="text-left px-4 py-3">User</th>
-                        <th class="text-left px-4 py-3">Email</th>
-                        <th class="text-center px-4 py-3">Akses</th>
+                        <th class="text-left px-4 py-3">{{ __('User') }}</th>
+                        <th class="text-left px-4 py-3">{{ __('Email') }}</th>
+                        <th class="text-center px-4 py-3">{{ __('Akses') }}</th>
                     </tr>
                 </thead>
                 <tbody id="user-access-rows">
@@ -82,7 +82,7 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Gagal menyimpan perubahan.');
+                    throw new Error(@json(__('Gagal menyimpan perubahan.')));
                 }
             } catch (error) {
                 alert(error.message);

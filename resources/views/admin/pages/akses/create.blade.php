@@ -1,18 +1,18 @@
 @extends('admin.layout.admin')
-@section('title', 'Tambah Akses User')
+@section('title', __('Tambah Akses User'))
 @section('content')
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="{{ route('admin.akses.index') }}" title="Akses User" />
+            <x-breadcrumb-item href="{{ route('admin.akses.index') }}" title="{{ __('Akses User') }}" />
             <x-breadcrumb-item href="{{ route('admin.akses.show', ['package_id' => $package->package_id]) }}"
                 title="{{ $package->name }}" />
-            <x-breadcrumb-item href="" title="Tambah Akses" />
+            <x-breadcrumb-item href="" title="{{ __('Tambah Akses') }}" />
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="Tambah Akses Manual - {{ $package->name }}"></x-page-desc>
+<x-page-desc title="{{ __('Tambah Akses Manual') }} - {{ $package->name }}"></x-page-desc>
 
 @if($errors->any())
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -30,12 +30,12 @@
 
         <!-- User Selection -->
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Pilih User <span
+            <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('Pilih User') }} <span
                     class="text-red-500">*</span></label>
 
             <!-- Search Input -->
             <div class="relative mb-3">
-                <input type="text" id="user_search" placeholder="Cari user berdasarkan nama atau email..."
+                <input type="text" id="user_search" placeholder="{{ __('Cari user berdasarkan nama atau email...') }}"
                     class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 <i class="ri-search-line absolute left-3 top-3.5 text-gray-400"></i>
             </div>
@@ -45,9 +45,9 @@
                 <div class="flex items-center">
                     <input type="checkbox" id="select_all"
                         class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
-                    <label for="select_all" class="ml-2 text-sm font-medium text-gray-700">Pilih Semua</label>
+                    <label for="select_all" class="ml-2 text-sm font-medium text-gray-700">{{ __('Pilih Semua') }}</label>
                 </div>
-                <span id="selected_count" class="text-sm text-gray-600">0 user dipilih</span>
+                <span id="selected_count" class="text-sm text-gray-600">{{ __('0 user dipilih') }}</span>
             </div>
 
             <!-- User List -->
@@ -70,7 +70,7 @@
                 @empty
                 <div class="p-8 text-center text-gray-500">
                     <i class="ri-user-line text-4xl text-gray-300 mb-2"></i>
-                    <p>Semua user sudah memiliki akses ke paket ini</p>
+                    <p>{{ __('Semua user sudah memiliki akses ke paket ini') }}</p>
                 </div>
                 @endforelse
             </div>
@@ -79,7 +79,7 @@
         <!-- Access Period -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai <span
+                <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Tanggal Mulai') }} <span
                         class="text-red-500">*</span></label>
                 <input type="date" id="start_date" name="start_date" value="{{ old('start_date', date('Y-m-d')) }}"
                     required
@@ -87,7 +87,7 @@
             </div>
 
             <div>
-                <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Berakhir <span
+                <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Tanggal Berakhir') }} <span
                         class="text-red-500">*</span></label>
                 <input type="date" id="end_date" name="end_date"
                     value="{{ old('end_date', date('Y-m-d', strtotime('+30 days'))) }}" required
@@ -98,46 +98,45 @@
         <!-- Payment Info -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label for="payment_status" class="block text-sm font-medium text-gray-700 mb-2">Status Pembayaran <span
+                <label for="payment_status" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Status Pembayaran') }} <span
                         class="text-red-500">*</span></label>
                 <select id="payment_status" name="payment_status" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Pilih Status</option>
-                    <option value="paid" {{ old('payment_status')=='paid' ? 'selected' : '' }}>Lunas</option>
-                    <option value="pending" {{ old('payment_status')=='pending' ? 'selected' : '' }}>Pending</option>
-                    <option value="free" {{ old('payment_status')=='free' ? 'selected' : '' }}>Gratis</option>
-                    <option value="failed" {{ old('payment_status')=='failed' ? 'selected' : '' }}>Gagal</option>
+                    <option value="">{{ __('Pilih Status') }}</option>
+                    <option value="paid" {{ old('payment_status')=='paid' ? 'selected' : '' }}>{{ __('Lunas') }}</option>
+                    <option value="pending" {{ old('payment_status')=='pending' ? 'selected' : '' }}>{{ __('Pending') }}</option>
+                    <option value="free" {{ old('payment_status')=='free' ? 'selected' : '' }}>{{ __('Gratis') }}</option>
+                    <option value="failed" {{ old('payment_status')=='failed' ? 'selected' : '' }}>{{ __('Gagal') }}</option>
                 </select>
             </div>
 
             <div>
-                <label for="payment_amount" class="block text-sm font-medium text-gray-700 mb-2">Jumlah
-                    Pembayaran</label>
+                <label for="payment_amount" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Jumlah Pembayaran') }}</label>
                 <input type="number" id="payment_amount" name="payment_amount" value="{{ old('payment_amount', 0) }}"
                     min="0"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    placeholder="0">
+                    placeholder="{{ __('0') }}">
             </div>
         </div>
 
         <!-- Notes -->
         <div>
-            <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">Catatan</label>
+            <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Catatan') }}</label>
             <textarea id="notes" name="notes" rows="3"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="Catatan tambahan...">{{ old('notes') }}</textarea>
+                placeholder="{{ __('Catatan tambahan...') }}">{{ old('notes') }}</textarea>
         </div>
 
         <!-- Submit Button -->
         <div class="flex items-center justify-end space-x-2">
             <a href="{{ route('admin.akses.show', $package->package_id) }}"
                 class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
-                Batal
+                {{ __('Batal') }}
             </a>
             <button type="submit" id="submit_btn"
                 class="text-white bg-primary hover:bg-primary/90 focus:ring-4 focus:outline-none focus:ring-primary/20 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50"
                 disabled>
-                Berikan Akses
+                {{ __('Berikan Akses') }}
             </button>
         </div>
     </form>
@@ -197,7 +196,7 @@
             );
             const selectedCheckboxes = visibleCheckboxes.filter(cb => cb.checked);
 
-            selectedCount.textContent = `${selectedCheckboxes.length} user dipilih`;
+            selectedCount.textContent = @json(__(':count user dipilih')).replace(':count', selectedCheckboxes.length);
 
             // Update select all checkbox state
             if (selectedCheckboxes.length === 0) {

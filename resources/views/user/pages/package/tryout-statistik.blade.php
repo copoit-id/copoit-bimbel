@@ -1,9 +1,9 @@
 @extends('user.layout.user')
-@section('title', 'Statistik Tryout')
+@section('title', __('Statistik Tryout'))
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
-    <x-page-desc title="Statistik - {{ $tryout->name }}" description="Analisis detail hasil tryout Anda"
-        name_link="Kembali ke Tryout" url_link="{{ route('user.package.tryout', $package->package_id) }}">
+    <x-page-desc title="{{ __('Statistik') }} - {{ $tryout->name }}" description="{{ __('Analisis detail hasil tryout Anda') }}"
+        name_link="{{ __('Kembali ke Tryout') }}" url_link="{{ route('user.package.tryout', $package->package_id) }}">
     </x-page-desc>
 
     <!-- Overall Summary Card -->
@@ -14,19 +14,19 @@
                 <div class="mb-4">
                     <div class="text-4xl font-bold text-gray-800">{{ number_format($overallStats['percentage'], 1) }}%
                     </div>
-                    <div class="text-sm text-gray-600">Total Skor</div>
+                    <div class="text-sm text-gray-600">{{ __('Total Skor') }}</div>
                 </div>
                 <div class="flex justify-center">
                     <span
                         class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium {{ $overallStats['is_passed'] ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-700' }}">
                         <i class="ri-{{ $overallStats['is_passed'] ? 'check' : 'close' }}-line"></i>
-                        {{ $overallStats['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                        {{ $overallStats['is_passed'] ? __('LULUS') : __('TIDAK LULUS') }}
                     </span>
                 </div>
                 @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
                 <div class="mt-2">
                     <span class="inline-flex px-3 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                        SKD Full - {{ $tryoutDetails->count() }} Subtest
+                        {{ __('SKD Full') }} - {{ $tryoutDetails->count() }} {{ __('Subtest') }}
                     </span>
                 </div>
                 @endif
@@ -37,45 +37,45 @@
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <div class="text-2xl font-bold text-gray-800">{{ number_format($overallStats['accuracy'], 1) }}%
                     </div>
-                    <div class="text-xs text-gray-600">Akurasi</div>
+                    <div class="text-xs text-gray-600">{{ __('Akurasi') }}</div>
                 </div>
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <div class="text-2xl font-bold text-gray-800">{{ number_format($overallStats['completion'], 1) }}%
                     </div>
-                    <div class="text-xs text-gray-600">Pengerjaan</div>
+                    <div class="text-xs text-gray-600">{{ __('Pengerjaan') }}</div>
                 </div>
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <div class="text-2xl font-bold text-gray-800">{{ $overallStats['time_spent'] }}</div>
-                    <div class="text-xs text-gray-600">Menit</div>
+                    <div class="text-xs text-gray-600">{{ __('Menit') }}</div>
                 </div>
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <div class="text-2xl font-bold text-gray-800">{{
                         number_format($overallStats['avg_time_per_question'], 1) }}</div>
-                    <div class="text-xs text-gray-600">Menit/Soal</div>
+                    <div class="text-xs text-gray-600">{{ __('Menit/Soal') }}</div>
                 </div>
             </div>
 
             <!-- Question Breakdown -->
             <div class="space-y-3">
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Total Soal</span>
+                    <span class="text-sm text-gray-600">{{ __('Total Soal') }}</span>
                     <span class="font-semibold">{{ $overallStats['total_questions'] }}</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-primary">Benar</span>
+                    <span class="text-sm text-primary">{{ __('Benar') }}</span>
                     <span class="font-semibold text-primary">{{ $overallStats['correct'] }}</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-700">Salah</span>
+                    <span class="text-sm text-gray-700">{{ __('Salah') }}</span>
                     <span class="font-semibold text-gray-700">{{ $overallStats['wrong'] }}</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-500">Kosong</span>
+                    <span class="text-sm text-gray-500">{{ __('Kosong') }}</span>
                     <span class="font-semibold text-gray-500">{{ $overallStats['unanswered'] }}</span>
                 </div>
                 <div class="border-t pt-2">
                     <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Skor</span>
+                        <span class="text-sm text-gray-600">{{ __('Skor') }}</span>
                         <span class="font-bold text-gray-800">{{ number_format($overallStats['total_score'], 0) }}/{{
                             number_format($overallStats['max_score'], 0) }}</span>
                     </div>
@@ -88,11 +88,11 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <!-- Accuracy Progress -->
         <div class="bg-white p-6 rounded-lg border border-border">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Tingkat Akurasi</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Tingkat Akurasi') }}</h3>
             <div class="space-y-4">
                 <div>
                     <div class="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Jawaban Benar</span>
+                        <span>{{ __('Jawaban Benar') }}</span>
                         <span>{{ $overallStats['correct'] }}/{{ $overallStats['answered'] }}</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-3">
@@ -108,11 +108,11 @@
 
         <!-- Completion Progress -->
         <div class="bg-white p-6 rounded-lg border border-border">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Tingkat Pengerjaan</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Tingkat Pengerjaan') }}</h3>
             <div class="space-y-4">
                 <div>
                     <div class="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Soal Dikerjakan</span>
+                        <span>{{ __('Soal Dikerjakan') }}</span>
                         <span>{{ $overallStats['answered'] }}/{{ $overallStats['total_questions'] }}</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-3">
@@ -130,7 +130,7 @@
     <!-- Subtest Statistics (for SKD Full) -->
     @if(count($categoryStats) > 1)
     <div class="bg-white p-6 rounded-lg border border-border mt-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Statistik Per Subtest</h3>
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Statistik Per Subtest') }}</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             @foreach($categoryStats as $category)
             <div class="border border-border rounded-lg p-4">
@@ -143,7 +143,7 @@
                     <div class="text-center">
                         <div class="text-2xl font-bold text-gray-800">{{ number_format($category['percentage'], 1) }}%
                         </div>
-                        <div class="text-xs text-gray-600">Skor: {{ $category['score'] }}/{{ $category['max_score'] }}
+                        <div class="text-xs text-gray-600">{{ __('Skor') }}: {{ $category['score'] }}/{{ $category['max_score'] }}
                         </div>
                     </div>
 
@@ -155,25 +155,25 @@
                     <div class="grid grid-cols-3 gap-1 text-center text-xs">
                         <div>
                             <div class="font-semibold text-primary">{{ $category['correct'] }}</div>
-                            <div class="text-gray-600">Benar</div>
+                            <div class="text-gray-600">{{ __('Benar') }}</div>
                         </div>
                         <div>
                             <div class="font-semibold text-gray-700">{{ $category['wrong'] }}</div>
-                            <div class="text-gray-600">Salah</div>
+                            <div class="text-gray-600">{{ __('Salah') }}</div>
                         </div>
                         <div>
                             <div class="font-semibold text-gray-500">{{ $category['unanswered'] }}</div>
-                            <div class="text-gray-600">Kosong</div>
+                            <div class="text-gray-600">{{ __('Kosong') }}</div>
                         </div>
                     </div>
 
                     <div class="pt-2 border-t border-gray-200">
                         <div class="flex justify-between text-xs">
-                            <span class="text-gray-600">Akurasi:</span>
+                            <span class="text-gray-600">{{ __('Akurasi') }}:</span>
                             <span class="font-medium">{{ number_format($category['accuracy'], 1) }}%</span>
                         </div>
                         <div class="flex justify-between text-xs">
-                            <span class="text-gray-600">Pengerjaan:</span>
+                            <span class="text-gray-600">{{ __('Pengerjaan') }}:</span>
                             <span class="font-medium">{{ number_format($category['completion'], 1) }}%</span>
                         </div>
                     </div>
@@ -186,11 +186,11 @@
 
     <!-- Performance Analysis -->
     <div class="bg-white p-6 rounded-lg border border-border mt-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Analisis Performa</h3>
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Analisis Performa') }}</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Strengths & Weaknesses -->
             <div class="space-y-4">
-                <h4 class="font-medium text-gray-700">Analisis Kekuatan & Kelemahan</h4>
+                <h4 class="font-medium text-gray-700">{{ __('Analisis Kekuatan & Kelemahan') }}</h4>
                 @if(count($categoryStats) > 1)
                 @php
                 $bestCategory = collect($categoryStats)->sortByDesc('percentage')->first();
@@ -200,7 +200,7 @@
                     <div class="p-3 bg-primary/10 rounded-lg border border-primary/20">
                         <div class="flex items-center gap-2 mb-1">
                             <i class="ri-trophy-line text-primary"></i>
-                            <span class="font-medium text-primary">Kategori Terbaik</span>
+                            <span class="font-medium text-primary">{{ __('Kategori Terbaik') }}</span>
                         </div>
                         <div class="text-sm text-gray-700">
                             {{ $bestCategory['name'] }} ({{ strtoupper($bestCategory['type']) }}) - {{
@@ -211,7 +211,7 @@
                     <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div class="flex items-center gap-2 mb-1">
                             <i class="ri-focus-line text-gray-600"></i>
-                            <span class="font-medium text-gray-700">Perlu Ditingkatkan</span>
+                            <span class="font-medium text-gray-700">{{ __('Perlu Ditingkatkan') }}</span>
                         </div>
                         <div class="text-sm text-gray-700">
                             {{ $worstCategory['name'] }} ({{ strtoupper($worstCategory['type']) }}) - {{
@@ -223,31 +223,31 @@
 
                 <!-- Performance Recommendations -->
                 <div class="space-y-2">
-                    <h5 class="font-medium text-gray-700">Rekomendasi</h5>
+                    <h5 class="font-medium text-gray-700">{{ __('Rekomendasi') }}</h5>
                     <div class="space-y-2 text-sm text-gray-600">
                         @if($overallStats['accuracy'] < 70) <div class="flex items-start gap-2">
                             <i class="ri-lightbulb-line text-primary mt-0.5"></i>
-                            <span>Tingkatkan pemahaman materi dasar untuk meningkatkan akurasi jawaban</span>
+                            <span>{{ __('Tingkatkan pemahaman materi dasar untuk meningkatkan akurasi jawaban') }}</span>
                     </div>
                     @endif
 
                     @if($overallStats['completion'] < 90) <div class="flex items-start gap-2">
                         <i class="ri-timer-line text-primary mt-0.5"></i>
-                        <span>Latih manajemen waktu untuk menyelesaikan lebih banyak soal</span>
+                        <span>{{ __('Latih manajemen waktu untuk menyelesaikan lebih banyak soal') }}</span>
                 </div>
                 @endif
 
                 @if($overallStats['avg_time_per_question'] > 2)
                 <div class="flex items-start gap-2">
                     <i class="ri-speed-line text-primary mt-0.5"></i>
-                    <span>Tingkatkan kecepatan membaca dan menganalisis soal</span>
+                    <span>{{ __('Tingkatkan kecepatan membaca dan menganalisis soal') }}</span>
                 </div>
                 @endif
 
                 @if($overallStats['is_passed'])
                 <div class="flex items-start gap-2">
                     <i class="ri-star-line text-primary mt-0.5"></i>
-                    <span>Pertahankan performa yang baik dan terus berlatih secara konsisten</span>
+                    <span>{{ __('Pertahankan performa yang baik dan terus berlatih secara konsisten') }}</span>
                 </div>
                 @endif
             </div>
@@ -256,20 +256,20 @@
 
     <!-- Time Analysis -->
     <div class="space-y-4">
-        <h4 class="font-medium text-gray-700">Analisis Waktu</h4>
+        <h4 class="font-medium text-gray-700">{{ __('Analisis Waktu') }}</h4>
         <div class="space-y-3">
             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <span class="text-sm text-gray-600">Total Waktu Pengerjaan</span>
-                <span class="font-semibold">{{ $overallStats['time_spent'] }} menit</span>
+                <span class="text-sm text-gray-600">{{ __('Total Waktu Pengerjaan') }}</span>
+                <span class="font-semibold">{{ $overallStats['time_spent'] }} {{ __('menit') }}</span>
             </div>
 
             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <span class="text-sm text-gray-600">Rata-rata per Soal</span>
-                <span class="font-semibold">{{ number_format($overallStats['avg_time_per_question'], 1) }} menit</span>
+                <span class="text-sm text-gray-600">{{ __('Rata-rata per Soal') }}</span>
+                <span class="font-semibold">{{ number_format($overallStats['avg_time_per_question'], 1) }} {{ __('menit') }}</span>
             </div>
 
             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <span class="text-sm text-gray-600">Tanggal Pengerjaan</span>
+                <span class="text-sm text-gray-600">{{ __('Tanggal Pengerjaan') }}</span>
                 <span class="font-semibold">{{ \Carbon\Carbon::parse($overallStats['attempt_date'])->format('d M Y,
                     H:i') }}</span>
             </div>
@@ -283,15 +283,20 @@
                     class="ri-dashboard-line {{ $overallStats['avg_time_per_question'] <= 1.5 ? 'text-primary' : 'text-gray-600' }}"></i>
                 <span
                     class="font-medium {{ $overallStats['avg_time_per_question'] <= 1.5 ? 'text-primary' : 'text-gray-700' }}">
-                    Efisiensi Waktu
+                    {{ __('Efisiensi Waktu') }}
                 </span>
             </div>
             <div class="text-sm {{ $overallStats['avg_time_per_question'] <= 1.5 ? 'text-primary' : 'text-gray-600' }}">
-                @if($overallStats['avg_time_per_question'] <= 1.5) Sangat Efisien - Waktu pengerjaan optimal
-                    @elseif($overallStats['avg_time_per_question'] <=2) Cukup Efisien - Masih dalam batas wajar @else
-                    Perlu Ditingkatkan - Terlalu lama per soal @endif </div>
+                @if($overallStats['avg_time_per_question'] <= 1.5)
+                    {{ __('Sangat Efisien - Waktu pengerjaan optimal') }}
+                @elseif($overallStats['avg_time_per_question'] <=2)
+                    {{ __('Cukup Efisien - Masih dalam batas wajar') }}
+                @else
+                    {{ __('Perlu Ditingkatkan - Terlalu lama per soal') }}
+                @endif
             </div>
         </div>
+    </div>
     </div>
 </div>
 
@@ -299,22 +304,22 @@
 <div class="flex flex-col sm:flex-row gap-4 justify-center mt-6">
     <a href="{{ route('user.package.tryout', $package->package_id) }}"
         class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-        <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+        <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Tryout') }}
     </a>
 
     <a href="{{ route('user.package.tryout.pembahasan', [$package->package_id, $tryout->tryout_id]) }}"
         class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
-        <i class="ri-book-open-line mr-2"></i>Lihat Pembahasan
+        <i class="ri-book-open-line mr-2"></i>{{ __('Lihat Pembahasan') }}
     </a>
 
     <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
         class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
-        <i class="ri-trophy-line mr-2"></i>Lihat Ranking
+        <i class="ri-trophy-line mr-2"></i>{{ __('Lihat Ranking') }}
     </a>
 
     <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
         class="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-center">
-        <i class="ri-refresh-line mr-2"></i>Coba Lagi
+        <i class="ri-refresh-line mr-2"></i>{{ __('Coba Lagi') }}
     </a>
 </div>
 </div>

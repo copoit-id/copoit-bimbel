@@ -1,5 +1,5 @@
 @extends('user.layout.user')
-@section('title', 'Paket Pembelian')
+@section('title', __('Paket Pembelian'))
 @section('content')
 @php
     $typePriceLabels = [
@@ -15,9 +15,9 @@
     $unlockedTryoutIds = $practiceStats['unlocked_tryout_ids'] ?? [];
 @endphp
 <div class="dashboard">
-    <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
+    <x-page-desc title="{{ __('Paket') }}" description="{{ __('Pilihan paket gratis hingga berbayar') }}"></x-page-desc>
     <div class="flex justify-end mt-4">
-        <a href="{{ route('user.package.riwayatPembelian') }}" class="text-blue-600 underline">Riwayat Pembelian</a>
+        <a href="{{ route('user.package.riwayatPembelian') }}" class="text-blue-600 underline">{{ __('Riwayat Pembelian') }}</a>
     </div>
 
     <!-- Tryout List -->
@@ -42,34 +42,34 @@
             <div>
                 <div class="flex items-center justify-between text-xs font-semibold mb-2">
                     <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
-                        {{ $tryout->type_tryout }}
+                        {{ __($tryout->type_tryout) }}
                     </span>
                     @if($tryout->is_premium)
                         <span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
-                            Premium
+                            {{ __('Premium') }}
                         </span>
                     @endif
                 </div>
                 <p class="text-lg font-bold text-black">{{ $tryout->name }}</p>
                 @if($packageName)
-                    <p class="text-xs text-gray-500 mt-1">Paket: {{ $packageName }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ __('Paket') }}: {{ $packageName }}</p>
                 @endif
                 <div class="flex flex-col mt-4 gap-2 font-light text-sm">
                     <span class="flex items-center justify-between">
-                        <p class="font-medium">Jumlah Soal:</p>
-                        <p class="font-light">{{ $questionCount }} Soal</p>
+                        <p class="font-medium">{{ __('Jumlah Soal') }}:</p>
+                        <p class="font-light">{{ $questionCount }} {{ __('Soal') }}</p>
                     </span>
                     <span class="flex items-center justify-between">
-                        <p class="font-medium">Durasi:</p>
-                        <p class="font-light">{{ $tryoutDetail ? $tryoutDetail->duration : 0 }} Menit</p>
+                        <p class="font-medium">{{ __('Durasi') }}:</p>
+                        <p class="font-light">{{ $tryoutDetail ? $tryoutDetail->duration : 0 }} {{ __('Menit') }}</p>
                     </span>
                     <span class="flex items-center justify-between">
-                        <p class="font-medium">Dikerjakan:</p>
-                        <p class="font-light">{{ $userAttempts }} Kali</p>
+                        <p class="font-medium">{{ __('Dikerjakan') }}:</p>
+                        <p class="font-light">{{ $userAttempts }} {{ __('Kali') }}</p>
                     </span>
                     @if($lastAttempt)
                         <span class="flex items-center justify-between">
-                            <p class="font-medium">Skor Terakhir:</p>
+                            <p class="font-medium">{{ __('Skor Terakhir') }}:</p>
                             <p class="font-light {{ $lastAttempt->percentage >= 70 ? 'text-green-600' : 'text-red-600' }}">
                                 {{ number_format($lastAttempt->percentage ?? 0, 1) }}%
                             </p>
@@ -83,31 +83,31 @@
                     <button type="button"
                         class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"
                         disabled>
-                        Premium - Hubungi Admin
+                        {{ __('Premium - Hubungi Admin') }}
                     </button>
                 @elseif(!$isUnlocked)
                     <button type="button"
                         class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"
                         disabled>
-                        Terkunci - Selesaikan Latihan
+                        {{ __('Terkunci - Selesaikan Latihan') }}
                     </button>
                 @else
                     @if($questionCount > 0)
                         <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
                             class="flex-1 min-w-0 flex justify-center bg-primary text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary/90 transition-colors truncate">
-                            Kerjakan
+                            {{ __('Kerjakan') }}
                         </a>
                     @else
                         <button type="button"
                             class="flex-1 min-w-0 flex justify-center bg-gray-400 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate" disabled>
-                            Belum Ada Soal
+                            {{ __('Belum Ada Soal') }}
                         </button>
                     @endif
 
                     @if($userAttempts > 0)
                         <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
                             class="flex-1 min-w-0 flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary hover:text-white transition-colors truncate">
-                            Riwayat
+                            {{ __('Riwayat') }}
                         </a>
                     @endif
 
@@ -120,7 +120,7 @@
         </div>
         @empty
         <div class="col-span-full text-center py-8">
-            <p class="text-gray-500">Belum ada tryout tersedia</p>
+            <p class="text-gray-500">{{ __('Belum ada tryout tersedia') }}</p>
         </div>
         @endforelse
     </div>
@@ -132,7 +132,7 @@
     <div class="bg-white p-6 rounded-lg">
         <div class="flex items-center">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
-            <p>Memproses pembayaran...</p>
+            <p>{{ __('Memproses pembayaran...') }}</p>
         </div>
     </div>
 </div>

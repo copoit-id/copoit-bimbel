@@ -1,12 +1,12 @@
 @extends('user.layout.user')
-@section('title', 'Paket Tryout')
+@section('title', __('Paket Tryout'))
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     <div class="flex items-center justify-between">
-        <x-page-desc title="Riwayat Pembelian"></x-page-desc>
+        <x-page-desc title="{{ __('Riwayat Pembelian') }}"></x-page-desc>
         <a href="{{ route('user.package.riwayatPembelianAktif') }}" id="btn-my-package"
             class="px-6 py-1 border hover:bg-primary hover:text-white border-primary flex justify-center text-primary rounded-xl">
-            Paket Aktif Saya
+            {{ __('Paket Aktif Saya') }}
         </a>
     </div>
 
@@ -15,11 +15,11 @@
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
                     <th scope="col" class="px-6 py-3 text-cemter">#</th>
-                    <th scope="col" class="px-6 py-3">Nama Paket</th>
-                    <th scope="col" class="px-6 py-3 text-center">Status Pembelian</th>
-                    <th scope="col" class="px-6 py-3 text-center">Durasi</th>
-                    <th scope="col" class="px-6 py-3 text-center">Tangal Pembelian</th>
-                    <th scope="col" class="px-6 py-3 text-center">Action</th>
+                    <th scope="col" class="px-6 py-3">{{ __('Nama Paket') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Status Pembelian') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Durasi') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Tanggal Pembelian') }}</th>
+                    <th scope="col" class="px-6 py-3 text-center">{{ __('Action') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -27,7 +27,7 @@
                 <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
                     <td class="px-6 py-4 text-center">{{ $loop->iteration }}</td>
                     <td class="px-6 py-4">
-                        <p>{{ $payment->package->name ?? 'Paket Tidak Ditemukan' }}</p>
+                        <p>{{ $payment->package->name ?? __('Paket Tidak Ditemukan') }}</p>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex justify-center">
@@ -35,18 +35,18 @@
                             <span
                                 class="flex items-center gap-1 border border-green bg-green-light px-4 py-0.5 rounded-xl">
                                 <i class="ri-checkbox-circle-fill text-green text-lg"></i>
-                                <span class="text-green">Selesai</span>
+                                <span class="text-green">{{ __('Selesai') }}</span>
                             </span>
                             @elseif($payment->status === 'pending')
                             <span
                                 class="flex items-center gap-1 border border-yellow-500 bg-yellow-100 px-4 py-0.5 rounded-xl">
                                 <i class="ri-time-line text-yellow-600 text-lg"></i>
-                                <span class="text-yellow-600">Pending</span>
+                                <span class="text-yellow-600">{{ __('Pending') }}</span>
                             </span>
                             @elseif($payment->status === 'failed')
                             <span class="flex items-center gap-1 border border-red bg-red-light px-4 py-0.5 rounded-xl">
                                 <i class="ri-close-circle-fill text-red text-lg"></i>
-                                <span class="text-red">Gagal</span>
+                                <span class="text-red">{{ __('Gagal') }}</span>
                             </span>
                             @else
                             <span
@@ -70,20 +70,28 @@
                         $duration = $startDate->diffInDays($endDate);
 
                         if ($duration >= 365) {
-                        $durationText = floor($duration / 365) . ' Tahun';
+                        $durationValue = floor($duration / 365);
+                        $durationUnit = 'Tahun';
                         } elseif ($duration >= 30) {
-                        $durationText = floor($duration / 30) . ' Bulan';
+                        $durationValue = floor($duration / 30);
+                        $durationUnit = 'Bulan';
                         } else {
-                        $durationText = $duration . ' Hari';
+                        $durationValue = $duration;
+                        $durationUnit = 'Hari';
                         }
                         } else {
-                        $durationText = '-';
+                        $durationValue = null;
+                        $durationUnit = null;
                         }
                         @endphp
-                        {{ $durationText }}
+                        @if($durationValue === null)
+                            -
+                        @else
+                            {{ $durationValue }} {{ __($durationUnit) }}
+                        @endif
                     </td>
                     <td class="px-6 py-4 text-center">
-                        {{ $payment->created_at->format('d F Y, H:i') }} WIB
+                        {{ $payment->created_at->format('d F Y, H:i') }} {{ __('WIB') }}
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex justify-center">
@@ -92,7 +100,7 @@
                             <a href="{{ route('user.package.tryout', $payment->package->package_id) }}"
                                 class="flex items-center gap-2 border border-primary px-4 py-1 rounded-xl">
                                 <i class="ri-file-list-3-line text-primary"></i>
-                                <span class="text-primary">Lihat Tryout</span>
+                                <span class="text-primary">{{ __('Lihat Tryout') }}</span>
                             </a>
                             @elseif($payment->package->type_package === 'bimbel')
                             <div class="relative dropdown-container">
@@ -100,7 +108,7 @@
                                     class="dropdown-button flex items-center gap-2 border border-primary px-4 py-1 rounded-xl hover:bg-primary hover:text-white transition-colors"
                                     data-dropdown-id="dropdown-{{ $payment->payment_id }}">
                                     <i class="ri-eye-line text-primary"></i>
-                                    <span class="text-primary">Lihat Paket</span>
+                                    <span class="text-primary">{{ __('Lihat Paket') }}</span>
                                     <svg class="w-3 h-3 ml-1 transition-transform dropdown-arrow"
                                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
                                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -112,35 +120,35 @@
                                     <a href="{{ route('user.package.bimbel', $payment->package->package_id) }}"
                                         class="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 first:rounded-t-lg">
                                         <i class="ri-book-open-line text-sm"></i>
-                                        <span class="text-sm">Kelas</span>
+                                        <span class="text-sm">{{ __('Kelas') }}</span>
                                     </a>
                                     <a href="{{ route('user.package.tryout', $payment->package->package_id) }}"
                                         class="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 last:rounded-b-lg">
                                         <i class="ri-file-list-3-line text-sm"></i>
-                                        <span class="text-sm">Tryout</span>
+                                        <span class="text-sm">{{ __('Tryout') }}</span>
                                     </a>
                                 </div>
                             </div>
                             @elseif($payment->package->type_package === 'sertifikasi')
                             <span class="flex items-center gap-2 border border-gray-400 px-4 py-1 rounded-xl">
                                 <i class="ri-award-line text-gray-400"></i>
-                                <span class="text-gray-400">Sertifikasi (Segera)</span>
+                                <span class="text-gray-400">{{ __('Sertifikasi (Segera)') }}</span>
                             </span>
                             @else
                             <span class="flex items-center gap-2 border border-gray-400 px-4 py-1 rounded-xl">
                                 <i class="ri-eye-line text-gray-400"></i>
-                                <span class="text-gray-400">Tidak Tersedia</span>
+                                <span class="text-gray-400">{{ __('Tidak Tersedia') }}</span>
                             </span>
                             @endif
                             @elseif($payment->status === 'pending')
                             <span class="flex items-center gap-2 border border-yellow-500 px-4 py-1 rounded-xl">
                                 <i class="ri-time-line text-yellow-600"></i>
-                                <span class="text-yellow-600">Menunggu</span>
+                                <span class="text-yellow-600">{{ __('Menunggu') }}</span>
                             </span>
                             @else
                             <span class="flex items-center gap-2 border border-gray-400 px-4 py-1 rounded-xl">
                                 <i class="ri-close-line text-gray-400"></i>
-                                <span class="text-gray-400">Tidak Tersedia</span>
+                                <span class="text-gray-400">{{ __('Tidak Tersedia') }}</span>
                             </span>
                             @endif
                         </div>
@@ -151,9 +159,9 @@
                     <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                         <div class="flex flex-col items-center">
                             <i class="ri-shopping-bag-line text-4xl text-gray-300 mb-2"></i>
-                            <p>Belum ada riwayat pembelian</p>
+                            <p>{{ __('Belum ada riwayat pembelian') }}</p>
                             <a href="{{ route('user.package.index') }}" class="text-primary hover:underline mt-2">
-                                Beli paket sekarang
+                                {{ __('Beli paket sekarang') }}
                             </a>
                         </div>
                     </td>

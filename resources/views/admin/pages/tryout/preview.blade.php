@@ -1,26 +1,26 @@
 @extends('admin.layout.admin')
-@section('title', 'Preview Tryout')
+@section('title', __('Preview Tryout'))
 @section('content')
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="{{ route('admin.tryout.index') }}" title="Manajemen Tryout" />
-            <x-breadcrumb-item href="" title="Preview Tryout" />
+            <x-breadcrumb-item href="{{ route('admin.tryout.index') }}" title="{{ __('Manajemen Tryout') }}" />
+            <x-breadcrumb-item href="" title="{{ __('Preview Tryout') }}" />
         </x-slot>
     </x-breadcrumb>
 
     <a href="{{ route('admin.tryout.index') }}"
         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
         <i class="ri-arrow-left-line"></i>
-        Kembali
+        {{ __('Kembali') }}
     </a>
 </div>
 
-<x-page-desc title="Preview Tryout - {{ $tryout->name }}">
+<x-page-desc title="{{ __('Preview Tryout') }} - {{ $tryout->name }}">
     <x-slot name="description">
-        {{ ucfirst($tryout->type_tryout) }} • {{ $tryout->tryoutDetails->count() }} Subtest •
-        {{ $tryout->tryoutDetails->sum(function($detail) { return $detail->questions->count(); }) }} Total Soal
+        {{ ucfirst($tryout->type_tryout) }} • {{ $tryout->tryoutDetails->count() }} {{ __('Subtest') }} •
+        {{ $tryout->tryoutDetails->sum(function($detail) { return $detail->questions->count(); }) }} {{ __('Total Soal') }}
     </x-slot>
 </x-page-desc>
 
@@ -29,26 +29,26 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="text-center p-4 border border-primary bg-primary/10 rounded-lg">
             <h3 class="text-2xl font-bold text-primary">{{ $tryout->tryoutDetails->count() }}</h3>
-            <p class="text-sm text-primary">Subtest</p>
+            <p class="text-sm text-primary">{{ __('Subtest') }}</p>
         </div>
         <div class="text-center p-4 border border-primary bg-primary/10 rounded-lg">
             <h3 class="text-2xl font-bold text-primary">{{ $tryout->tryoutDetails->sum(function($detail) { return
                 $detail->questions->count(); }) }}</h3>
-            <p class="text-sm text-primary">Total Soal</p>
+            <p class="text-sm text-primary">{{ __('Total Soal') }}</p>
         </div>
         <div class="text-center p-4 border border-primary bg-primary/10 rounded-lg">
             <h3 class="text-2xl font-bold text-primary">{{ $tryout->tryoutDetails->sum('duration') }}</h3>
-            <p class="text-sm text-primary">Total Durasi (menit)</p>
+            <p class="text-sm text-primary">{{ __('Total Durasi (menit)') }}</p>
         </div>
         <div class="text-center p-4 border border-primary bg-primary/10 rounded-lg">
             <h3 class="text-2xl font-bold text-primary">
                 @if($tryout->is_certification)
-                <i class="ri-award-line"></i> Sertifikasi
+                <i class="ri-award-line"></i> {{ __('Sertifikasi') }}
                 @else
-                <i class="ri-file-list-line"></i> Reguler
+                <i class="ri-file-list-line"></i> {{ __('Reguler') }}
                 @endif
             </h3>
-            <p class="text-sm text-primary">Jenis Tryout</p>
+            <p class="text-sm text-primary">{{ __('Jenis Tryout') }}</p>
         </div>
     </div>
 </div>
@@ -56,12 +56,12 @@
 <!-- Subtest Navigation -->
 @if($tryout->tryoutDetails->count() > 1)
 <div class="bg-white p-4 rounded-lg border border-border mb-6">
-    <h3 class="text-lg font-semibold mb-3">Navigasi Subtest</h3>
+    <h3 class="text-lg font-semibold mb-3">{{ __('Navigasi Subtest') }}</h3>
     <div class="flex flex-wrap gap-2">
         @foreach($tryout->tryoutDetails as $index => $detail)
         <a href="#subtest-{{ $detail->tryout_detail_id }}"
             class="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-            {{ strtoupper($detail->type_subtest) }} ({{ $detail->questions->count() }} soal)
+            {{ strtoupper($detail->type_subtest) }} ({{ $detail->questions->count() }} {{ __('soal') }})
         </a>
         @endforeach
     </div>
@@ -77,8 +77,8 @@
                 <h2 class="text-xl font-bold text-gray-900">
                 </h2>
                 <p class="text-gray-600">
-                    {{ $detail->questions->count() }} soal • {{ $detail->duration }} menit •
-                    Passing Score:
+                    {{ $detail->questions->count() }} {{ __('soal') }} • {{ $detail->duration }} {{ __('menit') }} •
+                    {{ __('Passing Score:') }}
                     @if(($detail->passing_type ?? 'score') === 'percentage')
                         {{ number_format($detail->passing_score ?? 0, 1) }}%
                     @else
@@ -87,11 +87,11 @@
                 </p>
             </div>
             <div class="flex gap-2">
-                <a href="{{ route('admin.question.index', $detail->tryout_detail_id) }}"
-                    class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
-                    <i class="ri-edit-line"></i>
-                    Kelola Soal
-                </a>
+                    <a href="{{ route('admin.question.index', $detail->tryout_detail_id) }}"
+                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                        <i class="ri-edit-line"></i>
+                    {{ __('Kelola Soal') }}
+                    </a>
             </div>
         </div>
     </div>
@@ -103,7 +103,7 @@
             <div class="border border-gray-200 rounded-lg p-6">
                 <div class="flex items-center gap-2 mb-3">
                     <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-primary/10 text-primary">
-                        Soal {{ $questionIndex + 1 }}
+                        {{ __('Soal') }} {{ $questionIndex + 1 }}
                     </span>
                     @php
                         // Tampilkan bobot tertinggi dari question_options.
@@ -114,39 +114,39 @@
                         $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
                     @endphp
                     <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-                        {{ (float) $displayWeight }} poin
+                        {{ (float) $displayWeight }} {{ __('poin') }}
                     </span>
                     @if($question->sound)
                     <span
                         class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-purple-100 text-purple-800">
                         <i class="ri-volume-up-line mr-1"></i>
-                        Audio
+                        {{ __('Audio') }}
                     </span>
                     @endif
                     @if($question->custom_score == 'yes')
                     <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-amber-100 text-amber-800">
-                        Custom Score
+                        {{ __('Custom Score') }}
                     </span>
                     @endif
                 </div>
 
                 <div class="mb-4 question-rich-text">
-                    <h4 class="font-semibold text-gray-900 mb-2">Pertanyaan:</h4>
+                    <h4 class="font-semibold text-gray-900 mb-2">{{ __('Pertanyaan:') }}</h4>
                     <div class="text-gray-800">{!! $question->question_text !!}</div>
                 </div>
 
                 @if($question->sound)
                 <div class="mb-4">
-                    <h4 class="font-semibold text-gray-900 mb-2">Audio:</h4>
+                    <h4 class="font-semibold text-gray-900 mb-2">{{ __('Audio:') }}</h4>
                     <audio controls class="w-full max-w-md">
                         <source src="{{ Storage::url($question->sound) }}" type="audio/mpeg">
-                        Browser Anda tidak mendukung audio.
+                        {{ __('Browser Anda tidak mendukung audio.') }}
                     </audio>
                 </div>
                 @endif
 
                 <div class="mb-4">
-                    <h4 class="font-semibold text-gray-900 mb-2">Pilihan Jawaban:</h4>
+                    <h4 class="font-semibold text-gray-900 mb-2">{{ __('Pilihan Jawaban:') }}</h4>
                     <div class="space-y-2">
                         @foreach($question->questionOptions as $optionIndex => $option)
                         @php
@@ -169,7 +169,7 @@
                                 @if($question->custom_score == 'yes')
                                 <span
                                     class="ml-2 text-sm {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
-                                    ({{ $option->weight }} poin)
+                                    ({{ $option->weight }} {{ __('poin') }})
                                 </span>
                                 @endif
                             </div>
@@ -180,7 +180,7 @@
 
                 @if($question->explanation)
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 class="font-semibold text-blue-800 mb-2">Pembahasan:</h4>
+                    <h4 class="font-semibold text-blue-800 mb-2">{{ __('Pembahasan:') }}</h4>
                     <p class="text-blue-700">{!! $question->explanation !!}</p>
                 </div>
                 @endif
@@ -192,12 +192,12 @@
             <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                 <i class="ri-question-line text-2xl text-gray-400"></i>
             </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Belum ada soal</h3>
-            <p class="text-gray-500 mb-4">Subtest ini belum memiliki soal</p>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Belum ada soal') }}</h3>
+            <p class="text-gray-500 mb-4">{{ __('Subtest ini belum memiliki soal') }}</p>
             <a href="{{ route('admin.question.index', $detail->tryout_detail_id) }}"
                 class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
                 <i class="ri-add-line"></i>
-                Tambah Soal
+                {{ __('Tambah Soal') }}
             </a>
         </div>
         @endif
@@ -210,8 +210,8 @@
     <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
         <i class="ri-file-list-line text-2xl text-gray-400"></i>
     </div>
-    <h3 class="text-lg font-medium text-gray-900 mb-2">Belum ada subtest</h3>
-    <p class="text-gray-500">Tryout ini belum memiliki subtest</p>
+    <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Belum ada subtest') }}</h3>
+    <p class="text-gray-500">{{ __('Tryout ini belum memiliki subtest') }}</p>
 </div>
 @endif
 

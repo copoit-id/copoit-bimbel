@@ -1,46 +1,46 @@
 @extends('user.layout.tryout')
-@section('title', 'Lobby')
+@section('title', __('Lobby'))
 @section('content')
 <div
     class="lobby flex flex-col md:flex-row gap-4 md:justify-center items-center md:items-start mt-10 w-full h-screen text-dark">
     <div class="w-full md:w-4xl flex justify-center items-start flex-col gap-2 text-dark">
         <div class="bg-white shadow rounded-lg px-6 py-8 flex-col gap-2">
-            <p class="font-bold">Soal 1 dari 10</p>
-            <p class="font-light">Semua karyawan di perusahaan A mendapat pelatihan. Budi adalah karyawan di perusahaan
+            <p class="font-bold">{{ __('Soal :number dari :total', ['number' => 1, 'total' => 10]) }}</p>
+            <p class="font-light">{{ __('Semua karyawan di perusahaan A mendapat pelatihan. Budi adalah karyawan di perusahaan A. Kesimpulan yang benar adalah...') }}</p>
                 A.
                 Kesimpulan yang
                 benar adalah...</p>
             <div class="flex flex-col gap-2 mt-4 w-full">
                 <div class="flex w-full items-center gap-1 font-light border border-gray-900/10 px-4 py-2 rounded-lg">
                     <input type="radio" name="answer" id="answer1" class="mr-2">
-                    <p>Budi tidak mengikuti pelatihan</p>
+                    <p>{{ __('Budi tidak mengikuti pelatihan') }}</p>
                 </div>
                 <div class="flex w-full items-center gap-1 font-light border border-gray-900/10 px-4 py-2 rounded-lg">
                     <input type="radio" name="answer" id="answer1" class="mr-2">
-                    <p>Budi tidak mengikuti pelatihan</p>
+                    <p>{{ __('Budi tidak mengikuti pelatihan') }}</p>
                 </div>
                 <div class="flex w-full items-center gap-1 font-light border border-gray-900/10 px-4 py-2 rounded-lg">
                     <input type="radio" name="answer" id="answer1" class="mr-2">
-                    <p>Budi tidak mengikuti pelatihan</p>
+                    <p>{{ __('Budi tidak mengikuti pelatihan') }}</p>
                 </div>
                 <div class="flex w-full items-center gap-1 font-light border border-gray-900/10 px-4 py-2 rounded-lg">
                     <input type="radio" name="answer" id="answer1" class="mr-2">
-                    <p>Budi tidak mengikuti pelatihan</p>
+                    <p>{{ __('Budi tidak mengikuti pelatihan') }}</p>
                 </div>
             </div>
         </div>
         <div class="flex justify-between items-center w-full">
             <a href="{{ route('user.tryout.lobby', ['id_package' => 1, 'id_tryout' => 1]) }}"
-                class="flex justify-center border border-primary text-primary px-8 py-2 rounded-lg mt-4 text-sm">Sebelumnya</a>
+                class="flex justify-center border border-primary text-primary px-8 py-2 rounded-lg mt-4 text-sm">{{ __('Sebelumnya') }}</a>
             <a href="{{ route('user.tryout.lobby', ['id_package' => 1, 'id_tryout' => 1]) }}"
                 class="flex justify-center border border-red text-red px-8 py-2 rounded-lg mt-4 text-sm"><i
-                    class="ri-flag-fill me-1"></i>Tandai</a>
+                    class="ri-flag-fill me-1"></i>{{ __('Tandai') }}</a>
             <a href="{{ route('user.tryout.result', ['id_package' => 1, 'id_tryout' => 1]) }}"
-                class="flex justify-center bg-primary text-white px-8 py-2 rounded-lg mt-4 text-sm">Selanjutnya</a>
+                class="flex justify-center bg-primary text-white px-8 py-2 rounded-lg mt-4 text-sm">{{ __('Selanjutnya') }}</a>
         </div>
     </div>
     <div class="p-6 bg-white shadow rounded-lg flex justify-center items-start flex-col gap-2">
-        <p class="font-bold">Navigasi Soal</p>
+        <p class="font-bold">{{ __('Navigasi Soal') }}</p>
         <div class="grid grid-cols-5 gap-4 mt-2">
             <button class="w-10 h-10 flex justify-center items-center rounded-lg bg-primary text-white">1</button>
             <button

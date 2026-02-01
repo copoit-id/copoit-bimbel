@@ -5,19 +5,19 @@
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold">Manajemen Users</h2>
-            <p class="text-gray-500">Kelola pengguna dan akses sistem</p>
+            <h2 class="text-2xl font-bold">{{ __('Manajemen Users') }}</h2>
+            <p class="text-gray-500">{{ __('Kelola pengguna dan akses sistem') }}</p>
         </div>
         <div class="flex gap-2">
             <a href="{{ route('admin.user.import') }}"
                 class="bg-green text-white px-4 py-2 rounded-lg hover:bg-green/90 flex items-center gap-2">
                 <i class="ri-upload-line"></i>
-                Import CSV
+                {{ __('Import CSV') }}
             </a>
             <a href="{{ route('admin.user.create') }}"
                 class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
                 <i class="ri-add-line"></i>
-                Tambah User
+                {{ __('Tambah User') }}
             </a>
         </div>
     </div>
@@ -45,7 +45,7 @@
         <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-2">
                 <div class="relative">
-                    <input type="text" id="user-search" placeholder="Cari user..."
+                    <input type="text" id="user-search" placeholder="{{ __('Cari user...') }}"
                         class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
@@ -55,34 +55,34 @@
                 tetapi nilainya mengikuti enum di migration. --}}
                 <select id="role-filter"
                     class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Semua Role</option>
+                    <option value="">{{ __('Semua Role') }}</option>
                     <option value="admin">Admin</option>
                     <option value="user">User</option>
                 </select>
 
                 <select id="status-filter"
                     class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Semua Status</option>
-                    <option value="aktif">Aktif</option>
-                    <option value="nonaktif">Tidak Aktif</option>
+                    <option value="">{{ __('Semua Status') }}</option>
+                    <option value="aktif">{{ __('Aktif') }}</option>
+                    <option value="nonaktif">{{ __('Tidak Aktif') }}</option>
                 </select>
 
                 <button id="reset-filters"
                     class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <i class="ri-refresh-line"></i> Reset
+                    <i class="ri-refresh-line"></i> {{ __('Reset') }}
                 </button>
             </div>
 
             <div class="flex items-center gap-3">
                 <div id="user-count" class="text-sm text-gray-500">
-                    Halaman ini: <span class="font-medium text-gray-700 current-count">{{ $users->count() }} User</span>
+                    {{ __('Halaman ini:') }} <span class="font-medium text-gray-700 current-count">{{ $users->count() }} {{ __('User') }}</span>
                     <span class="mx-1 text-gray-300">•</span>
-                    Total: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
+                    {{ __('Total:') }} <span class="font-medium text-gray-700 total-count">{{ $users->total() }} {{ __('User') }}</span>
                 </div>
                 <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
                     class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
                     <i class="ri-delete-bin-5-line"></i>
-                    Hapus Terpilih
+                    {{ __('Hapus Terpilih') }}
                     <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
                         <span id="bulk-selected-count">0</span>
                     </span>
@@ -100,12 +100,12 @@
                                 <input type="checkbox" id="select-all-users"
                                     class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50">
                             </th>
-                            <th scope="col" class="px-6 py-3">User</th>
-                            <th scope="col" class="px-6 py-3">Username</th>
-                            <th scope="col" class="px-6 py-3">Role</th>
-                            <th scope="col" class="px-6 py-3">Status</th>
-                            <th scope="col" class="px-6 py-3">Dibuat</th>
-                            <th scope="col" class="px-6 py-3">Action</th>
+                            <th scope="col" class="px-6 py-3">{{ __('User') }}</th>
+                            <th scope="col" class="px-6 py-3">{{ __('Username') }}</th>
+                            <th scope="col" class="px-6 py-3">{{ __('Role') }}</th>
+                            <th scope="col" class="px-6 py-3">{{ __('Status') }}</th>
+                            <th scope="col" class="px-6 py-3">{{ __('Dibuat') }}</th>
+                            <th scope="col" class="px-6 py-3">{{ __('Action') }}</th>
                         </tr>
                     </thead>
                     <tbody id="user-tbody">
@@ -151,7 +151,7 @@
                                 };
                                 @endphp
                                 <span class="px-2 py-1 text-xs font-medium rounded-full {{ $statusClass }}">
-                                    {{ $user->status === 'aktif' ? 'Aktif' : 'Tidak Aktif' }}
+                                    {{ $user->status === 'aktif' ? __('Aktif') : __('Tidak Aktif') }}
                                 </span>
                             </td>
                             <td class="px-6 py-4">
@@ -160,22 +160,22 @@
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2">
                                     <a href="{{ route('admin.user.show', $user->id) }}"
-                                        class="text-primary hover:text-primary/80" title="Lihat">
+                                        class="text-primary hover:text-primary/80" title="{{ __('Lihat') }}">
                                         <i class="ri-eye-line"></i>
                                     </a>
                                     <a href="{{ route('admin.user.report', $user->id) }}"
-                                        class="text-amber-600 hover:text-amber-700" title="Laporan">
+                                        class="text-amber-600 hover:text-amber-700" title="{{ __('Laporan') }}">
                                         <i class="ri-bar-chart-line"></i>
                                     </a>
                                     <a href="{{ route('admin.user.edit', $user->id) }}"
-                                        class="text-blue-600 hover:text-blue-800" title="Edit">
+                                        class="text-blue-600 hover:text-blue-800" title="{{ __('Edit') }}">
                                         <i class="ri-edit-line"></i>
                                     </a>
                                     <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
-                                        onsubmit="return confirm('Hapus user ini?')" class="inline-block">
+                                        onsubmit="return confirm(@json(__('Hapus user ini?')))" class="inline-block">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-red-600 hover:text-red-800" title="Hapus">
+                                        <button type="submit" class="text-red-600 hover:text-red-800" title="{{ __('Hapus') }}">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>
                                     </form>
@@ -185,7 +185,7 @@
                         @empty
                         <tr>
                             <td colspan="7" class="px-6 py-10 text-center text-gray-500">
-                                Tidak ada user.
+                                {{ __('Tidak ada user.') }}
                             </td>
                         </tr>
                         @endforelse
@@ -203,8 +203,8 @@
             <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                 <i class="ri-user-line text-3xl text-gray-400"></i>
             </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada user ditemukan</h3>
-            <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Tidak ada user ditemukan') }}</h3>
+            <p class="text-gray-500">{{ __('Coba ubah kata kunci pencarian atau filter') }}</p>
         </div>
     </div>
 
@@ -257,7 +257,7 @@
 
                 const currentCount = userCount.querySelector('.current-count');
                 if (currentCount) {
-                    currentCount.textContent = `${visible} User`;
+                    currentCount.textContent = @json(__(':count User')).replace(':count', visible);
                 }
             }
 
@@ -326,7 +326,7 @@
                         return;
                     }
 
-                    if (!confirm(`Hapus ${selected.length} user terpilih?`)) {
+                    if (!confirm(@json(__('Hapus :count user terpilih?')).replace(':count', selected.length))) {
                         event.preventDefault();
                     }
                 });
@@ -345,7 +345,7 @@
         <div class="relative bg-white rounded-lg shadow">
             <div class="flex items-start justify-between p-4 border-b rounded-t">
                 <h3 class="text-xl font-semibold text-gray-900">
-                    Tambah User Baru
+                    {{ __('Tambah User Baru') }}
                 </h3>
                 <button type="button"
                     class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
@@ -360,67 +360,66 @@
                 <div class="p-6 space-y-6">
                     <div class="grid grid-cols-2 gap-6">
                         <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Nama Lengkap</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Nama Lengkap') }}</label>
                             <input type="text" name="name" value="{{ old('name') }}"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
                             @error('name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Username</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Username') }}</label>
                             <input type="text" name="username" value="{{ old('username') }}"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
                             @error('username') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Email</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Email') }}</label>
                             <input type="email" name="email" value="{{ old('email') }}"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
                             @error('email') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Password') }}</label>
                             <input type="password" name="password"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
                             @error('password') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Role</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Role') }}</label>
                             <select name="role"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
-                                <option value="" @selected(old('role')==='' )>Pilih role</option>
-                                <option value="admin" @selected(old('role')==='admin' )>Admin</option>
-                                <option value="user" @selected(old('role')==='user' )>User</option>
+                                <option value="" @selected(old('role')==='' )>{{ __('Pilih role') }}</option>
+                                <option value="admin" @selected(old('role')==='admin' )>{{ __('Admin') }}</option>
+                                <option value="user" @selected(old('role')==='user' )>{{ __('User') }}</option>
                             </select>
                             @error('role') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Status</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Status') }}</label>
                             <select name="status"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
-                                <option value="" @selected(old('status')==='' )>Pilih status</option>
-                                <option value="aktif" @selected(old('status')==='aktif' )>Aktif</option>
-                                <option value="nonaktif" @selected(old('status')==='nonaktif' )>Tidak Aktif</option>
+                                <option value="" @selected(old('status')==='' )>{{ __('Pilih status') }}</option>
+                                <option value="aktif" @selected(old('status')==='aktif' )>{{ __('Aktif') }}</option>
+                                <option value="nonaktif" @selected(old('status')==='nonaktif' )>{{ __('Tidak Aktif') }}</option>
                             </select>
                             @error('status') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         {{-- Optional: foto profil (tidak divalidasi di controller) --}}
                         <div class="col-span-2">
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Foto Profil</label>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">{{ __('Foto Profil') }}</label>
                             <div class="flex items-center justify-center w-full">
                                 <label for="dropzone-file"
                                     class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
                                         <i class="ri-upload-cloud-2-line text-4xl text-gray-500 mb-2"></i>
-                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Klik untuk
-                                                upload</span> atau drag and drop</p>
-                                        <p class="text-xs text-gray-500">PNG atau JPG (MAX. 2MB)</p>
+                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">{{ __('Klik untuk upload') }}</span> {{ __('atau drag and drop') }}</p>
+                                        <p class="text-xs text-gray-500">{{ __('PNG atau JPG (MAX. 2MB)') }}</p>
                                     </div>
                                     <input id="dropzone-file" type="file" name="avatar" accept="image/png,image/jpeg"
                                         class="hidden" />
@@ -432,11 +431,11 @@
                 <div class="flex items-center justify-end p-6 space-x-2 border-t border-gray-200 rounded-b">
                     <button type="button" data-modal-hide="add-user-modal"
                         class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
-                        Batal
+                        {{ __('Batal') }}
                     </button>
                     <button type="submit"
                         class="text-white bg-primary hover:bg-primary/90 focus:ring-4 focus:outline-none focus:ring-primary/20 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-                        Simpan
+                        {{ __('Simpan') }}
                     </button>
                 </div>
             </form>
