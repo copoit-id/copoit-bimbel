@@ -110,6 +110,29 @@ class QuestionBankController extends Controller
         ]);
     }
 
+    public function editQuestionForm(Request $request, QuestionBankQuestion $question)
+    {
+        $importTarget = $request->integer('import_for');
+        $question->load('options', 'bank');
+
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+        $matchingPairs = $metadata['matching_pairs'] ?? [
+            ['left' => '', 'right' => ''],
+            ['left' => '', 'right' => ''],
+        ];
+
+        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
+            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
+        }
+
+        return view('admin.pages.question-bank.edit-question', [
+            'bank' => $question->bank,
+            'question' => $question,
+            'importTarget' => $importTarget,
+            'matchingPairs' => $matchingPairs,
+        ]);
+    }
+
     public function storeQuestion(Request $request, QuestionBank $questionBank)
     {
         $questionType = $request->input('question_type', 'multiple_choice');
@@ -182,6 +205,82 @@ class QuestionBankController extends Controller
         return redirect()
             ->route('admin.question-bank.show', ['questionBank' => $questionBank->id, 'import_for' => $importTarget])
             ->with('success', 'Soal berhasil ditambahkan ke bank.');
+    }
+
+    public function updateQuestion(Request $request, QuestionBankQuestion $question)
+    {
+        $questionType = $request->input('question_type', 'multiple_choice');
+        $importTarget = $request->integer('import_for');
+
+        $baseRules = [
+            'question_type' => ['required', 'in:multiple_choice,true_false,matching,essay,short_answer,audio'],
+            'question_text' => ['required', 'string'],
+            'explanation' => ['nullable', 'string'],
+            'default_weight' => ['nullable', 'numeric', 'min:0', 'max:999'],
+            'custom_score' => ['nullable', 'boolean'],
+            'sound' => ['nullable', 'file', 'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/m4a,audio/x-m4a', 'max:5120'],
+        ];
+
+        switch ($questionType) {
+            case 'multiple_choice':
+                $this->validateMultipleChoice($request);
+                break;
+            case 'true_false':
+                $this->validateTrueFalse($request);
+                break;
+            case 'matching':
+                $this->validateMatching($request);
+                break;
+            case 'essay':
+            case 'short_answer':
+                $this->validateShortAnswer($request);
+                break;
+            case 'audio':
+                $this->validateAudio($request);
+                break;
+        }
+
+        $validated = $request->validate($baseRules);
+        $metadata = $this->buildMetadata($request, $questionType);
+
+        $soundPath = $question->sound;
+        if ($request->hasFile('sound')) {
+            if ($soundPath) {
+                Storage::disk('public')->delete($soundPath);
+            }
+            $soundPath = $request->file('sound')->store('question-bank/audio', 'public');
+        }
+
+        DB::transaction(function () use ($question, $validated, $metadata, $questionType, $request, $soundPath) {
+            $question->update([
+                'question_type' => $questionType,
+                'question_text' => $validated['question_text'],
+                'explanation' => $validated['explanation'] ?? null,
+                'default_weight' => $validated['default_weight'] ?? 1,
+                'custom_score' => $request->boolean('use_custom_scores') ? 'yes' : 'no',
+                'metadata' => $metadata ?: null,
+                'sound' => $soundPath,
+            ]);
+
+            $question->options()->delete();
+
+            if (in_array($questionType, ['multiple_choice', 'true_false'])) {
+                $options = $this->prepareOptions($request, $questionType);
+                foreach ($options as $index => $option) {
+                    QuestionBankQuestionOption::create([
+                        'question_bank_question_id' => $question->id,
+                        'option_text' => $option['text'],
+                        'weight' => $option['weight'],
+                        'is_correct' => $option['is_correct'],
+                        'position' => $index + 1,
+                    ]);
+                }
+            }
+        });
+
+        return redirect()
+            ->route('admin.question-bank.show', ['questionBank' => $question->question_bank_id, 'import_for' => $importTarget])
+            ->with('success', 'Soal berhasil diperbarui.');
     }
 
     public function cloneToTryout(Request $request, QuestionBankQuestion $question)

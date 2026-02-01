@@ -1,20 +1,40 @@
 @extends('admin.layout.admin')
-@section('title', 'Tambah Soal Bank')
+@section('title', 'Edit Soal Bank')
 @section('content')
+@php
+    $questionType = old('question_type', $question->question_type ?? 'multiple_choice');
+    $metadata = is_array($question->metadata) ? $question->metadata : [];
+    $shortMeta = $metadata['short_answer'] ?? [];
+    $audioMeta = $metadata['audio_answer'] ?? [];
+    $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers'])
+        ? implode("\n", $shortMeta['expected_answers'])
+        : '';
+    $caseSensitive = (bool) ($shortMeta['case_sensitive'] ?? false);
+    $essayMode = $shortMeta['evaluation_mode'] ?? 'manual';
+    $options = $question->options ?? collect();
+
+    $optionMap = [];
+    foreach ($options as $index => $option) {
+        $key = chr(65 + $index);
+        $optionMap[$key] = $option;
+    }
+    $correctOption = collect($optionMap)->first(fn($opt) => $opt && $opt->is_correct);
+    $correctKey = $correctOption ? array_search($correctOption, $optionMap, true) : 'A';
+@endphp
 <div class="space-y-6">
     <div class="flex justify-between items-center">
         <x-breadcrumb>
             <x-slot name="items">
                 <x-breadcrumb-item href="{{ route('admin.question-bank.index') }}" title="Bank Soal" />
                 <x-breadcrumb-item href="{{ route('admin.question-bank.show', $bank->id) }}" title="{{ $bank->name }}" />
-                <x-breadcrumb-item href="" title="Tambah Soal" />
+                <x-breadcrumb-item href="" title="Edit Soal" />
             </x-slot>
         </x-breadcrumb>
     </div>
 
-    <x-page-desc title="Tambah Soal - {{ $bank->name }}">
+    <x-page-desc title="Edit Soal - {{ $bank->name }}">
         <x-slot name="description">
-            Simpan soal ke bank agar bisa digunakan kembali saat menyusun tryout.
+            Perbarui soal agar tetap relevan sebelum digunakan di tryout.
         </x-slot>
     </x-page-desc>
 
@@ -29,8 +49,9 @@
     @endif
 
     <div class="bg-white rounded-lg border border-gray-200">
-        <form action="{{ route('admin.question-bank.questions.store', $bank->id) }}" method="POST" enctype="multipart/form-data" novalidate>
+        <form action="{{ route('admin.question-bank.questions.update', $question->id) }}" method="POST" enctype="multipart/form-data" novalidate>
             @csrf
+            @method('PUT')
             @if ($importTarget)
             <input type="hidden" name="import_for" value="{{ $importTarget }}">
             @endif
@@ -41,14 +62,14 @@
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             @foreach (['multiple_choice' => 'Multiple Choice', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
-                            <option value="{{ $value }}" @selected(old('question_type', 'multiple_choice') === $value)>{{ $label }}</option>
+                            <option value="{{ $value }}" @selected($questionType === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Bobot Nilai</label>
                         <input type="number" name="default_weight" step="0.1" min="0"
-                            value="{{ old('default_weight', 1) }}"
+                            value="{{ old('default_weight', $question->default_weight ?? 1) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     </div>
                 </div>
@@ -57,7 +78,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Teks Soal <span class="text-red-500">*</span></label>
                     <textarea name="question_text" rows="4" required data-summernote data-height="260"
                         class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="Masukkan teks soal...">{{ old('question_text') }}</textarea>
+                        placeholder="Masukkan teks soal...">{{ old('question_text', $question->question_text) }}</textarea>
                 </div>
 
                 <div>
@@ -71,23 +92,29 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pembahasan / Catatan</label>
                     <textarea name="explanation" rows="3" data-summernote data-height="220"
                         class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="Opsional, isi jika ingin menambahkan pembahasan.">{{ old('explanation') }}</textarea>
+                        placeholder="Opsional, isi jika ingin menambahkan pembahasan.">{{ old('explanation', $question->explanation) }}</textarea>
                 </div>
 
                 <div class="space-y-4 question-section" data-type="multiple_choice">
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-gray-900">Pilihan Jawaban</h3>
                         <label class="inline-flex items-center gap-2 text-sm text-gray-600">
-                            <input type="checkbox" name="use_custom_scores" value="1" @checked(old('use_custom_scores'))
+                            <input type="checkbox" name="use_custom_scores" value="1"
+                                @checked(old('use_custom_scores', ($question->custom_score ?? 'no') === 'yes'))
                                 class="rounded border-gray-300 text-primary focus:ring-primary">
                             Gunakan custom skor
                         </label>
                     </div>
                     @foreach (['A','B','C','D','E'] as $optionKey)
+                    @php
+                        $currentOption = $optionMap[$optionKey] ?? null;
+                        $optionText = old('option_' . strtolower($optionKey), $currentOption?->option_text ?? '');
+                        $scoreValue = old('score_' . strtolower($optionKey), $currentOption?->weight ?? ($optionKey === 'A' ? 1 : 0));
+                    @endphp
                     <div class="flex flex-col gap-2 border border-gray-200 rounded-xl p-4">
                         <div class="flex items-center gap-2">
                             <input type="radio" name="correct_answer" value="{{ $optionKey }}" id="correct_{{ strtolower($optionKey) }}"
-                                @checked(old('correct_answer', 'A') === $optionKey)
+                                @checked(old('correct_answer', $correctKey) === $optionKey)
                                 class="text-primary focus:ring-primary">
                             <label class="font-semibold text-gray-800" for="correct_{{ strtolower($optionKey) }}">
                                 Pilihan {{ $optionKey }} @if($optionKey !== 'E') <span class="text-red-500">*</span> @endif
@@ -95,11 +122,11 @@
                         </div>
                         <textarea name="option_{{ strtolower($optionKey) }}" rows="2" data-summernote data-height="160"
                             class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Teks pilihan">{{ old('option_' . strtolower($optionKey)) }}</textarea>
-                        <div class="flex items-center gap-3 custom-score-field @if(!old('use_custom_scores')) hidden @endif">
+                            placeholder="Teks pilihan">{{ $optionText }}</textarea>
+                        <div class="flex items-center gap-3 custom-score-field @if(!old('use_custom_scores', ($question->custom_score ?? 'no') === 'yes')) hidden @endif">
                             <label class="text-sm text-gray-600">Skor</label>
                             <input type="number" step="0.1" name="score_{{ strtolower($optionKey) }}" min="0" max="5"
-                                value="{{ old('score_' . strtolower($optionKey), $optionKey === 'A' ? 1 : 0) }}"
+                                value="{{ $scoreValue }}"
                                 class="w-24 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         </div>
                     </div>
@@ -115,10 +142,10 @@
                     <div id="matchingPairsContainer" class="space-y-3">
                         @foreach ($matchingPairs as $index => $pair)
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 matching-row">
-                            <input type="text" name="matching_pairs[{{ $index }}][left]" value="{{ $pair['left'] ?? '' }}"
+                            <input type="text" name="matching_pairs[{{ $index }}][left]" value="{{ old("matching_pairs.$index.left", $pair['left'] ?? '') }}"
                                 class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Kolom kiri">
-                            <input type="text" name="matching_pairs[{{ $index }}][right]" value="{{ $pair['right'] ?? '' }}"
+                            <input type="text" name="matching_pairs[{{ $index }}][right]" value="{{ old("matching_pairs.$index.right", $pair['right'] ?? '') }}"
                                 class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Kolom kanan">
                         </div>
@@ -131,9 +158,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jawaban Referensi</label>
                         <textarea name="short_answer_expected" rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Masukkan jawaban referensi (pisahkan dengan baris baru)">{{ old('short_answer_expected') }}</textarea>
+                            placeholder="Masukkan jawaban referensi (pisahkan dengan baris baru)">{{ old('short_answer_expected', $expectedAnswers) }}</textarea>
                         <label class="inline-flex items-center gap-2 text-sm text-gray-600 mt-2">
-                            <input type="checkbox" name="short_answer_case_sensitive" value="1" @checked(old('short_answer_case_sensitive'))
+                            <input type="checkbox" name="short_answer_case_sensitive" value="1"
+                                @checked(old('short_answer_case_sensitive', $caseSensitive))
                                 class="rounded border-gray-300 text-primary focus:ring-primary">
                             Perhatikan huruf besar-kecil
                         </label>
@@ -145,19 +173,21 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Catatan Penilaian</label>
                         <textarea name="short_answer_expected" rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Opsional: masukkan jawaban ideal atau panduan penilaian.">{{ old('short_answer_expected') }}</textarea>
+                            placeholder="Opsional: masukkan jawaban ideal atau panduan penilaian.">{{ old('short_answer_expected', $expectedAnswers) }}</textarea>
                         <p class="text-xs text-gray-500 mt-1">Isi jawaban referensi jika memilih koreksi otomatis.</p>
                     </div>
                     <div class="space-y-2">
                         <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
                         <div class="flex flex-wrap gap-4">
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input type="radio" name="essay_scoring_mode" value="auto" @checked(old('essay_scoring_mode') === 'auto')
+                                <input type="radio" name="essay_scoring_mode" value="auto"
+                                    @checked(old('essay_scoring_mode', $essayMode) === 'auto')
                                     class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                 Otomatis (berdasarkan jawaban referensi)
                             </label>
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input type="radio" name="essay_scoring_mode" value="manual" @checked(old('essay_scoring_mode', 'manual') !== 'auto')
+                                <input type="radio" name="essay_scoring_mode" value="manual"
+                                    @checked(old('essay_scoring_mode', $essayMode) !== 'auto')
                                     class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                 Manual (belum dikoreksi)
                             </label>
@@ -170,20 +200,20 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Instruksi Jawaban Audio</label>
                         <textarea name="audio_instructions" rows="3"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Contoh: Bacakan jawabanmu dengan jelas dan maksimal 2 menit.">{{ old('audio_instructions') }}</textarea>
+                            placeholder="Contoh: Bacakan jawabanmu dengan jelas dan maksimal 2 menit.">{{ old('audio_instructions', $audioMeta['instructions'] ?? '') }}</textarea>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Maks (detik)</label>
                             <input type="number" name="audio_max_duration" min="5" max="600"
-                                value="{{ old('audio_max_duration') }}"
+                                value="{{ old('audio_max_duration', $audioMeta['max_duration'] ?? '') }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Misal: 120">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Ukuran Maks (MB)</label>
                             <input type="number" name="audio_max_size" min="1" max="100"
-                                value="{{ old('audio_max_size') }}"
+                                value="{{ old('audio_max_size', $audioMeta['max_size'] ?? '') }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Misal: 10">
                         </div>
@@ -196,7 +226,7 @@
                     class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Batal</a>
                 <button type="submit"
                     class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan
-                    Soal</button>
+                    Perubahan</button>
             </div>
         </form>
     </div>
@@ -216,7 +246,6 @@
         function toggleSections() {
             const type = typeSelect.value;
             sections.forEach(section => {
-                const visible = section.dataset.type === type || (section.dataset.type === 'multiple_choice' && type === 'multiple_choice');
                 if (section.dataset.type === 'multiple_choice') {
                     section.classList.toggle('hidden', !['multiple_choice', 'true_false'].includes(type));
                 } else if (section.dataset.type === 'short_answer') {
