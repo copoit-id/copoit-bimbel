@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
 use App\Models\Tryout;
+use App\Models\UserTryoutAccess;
 use App\Services\PracticeProgressService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -44,10 +45,22 @@ class PackageController extends Controller
         });
 
         $practiceStats = $this->practiceProgress->getStatsForUser(Auth::id());
+        $premiumAccessQuery = UserTryoutAccess::where('user_id', Auth::id())
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            });
+
+        $premiumAccessIds = $premiumAccessQuery
+            ->pluck('tryout_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         return view('user.pages.package.index', compact(
             'tryouts',
-            'practiceStats'
+            'practiceStats',
+            'premiumAccessIds'
         ));
     }
 
@@ -476,7 +489,21 @@ class PackageController extends Controller
             }])
             ->get();
 
-        return view('user.pages.package.tryout', compact('package', 'tryouts'));
+        $premiumAccessQuery = UserTryoutAccess::where('user_id', Auth::id())
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            });
+
+        $premiumAccessIds = $premiumAccessQuery
+            ->pluck('tryout_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $practiceStats = $this->practiceProgress->getStatsForUser(Auth::id());
+
+        return view('user.pages.package.tryout', compact('package', 'tryouts', 'premiumAccessIds', 'practiceStats'));
     }
 
     public function riwayatTryout($id_package, $id_tryout)
@@ -1204,6 +1231,10 @@ class PackageController extends Controller
     public function rankingTryout($id_package, $id_tryout)
     {
         $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        if (!$this->hasPremiumTryoutAccess($tryout)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+        }
         $isFree = $id_package === 'free';
         $package = null;
         $packageId = 'free';
@@ -1387,6 +1418,10 @@ class PackageController extends Controller
     public function pembahasanTryout($id_package, $id_tryout, $token)
     {
         $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        if (!$this->hasPremiumTryoutAccess($tryout)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+        }
         $isFree = $id_package === 'free';
         $package = null;
         $packageId = 'free';
@@ -1646,5 +1681,16 @@ class PackageController extends Controller
             default:
                 return ucfirst($type);
         }
+    }
+
+    private function hasPremiumTryoutAccess(Tryout $tryout): bool
+    {
+        if (!$tryout->is_premium) {
+            return true;
+        }
+
+        return UserTryoutAccess::where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->exists();
     }
 }

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\Question;
 use App\Models\Tryout;
+use App\Models\User;
+use App\Models\UserTryoutAccess;
 use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
@@ -116,6 +118,7 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
+                'is_premium' => $request->has('is_premium'),
                 'allow_calculator' => $request->boolean('allow_calculator'),
                 'is_toefl' => $request->has('is_toefl'),
                 'is_irt' => $isIrtEnabled,
@@ -184,6 +187,7 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
+                'is_premium' => $request->has('is_premium'),
                 'allow_calculator' => $request->boolean('allow_calculator'),
                 'is_toefl' => $request->has('is_toefl'),
                 'is_irt' => $isIrtEnabled,
@@ -596,6 +600,7 @@ class TryoutController extends Controller
             'end_date' => 'required|date|after:start_date',
             'is_certification' => 'boolean',
             'is_active' => 'boolean',
+            'is_premium' => 'boolean',
             'allow_calculator' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
@@ -628,6 +633,46 @@ class TryoutController extends Controller
         }
 
         return $rules;
+    }
+
+    public function accessIndex($tryoutId)
+    {
+        return redirect()->route('admin.akses.index');
+    }
+
+    public function toggleAccess(Request $request, $tryoutId)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        $access = UserTryoutAccess::where('tryout_id', $tryoutId)
+            ->where('user_id', $validated['user_id'])
+            ->first();
+
+        if ($access) {
+            $access->delete();
+            $message = 'Akses tryout dicabut.';
+            $active = false;
+        } else {
+            UserTryoutAccess::create([
+                'tryout_id' => $tryoutId,
+                'user_id' => $validated['user_id'],
+                'granted_by' => $request->user()?->id,
+                'granted_at' => now(),
+            ]);
+            $message = 'Akses tryout diberikan.';
+            $active = true;
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'active' => $active,
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 
     private function getUtbkSubtests(): array

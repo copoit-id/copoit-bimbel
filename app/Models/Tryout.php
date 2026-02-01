@@ -18,6 +18,7 @@ class Tryout extends Model
         'is_toefl' => 'boolean',
         'is_irt' => 'boolean',
         'is_active' => 'boolean',
+        'is_premium' => 'boolean',
         'section_break_duration' => 'integer',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
@@ -77,6 +78,11 @@ class Tryout extends Model
     public function userAnswers()
     {
         return $this->hasMany(UserAnswer::class, 'tryout_id', 'tryout_id');
+    }
+
+    public function premiumAccesses()
+    {
+        return $this->hasMany(UserTryoutAccess::class, 'tryout_id', 'tryout_id');
     }
 
     public function classes()

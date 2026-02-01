@@ -11,6 +11,7 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
 use App\Models\QuestionOption;
+use App\Models\UserTryoutAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -460,6 +461,17 @@ class TryoutController extends Controller
             }
         }
 
+        if (!$this->hasPremiumTryoutAccess($tryout)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+        }
+
+        $practiceProgress = app(\App\Services\PracticeProgressService::class);
+        if (!$practiceProgress->tryoutIsUnlocked(Auth::id(), (int) $tryout->tryout_id)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini masih terkunci. Selesaikan latihan soal untuk membukanya.');
+        }
+
         // Check if tryout is still active dengan timezone Jakarta
         $now = Carbon::now('Asia/Jakarta');
         if (Carbon::parse($tryout->end_date)->lt($now)) {
@@ -521,6 +533,17 @@ class TryoutController extends Controller
                 return redirect()->route('user.package.index')
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
+        }
+
+        if (!$this->hasPremiumTryoutAccess($tryout)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+        }
+
+        $practiceProgress = app(\App\Services\PracticeProgressService::class);
+        if (!$practiceProgress->tryoutIsUnlocked(Auth::id(), (int) $tryout->tryout_id)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini masih terkunci. Selesaikan latihan soal untuk membukanya.');
         }
 
         // Get all tryout details dalam urutan yang benar
@@ -1075,6 +1098,10 @@ class TryoutController extends Controller
 
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
+        if (!$this->hasPremiumTryoutAccess($tryout)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+        }
 
         // Get all user answers untuk tryout ini
         $userAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1933,5 +1960,21 @@ class TryoutController extends Controller
         $answerDetail->save();
 
         return response()->json(['status' => 'success']);
+    }
+
+    private function hasPremiumTryoutAccess(Tryout $tryout): bool
+    {
+        if (!$tryout->is_premium) {
+            return true;
+        }
+
+        return UserTryoutAccess::where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->exists();
     }
 }

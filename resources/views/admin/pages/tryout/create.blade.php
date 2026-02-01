@@ -194,6 +194,16 @@
                         </label>
                     </div>
 
+                    <div class="flex items-center">
+                        <input type="checkbox" id="is_premium" name="is_premium" value="1" {{ (isset($tryout) &&
+                            $tryout->is_premium) || old('is_premium') ? 'checked' : '' }}
+                        class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary
+                        focus:ring-2">
+                        <label for="is_premium" class="ml-2 text-sm font-medium text-gray-700">
+                            Tryout Premium
+                        </label>
+                    </div>
+
                     <div class="flex flex-col md:flex-row md:items-center md:col-span-1">
                         <div class="flex items-center">
                             <input type="checkbox" id="allow_calculator" name="allow_calculator" value="1"

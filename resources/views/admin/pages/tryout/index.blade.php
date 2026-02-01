@@ -65,6 +65,11 @@
                 <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
                     {{ strtoupper($tryout->type_tryout) }} {{ $tryout->is_toefl == 1 ? '- IRT' : '' }}
                 </span>
+                @if($tryout->is_premium)
+                <span class="px-2 py-1 bg-rose-100 text-rose-700 rounded-full text-xs">
+                    <i class="ri-vip-crown-line"></i> Premium
+                </span>
+                @endif
                 @if($tryout->is_certification)
                 <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">
                     <i class="ri-award-line"></i> {{ __('Sertifikasi') }}
@@ -167,6 +172,14 @@
                         @endif
                     @endif
                 </div>
+
+                @if($tryout->is_premium)
+                <a href="{{ route('admin.tryout.access.index', $tryout->tryout_id) }}"
+                    class="flex w-full items-center justify-center gap-2 border border-rose-300 text-rose-600 px-4 py-2 rounded-lg text-sm hover:bg-rose-50 transition-colors">
+                    <i class="ri-user-shared-line"></i>
+                    Kelola Akses Premium
+                </a>
+                @endif
 
                 <div class="flex gap-2">
                     <a href="{{ route('admin.tryout.edit', $tryout->tryout_id) }}"

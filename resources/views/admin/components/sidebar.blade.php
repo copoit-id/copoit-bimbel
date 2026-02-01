@@ -65,14 +65,6 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('admin.pembayaran.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.pembayaran.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-money-dollar-circle-line text-[20px] {{ request()->routeIs('admin.pembayaran.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">{{ __('Pembayaran') }}</span>
-                </a>
-            </li>
-            <li>
                 <a href="{{ route('admin.leaderboard.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.leaderboard.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i

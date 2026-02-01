@@ -156,7 +156,7 @@
                 <p class="text-sm text-gray-600">Sisa Hari</p>
                 <p
                     class="text-2xl font-bold {{ $userAccess->days_remaining <= 7 ? 'text-red-600' : 'text-green-600' }}">
-                    {{ round($userAccess->days_remaining) }} Hari
+                    {{ (int) round($userAccess->days_remaining) }} Hari
                 </p>
             </div>
             <i

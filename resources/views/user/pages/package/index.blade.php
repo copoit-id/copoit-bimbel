@@ -11,6 +11,8 @@
     $tryouts = $tryouts ?? collect();
     $sertifikasiPackages = $sertifikasiPackages ?? collect();
     $practiceStats = $practiceStats ?? [];
+    $premiumAccessIds = $premiumAccessIds ?? [];
+    $unlockedTryoutIds = $practiceStats['unlocked_tryout_ids'] ?? [];
 @endphp
 <div class="dashboard">
     <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
@@ -32,6 +34,9 @@
             $packageName = $primaryPackage?->name;
             $userAttempts = $tryout->userAnswers->count();
             $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
+            $isUnlocked = in_array($tryout->tryout_id, $unlockedTryoutIds, true);
+            $hasPremiumAccess = in_array($tryout->tryout_id, $premiumAccessIds, true);
+            $canAccess = $isUnlocked && (!$tryout->is_premium || $hasPremiumAccess);
         @endphp
         <div class="flex flex-col justify-between bg-white px-5 py-5 shadow rounded-lg">
             <div>
@@ -39,6 +44,11 @@
                     <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
                         {{ $tryout->type_tryout }}
                     </span>
+                    @if($tryout->is_premium)
+                        <span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
+                            Premium
+                        </span>
+                    @endif
                 </div>
                 <p class="text-lg font-bold text-black">{{ $tryout->name }}</p>
                 @if($packageName)
@@ -69,29 +79,43 @@
             </div>
 
             <div class="flex items-center gap-2 font-light mt-4">
-                @if($questionCount > 0)
-                    <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                        class="flex-1 min-w-0 flex justify-center bg-primary text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary/90 transition-colors truncate">
-                        Kerjakan
-                    </a>
-                @else
+                @if($tryout->is_premium && !$hasPremiumAccess)
                     <button type="button"
-                        class="flex-1 min-w-0 flex justify-center bg-gray-400 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate" disabled>
-                        Belum Ada Soal
+                        class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"
+                        disabled>
+                        Premium - Hubungi Admin
                     </button>
-                @endif
+                @elseif(!$isUnlocked)
+                    <button type="button"
+                        class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"
+                        disabled>
+                        Terkunci - Selesaikan Latihan
+                    </button>
+                @else
+                    @if($questionCount > 0)
+                        <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                            class="flex-1 min-w-0 flex justify-center bg-primary text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary/90 transition-colors truncate">
+                            Kerjakan
+                        </a>
+                    @else
+                        <button type="button"
+                            class="flex-1 min-w-0 flex justify-center bg-gray-400 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate" disabled>
+                            Belum Ada Soal
+                        </button>
+                    @endif
 
-                @if($userAttempts > 0)
-                    <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                        class="flex-1 min-w-0 flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary hover:text-white transition-colors truncate">
-                        Riwayat
+                    @if($userAttempts > 0)
+                        <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                            class="flex-1 min-w-0 flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary hover:text-white transition-colors truncate">
+                            Riwayat
+                        </a>
+                    @endif
+
+                    <a href="{{ route('user.package.tryout.ranking', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="flex-none w-9 h-9 flex items-center justify-center border border-primary text-primary rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                        <i class="ri-bar-chart-2-fill"></i>
                     </a>
                 @endif
-
-                <a href="{{ route('user.package.tryout.ranking', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                    class="flex-none w-9 h-9 flex items-center justify-center border border-primary text-primary rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
-                    <i class="ri-bar-chart-2-fill"></i>
-                </a>
             </div>
         </div>
         @empty

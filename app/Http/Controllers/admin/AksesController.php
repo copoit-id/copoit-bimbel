@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Package;
 use App\Models\Tryout;
 use App\Models\User;
-use App\Models\UserPackageAcces;
+use App\Models\UserTryoutAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,35 +14,58 @@ class AksesController extends Controller
 {
     public function index()
     {
-        // Ambil semua paket dengan statistik akses user
-        $packages = Package::withCount([
-            'userAccess',
-            'userAccess as active_users_count' => function ($query) {
-                $query->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            },
-            'userAccess as expired_users_count' => function ($query) {
+        $tryouts = Tryout::orderBy('tryout_id')->get();
+        $now = Carbon::now();
+
+        $accessCounts = UserTryoutAccess::selectRaw('tryout_id, count(*) as total')
+            ->groupBy('tryout_id')
+            ->pluck('total', 'tryout_id')
+            ->all();
+
+        $activeCounts = UserTryoutAccess::selectRaw('tryout_id, count(*) as total')
+            ->where('status', 'active')
+            ->where(function ($query) use ($now) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', $now);
+            })
+            ->groupBy('tryout_id')
+            ->pluck('total', 'tryout_id')
+            ->all();
+
+        $expiredCounts = UserTryoutAccess::selectRaw('tryout_id, count(*) as total')
+            ->where(function ($query) use ($now) {
                 $query->where('status', 'expired')
-                    ->orWhere('end_date', '<', Carbon::now());
-            }
-        ])->get();
+                    ->orWhere('end_date', '<', $now);
+            })
+            ->groupBy('tryout_id')
+            ->pluck('total', 'tryout_id')
+            ->all();
 
-        // Statistik total
+        $packages = $tryouts->map(function (Tryout $tryout) use ($accessCounts, $activeCounts, $expiredCounts) {
+            $tryout->setAttribute('package_id', $tryout->tryout_id);
+            $tryout->setAttribute('type_package', $tryout->type_tryout);
+            $tryout->setAttribute('status', $tryout->is_active ? 'active' : 'inactive');
+            $tryout->setAttribute('user_access_count', $accessCounts[$tryout->tryout_id] ?? 0);
+            $tryout->setAttribute('active_users_count', $activeCounts[$tryout->tryout_id] ?? 0);
+            $tryout->setAttribute('expired_users_count', $expiredCounts[$tryout->tryout_id] ?? 0);
+            return $tryout;
+        });
+
         $totalPackages = $packages->count();
-        $totalUserAccess = UserPackageAcces::count();
-        $activeAccess = UserPackageAcces::where('status', 'active')
-            ->where('end_date', '>', Carbon::now())
+        $totalUserAccess = UserTryoutAccess::count();
+        $activeAccess = UserTryoutAccess::where('status', 'active')
+            ->where(function ($query) use ($now) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', $now);
+            })
             ->count();
-        $expiredAccess = UserPackageAcces::where('status', 'expired')
-            ->orWhere('end_date', '<', Carbon::now())
-            ->count();
+        $expiredAccess = UserTryoutAccess::where(function ($query) use ($now) {
+            $query->where('status', 'expired')
+                ->orWhere('end_date', '<', $now);
+        })->count();
 
-        $pendingRequests = UserPackageAcces::where('requirement_status', 'pending')
-            ->with(['user', 'package'])
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        $pendingRequestCount = $pendingRequests->count();
+        $pendingRequests = collect();
+        $pendingRequestCount = 0;
 
         return view('admin.pages.akses.index', compact(
             'packages',
@@ -56,65 +78,40 @@ class AksesController extends Controller
         ));
     }
 
-    public function approveRequest(Request $request, UserPackageAcces $access)
+    public function approveRequest(Request $request, $access)
     {
-        if ($access->requirement_status !== 'pending') {
-            return redirect()->route('admin.akses.index')
-                ->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
-        }
-
-        $package = Package::findOrFail($access->package_id);
-        $startDate = Carbon::now();
-        $endDate = Carbon::now()->addDays(30);
-
-        $access->update([
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'status' => 'active',
-            'payment_amount' => 0,
-            'payment_status' => 'free',
-            'requirement_status' => 'approved',
-            'requirement_review_notes' => null,
-            'notes' => $package->conditional_requirement ?? $access->notes,
-            'created_by' => Auth::id(),
-        ]);
-
         return redirect()->route('admin.akses.index')
-            ->with('success', 'Pengajuan akses berhasil disetujui.');
+            ->with('error', 'Pengajuan akses paket tidak digunakan pada skema ini.');
     }
 
-    public function rejectRequest(Request $request, UserPackageAcces $access)
+    public function rejectRequest(Request $request, $access)
     {
-        if ($access->requirement_status !== 'pending') {
-            return redirect()->route('admin.akses.index')
-                ->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
-        }
-
-        $validated = $request->validate([
-            'review_notes' => 'nullable|string|max:500',
-        ]);
-
-        $access->update([
-            'status' => 'pending',
-            'payment_status' => 'conditional',
-            'requirement_status' => 'rejected',
-            'requirement_review_notes' => $validated['review_notes'] ?? 'Pengajuan ditolak oleh admin.',
-        ]);
-
         return redirect()->route('admin.akses.index')
-            ->with('success', 'Pengajuan akses berhasil ditolak.');
+            ->with('error', 'Pengajuan akses paket tidak digunakan pada skema ini.');
     }
 
     public function show($package_id)
     {
         try {
-            $package = Package::findOrFail($package_id);
+            $package = Tryout::findOrFail($package_id);
+            $package->setAttribute('package_id', $package->tryout_id);
+            $package->setAttribute('type_package', $package->type_tryout);
+            $package->setAttribute('status', $package->is_active ? 'active' : 'inactive');
+            $package->setAttribute('price', 0);
 
-            // Get user accesses for this package with user details
-            $userAccesses = UserPackageAcces::where('package_id', $package_id)
+            $userAccesses = UserTryoutAccess::where('tryout_id', $package_id)
                 ->with('user') // Make sure to load the user relationship
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()
+                ->map(function (UserTryoutAccess $access) {
+                    $access->setAttribute('user_package_access_id', $access->id);
+                    $startDate = $access->start_date ?? optional($access->granted_at)->toDateString() ?? $access->created_at?->toDateString();
+                    $endDate = $access->end_date ?? ($startDate ? Carbon::parse($startDate)->addDays(30)->toDateString() : Carbon::now()->addDays(30)->toDateString());
+                    $access->start_date = $startDate;
+                    $access->end_date = $endDate;
+                    $access->status = $access->status ?? 'active';
+                    return $access;
+                });
 
             return view('admin.pages.akses.show', compact('package', 'userAccesses'));
         } catch (\Exception $e) {
@@ -136,13 +133,13 @@ class AksesController extends Controller
         ]);
 
         try {
-            $package = Package::findOrFail($package_id);
+            $package = Tryout::findOrFail($package_id);
             $successCount = 0;
             $errorUsers = [];
 
             foreach ($request->user_ids as $userId) {
                 // Check if user already has access
-                $existingAccess = UserPackageAcces::where('package_id', $package_id)
+                $existingAccess = UserTryoutAccess::where('tryout_id', $package_id)
                     ->where('user_id', $userId)
                     ->first();
 
@@ -157,16 +154,18 @@ class AksesController extends Controller
                 $status = $endDate->isPast() ? 'expired' : 'active';
 
                 // Create new access
-                UserPackageAcces::create([
+                UserTryoutAccess::create([
                     'user_id' => $userId,
-                    'package_id' => $package_id,
+                    'tryout_id' => $package_id,
                     'start_date' => $request->start_date,
                     'end_date' => $request->end_date,
                     'status' => $status,
                     'payment_amount' => $request->payment_amount ?: 0,
                     'payment_status' => $request->payment_status,
                     'notes' => $request->notes,
-                    'created_by' => 1, // nanti diganti dengan auth()->id()
+                    'created_by' => Auth::id(),
+                    'granted_by' => Auth::id(),
+                    'granted_at' => now(),
                 ]);
 
                 $successCount++;
@@ -189,15 +188,29 @@ class AksesController extends Controller
     public function detail($package_id, $user_id)
     {
         try {
-            $package = Package::findOrFail($package_id);
+            $package = Tryout::findOrFail($package_id);
+            $package->setAttribute('package_id', $package->tryout_id);
             $user = User::findOrFail($user_id);
 
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
+            $userAccess = UserTryoutAccess::where('tryout_id', $package_id)
                 ->where('user_id', $user_id)
                 ->firstOrFail();
 
+            if (!$userAccess->start_date) {
+                $userAccess->start_date = optional($userAccess->granted_at)->toDateString() ?? $userAccess->created_at?->toDateString() ?? Carbon::now()->toDateString();
+            }
+            if (!$userAccess->end_date) {
+                $userAccess->end_date = Carbon::parse($userAccess->start_date)->addDays(30)->toDateString();
+            }
+
+            $userAccess->start_date = Carbon::parse($userAccess->start_date);
+            $userAccess->end_date = Carbon::parse($userAccess->end_date);
+            $userAccess->is_expired = $userAccess->end_date->isPast();
+            $userAccess->days_remaining = (int) $userAccess->end_date->diffInDays(Carbon::now(), false);
+            $userAccess->is_active = $userAccess->status === 'active' && !$userAccess->is_expired;
+
             // Update status berdasarkan tanggal saat ini
-            if ($userAccess->end_date->isPast() && $userAccess->status === 'active') {
+            if ($userAccess->end_date && Carbon::parse($userAccess->end_date)->isPast() && $userAccess->status === 'active') {
                 $userAccess->update(['status' => 'expired']);
             }
 
@@ -248,16 +261,18 @@ class AksesController extends Controller
     public function create($package_id)
     {
         try {
-            $package = Package::findOrFail($package_id);
+            $package = Tryout::findOrFail($package_id);
+            $package->setAttribute('package_id', $package->tryout_id);
+            $package->setAttribute('type_package', $package->type_tryout);
+            $package->setAttribute('status', $package->is_active ? 'active' : 'inactive');
+            $package->setAttribute('price', 0);
 
-            // Get users yang belum memiliki akses ke paket ini
+            // Get users yang belum memiliki akses ke tryout ini
             $availableUsers = User::whereNotIn('id', function ($query) use ($package_id) {
                 $query->select('user_id')
-                    ->from('user_package_access')
-                    ->where('package_id', $package_id);
+                    ->from('user_tryout_accesses')
+                    ->where('tryout_id', $package_id);
             })
-                ->where('role', 'user')
-                ->where('status', 'aktif')
                 ->orderBy('name')
                 ->get();
 
@@ -276,7 +291,7 @@ class AksesController extends Controller
         ]);
 
         try {
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
+            $userAccess = UserTryoutAccess::where('tryout_id', $package_id)
                 ->where('user_id', $user_id)
                 ->firstOrFail();
 
@@ -297,7 +312,7 @@ class AksesController extends Controller
     public function revokeAccess($package_id, $user_id)
     {
         try {
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
+            $userAccess = UserTryoutAccess::where('tryout_id', $package_id)
                 ->where('user_id', $user_id)
                 ->firstOrFail();
 
@@ -317,7 +332,7 @@ class AksesController extends Controller
     public function toggleStatus($package_id, $user_id)
     {
         try {
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
+            $userAccess = UserTryoutAccess::where('tryout_id', $package_id)
                 ->where('user_id', $user_id)
                 ->firstOrFail();
 
@@ -344,8 +359,8 @@ class AksesController extends Controller
             'access_ids' => 'Akses yang dipilih',
         ]);
 
-        $deleted = UserPackageAcces::where('package_id', $package_id)
-            ->whereIn('user_package_access_id', $validated['access_ids'])
+        $deleted = UserTryoutAccess::where('tryout_id', $package_id)
+            ->whereIn('id', $validated['access_ids'])
             ->delete();
 
         return redirect()

@@ -1,6 +1,11 @@
 @extends('user.layout.user')
 @section('title', 'Tryout Paket')
 @section('content')
+@php
+    $premiumAccessIds = $premiumAccessIds ?? [];
+    $practiceStats = $practiceStats ?? [];
+    $unlockedTryoutIds = $practiceStats['unlocked_tryout_ids'] ?? [];
+@endphp
 <div class="dashboard">
     <x-page-desc title="Tryout - {{ $package->name }}" description="Daftar tryout yang tersedia dalam paket ini">
     </x-page-desc>
@@ -15,11 +20,19 @@
         }
         $userAttempts = $tryout->userAnswers->count();
         $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
+        $isUnlocked = in_array($tryout->tryout_id, $unlockedTryoutIds, true);
+        $hasPremiumAccess = in_array($tryout->tryout_id, $premiumAccessIds, true);
+        $canAccess = $isUnlocked && (!$tryout->is_premium || $hasPremiumAccess);
         @endphp
 
         <div class="bg-white px-5 py-5 shadow rounded-lg flex flex-col justify-between">
             <div class="flex flex-col gap-1 mb-4">
                 <p class="text-lg font-bold text-black text-center mb-4">{{ $tryout->name }}</p>
+                @if($tryout->is_premium)
+                <span class="mx-auto px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100 text-xs">
+                    Premium
+                </span>
+                @endif
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Jumlah Soal:</p>
                     <p class="font-light">{{ $questionCount }} Soal</p>
@@ -48,30 +61,44 @@
 
             <!-- Action Buttons -->
             <div class="flex gap-2 font-light">
-                @if($questionCount > 0)
-                <a href="{{ route('user.tryout.lobby', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
-                    class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
-                    Kerjakan
-                </a>
-                @else
+                @if($tryout->is_premium && !$hasPremiumAccess)
                 <button
-                    class="flex w-full justify-center bg-gray-400 text-white px-4 py-2 rounded-lg text-sm cursor-not-allowed"
+                    class="flex w-full justify-center bg-gray-200 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
                     disabled>
-                    Belum Ada Soal
+                    Premium - Hubungi Admin
                 </button>
-                @endif
+                @elseif(!$isUnlocked)
+                <button
+                    class="flex w-full justify-center bg-gray-200 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"
+                    disabled>
+                    Terkunci - Selesaikan Latihan
+                </button>
+                @else
+                    @if($questionCount > 0)
+                    <a href="{{ route('user.tryout.lobby', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                        Kerjakan
+                    </a>
+                    @else
+                    <button
+                        class="flex w-full justify-center bg-gray-400 text-white px-4 py-2 rounded-lg text-sm cursor-not-allowed"
+                        disabled>
+                        Belum Ada Soal
+                    </button>
+                    @endif
 
-                @if($userAttempts > 0)
-                <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
-                    class="flex w-full justify-center border border-primary text-primary px-4 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
-                    Riwayat
-                </a>
-                @endif
+                    @if($userAttempts > 0)
+                    <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="flex w-full justify-center border border-primary text-primary px-4 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                        Riwayat
+                    </a>
+                    @endif
 
-                <a href="{{ route('user.package.tryout.ranking', ['id_package' =>$package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
-                    class="flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
-                    <i class="ri-bar-chart-2-fill"></i>
-                </a>
+                    <a href="{{ route('user.package.tryout.ranking', ['id_package' =>$package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                        <i class="ri-bar-chart-2-fill"></i>
+                    </a>
+                @endif
             </div>
 
             @if($lastAttempt && $lastAttempt->is_completed)

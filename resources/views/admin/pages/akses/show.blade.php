@@ -75,7 +75,7 @@
                 @php
                 $now = \Carbon\Carbon::now();
                 $endDate = \Carbon\Carbon::parse($access->end_date);
-                $sisaHari = $now->diffInDays($endDate, false);
+                $sisaHari = (int) $now->diffInDays($endDate, false);
 
                 if ($sisaHari > 7) {
                 $status = 'aktif';
@@ -156,9 +156,14 @@
                             <button class="text-gray-500 hover:text-green-600">
                                 <i class="ri-refresh-line text-xl"></i>
                             </button>
-                            <button class="text-gray-500 hover:text-red-500">
-                                <i class="ri-delete-bin-line text-xl"></i>
-                            </button>
+                            <form action="{{ route('admin.akses.bulk-destroy', $package->package_id) }}" method="POST"
+                                onsubmit="return confirm('Hapus akses user ini?');">
+                                @csrf
+                                <input type="hidden" name="access_ids[]" value="{{ $access->user_package_access_id }}">
+                                <button type="submit" class="text-gray-500 hover:text-red-500">
+                                    <i class="ri-delete-bin-line text-xl"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>
