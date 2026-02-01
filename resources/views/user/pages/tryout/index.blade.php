@@ -4,7 +4,7 @@
     $allowCalculator = optional($tryout)->allow_calculator ?? false;
 @endphp
 @section('content')
-<div class="min-h-screen bg-gray-50 pt-16">
+<div class="min-h-screen bg-gray-50 pt-16" data-anticopy="tryout">
     <div class="max-w-7xl mx-auto px-4 py-6">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <!-- Question Section -->
@@ -33,7 +33,7 @@
 
                     <!-- Question Content -->
                     <div class="mb-8">
-                    <div class="question-rich-text text-gray-700 leading-relaxed">
+                    <div class="question-rich-text text-gray-700 leading-relaxed select-none">
                         {!! $currentQuestion->question_text !!}
                     </div>
 
@@ -117,7 +117,7 @@
                                 $optionKey = $option->option_key ?? chr(65 + $loop->index);
                             @endphp
                             <label
-                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
+                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label select-none"
                                 for="option_{{ $option->question_option_id }}">
                                 <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
                                     value="{{ $option->question_option_id }}"
@@ -406,6 +406,14 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         console.log(@json(__('Tryout page loaded (client-first mode)')));
+
+        const antiCopyRoot = document.querySelector('[data-anticopy="tryout"]') || document.body;
+        const blockCopyHandlers = (event) => {
+            event.preventDefault();
+        };
+        ['copy', 'cut', 'paste', 'contextmenu'].forEach((eventName) => {
+            antiCopyRoot.addEventListener(eventName, blockCopyHandlers);
+        });
 
         const attemptToken = '{{ $attemptToken }}';
         const answersKey = `tryout_answers_${attemptToken}`;
