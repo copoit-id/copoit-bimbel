@@ -89,10 +89,20 @@
     </div>
 
     <div class="rounded-2xl border border-border bg-white p-6">
-        <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900">Daftar Soal</h2>
                 <p class="text-sm text-gray-500">Soal yang disimpan dalam bank ini.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div class="relative">
+                    <input type="text" id="question-search" placeholder="Cari soal..."
+                        class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
+                </div>
+                <div id="question-count" class="text-sm text-gray-500">
+                    Menampilkan: <span class="font-medium text-gray-700">{{ $questions->count() }}</span>
+                </div>
             </div>
         </div>
         @if ($tryoutDetail)
@@ -126,9 +136,11 @@
                         <th class="px-4 py-3 text-left">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody class="divide-y divide-gray-100 bg-white" id="question-table-body">
                     @forelse ($questions as $question)
-                    <tr>
+                    <tr class="bank-question-row"
+                        data-question="{{ strtolower(strip_tags($question->question_text)) }}"
+                        data-type="{{ strtolower($question->question_type) }}">
                         @if ($tryoutDetail)
                         <td class="px-4 py-3">
                             <input type="checkbox" class="bank-question-checkbox"
@@ -144,6 +156,10 @@
                         <td class="px-4 py-3">{{ optional($question->updated_at)->diffForHumans() }}</td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-2">
+                                <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
+                                    class="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100">
+                                    <i class="ri-edit-line"></i> Edit
+                                </a>
                                 @if ($tryoutDetail)
                                 <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}"
                                     method="POST">
@@ -177,6 +193,9 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+        <div id="no-question-results" class="hidden text-center py-10 text-gray-500">
+            Tidak ada soal ditemukan.
         </div>
         <div class="mt-4">
             {{ $questions->withQueryString()->links() }}
@@ -250,6 +269,10 @@
         const selectAll = document.getElementById('selectAllQuestions');
         const checkboxes = document.querySelectorAll('.bank-question-checkbox');
         const bulkSelectionCount = document.getElementById('bulkSelectionCount');
+        const questionSearch = document.getElementById('question-search');
+        const questionRows = document.querySelectorAll('.bank-question-row');
+        const questionCount = document.getElementById('question-count');
+        const noQuestionResults = document.getElementById('no-question-results');
 
         const updateBulkState = () => {
             if (!bulkCloneBtn || !bulkSelectionCount) {
@@ -274,6 +297,28 @@
 
         checkboxes.forEach(cb => cb.addEventListener('change', updateBulkState));
 
+        const filterQuestions = () => {
+            if (!questionSearch || !questionCount) {
+                return;
+            }
+            const query = questionSearch.value.toLowerCase().trim();
+            let visible = 0;
+            questionRows.forEach(row => {
+                const text = row.dataset.question || '';
+                const type = row.dataset.type || '';
+                const match = !query || text.includes(query) || type.includes(query);
+                row.classList.toggle('hidden', !match);
+                if (match) visible++;
+            });
+
+            questionCount.innerHTML = `Menampilkan: <span class="font-medium text-gray-700">${visible}</span>`;
+            if (noQuestionResults) {
+                noQuestionResults.classList.toggle('hidden', visible > 0);
+            }
+        };
+
+        questionSearch?.addEventListener('input', filterQuestions);
+
         bulkCloneBtn?.addEventListener('click', () => {
             if (!bulkCloneForm) {
                 return;
@@ -296,6 +341,7 @@
         });
 
         updateBulkState();
+        filterQuestions();
     });
 </script>
 @endpush
