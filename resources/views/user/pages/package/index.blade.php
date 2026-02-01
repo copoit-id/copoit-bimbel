@@ -19,7 +19,7 @@
     </div>
 
     <!-- Tryout List -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-gray-600">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6 text-gray-600">
         @forelse($tryouts as $tryout)
         @php
             $tryoutDetail = $tryout->tryoutDetails->first();
@@ -68,28 +68,28 @@
                 </div>
             </div>
 
-            <div class="flex gap-2 font-light mt-4">
+            <div class="flex items-center gap-2 font-light mt-4">
                 @if($questionCount > 0)
                     <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                        class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                        class="flex-1 min-w-0 flex justify-center bg-primary text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary/90 transition-colors truncate">
                         Kerjakan
                     </a>
                 @else
                     <button type="button"
-                        class="flex w-full justify-center bg-gray-400 text-white px-4 py-2 rounded-lg text-sm cursor-not-allowed" disabled>
+                        class="flex-1 min-w-0 flex justify-center bg-gray-400 text-white px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate" disabled>
                         Belum Ada Soal
                     </button>
                 @endif
 
                 @if($userAttempts > 0)
                     <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                        class="flex w-full justify-center border border-primary text-primary px-4 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                        class="flex-1 min-w-0 flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight hover:bg-primary hover:text-white transition-colors truncate">
                         Riwayat
                     </a>
                 @endif
 
                 <a href="{{ route('user.package.tryout.ranking', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                    class="flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
+                    class="flex-none w-9 h-9 flex items-center justify-center border border-primary text-primary rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
                     <i class="ri-bar-chart-2-fill"></i>
                 </a>
             </div>
