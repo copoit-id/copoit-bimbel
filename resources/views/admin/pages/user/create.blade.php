@@ -74,7 +74,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <x-form.select name="role" label="Role" :options="['admin' => 'Admin', 'user' => 'User']"
+                        <x-form.select name="role" label="Role" :options="$roleOptions ?? ['admin' => 'Admin', 'user' => 'User']"
                             :value="old('role', $user->role ?? '')" required />
                         <x-form.select name="status" label="Status"
                             :options="['aktif' => 'Aktif', 'nonaktif' => 'Tidak Aktif']"

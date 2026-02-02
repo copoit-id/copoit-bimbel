@@ -58,7 +58,7 @@ class SuperAdminController extends Controller
             $suffix++;
         }
 
-        User::create([
+        $admin = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'username' => $username,
@@ -68,6 +68,11 @@ class SuperAdminController extends Controller
             'status' => 'aktif',
             'email_verified_at' => now(),
         ]);
+
+        $role = \App\Models\Role::where('slug', 'admin_demo')->first();
+        if ($role) {
+            $admin->roles()->syncWithoutDetaching([$role->id]);
+        }
 
         return redirect()->route('super-admin.admins.index')
             ->with('success', 'Akun admin demo berhasil dibuat.');

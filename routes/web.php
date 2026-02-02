@@ -197,10 +197,15 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
+    Route::get('/roles', [\App\Http\Controllers\superadmin\RoleController::class, 'index'])->name('roles.index');
+    Route::post('/roles', [\App\Http\Controllers\superadmin\RoleController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'destroy'])->name('roles.destroy');
+    Route::post('/roles/{role}/permissions', [\App\Http\Controllers\superadmin\RoleController::class, 'updatePermissions'])->name('roles.permissions');
 });
 
 // Admin Routes (add auth middleware)
-Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Profile routes

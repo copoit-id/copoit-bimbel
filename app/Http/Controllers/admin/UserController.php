@@ -4,9 +4,11 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -18,23 +20,27 @@ class UserController extends Controller
 
     public function create()
     {
+        $roleOptions = $this->getRoleOptions();
         return view('admin.pages.user.create', [
-            'user' => null
+            'user' => null,
+            'roleOptions' => $roleOptions,
         ]);
     }
 
     public function store(Request $request)
     {
+        $roleOptions = $this->getRoleOptions();
+        $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
-            'role' => 'required|in:admin,user'
+            'role' => ['required', Rule::in($roleSlugs)]
         ]);
 
-        User::create([
+        $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'username' => $validated['username'],
@@ -42,6 +48,10 @@ class UserController extends Controller
             'status' => $validated['status'] ?? 'aktif',
             'role' => $validated['role']
         ]);
+        $role = \App\Models\Role::where('slug', $user->role)->first();
+        if ($role) {
+            $user->roles()->syncWithoutDetaching([$role->id]);
+        }
 
         return redirect()->route('admin.user.index')->with('success', 'User created successfully.');
     }
@@ -55,20 +65,24 @@ class UserController extends Controller
     public function edit($id)
     {
         $user = User::findOrFail($id);
+        $roleOptions = $this->getRoleOptions();
         return view('admin.pages.user.create', [
             'user' => $user,
+            'roleOptions' => $roleOptions,
         ]);
     }
 
     public function update(Request $request, $id)
     {
+        $roleOptions = $this->getRoleOptions();
+        $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $id,
             'username' => 'required|string|max:255|unique:users,username,' . $id,
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
-            'role' => 'required|in:admin,user',
+            'role' => ['required', Rule::in($roleSlugs)],
         ]);
 
         $user = User::findOrFail($id);
@@ -86,9 +100,22 @@ class UserController extends Controller
         }
 
         $user->save();
+        $role = \App\Models\Role::where('slug', $user->role)->first();
+        if ($role) {
+            $user->roles()->sync([$role->id]);
+        }
 
         return redirect()->route('admin.user.index')
             ->with('success', 'User berhasil diperbarui');
+    }
+
+    private function getRoleOptions(): array
+    {
+        return Role::query()
+            ->whereNotIn('slug', ['super_admin'])
+            ->orderBy('name')
+            ->pluck('name', 'slug')
+            ->toArray();
     }
 
     public function bulkDestroy(Request $request)

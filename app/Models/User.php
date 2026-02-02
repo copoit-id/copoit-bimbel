@@ -61,6 +61,11 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class, 'user_id', 'id');
     }
 
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class);
+    }
+
     public function certificates()
     {
         return $this->hasMany(Certificate::class, 'user_id', 'id');
@@ -108,5 +113,20 @@ class User extends Authenticatable
     public function isDemoAdmin(): bool
     {
         return $this->role === 'admin_demo';
+    }
+
+    public function hasPermission(string $feature, string $action): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $slug = $feature . '.' . $action;
+
+        return $this->roles()
+            ->whereHas('permissions', function ($query) use ($slug) {
+                $query->where('slug', $slug);
+            })
+            ->exists();
     }
 }

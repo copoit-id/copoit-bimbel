@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.expiry' => \App\Http\Middleware\AdminExpiryMiddleware::class,
             'super-admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'certificate.enabled' => \App\Http\Middleware\EnsureCertificateManagementEnabled::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
