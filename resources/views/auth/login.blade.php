@@ -18,7 +18,8 @@
 
 <body class="bg-gray-50">
     @include('components.flash-alert')
-    <div id="announcement-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
+    {{-- Announcement Modal - Hidden --}}
+    {{-- <div id="announcement-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-announcement-close></div>
         <div class="relative bg-white rounded-2xl w-full max-w-lg p-6 md:p-8 shadow-2xl border border-gray-100">
             <div class="flex items-start justify-between">
@@ -42,7 +43,7 @@
                 </button>
             </div>
         </div>
-    </div>
+    </div> --}}
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <div>
@@ -170,7 +171,8 @@
     </script>
     @endif
 
-    <script>
+    {{-- Announcement Modal Script - Hidden --}}
+    {{-- <script>
         document.addEventListener('DOMContentLoaded', () => {
             const modal = document.getElementById('announcement-modal');
             if (!modal) return;
@@ -184,7 +186,7 @@
                 });
             });
         });
-    </script>
+    </script> --}}
 </body>
 
 </html>
