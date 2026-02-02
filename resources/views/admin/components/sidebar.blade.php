@@ -64,10 +64,17 @@
             </li>
             <li>
                 <a href="{{ route('admin.user.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
-                        class="ri-user-3-line text-[20px] {{ request()->routeIs('admin.user.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                        class="ri-user-3-line text-[20px] {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
                     <span class="ms-3">Manajemen Users</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.user.login-as-page') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-user-shared-line text-[20px] {{ request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Login As User</span>
                 </a>
             </li>
             <li>

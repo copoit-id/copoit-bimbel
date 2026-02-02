@@ -167,6 +167,16 @@
                                         class="text-amber-600 hover:text-amber-700" title="Laporan">
                                         <i class="ri-bar-chart-line"></i>
                                     </a>
+                                    @if($user->role === 'user')
+                                    <form action="{{ route('admin.user.login-as', $user->id) }}" method="POST" 
+                                        class="inline-block"
+                                        target="_blank">
+                                        @csrf
+                                        <button type="submit" class="text-primary hover:text-primary/80" title="Login As User (Tab Baru)">
+                                            <i class="ri-user-shared-line"></i>
+                                        </button>
+                                    </form>
+                                    @endif
                                     <a href="{{ route('admin.user.edit', $user->id) }}"
                                         class="text-blue-600 hover:text-blue-800" title="Edit">
                                         <i class="ri-edit-line"></i>

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -16,6 +17,15 @@ class UserController extends Controller
     {
         $users = User::where('role', 'user')->paginate(10);
         return view('admin.pages.user.index', compact('users'));
+    }
+
+    public function loginAsPage()
+    {
+        $users = User::where('role', 'user')
+            ->orderBy('name')
+            ->paginate(20);
+        
+        return view('admin.pages.user.login-as', compact('users'));
     }
 
     public function create()
@@ -226,5 +236,52 @@ class UserController extends Controller
             'certificates',
             'activities'
         ));
+    }
+
+    public function loginAs($id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Pastikan yang login adalah admin
+        if (!Auth::check() || Auth::user()->role !== 'admin') {
+            return redirect()->route('admin.user.index')
+                ->with('error', 'Unauthorized access.');
+        }
+        
+        // Simpan admin ID dan info ke session
+        session([
+            'admin_login_as' => Auth::id(),
+            'admin_name' => Auth::user()->name
+        ]);
+        
+        // Login sebagai user
+        Auth::login($user);
+        
+        return redirect()->route('user.dashboard.index');
+    }
+    
+    public function logoutAs()
+    {
+        $adminId = session('admin_login_as');
+        
+        if (!$adminId) {
+            return redirect()->route('login');
+        }
+        
+        $admin = User::find($adminId);
+        
+        if (!$admin) {
+            session()->forget('admin_login_as');
+            return redirect()->route('login');
+        }
+        
+        // Hapus session admin_login_as
+        session()->forget('admin_login_as');
+        
+        // Login kembali sebagai admin
+        Auth::login($admin);
+        
+        return redirect()->route('admin.user.index')
+            ->with('success', 'Anda kembali login sebagai admin.');
     }
 }

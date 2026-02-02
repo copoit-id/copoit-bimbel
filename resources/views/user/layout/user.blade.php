@@ -13,10 +13,11 @@
 </head>
 
 <body>
+    @include('components.login-as-header')
     @include('user.components.navbar')
     @include('user.components.sidebar')
 
-    <div class="p-8 md:p-12 sm:ml-64 mt-14">
+    <div class="p-8 md:p-12 sm:ml-64 {{ session('admin_login_as') ? 'mt-[108px]' : 'mt-14' }}">
         @yield('content')
     </div>
     @include('components.flash-alert')

@@ -23,7 +23,7 @@
 @endphp
 
 <aside id="logo-sidebar"
-    class="fixed top-0 left-0 z-40 md:z-30 w-64 h-screen pt-20 transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
+    class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} left-0 z-40 md:z-30 w-64 h-screen {{ session('admin_login_as') ? 'pt-[68px]' : 'pt-20' }} transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
         <p class="{{ $sectionLabelClass }} text-sm">Home</p>

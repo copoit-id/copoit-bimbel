@@ -11,7 +11,7 @@
     $dropdownBgClass = $headerPrimary ? 'bg-white text-gray-900' : 'bg-white';
 @endphp
 
-<nav class="fixed top-0 z-40 w-full {{ $navClasses }}">
+<nav class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} z-40 w-full {{ $navClasses }}">
     <div class="px-3 py-3 lg:px-5 lg:pl-3">
         <div class="flex items-center justify-between">
             <div class="flex items-center justify-start rtl:justify-end">

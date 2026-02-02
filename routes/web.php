@@ -103,6 +103,9 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
+// Route untuk logout as (admin kembali ke akun admin)
+Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
+
 // User routes (add auth middleware)
 Route::prefix('user')->middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('user.dashboard.index');
@@ -305,6 +308,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::resource('certification', CertificationController::class);
     Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
     Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
+    Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
+    Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
     Route::resource('user', UserController::class);
     Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
     Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
