@@ -41,6 +41,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_devisadia_student' => 'boolean',
         ];
     }
 
@@ -97,5 +98,32 @@ class User extends Authenticatable
     public function isAdmin()
     {
         return $this->role === 'admin';
+    }
+
+    /**
+     * Check if user can access premium content
+     * Devisadia students can access all premium content automatically
+     * Regular users need active package access
+     */
+    public function canAccessPremiumContent(?int $packageId = null): bool
+    {
+        // Devisadia students have automatic access to all premium packages
+        if ($this->is_devisadia_student) {
+            return true;
+        }
+
+        // Check for specific package access
+        if ($packageId) {
+            return $this->hasActivePackageAccess($packageId);
+        }
+
+        // Check if user has any active package
+        return $this->userPackageAccess()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', now());
+            })
+            ->exists();
     }
 }

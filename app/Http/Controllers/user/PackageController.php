@@ -435,19 +435,12 @@ class PackageController extends Controller
     {
         $package = Package::findOrFail($id_package);
 
-        // Check if user has access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        // Check if user has access (Devisadia students have automatic access)
+        $hasAccess = Auth::user()->canAccessPremiumContent($id_package);
 
         if (!$hasAccess) {
             return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+                ->with('error', 'Anda tidak memiliki akses ke paket ini. Silakan hubungi admin untuk mendapatkan akses.');
         }
 
         // Get classes for this package
@@ -462,19 +455,12 @@ class PackageController extends Controller
     {
         $package = Package::findOrFail($id_package);
 
-        // Check if user has access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        // Check if user has access (Devisadia students have automatic access)
+        $hasAccess = Auth::user()->canAccessPremiumContent($id_package);
 
         if (!$hasAccess) {
             return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+                ->with('error', 'Anda tidak memiliki akses ke paket ini. Silakan hubungi admin untuk mendapatkan akses.');
         }
 
         // Get active tryouts for this package (only those still running)
@@ -517,19 +503,12 @@ class PackageController extends Controller
             $package = Package::findOrFail($id_package);
             $packageId = (string) $package->package_id;
 
-            // Check access - perbaiki query akses
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $id_package)
-                ->where('status', 'active')
-                ->where(function ($query) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', Carbon::now());
-                })
-                ->exists();
+            // Check access (Devisadia students have automatic access)
+            $hasAccess = Auth::user()->canAccessPremiumContent($id_package);
 
             if (! $hasAccess) {
                 return redirect()->route('user.package.index')
-                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini. Silakan hubungi admin untuk mendapatkan akses.');
             }
         } else {
             $package = $tryout->directPackage ?: $tryout->packages->first();
@@ -1243,19 +1222,12 @@ class PackageController extends Controller
             $package = Package::findOrFail($id_package);
             $packageId = (string) $package->package_id;
 
-            // Check access - perbaiki query akses
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $id_package)
-                ->where('status', 'active')
-                ->where(function ($query) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', Carbon::now());
-                })
-                ->exists();
+            // Check access (Devisadia students have automatic access)
+            $hasAccess = Auth::user()->canAccessPremiumContent($id_package);
 
             if (! $hasAccess) {
                 return redirect()->route('user.package.index')
-                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini. Silakan hubungi admin untuk mendapatkan akses.');
             }
         } else {
             $package = $tryout->directPackage ?: $tryout->packages->first();
@@ -1430,19 +1402,12 @@ class PackageController extends Controller
             $package = Package::findOrFail($id_package);
             $packageId = (string) $package->package_id;
 
-            // Check access
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $id_package)
-                ->where('status', 'active')
-                ->where(function ($query) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', Carbon::now());
-                })
-                ->exists();
+            // Check access (Devisadia students have automatic access)
+            $hasAccess = Auth::user()->canAccessPremiumContent($id_package);
 
             if (! $hasAccess) {
                 return redirect()->route('user.package.index')
-                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini. Silakan hubungi admin untuk mendapatkan akses.');
             }
         } else {
             $package = $tryout->directPackage ?: $tryout->packages->first();
@@ -1685,6 +1650,11 @@ class PackageController extends Controller
 
     private function hasPremiumTryoutAccess(Tryout $tryout): bool
     {
+        // Devisadia students have automatic access to all premium tryouts
+        if (Auth::user()->is_devisadia_student) {
+            return true;
+        }
+
         if (!$tryout->is_premium) {
             return true;
         }

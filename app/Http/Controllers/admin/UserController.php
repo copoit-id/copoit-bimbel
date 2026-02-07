@@ -31,7 +31,8 @@ class UserController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
-            'role' => 'required|in:admin,user'
+            'role' => 'required|in:admin,user',
+            'is_devisadia_student' => 'boolean'
         ]);
 
         User::create([
@@ -40,7 +41,8 @@ class UserController extends Controller
             'username' => $validated['username'],
             'password' => Hash::make($validated['password']),
             'status' => $validated['status'] ?? 'aktif',
-            'role' => $validated['role']
+            'role' => $validated['role'],
+            'is_devisadia_student' => $request->boolean('is_devisadia_student', false)
         ]);
 
         return redirect()->route('admin.user.index')->with('success', 'User created successfully.');
@@ -69,6 +71,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => 'required|in:admin,user',
+            'is_devisadia_student' => 'boolean'
         ]);
 
         $user = User::findOrFail($id);
@@ -79,6 +82,7 @@ class UserController extends Controller
             'username' => $validated['username'],
             'status' => $validated['status'],
             'role' => $validated['role'],
+            'is_devisadia_student' => $request->boolean('is_devisadia_student', false)
         ]);
 
         if (!empty($validated['password'])) {

@@ -13,6 +13,7 @@
     $practiceStats = $practiceStats ?? [];
     $premiumAccessIds = $premiumAccessIds ?? [];
     $unlockedTryoutIds = $practiceStats['unlocked_tryout_ids'] ?? [];
+    $isDevisadia = Auth::user()->is_devisadia_student ?? false;
 @endphp
 <div class="dashboard">
     <x-page-desc title="{{ __('Paket') }}" description="{{ __('Pilihan paket gratis hingga berbayar') }}"></x-page-desc>
@@ -79,11 +80,18 @@
             </div>
 
             <div class="flex items-center gap-2 font-light mt-4">
-                @if($tryout->is_premium && !$hasPremiumAccess)
+                @if($tryout->is_premium && !$hasPremiumAccess && !$isDevisadia)
                     <button type="button"
                         class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"
                         disabled>
                         {{ __('Premium - Hubungi Admin') }}
+                    </button>
+                @elseif($isDevisadia && !$isUnlocked)
+                    {{-- Devisadia students can access premium tryouts but still need to unlock via practice --}}
+                    <button type="button"
+                        class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"
+                        disabled>
+                        {{ __('Terkunci - Selesaikan Latihan') }}
                     </button>
                 @elseif(!$isUnlocked)
                     <button type="button"
