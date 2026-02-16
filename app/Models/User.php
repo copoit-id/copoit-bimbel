@@ -110,12 +110,22 @@ class User extends Authenticatable
             return true;
         }
 
-        // Dynamic check: any role that has at least one admin permission can enter admin panel.
+        // Dynamic check via pivot roles.
         $hasAdminPermission = $this->roles()
             ->whereHas('permissions')
             ->exists();
 
         if ($hasAdminPermission) {
+            return true;
+        }
+
+        // Fallback by role slug on users table (for legacy/unsynced pivot data).
+        $hasAdminPermissionBySlug = Role::query()
+            ->where('slug', $this->role)
+            ->whereHas('permissions')
+            ->exists();
+
+        if ($hasAdminPermissionBySlug) {
             return true;
         }
 
@@ -140,8 +150,19 @@ class User extends Authenticatable
         }
 
         $slug = $feature . '.' . $action;
+        $hasPermissionFromPivot = $this->roles()
+            ->whereHas('permissions', function ($query) use ($slug) {
+                $query->where('slug', $slug);
+            })
+            ->exists();
 
-        return $this->roles()
+        if ($hasPermissionFromPivot) {
+            return true;
+        }
+
+        // Fallback by role slug on users table (for legacy/unsynced pivot data).
+        return Role::query()
+            ->where('slug', $this->role)
             ->whereHas('permissions', function ($query) use ($slug) {
                 $query->where('slug', $slug);
             })
