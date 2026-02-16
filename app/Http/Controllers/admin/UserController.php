@@ -15,8 +15,14 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::where('role', 'user')->paginate(10);
-        return view('admin.pages.user.index', compact('users'));
+        $users = User::query()
+            ->where('role', '!=', 'super_admin')
+            ->orderByDesc('created_at')
+            ->paginate(10);
+
+        $roleOptions = $this->getRoleOptions();
+
+        return view('admin.pages.user.index', compact('users', 'roleOptions'));
     }
 
     public function loginAsPage()
@@ -144,7 +150,7 @@ class UserController extends Controller
                 ->with('error', 'Data user tidak valid.');
         }
 
-        $deleted = User::where('role', 'user')
+        $deleted = User::where('role', '!=', 'super_admin')
             ->whereIn('id', $ids)
             ->delete();
 
