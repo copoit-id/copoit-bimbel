@@ -41,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'smtp_host' => null,
+            'smtp_port' => null,
+            'smtp_encryption' => null,
+            'smtp_email' => null,
+            'smtp_app_password' => null,
+            'smtp_notification_email' => null,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -63,6 +69,12 @@ class AppServiceProvider extends ServiceProvider
             $defaults['payment_account_number'] = $clientProfile->payment_account_number ?? $defaults['payment_account_number'];
             $defaults['payment_account_holder'] = $clientProfile->payment_account_holder ?? $defaults['payment_account_holder'];
             $defaults['payment_bank_note'] = $clientProfile->payment_bank_note ?? $defaults['payment_bank_note'];
+            $defaults['smtp_host'] = $clientProfile->smtp_host ?? $defaults['smtp_host'];
+            $defaults['smtp_port'] = $clientProfile->smtp_port ?? $defaults['smtp_port'];
+            $defaults['smtp_encryption'] = $clientProfile->smtp_encryption ?? $defaults['smtp_encryption'];
+            $defaults['smtp_email'] = $clientProfile->smtp_email ?? $defaults['smtp_email'];
+            $defaults['smtp_app_password'] = $clientProfile->smtp_app_password ?? $defaults['smtp_app_password'];
+            $defaults['smtp_notification_email'] = $clientProfile->smtp_notification_email ?? $defaults['smtp_notification_email'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
@@ -80,8 +92,34 @@ class AppServiceProvider extends ServiceProvider
             'app.name' => $branding['name'],
         ]);
 
+        $this->applyDynamicMailConfiguration($branding);
+
         view()->share('clientProfile', $clientProfile);
         view()->share('clientBranding', $branding);
+    }
+
+    private function applyDynamicMailConfiguration(array $branding): void
+    {
+        $smtpHost = $branding['smtp_host'] ?: env('MAIL_HOST', 'smtp.gmail.com');
+        $smtpPort = $branding['smtp_port'] ?: (int) env('MAIL_PORT', 587);
+        $smtpEmail = $branding['smtp_email'] ?? null;
+        $smtpPassword = $branding['smtp_app_password'] ?? null;
+        $smtpEncryption = $branding['smtp_encryption'] ?: env('MAIL_SCHEME', 'tls');
+
+        if (!$smtpHost || !$smtpPort || !$smtpEmail || !$smtpPassword) {
+            return;
+        }
+
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => $smtpHost,
+            'mail.mailers.smtp.port' => (int) $smtpPort,
+            'mail.mailers.smtp.username' => $smtpEmail,
+            'mail.mailers.smtp.password' => $smtpPassword,
+            'mail.mailers.smtp.scheme' => $smtpEncryption ?: null,
+            'mail.from.address' => $smtpEmail,
+            'mail.from.name' => $branding['name'] ?? config('app.name'),
+        ]);
     }
 
     private function makeBrandAssetUrl(?string $path, string $fallback = 'img/logo/logo-copoit.png'): string

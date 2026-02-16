@@ -230,6 +230,45 @@
             </div>
         </div>
 
+        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Email SMTP</p>
+                <h2 class="text-xl font-semibold text-gray-900">Notifikasi Pendaftar Baru</h2>
+                <p class="text-gray-500 text-sm">Isi email SMTP dan sandi aplikasi. Host/port/enkripsi memakai default sistem.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Email SMTP</label>
+                    <input type="email" name="smtp_email"
+                        value="{{ old('smtp_email', $profile->smtp_email ?? ($branding['smtp_email'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: notifikasi@domain.com">
+                    @error('smtp_email')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Sandi Aplikasi</label>
+                    <input type="password" name="smtp_app_password"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Kosongkan jika tidak diubah">
+                    @error('smtp_app_password')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Email Tujuan Notifikasi</label>
+                    <input type="email" name="smtp_notification_email"
+                        value="{{ old('smtp_notification_email', $profile->smtp_notification_email ?? ($branding['smtp_notification_email'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Opsional, default ke Email SMTP">
+                    @error('smtp_notification_email')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>

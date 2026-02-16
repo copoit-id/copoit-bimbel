@@ -28,6 +28,12 @@ class SettingController extends Controller
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'smtp_host' => null,
+            'smtp_port' => null,
+            'smtp_encryption' => null,
+            'smtp_email' => null,
+            'smtp_app_password' => null,
+            'smtp_notification_email' => null,
         ]);
 
         return view('admin.pages.settings.index', [
@@ -38,6 +44,8 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
+        $profile = ClientProfile::query()->first() ?? new ClientProfile();
+
         $rules = [
             'nama_bimbel' => ['required', 'string', 'max:255'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
@@ -49,6 +57,9 @@ class SettingController extends Controller
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string', 'max:255'],
+            'smtp_email' => ['nullable', 'email', 'max:255'],
+            'smtp_app_password' => ['nullable', 'string', 'max:255'],
+            'smtp_notification_email' => ['nullable', 'email', 'max:255'],
         ];
 
         if ($request->input('payment_mode') === 'manual') {
@@ -65,7 +76,32 @@ class SettingController extends Controller
             'payment_account_holder.required' => 'Nama pemilik rekening wajib diisi untuk pembayaran manual.',
         ]);
 
-        $profile = ClientProfile::query()->first() ?? new ClientProfile();
+        $smtpHost = $profile->smtp_host ?: env('MAIL_HOST', 'smtp.gmail.com');
+        $smtpPort = $profile->smtp_port ?: (int) env('MAIL_PORT', 587);
+        $smtpEncryption = $profile->smtp_encryption ?: env('MAIL_SCHEME', 'tls');
+        $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
+
+        $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));
+        $smtpPassword = $newPassword !== '' ? $newPassword : ($profile->smtp_app_password ?? null);
+
+        if ($newPassword === '') {
+            unset($validated['smtp_app_password']);
+        }
+
+        $smtpFieldsFilled = $smtpHost || $smtpPort || $smtpEmail || $smtpPassword;
+        if ($smtpFieldsFilled && (!$smtpHost || !$smtpPort || !$smtpEmail || !$smtpPassword)) {
+            return back()
+                ->withErrors([
+                    'smtp_email' => 'Konfigurasi SMTP belum lengkap. Isi email SMTP dan sandi aplikasi.',
+                ])
+                ->withInput($request->except('smtp_app_password'));
+        }
+
+        if ($smtpFieldsFilled) {
+            $validated['smtp_host'] = $smtpHost;
+            $validated['smtp_port'] = $smtpPort;
+            $validated['smtp_encryption'] = $smtpEncryption;
+        }
 
         if ($request->hasFile('logo')) {
             $validated['logo'] = $this->storeBrandingImage(
@@ -93,6 +129,8 @@ class SettingController extends Controller
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['enable_utbk_types'] = false;
         $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
+        $validated['smtp_notification_email'] = $validated['smtp_notification_email']
+            ?? ($validated['smtp_email'] ?? $profile->smtp_notification_email);
 
         $profile->fill($validated);
 

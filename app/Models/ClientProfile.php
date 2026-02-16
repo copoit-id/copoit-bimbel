@@ -24,6 +24,12 @@ class ClientProfile extends Model
         'payment_account_number',
         'payment_account_holder',
         'payment_bank_note',
+        'smtp_host',
+        'smtp_port',
+        'smtp_encryption',
+        'smtp_email',
+        'smtp_app_password',
+        'smtp_notification_email',
     ];
 
     protected $casts = [
@@ -32,5 +38,6 @@ class ClientProfile extends Model
         'sidebar_primary_color' => 'boolean',
         'enable_utbk_types' => 'boolean',
         'allow_video_thumbnail' => 'boolean',
+        'smtp_app_password' => 'encrypted',
     ];
 }

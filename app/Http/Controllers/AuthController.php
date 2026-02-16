@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -160,6 +161,8 @@ class AuthController extends Controller
                 'date_of_birth' => $validatedData['date_of_birth'],
                 'role' => 'user',
             ]);
+
+            $this->sendNewRegistrationNotification($user);
 
             Auth::login($user);
 
@@ -307,5 +310,34 @@ class AuthController extends Controller
     private function getBrandName(): string
     {
         return config('client.branding.name', 'Copoit Academy');
+    }
+
+    private function sendNewRegistrationNotification(User $newUser): void
+    {
+        $recipient = config('client.branding.smtp_notification_email')
+            ?: config('client.branding.smtp_email');
+
+        if (!$recipient) {
+            return;
+        }
+
+        $brandName = $this->getBrandName();
+        $registeredAt = now()->timezone('Asia/Jakarta')->format('d-m-Y H:i');
+
+        try {
+            Mail::send('emails.new-registration-admin', [
+                'newUser' => $newUser,
+                'brandName' => $brandName,
+                'registeredAt' => $registeredAt,
+            ], function ($message) use ($recipient, $brandName) {
+                $message->to($recipient);
+                $message->subject("Pendaftar Baru - {$brandName}");
+            });
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send new registration notification email.', [
+                'email' => $recipient,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }
