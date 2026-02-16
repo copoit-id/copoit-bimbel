@@ -517,67 +517,69 @@ class LaporanController extends Controller
         $rows = $answers
             ->groupBy('user_id')
             ->map(function ($userAnswersByUser) use ($subtests) {
-                $attemptRows = $userAnswersByUser
+                $firstAttemptAnswers = $userAnswersByUser
                     ->groupBy('attempt_token')
-                    ->map(function ($attemptAnswers) use ($subtests) {
-                        $user = $attemptAnswers->first()->user;
-                        $scoreByDetail = [];
-                        $hasSubmittedSubtest = false;
-                        $lastActivityAt = null;
-
-                        foreach ($subtests as $subtest) {
-                            $scoreByDetail[$subtest['tryout_detail_id']] = null;
-                        }
-
-                        foreach ($attemptAnswers as $answer) {
-                            $detailId = (int) $answer->tryout_detail_id;
-                            if (!array_key_exists($detailId, $scoreByDetail)) {
-                                continue;
-                            }
-
-                            $isSubmitted = !is_null($answer->subtest_submitted_at)
-                                || in_array($answer->status, ['completed', 'pending_release'], true);
-
-                            if ($isSubmitted) {
-                                $rawScore = $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
-                                $scoreByDetail[$detailId] = round((float) $rawScore, 2);
-                                $hasSubmittedSubtest = true;
-                            }
-
-                            $candidateLastActivity = $answer->subtest_submitted_at
-                                ?? $answer->finished_at
-                                ?? $answer->updated_at
-                                ?? $answer->started_at;
-
-                            if ($candidateLastActivity && (is_null($lastActivityAt) || $candidateLastActivity->gt($lastActivityAt))) {
-                                $lastActivityAt = $candidateLastActivity;
-                            }
-                        }
-
-                        if (!$hasSubmittedSubtest) {
-                            return null;
-                        }
-
-                        $total = collect($scoreByDetail)
-                            ->filter(fn($value) => !is_null($value))
-                            ->sum();
-
-                        return [
-                            'user_id' => (int) $user->id,
-                            'name' => (string) ($user->name ?? 'User'),
-                            'attempt_token' => (string) ($attemptAnswers->first()->attempt_token ?? ''),
-                            'scores' => $scoreByDetail,
-                            'total' => round((float) $total, 2),
-                            'last_activity_at' => $lastActivityAt,
-                        ];
+                    ->sortBy(function ($attemptAnswers) {
+                        return $attemptAnswers->min(function ($answer) {
+                            return optional($answer->started_at ?? $answer->created_at)->timestamp ?? PHP_INT_MAX;
+                        });
                     })
-                    ->filter()
-                    ->sortByDesc(function ($row) {
-                        return optional($row['last_activity_at'])->timestamp ?? 0;
-                    })
-                    ->values();
+                    ->first();
 
-                return $attemptRows->first();
+                if (!$firstAttemptAnswers || $firstAttemptAnswers->isEmpty()) {
+                    return null;
+                }
+
+                $user = $firstAttemptAnswers->first()->user;
+                $scoreByDetail = [];
+                $hasSubmittedSubtest = false;
+                $lastActivityAt = null;
+
+                foreach ($subtests as $subtest) {
+                    $scoreByDetail[$subtest['tryout_detail_id']] = null;
+                }
+
+                foreach ($firstAttemptAnswers as $answer) {
+                    $detailId = (int) $answer->tryout_detail_id;
+                    if (!array_key_exists($detailId, $scoreByDetail)) {
+                        continue;
+                    }
+
+                    $isSubmitted = !is_null($answer->subtest_submitted_at)
+                        || in_array($answer->status, ['completed', 'pending_release'], true);
+
+                    if ($isSubmitted) {
+                        $rawScore = $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
+                        $scoreByDetail[$detailId] = round((float) $rawScore, 2);
+                        $hasSubmittedSubtest = true;
+                    }
+
+                    $candidateLastActivity = $answer->subtest_submitted_at
+                        ?? $answer->finished_at
+                        ?? $answer->updated_at
+                        ?? $answer->started_at;
+
+                    if ($candidateLastActivity && (is_null($lastActivityAt) || $candidateLastActivity->gt($lastActivityAt))) {
+                        $lastActivityAt = $candidateLastActivity;
+                    }
+                }
+
+                if (!$hasSubmittedSubtest) {
+                    return null;
+                }
+
+                $total = collect($scoreByDetail)
+                    ->filter(fn($value) => !is_null($value))
+                    ->sum();
+
+                return [
+                    'user_id' => (int) $user->id,
+                    'name' => (string) ($user->name ?? 'User'),
+                    'attempt_token' => (string) ($firstAttemptAnswers->first()->attempt_token ?? ''),
+                    'scores' => $scoreByDetail,
+                    'total' => round((float) $total, 2),
+                    'last_activity_at' => $lastActivityAt,
+                ];
             })
             ->filter()
             ->sortBy([
