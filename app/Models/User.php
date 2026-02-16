@@ -99,10 +99,28 @@ class User extends Authenticatable
             ->avg('score') ?? 0;
     }
 
-    // Add helper method to check if user is admin based on migration structure
-    public function isAdmin()
+    public function isAdmin(): bool
     {
-        return in_array($this->role, ['admin', 'super_admin', 'admin_demo'], true);
+        return $this->canAccessAdminPanel();
+    }
+
+    public function canAccessAdminPanel(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Dynamic check: any role that has at least one admin permission can enter admin panel.
+        $hasAdminPermission = $this->roles()
+            ->whereHas('permissions')
+            ->exists();
+
+        if ($hasAdminPermission) {
+            return true;
+        }
+
+        // Backward compatibility for legacy users that might not have role pivot synced yet.
+        return in_array($this->role, ['admin', 'admin_demo'], true);
     }
 
     public function isSuperAdmin(): bool
