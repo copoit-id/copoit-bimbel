@@ -18,11 +18,64 @@
         </div>
     </div>
 
+    @php
+    $settingErrorKeys = $errors->keys();
+    $activeSettingsTab = old('settings_tab', 'identity');
+    if ($errors->isNotEmpty() && !old('settings_tab')) {
+    if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
+    $activeSettingsTab = 'visual';
+    } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
+    $activeSettingsTab = 'ui';
+    } elseif (collect($settingErrorKeys)->intersect([
+    'payment_mode',
+    'payment_bank_name',
+    'payment_account_number',
+    'payment_account_holder',
+    'payment_bank_note'
+    ])->isNotEmpty()) {
+    $activeSettingsTab = 'payment';
+    } elseif (collect($settingErrorKeys)->intersect([
+    'smtp_email',
+    'smtp_app_password',
+    'smtp_notification_email'
+    ])->isNotEmpty()) {
+    $activeSettingsTab = 'smtp';
+    }
+    }
+    @endphp
+
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
+        <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
 
-        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6">
+        <div class="bg-white border border-border rounded-2xl shadow-sm p-3 md:p-4">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" data-settings-tab="identity"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'identity' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Informasi Umum
+                </button>
+                <button type="button" data-settings-tab="visual"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'visual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Logo & Favicon
+                </button>
+                <button type="button" data-settings-tab="ui"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ui' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Preferensi UI
+                </button>
+                <button type="button" data-settings-tab="payment"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'payment' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Pembayaran
+                </button>
+                <button type="button" data-settings-tab="smtp"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'smtp' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Email SMTP
+                </button>
+            </div>
+        </div>
+
+        <div data-settings-panel="identity"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'identity' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Identitas Bimbel</p>
                 <h2 class="text-xl font-semibold text-gray-900">Informasi Umum</h2>
@@ -75,7 +128,8 @@
             </div>
         </div>
 
-        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6">
+        <div data-settings-panel="visual"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'visual' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Brand Visual</p>
                 <h2 class="text-xl font-semibold text-gray-900">Logo & Favicon</h2>
@@ -124,7 +178,8 @@
             </div>
         </div>
 
-        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
+        <div data-settings-panel="ui"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'ui' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Preferensi UI</p>
                 <h2 class="text-xl font-semibold text-gray-900">Penyesuaian Tampilan</h2>
@@ -156,7 +211,8 @@
             </div>
         </div>
 
-        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
+        <div data-settings-panel="payment"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'payment' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pembayaran</p>
                 <h2 class="text-xl font-semibold text-gray-900">Mode Pembayaran</h2>
@@ -230,7 +286,8 @@
             </div>
         </div>
 
-        <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
+        <div data-settings-panel="smtp"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'smtp' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Email SMTP</p>
                 <h2 class="text-xl font-semibold text-gray-900">Notifikasi Pendaftar Baru</h2>
@@ -283,6 +340,38 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const settingsTabInput = document.getElementById('settings_tab');
+        const settingsTabButtons = document.querySelectorAll('[data-settings-tab]');
+        const settingsPanels = document.querySelectorAll('[data-settings-panel]');
+
+        const setActiveTab = (tab) => {
+            settingsTabButtons.forEach((button) => {
+                const isActive = button.getAttribute('data-settings-tab') === tab;
+                button.classList.toggle('bg-primary', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-100', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+                button.classList.toggle('hover:bg-gray-200', !isActive);
+            });
+
+            settingsPanels.forEach((panel) => {
+                const isActive = panel.getAttribute('data-settings-panel') === tab;
+                panel.classList.toggle('hidden', !isActive);
+            });
+
+            if (settingsTabInput) {
+                settingsTabInput.value = tab;
+            }
+        };
+
+        settingsTabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                setActiveTab(button.getAttribute('data-settings-tab'));
+            });
+        });
+
+        setActiveTab(settingsTabInput?.value || 'identity');
+
         document.querySelectorAll('input[data-preview-target]').forEach(input => {
             input.addEventListener('change', (event) => {
                 const targetId = input.getAttribute('data-preview-target');
