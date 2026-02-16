@@ -149,6 +149,11 @@ class User extends Authenticatable
             return true;
         }
 
+        // Allow admin landing page once user is recognized as admin-panel user.
+        if ($feature === 'dashboard' && $action === 'view' && $this->canAccessAdminPanel()) {
+            return true;
+        }
+
         $slug = $feature . '.' . $action;
         $hasPermissionFromPivot = $this->roles()
             ->whereHas('permissions', function ($query) use ($slug) {
