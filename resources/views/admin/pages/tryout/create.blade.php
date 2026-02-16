@@ -160,6 +160,20 @@
                             placeholder="Contoh: 60">
                         <p class="text-xs text-gray-500 mt-1">Saat lebih dari satu subtest, peserta akan melihat layar jeda dengan hitung mundur selama durasi ini.</p>
                     </div>
+                    <div>
+                        <label for="answer_persistence_mode" class="block text-sm font-medium text-gray-700 mb-2">
+                            Mode Penyimpanan Jawaban
+                        </label>
+                        @php
+                            $answerMode = old('answer_persistence_mode', isset($tryout) ? $tryout->answer_persistence_mode : 'client_side');
+                        @endphp
+                        <select id="answer_persistence_mode" name="answer_persistence_mode"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="client_side" @selected($answerMode === 'client_side')>Client Side (simpan saat selesai tryout)</option>
+                            <option value="hybrid_subtest" @selected($answerMode === 'hybrid_subtest')>Hybrid (simpan setiap selesai subtest)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Hybrid cocok untuk live score per subtest, sementara Client Side mempertahankan perilaku lama.</p>
+                    </div>
                 </div>
 
                 <!-- Options -->

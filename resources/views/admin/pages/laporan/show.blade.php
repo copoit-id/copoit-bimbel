@@ -53,6 +53,67 @@
 </div>
 
 <div class="bg-white border border-border rounded-xl p-6 mt-6">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+            <p class="text-sm uppercase tracking-[0.2em] text-gray-400">Live Score</p>
+            <h3 class="text-lg font-semibold text-gray-900">Peringkat Nilai Per Subtest</h3>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ $publicLiveScoreUrl }}" target="_blank"
+                class="inline-flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition">
+                <i class="ri-external-link-line"></i>
+                Buka Public Link
+            </a>
+            <button type="button" id="copy-live-score-link" data-link="{{ $publicLiveScoreUrl }}"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition">
+                <i class="ri-link-m"></i>
+                Copy Link
+            </button>
+        </div>
+    </div>
+
+    <div class="relative overflow-x-auto mt-5">
+        <table class="w-full text-sm text-left text-gray-600">
+            <thead class="text-xs uppercase bg-gray-50 text-gray-700">
+                <tr>
+                    <th class="px-4 py-3">No</th>
+                    <th class="px-4 py-3">Nama</th>
+                    @foreach(($liveScore['subtests'] ?? []) as $subtest)
+                        <th class="px-4 py-3 text-center">{{ $subtest['label'] }}</th>
+                    @endforeach
+                    <th class="px-4 py-3 text-center">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse(($liveScore['rows'] ?? []) as $row)
+                    <tr class="border-b border-gray-100">
+                        <td class="px-4 py-3 font-semibold text-gray-800">{{ $row['rank'] }}</td>
+                        <td class="px-4 py-3 font-medium text-gray-900">{{ $row['name'] }}</td>
+                        @foreach(($liveScore['subtests'] ?? []) as $subtest)
+                            @php
+                                $scoreValue = $row['scores'][$subtest['tryout_detail_id']] ?? null;
+                            @endphp
+                            <td class="px-4 py-3 text-center font-semibold {{ is_null($scoreValue) ? 'text-gray-400' : 'text-gray-800' }}">
+                                {{ is_null($scoreValue) ? '-' : rtrim(rtrim(number_format((float) $scoreValue, 2, '.', ''), '0'), '.') }}
+                            </td>
+                        @endforeach
+                        <td class="px-4 py-3 text-center font-bold text-gray-900">
+                            {{ rtrim(rtrim(number_format((float) ($row['total'] ?? 0), 2, '.', ''), '0'), '.') }}
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="{{ 3 + count($liveScore['subtests'] ?? []) }}" class="px-4 py-8 text-center text-gray-500">
+                            Belum ada data live score yang tersubmit.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="bg-white border border-border rounded-xl p-6 mt-6">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
             <p class="text-sm uppercase tracking-[0.2em] text-gray-400">Peserta Tryout</p>
@@ -248,6 +309,26 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const copyButton = document.getElementById('copy-live-score-link');
+        if (copyButton) {
+            copyButton.addEventListener('click', async () => {
+                const link = copyButton.dataset.link || '';
+                if (!link) {
+                    return;
+                }
+
+                try {
+                    await navigator.clipboard.writeText(link);
+                    copyButton.innerHTML = '<i class="ri-check-line"></i> Link Tersalin';
+                    setTimeout(() => {
+                        copyButton.innerHTML = '<i class="ri-link-m"></i> Copy Link';
+                    }, 1500);
+                } catch (error) {
+                    alert('Gagal menyalin link');
+                }
+            });
+        }
+
         const searchInput = document.getElementById('participant-search');
         const cards = document.querySelectorAll('[data-participant-card]');
 

@@ -929,6 +929,188 @@ class TryoutController extends Controller
         }
     }
 
+    private function decodeAnswersPayload(?string $answersPayload): array
+    {
+        if (empty($answersPayload)) {
+            return [];
+        }
+
+        $decoded = json_decode($answersPayload, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return array_values($decoded);
+    }
+
+    private function persistAnswersPayload(
+        int $tryoutId,
+        string $attemptToken,
+        array $answers,
+        Carbon $now,
+        ?int $onlyTryoutDetailId = null
+    ): array {
+        if (empty($answers)) {
+            return [];
+        }
+
+        $updatedDetailIds = [];
+
+        DB::transaction(function () use ($tryoutId, $attemptToken, $answers, $now, $onlyTryoutDetailId, &$updatedDetailIds) {
+            foreach ($answers as $answer) {
+                if (!is_array($answer) || empty($answer['question_id'])) {
+                    continue;
+                }
+
+                $question = Question::with('tryoutDetail')->find($answer['question_id']);
+                if (!$question) {
+                    continue;
+                }
+
+                if ($onlyTryoutDetailId && (int) $question->tryout_detail_id !== $onlyTryoutDetailId) {
+                    continue;
+                }
+
+                $userAnswer = UserAnswer::where('user_id', Auth::id())
+                    ->where('tryout_id', $tryoutId)
+                    ->where('tryout_detail_id', $question->tryout_detail_id)
+                    ->where('attempt_token', $attemptToken)
+                    ->where('status', 'in_progress')
+                    ->first();
+
+                if (!$userAnswer) {
+                    $userAnswer = UserAnswer::create([
+                        'user_id' => Auth::id(),
+                        'tryout_id' => $tryoutId,
+                        'tryout_detail_id' => $question->tryout_detail_id,
+                        'attempt_token' => $attemptToken,
+                        'started_at' => $now,
+                        'status' => 'in_progress'
+                    ]);
+                }
+
+                $existingDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                    ->where('question_id', $question->question_id)
+                    ->first();
+
+                $result = $this->processAnswerByType($answer, $question, $existingDetail);
+                $detailPayload = $result['detail'];
+                $detailPayload['answered_at'] = $now;
+
+                UserAnswerDetail::updateOrCreate(
+                    [
+                        'user_answer_id' => $userAnswer->user_answer_id,
+                        'question_id' => $question->question_id
+                    ],
+                    $detailPayload
+                );
+
+                if (
+                    !empty($result['delete_file'])
+                    && $existingDetail
+                    && $existingDetail->answer_file_path
+                    && Storage::disk('public')->exists($existingDetail->answer_file_path)
+                ) {
+                    Storage::disk('public')->delete($existingDetail->answer_file_path);
+                }
+
+                $updatedDetailIds[$question->tryout_detail_id] = true;
+            }
+        });
+
+        return array_map('intval', array_keys($updatedDetailIds));
+    }
+
+    public function flushSubtestAnswers(Request $request, $id_package, $id_tryout)
+    {
+        try {
+            $validated = $request->validate([
+                'tryout_detail_id' => 'required|integer|exists:tryout_details,tryout_detail_id',
+                'attempt_token' => 'required|string',
+                'answers_payload' => 'nullable|string',
+            ]);
+
+            $tryout = Tryout::findOrFail($id_tryout);
+            if (($tryout->answer_persistence_mode ?? 'client_side') !== 'hybrid_subtest') {
+                return response()->json([
+                    'success' => true,
+                    'flushed' => false,
+                    'message' => 'Mode tryout bukan hybrid.',
+                ]);
+            }
+
+            $tryoutDetailId = (int) $validated['tryout_detail_id'];
+            $attemptToken = (string) $validated['attempt_token'];
+            $answers = $this->decodeAnswersPayload($validated['answers_payload'] ?? null);
+            $now = Carbon::now('Asia/Jakarta');
+
+            $updatedDetailIds = $this->persistAnswersPayload(
+                (int) $id_tryout,
+                $attemptToken,
+                $answers,
+                $now,
+                $tryoutDetailId
+            );
+
+            $userAnswer = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('tryout_detail_id', $tryoutDetailId)
+                ->where('attempt_token', $attemptToken)
+                ->where('status', 'in_progress')
+                ->with('tryoutDetail')
+                ->first();
+
+            if (!$userAnswer) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Session subtest tidak ditemukan.',
+                ], 404);
+            }
+
+            if (in_array($tryoutDetailId, $updatedDetailIds, true)) {
+                $this->updateSingleSubtestStats($userAnswer);
+                $userAnswer->refresh();
+            }
+
+            $userAnswer->update([
+                'subtest_submitted_at' => $now,
+            ]);
+
+            $rawScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+            $maxScore = $this->getMaxPossibleScoreForDetail(
+                $userAnswer->tryout_detail_id,
+                $userAnswer->tryoutDetail->type_subtest
+            );
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            $isPassed = $this->isSubtestPassed(
+                $userAnswer->tryoutDetail,
+                $rawScore,
+                $maxScore,
+                $userAnswer->tryoutDetail->type_subtest
+            );
+
+            return response()->json([
+                'success' => true,
+                'flushed' => true,
+                'live_score' => [
+                    'tryout_detail_id' => $tryoutDetailId,
+                    'type' => $userAnswer->tryoutDetail->type_subtest,
+                    'name' => $this->getSubtestName($userAnswer->tryoutDetail->type_subtest),
+                    'raw_score' => $rawScore,
+                    'max_score' => $maxScore,
+                    'percentage' => round($percentage, 2),
+                    'is_passed' => $isPassed,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal flush jawaban subtest',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 
     /**
      * Determine if answer is correct based on subtest type and rules
@@ -1093,69 +1275,15 @@ class TryoutController extends Controller
             return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
         }
 
-        $answersPayload = $request->input('answers_payload');
-        $answers = [];
-        if (!empty($answersPayload)) {
-            $decoded = json_decode($answersPayload, true);
-            if (is_array($decoded)) {
-                $answers = array_values($decoded);
-            }
-        }
+        $answers = $this->decodeAnswersPayload($request->input('answers_payload'));
 
         if (!empty($answers)) {
-            DB::beginTransaction();
             try {
-                foreach ($answers as $answer) {
-                    if (!is_array($answer) || empty($answer['question_id'])) {
-                        continue;
-                    }
-
-                    $question = Question::with('tryoutDetail')->find($answer['question_id']);
-                    if (!$question) {
-                        continue;
-                    }
-
-                    $userAnswer = UserAnswer::where('user_id', Auth::id())
-                        ->where('tryout_id', $id_tryout)
-                        ->where('tryout_detail_id', $question->tryout_detail_id)
-                        ->where('status', 'in_progress')
-                        ->first();
-
-                    if (!$userAnswer) {
-                        $userAnswer = UserAnswer::create([
-                            'user_id' => Auth::id(),
-                            'tryout_id' => $id_tryout,
-                            'tryout_detail_id' => $question->tryout_detail_id,
-                            'attempt_token' => $userAnswers->first()->attempt_token,
-                            'started_at' => $now,
-                            'status' => 'in_progress'
-                        ]);
-                    }
-
-                    $existingDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-                        ->where('question_id', $question->question_id)
-                        ->first();
-
-                    $result = $this->processAnswerByType($answer, $question, $existingDetail);
-                    $detailPayload = $result['detail'];
-                    $detailPayload['answered_at'] = $now;
-
-                    $userAnswerDetail = UserAnswerDetail::updateOrCreate(
-                        [
-                            'user_answer_id' => $userAnswer->user_answer_id,
-                            'question_id' => $question->question_id
-                        ],
-                        $detailPayload
-                    );
-
-                    if (!empty($result['delete_file']) && $existingDetail && $existingDetail->answer_file_path && Storage::disk('public')->exists($existingDetail->answer_file_path)) {
-                        Storage::disk('public')->delete($existingDetail->answer_file_path);
-                    }
+                $attemptToken = (string) ($request->input('attempt_token') ?: ($userAnswers->first()->attempt_token ?? ''));
+                if ($attemptToken !== '') {
+                    $this->persistAnswersPayload((int) $id_tryout, $attemptToken, $answers, $now);
                 }
-
-                DB::commit();
             } catch (\Throwable $e) {
-                DB::rollBack();
                 if ($request->expectsJson()) {
                     return response()->json([
                         'error' => 'Gagal menyimpan jawaban akhir',
@@ -1216,6 +1344,7 @@ class TryoutController extends Controller
             if (isset($toeflResults[$sectionKey])) {
                 $userAnswer->update([
                     'finished_at'       => $now,
+                    'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
                     'raw_score'         => $toeflResults[$sectionKey]['raw_score'],
                     'scaled_score'      => $toeflResults[$sectionKey]['scaled_score'],
                     'toefl_total_score' => $toeflResults['total_score'],
@@ -1253,6 +1382,7 @@ class TryoutController extends Controller
             // Update user answer
             $userAnswer->update([
                 'finished_at' => $now,
+                'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
                 'is_passed' => $isPassed,
                 'status' => 'completed'
             ]);
@@ -1266,6 +1396,7 @@ class TryoutController extends Controller
 
             $userAnswer->update([
                 'finished_at' => $now,
+                'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
                 'status' => 'pending_release',
                 'utbk_total_score' => null,
                 'is_passed' => false,

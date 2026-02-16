@@ -20,6 +20,7 @@ class UserAnswer extends Model
         'attempt_token',
         'started_at',
         'finished_at',
+        'subtest_submitted_at',
         'score',
         'utbk_total_score',
         'correct_answers',
@@ -30,6 +31,7 @@ class UserAnswer extends Model
     protected $casts = [
         'started_at' => 'datetime:Y-m-d H:i:s',
         'finished_at' => 'datetime:Y-m-d H:i:s',
+        'subtest_submitted_at' => 'datetime:Y-m-d H:i:s',
         'score' => 'decimal:2',
         'utbk_total_score' => 'decimal:2'
     ];

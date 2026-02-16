@@ -8,6 +8,7 @@ use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -218,7 +219,19 @@ class LaporanController extends Controller
         $leaderboardPackageId = optional($tryout->packages->first())->package_id
             ?? optional($tryout->directPackage)->package_id;
 
-        return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
+        $liveScore = $this->buildLiveScoreBoard($tryout);
+        $publicLiveScoreUrl = URL::signedRoute('laporan.live-score.public', [
+            'tryout' => $tryout->tryout_id,
+        ]);
+
+        return view('admin.pages.laporan.show', compact(
+            'tryout',
+            'statistics',
+            'participants',
+            'leaderboardPackageId',
+            'liveScore',
+            'publicLiveScoreUrl'
+        ));
     }
 
     public function addTime(Request $request, $tryoutId, $userId)
@@ -339,6 +352,18 @@ class LaporanController extends Controller
             'subtests',
             'answerDetails'
         ));
+    }
+
+    public function publicLiveScore(Request $request, $tryoutId)
+    {
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
+        $liveScore = $this->buildLiveScoreBoard($tryout);
+
+        return view('public.livescore', [
+            'tryout' => $tryout,
+            'liveScore' => $liveScore,
+            'generatedAt' => Carbon::now('Asia/Jakarta'),
+        ]);
     }
 
     private function formatSubtestName(?string $type): string
@@ -464,5 +489,110 @@ class LaporanController extends Controller
         }
 
         return $totalScore;
+    }
+
+    private function buildLiveScoreBoard(Tryout $tryout): array
+    {
+        $subtests = $tryout->tryoutDetails
+            ->sortBy('tryout_detail_id')
+            ->values()
+            ->map(function ($detail) {
+                return [
+                    'tryout_detail_id' => (int) $detail->tryout_detail_id,
+                    'type' => (string) $detail->type_subtest,
+                    'label' => strtoupper((string) $detail->type_subtest),
+                ];
+            })
+            ->values();
+
+        $answers = UserAnswer::where('tryout_id', $tryout->tryout_id)
+            ->with([
+                'user',
+                'tryoutDetail',
+                'userAnswerDetails.question',
+                'userAnswerDetails.questionOption',
+            ])
+            ->get();
+
+        $rows = $answers
+            ->groupBy('user_id')
+            ->map(function ($userAnswersByUser) use ($subtests) {
+                $attemptRows = $userAnswersByUser
+                    ->groupBy('attempt_token')
+                    ->map(function ($attemptAnswers) use ($subtests) {
+                        $user = $attemptAnswers->first()->user;
+                        $scoreByDetail = [];
+                        $hasSubmittedSubtest = false;
+                        $lastActivityAt = null;
+
+                        foreach ($subtests as $subtest) {
+                            $scoreByDetail[$subtest['tryout_detail_id']] = null;
+                        }
+
+                        foreach ($attemptAnswers as $answer) {
+                            $detailId = (int) $answer->tryout_detail_id;
+                            if (!array_key_exists($detailId, $scoreByDetail)) {
+                                continue;
+                            }
+
+                            $isSubmitted = !is_null($answer->subtest_submitted_at)
+                                || in_array($answer->status, ['completed', 'pending_release'], true);
+
+                            if ($isSubmitted) {
+                                $rawScore = $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
+                                $scoreByDetail[$detailId] = round((float) $rawScore, 2);
+                                $hasSubmittedSubtest = true;
+                            }
+
+                            $candidateLastActivity = $answer->subtest_submitted_at
+                                ?? $answer->finished_at
+                                ?? $answer->updated_at
+                                ?? $answer->started_at;
+
+                            if ($candidateLastActivity && (is_null($lastActivityAt) || $candidateLastActivity->gt($lastActivityAt))) {
+                                $lastActivityAt = $candidateLastActivity;
+                            }
+                        }
+
+                        if (!$hasSubmittedSubtest) {
+                            return null;
+                        }
+
+                        $total = collect($scoreByDetail)
+                            ->filter(fn($value) => !is_null($value))
+                            ->sum();
+
+                        return [
+                            'user_id' => (int) $user->id,
+                            'name' => (string) ($user->name ?? 'User'),
+                            'attempt_token' => (string) ($attemptAnswers->first()->attempt_token ?? ''),
+                            'scores' => $scoreByDetail,
+                            'total' => round((float) $total, 2),
+                            'last_activity_at' => $lastActivityAt,
+                        ];
+                    })
+                    ->filter()
+                    ->sortByDesc(function ($row) {
+                        return optional($row['last_activity_at'])->timestamp ?? 0;
+                    })
+                    ->values();
+
+                return $attemptRows->first();
+            })
+            ->filter()
+            ->sortBy([
+                ['total', 'desc'],
+                ['name', 'asc'],
+            ])
+            ->values()
+            ->map(function ($row, $index) {
+                $row['rank'] = $index + 1;
+                return $row;
+            });
+
+        return [
+            'subtests' => $subtests,
+            'rows' => $rows,
+        ];
     }
 }

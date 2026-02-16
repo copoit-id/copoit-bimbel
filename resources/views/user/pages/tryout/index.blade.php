@@ -198,7 +198,8 @@
                         <div class="flex gap-3">
                             @if($canGoPrev)
                                 <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
-                                    class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+                                    class="tryout-nav-link px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                                    data-target-number="{{ $number - 1 }}">
                                     <i class="ri-arrow-left-line mr-2"></i>Sebelumnya
                                 </a>
                             @else
@@ -223,7 +224,10 @@
                                     $nextLabel = $isLastQuestionOfSubtest && $hasNextSubtest ? 'Mulai Subtest Berikutnya' : 'Selanjutnya';
                                 @endphp
                                 <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
-                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                                    id="nextQuestionLink"
+                                    data-subtest-transition="{{ $isLastQuestionOfSubtest && $hasNextSubtest ? '1' : '0' }}"
+                                    class="tryout-nav-link px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                    data-target-number="{{ $number + 1 }}">
                                     {{ $nextLabel }}<i class="ri-arrow-right-line ml-2"></i>
                                 </a>
                             @else
@@ -269,7 +273,8 @@
                                 $isFlagged = in_array($question->question_id, $flaggedQuestions);
                             @endphp
                             <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $questionNumber]) }}"
-                                class="relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
+                                class="tryout-nav-link relative w-10 h-10 flex items-center justify-center text-sm font-medium rounded-lg transition-colors question-nav-item {{ $isCurrent ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
+                                data-target-number="{{ $questionNumber }}"
                                 data-question-id="{{ $question->question_id }}">
                                 {{ $questionNumber }}
                                 @if($isFlagged)
@@ -345,10 +350,20 @@
                     </div>
                 </div>
                 @endif
-            </div>
-        </div>
-    </div>
 </div>
+</div>
+</div>
+</div>
+
+@php
+    $subtestRangesForJs = collect($subtestInfo ?? [])->map(function ($subtest) {
+        return [
+            'tryout_detail_id' => (int) ($subtest['tryout_detail_id'] ?? 0),
+            'start_number' => (int) ($subtest['start_number'] ?? 0),
+            'end_number' => (int) ($subtest['end_number'] ?? 0),
+        ];
+    })->values();
+@endphp
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -362,6 +377,18 @@
         const csrfToken = '{{ csrf_token() }}';
         const finishForm = document.getElementById('finishForm');
         const answersPayloadInput = document.getElementById('answersPayloadInput');
+        const nextQuestionLink = document.getElementById('nextQuestionLink');
+        const answerPersistenceMode = @json($tryout->answer_persistence_mode ?? 'client_side');
+        const currentSubtestDetailId = @json((int) ($currentSubtest['tryout_detail_id'] ?? 0));
+        const subtestRanges = @json($subtestRangesForJs);
+        const currentSubtestQuestionIds = @json(
+            collect($allQuestions)
+                ->filter(function ($question) use ($currentSubtest) {
+                    return (int) ($question->tryout_detail_id ?? 0) === (int) ($currentSubtest['tryout_detail_id'] ?? 0);
+                })
+                ->pluck('question_id')
+                ->values()
+        );
         const serverAnswered = @json($userAnswerDetails);
         const initialAnswer = @json($initialAnswer);
 
@@ -375,6 +402,7 @@
                         question_id: id,
                         type: 'synced',
                         answered: true,
+                        synced: true,
                         synced_at: Date.now()
                     };
                 }
@@ -386,6 +414,7 @@
                 question_id: questionId,
                 ...initialAnswer,
                 answered: true,
+                synced: true,
                 updated_at: Date.now()
             };
         }
@@ -468,6 +497,7 @@
                 question_id: qid,
                 ...data,
                 answered: true,
+                synced: false,
                 updated_at: Date.now()
             };
             persistAnswers();
@@ -660,7 +690,51 @@
         }
 
         function buildAnswersPayload() {
-            return JSON.stringify(Object.values(answerCache));
+            const unsyncedAnswers = Object.values(answerCache).filter(answer => !answer?.synced);
+            return JSON.stringify(unsyncedAnswers);
+        }
+
+        function buildCurrentSubtestPayload() {
+            const subtestQuestionIdSet = new Set((currentSubtestQuestionIds || []).map(id => Number(id)));
+            const subtestAnswers = Object.values(answerCache).filter(answer => {
+                if (!answer || !answer.question_id) {
+                    return false;
+                }
+
+                if (answer.type === 'synced') {
+                    return false;
+                }
+
+                return subtestQuestionIdSet.has(Number(answer.question_id));
+            });
+
+            return JSON.stringify(subtestAnswers);
+        }
+
+        function resolveTryoutDetailIdByNumber(questionNumber) {
+            const target = Number(questionNumber);
+            if (!target || !Array.isArray(subtestRanges)) {
+                return 0;
+            }
+
+            for (const subtest of subtestRanges) {
+                const start = Number(subtest.start_number || 0);
+                const end = Number(subtest.end_number || 0);
+                if (target >= start && target <= end) {
+                    return Number(subtest.tryout_detail_id || 0);
+                }
+            }
+
+            return 0;
+        }
+
+        function isHybridSubtestTransition(targetQuestionNumber) {
+            if (answerPersistenceMode !== 'hybrid_subtest') {
+                return false;
+            }
+
+            const targetDetailId = resolveTryoutDetailIdByNumber(targetQuestionNumber);
+            return targetDetailId > 0 && currentSubtestDetailId > 0 && targetDetailId !== currentSubtestDetailId;
         }
 
         if (finishForm && answersPayloadInput) {
@@ -668,6 +742,74 @@
                 answersPayloadInput.value = buildAnswersPayload();
             });
         }
+
+        async function flushCurrentSubtestAnswers() {
+            const response = await fetch('{{ route("user.tryout.subtest.flush", [$package ? $package->package_id : "free", $tryout->tryout_id]) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    tryout_detail_id: currentSubtestDetailId,
+                    attempt_token: attemptToken,
+                    answers_payload: buildCurrentSubtestPayload()
+                })
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || data.error || 'Gagal sinkron jawaban subtest.');
+            }
+
+            const flushed = data.flushed === true;
+            if (answerPersistenceMode === 'hybrid_subtest' && !flushed) {
+                throw new Error(data.message || 'Sinkronisasi subtest tidak berjalan.');
+            }
+
+            if (flushed && data.live_score) {
+                const scoreKey = `tryout_live_score_${attemptToken}_${currentSubtestDetailId}`;
+                sessionStorage.setItem(scoreKey, JSON.stringify(data.live_score));
+            }
+
+            if (flushed && Array.isArray(currentSubtestQuestionIds)) {
+                currentSubtestQuestionIds.forEach(qid => {
+                    if (answerCache[qid]) {
+                        delete answerCache[qid];
+                    }
+                });
+                persistAnswers();
+            }
+
+            return data;
+        }
+
+        document.querySelectorAll('.tryout-nav-link').forEach(link => {
+            link.addEventListener('click', async function(event) {
+                const targetNumber = Number(link.dataset.targetNumber || 0);
+                if (!isHybridSubtestTransition(targetNumber)) {
+                    return;
+                }
+
+                event.preventDefault();
+                const targetUrl = link.getAttribute('href');
+                if (!targetUrl) {
+                    return;
+                }
+
+                link.classList.add('opacity-70', 'pointer-events-none');
+                showSaveIndicator(true, 'Menyinkronkan jawaban subtest...');
+
+                try {
+                    await flushCurrentSubtestAnswers();
+                    window.location.href = targetUrl;
+                } catch (error) {
+                    link.classList.remove('opacity-70', 'pointer-events-none');
+                    showSaveIndicator(false, error.message || 'Sinkronisasi subtest gagal.');
+                }
+            });
+        });
 
         function showSaveIndicator(success, message) {
             const existingIndicators = document.querySelectorAll('.save-indicator');
