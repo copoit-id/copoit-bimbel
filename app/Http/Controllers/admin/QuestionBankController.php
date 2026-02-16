@@ -19,6 +19,7 @@ class QuestionBankController extends Controller
     public function index(Request $request)
     {
         $importTarget = $request->integer('import_for');
+        $search = trim((string) $request->query('q', ''));
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
             : null;
@@ -36,13 +37,31 @@ class QuestionBankController extends Controller
         ];
 
         $bankOptions = QuestionBank::orderBy('name')->get();
+        $searchResults = collect();
+
+        if ($search !== '') {
+            $searchResults = QuestionBankQuestion::query()
+                ->with('bank')
+                ->where(function ($query) use ($search) {
+                    $query->where('question_text', 'like', '%' . $search . '%')
+                        ->orWhere('explanation', 'like', '%' . $search . '%')
+                        ->orWhereHas('bank', function ($bankQuery) use ($search) {
+                            $bankQuery->where('name', 'like', '%' . $search . '%');
+                        });
+                })
+                ->latest()
+                ->paginate(15)
+                ->withQueryString();
+        }
 
         return view('admin.pages.question-bank.index', compact(
             'rootBanks',
             'stats',
             'bankOptions',
             'tryoutDetail',
-            'importTarget'
+            'importTarget',
+            'search',
+            'searchResults'
         ));
     }
 

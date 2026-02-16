@@ -54,7 +54,81 @@
                 <h2 class="text-lg font-semibold text-gray-900">{{ __('Daftar Bank Soal') }}</h2>
                 <p class="text-sm text-gray-500">{{ __('Pilih bank untuk melihat sub bank dan soal di dalamnya.') }}</p>
             </div>
+            <form method="GET" action="{{ route('admin.question-bank.index') }}" class="w-full sm:w-auto">
+                @if($importTarget)
+                <input type="hidden" name="import_for" value="{{ $importTarget }}">
+                @endif
+                <div class="flex items-center gap-2">
+                    <input type="text" name="q" value="{{ $search ?? '' }}"
+                        class="w-full sm:w-80 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="{{ __('Cari soal / bank soal...') }}">
+                    <button type="submit"
+                        class="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                        {{ __('Cari') }}
+                    </button>
+                    @if(!empty($search))
+                    <a href="{{ route('admin.question-bank.index', array_filter(['import_for' => $importTarget])) }}"
+                        class="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        {{ __('Reset') }}
+                    </a>
+                    @endif
+                </div>
+            </form>
         </div>
+
+        @if(!empty($search))
+        <div class="mb-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            {{ __('Hasil pencarian untuk') }} <span class="font-semibold">"{{ $search }}"</span>:
+            <span class="font-semibold">{{ number_format($searchResults->total()) }}</span> {{ __('soal ditemukan') }}.
+        </div>
+
+        @if($searchResults->isEmpty())
+        <div class="mb-6 rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+            {{ __('Tidak ada soal yang cocok dengan kata kunci tersebut.') }}
+        </div>
+        @else
+        <div class="mb-6 overflow-hidden rounded-xl border border-gray-200">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700">{{ __('Soal') }}</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700">{{ __('Bank') }}</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-700">{{ __('Aksi') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach($searchResults as $question)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 align-top text-gray-700">
+                                {{ \Illuminate\Support\Str::limit(strip_tags($question->question_text), 140) }}
+                            </td>
+                            <td class="px-4 py-3 align-top text-gray-700">
+                                {{ $question->bank->name ?? '-' }}
+                            </td>
+                            <td class="px-4 py-3 align-top text-right whitespace-nowrap">
+                                <div class="inline-flex items-center justify-end gap-2 flex-nowrap">
+                                    <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
+                                        class="inline-flex items-center rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 whitespace-nowrap shrink-0">
+                                        {{ __('Edit Soal') }}
+                                    </a>
+                                    <a href="{{ route('admin.question-bank.show', ['questionBank' => $question->question_bank_id, 'import_for' => $importTarget]) }}"
+                                        class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 whitespace-nowrap shrink-0">
+                                        {{ __('Lihat Bank') }}
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="border-t border-gray-200 bg-white px-4 py-3">
+                {{ $searchResults->links() }}
+            </div>
+        </div>
+        @endif
+        @endif
 
         @if ($rootBanks->isEmpty())
         <div class="rounded-lg border border-dashed border-gray-200 p-8 text-center text-gray-500">
