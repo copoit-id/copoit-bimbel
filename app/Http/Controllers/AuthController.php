@@ -31,10 +31,10 @@ class AuthController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
-            if ($user->role === 'super_admin') {
+            if ($user->isSuperAdmin()) {
                 return redirect()->route('super-admin.admins.index');
             }
-            return in_array($user->role, ['admin', 'admin_demo'], true)
+            return $user->canAccessAdminPanel()
                 ? redirect()->route('admin.dashboard')
                 : redirect()->route('user.dashboard.index');
         }
@@ -79,10 +79,10 @@ class AuthController extends Controller
             $user = Auth::user();
 
             // Redirect based on user role
-            if ($user->role === 'super_admin') {
+            if ($user->isSuperAdmin()) {
                 return redirect()->intended(route('super-admin.admins.index'));
             }
-            if (in_array($user->role, ['admin', 'admin_demo'], true)) {
+            if ($user->canAccessAdminPanel()) {
                 if ($user->role === 'admin_demo') {
                     if (!$user->admin_expires_at || Carbon::now('Asia/Jakarta')->gte($user->admin_expires_at)) {
                         Auth::logout();

@@ -79,7 +79,12 @@ Route::get('/setup-project', function () {
 
 Route::get('/', function () {
     if (Auth::check()) {
-        return Auth::user()->role === 'admin'
+        $user = Auth::user();
+        if ($user->isSuperAdmin()) {
+            return redirect()->route('super-admin.admins.index');
+        }
+
+        return $user->canAccessAdminPanel()
             ? redirect()->route('admin.dashboard')
             : redirect()->route('user.dashboard.index');
     }
