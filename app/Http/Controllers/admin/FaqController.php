@@ -81,4 +81,5 @@ class FaqController extends Controller
             ->route('admin.faq.index')
             ->with('success', 'FAQ berhasil dihapus.');
     }
+
 }

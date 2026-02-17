@@ -18,6 +18,21 @@
                 <p class="text-gray-500">{{ $bank->description ?: 'Belum ada deskripsi.' }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                <a href="{{ route('admin.question-bank.edit', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
+                    class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-100">
+                    <i class="ri-edit-line"></i>
+                    Edit Bank
+                </a>
+                <form action="{{ route('admin.question-bank.destroy', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}" method="POST"
+                    onsubmit="return confirm('Hapus bank ini? Pastikan bank sudah tidak memiliki sub bank dan soal.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit"
+                        class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100">
+                        <i class="ri-delete-bin-line"></i>
+                        Hapus Bank
+                    </button>
+                </form>
                 <button id="openCreateSubBank"
                     class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
                     <i class="ri-folder-add-line"></i>
@@ -47,7 +62,7 @@
         </div>
         <div class="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4">
             <p class="text-sm text-primary">Soal Tersimpan</p>
-            <p class="text-3xl font-semibold text-primary mt-1">{{ number_format($questions->total()) }}</p>
+            <p class="text-3xl font-semibold text-primary mt-1">{{ number_format($bank->aggregate_questions_count ?? $questions->total()) }}</p>
         </div>
         <div class="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4">
             <p class="text-sm text-primary">Terakhir Diperbarui</p>
@@ -75,13 +90,28 @@
                         </p>
                     </div>
                     <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                        {{ $child->questions_count }} Soal
+                        {{ $child->aggregate_questions_count ?? $child->questions_count }} Soal
                     </span>
                 </div>
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $child->id, 'import_for' => $importTarget]) }}"
                     class="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
                     Lihat Sub Bank
                 </a>
+                <div class="mt-2 flex items-center gap-2">
+                    <a href="{{ route('admin.question-bank.edit', ['questionBank' => $child->id, 'import_for' => $importTarget]) }}"
+                        class="inline-flex flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">
+                        Edit
+                    </a>
+                    <form action="{{ route('admin.question-bank.destroy', ['questionBank' => $child->id, 'import_for' => $importTarget]) }}" method="POST" class="flex-1"
+                        onsubmit="return confirm('Hapus bank ini? Pastikan bank sudah tidak memiliki sub bank dan soal.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit"
+                            class="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
+                            Hapus
+                        </button>
+                    </form>
+                </div>
             </div>
             @endforeach
         </div>

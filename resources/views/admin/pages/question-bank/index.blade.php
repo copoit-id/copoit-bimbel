@@ -145,7 +145,7 @@
                         <p class="text-sm text-gray-500 mt-1">{{ \Illuminate\Support\Str::limit($bank->description, 80) }}</p>
                     </div>
                     <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                        {{ $bank->questions_count }} {{ __('Soal') }}
+                        {{ $bank->aggregate_questions_count ?? $bank->questions_count }} {{ __('Soal') }}
                     </span>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2 text-xs text-gray-500">
@@ -155,6 +155,21 @@
                     class="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
                     {{ $tryoutDetail ? __('Pilih Bank') : __('Kelola Bank') }}
                 </a>
+                <div class="mt-2 flex items-center gap-2">
+                    <a href="{{ route('admin.question-bank.edit', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
+                        class="inline-flex flex-1 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">
+                        {{ __('Edit Bank') }}
+                    </a>
+                    <form action="{{ route('admin.question-bank.destroy', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}" method="POST" class="flex-1"
+                        onsubmit="return confirm(@json(__('Hapus bank ini? Pastikan bank sudah tidak memiliki sub bank dan soal.')));">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit"
+                            class="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
+                            {{ __('Hapus Bank') }}
+                        </button>
+                    </form>
+                </div>
             </div>
             @endforeach
         </div>

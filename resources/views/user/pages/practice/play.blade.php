@@ -21,7 +21,7 @@
     $flaggedQuestions = $flaggedQuestions ?? [];
     $isCurrentFlagged = $isCurrentFlagged ?? false;
 @endphp
-<div class="min-h-screen bg-gray-50 pt-8 pb-16">
+<div class="min-h-screen bg-gray-50 pt-8 pb-16" data-anticopy="practice">
     <div class="max-w-6xl mx-auto px-4">
         <div class="flex flex-col lg:flex-row gap-6">
             <div class="lg:flex-1">
@@ -50,7 +50,7 @@
                         </div>
                     </div>
 
-                    <div class="text-gray-700 leading-relaxed">
+                    <div class="text-gray-700 leading-relaxed select-none">
                         {!! $question->question_text !!}
                     </div>
 
@@ -76,7 +76,7 @@
                                         ? 'border-primary bg-primary/10 ring-1 ring-primary'
                                         : 'border-gray-200';
                                 @endphp
-                                <label class="flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 {{ $optionClasses }}">
+                                <label class="flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 select-none {{ $optionClasses }}">
                                     <input type="radio" name="option_id" value="{{ $option->id }}" class="mt-1 text-primary focus:ring-primary"
                                         @checked($isSelected)>
                                     <span class="flex-1 text-gray-700">{!! $option->option_text !!}</span>
@@ -243,6 +243,19 @@ const PRACTICE_FLAG_TOKEN = '{{ csrf_token() }}';
 const PRACTICE_CURRENT_QUESTION_ID = {{ $question->id }};
 
 document.addEventListener('DOMContentLoaded', () => {
+    const antiCopyRoot = document.querySelector('[data-anticopy="practice"]') || document.body;
+    const antiCopyHandler = (event) => {
+        event.preventDefault();
+    };
+    ['copy', 'cut', 'paste', 'contextmenu'].forEach((eventName) => {
+        antiCopyRoot.addEventListener(eventName, antiCopyHandler);
+    });
+    antiCopyRoot.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && ['c', 'x', 'v', 'a'].includes(event.key.toLowerCase())) {
+            event.preventDefault();
+        }
+    });
+
     const form = document.getElementById('practiceAnswerForm');
     if (!form) return;
 

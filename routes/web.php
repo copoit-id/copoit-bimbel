@@ -272,6 +272,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::prefix('bank-soal')->name('question-bank.')->group(function () {
         Route::get('/', [QuestionBankController::class, 'index'])->name('index');
         Route::post('/', [QuestionBankController::class, 'store'])->name('store');
+        Route::get('/{questionBank}/edit', [QuestionBankController::class, 'edit'])->name('edit');
+        Route::put('/{questionBank}', [QuestionBankController::class, 'update'])->name('update');
+        Route::delete('/{questionBank}', [QuestionBankController::class, 'destroy'])->name('destroy');
         Route::get('/{questionBank}', [QuestionBankController::class, 'show'])->name('show');
         Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');

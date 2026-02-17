@@ -70,6 +70,42 @@
                             const maxHeight = parseNumber($target.data('maxHeight')) ?? parseNumber($target.attr('data-max-height'));
                             const tabsize = parseNumber($target.data('tabsize')) ?? 2;
                             const focus = parseBoolean($target.data('focus'));
+                            const uploadUrl = $target.data('summernoteUploadUrl') || $target.attr('data-summernote-upload-url');
+                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+                            const callbacks = {};
+                            if (uploadUrl) {
+                                callbacks.onImageUpload = async (files) => {
+                                    if (!files || !files.length) {
+                                        return;
+                                    }
+
+                                    for (const file of files) {
+                                        const payload = new FormData();
+                                        payload.append('image', file);
+
+                                        try {
+                                            const response = await fetch(uploadUrl, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'X-CSRF-TOKEN': csrfToken || '',
+                                                    'Accept': 'application/json',
+                                                },
+                                                body: payload,
+                                            });
+
+                                            const data = await response.json();
+                                            if (!response.ok || !data?.url) {
+                                                throw new Error(data?.message || 'Upload image failed');
+                                            }
+
+                                            $target.summernote('insertImage', data.url);
+                                        } catch (error) {
+                                            console.error('Summernote upload error:', error);
+                                        }
+                                    }
+                                };
+                            }
 
                             $target.summernote({
                                 placeholder: $target.attr('placeholder') || '',
@@ -78,7 +114,8 @@
                                 minHeight: minHeight ?? null,
                                 maxHeight: maxHeight ?? null,
                                 focus,
-                                toolbar
+                                toolbar,
+                                callbacks
                             });
 
                             $target.data('summernoteInitialized', true);

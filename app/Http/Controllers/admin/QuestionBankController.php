@@ -30,6 +30,11 @@ class QuestionBankController extends Controller
             ->orderBy('name')
             ->get();
 
+        $aggregateCounts = $this->aggregateQuestionCounts();
+        foreach ($rootBanks as $rootBank) {
+            $rootBank->setAttribute('aggregate_questions_count', $aggregateCounts[$rootBank->id] ?? 0);
+        }
+
         $stats = [
             'total_banks' => QuestionBank::count(),
             'total_questions' => QuestionBankQuestion::count(),
@@ -83,6 +88,69 @@ class QuestionBankController extends Controller
         return back()->with('success', 'Bank soal berhasil disimpan.');
     }
 
+    public function edit(Request $request, QuestionBank $questionBank)
+    {
+        $importTarget = $request->integer('import_for');
+        $excludedIds = array_merge([$questionBank->id], $this->descendantIds($questionBank->id));
+
+        $parentOptions = QuestionBank::query()
+            ->whereNotIn('id', $excludedIds)
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.pages.question-bank.edit', [
+            'bank' => $questionBank,
+            'parentOptions' => $parentOptions,
+            'importTarget' => $importTarget,
+        ]);
+    }
+
+    public function update(Request $request, QuestionBank $questionBank)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'parent_id' => ['nullable', 'exists:question_banks,id'],
+        ]);
+
+        $parentId = $validated['parent_id'] ?? null;
+        if ($parentId) {
+            $invalidParents = array_merge([$questionBank->id], $this->descendantIds($questionBank->id));
+            if (in_array((int) $parentId, $invalidParents, true)) {
+                return back()->withErrors([
+                    'parent_id' => 'Parent bank tidak valid.',
+                ])->withInput();
+            }
+        }
+
+        $questionBank->update([
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'parent_id' => $parentId,
+        ]);
+
+        return redirect()
+            ->route('admin.question-bank.show', ['questionBank' => $questionBank->id, 'import_for' => $request->integer('import_for')])
+            ->with('success', 'Bank soal berhasil diperbarui.');
+    }
+
+    public function destroy(Request $request, QuestionBank $questionBank)
+    {
+        if ($questionBank->children()->exists()) {
+            return back()->with('error', 'Bank tidak dapat dihapus karena masih memiliki sub bank.');
+        }
+
+        if ($questionBank->questions()->exists()) {
+            return back()->with('error', 'Bank tidak dapat dihapus karena masih memiliki soal.');
+        }
+
+        $questionBank->delete();
+
+        return redirect()
+            ->route('admin.question-bank.index', ['import_for' => $request->integer('import_for')])
+            ->with('success', 'Bank soal berhasil dihapus.');
+    }
+
     public function show(QuestionBank $questionBank, Request $request)
     {
         $importTarget = $request->integer('import_for');
@@ -93,6 +161,12 @@ class QuestionBankController extends Controller
         $questionBank->load(['children' => function ($query) {
             $query->withCount('questions')->orderBy('name');
         }]);
+
+        $aggregateCounts = $this->aggregateQuestionCounts();
+        $questionBank->setAttribute('aggregate_questions_count', $aggregateCounts[$questionBank->id] ?? 0);
+        foreach ($questionBank->children as $child) {
+            $child->setAttribute('aggregate_questions_count', $aggregateCounts[$child->id] ?? 0);
+        }
 
         $questions = $questionBank->questions()
             ->with('options')
@@ -400,6 +474,66 @@ class QuestionBankController extends Controller
         }
 
         return array_reverse($breadcrumbs);
+    }
+
+    private function descendantIds(int $bankId): array
+    {
+        $allBanks = QuestionBank::query()->select('id', 'parent_id')->get();
+        $childrenByParent = [];
+        foreach ($allBanks as $bank) {
+            $childrenByParent[(int) $bank->parent_id][] = (int) $bank->id;
+        }
+
+        $result = [];
+        $stack = $childrenByParent[$bankId] ?? [];
+        while (!empty($stack)) {
+            $current = array_pop($stack);
+            $result[] = $current;
+            foreach ($childrenByParent[$current] ?? [] as $childId) {
+                $stack[] = $childId;
+            }
+        }
+
+        return array_values(array_unique($result));
+    }
+
+    private function aggregateQuestionCounts(): array
+    {
+        $banks = QuestionBank::query()->select('id', 'parent_id')->get();
+        $directQuestionCounts = QuestionBankQuestion::query()
+            ->selectRaw('question_bank_id, COUNT(*) as total')
+            ->groupBy('question_bank_id')
+            ->pluck('total', 'question_bank_id')
+            ->map(fn ($value) => (int) $value)
+            ->all();
+
+        $childrenByParent = [];
+        foreach ($banks as $bank) {
+            $parentKey = (int) ($bank->parent_id ?? 0);
+            $childrenByParent[$parentKey][] = (int) $bank->id;
+        }
+
+        $memo = [];
+        $countFor = function (int $bankId) use (&$countFor, &$memo, $childrenByParent, $directQuestionCounts): int {
+            if (array_key_exists($bankId, $memo)) {
+                return $memo[$bankId];
+            }
+
+            $total = $directQuestionCounts[$bankId] ?? 0;
+            foreach ($childrenByParent[$bankId] ?? [] as $childId) {
+                $total += $countFor($childId);
+            }
+
+            $memo[$bankId] = $total;
+
+            return $total;
+        };
+
+        foreach ($banks as $bank) {
+            $countFor((int) $bank->id);
+        }
+
+        return $memo;
     }
 
     private function validateMultipleChoice(Request $request): void
