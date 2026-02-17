@@ -184,6 +184,7 @@ class PracticeProgressService
     private function getLockableTryouts(): Collection
     {
         return Tryout::where('is_active', true)
+            ->orderBy('ordering')
             ->orderBy('tryout_id')
             ->get();
     }
