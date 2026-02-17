@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('is_devisadia_student')->default(false)->after('status');
-        });
+        if (! Schema::hasColumn('users', 'is_devisadia_student')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->boolean('is_devisadia_student')->default(false)->after('status');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('is_devisadia_student');
-        });
+        if (Schema::hasColumn('users', 'is_devisadia_student')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('is_devisadia_student');
+            });
+        }
     }
 };

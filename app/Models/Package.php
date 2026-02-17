@@ -43,7 +43,9 @@ class Package extends Model
             'tryout_id',
             'package_id',
             'detailable_id'
-        )->where('detail_packages.detailable_type', Tryout::class);
+        )->where('detail_packages.detailable_type', Tryout::class)
+            ->orderBy('tryouts.ordering')
+            ->orderBy('tryouts.tryout_id');
     }
 
     public function classes()

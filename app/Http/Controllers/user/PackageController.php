@@ -35,6 +35,7 @@ class PackageController extends Controller
                     $query->where('user_id', Auth::id());
                 },
             ])
+            ->orderBy('ordering')
             ->orderBy('tryout_id')
             ->get();
 
@@ -470,6 +471,8 @@ class PackageController extends Controller
                 $query->whereNull('tryouts.end_date')
                     ->orWhere('tryouts.end_date', '>', Carbon::now());
             })
+            ->orderBy('tryouts.ordering')
+            ->orderBy('tryouts.tryout_id')
             ->with(['tryoutDetails.questions', 'userAnswers' => function ($query) {
                 $query->where('user_id', Auth::id());
             }])

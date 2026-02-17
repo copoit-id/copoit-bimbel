@@ -25,6 +25,7 @@
                     </th>
                     <th scope="col" class="px-6 py-3">Nama Tryout</th>
                     <th scope="col" class="px-6 py-3 text-center">Tipe</th>
+                    <th scope="col" class="px-6 py-3 text-center">Urutan</th>
                     <th scope="col" class="px-6 py-3 text-center">Durasi</th>
                     <th scope="col" class="px-6 py-3 text-center">Soal</th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
@@ -33,13 +34,15 @@
             <tbody>
                 @forelse($tryouts as $tryout)
                 @php
-                $isInPackage = $tryout->detailPackages->isNotEmpty();
+                $packageDetail = $tryout->detailPackages->first();
+                $isInPackage = !is_null($packageDetail);
+                $tryoutOrder = $packageDetail->order ?? 0;
                 $totalQuestions = $tryout->tryoutDetails->sum(function($detail) {
                 return $detail->questions->count() ?? 0;
                 });
                 $totalDuration = $tryout->tryoutDetails->sum('duration');
                 @endphp
-                <tr
+                <tr data-tryout-row
                     class="bg-white border-b border-dashed border-gray-200 text-grey3 {{ $isInPackage ? 'bg-green-50' : '' }}">
                     <td class="px-6 py-4">
                         <input type="checkbox"
@@ -61,6 +64,12 @@
                         <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
                             {{ strtoupper($tryout->type_tryout) }}
                         </span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <input type="number" min="0"
+                            class="tryout-order w-20 px-2 py-1 text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-100 disabled:text-gray-400"
+                            value="{{ $tryoutOrder }}" data-tryout-id="{{ $tryout->tryout_id }}"
+                            {{ $isInPackage ? '' : 'disabled' }}>
                     </td>
                     <td class="px-6 py-4 text-center">{{ $totalDuration }} menit</td>
                     <td class="px-6 py-4 text-center">{{ $totalQuestions }} soal</td>
@@ -110,7 +119,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                    <td colspan="8" class="px-6 py-8 text-center text-gray-500">
                         <div class="flex flex-col items-center">
                             <i class="ri-draft-line text-4xl text-gray-300 mb-2"></i>
                             <p>Belum ada tryout tersedia</p>
@@ -152,47 +161,87 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('[data-tryout-row]');
     const checkboxes = document.querySelectorAll('.tryout-checkbox');
     const selectAll = document.getElementById('select-all');
     const saveButton = document.getElementById('save-changes');
     const selectedCount = document.getElementById('selected-count');
-    let initialState = new Set();
-    let changedItems = new Set();
+    const initialState = new Map();
 
-    // Store initial state
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            initialState.add(checkbox.dataset.tryoutId);
-        }
+    rows.forEach(row => {
+        const checkbox = row.querySelector('.tryout-checkbox');
+        const orderInput = row.querySelector('.tryout-order');
+        if (!checkbox || !orderInput) return;
+
+        initialState.set(checkbox.dataset.tryoutId, {
+            checked: checkbox.checked,
+            order: parseInt(orderInput.value, 10) || 0,
+        });
     });
+
+    function getCurrentState() {
+        const state = new Map();
+        rows.forEach(row => {
+            const checkbox = row.querySelector('.tryout-checkbox');
+            const orderInput = row.querySelector('.tryout-order');
+            if (!checkbox || !orderInput) return;
+
+            state.set(checkbox.dataset.tryoutId, {
+                checked: checkbox.checked,
+                order: parseInt(orderInput.value, 10) || 0,
+            });
+        });
+
+        return state;
+    }
+
+    function hasChanges() {
+        const currentState = getCurrentState();
+        for (const [tryoutId, current] of currentState.entries()) {
+            const initial = initialState.get(tryoutId);
+            if (!initial) {
+                return true;
+            }
+
+            if (current.checked !== initial.checked) {
+                return true;
+            }
+
+            if (current.checked && current.order !== initial.order) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     function updateUI() {
         const checkedCount = document.querySelectorAll('.tryout-checkbox:checked').length;
         selectedCount.textContent = checkedCount;
-
-        saveButton.disabled = changedItems.size === 0;
+        saveButton.disabled = !hasChanges();
 
         // Update select all checkbox
         const totalCheckboxes = checkboxes.length;
         selectAll.checked = checkedCount === totalCheckboxes;
         selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCheckboxes;
+
+        rows.forEach(row => {
+            const checkbox = row.querySelector('.tryout-checkbox');
+            const orderInput = row.querySelector('.tryout-order');
+            if (!checkbox || !orderInput) return;
+            orderInput.disabled = !checkbox.checked;
+        });
     }
 
     // Handle individual checkbox changes
     checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
-            const tryoutId = this.dataset.tryoutId;
-            const isChecked = this.checked;
-            const wasInitiallyChecked = initialState.has(tryoutId);
-
-            if (isChecked !== wasInitiallyChecked) {
-                changedItems.add(tryoutId);
-            } else {
-                changedItems.delete(tryoutId);
-            }
-
             updateUI();
         });
+    });
+
+    document.querySelectorAll('.tryout-order').forEach(input => {
+        input.addEventListener('input', updateUI);
     });
 
     // Handle select all
@@ -209,29 +258,48 @@
     saveButton.addEventListener('click', async function() {
         this.disabled = true;
         this.textContent = 'Menyimpan...';
-
-        const promises = Array.from(changedItems).map(tryoutId => {
-            return fetch(`/admin/paket/{{ $package->package_id }}/tryout/${tryoutId}/toggle`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            });
-        });
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const currentState = getCurrentState();
 
         try {
-            await Promise.all(promises);
-
-            // Update initial state
-            initialState.clear();
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    initialState.add(checkbox.dataset.tryoutId);
+            // 1) Sinkronisasi centang tryout (tambah/hapus dari paket)
+            for (const [tryoutId, current] of currentState.entries()) {
+                const initial = initialState.get(tryoutId);
+                if (!initial || current.checked === initial.checked) {
+                    continue;
                 }
-            });
 
-            changedItems.clear();
+                const response = await fetch(`/admin/paket/{{ $package->package_id }}/tryout/${tryoutId}/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({ order: current.order }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Gagal menyimpan status tryout.');
+                }
+            }
+
+            // 2) Simpan urutan untuk tryout yang aktif
+            for (const [tryoutId, current] of currentState.entries()) {
+                if (!current.checked) continue;
+
+                const response = await fetch(`/admin/paket/{{ $package->package_id }}/tryout/${tryoutId}/order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({ order: current.order }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Gagal menyimpan urutan tryout.');
+                }
+            }
 
             // Show success message
             showNotification('Perubahan berhasil disimpan', 'success');

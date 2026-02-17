@@ -245,6 +245,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('/paket/{package_id}/tryout/tambah', [AdminPackageController::class, 'createTryout'])->name('package.tryout.create');
     Route::post('/paket/{package_id}/tryout/store', [AdminPackageController::class, 'storeTryout'])->name('package.tryout.store');
     Route::post('/paket/{package_id}/tryout/{tryout_id}/toggle', [AdminPackageController::class, 'toggleTryout'])->name('package.tryout.toggle');
+    Route::post('/paket/{package_id}/tryout/{tryout_id}/order', [AdminPackageController::class, 'updateTryoutOrder'])->name('package.tryout.order');
 
     // Package Class Management
     Route::get('/paket/{package_id}/kelas', [AdminPackageController::class, 'indexClass'])->name('package.class.index');

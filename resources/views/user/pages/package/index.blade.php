@@ -39,15 +39,16 @@
             $hasPremiumAccess = in_array($tryout->tryout_id, $premiumAccessIds, true);
             $canAccess = $isUnlocked && (!$tryout->is_premium || $hasPremiumAccess);
         @endphp
-        <div class="flex flex-col justify-between bg-white px-5 py-5 shadow rounded-lg">
+        <div class="flex h-full flex-col bg-white px-5 py-5 shadow rounded-lg">
             <div>
                 <div class="flex items-center justify-between text-xs font-semibold mb-2">
                     <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
                         {{ __($tryout->type_tryout) }}
                     </span>
                     @if($tryout->is_premium)
-                        <span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
-                            {{ __('Premium') }}
+                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-50 text-rose-700 border border-rose-100"
+                            title="{{ __('Premium') }}" aria-label="{{ __('Premium') }}">
+                            <i class="ri-vip-crown-line text-sm"></i>
                         </span>
                     @endif
                 </div>
@@ -79,7 +80,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 font-light mt-4">
+            <div class="mt-auto flex items-center gap-2 font-light pt-4">
                 @if($tryout->is_premium && !$hasPremiumAccess && !$isDevisadia)
                     <button type="button"
                         class="flex-1 min-w-0 flex justify-center bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-[13px] sm:text-sm leading-tight cursor-not-allowed truncate"

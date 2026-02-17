@@ -25,12 +25,13 @@
         $canAccess = $isUnlocked && (!$tryout->is_premium || $hasPremiumAccess);
         @endphp
 
-        <div class="bg-white px-5 py-5 shadow rounded-lg flex flex-col justify-between">
+        <div class="bg-white px-5 py-5 shadow rounded-lg flex h-full flex-col">
             <div class="flex flex-col gap-1 mb-4">
                 <p class="text-lg font-bold text-black text-center mb-4">{{ $tryout->name }}</p>
                 @if($tryout->is_premium)
-                <span class="mx-auto px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100 text-xs">
-                    {{ __('Premium') }}
+                <span class="mx-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-50 text-rose-700 border border-rose-100"
+                    title="{{ __('Premium') }}" aria-label="{{ __('Premium') }}">
+                    <i class="ri-vip-crown-line text-sm"></i>
                 </span>
                 @endif
                 <span class="flex items-center justify-between">
@@ -60,7 +61,7 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex gap-2 font-light">
+            <div class="mt-auto flex gap-2 font-light">
                 @if($tryout->is_premium && !$hasPremiumAccess)
                 <button
                     class="flex w-full justify-center bg-gray-200 text-gray-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed"

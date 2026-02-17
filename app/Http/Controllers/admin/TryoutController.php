@@ -68,7 +68,8 @@ class TryoutController extends Controller
                         ->whereNotNull('utbk_total_score');
                 },
             ])
-            ->latest()
+            ->orderBy('ordering')
+            ->orderByDesc('created_at')
             ->paginate(10);
 
         $tryouts->getCollection()->each(function ($tryout) {
@@ -112,6 +113,7 @@ class TryoutController extends Controller
                 'name' => $request->name,
                 'description' => $request->description,
                 'type_tryout' => $request->type_tryout,
+                'ordering' => (int) $request->input('ordering', 0),
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'is_certification' => $request->has('is_certification'),
@@ -181,6 +183,7 @@ class TryoutController extends Controller
                 'name' => $request->name,
                 'description' => $request->description,
                 'type_tryout' => $request->type_tryout,
+                'ordering' => (int) $request->input('ordering', 0),
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'is_certification' => $request->has('is_certification'),
@@ -594,6 +597,7 @@ class TryoutController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'type_tryout' => ['required', Rule::in($typeOptions)],
+            'ordering' => 'nullable|integer|min:0',
             'assessment_type' => ['required', Rule::in(['standard', 'pre_test', 'post_test'])],
             'section_break_duration' => 'nullable|integer|min:0|max:3600',
             'start_date' => 'required|date',

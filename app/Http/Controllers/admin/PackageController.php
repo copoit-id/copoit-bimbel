@@ -252,8 +252,15 @@ class PackageController extends Controller
             $tryouts = Tryout::with(['tryoutDetails.questions', 'detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
-                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC", [Tryout::class, $package_id])
-                ->orderBy('created_at', 'desc')
+                ->leftJoin('detail_packages as package_tryout_detail', function ($join) use ($package_id) {
+                    $join->on('package_tryout_detail.detailable_id', '=', 'tryouts.tryout_id')
+                        ->where('package_tryout_detail.detailable_type', '=', Tryout::class)
+                        ->where('package_tryout_detail.package_id', '=', $package_id);
+                })
+                ->select('tryouts.*', 'package_tryout_detail.order as package_order')
+                ->orderByRaw('CASE WHEN package_tryout_detail.detail_package_id IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('package_tryout_detail.order')
+                ->orderBy('tryouts.created_at', 'desc')
                 ->paginate(10);
 
             return view('admin.pages.package.tryout.index', compact('package', 'tryouts'));
@@ -679,6 +686,7 @@ class PackageController extends Controller
         try {
             $package = Package::findOrFail($package_id);
             $tryout = Tryout::findOrFail($tryout_id);
+            $order = max(0, (int) $request->input('order', 0));
 
             $detailPackage = DetailPackage::where([
                 'package_id' => $package_id,
@@ -696,7 +704,7 @@ class PackageController extends Controller
                     'package_id' => $package_id,
                     'detailable_type' => Tryout::class,
                     'detailable_id' => $tryout_id,
-                    'order' => 0
+                    'order' => $order
                 ]);
                 $message = 'Tryout berhasil ditambahkan ke paket';
             }
@@ -704,6 +712,45 @@ class PackageController extends Controller
             return response()->json(['success' => true, 'message' => $message]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function updateTryoutOrder(Request $request, $package_id, $tryout_id)
+    {
+        try {
+            Package::findOrFail($package_id);
+            Tryout::findOrFail($tryout_id);
+
+            $validated = $request->validate([
+                'order' => 'required|integer|min:0',
+            ]);
+
+            $detailPackage = DetailPackage::where([
+                'package_id' => $package_id,
+                'detailable_type' => Tryout::class,
+                'detailable_id' => $tryout_id,
+            ])->first();
+
+            if (! $detailPackage) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tryout belum ditambahkan ke paket.',
+                ], 404);
+            }
+
+            $detailPackage->update([
+                'order' => (int) $validated['order'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Urutan tryout berhasil diperbarui.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

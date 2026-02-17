@@ -101,6 +101,10 @@
                     <p class="font-light">{{ $tryout->tryoutDetails->count() }} {{ __('Bagian') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
+                    <p class="font-medium">{{ __('Urutan') }}:</p>
+                    <p class="font-light">{{ (int) ($tryout->ordering ?? 0) }}</p>
+                </span>
+                <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Status') }}:</p>
                     @if($tryout->start_date > now())
                     <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">{{ __('Akan Datang') }}</span>

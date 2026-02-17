@@ -117,6 +117,15 @@
                         </select>
                         <p class="text-xs text-gray-500 mt-1">{{ __('Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas.') }}</p>
                     </div>
+
+                    <div>
+                        <label for="ordering" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Urutan Tampil') }}</label>
+                        <input type="number" id="ordering" name="ordering" min="0"
+                            value="{{ old('ordering', isset($tryout) ? $tryout->ordering : 0) }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="0">
+                        <p class="text-xs text-gray-500 mt-1">{{ __('Semakin kecil nilai, semakin atas urutan tampilnya.') }}</p>
+                    </div>
                 </div>
 
                 <div>
