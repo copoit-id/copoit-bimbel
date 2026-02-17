@@ -54,7 +54,7 @@
                 <li class="flex items-center gap-2  {{$option->is_correct == 1 ? 'text-green' : ''}}">
                     <i
                         class="{{$option->is_correct == 1 ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'}}"></i>
-                    <span>{{ $option->option_text }}</span>
+                    <span>{!! $option->option_text !!}</span>
                 </li>
                 @endforeach
             </ul>
@@ -63,7 +63,7 @@
         @if ($question && $question->explanation)
         <div class="bg-blue-50 border border-primary border-dashed rounded-lg p-4 mt-2">
             <div class="font-semibold text-primary mb-1">Pembahasan</div>
-            <div class="text-primary">{{ $question->explanation }}</div>
+            <div class="text-primary">{!! $question->explanation !!}</div>
         </div>
         @endif
 

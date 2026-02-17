@@ -39,7 +39,7 @@
                 @forelse($questions as $question)
                 <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
                     <td class="px-6 py-4">
-                        <p class="font-semibold text-gray-900">{{ $question->question_text }}</p>
+                        <p class="font-semibold text-gray-900">{!! $question->question_text !!}</p>
                     </td>
                     <td class="px-6 py-4 text-center">{{ $question->sort_order }}</td>
                     <td class="px-6 py-4 text-center">
