@@ -1197,7 +1197,7 @@ class TryoutController extends Controller
 
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $w > 0 ? min($w, 1) : 1;
+                                $totalScore += $w > 0 ? $w : 1;
                                 break;
 
                             case 'writing':
@@ -2047,7 +2047,7 @@ class TryoutController extends Controller
                                 return (float) ($opt->weight ?? 0);
                             });
                             $maxWeight = (float) ($maxWeight ?? 0);
-                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
                             break;
 
                         case 'twk':
