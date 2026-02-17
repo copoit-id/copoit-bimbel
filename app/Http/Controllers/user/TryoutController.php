@@ -850,6 +850,16 @@ class TryoutController extends Controller
             ]);
 
             $now = Carbon::now('Asia/Jakarta');
+            $tryout = Tryout::findOrFail($id_tryout);
+            if (! $this->hasPremiumTryoutAccess($tryout)) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'error' => 'Tryout premium memerlukan akses admin.',
+                    ], 403);
+                }
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+            }
 
             $question = Question::with(['questionOptions', 'tryoutDetail'])->find($request->question_id);
 
@@ -873,7 +883,6 @@ class TryoutController extends Controller
                 return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
             }
 
-            $tryout = Tryout::findOrFail($id_tryout);
             $tryoutDetails = $tryout->tryoutDetails()->get();
             $totalDuration = $tryoutDetails->sum('duration');
 
@@ -1357,6 +1366,10 @@ class TryoutController extends Controller
 
         // Get tryout information
         $tryout = Tryout::findOrFail($id_tryout);
+        if (! $this->hasPremiumTryoutAccess($tryout)) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Tryout ini bersifat premium. Hubungi admin untuk mendapatkan akses.');
+        }
 
         // Get all completed/pending user answers untuk tryout ini dengan attempt_token yang sama
         $userAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1709,6 +1722,13 @@ class TryoutController extends Controller
                 'question_id' => 'required|exists:questions,question_id'
             ]);
 
+            $tryout = Tryout::findOrFail($id_tryout);
+            if (! $this->hasPremiumTryoutAccess($tryout)) {
+                return response()->json([
+                    'error' => 'Tryout premium memerlukan akses admin.',
+                ], 403);
+            }
+
             // Get attempt token dari session atau dari user answer
             $userAnswer = UserAnswer::where('user_id', Auth::id())
                 ->where('tryout_id', $id_tryout)
@@ -1964,6 +1984,10 @@ class TryoutController extends Controller
 
     private function hasPremiumTryoutAccess(Tryout $tryout): bool
     {
+        if (Auth::user()?->is_devisadia_student) {
+            return true;
+        }
+
         if (!$tryout->is_premium) {
             return true;
         }
