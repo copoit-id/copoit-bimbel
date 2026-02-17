@@ -647,7 +647,7 @@ class PackageController extends Controller
                                 break;
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $w > 0 ? min($w, 1) : 1;
+                                $totalScore += $w > 0 ? $w : 1;
                                 break;
                             case 'writing':
                             case 'reading':
@@ -731,7 +731,7 @@ class PackageController extends Controller
                         $weight = max(1, $pairs);
                     }
                     if ($type_subtest === 'tkp') {
-                        $weight = $weight > 0 ? min($weight, 1) : 1;
+                        $weight = $weight > 0 ? $weight : 1;
                     }
                     $total += $weight;
                     break;
@@ -750,7 +750,7 @@ class PackageController extends Controller
                     switch ($type_subtest) {
                         case 'tkp':
                             $maxWeight = (float) ($options->max('weight') ?? 0);
-                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
                             break;
                         case 'twk':
                         case 'tiu':

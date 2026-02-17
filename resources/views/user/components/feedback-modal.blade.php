@@ -34,7 +34,7 @@
             <div class="feedback-question {{ $loop->first ? '' : 'hidden' }}" data-feedback-question data-index="{{ $loop->index }}">
                 <div class="mb-5">
                     <p class="text-sm text-gray-500 mb-1">Pertanyaan {{ $loop->iteration }}</p>
-                    <p class="text-base font-semibold text-gray-900">{{ $question->question_text }}</p>
+                    <p class="text-base font-semibold text-gray-900">{!! $question->question_text !!}</p>
                 </div>
                 <div class="mt-6">
                     <div class="relative h-10">
