@@ -12,6 +12,8 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    protected ?array $effectivePermissionSlugs = null;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -110,22 +112,7 @@ class User extends Authenticatable
             return true;
         }
 
-        // Dynamic check via pivot roles.
-        $hasAdminPermission = $this->roles()
-            ->whereHas('permissions')
-            ->exists();
-
-        if ($hasAdminPermission) {
-            return true;
-        }
-
-        // Fallback by role slug on users table (for legacy/unsynced pivot data).
-        $hasAdminPermissionBySlug = Role::query()
-            ->where('slug', $this->role)
-            ->whereHas('permissions')
-            ->exists();
-
-        if ($hasAdminPermissionBySlug) {
+        if (!empty($this->getEffectivePermissionSlugs())) {
             return true;
         }
 
@@ -155,22 +142,43 @@ class User extends Authenticatable
         }
 
         $slug = $feature . '.' . $action;
-        $hasPermissionFromPivot = $this->roles()
-            ->whereHas('permissions', function ($query) use ($slug) {
-                $query->where('slug', $slug);
-            })
-            ->exists();
 
-        if ($hasPermissionFromPivot) {
-            return true;
+        return in_array($slug, $this->getEffectivePermissionSlugs(), true);
+    }
+
+    public function getEffectivePermissionSlugs(): array
+    {
+        if ($this->effectivePermissionSlugs !== null) {
+            return $this->effectivePermissionSlugs;
         }
 
-        // Fallback by role slug on users table (for legacy/unsynced pivot data).
-        return Role::query()
-            ->where('slug', $this->role)
-            ->whereHas('permissions', function ($query) use ($slug) {
-                $query->where('slug', $slug);
+        $this->loadMissing('roles.permissions');
+
+        $slugs = $this->roles
+            ->flatMap(function ($role) {
+                return $role->permissions->pluck('slug');
             })
-            ->exists();
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($slugs) && !empty($this->role)) {
+            $fallbackRole = Role::query()
+                ->where('slug', $this->role)
+                ->with('permissions:id,slug')
+                ->first();
+
+            if ($fallbackRole) {
+                $slugs = $fallbackRole->permissions
+                    ->pluck('slug')
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+        }
+
+        $this->effectivePermissionSlugs = $slugs;
+
+        return $this->effectivePermissionSlugs;
     }
 }
