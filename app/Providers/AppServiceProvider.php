@@ -46,6 +46,8 @@ class AppServiceProvider extends ServiceProvider
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'dashboard_announcement_title' => null,
+            'dashboard_announcement_message' => null,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -70,6 +72,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['payment_account_number'] = $clientProfile->payment_account_number ?? $defaults['payment_account_number'];
             $defaults['payment_account_holder'] = $clientProfile->payment_account_holder ?? $defaults['payment_account_holder'];
             $defaults['payment_bank_note'] = $clientProfile->payment_bank_note ?? $defaults['payment_bank_note'];
+            $defaults['dashboard_announcement_title'] = $clientProfile->dashboard_announcement_title ?? $defaults['dashboard_announcement_title'];
+            $defaults['dashboard_announcement_message'] = $clientProfile->dashboard_announcement_message ?? $defaults['dashboard_announcement_message'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }

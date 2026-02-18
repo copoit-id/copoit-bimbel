@@ -25,6 +25,8 @@ class ClientProfile extends Model
         'payment_account_number',
         'payment_account_holder',
         'payment_bank_note',
+        'dashboard_announcement_title',
+        'dashboard_announcement_message',
     ];
 
     protected $casts = [

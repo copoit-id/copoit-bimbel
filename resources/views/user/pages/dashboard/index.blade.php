@@ -127,6 +127,25 @@
     </div>
     @endif
 
+    <!-- Announcement -->
+    @if(!empty($clientBranding['dashboard_announcement_message'] ?? null))
+    <div class="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-5">
+        <div class="flex items-start gap-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
+                <i class="ri-megaphone-line text-lg"></i>
+            </div>
+            <div class="min-w-0">
+                <h4 class="font-semibold text-gray-900">
+                    {{ $clientBranding['dashboard_announcement_title'] ?? __('Pengumuman') }}
+                </h4>
+                <p class="mt-2 text-sm leading-relaxed text-gray-700">
+                    {{ $clientBranding['dashboard_announcement_message'] }}
+                </p>
+            </div>
+        </div>
+    </div>
+    @endif
+
 </section>
 @endsection
 

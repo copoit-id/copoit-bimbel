@@ -28,6 +28,8 @@ class SettingController extends Controller
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'dashboard_announcement_title' => null,
+            'dashboard_announcement_message' => null,
         ]);
 
         return view('admin.pages.settings.index', [
@@ -50,6 +52,8 @@ class SettingController extends Controller
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string', 'max:255'],
+            'dashboard_announcement_title' => ['nullable', 'string', 'max:255'],
+            'dashboard_announcement_message' => ['nullable', 'string'],
         ];
 
         if ($request->input('payment_mode') === 'manual') {
