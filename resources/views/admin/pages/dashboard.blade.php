@@ -133,7 +133,7 @@
             </div>
             <div>
                 <h3 class="text-lg font-semibold text-gray-900">
-                    {{ $clientBranding['dashboard_announcement_title'] ?? __('Pengumuman') }}
+                    {{ $clientBranding['dashboard_announcement_title'] ?? __('Broadcast') }}
                 </h3>
                 <p class="text-sm text-gray-600 mt-1">
                     {{ $clientBranding['dashboard_announcement_message'] }}

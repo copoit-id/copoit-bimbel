@@ -252,26 +252,26 @@
 
         <div class="bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4">
             <div>
-                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pengumuman</p>
-                <h2 class="text-xl font-semibold text-gray-900">Pengumuman Dashboard</h2>
-                <p class="text-gray-500 text-sm">Pengumuman ini ditampilkan di dashboard user dan admin.</p>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">{{ __('Broadcast') }}</p>
+                <h2 class="text-xl font-semibold text-gray-900">{{ __('Dashboard Broadcast') }}</h2>
+                <p class="text-gray-500 text-sm">{{ __('This broadcast is shown on both user and admin dashboards.') }}</p>
             </div>
             <div class="grid grid-cols-1 gap-4">
                 <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Judul Pengumuman</label>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">{{ __('Broadcast Title') }}</label>
                     <input type="text" name="dashboard_announcement_title"
                         value="{{ old('dashboard_announcement_title', $profile->dashboard_announcement_title ?? ($branding['dashboard_announcement_title'] ?? '')) }}"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Pengumuman">
+                        placeholder="{{ __('Example: Broadcast') }}">
                     @error('dashboard_announcement_title')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
                 <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Isi Pengumuman</label>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">{{ __('Broadcast Message') }}</label>
                     <textarea name="dashboard_announcement_message" rows="3"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Isi pengumuman untuk dashboard...">{{ old('dashboard_announcement_message', $profile->dashboard_announcement_message ?? ($branding['dashboard_announcement_message'] ?? '')) }}</textarea>
+                        placeholder="{{ __('Broadcast message for dashboard...') }}">{{ old('dashboard_announcement_message', $profile->dashboard_announcement_message ?? ($branding['dashboard_announcement_message'] ?? '')) }}</textarea>
                     @error('dashboard_announcement_message')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
