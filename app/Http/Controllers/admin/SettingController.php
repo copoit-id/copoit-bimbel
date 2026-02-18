@@ -88,8 +88,14 @@ class SettingController extends Controller
             unset($validated['smtp_app_password']);
         }
 
-        $smtpFieldsFilled = $smtpHost || $smtpPort || $smtpEmail || $smtpPassword;
-        if ($smtpFieldsFilled && (!$smtpHost || !$smtpPort || !$smtpEmail || !$smtpPassword)) {
+        // SMTP wajib lengkap hanya jika memang dikonfigurasi/diaktifkan.
+        $smtpConfigured = !empty($profile->smtp_email) || !empty($profile->smtp_app_password);
+        $smtpRequested = $request->filled('smtp_email')
+            || $request->filled('smtp_app_password')
+            || $request->filled('smtp_notification_email');
+        $shouldValidateSmtp = $smtpConfigured || $smtpRequested;
+
+        if ($shouldValidateSmtp && (!$smtpEmail || !$smtpPassword)) {
             return back()
                 ->withErrors([
                     'smtp_email' => 'Konfigurasi SMTP belum lengkap. Isi email SMTP dan sandi aplikasi.',
@@ -97,7 +103,7 @@ class SettingController extends Controller
                 ->withInput($request->except('smtp_app_password'));
         }
 
-        if ($smtpFieldsFilled) {
+        if ($shouldValidateSmtp) {
             $validated['smtp_host'] = $smtpHost;
             $validated['smtp_port'] = $smtpPort;
             $validated['smtp_encryption'] = $smtpEncryption;
