@@ -93,6 +93,15 @@ class PracticeProgressService
         $tryoutsToUnlock = $eligibleTryouts->pluck('tryout_id')
             ->diff($existingUnlocks);
 
+        $eligibleIds = $eligibleTryouts->pluck('tryout_id')->all();
+        $unlockIdsToRevoke = collect($existingUnlocks)->diff($eligibleIds)->all();
+
+        if (!empty($unlockIdsToRevoke)) {
+            UserTryoutUnlock::where('user_id', $session->user_id)
+                ->whereIn('tryout_id', $unlockIdsToRevoke)
+                ->delete();
+        }
+
         foreach ($tryoutsToUnlock as $tryoutId) {
             UserTryoutUnlock::create([
                 'user_id' => $session->user_id,
