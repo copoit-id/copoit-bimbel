@@ -1,7 +1,7 @@
 @extends('user.layout.user')
 @section('title', __('Pembahasan Tryout'))
 @section('content')
-<div class="package-bimbel flex flex-col gap-4">
+<div class="package-bimbel flex flex-col gap-4" data-anticopy="pembahasan">
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col md:flex-row gap-4 text-dark">
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <p class="font-semibold">{{ __('Pembahasan') }} - {{ $tryout->name }}</p>
@@ -68,7 +68,7 @@
 
     <!-- SKD Full Subtest Summary (if multiple subtests) -->
     @if(!empty($subtestSummaries))
-    <div class="bg-white px-4 py-6 rounded-lg border border-border">
+    <div class="bg-white px-4 py-6 rounded-lg border border-border select-none pembahasan-protected" oncontextmenu="return false;">
         <h3 class="text-lg font-bold mb-4 text-gray-800">{{ __('Ringkasan Per Subtest') }}</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             @foreach($subtestSummaries as $summary)
@@ -107,7 +107,7 @@
     </div>
     @endif
 
-    <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col gap-8 text-dark">
+    <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col gap-8 text-dark select-none pembahasan-protected" oncontextmenu="return false;">
         @php $currentSubtest = null; @endphp
         @foreach($allAnswerDetails as $index => $detail)
         @php
@@ -278,7 +278,7 @@
     </div>
 
     <!-- Summary Statistics -->
-    <div class="bg-white px-4 py-6 rounded-lg border border-border">
+    <div class="bg-white px-4 py-6 rounded-lg border border-border select-none pembahasan-protected" oncontextmenu="return false;">
         @php
             $summaryNames = collect($subtestSummaries ?? [])->pluck('name')->filter()->unique()->values();
             $summaryTitle = $summaryNames->isNotEmpty()
@@ -387,6 +387,42 @@
 @section('scripts')
 <script>
     console.log('Pembahasan SKD Full loaded');
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const root = document.querySelector('[data-anticopy="pembahasan"]') || document.body;
+        const protectedBlocks = root.querySelectorAll('.pembahasan-protected');
+        const blockHandler = (event) => {
+            event.preventDefault();
+        };
+
+        ['copy', 'cut', 'paste', 'contextmenu', 'selectstart', 'dragstart'].forEach((eventName) => {
+            protectedBlocks.forEach((block) => {
+                block.addEventListener(eventName, blockHandler, true);
+            });
+        });
+
+        const isSelectionInsideProtected = () => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+                return false;
+            }
+
+            const anchorParent = selection.anchorNode?.parentElement;
+            const focusParent = selection.focusNode?.parentElement;
+
+            return !!(anchorParent?.closest('.pembahasan-protected') || focusParent?.closest('.pembahasan-protected'));
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (!isSelectionInsideProtected()) {
+                return;
+            }
+
+            if ((event.ctrlKey || event.metaKey) && ['c', 'x', 'v', 'a'].includes(event.key.toLowerCase())) {
+                event.preventDefault();
+            }
+        }, true);
+    });
 </script>
 @endsection
 

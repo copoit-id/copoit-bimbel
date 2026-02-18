@@ -50,7 +50,7 @@
                         </div>
                     </div>
 
-                    <div class="text-gray-700 leading-relaxed select-none">
+                    <div class="text-gray-700 leading-relaxed select-none practice-protected" oncontextmenu="return false;">
                         {!! $question->question_text !!}
                     </div>
 
@@ -135,7 +135,7 @@
                         @endif
                     </form>
 
-                    <div id="practiceFeedback" class="hidden mt-6 border border-gray-100 rounded-2xl p-5 bg-gray-50">
+                    <div id="practiceFeedback" class="hidden mt-6 border border-gray-100 rounded-2xl p-5 bg-gray-50 select-none practice-protected" oncontextmenu="return false;">
                         <div id="practiceFeedbackStatusWrapper" class="mb-4">
                             <span id="practiceFeedbackStatus" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700">{{ __('Jawaban tersimpan') }}</span>
                         </div>
@@ -244,17 +244,38 @@ const PRACTICE_CURRENT_QUESTION_ID = {{ $question->id }};
 
 document.addEventListener('DOMContentLoaded', () => {
     const antiCopyRoot = document.querySelector('[data-anticopy="practice"]') || document.body;
+    const protectedBlocks = antiCopyRoot.querySelectorAll('.practice-protected');
     const antiCopyHandler = (event) => {
         event.preventDefault();
     };
-    ['copy', 'cut', 'paste', 'contextmenu'].forEach((eventName) => {
-        antiCopyRoot.addEventListener(eventName, antiCopyHandler);
+
+    ['copy', 'cut', 'paste', 'contextmenu', 'selectstart', 'dragstart'].forEach((eventName) => {
+        protectedBlocks.forEach((block) => {
+            block.addEventListener(eventName, antiCopyHandler, true);
+        });
     });
-    antiCopyRoot.addEventListener('keydown', (event) => {
+
+    const isSelectionInsideProtected = () => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            return false;
+        }
+
+        const anchorParent = selection.anchorNode?.parentElement;
+        const focusParent = selection.focusNode?.parentElement;
+
+        return !!(anchorParent?.closest('.practice-protected') || focusParent?.closest('.practice-protected'));
+    };
+
+    document.addEventListener('keydown', (event) => {
+        if (!isSelectionInsideProtected()) {
+            return;
+        }
+
         if ((event.ctrlKey || event.metaKey) && ['c', 'x', 'v', 'a'].includes(event.key.toLowerCase())) {
             event.preventDefault();
         }
-    });
+    }, true);
 
     const form = document.getElementById('practiceAnswerForm');
     if (!form) return;
