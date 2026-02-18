@@ -56,14 +56,14 @@
                     <span class="ms-3">{{ __('Manajemen Users') }}</span>
                 </a>
             </li>
-            <li>
+            {{-- <li>
                 <a href="{{ route('admin.akses.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.akses.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-key-line text-[20px] {{ request()->routeIs('admin.akses.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
                     <span class="ms-3">{{ __('Akses User') }}</span>
                 </a>
-            </li>
+            </li> --}}
             <li>
                 <a href="{{ route('admin.leaderboard.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.leaderboard.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
