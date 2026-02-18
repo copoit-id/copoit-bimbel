@@ -26,6 +26,7 @@ class Tryout extends Model
         'results_reset_at' => 'datetime',
         'assessment_type' => 'string',
         'answer_persistence_mode' => 'string',
+        'subtest_display_mode' => 'string',
     ];
 
     public function requiresIrtScoring(): bool

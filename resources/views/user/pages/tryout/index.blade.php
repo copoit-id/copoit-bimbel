@@ -191,7 +191,7 @@
                     <!-- Navigation -->
                     @php
                         $isFirstQuestionOfSubtest = $number === ($currentSubtest['start_number'] ?? $number);
-                        $canGoPrev = $number > 1 && !($isFirstQuestionOfSubtest && ($currentSubtestIndex ?? 0) > 0);
+                        $canGoPrev = $number > 1 && (($isCombinedSubtestView ?? false) || !($isFirstQuestionOfSubtest && ($currentSubtestIndex ?? 0) > 0));
                     @endphp
                     <div class="mt-8 flex justify-between items-center pt-6 border-t border-border">
                         @if($number > 1)
@@ -255,7 +255,11 @@
                     <p class="text-sm text-gray-600 mb-2">Sisa Waktu</p>
                     <div id="timer-display" class="text-3xl font-bold text-primary">00:00:00</div>
                     <p class="text-xs text-gray-500 mt-3 uppercase tracking-wide">
-                        Subtest {{ ($currentSubtestIndex ?? 0) + 1 }} / {{ $totalSubtests ?? 1 }} · {{ $currentSubtest['name'] ?? 'Subtest' }}
+                        @if($isCombinedSubtestView ?? false)
+                            Mode Gabungan Subtest
+                        @else
+                            Subtest {{ ($currentSubtestIndex ?? 0) + 1 }} / {{ $totalSubtests ?? 1 }} · {{ $currentSubtest['name'] ?? 'Subtest' }}
+                        @endif
                     </p>
                 </div>
                 <div class="bg-white rounded-lg border border-border p-6 sticky mt-4">
@@ -309,7 +313,7 @@
                     </div>
                 </div>
                 <!-- SKD Progress (if multiple subtests) -->
-                @if(isset($subtestInfo) && count($subtestInfo) > 1)
+                @if(isset($subtestInfo) && count($subtestInfo) > 1 && !($isCombinedSubtestView ?? false))
                 @php
                     $isUtbkTryout = isset($tryout) && method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
                     $subtestProgressTitle = $isUtbkTryout ? 'Progress UTBK' : 'Progress SKD Full';
@@ -869,7 +873,7 @@
                 }
                 $endTime = $startTime->copy()->addMinutes($totalDuration);
                 $remainingSecondsCalc = $now->lt($endTime) ? (int) $now->diffInSeconds($endTime) : 0;
-                if ($extraMinutes > 0) {
+                if (($isCombinedSubtestView ?? false) || $extraMinutes > 0) {
                     $subtestSecondsCalc = $remainingSecondsCalc;
                 } else {
                     $subtestSecondsCalc = isset($subtestRemainingSeconds) ? (int) $subtestRemainingSeconds : $remainingSecondsCalc;
