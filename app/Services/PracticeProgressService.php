@@ -114,6 +114,18 @@ class PracticeProgressService
 
     public function tryoutIsUnlocked(int $userId, int $tryoutId): bool
     {
+        $tryout = Tryout::query()
+            ->select(['tryout_id', 'is_premium'])
+            ->find($tryoutId);
+
+        if (! $tryout) {
+            return false;
+        }
+
+        if (! $tryout->is_premium) {
+            return true;
+        }
+
         $stats = $this->getStatsForUser($userId);
 
         return in_array($tryoutId, $stats['unlocked_tryout_ids'] ?? [], true);
@@ -193,6 +205,7 @@ class PracticeProgressService
     private function getLockableTryouts(): Collection
     {
         return Tryout::where('is_active', true)
+            ->where('is_premium', true)
             ->orderBy('ordering')
             ->orderBy('tryout_id')
             ->get();

@@ -80,7 +80,7 @@
                         <i class="ri-checkbox-circle-line text-primary"></i> {{ __('History pengerjaan disimpan') }}
                     </li>
                     <li class="flex items-center gap-2">
-                        <i class="ri-checkbox-circle-line text-primary"></i> {{ __('Buka tryout secara berurutan') }}
+                        <i class="ri-checkbox-circle-line text-primary"></i> {{ __('Buka tryout premium secara berurutan') }}
                     </li>
                 </ul>
             </div>
@@ -89,7 +89,7 @@
 
     <div class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <h3 class="text-lg font-semibold text-gray-900">{{ __('Status Tryout') }}</h3>
-        <p class="text-sm text-gray-500 mt-1">{{ __('Latihan membuka tryout dari kiri ke kanan.') }}</p>
+        <p class="text-sm text-gray-500 mt-1">{{ __('Latihan membuka tryout premium dari kiri ke kanan.') }}</p>
         <div class="mt-4 space-y-3">
             @forelse($tryouts as $tryout)
                 @php

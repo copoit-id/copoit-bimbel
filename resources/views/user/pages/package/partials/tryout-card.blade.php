@@ -9,7 +9,7 @@
     $packageName = $primaryPackage?->name;
     $userAttempts = $tryout->userAnswers->count();
     $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
-    $isUnlocked = in_array($tryout->tryout_id, $unlockedTryoutIds, true);
+    $isUnlocked = !$tryout->is_premium || in_array($tryout->tryout_id, $unlockedTryoutIds, true);
     $hasPremiumAccess = in_array($tryout->tryout_id, $premiumAccessIds, true);
 @endphp
 
