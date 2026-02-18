@@ -42,6 +42,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_devisadia_student' => 'boolean',
+            'is_premium_member' => 'boolean',
         ];
     }
 
@@ -100,6 +101,11 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function hasGlobalPremiumAccess(): bool
+    {
+        return (bool) ($this->is_devisadia_student || $this->is_premium_member);
+    }
+
     /**
      * Check if user can access premium content
      * Devisadia students can access all premium content automatically
@@ -107,8 +113,8 @@ class User extends Authenticatable
      */
     public function canAccessPremiumContent(?int $packageId = null): bool
     {
-        // Devisadia students have automatic access to all premium packages
-        if ($this->is_devisadia_student) {
+        // Global premium access (Devisadia student or premium member)
+        if ($this->hasGlobalPremiumAccess()) {
             return true;
         }
 

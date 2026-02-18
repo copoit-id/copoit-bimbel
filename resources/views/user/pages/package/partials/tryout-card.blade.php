@@ -10,7 +10,7 @@
     $userAttempts = $tryout->userAnswers->count();
     $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
     $isUnlocked = !$tryout->is_premium || in_array($tryout->tryout_id, $unlockedTryoutIds, true);
-    $hasPremiumAccess = in_array($tryout->tryout_id, $premiumAccessIds, true);
+    $hasPremiumAccess = Auth::user()?->hasGlobalPremiumAccess() ?? false;
 @endphp
 
 <div class="flex h-full flex-col bg-white px-5 py-5 shadow rounded-lg">

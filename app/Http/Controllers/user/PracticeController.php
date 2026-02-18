@@ -22,6 +22,10 @@ class PracticeController extends Controller
 
     public function index()
     {
+        if ($response = $this->ensurePracticeAccess()) {
+            return $response;
+        }
+
         $userId = Auth::id();
         $session = $this->practiceProgress->getOrCreateSession($userId);
         $stats = $this->practiceProgress->getStatsForUser($userId);
@@ -40,6 +44,10 @@ class PracticeController extends Controller
 
     public function play(Request $request, int $number = 1)
     {
+        if ($response = $this->ensurePracticeAccess()) {
+            return $response;
+        }
+
         $userId = Auth::id();
         $session = $this->practiceProgress->getOrCreateSession($userId);
         $stats = $this->practiceProgress->getStatsForUser($userId);
@@ -102,6 +110,13 @@ class PracticeController extends Controller
 
     public function saveAnswer(Request $request, QuestionBankQuestion $question): JsonResponse
     {
+        if (!$this->hasPracticeAccess()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses QB hanya untuk member premium.',
+            ], 403);
+        }
+
         $userId = Auth::id();
         $session = $this->practiceProgress->getOrCreateSession($userId);
 
@@ -148,6 +163,13 @@ class PracticeController extends Controller
 
     public function toggleFlag(Request $request): JsonResponse
     {
+        if (!$this->hasPracticeAccess()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses QB hanya untuk member premium.',
+            ], 403);
+        }
+
         $request->validate([
             'question_id' => 'required|integer|exists:question_bank_questions,id',
         ]);
@@ -188,6 +210,21 @@ class PracticeController extends Controller
             'audio' => $this->handleAudioAnswer($request, $question, $existing),
             default => $this->handleMultipleChoiceAnswer($request, $question),
         };
+    }
+
+    private function hasPracticeAccess(): bool
+    {
+        return Auth::user()?->hasGlobalPremiumAccess() ?? false;
+    }
+
+    private function ensurePracticeAccess()
+    {
+        if ($this->hasPracticeAccess()) {
+            return null;
+        }
+
+        return redirect()->route('user.dashboard.index')
+            ->with('error', 'Akses QB hanya untuk member premium.');
     }
 
     private function handleMultipleChoiceAnswer(Request $request, QuestionBankQuestion $question): array

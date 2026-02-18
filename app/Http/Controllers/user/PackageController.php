@@ -1653,21 +1653,15 @@ class PackageController extends Controller
 
     private function hasPremiumTryoutAccess(Tryout $tryout): bool
     {
-        if (Auth::user()?->is_devisadia_student) {
+        $user = Auth::user();
+        if ($user?->hasGlobalPremiumAccess()) {
             return true;
         }
 
         if (! $tryout->is_premium) {
             return true;
         }
-
-        return UserTryoutAccess::where('user_id', Auth::id())
-            ->where('tryout_id', $tryout->tryout_id)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        
+        return false;
     }
 }

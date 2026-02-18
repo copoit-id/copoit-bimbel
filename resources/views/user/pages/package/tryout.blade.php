@@ -5,6 +5,7 @@
     $premiumAccessIds = $premiumAccessIds ?? [];
     $practiceStats = $practiceStats ?? [];
     $unlockedTryoutIds = $practiceStats['unlocked_tryout_ids'] ?? [];
+    $hasGlobalPremiumAccess = Auth::user()?->hasGlobalPremiumAccess() ?? false;
 @endphp
 <div class="dashboard">
     <x-page-desc title="{{ __('Tryout') }} - {{ $package->name }}" description="{{ __('Daftar tryout yang tersedia dalam paket ini') }}">
@@ -21,7 +22,7 @@
         $userAttempts = $tryout->userAnswers->count();
         $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
         $isUnlocked = !$tryout->is_premium || in_array($tryout->tryout_id, $unlockedTryoutIds, true);
-        $hasPremiumAccess = in_array($tryout->tryout_id, $premiumAccessIds, true);
+        $hasPremiumAccess = $hasGlobalPremiumAccess;
         $canAccess = $isUnlocked && (!$tryout->is_premium || $hasPremiumAccess);
         @endphp
 

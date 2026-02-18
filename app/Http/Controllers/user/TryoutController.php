@@ -11,7 +11,6 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
 use App\Models\QuestionOption;
-use App\Models\UserTryoutAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -1984,7 +1983,8 @@ class TryoutController extends Controller
 
     private function hasPremiumTryoutAccess(Tryout $tryout): bool
     {
-        if (Auth::user()?->is_devisadia_student) {
+        $user = Auth::user();
+        if ($user?->hasGlobalPremiumAccess()) {
             return true;
         }
 
@@ -1992,13 +1992,6 @@ class TryoutController extends Controller
             return true;
         }
 
-        return UserTryoutAccess::where('user_id', Auth::id())
-            ->where('tryout_id', $tryout->tryout_id)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        return false;
     }
 }

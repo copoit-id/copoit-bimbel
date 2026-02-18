@@ -95,6 +95,19 @@
                                 </span>
                             </label>
                         </div>
+                        <div class="flex items-center">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" name="is_premium_member" value="1"
+                                    {{ old('is_premium_member', $user->is_premium_member ?? false) ? 'checked' : '' }}
+                                    class="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                                <span class="ml-3 text-sm font-medium text-gray-700">
+                                    Member Premium
+                                    <span class="block text-xs text-gray-500 font-normal">
+                                        Akses global ke semua tryout premium dan QB
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>

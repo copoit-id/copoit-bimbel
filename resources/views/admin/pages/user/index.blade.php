@@ -119,7 +119,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&background={{ $user->is_devisadia_student ? '7c3aed' : '444444' }}&color=fff"
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&background={{ $user->is_devisadia_student ? '7c3aed' : ($user->is_premium_member ? 'd97706' : '444444') }}&color=fff"
                                         class="w-10 h-10 rounded-full" alt="{{ $user->name }}">
                                     <div>
                                         <p class="font-medium">{{ $user->name }}</p>
@@ -127,6 +127,11 @@
                                         @if($user->is_devisadia_student)
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 mt-1">
                                                 <i class="ri-vip-crown-line mr-1"></i> Devisadia
+                                            </span>
+                                        @endif
+                                        @if($user->is_premium_member)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 mt-1">
+                                                <i class="ri-vip-diamond-line mr-1"></i> Premium
                                             </span>
                                         @endif
                                     </div>
