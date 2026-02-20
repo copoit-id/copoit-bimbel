@@ -126,6 +126,12 @@
     </div>
 
     @if(!empty($clientBranding['dashboard_announcement_message'] ?? null))
+    @php
+        $rawBroadcastTitle = trim((string) ($clientBranding['dashboard_announcement_title'] ?? ''));
+        $broadcastTitle = in_array(mb_strtolower($rawBroadcastTitle), ['pengumuman', 'announcement', 'broadcast'], true)
+            ? __('Broadcast')
+            : ($rawBroadcastTitle !== '' ? $rawBroadcastTitle : __('Broadcast'));
+    @endphp
     <div class="bg-white p-6 rounded-lg border border-gray-200">
         <div class="flex items-start gap-3">
             <div class="bg-amber-100 text-amber-700 p-2 rounded-lg">
@@ -133,7 +139,7 @@
             </div>
             <div>
                 <h3 class="text-lg font-semibold text-gray-900">
-                    {{ $clientBranding['dashboard_announcement_title'] ?? __('Broadcast') }}
+                    {{ $broadcastTitle }}
                 </h3>
                 <p class="text-sm text-gray-600 mt-1">
                     {{ $clientBranding['dashboard_announcement_message'] }}

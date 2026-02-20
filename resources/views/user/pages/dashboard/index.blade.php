@@ -129,6 +129,12 @@
 
     <!-- Announcement -->
     @if(!empty($clientBranding['dashboard_announcement_message'] ?? null))
+    @php
+        $rawBroadcastTitle = trim((string) ($clientBranding['dashboard_announcement_title'] ?? ''));
+        $broadcastTitle = in_array(mb_strtolower($rawBroadcastTitle), ['pengumuman', 'announcement', 'broadcast'], true)
+            ? __('Broadcast')
+            : ($rawBroadcastTitle !== '' ? $rawBroadcastTitle : __('Broadcast'));
+    @endphp
     <div class="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-5">
         <div class="flex items-start gap-4">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
@@ -136,11 +142,11 @@
             </div>
             <div class="min-w-0">
                 <h4 class="font-semibold text-gray-900">
-                    {{ $clientBranding['dashboard_announcement_title'] ?? __('Broadcast') }}
+                    {{ $broadcastTitle }}
                 </h4>
-                <p class="mt-2 text-sm leading-relaxed text-gray-700">
-                    {{ $clientBranding['dashboard_announcement_message'] }}
-                </p>
+                <div class="mt-2 text-sm leading-relaxed text-gray-700">
+                    {!! $clientBranding['dashboard_announcement_message'] !!}
+                </div>
             </div>
         </div>
     </div>

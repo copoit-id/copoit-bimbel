@@ -269,8 +269,8 @@
                 </div>
                 <div>
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">{{ __('Broadcast Message') }}</label>
-                    <textarea name="dashboard_announcement_message" rows="3"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                    <textarea name="dashboard_announcement_message" rows="3" data-summernote data-height="220"
+                        class="summernote-field w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
                         placeholder="{{ __('Broadcast message for dashboard...') }}">{{ old('dashboard_announcement_message', $profile->dashboard_announcement_message ?? ($branding['dashboard_announcement_message'] ?? '')) }}</textarea>
                     @error('dashboard_announcement_message')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
