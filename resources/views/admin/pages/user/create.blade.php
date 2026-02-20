@@ -88,7 +88,7 @@
                                     {{ old('is_devisadia_student', $user->is_devisadia_student ?? false) ? 'checked' : '' }}
                                     class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                                 <span class="ml-3 text-sm font-medium text-gray-700">
-                                    Siswa Devisadia
+                                    Siswa Devisaudia
                                     <span class="block text-xs text-gray-500 font-normal">
                                         Akses otomatis ke semua paket premium tanpa pembelian
                                     </span>

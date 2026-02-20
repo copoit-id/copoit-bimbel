@@ -12,8 +12,18 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::where('role', 'user')->paginate(10);
-        return view('admin.pages.user.index', compact('users'));
+        $users = User::query()
+            ->latest()
+            ->paginate(10);
+
+        $roles = User::query()
+            ->select('role')
+            ->whereNotNull('role')
+            ->distinct()
+            ->orderBy('role')
+            ->pluck('role');
+
+        return view('admin.pages.user.index', compact('users', 'roles'));
     }
 
     public function create()

@@ -50,14 +50,12 @@
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
 
-                {{-- Karena controller index saat ini hanya menampilkan role=user,
-                filter role tetap disediakan (untuk konsistensi UI),
-                tetapi nilainya mengikuti enum di migration. --}}
                 <select id="role-filter"
                     class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">{{ __('Semua Role') }}</option>
-                    <option value="admin">Admin</option>
-                    <option value="user">User</option>
+                    @foreach(($roles ?? collect()) as $role)
+                    <option value="{{ $role }}">{{ ucfirst($role) }}</option>
+                    @endforeach
                 </select>
 
                 <select id="status-filter"
