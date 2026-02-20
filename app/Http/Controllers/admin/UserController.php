@@ -10,6 +10,27 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    private function roleOptions(): array
+    {
+        $roles = User::query()
+            ->select('role')
+            ->whereNotNull('role')
+            ->distinct()
+            ->orderBy('role')
+            ->pluck('role')
+            ->filter()
+            ->values();
+
+        return $roles
+            ->prepend('admin')
+            ->prepend('user')
+            ->unique()
+            ->mapWithKeys(function ($role) {
+                return [$role => ucfirst(str_replace('_', ' ', $role))];
+            })
+            ->toArray();
+    }
+
     public function index()
     {
         $users = User::query()
@@ -29,7 +50,8 @@ class UserController extends Controller
     public function create()
     {
         return view('admin.pages.user.create', [
-            'user' => null
+            'user' => null,
+            'roleOptions' => $this->roleOptions(),
         ]);
     }
 
@@ -41,7 +63,7 @@ class UserController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
-            'role' => 'required|in:admin,user',
+            'role' => 'required|string|max:100',
             'is_devisadia_student' => 'boolean',
             'is_premium_member' => 'boolean',
         ]);
@@ -71,6 +93,7 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         return view('admin.pages.user.create', [
             'user' => $user,
+            'roleOptions' => $this->roleOptions(),
         ]);
     }
 
@@ -82,7 +105,7 @@ class UserController extends Controller
             'username' => 'required|string|max:255|unique:users,username,' . $id,
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
-            'role' => 'required|in:admin,user',
+            'role' => 'required|string|max:100',
             'is_devisadia_student' => 'boolean',
             'is_premium_member' => 'boolean',
         ]);
