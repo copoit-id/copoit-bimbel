@@ -32,6 +32,10 @@
                             <h2 class="text-2xl font-semibold text-gray-900">{{ __('Soal :number dari :total', ['number' => $number, 'total' => $totalQuestions]) }}</h2>
                         </div>
                         <div class="flex flex-wrap items-center gap-3">
+                            <div class="lg:hidden text-right">
+                                <p class="text-[11px] uppercase tracking-wide text-gray-500">{{ __('Waktu Latihan') }}</p>
+                                <div data-practice-timer class="text-lg font-bold text-primary leading-none">00:00:00</div>
+                            </div>
                             <button type="button" id="practiceFlagButton"
                                 data-flagged="{{ $isCurrentFlagged ? 'true' : 'false' }}"
                                 class="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-colors {{ $isCurrentFlagged ? 'border-primary text-primary bg-primary/5' : 'border-gray-300 text-gray-600 hover:bg-gray-50' }}">
@@ -172,27 +176,38 @@
                 </div>
             </div>
             <div class="lg:w-80">
-                <div class="bg-white border border-border rounded-2xl p-4">
-                    <p class="text-sm font-semibold text-gray-700 mb-3">{{ __('Navigasi Soal') }}</p>
-                    <div class="grid grid-cols-5 gap-2 practice-nav-grid">
-                        @foreach($navigation as $item)
-                            <a href="{{ route('user.practice.play', ['number' => $item['number']]) }}"
-                                data-question-id="{{ $item['question_id'] }}"
-                                class="relative w-full h-10 flex items-center justify-center rounded-lg text-sm font-semibold
-                                {{ $item['number'] === $number ? 'bg-primary text-white' : ($item['answered'] ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-600') }}">
-                                {{ $item['number'] }}
-                                @if($item['flagged'] ?? false)
-                                    <i class="flag-badge ri-flag-fill absolute -top-1 -right-1 text-xs text-red-500"></i>
-                                @endif
-                            </a>
-                        @endforeach
+                <div class="bg-white border border-border rounded-2xl p-4 space-y-4">
+                    <div class="text-center rounded-xl border border-gray-100 bg-gray-50 p-3 hidden lg:block">
+                        <p class="text-xs uppercase tracking-wide text-gray-500">{{ __('Waktu Latihan') }}</p>
+                        <div data-practice-timer class="text-2xl font-bold text-primary mt-1">00:00:00</div>
                     </div>
-                </div>
-                <div class="mt-4 text-sm text-gray-500">
-                    <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-primary text-white mr-2 text-xs"> &nbsp;</span> {{ __('Soal aktif') }}</p>
-                    <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-emerald-100 text-emerald-700 mr-2 text-xs"> &nbsp;</span> {{ __('Sudah terjawab') }}</p>
-                    <p class="mt-2"><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-gray-200 mr-2 text-xs"> &nbsp;</span> {{ __('Belum dijawab') }}</p>
-                    <p class="mt-2 flex items-center"><i class="ri-flag-fill text-red-500 mr-2 text-base"></i> {{ __('Soal ditandai') }}</p>
+
+                    <div class="text-sm">
+                        <h4 class="font-semibold text-gray-800 mb-3">{{ __('Question Status') }}</h4>
+                        <div class="space-y-2 text-gray-500">
+                            <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-primary text-white mr-2 text-xs"> &nbsp;</span> {{ __('Soal aktif') }}</p>
+                            <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-emerald-100 text-emerald-700 mr-2 text-xs"> &nbsp;</span> {{ __('Sudah terjawab') }}</p>
+                            <p><span class="inline-flex items-center justify-center w-4 h-4 rounded bg-gray-200 mr-2 text-xs"> &nbsp;</span> {{ __('Belum dijawab') }}</p>
+                            <p class="flex items-center"><i class="ri-flag-fill text-red-500 mr-2 text-base"></i> {{ __('Soal ditandai') }}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-semibold text-gray-700 mb-3">{{ __('Navigasi Soal') }}</p>
+                        <div class="grid grid-cols-5 gap-2 practice-nav-grid">
+                            @foreach($navigation as $item)
+                                <a href="{{ route('user.practice.play', ['number' => $item['number']]) }}"
+                                    data-question-id="{{ $item['question_id'] }}"
+                                    class="relative w-full h-10 flex items-center justify-center rounded-lg text-sm font-semibold
+                                    {{ $item['number'] === $number ? 'bg-primary text-white' : ($item['answered'] ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-600') }}">
+                                    {{ $item['number'] }}
+                                    @if($item['flagged'] ?? false)
+                                        <i class="flag-badge ri-flag-fill absolute -top-1 -right-1 text-xs text-red-500"></i>
+                                    @endif
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -243,6 +258,32 @@ const PRACTICE_FLAG_TOKEN = '{{ csrf_token() }}';
 const PRACTICE_CURRENT_QUESTION_ID = {{ $question->id }};
 
 document.addEventListener('DOMContentLoaded', () => {
+    const practiceTimerEls = document.querySelectorAll('[data-practice-timer]');
+    if (practiceTimerEls.length > 0) {
+        const timerStorageKey = 'practice_timer_started_at';
+        const now = Date.now();
+        let startedAt = Number(sessionStorage.getItem(timerStorageKey) || 0);
+        if (!startedAt || Number.isNaN(startedAt) || startedAt > now) {
+            startedAt = now;
+            sessionStorage.setItem(timerStorageKey, String(startedAt));
+        }
+
+        const renderPracticeTimer = () => {
+            const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            const hours = Math.floor(elapsedSeconds / 3600);
+            const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+            const seconds = elapsedSeconds % 60;
+            const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            practiceTimerEls.forEach((el) => {
+                el.textContent = display;
+            });
+        };
+
+        renderPracticeTimer();
+        setInterval(renderPracticeTimer, 1000);
+    }
+
     const antiCopyRoot = document.querySelector('[data-anticopy="practice"]') || document.body;
     const protectedBlocks = antiCopyRoot.querySelectorAll('.practice-protected');
     const antiCopyHandler = (event) => {
