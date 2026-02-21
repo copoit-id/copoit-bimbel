@@ -2,10 +2,15 @@
 @section('title', 'Pembahasan Tryout')
 @section('content')
 <div class="package-bimbel flex flex-col gap-4">
+    @php
+        $formatScore = function ($value) {
+            return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+        };
+    @endphp
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col md:flex-row gap-4 text-dark">
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
-            <p class="text-5xl font-medium">{{ number_format($overallStats['total_score'], 0) }}</p>
+            <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
             <span
                 class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
                 <i class="ri-checkbox-circle-fill text-lg"></i>
@@ -81,7 +86,7 @@
                 </div>
                 <div class="text-center">
                     <div class="text-2xl font-bold {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($summary['score'], 0) }}/{{ number_format($summary['max_score'], 0) }}
+                        {{ $formatScore($summary['score']) }}/{{ $formatScore($summary['max_score']) }}
                     </div>
                     <div class="text-sm {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
                         {{ number_format($summary['percentage'], 1) }}% - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
@@ -161,10 +166,37 @@
                 @php
                 // Calculate score earned for this question
                 $scoreEarned = 0;
-                $storedScore = $answerMeta['score_obtained'] ?? null;
-                if(is_numeric($storedScore)) {
-                    $scoreEarned = (float) $storedScore;
-                } elseif($selectedOption) {
+                if (($question->question_type ?? '') === 'multiple_answer') {
+                    $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+                    $correctOptionIds = $question->questionOptions
+                        ->where('is_correct', true)
+                        ->pluck('question_option_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->values()
+                        ->all();
+                    $normalizedSelected = collect($selectedOptionIds)->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+                    sort($correctOptionIds);
+                    sort($normalizedSelected);
+
+                    $matchedCorrect = count(array_intersect($normalizedSelected, $correctOptionIds));
+                    $totalCorrect = max(1, count($correctOptionIds));
+                    $isExactCorrect = ($normalizedSelected === $correctOptionIds);
+
+                    if ($multipleAnswerScoringMode === 'partial') {
+                        $scoreEarned = $matchedCorrect > 0
+                            ? ($matchedCorrect / $totalCorrect) * $multipleAnswerTotalScore
+                            : $scoreWrong;
+                    } else {
+                        $scoreEarned = $isExactCorrect ? $multipleAnswerTotalScore : $scoreWrong;
+                    }
+
+                    $scoreEarned = max(0, $scoreEarned);
+                } else {
+                    $storedScore = $answerMeta['score_obtained'] ?? null;
+                    if(is_numeric($storedScore)) {
+                        $scoreEarned = (float) $storedScore;
+                    } elseif($selectedOption) {
                     switch($detail->subtest_type) {
                         case 'twk':
                         case 'tiu':
@@ -177,6 +209,7 @@
                             $scoreEarned = $selectedOption->weight ?? ($isCorrect ? 1 : 0);
                             break;
                     }
+                }
                 }
                 @endphp
                 @if($scoreEarned > 0)

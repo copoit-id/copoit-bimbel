@@ -212,15 +212,16 @@ class DashboardController extends Controller
             $totalCorrectCount = max(1, count($correctIds));
             $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
             $wrongCount = $missedCorrect + $wrongSelected;
-            $fullScore = $totalCorrectCount * $scoreCorrect;
+            $isExactCorrect = ($selectedIds === $correctIds);
+            $fullScore = $scoreCorrect;
             $score = 0.0;
 
             if ($scoringMode === 'partial') {
                 $score = $matchedCorrect > 0
                     ? ($matchedCorrect / $totalCorrectCount) * $fullScore
-                    : ($wrongCount * $scoreWrong);
+                    : $scoreWrong;
             } else {
-                $score = ($matchedCorrect * $scoreCorrect) + ($wrongCount * $scoreWrong);
+                $score = $isExactCorrect ? $scoreCorrect : $scoreWrong;
             }
 
             return max(0, $score);
