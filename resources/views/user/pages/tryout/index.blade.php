@@ -5,7 +5,7 @@
 @endphp
 @section('content')
 <div class="min-h-screen bg-gray-50 pt-16" data-anticopy="tryout">
-    <div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="max-w-7xl mx-auto md:px-4 py-6">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <!-- Question Section -->
             <div class="lg:col-span-3">
@@ -27,7 +27,10 @@
                                 {{ __('Kalkulator') }}
                             </button>
                             @endif
-                            <div id="timer" hidden class="text-2xl font-bold text-primary">00:00:00</div>
+                            <div class="lg:hidden text-right">
+                                <p class="text-[11px] uppercase tracking-wide text-gray-500">{{ __('Sisa Waktu') }}</p>
+                                <div id="timer" class="text-lg font-bold text-primary leading-none">00:00:00</div>
+                            </div>
                         </div>
                     </div>
 
@@ -204,26 +207,31 @@
                         $isFirstQuestionOfSubtest = $number === ($currentSubtest['start_number'] ?? $number);
                         $canGoPrev = $number > 1 && !($isFirstQuestionOfSubtest && ($currentSubtestIndex ?? 0) > 0);
                     @endphp
-                    <div class="mt-8 flex justify-between items-center pt-6 border-t border-border">
+                    <div class="mt-8 flex justify-between items-center pt-6 border-t border-border gap-2">
                         @if($number > 1)
                         <div class="flex gap-3">
                             @if($canGoPrev)
                                 <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number - 1]) }}"
-                                    class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <i class="ri-arrow-left-line mr-2"></i>{{ __('Sebelumnya') }}
+                                    class="inline-flex items-center justify-center px-3 md:px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                                    aria-label="{{ __('Sebelumnya') }}">
+                                    <i class="ri-arrow-left-line text-lg md:text-base md:mr-2"></i>
+                                    <span class="hidden md:inline">{{ __('Sebelumnya') }}</span>
                                 </a>
                             @else
-                                <span class="px-4 py-2 border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed">
-                                    <i class="ri-arrow-left-line mr-2"></i>{{ __('Sebelumnya') }}
+                                <span class="inline-flex items-center justify-center px-3 md:px-4 py-2 border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed"
+                                    aria-label="{{ __('Sebelumnya') }}">
+                                    <i class="ri-arrow-left-line text-lg md:text-base md:mr-2"></i>
+                                    <span class="hidden md:inline">{{ __('Sebelumnya') }}</span>
                                 </span>
                             @endif
                         </div>
                         @endif
                         <div>
                             <button onclick="flagQuestion()"
-                                class="px-4 py-2 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors flag-btn">
-                                <i class="ri-flag-line mr-2"></i>
-                                <span class="flag-text">{{ in_array($currentQuestion->question_id, $flaggedQuestions) ?
+                                class="inline-flex items-center justify-center px-3 md:px-4 py-2 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors flag-btn"
+                                aria-label="{{ __('Tandai') }}">
+                                <i class="ri-flag-line text-lg md:text-base md:mr-2"></i>
+                                <span class="flag-text hidden md:inline">{{ in_array($currentQuestion->question_id, $flaggedQuestions) ?
                                     __('Batal Tandai') : __('Tandai') }}</span>
                             </button>
                         </div>
@@ -234,8 +242,10 @@
                                     $nextLabel = $isLastQuestionOfSubtest && $hasNextSubtest ? __('Mulai Subtest Berikutnya') : __('Selanjutnya');
                                 @endphp
                                 <a href="{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, $number + 1]) }}"
-                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                                    {{ $nextLabel }}<i class="ri-arrow-right-line ml-2"></i>
+                                    class="inline-flex items-center justify-center px-3 md:px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                    aria-label="{{ $nextLabel }}">
+                                    <span class="hidden md:inline">{{ $nextLabel }}</span>
+                                    <i class="ri-arrow-right-line text-lg md:text-base md:ml-2"></i>
                                 </a>
                             @else
                                 <form
@@ -246,8 +256,10 @@
                                     <input type="hidden" name="attempt_token" value="{{ $attemptToken }}">
                                     <button type="submit"
                                         onclick="return confirm(@json(__('Apakah Anda yakin ingin menyelesaikan tryout ini?')))"
-                                        class="px-6 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors">
-                                        <i class="ri-check-line mr-2"></i>{{ __('Selesai') }}
+                                        class="inline-flex items-center justify-center px-3 md:px-6 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors"
+                                        aria-label="{{ __('Selesai') }}">
+                                        <i class="ri-check-line text-lg md:text-base md:mr-2"></i>
+                                        <span class="hidden md:inline">{{ __('Selesai') }}</span>
                                     </button>
                                 </form>
                             @endif
@@ -266,8 +278,31 @@
                     </p>
                 </div>
                 <div class="bg-white rounded-lg border border-border p-6 sticky mt-4">
+                    <!-- Question Status -->
+                    <div class="text-sm mb-6">
+                        <h4 class="font-semibold text-gray-800 mb-3">{{ __('Question Status') }}</h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 bg-primary rounded"></div>
+                                <span class="text-gray-600">{{ __('Soal saat ini') }}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 bg-green rounded"></div>
+                                <span class="text-gray-600">{{ __('Sudah dijawab') }}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                                <span class="text-gray-600">{{ __('Belum dijawab') }}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="ri-flag-fill text-red"></i>
+                                <span class="text-gray-600">{{ __('Ditandai') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Question Navigation -->
-                    <div class="mb-6">
+                    <div>
                         <h3 class="font-semibold text-gray-800 mb-4">{{ __('Navigasi Soal') }}</h3>
                         <div class="grid grid-cols-5 gap-2">
                         @for($questionNumber = $currentSubtestRange[0]; $questionNumber <= $currentSubtestRange[1]; $questionNumber++)
@@ -288,29 +323,6 @@
                                 @endif
                             </a>
                         @endfor
-                        </div>
-                    </div>
-
-                    <!-- Legend -->
-                    <div class="text-sm">
-                        <h4 class="font-semibold text-gray-800 mb-3">{{ __('Keterangan') }}</h4>
-                        <div class="space-y-2">
-                            <div class="flex items-center gap-2">
-                                <div class="w-4 h-4 bg-primary rounded"></div>
-                                <span class="text-gray-600">{{ __('Soal saat ini') }}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <div class="w-4 h-4 bg-green rounded"></div>
-                                <span class="text-gray-600">{{ __('Sudah dijawab') }}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <div class="w-4 h-4 bg-gray-100 rounded"></div>
-                                <span class="text-gray-600">{{ __('Belum dijawab') }}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="ri-flag-fill text-red"></i>
-                                <span class="text-gray-600">{{ __('Ditandai') }}</span>
-                            </div>
                         </div>
                     </div>
                 </div>

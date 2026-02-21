@@ -15,7 +15,7 @@
 <body>
     @include('user.components.navbar')
 
-    <div class="px-[30px] md:px-[150px] pt-24 pb-12">
+    <div class="px-[30px] md:px-[150px] md:pt-24 pb-12">
         @yield('content')
     </div>
     @include('components.flash-alert')
