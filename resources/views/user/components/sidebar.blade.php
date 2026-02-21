@@ -123,6 +123,15 @@
                         </a>
                     </li>
                     @endif
+                    @if(!empty($access->package->telegram_group_url))
+                    <li>
+                        <a href="{{ $access->package->telegram_group_url }}" target="_blank" rel="noopener noreferrer"
+                            class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ $dropdownLinkInactive }}">
+                            <i class="ri-telegram-line text-[16px] mr-2"></i>
+                            Grub
+                        </a>
+                    </li>
+                    @endif
                 </ul>
             </li>
             @endforeach

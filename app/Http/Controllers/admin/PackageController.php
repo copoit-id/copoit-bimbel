@@ -41,6 +41,7 @@ class PackageController extends Controller
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
+                'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
                 'conditional_requirement' => 'nullable|string',
             ];
@@ -113,6 +114,7 @@ class PackageController extends Controller
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
+                'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
                 'conditional_requirement' => 'nullable|string',
             ];
