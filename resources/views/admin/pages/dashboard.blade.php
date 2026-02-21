@@ -141,9 +141,9 @@
                 <h3 class="text-lg font-semibold text-gray-900">
                     {{ $broadcastTitle }}
                 </h3>
-                <p class="text-sm text-gray-600 mt-1">
-                    {{ $clientBranding['dashboard_announcement_message'] }}
-                </p>
+                <div class="text-sm text-gray-600 mt-1">
+                    {!! html_entity_decode((string) $clientBranding['dashboard_announcement_message']) !!}
+                </div>
             </div>
         </div>
     </div>

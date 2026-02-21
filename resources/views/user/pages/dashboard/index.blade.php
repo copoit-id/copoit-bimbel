@@ -145,7 +145,7 @@
                     {{ $broadcastTitle }}
                 </h4>
                 <div class="mt-2 text-sm leading-relaxed text-gray-700">
-                    {!! $clientBranding['dashboard_announcement_message'] !!}
+                    {!! html_entity_decode((string) $clientBranding['dashboard_announcement_message']) !!}
                 </div>
             </div>
         </div>
