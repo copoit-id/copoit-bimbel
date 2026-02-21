@@ -117,6 +117,19 @@
         $isCorrect = $detail->is_correct;
         $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $isPendingReview = !empty($answerMeta['pending_review']);
+        $questionMeta = is_array($question->metadata ?? null) ? $question->metadata : [];
+        $multipleAnswerMeta = is_array($questionMeta['multiple_answer'] ?? null) ? $questionMeta['multiple_answer'] : [];
+        $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $multipleAnswerMeta['scoring_mode']
+            : 'fullscore';
+        $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $multipleAnswerCorrectCount = max(1, $question->questionOptions->where('is_correct', true)->count());
+        $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
+            ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
+            : $multipleAnswerTotalScore;
+        $selectedOptionIds = collect($answerMeta['selected_option_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->all();
         @endphp
 
         {{-- Subtest Header --}}
@@ -148,19 +161,22 @@
                 @php
                 // Calculate score earned for this question
                 $scoreEarned = 0;
-                if($selectedOption) {
-                switch($detail->subtest_type) {
-                case 'twk':
-                case 'tiu':
-                $scoreEarned = $isCorrect ? 5 : 0;
-                break;
-                case 'tkp':
-                $scoreEarned = $selectedOption->weight ?? 0;
-                break;
-                default:
-                $scoreEarned = $selectedOption->weight ?? ($isCorrect ? 1 : 0);
-                break;
-                }
+                $storedScore = $answerMeta['score_obtained'] ?? null;
+                if(is_numeric($storedScore)) {
+                    $scoreEarned = (float) $storedScore;
+                } elseif($selectedOption) {
+                    switch($detail->subtest_type) {
+                        case 'twk':
+                        case 'tiu':
+                            $scoreEarned = $isCorrect ? 5 : 0;
+                            break;
+                        case 'tkp':
+                            $scoreEarned = $selectedOption->weight ?? 0;
+                            break;
+                        default:
+                            $scoreEarned = $selectedOption->weight ?? ($isCorrect ? 1 : 0);
+                            break;
+                    }
                 }
                 @endphp
                 @if($scoreEarned > 0)
@@ -197,18 +213,33 @@
             <div class="flex flex-col gap-2 mt-4 w-full">
                 @foreach($question->questionOptions as $option)
                 @php
-                $isSelected = $detail->question_option_id === $option->question_option_id;
+                $isMultipleAnswerQuestion = ($question->question_type ?? '') === 'multiple_answer';
+                $isSelected = $isMultipleAnswerQuestion
+                    ? in_array((int) $option->question_option_id, $selectedOptionIds, true)
+                    : ($detail->question_option_id === $option->question_option_id);
                 $isCorrectOption = $option->is_correct;
                 $optionKey = $option->option_key ?? chr(65 + $loop->index);
+                $choiceInputType = $isMultipleAnswerQuestion ? 'checkbox' : 'radio';
                 @endphp
 
                 @if($isCorrectOption)
                 <!-- Correct answer - always GREEN -->
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-green text-white border-green">
-                    <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
+                    <input type="{{ $choiceInputType }}" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
+                    @if($isMultipleAnswerQuestion)
+                        @if($multipleAnswerScoringMode === 'partial')
+                        <span class="text-xs bg-white/20 px-2 py-1 rounded">
+                            {{ number_format($multipleAnswerPerCorrectScore, 2) }} poin
+                        </span>
+                        @else
+                        <span class="text-xs bg-white/20 px-2 py-1 rounded">
+                            Benar semua : {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }} poin
+                        </span>
+                        @endif
+                    @endif
                     <i class="ri-check-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
                     <span class="text-xs bg-white/20 px-2 py-1 rounded">Bobot: {{ $option->weight }}</span>
@@ -218,9 +249,12 @@
                 <!-- User's wrong answer - RED -->
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
-                    <input type="radio" disabled class="mr-2" checked>
+                    <input type="{{ $choiceInputType }}" disabled class="mr-2" checked>
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
+                    @if($isMultipleAnswerQuestion && $multipleAnswerScoringMode === 'partial')
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded">0.00 poin</span>
+                    @endif
                     <i class="ri-close-line text-lg"></i>
                     @if($detail->subtest_type === 'tkp')
                     <span class="text-xs bg-white/20 px-2 py-1 rounded">Bobot: {{ $option->weight }}</span>
@@ -230,9 +264,14 @@
                 <!-- All other options - NEUTRAL -->
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors border-gray-900/10 hover:bg-gray-50">
-                    <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
+                    <input type="{{ $choiceInputType }}" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
                     <p>{!! $option->option_text !!}</p>
+                    @if($isMultipleAnswerQuestion && $multipleAnswerScoringMode === 'partial')
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                        {{ $isCorrectOption ? number_format($multipleAnswerPerCorrectScore, 2) : '0.00' }} poin
+                    </span>
+                    @endif
                     @if($detail->subtest_type === 'tkp')
                     <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Bobot: {{ $option->weight
                         }}</span>

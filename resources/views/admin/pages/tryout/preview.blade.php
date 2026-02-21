@@ -112,7 +112,28 @@
                             return is_null($opt->weight) ? 0 : (float)$opt->weight;
                         });
                         $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                        $metadata = is_array($question->metadata) ? $question->metadata : [];
+                        $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                        $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                            ? $multipleAnswerMeta['scoring_mode']
+                            : 'fullscore';
+                        $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? $displayWeight);
+                        $multipleAnswerCorrectCount = max(1, $question->questionOptions->where('is_correct', true)->count());
+                        $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
+                            ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
+                            : $multipleAnswerTotalScore;
+                        if (($question->question_type ?? '') === 'multiple_answer') {
+                            $displayWeight = $multipleAnswerTotalScore;
+                        }
+                        $questionTypeLabel = ucwords(str_replace('_', ' ', $question->question_type ?? 'multiple_choice'));
                     @endphp
+                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        @if(($question->question_type ?? '') === 'multiple_answer')
+                            Multiple Answer - [{{ $multipleAnswerScoringMode }}]
+                        @else
+                            {{ $questionTypeLabel }}
+                        @endif
+                    </span>
                     <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
                         {{ (float) $displayWeight }} poin
                     </span>
@@ -162,16 +183,30 @@
                                 @endif
                             </div>
                             <div class="flex-grow">
-                                <span
-                                    class="font-medium flex items-center gap-1 {{ $option->is_correct ? 'text-green-800' : 'text-gray-700' }}">
-                                    {{ $optionLabel }}. {!! $option->option_text !!}
-                                </span>
-                                @if($question->custom_score == 'yes')
-                                <span
-                                    class="ml-2 text-sm {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
-                                    ({{ $option->weight }} poin)
-                                </span>
-                                @endif
+                                <div class="flex items-start justify-between gap-2">
+                                    <div
+                                        class="font-medium {{ $option->is_correct ? 'text-green-800' : 'text-gray-700' }} flex items-start gap-1 min-w-0">
+                                        <span class="shrink-0">{{ $optionLabel }}.</span>
+                                        <div class="option-inline-text">{!! $option->option_text !!}</div>
+                                    </div>
+                                    @if(($question->question_type ?? '') === 'multiple_answer')
+                                        @if($multipleAnswerScoringMode === 'partial')
+                                        <span
+                                            class="text-sm whitespace-nowrap {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
+                                            ({{ number_format($option->is_correct ? $multipleAnswerPerCorrectScore : 0, 2) }} poin)
+                                        </span>
+                                        @elseif($option->is_correct)
+                                        <span class="text-sm text-green-600 whitespace-nowrap">
+                                            (Benar semua : {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }} poin)
+                                        </span>
+                                        @endif
+                                    @elseif($question->custom_score == 'yes')
+                                    <span
+                                        class="text-sm whitespace-nowrap {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
+                                        ({{ $option->weight }} poin)
+                                    </span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         @endforeach
@@ -215,6 +250,15 @@
 </div>
 @endif
 
+@endsection
+
+@section('styles')
+<style>
+    .option-inline-text p {
+        display: inline;
+        margin: 0;
+    }
+</style>
 @endsection
 
 @section('scripts')

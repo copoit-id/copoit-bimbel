@@ -116,10 +116,15 @@
                 $maxWeight = optional($question->questionOptions)->max(function($opt){
                 return is_null($opt->weight) ? 0 : (float)$opt->weight;
                 });
-                $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
                 $metadata = is_array($question->metadata) ? $question->metadata : [];
+                $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                if (($question->question_type ?? '') === 'multiple_answer' && isset($multipleAnswerMeta['score_correct'])) {
+                    $displayWeight = (float) $multipleAnswerMeta['score_correct'];
+                }
                 $typeLabels = [
                 'multiple_choice' => 'Multiple Choice',
+                'multiple_answer' => 'Multiple Answer',
                 'true_false' => 'Benar/Salah',
                 'matching' => 'Pencocokan',
                 'essay' => 'Essay',
@@ -128,8 +133,13 @@
                 @endphp
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type))
-                    }}</span>
+                    @if(($question->question_type ?? '') === 'multiple_answer')
+                        {{ $typeLabels[$question->question_type] ?? 'Multiple Answer' }}
+                        - {{ in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $multipleAnswerMeta['scoring_mode'] : 'fullscore' }}
+                    @else
+                        {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type)) }}
+                    @endif
+                </span>
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
                     {{ (float) $displayWeight }} poin
@@ -248,17 +258,40 @@
                 @break
 
                 @default
+                @php
+                $isMultipleAnswer = ($question->question_type ?? '') === 'multiple_answer';
+                $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                    ? $multipleAnswerMeta['scoring_mode']
+                    : 'fullscore';
+                $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? ($question->default_weight ?? 1));
+                $multipleAnswerCorrectCount = max(1, $question->questionOptions->where('is_correct', true)->count());
+                $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
+                    ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
+                    : $multipleAnswerTotalScore;
+                @endphp
                 <ul class="space-y-2 text-gray-600">
                     @foreach ($question->questionOptions as $optIndex => $option)
                     @php
                     $optionLabel = chr(65 + $optIndex);
+                    $partialOptionScore = $option->is_correct ? $multipleAnswerPerCorrectScore : 0;
                     @endphp
-                    <li class="flex items-center gap-2 {{ $option->is_correct == 1 ? 'text-green font-medium' : '' }}">
+                    <li class="flex items-start gap-2 {{ $option->is_correct == 1 ? 'text-green font-medium' : '' }}">
                         <i
-                            class="{{ $option->is_correct == 1 ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line' }}"></i>
-                        <span class="flex items-center gap-1">{{ $optionLabel }}. {!! $option->option_text !!}</span>
-                        @if($question->custom_score == 'yes')
-                        <span class="text-xs text-gray-500">({{ $option->weight }} poin)</span>
+                            class="mt-0.5 {{ $option->is_correct == 1 ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line' }}"></i>
+                        <div class="flex-1 min-w-0 flex items-start gap-1">
+                            <span class="shrink-0">{{ $optionLabel }}.</span>
+                            <div class="option-inline-text">{!! $option->option_text !!}</div>
+                        </div>
+                        @if($isMultipleAnswer && $multipleAnswerScoringMode === 'partial')
+                        <span class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            ({{ number_format($partialOptionScore, 2) }} poin)
+                        </span>
+                        @elseif($isMultipleAnswer && $multipleAnswerScoringMode === 'fullscore' && $option->is_correct)
+                        <span class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            (Benar semua : {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }} poin)
+                        </span>
+                        @elseif($question->custom_score == 'yes')
+                        <span class="text-xs text-gray-500 whitespace-nowrap ml-2">({{ $option->weight }} poin)</span>
                         @endif
                     </li>
                     @endforeach
@@ -308,6 +341,15 @@
         @endforelse
     </div>
 </div>
+@endsection
+
+@section('styles')
+<style>
+    .option-inline-text p {
+        display: inline;
+        margin: 0;
+    }
+</style>
 @endsection
 
 @section('scripts')
