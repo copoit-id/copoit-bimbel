@@ -57,7 +57,7 @@
     <!-- Tryout Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="tryout-grid">
         @forelse($tryouts as $tryout)
-        <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200"
+        <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200 h-full flex flex-col"
             data-name="{{ strtolower($tryout->name) }}" data-type="{{ strtoupper($tryout->type_tryout) }}"
             data-assessment="{{ $tryout->assessment_type ?? 'standard' }}"
             data-status="{{ $tryout->start_date > now() ? 'akan_datang' : ($tryout->end_date < now() ? 'selesai' : 'aktif') }}">
@@ -108,7 +108,7 @@
                 </span>
             </div>
 
-            <div class="space-y-2">
+            <div class="space-y-2 mt-auto">
                 @php
                     $canManualRelease = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
                     $pendingCount = $tryout->utbk_pending_count ?? 0;
