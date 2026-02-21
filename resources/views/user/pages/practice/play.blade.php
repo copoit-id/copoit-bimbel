@@ -21,7 +21,7 @@
     $flaggedQuestions = $flaggedQuestions ?? [];
     $isCurrentFlagged = $isCurrentFlagged ?? false;
 @endphp
-<div class="min-h-screen bg-gray-50 pt-8 pb-16" data-anticopy="practice">
+<div class="min-h-screen bg-gray-50 pt-20 md:pt-8 pb-16" data-anticopy="practice">
     <div class="max-w-6xl mx-auto px-4">
         <div class="flex flex-col lg:flex-row gap-6">
             <div class="lg:flex-1">
@@ -36,12 +36,6 @@
                                 <p class="text-[11px] uppercase tracking-wide text-gray-500">{{ __('Waktu Latihan') }}</p>
                                 <div data-practice-timer class="text-lg font-bold text-primary leading-none">00:00:00</div>
                             </div>
-                            <button type="button" id="practiceFlagButton"
-                                data-flagged="{{ $isCurrentFlagged ? 'true' : 'false' }}"
-                                class="inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-colors {{ $isCurrentFlagged ? 'border-primary text-primary bg-primary/5' : 'border-gray-300 text-gray-600 hover:bg-gray-50' }}">
-                                <i class="{{ $isCurrentFlagged ? 'ri-flag-fill text-primary' : 'ri-flag-line text-gray-500' }}"></i>
-                                <span class="flag-text">{{ $isCurrentFlagged ? __('Batalkan Tandai') : __('Tandai Soal') }}</span>
-                            </button>
                             <button type="button"
                                 class="calculator-trigger inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                                 aria-haspopup="dialog" aria-controls="calculatorModal">
@@ -155,23 +149,38 @@
                         </div>
                     </div>
 
-                    <div class="mt-6 flex flex-wrap gap-3 border-t border-gray-100 pt-4">
-                        <a href="{{ route('user.practice.index') }}"
-                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="ri-layout-grid-line mr-2"></i> {{ __('Daftar Soal') }}
-                        </a>
+                    <div class="mt-6 flex justify-between items-center gap-2 border-t border-gray-100 pt-4">
                         @if($number > 1)
+                        <div class="flex gap-3">
                             <a href="{{ route('user.practice.play', ['number' => $number - 1]) }}"
-                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                <i class="ri-arrow-left-line mr-2"></i> {{ __('Sebelumnya') }}
+                                class="inline-flex items-center justify-center px-3 md:px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                                aria-label="{{ __('Sebelumnya') }}">
+                                <i class="ri-arrow-left-line text-lg md:text-base md:mr-2"></i>
+                                <span class="hidden md:inline">{{ __('Sebelumnya') }}</span>
                             </a>
+                        </div>
                         @endif
-                        @if($number < $totalQuestions)
-                            <a href="{{ route('user.practice.play', ['number' => $number + 1]) }}"
-                                class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-                                {{ __('Selanjutnya') }} <i class="ri-arrow-right-line ml-2"></i>
-                            </a>
-                        @endif
+
+                        <div>
+                            <button type="button" id="practiceFlagButton"
+                                data-flagged="{{ $isCurrentFlagged ? 'true' : 'false' }}"
+                                class="inline-flex items-center justify-center px-3 md:px-4 py-2 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors flag-btn"
+                                aria-label="{{ __('Tandai Soal') }}">
+                                <i class="{{ $isCurrentFlagged ? 'ri-flag-fill text-lg md:text-base md:mr-2' : 'ri-flag-line text-lg md:text-base md:mr-2' }}"></i>
+                                <span class="flag-text hidden md:inline">{{ $isCurrentFlagged ? __('Batalkan Tandai') : __('Tandai Soal') }}</span>
+                            </button>
+                        </div>
+
+                        <div class="flex gap-3">
+                            @if($number < $totalQuestions)
+                                <a href="{{ route('user.practice.play', ['number' => $number + 1]) }}"
+                                    class="inline-flex items-center justify-center px-3 md:px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                    aria-label="{{ __('Selanjutnya') }}">
+                                    <span class="hidden md:inline">{{ __('Selanjutnya') }}</span>
+                                    <i class="ri-arrow-right-line text-lg md:text-base md:ml-2"></i>
+                                </a>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>
@@ -558,7 +567,9 @@ function setupPracticeFlagging() {
     const setState = (flagged) => {
         state = flagged;
         flagButton.dataset.flagged = flagged ? 'true' : 'false';
-        flagIcon.className = flagged ? 'ri-flag-fill text-primary' : 'ri-flag-line text-gray-500';
+        flagIcon.className = flagged
+            ? 'ri-flag-fill text-lg md:text-base md:mr-2'
+            : 'ri-flag-line text-lg md:text-base md:mr-2';
         flagText.textContent = flagged ? @json(__('Batalkan Tandai')) : @json(__('Tandai Soal'));
         updateNavBadge(flagged);
     };
