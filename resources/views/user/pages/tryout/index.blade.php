@@ -119,8 +119,10 @@
                                     data-option-key="{{ $optionKey }}"
                                     class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
                                 <span class="ml-4 flex-1 text-gray-700">
-                                    <span class="font-semibold mr-2">{{ $optionKey }}.</span>
-                                    {!! $option->option_text !!}
+                                    <span class="flex items-start gap-2">
+                                        <span class="font-semibold shrink-0">{{ $optionKey }}.</span>
+                                        <span class="[&_p]:inline [&_p]:m-0 [&_div]:inline">{!! $option->option_text !!}</span>
+                                    </span>
                                 </span>
                             </label>
                             @endforeach
@@ -140,8 +142,10 @@
                                     data-option-key="{{ $optionKey }}"
                                     class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-checkbox">
                                 <span class="ml-4 flex-1 text-gray-700">
-                                    <span class="font-semibold mr-2">{{ $optionKey }}.</span>
-                                    {!! $option->option_text !!}
+                                    <span class="flex items-start gap-2">
+                                        <span class="font-semibold shrink-0">{{ $optionKey }}.</span>
+                                        <span class="[&_p]:inline [&_p]:m-0 [&_div]:inline">{!! $option->option_text !!}</span>
+                                    </span>
                                 </span>
                             </label>
                             @endforeach
