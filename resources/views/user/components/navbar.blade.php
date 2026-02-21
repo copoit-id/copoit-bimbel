@@ -12,9 +12,9 @@
 @endphp
 
 <nav class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} z-40 w-full {{ $navClasses }}">
-    <div class="px-3 py-3 lg:px-5 lg:pl-3">
+    <div class="px-2 py-2 sm:px-3 sm:py-3 lg:px-5 lg:pl-3">
         <div class="flex items-center justify-between">
-            <div class="flex items-center justify-start rtl:justify-end">
+            <div class="flex min-w-0 flex-1 items-center justify-start rtl:justify-end">
                 <button data-drawer-target="logo-sidebar" data-drawer-toggle="logo-sidebar" aria-controls="logo-sidebar"
                     type="button" class="{{ $toggleButtonClasses }}">
                     <span class="sr-only">Open sidebar</span>
@@ -25,16 +25,16 @@
                         </path>
                     </svg>
                 </button>
-                <a href="/" class="flex ms-2 md:me-12 items-center">
-                    <img src="{{ $clientBranding['logo_url'] }}" class="w-12 h-12 object-cover me-1"
+                <a href="/" class="flex min-w-0 ms-2 md:me-12 items-center">
+                    <img src="{{ $clientBranding['logo_url'] }}" class="w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
                         alt="{{ $clientBranding['name'] }} Logo" />
-                    <div class="flex flex-col justify-start">
-                        <p class="text-[20px] font-bold {{ $brandTitleClass }}">{{ $clientBranding['name'] }}</p>
-                        <p class="font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">Learning Platform</p>
+                    <div class="flex min-w-0 flex-col justify-start">
+                        <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>
+                        <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">Learning Platform</p>
                     </div>
                 </a>
             </div>
-            <div class="flex items-center">
+            <div class="flex shrink-0 items-center">
                 <div class="flex items-center ms-3">
                     <div>
                         @php

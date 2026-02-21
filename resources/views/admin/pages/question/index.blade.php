@@ -29,28 +29,28 @@
             <p class="text-gray-600 text-sm mt-1">{{ $tryout_detail->type_subtest ?? 'Unknown' }} - {{
                 $questions->count() }} soal</p>
         </div>
-        <div class="flex flex-col sm:flex-row gap-2">
+        <div class="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
             <!-- Import Excel Button -->
             <button type="button" id="importBtn"
-                class="px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
                 <i class="ri-file-excel-2-line"></i>
                 Import Excel
             </button>
 
             <!-- Download Template Button -->
             <a href="{{ asset('template/template_soal.xlsx') }}"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
                 <i class="ri-download-line"></i>
                 Download Template
             </a>
 
             <a href="{{ route('admin.question.create', $tryout_detail->tryout_detail_id) }}"
-                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
                 <i class="ri-add-line"></i>
                 Tambah Soal
             </a>
             <a href="{{ route('admin.question-bank.index', ['import_for' => $tryout_detail->tryout_detail_id]) }}"
-                class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2">
                 <i class="ri-folder-transfer-line"></i>
                 Ambil dari Bank
             </a>
@@ -307,18 +307,19 @@
             </div>
             @endif
 
-            <div class="flex gap-3 mt-6">
-                <x-btn title="Edit Soal"
-                    route="{{ route('admin.question.edit', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
-                    icon="ri-pencil-fill">
-                </x-btn>
+            <div class="flex flex-col sm:flex-row gap-3 mt-6">
+                <a href="{{ route('admin.question.edit', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
+                    class="w-full sm:w-auto bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                    <i class="ri-pencil-fill"></i>
+                    Edit Soal
+                </a>
                 <form
                     action="{{ route('admin.question.destroy', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
-                    method="POST" onsubmit="return confirmDelete(event)" class="inline">
+                    method="POST" onsubmit="return confirmDelete(event)" class="w-full sm:w-auto">
                     @csrf
                     @method('DELETE')
                     <button type="submit"
-                        class="px-4 py-2 bg-red text-white rounded-lg hover:bg-red/90 transition-colors flex items-center gap-2">
+                        class="w-full sm:w-auto px-4 py-2 bg-red text-white rounded-lg hover:bg-red/90 transition-colors flex items-center justify-center gap-2">
                         <i class="ri-delete-bin-5-fill"></i>
                         Hapus Soal
                     </button>

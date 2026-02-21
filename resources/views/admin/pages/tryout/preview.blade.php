@@ -72,7 +72,7 @@
 @foreach($tryout->tryoutDetails as $subtestIndex => $detail)
 <div id="subtest-{{ $detail->tryout_detail_id }}" class="bg-white rounded-lg border border-border mb-6">
     <div class="p-6 border-b border-gray-200">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <div>
                 <h2 class="text-xl font-bold text-gray-900">
                 </h2>
@@ -100,9 +100,9 @@
         @if($detail->questions->count() > 0)
         <div class="space-y-6">
             @foreach($detail->questions as $questionIndex => $question)
-            <div class="border border-gray-200 rounded-lg p-6">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-primary/10 text-primary">
+            <div class="border border-gray-200 rounded-lg p-4 sm:p-6">
+                <div class="flex flex-wrap items-start gap-2 mb-3">
+                    <span class="preview-pill inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-primary/10 text-primary">
                         Soal {{ $questionIndex + 1 }}
                     </span>
                     @php
@@ -127,25 +127,25 @@
                         }
                         $questionTypeLabel = ucwords(str_replace('_', ' ', $question->question_type ?? 'multiple_choice'));
                     @endphp
-                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    <span class="preview-pill inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                         @if(($question->question_type ?? '') === 'multiple_answer')
                             Multiple Answer - [{{ $multipleAnswerScoringMode }}]
                         @else
                             {{ $questionTypeLabel }}
                         @endif
                     </span>
-                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                    <span class="preview-pill inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
                         {{ (float) $displayWeight }} poin
                     </span>
                     @if($question->sound)
                     <span
-                        class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-purple-100 text-purple-800">
+                        class="preview-pill inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-purple-100 text-purple-800">
                         <i class="ri-volume-up-line mr-1"></i>
                         Audio
                     </span>
                     @endif
                     @if($question->custom_score == 'yes')
-                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-amber-100 text-amber-800">
+                    <span class="preview-pill inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-amber-100 text-amber-800">
                         Custom Score
                     </span>
                     @endif
@@ -174,16 +174,16 @@
                         $optionLabel = chr(65 + $optionIndex); // A, B, C, D, E
                         @endphp
                         <div
-                            class="flex items-center gap-3 p-3 rounded-lg {{ $option->is_correct ? 'bg-green-50 border border-green-200' : 'bg-gray-50' }}">
+                            class="flex items-start gap-3 p-3 rounded-lg {{ $option->is_correct ? 'bg-green-50 border border-green-200' : 'bg-gray-50' }}">
                             <div class="flex-shrink-0">
                                 @if($option->is_correct)
-                                <i class="ri-checkbox-circle-fill text-green-600 text-xl"></i>
+                                <i class="ri-checkbox-circle-fill text-green-600 text-lg sm:text-xl"></i>
                                 @else
-                                <i class="ri-checkbox-blank-circle-line text-gray-400 text-xl"></i>
+                                <i class="ri-checkbox-blank-circle-line text-gray-400 text-lg sm:text-xl"></i>
                                 @endif
                             </div>
                             <div class="flex-grow">
-                                <div class="flex items-start justify-between gap-2">
+                                <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
                                     <div
                                         class="font-medium {{ $option->is_correct ? 'text-green-800' : 'text-gray-700' }} flex items-start gap-1 min-w-0">
                                         <span class="shrink-0">{{ $optionLabel }}.</span>
@@ -192,17 +192,17 @@
                                     @if(($question->question_type ?? '') === 'multiple_answer')
                                         @if($multipleAnswerScoringMode === 'partial')
                                         <span
-                                            class="text-sm whitespace-nowrap {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
+                                            class="text-xs sm:text-sm whitespace-nowrap {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
                                             ({{ number_format($option->is_correct ? $multipleAnswerPerCorrectScore : 0, 2) }} poin)
                                         </span>
                                         @elseif($option->is_correct)
-                                        <span class="text-sm text-green-600 whitespace-nowrap">
+                                        <span class="text-xs sm:text-sm text-green-600 whitespace-nowrap">
                                             (Benar semua : {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }} poin)
                                         </span>
                                         @endif
                                     @elseif($question->custom_score == 'yes')
                                     <span
-                                        class="text-sm whitespace-nowrap {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
+                                        class="text-xs sm:text-sm whitespace-nowrap {{ $option->is_correct ? 'text-green-600' : 'text-gray-500' }}">
                                         ({{ $option->weight }} poin)
                                     </span>
                                     @endif
@@ -257,6 +257,15 @@
     .option-inline-text p {
         display: inline;
         margin: 0;
+    }
+
+    @media (max-width: 640px) {
+        .preview-pill {
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 6px 10px;
+            border-radius: 10px;
+        }
     }
 </style>
 @endsection
