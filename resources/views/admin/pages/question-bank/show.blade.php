@@ -152,7 +152,32 @@
                             <div class="text-xs text-gray-500">{{ $question->options->count() }} opsi jawaban</div>
                         </td>
                         <td class="px-4 py-3 capitalize">{{ str_replace('_', ' ', $question->question_type) }}</td>
-                        <td class="px-4 py-3">{{ (float) ($question->default_weight ?? 0) }} poin</td>
+                        <td class="px-4 py-3">
+                            @php
+                                $defaultWeight = (float) ($question->default_weight ?? 0);
+                                $metadata = is_array($question->metadata) ? $question->metadata : [];
+                                $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                                $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                                    ? $multipleAnswerMeta['scoring_mode']
+                                    : 'fullscore';
+                                $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? $defaultWeight);
+                                $multipleAnswerCorrectCount = max(1, $question->options->where('is_correct', true)->count());
+                                $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
+                                    ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
+                                    : $multipleAnswerTotalScore;
+                            @endphp
+                            @if(($question->question_type ?? '') === 'multiple_answer')
+                                @if($multipleAnswerScoringMode === 'partial')
+                                    Per benar:
+                                    {{ rtrim(rtrim(number_format($multipleAnswerPerCorrectScore, 2, '.', ''), '0'), '.') }}
+                                @else
+                                    Benar semua :
+                                    {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }}
+                                @endif
+                            @else
+                                {{ $defaultWeight }} poin
+                            @endif
+                        </td>
                         <td class="px-4 py-3">{{ optional($question->updated_at)->diffForHumans() }}</td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-2">

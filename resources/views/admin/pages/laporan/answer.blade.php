@@ -136,7 +136,19 @@
                     $question = $detail->question;
                     $questionText = $question ? Str::limit(strip_tags($question->question_text), 110) : 'Soal';
                     $correctOption = $question ? $question->questionOptions->firstWhere('is_correct', true) : null;
+                    $questionType = $question->question_type ?? 'multiple_choice';
+                    $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
                     $participantAnswer = $detail->questionOption->option_text ?? ($detail->answer_text ?? '-');
+                    if($question && $questionType === 'multiple_answer') {
+                        $selectedIds = collect($answerMeta['selected_option_ids'] ?? [])->map(fn($id) => (int) $id)->all();
+                        $selectedOptions = $question->questionOptions
+                            ->whereIn('question_option_id', $selectedIds)
+                            ->pluck('option_text')
+                            ->values();
+                        $participantAnswer = $selectedOptions->isNotEmpty()
+                            ? $selectedOptions->implode(', ')
+                            : '-';
+                    }
                     if(!$participantAnswer && !empty($detail->answer_json['matches'])) {
                         $pairs = collect($detail->answer_json['matches'])->map(function($pair) {
                             return ($pair['left'] ?? '?') . ' → ' . ($pair['right'] ?? '?');
@@ -144,6 +156,15 @@
                         $participantAnswer = $pairs->implode(', ');
                     }
                     $correctAnswer = $correctOption->option_text ?? ($question->answer_text ?? '-');
+                    if($question && $questionType === 'multiple_answer') {
+                        $correctOptions = $question->questionOptions
+                            ->where('is_correct', true)
+                            ->pluck('option_text')
+                            ->values();
+                        $correctAnswer = $correctOptions->isNotEmpty()
+                            ? $correctOptions->implode(', ')
+                            : '-';
+                    }
                     @endphp
                     <tr class="bg-white border-b border-dashed border-gray-200 answer-row">
                         <td class="px-4 py-3">

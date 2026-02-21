@@ -52,7 +52,7 @@ class Question extends Model
     // Check if question is multiple choice
     public function isMultipleChoice()
     {
-        return $this->question_type === 'multiple_choice';
+        return in_array($this->question_type, ['multiple_choice', 'multiple_answer'], true);
     }
 
     // Check if question is essay

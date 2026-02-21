@@ -6,6 +6,7 @@
     $metadata = is_array($question->metadata) ? $question->metadata : [];
     $shortMeta = $metadata['short_answer'] ?? [];
     $audioMeta = $metadata['audio_answer'] ?? [];
+    $matchingScores = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
     $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers'])
         ? implode("\n", $shortMeta['expected_answers'])
         : '';
@@ -20,6 +21,13 @@
     }
     $correctOption = collect($optionMap)->first(fn($opt) => $opt && $opt->is_correct);
     $correctKey = $correctOption ? array_search($correctOption, $optionMap, true) : 'A';
+    $multiCorrectKeys = collect($optionMap)
+        ->filter(fn($opt) => $opt && $opt->is_correct)
+        ->map(function ($opt, $key) {
+            return $key;
+        })
+        ->values()
+        ->all();
 @endphp
 <div class="space-y-6">
     <div class="flex justify-between items-center">
@@ -61,7 +69,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected($questionType === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -105,6 +113,45 @@
                             Gunakan custom skor
                         </label>
                     </div>
+                    <div id="multipleAnswerScoringContainer" class="@if($questionType !== 'multiple_answer') hidden @endif">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Skor Multiple Answer</label>
+                        @php
+                            $existingMultiMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+                            $selectedScoreCorrect = old('multiple_answer_score_correct', $existingMultiMeta['score_correct'] ?? 1);
+                            $selectedScoreWrong = old('multiple_answer_score_wrong', $existingMultiMeta['score_wrong'] ?? 0);
+                            $selectedScoringMode = old('multiple_answer_scoring_mode', $existingMultiMeta['scoring_mode'] ?? 'fullscore');
+                        @endphp
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                            <div>
+                                <div class="flex items-center gap-1 mb-1">
+                                    <label class="block text-xs font-medium text-gray-600">Mode Penilaian</label>
+                                    <div class="relative group">
+                                        <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                        <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                            Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                        </div>
+                                    </div>
+                                </div>
+                                <select name="multiple_answer_scoring_mode"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="fullscore" @selected($selectedScoringMode === 'fullscore')>Benar/Salah Fullscore</option>
+                                    <option value="partial" @selected($selectedScoringMode === 'partial')>Partial</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Skor Benar</label>
+                                <input type="number" name="multiple_answer_score_correct" step="0.1"
+                                    value="{{ $selectedScoreCorrect }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Skor Salah</label>
+                                <input type="number" name="multiple_answer_score_wrong" step="0.1"
+                                    value="{{ $selectedScoreWrong }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                        </div>
+                    </div>
                     @foreach (['A','B','C','D','E'] as $optionKey)
                     @php
                         $currentOption = $optionMap[$optionKey] ?? null;
@@ -115,7 +162,10 @@
                         <div class="flex items-center gap-2">
                             <input type="radio" name="correct_answer" value="{{ $optionKey }}" id="correct_{{ strtolower($optionKey) }}"
                                 @checked(old('correct_answer', $correctKey) === $optionKey)
-                                class="text-primary focus:ring-primary">
+                                class="single-correct text-primary focus:ring-primary">
+                            <input type="checkbox" name="correct_answers[]" value="{{ $optionKey }}" id="correct_multi_{{ strtolower($optionKey) }}"
+                                @checked(in_array($optionKey, old('correct_answers', $multiCorrectKeys), true))
+                                class="multi-correct hidden rounded border-gray-300 text-primary focus:ring-primary">
                             <label class="font-semibold text-gray-800" for="correct_{{ strtolower($optionKey) }}">
                                 Pilihan {{ $optionKey }} @if($optionKey !== 'E') <span class="text-red-500">*</span> @endif
                             </label>
@@ -138,6 +188,36 @@
                         <h3 class="text-lg font-semibold text-gray-900">Pasangan Pencocokan</h3>
                         <button type="button" id="addMatchingPair"
                             class="text-sm font-semibold text-primary hover:underline">Tambah Pasangan</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                        <div>
+                            <div class="flex items-center gap-1 mb-1">
+                                <label class="block text-sm font-medium text-gray-700">Mode Penilaian</label>
+                                <div class="relative group">
+                                    <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                    <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                        Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                    </div>
+                                </div>
+                            </div>
+                            <select name="matching_scoring_mode"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="fullscore" @selected(old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'fullscore') === 'fullscore')>Benar/Salah Fullscore</option>
+                                <option value="partial" @selected(old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'partial') === 'partial')>Partial (seperti multiple)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Benar</label>
+                            <input type="number" name="matching_score_correct" step="0.1"
+                                value="{{ old('matching_score_correct', $matchingScores['score_correct'] ?? 1) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                            <input type="number" name="matching_score_wrong" step="0.1"
+                                value="{{ old('matching_score_wrong', $matchingScores['score_wrong'] ?? 0) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
                     </div>
                     <div id="matchingPairsContainer" class="space-y-3">
                         @foreach ($matchingPairs as $index => $pair)
@@ -242,12 +322,15 @@
         const addMatchingBtn = document.getElementById('addMatchingPair');
         const customScoreFields = document.querySelectorAll('.custom-score-field');
         const customScoreToggle = document.querySelector('input[name="use_custom_scores"]');
+        const optionRows = document.querySelectorAll('.question-section[data-type="multiple_choice"] .flex.flex-col.gap-2.border');
+        const multipleAnswerScoringContainer = document.getElementById('multipleAnswerScoringContainer');
 
         function toggleSections() {
             const type = typeSelect.value;
+            const isMultipleAnswer = type === 'multiple_answer';
             sections.forEach(section => {
                 if (section.dataset.type === 'multiple_choice') {
-                    section.classList.toggle('hidden', !['multiple_choice', 'true_false'].includes(type));
+                    section.classList.toggle('hidden', !['multiple_choice', 'multiple_answer', 'true_false'].includes(type));
                 } else if (section.dataset.type === 'short_answer') {
                     section.classList.toggle('hidden', type !== 'short_answer');
                 } else if (section.dataset.type === 'essay') {
@@ -258,11 +341,83 @@
                     section.classList.toggle('hidden', type !== 'audio');
                 }
             });
+
+            configureOptionRows(type);
+            if (multipleAnswerScoringContainer) {
+                multipleAnswerScoringContainer.classList.toggle('hidden', type !== 'multiple_answer');
+            }
+            if (customScoreToggle) {
+                const toggleWrapper = customScoreToggle.closest('label');
+                if (toggleWrapper) {
+                    toggleWrapper.classList.toggle('hidden', isMultipleAnswer);
+                }
+            }
         }
 
         function toggleCustomScores() {
+            if (typeSelect?.value === 'multiple_answer') {
+                customScoreFields.forEach(field => field.classList.add('hidden'));
+                return;
+            }
             customScoreFields.forEach(field => {
                 field.classList.toggle('hidden', !customScoreToggle.checked);
+            });
+        }
+
+        function configureOptionRows(type) {
+            const isTrueFalse = type === 'true_false';
+            const isMultipleAnswer = type === 'multiple_answer';
+
+            optionRows.forEach((row, index) => {
+                const optionKey = String.fromCharCode(65 + index);
+                const radio = row.querySelector('.single-correct');
+                const checkbox = row.querySelector('.multi-correct');
+                const textarea = row.querySelector('textarea');
+                const scoreField = row.querySelector('.custom-score-field');
+
+                if (isTrueFalse) {
+                    if (optionKey === 'A' || optionKey === 'B') {
+                        row.classList.remove('hidden');
+                        if (textarea && !textarea.value.trim()) {
+                            textarea.value = optionKey === 'A' ? 'Benar' : 'Salah';
+                        }
+                    } else {
+                        row.classList.add('hidden');
+                        if (textarea) {
+                            textarea.value = '';
+                        }
+                        if (radio) {
+                            radio.checked = false;
+                        }
+                        if (checkbox) {
+                            checkbox.checked = false;
+                        }
+                    }
+                } else {
+                    row.classList.remove('hidden');
+                }
+
+                if (radio) {
+                    radio.classList.toggle('hidden', isMultipleAnswer);
+                    if (isMultipleAnswer) {
+                        radio.checked = false;
+                    }
+                }
+
+                if (checkbox) {
+                    checkbox.classList.toggle('hidden', !isMultipleAnswer);
+                    if (!isMultipleAnswer) {
+                        checkbox.checked = false;
+                    }
+                }
+
+                if (scoreField) {
+                    if (isMultipleAnswer) {
+                        scoreField.classList.add('hidden');
+                    } else {
+                        scoreField.classList.toggle('hidden', !customScoreToggle?.checked);
+                    }
+                }
             });
         }
 

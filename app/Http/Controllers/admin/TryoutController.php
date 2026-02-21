@@ -721,15 +721,12 @@ class TryoutController extends Controller
             $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
+
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
-                    }
-                    $totalScore += $detail->is_correct ? $weight : 0;
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
@@ -775,6 +772,100 @@ class TryoutController extends Controller
         return $totalScore;
     }
 
+    private function resolveMultipleAnswerAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $defaultWeight = (float) ($question->default_weight ?? 1);
+        $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $selectedIds = collect($meta['selected_option_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($selectedIds)) {
+            $correctIds = $question->questionOptions()
+                ->where('is_correct', true)
+                ->pluck('question_option_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            sort($selectedIds);
+            sort($correctIds);
+            $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+            $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+            $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+            $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? (($maxWeight > 0 && count($correctIds) > 0) ? ($maxWeight / count($correctIds)) : 1));
+            $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+            $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                ? $multipleAnswerMeta['scoring_mode']
+                : 'fullscore';
+            $totalCorrectCount = max(1, count($correctIds));
+            $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
+            $wrongCount = $missedCorrect + $wrongSelected;
+            $fullScore = $totalCorrectCount * $scoreCorrect;
+            $score = 0.0;
+
+            if ($scoringMode === 'partial') {
+                $score = $matchedCorrect > 0
+                    ? ($matchedCorrect / $totalCorrectCount) * $fullScore
+                    : ($wrongCount * $scoreWrong);
+            } else {
+                $score = ($matchedCorrect * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, min((float) $storedScore, $maxWeight));
+        }
+
+        return $detail->is_correct ? $maxWeight : 0;
+    }
+
+    private function resolveMatchingAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+        $wrongCount = max(0, $totalCount - $correctCount);
+
+        if ($totalCount > 0) {
+            $fullScore = $totalCount * $scoreCorrect;
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $correctCount > 0
+                    ? ($correctCount / $totalCount) * $fullScore
+                    : ($wrongCount * $scoreWrong);
+            } else {
+                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
     private function getMaxPossibleScoreForDetail(int $tryoutDetailId, ?string $type_subtest): float
     {
         $questions = Question::where('tryout_detail_id', $tryoutDetailId)
@@ -791,6 +882,11 @@ class TryoutController extends Controller
             $questionType = $question->question_type ?? 'multiple_choice';
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
                 case 'matching':
                     $weight = (float) ($question->default_weight ?? 0);
                     if ($weight <= 0) {
