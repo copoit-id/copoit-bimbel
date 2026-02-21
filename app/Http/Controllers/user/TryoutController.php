@@ -570,6 +570,9 @@ class TryoutController extends Controller
             ];
         }
 
+        $isCombinedSubtestView = count($subtestInfo) > 1
+            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'combined';
+
         if ($allQuestions->isEmpty()) {
             return redirect()->back()->with('error', 'Tryout belum memiliki soal');
         }
@@ -642,7 +645,7 @@ class TryoutController extends Controller
         }
 
         $currentSubtestIndex = $this->getSubtestIndex($subtestInfo, $currentSubtest ?? []);
-        if (count($subtestInfo) > 1) {
+        if (count($subtestInfo) > 1 && !$isCombinedSubtestView) {
             $progressKey = sprintf('tryout_subtest_progress_%s', $attemptToken);
             $maxVisitedIndex = (int) session($progressKey, 0);
 
@@ -662,8 +665,10 @@ class TryoutController extends Controller
             }
         }
 
-        if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
-            return $response;
+        if (!$isCombinedSubtestView) {
+            if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
+                return $response;
+            }
         }
 
         // Get current subtest's UserAnswer untuk menyimpan jawaban
@@ -727,10 +732,12 @@ class TryoutController extends Controller
 
         $totalSubtests = count($subtestInfo);
         $hasNextSubtest = $currentSubtestIndex < ($totalSubtests - 1);
-        $currentSubtestRange = [
-            $currentSubtest['start_number'] ?? 1,
-            $currentSubtest['end_number'] ?? $number,
-        ];
+        $currentSubtestRange = $isCombinedSubtestView
+            ? [1, $totalQuestions]
+            : [
+                $currentSubtest['start_number'] ?? 1,
+                $currentSubtest['end_number'] ?? $number,
+            ];
         $isLastQuestionOfSubtest = $number === ($currentSubtest['end_number'] ?? $number);
 
         return view('user.pages.tryout.index', compact(
@@ -750,6 +757,7 @@ class TryoutController extends Controller
             'currentSubtestIndex',
             'totalSubtests',
             'hasNextSubtest',
+            'isCombinedSubtestView',
             'currentSubtestRange',
             'isLastQuestionOfSubtest',
             'remainingSeconds',

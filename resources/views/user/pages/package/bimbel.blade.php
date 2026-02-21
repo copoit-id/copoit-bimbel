@@ -2,8 +2,12 @@
 @section('title', 'Paket Pembelian')
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border mt-6">
-    <x-page-desc title="Bimbel - Paket Bimbel A1 2024ket " description="Masuk Grup Untuk Baca Bimbel"
-        name_link="Grup Telegram" url_link="/"></x-page-desc>
+    <x-page-desc
+        :title="__('Bimbel - :name', ['name' => $package->name])"
+        :description="$package->description ?: __('Masuk grup untuk baca bimbel')"
+        :name_link="$package->telegram_group_url ? __('Grub') : null"
+        :url_link="$package->telegram_group_url">
+    </x-page-desc>
 
     <div class="relative overflow-x-auto mt-4">
         <table class="w-full text-sm text-left rtl:text-right text-gray-500">

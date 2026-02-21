@@ -157,6 +157,17 @@
                             placeholder="Masukkan deskripsi paket...">{{ isset($package) ? $package->description : old('description') }}</textarea>
                     </div>
 
+                    <div>
+                        <label for="telegram_group_url" class="block text-sm font-medium text-gray-700 mb-2">Link Grub (Opsional)</label>
+                        <input type="url" id="telegram_group_url" name="telegram_group_url"
+                            value="{{ isset($package) ? $package->telegram_group_url : old('telegram_group_url') }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="https://t.me/namagrup">
+                        @error('telegram_group_url')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <div x-data="{
                         features: {{ isset($package) && $package->features ? json_encode(json_decode($package->features)) : (old('features') ? json_encode(old('features')) : "
                         ['']") }} }" class="space-y-2">
