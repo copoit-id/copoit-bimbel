@@ -30,7 +30,7 @@
 
             @php
             $rawType = old('question_type', isset($question) ? $question->question_type : 'multiple_choice');
-            $currentType = in_array($rawType, ['short_answer', 'essay']) ? $rawType : ($rawType === 'true_false' ?
+            $currentType = in_array($rawType, ['short_answer', 'essay']) ? $rawType : (in_array($rawType, ['true_false', 'multiple_answer']) ?
             'multiple_choice' : $rawType);
 
             $metadata = isset($question) ? ($question->metadata ?? []) : [];
@@ -73,6 +73,8 @@
                             <option value="multiple_choice" {{ $rawType==='multiple_choice' ? 'selected' : '' }}>
                                 Multiple
                                 Choice</option>
+                            <option value="multiple_answer" {{ $rawType==='multiple_answer' ? 'selected' : '' }}>
+                                Multiple Answer (Lebih dari 1 benar)</option>
                             <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
                             </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
@@ -80,6 +82,16 @@
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
                         <p class="text-xs text-gray-500 mt-2">Pilih tipe soal untuk menampilkan form yang sesuai.</p>
+                    </div>
+
+                    <div id="questionScoreContainer"
+                        class="space-y-2 {{ in_array($rawType, ['short_answer','essay','audio']) ? '' : 'hidden' }}">
+                        <label for="question_score" class="block text-sm font-medium text-gray-700">Skor Soal (Custom)</label>
+                        <input type="number" id="question_score" name="question_score" min="0" step="0.1"
+                            value="{{ old('question_score', isset($question) ? $question->default_weight : $tryout_detail->default_weight ?? 1) }}"
+                            class="w-full md:w-1/3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="Contoh: 5">
+                        <p class="text-xs text-gray-500">Dipakai untuk tipe short answer, essay, dan audio.</p>
                     </div>
 
                     <!-- Question Text -->
@@ -137,6 +149,47 @@
                             @endif
                             @endif
                         </div>
+                        <div id="multipleAnswerScoreContainer"
+                            class="space-y-2 {{ $rawType === 'multiple_answer' ? '' : 'hidden' }}">
+                            <label class="block text-sm font-medium text-gray-700">Skor Multiple Answer</label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                                @php
+                                    $existingMultiMeta = isset($question) && is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+                                    $multiScoreCorrect = old('multiple_answer_score_correct', $existingMultiMeta['score_correct'] ?? 1);
+                                    $multiScoreWrong = old('multiple_answer_score_wrong', $existingMultiMeta['score_wrong'] ?? 0);
+                                    $multiScoringMode = old('multiple_answer_scoring_mode', $existingMultiMeta['scoring_mode'] ?? 'fullscore');
+                                @endphp
+                                <div>
+                                    <div class="flex items-center gap-1 mb-1">
+                                        <label for="multiple_answer_scoring_mode" class="block text-xs font-medium text-gray-600">Mode Penilaian</label>
+                                        <div class="relative group">
+                                            <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                            <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                                Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <select id="multiple_answer_scoring_mode" name="multiple_answer_scoring_mode"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="fullscore" {{ $multiScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
+                                        <option value="partial" {{ $multiScoringMode === 'partial' ? 'selected' : '' }}>Partial</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="multiple_answer_score_correct" class="block text-xs font-medium text-gray-600 mb-1">Skor Benar</label>
+                                    <input type="number" id="multiple_answer_score_correct" name="multiple_answer_score_correct" step="0.1"
+                                        value="{{ $multiScoreCorrect }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                </div>
+                                <div>
+                                    <label for="multiple_answer_score_wrong" class="block text-xs font-medium text-gray-600 mb-1">Skor Salah</label>
+                                    <input type="number" id="multiple_answer_score_wrong" name="multiple_answer_score_wrong" step="0.1"
+                                        value="{{ $multiScoreWrong }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">Skor akhir dihitung terpusat dari jumlah pilihan benar/salah yang dipilih peserta.</p>
+                        </div>
 
                         @foreach(['A', 'B', 'C', 'D', 'E'] as $index => $optionKey)
                         @php
@@ -153,7 +206,11 @@
                                 <input type="radio" id="correct_{{ strtolower($optionKey) }}" name="correct_answer"
                                     value="{{ $optionKey }}" {{ $isCorrect || old('correct_answer')==$optionKey
                                     ? 'checked' : '' }} {{ $optionKey==='E' ? '' : 'required' }}
-                                    class="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary focus:ring-2">
+                                    class="single-correct w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary focus:ring-2">
+                                <input type="checkbox" id="correct_multi_{{ strtolower($optionKey) }}" name="correct_answers[]"
+                                    value="{{ $optionKey }}"
+                                    {{ in_array($optionKey, old('correct_answers', [])) || (!old('correct_answers') && $isCorrect) ? 'checked' : '' }}
+                                    class="multi-correct hidden w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
                             </div>
                             <div class="option-input w-full">
                                 <label for="option_{{ strtolower($optionKey) }}"
@@ -194,6 +251,44 @@
                             <p class="text-sm text-gray-600">Masukkan minimal dua pasangan jawaban. Peserta akan
                                 memasangkan
                                 kolom kiri dengan kolom kanan.</p>
+                        </div>
+                        @php
+                            $matchingScores = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
+                            $matchingScoreCorrect = old('matching_score_correct', $matchingScores['score_correct'] ?? 1);
+                            $matchingScoreWrong = old('matching_score_wrong', $matchingScores['score_wrong'] ?? 0);
+                        @endphp
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                            <div>
+                                <div class="flex items-center gap-1 mb-1">
+                                    <label for="matching_scoring_mode" class="block text-sm font-medium text-gray-700">Mode Penilaian</label>
+                                    <div class="relative group">
+                                        <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                        <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                            Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                        </div>
+                                    </div>
+                                </div>
+                                @php
+                                    $matchingScoringMode = old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'fullscore');
+                                @endphp
+                                <select id="matching_scoring_mode" name="matching_scoring_mode"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="fullscore" {{ $matchingScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
+                                    <option value="partial" {{ $matchingScoringMode === 'partial' ? 'selected' : '' }}>Partial (seperti multiple)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="matching_score_correct" class="block text-sm font-medium text-gray-700 mb-1">Skor Benar</label>
+                                <input type="number" id="matching_score_correct" name="matching_score_correct" step="0.1"
+                                    value="{{ $matchingScoreCorrect }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="matching_score_wrong" class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                                <input type="number" id="matching_score_wrong" name="matching_score_wrong" step="0.1"
+                                    value="{{ $matchingScoreWrong }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
                         </div>
                         <div id="matchingPairsContainer" class="space-y-3">
                             @foreach($normalizedPairs as $index => $pair)
@@ -364,10 +459,12 @@
         const matchingContainer = document.getElementById('matchingPairsContainer');
         const addMatchingPairBtn = document.getElementById('addMatchingPair');
         const optionRows = document.querySelectorAll('.option-row');
+        const questionScoreContainer = document.getElementById('questionScoreContainer');
+        const multipleAnswerScoreContainer = document.getElementById('multipleAnswerScoreContainer');
 
         function shouldShowSection(sectionType, currentType) {
             if (sectionType === 'multiple_choice') {
-                return currentType === 'multiple_choice' || currentType === 'true_false';
+                return currentType === 'multiple_choice' || currentType === 'true_false' || currentType === 'multiple_answer';
             }
             if (sectionType === 'short_answer') {
                 return currentType === 'short_answer' || currentType === 'essay';
@@ -396,11 +493,20 @@
             }
 
             if (customScoreToggle) {
-                const showCustomToggle = currentType === 'multiple_choice';
+                const showCustomToggle = currentType === 'multiple_choice' || currentType === 'true_false';
                 customScoreToggle.style.display = showCustomToggle ? '' : 'none';
             }
 
-            if (currentType === 'multiple_choice' || currentType === 'true_false') {
+            if (questionScoreContainer) {
+                const useQuestionScore = ['short_answer', 'essay', 'audio'].includes(currentType);
+                questionScoreContainer.classList.toggle('hidden', !useQuestionScore);
+            }
+
+            if (multipleAnswerScoreContainer) {
+                multipleAnswerScoreContainer.classList.toggle('hidden', currentType !== 'multiple_answer');
+            }
+
+            if (currentType === 'multiple_choice' || currentType === 'true_false' || currentType === 'multiple_answer') {
                 toggleScoreFields();
             } else if (useCustomScores) {
                 useCustomScores.checked = false;
@@ -449,7 +555,7 @@
 
         if (tryoutType === 'tkp') {
             form.addEventListener('submit', function(e) {
-                if (questionTypeSelect.value !== 'multiple_choice' && questionTypeSelect.value !== 'true_false') {
+                if (!['multiple_choice', 'true_false', 'multiple_answer'].includes(questionTypeSelect.value)) {
                     return;
                 }
 
@@ -545,10 +651,12 @@
 
         function configureOptionRows(questionType) {
             const isTrueFalse = questionType === 'true_false';
+            const isMultipleAnswer = questionType === 'multiple_answer';
             optionRows.forEach(row => {
                 const key = row.dataset.optionKey;
                 const textarea = row.querySelector('textarea');
-                const radio = row.querySelector('input[type="radio"]');
+                const radio = row.querySelector('input.single-correct');
+                const multiCheckbox = row.querySelector('input.multi-correct');
                 const scoreWrapper = row.querySelector('.custom-score-field');
 
                 if (isTrueFalse) {
@@ -563,6 +671,17 @@
                         if (radio) {
                             radio.required = false;
                         }
+                        if (multiCheckbox) {
+                            multiCheckbox.checked = false;
+                            multiCheckbox.classList.add('hidden');
+                        }
+                        if (scoreWrapper) {
+                            if (tryoutType === 'tkp') {
+                                scoreWrapper.style.display = '';
+                            } else {
+                                scoreWrapper.style.display = useCustomScores && useCustomScores.checked ? '' : 'none';
+                            }
+                        }
                     } else {
                         row.style.display = 'none';
                         if (textarea) {
@@ -573,12 +692,13 @@
                             radio.required = false;
                             radio.checked = false;
                         }
-                    }
-                    if (scoreWrapper) {
-                        scoreWrapper.style.display = 'none';
-                    }
-                    if (useCustomScores) {
-                        useCustomScores.checked = false;
+                        if (multiCheckbox) {
+                            multiCheckbox.checked = false;
+                            multiCheckbox.classList.add('hidden');
+                        }
+                        if (scoreWrapper) {
+                            scoreWrapper.style.display = 'none';
+                        }
                     }
                 } else {
                     row.style.display = '';
@@ -586,10 +706,16 @@
                         textarea.required = key !== 'E';
                     }
                     if (radio) {
-                        radio.required = key !== 'E';
+                        radio.required = !isMultipleAnswer && key !== 'E';
+                        radio.classList.toggle('hidden', isMultipleAnswer);
+                    }
+                    if (multiCheckbox) {
+                        multiCheckbox.classList.toggle('hidden', !isMultipleAnswer);
                     }
                     if (scoreWrapper) {
-                        if (tryoutType === 'tkp') {
+                        if (isMultipleAnswer) {
+                            scoreWrapper.style.display = 'none';
+                        } else if (tryoutType === 'tkp') {
                             scoreWrapper.style.display = '';
                         } else {
                             scoreWrapper.style.display = useCustomScores && useCustomScores.checked ? '' : 'none';

@@ -139,17 +139,23 @@ class QuestionBankController extends Controller
         $importTarget = $request->integer('import_for');
 
         $baseRules = [
-            'question_type' => ['required', 'in:multiple_choice,true_false,matching,essay,short_answer,audio'],
+            'question_type' => ['required', 'in:multiple_choice,multiple_answer,true_false,matching,essay,short_answer,audio'],
             'question_text' => ['required', 'string'],
             'explanation' => ['nullable', 'string'],
             'default_weight' => ['nullable', 'numeric', 'min:0', 'max:999'],
             'custom_score' => ['nullable', 'boolean'],
+            'multiple_answer_score_correct' => ['nullable', 'numeric'],
+            'multiple_answer_score_wrong' => ['nullable', 'numeric'],
+            'multiple_answer_scoring_mode' => ['nullable', 'in:fullscore,partial'],
             'sound' => ['nullable', 'file', 'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/m4a,audio/x-m4a', 'max:5120'],
         ];
 
         switch ($questionType) {
             case 'multiple_choice':
                 $this->validateMultipleChoice($request);
+                break;
+            case 'multiple_answer':
+                $this->validateMultipleChoice($request, true);
                 break;
             case 'true_false':
                 $this->validateTrueFalse($request);
@@ -176,19 +182,33 @@ class QuestionBankController extends Controller
         }
 
         DB::transaction(function () use ($questionBank, $validated, $metadata, $questionType, $request, $soundPath) {
+            $correctAnswersCount = $questionType === 'multiple_answer'
+                ? max(1, count((array) $request->input('correct_answers', [])))
+                : 0;
+            $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
+            $matchingPairCount = $questionType === 'matching'
+                ? max(1, count((array) ($metadata['matching_pairs'] ?? [])))
+                : 0;
+            $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
+            $resolvedWeight = $questionType === 'multiple_answer'
+                ? max(0, $scoreCorrect) * $correctAnswersCount
+                : ($questionType === 'matching'
+                    ? max(0, $matchingScoreCorrect) * $matchingPairCount
+                    : ($validated['default_weight'] ?? 1));
+
             $bankQuestion = QuestionBankQuestion::create([
                 'question_bank_id' => $questionBank->id,
                 'question_type' => $questionType,
                 'question_text' => $validated['question_text'],
                 'explanation' => $validated['explanation'] ?? null,
-                'default_weight' => $validated['default_weight'] ?? 1,
-                'custom_score' => $request->boolean('use_custom_scores') ? 'yes' : 'no',
+                'default_weight' => $resolvedWeight,
+                'custom_score' => $questionType === 'multiple_answer' ? 'yes' : ($request->boolean('use_custom_scores') ? 'yes' : 'no'),
                 'metadata' => $metadata ?: null,
                 'sound' => $soundPath,
                 'created_by' => Auth::id(),
             ]);
 
-            if (in_array($questionType, ['multiple_choice', 'true_false'])) {
+            if (in_array($questionType, ['multiple_choice', 'multiple_answer', 'true_false'])) {
                 $options = $this->prepareOptions($request, $questionType);
                 foreach ($options as $index => $option) {
                     QuestionBankQuestionOption::create([
@@ -213,17 +233,23 @@ class QuestionBankController extends Controller
         $importTarget = $request->integer('import_for');
 
         $baseRules = [
-            'question_type' => ['required', 'in:multiple_choice,true_false,matching,essay,short_answer,audio'],
+            'question_type' => ['required', 'in:multiple_choice,multiple_answer,true_false,matching,essay,short_answer,audio'],
             'question_text' => ['required', 'string'],
             'explanation' => ['nullable', 'string'],
             'default_weight' => ['nullable', 'numeric', 'min:0', 'max:999'],
             'custom_score' => ['nullable', 'boolean'],
+            'multiple_answer_score_correct' => ['nullable', 'numeric'],
+            'multiple_answer_score_wrong' => ['nullable', 'numeric'],
+            'multiple_answer_scoring_mode' => ['nullable', 'in:fullscore,partial'],
             'sound' => ['nullable', 'file', 'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/m4a,audio/x-m4a', 'max:5120'],
         ];
 
         switch ($questionType) {
             case 'multiple_choice':
                 $this->validateMultipleChoice($request);
+                break;
+            case 'multiple_answer':
+                $this->validateMultipleChoice($request, true);
                 break;
             case 'true_false':
                 $this->validateTrueFalse($request);
@@ -252,19 +278,33 @@ class QuestionBankController extends Controller
         }
 
         DB::transaction(function () use ($question, $validated, $metadata, $questionType, $request, $soundPath) {
+            $correctAnswersCount = $questionType === 'multiple_answer'
+                ? max(1, count((array) $request->input('correct_answers', [])))
+                : 0;
+            $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
+            $matchingPairCount = $questionType === 'matching'
+                ? max(1, count((array) ($metadata['matching_pairs'] ?? [])))
+                : 0;
+            $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
+            $resolvedWeight = $questionType === 'multiple_answer'
+                ? max(0, $scoreCorrect) * $correctAnswersCount
+                : ($questionType === 'matching'
+                    ? max(0, $matchingScoreCorrect) * $matchingPairCount
+                    : ($validated['default_weight'] ?? 1));
+
             $question->update([
                 'question_type' => $questionType,
                 'question_text' => $validated['question_text'],
                 'explanation' => $validated['explanation'] ?? null,
-                'default_weight' => $validated['default_weight'] ?? 1,
-                'custom_score' => $request->boolean('use_custom_scores') ? 'yes' : 'no',
+                'default_weight' => $resolvedWeight,
+                'custom_score' => $questionType === 'multiple_answer' ? 'yes' : ($request->boolean('use_custom_scores') ? 'yes' : 'no'),
                 'metadata' => $metadata ?: null,
                 'sound' => $soundPath,
             ]);
 
             $question->options()->delete();
 
-            if (in_array($questionType, ['multiple_choice', 'true_false'])) {
+            if (in_array($questionType, ['multiple_choice', 'multiple_answer', 'true_false'])) {
                 $options = $this->prepareOptions($request, $questionType);
                 foreach ($options as $index => $option) {
                     QuestionBankQuestionOption::create([
@@ -383,27 +423,40 @@ class QuestionBankController extends Controller
         return array_reverse($breadcrumbs);
     }
 
-    private function validateMultipleChoice(Request $request): void
+    private function validateMultipleChoice(Request $request, bool $isMultipleAnswer = false): void
     {
-        $request->validate([
+        $rules = [
             'option_a' => ['required', 'string'],
             'option_b' => ['required', 'string'],
             'option_c' => ['required', 'string'],
             'option_d' => ['required', 'string'],
             'option_e' => ['nullable', 'string'],
             'correct_answer' => ['required', 'in:A,B,C,D,E'],
+            'correct_answers' => ['nullable', 'array', 'min:1'],
+            'correct_answers.*' => ['in:A,B,C,D,E'],
             'score_a' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'score_b' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'score_c' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'score_d' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'score_e' => ['nullable', 'numeric', 'min:0', 'max:5'],
-        ], [], [
+        ];
+
+        if ($isMultipleAnswer) {
+            $rules['correct_answer'] = ['nullable', 'in:A,B,C,D,E'];
+            $rules['correct_answers'] = ['required', 'array', 'min:1'];
+            $rules['multiple_answer_score_correct'] = ['required', 'numeric'];
+            $rules['multiple_answer_score_wrong'] = ['required', 'numeric'];
+            $rules['multiple_answer_scoring_mode'] = ['required', 'in:fullscore,partial'];
+        }
+
+        $request->validate($rules, [], [
             'option_a' => 'Pilihan A',
             'option_b' => 'Pilihan B',
             'option_c' => 'Pilihan C',
             'option_d' => 'Pilihan D',
             'option_e' => 'Pilihan E',
             'correct_answer' => 'Jawaban benar',
+            'correct_answers' => 'Daftar jawaban benar',
         ]);
     }
 
@@ -411,6 +464,8 @@ class QuestionBankController extends Controller
     {
         $request->validate([
             'correct_answer' => ['required', 'in:A,B'],
+            'score_a' => ['nullable', 'numeric', 'min:0', 'max:5'],
+            'score_b' => ['nullable', 'numeric', 'min:0', 'max:5'],
         ], [], [
             'correct_answer' => 'Jawaban benar',
         ]);
@@ -422,6 +477,9 @@ class QuestionBankController extends Controller
             'matching_pairs' => ['required', 'array', 'min:2'],
             'matching_pairs.*.left' => ['required', 'string'],
             'matching_pairs.*.right' => ['required', 'string'],
+            'matching_score_correct' => ['required', 'numeric'],
+            'matching_score_wrong' => ['required', 'numeric'],
+            'matching_scoring_mode' => ['required', 'in:fullscore,partial'],
         ], [], [
             'matching_pairs' => 'Pasangan pencocokan',
             'matching_pairs.*.left' => 'Kolom kiri',
@@ -453,6 +511,15 @@ class QuestionBankController extends Controller
             'matching' => $this->buildMatchingMetadata($request),
             'short_answer', 'essay' => $this->buildShortAnswerMetadata($request, $type),
             'audio' => $this->buildAudioMetadata($request),
+            'multiple_answer' => [
+                'multiple_answer' => [
+                    'score_correct' => (float) $request->input('multiple_answer_score_correct', 1),
+                    'score_wrong' => (float) $request->input('multiple_answer_score_wrong', 0),
+                    'scoring_mode' => in_array($request->input('multiple_answer_scoring_mode'), ['fullscore', 'partial'], true)
+                        ? $request->input('multiple_answer_scoring_mode')
+                        : 'fullscore',
+                ],
+            ],
             default => [],
         };
     }
@@ -469,7 +536,16 @@ class QuestionBankController extends Controller
             $pairs[] = ['left' => $left, 'right' => $right];
         }
 
-        return ['matching_pairs' => $pairs];
+        return [
+            'matching_pairs' => $pairs,
+            'matching_scores' => [
+                'score_correct' => (float) $request->input('matching_score_correct', 1),
+                'score_wrong' => (float) $request->input('matching_score_wrong', 0),
+                'scoring_mode' => in_array($request->input('matching_scoring_mode'), ['fullscore', 'partial'], true)
+                    ? $request->input('matching_scoring_mode')
+                    : 'fullscore',
+            ],
+        ];
     }
 
     private function buildShortAnswerMetadata(Request $request, string $type): array
@@ -541,21 +617,26 @@ class QuestionBankController extends Controller
             }
         }
 
-        $useCustomScores = $request->boolean('use_custom_scores');
-        $correctAnswer = $request->input('correct_answer', 'A');
+        $useCustomScores = $request->boolean('use_custom_scores') && $type !== 'multiple_answer';
+        $correctAnswer = strtoupper((string) $request->input('correct_answer', 'A'));
+        $correctAnswers = $type === 'multiple_answer'
+            ? collect($request->input('correct_answers', []))
+                ->map(fn ($value) => strtoupper((string) $value))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all()
+            : [$correctAnswer];
 
-        return collect($options)->map(function ($option) use ($useCustomScores, $correctAnswer, $request, $type) {
+        return collect($options)->map(function ($option) use ($useCustomScores, $correctAnswers, $request) {
             $scoreField = 'score_' . strtolower($option['key']);
-            $weight = $useCustomScores ? (float) ($request->input($scoreField, 0)) : ($option['key'] === $correctAnswer ? 1 : 0);
-
-            if ($type === 'true_false') {
-                $weight = $option['key'] === $correctAnswer ? 1 : 0;
-            }
+            $isCorrect = in_array($option['key'], $correctAnswers, true);
+            $weight = $useCustomScores ? (float) ($request->input($scoreField, 0)) : ($isCorrect ? 1 : 0);
 
             return [
                 'text' => $option['text'],
                 'weight' => $weight,
-                'is_correct' => $option['key'] === $correctAnswer,
+                'is_correct' => $isCorrect,
             ];
         })->toArray();
     }

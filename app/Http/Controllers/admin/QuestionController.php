@@ -20,6 +20,7 @@ class QuestionController extends Controller
 {
     private const SUPPORTED_TYPES = [
         'multiple_choice',
+        'multiple_answer',
         'matching',
         'short_answer',
         'essay',
@@ -76,6 +77,9 @@ class QuestionController extends Controller
                 case 'matching':
                     $this->validateMatchingQuestion($request);
                     $metadata = $this->buildMatchingMetadata($request);
+                    $pairCount = count($metadata['matching_pairs'] ?? []);
+                    $scoreCorrect = (float) (($metadata['matching_scores']['score_correct'] ?? 1));
+                    $matchingWeight = max(0, $scoreCorrect) * max(1, $pairCount);
 
                     Question::create([
                         'tryout_detail_id' => $tryout_detail_id,
@@ -83,8 +87,8 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => 'no',
+                        'default_weight' => $matchingWeight,
+                        'custom_score' => 'yes',
                         'metadata' => $metadata,
                     ]);
                     break;
@@ -100,8 +104,8 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => 'no',
+                        'default_weight' => $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest),
+                        'custom_score' => $request->filled('question_score') ? 'yes' : 'no',
                         'metadata' => $metadata,
                     ]);
                     break;
@@ -116,8 +120,8 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => 'no',
+                        'default_weight' => $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest),
+                        'custom_score' => $request->filled('question_score') ? 'yes' : 'no',
                         'metadata' => $metadata,
                     ]);
                     break;
@@ -125,7 +129,7 @@ class QuestionController extends Controller
                 default:
                     $this->validateMultipleChoiceQuestion($request, $tryoutDetail, $questionType);
 
-                    if ($questionType !== 'true_false' && $request->correct_answer === 'E' && empty($request->option_e)) {
+                    if ($questionType !== 'true_false' && !in_array('E', (array) $request->input('correct_answers', []), true) && $request->correct_answer === 'E' && empty($request->option_e)) {
                         throw ValidationException::withMessages([
                             'option_e' => 'Pilihan E tidak boleh kosong jika dipilih sebagai jawaban benar',
                         ]);
@@ -133,9 +137,16 @@ class QuestionController extends Controller
 
                     $isSKDType = in_array($tryoutDetail->type_subtest, ['twk', 'tiu', 'tkp']);
                     $useCustomScores = $request->boolean('use_custom_scores') || ($isSKDType && $tryoutDetail->type_subtest === 'tkp');
+                    $isMultipleAnswer = $questionType === 'multiple_answer';
+                    $multipleAnswerScores = $this->resolveMultipleAnswerScores($request);
+                    $correctAnswers = $isMultipleAnswer
+                        ? collect($request->input('correct_answers', []))->map(fn($item) => strtoupper((string) $item))->unique()->values()->all()
+                        : [strtoupper((string) $request->input('correct_answer', 'A'))];
+                    $multipleAnswerWeight = $isMultipleAnswer
+                        ? max(0, (float) $multipleAnswerScores['score_correct']) * max(1, count($correctAnswers))
+                        : $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest);
 
                     if ($questionType === 'true_false') {
-                        $useCustomScores = false;
                         $request->merge([
                             'option_a' => $request->filled('option_a') ? $request->option_a : 'Benar',
                             'option_b' => $request->filled('option_b') ? $request->option_b : 'Salah',
@@ -152,13 +163,19 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => $useCustomScores ? 'yes' : 'no',
-                        'metadata' => [],
+                        'default_weight' => $multipleAnswerWeight,
+                        'custom_score' => $isMultipleAnswer ? 'yes' : ($useCustomScores ? 'yes' : 'no'),
+                        'metadata' => $isMultipleAnswer ? [
+                            'multiple_answer' => [
+                                'score_correct' => $multipleAnswerScores['score_correct'],
+                                'score_wrong' => $multipleAnswerScores['score_wrong'],
+                                'scoring_mode' => $multipleAnswerScores['scoring_mode'],
+                            ],
+                        ] : [],
                     ]);
 
                     foreach ($this->prepareMultipleChoiceOptions($request, $questionType) as $option) {
-                        $isCorrect = ($option['key'] === $request->correct_answer);
+                        $isCorrect = in_array($option['key'], $correctAnswers, true);
                         $weight = $this->calculateOptionWeight(
                             $tryoutDetail->type_subtest,
                             $option['key'],
@@ -175,8 +192,10 @@ class QuestionController extends Controller
                         ]);
                     }
 
-                    $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
-                    $question->update(['default_weight' => $maxWeight]);
+                    if (!$isMultipleAnswer) {
+                        $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
+                        $question->update(['default_weight' => $maxWeight]);
+                    }
                     break;
             }
 
@@ -232,6 +251,9 @@ class QuestionController extends Controller
                 case 'matching':
                     $this->validateMatchingQuestion($request);
                     $metadata = $this->buildMatchingMetadata($request);
+                    $pairCount = count($metadata['matching_pairs'] ?? []);
+                    $scoreCorrect = (float) (($metadata['matching_scores']['score_correct'] ?? 1));
+                    $matchingWeight = max(0, $scoreCorrect) * max(1, $pairCount);
 
                     QuestionOption::where('question_id', $question->question_id)->delete();
 
@@ -240,8 +262,8 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => 'no',
+                        'default_weight' => $matchingWeight,
+                        'custom_score' => 'yes',
                         'metadata' => $metadata,
                     ]);
                     break;
@@ -258,8 +280,8 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => 'no',
+                        'default_weight' => $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest),
+                        'custom_score' => $request->filled('question_score') ? 'yes' : 'no',
                         'metadata' => $metadata,
                     ]);
                     break;
@@ -275,8 +297,8 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'default_weight' => $this->getDefaultWeight($tryoutDetail->type_subtest),
-                        'custom_score' => 'no',
+                        'default_weight' => $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest),
+                        'custom_score' => $request->filled('question_score') ? 'yes' : 'no',
                         'metadata' => $metadata,
                     ]);
                     break;
@@ -284,7 +306,7 @@ class QuestionController extends Controller
                 default:
                     $this->validateMultipleChoiceQuestion($request, $tryoutDetail, $questionType);
 
-                    if ($questionType !== 'true_false' && $request->correct_answer === 'E' && empty($request->option_e)) {
+                    if ($questionType !== 'true_false' && !in_array('E', (array) $request->input('correct_answers', []), true) && $request->correct_answer === 'E' && empty($request->option_e)) {
                         throw ValidationException::withMessages([
                             'option_e' => 'Pilihan E tidak boleh kosong jika dipilih sebagai jawaban benar',
                         ]);
@@ -292,9 +314,16 @@ class QuestionController extends Controller
 
                     $isSKDType = in_array($tryoutDetail->type_subtest, ['twk', 'tiu', 'tkp']);
                     $useCustomScores = $request->boolean('use_custom_scores') || ($isSKDType && $tryoutDetail->type_subtest === 'tkp');
+                    $isMultipleAnswer = $questionType === 'multiple_answer';
+                    $multipleAnswerScores = $this->resolveMultipleAnswerScores($request);
+                    $correctAnswers = $isMultipleAnswer
+                        ? collect($request->input('correct_answers', []))->map(fn($item) => strtoupper((string) $item))->unique()->values()->all()
+                        : [strtoupper((string) $request->input('correct_answer', 'A'))];
+                    $multipleAnswerWeight = $isMultipleAnswer
+                        ? max(0, (float) $multipleAnswerScores['score_correct']) * max(1, count($correctAnswers))
+                        : $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest);
 
                     if ($questionType === 'true_false') {
-                        $useCustomScores = false;
                         $request->merge([
                             'option_a' => $request->filled('option_a') ? $request->option_a : 'Benar',
                             'option_b' => $request->filled('option_b') ? $request->option_b : 'Salah',
@@ -310,14 +339,21 @@ class QuestionController extends Controller
                         'question_text' => $request->question_text,
                         'sound' => $soundPath,
                         'explanation' => $request->explanation,
-                        'custom_score' => $useCustomScores ? 'yes' : 'no',
-                        'metadata' => [],
+                        'default_weight' => $multipleAnswerWeight,
+                        'custom_score' => $isMultipleAnswer ? 'yes' : ($useCustomScores ? 'yes' : 'no'),
+                        'metadata' => $isMultipleAnswer ? [
+                            'multiple_answer' => [
+                                'score_correct' => $multipleAnswerScores['score_correct'],
+                                'score_wrong' => $multipleAnswerScores['score_wrong'],
+                                'scoring_mode' => $multipleAnswerScores['scoring_mode'],
+                            ],
+                        ] : [],
                     ]);
 
                     QuestionOption::where('question_id', $question->question_id)->delete();
 
                     foreach ($this->prepareMultipleChoiceOptions($request, $questionType) as $option) {
-                        $isCorrect = ($option['key'] === $request->correct_answer);
+                        $isCorrect = in_array($option['key'], $correctAnswers, true);
                         $weight = $this->calculateOptionWeight(
                             $tryoutDetail->type_subtest,
                             $option['key'],
@@ -334,8 +370,10 @@ class QuestionController extends Controller
                         ]);
                     }
 
-                    $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
-                    $question->update(['default_weight' => $maxWeight]);
+                    if (!$isMultipleAnswer) {
+                        $maxWeight = QuestionOption::where('question_id', $question->question_id)->max('weight');
+                        $question->update(['default_weight' => $maxWeight]);
+                    }
                     break;
             }
 
@@ -400,12 +438,18 @@ class QuestionController extends Controller
             'option_d' => 'required|string',
             'option_e' => 'nullable|string',
             'correct_answer' => 'required|in:A,B,C,D,E',
+            'correct_answers' => 'nullable|array|min:1',
+            'correct_answers.*' => 'in:A,B,C,D,E',
             'use_custom_scores' => 'nullable|boolean',
             'score_a' => 'nullable|numeric',
             'score_b' => 'nullable|numeric',
             'score_c' => 'nullable|numeric',
             'score_d' => 'nullable|numeric',
             'score_e' => 'nullable|numeric',
+            'question_score' => 'nullable|numeric|min:0',
+            'multiple_answer_score_correct' => 'nullable|numeric',
+            'multiple_answer_score_wrong' => 'nullable|numeric',
+            'multiple_answer_scoring_mode' => 'nullable|in:fullscore,partial',
         ];
 
         if ($questionType === 'true_false') {
@@ -416,7 +460,16 @@ class QuestionController extends Controller
                 'option_d' => 'nullable|string',
                 'option_e' => 'nullable|string',
                 'correct_answer' => 'required|in:A,B',
+                'use_custom_scores' => 'nullable|boolean',
+                'score_a' => 'nullable|numeric',
+                'score_b' => 'nullable|numeric',
             ];
+        } elseif ($questionType === 'multiple_answer') {
+            $rules['correct_answer'] = 'nullable|in:A,B,C,D,E';
+            $rules['correct_answers'] = 'required|array|min:1';
+            $rules['multiple_answer_score_correct'] = 'required|numeric';
+            $rules['multiple_answer_score_wrong'] = 'required|numeric';
+            $rules['multiple_answer_scoring_mode'] = 'required|in:fullscore,partial';
         }
 
         $attributes = [
@@ -426,6 +479,7 @@ class QuestionController extends Controller
             'option_d' => 'Opsi D',
             'option_e' => 'Opsi E',
             'correct_answer' => 'Jawaban benar',
+            'correct_answers' => 'Daftar jawaban benar',
         ];
 
         $request->validate($rules, [], $attributes);
@@ -460,6 +514,9 @@ class QuestionController extends Controller
             'matching_pairs' => 'required|array|min:2',
             'matching_pairs.*.left' => 'required|string|min:1',
             'matching_pairs.*.right' => 'required|string|min:1',
+            'matching_score_correct' => 'required|numeric',
+            'matching_score_wrong' => 'required|numeric',
+            'matching_scoring_mode' => 'required|in:fullscore,partial',
         ];
 
         $attributes = [
@@ -490,6 +547,13 @@ class QuestionController extends Controller
 
         return [
             'matching_pairs' => $pairs,
+            'matching_scores' => [
+                'score_correct' => (float) $request->input('matching_score_correct', 1),
+                'score_wrong' => (float) $request->input('matching_score_wrong', 0),
+                'scoring_mode' => in_array($request->input('matching_scoring_mode'), ['fullscore', 'partial'], true)
+                    ? $request->input('matching_scoring_mode')
+                    : 'fullscore',
+            ],
         ];
     }
 
@@ -499,6 +563,7 @@ class QuestionController extends Controller
             'short_answer_expected' => 'nullable|string',
             'short_answer_case_sensitive' => 'nullable|boolean',
             'essay_scoring_mode' => 'nullable|in:auto,manual',
+            'question_score' => 'nullable|numeric|min:0',
         ];
 
         $request->validate($rules);
@@ -551,6 +616,7 @@ class QuestionController extends Controller
             'audio_instructions' => 'nullable|string',
             'audio_max_duration' => 'nullable|integer|min:5|max:600',
             'audio_max_size' => 'nullable|integer|min:1|max:100',
+            'question_score' => 'nullable|numeric|min:0',
         ];
 
         $request->validate($rules);
@@ -609,6 +675,11 @@ class QuestionController extends Controller
      */
     private function calculateOptionWeight($type_subtest, $optionKey, $isCorrect, $request, $useCustomScores)
     {
+        if ($useCustomScores) {
+            $scoreField = 'score_' . strtolower($optionKey);
+            return max(0, (float) ($request->$scoreField ?? 0));
+        }
+
         switch ($type_subtest) {
             case 'twk':
             case 'tiu':
@@ -617,21 +688,135 @@ class QuestionController extends Controller
 
             case 'tkp':
                 // SKD TKP: Semua opsi bisa diberi skor 1-5
-                if ($useCustomScores) {
-                    $scoreField = 'score_' . strtolower($optionKey);
-                    return (float)($request->$scoreField ?? 1);
-                }
                 // Default TKP: jawaban benar = 5, lainnya = 1
                 return $isCorrect ? 5.00 : 1.00;
 
             default:
                 // Tryout biasa
-                if ($useCustomScores) {
-                    $scoreField = 'score_' . strtolower($optionKey);
-                    return (float)($request->$scoreField ?? 0);
-                }
                 return $isCorrect ? 1.00 : 0.00;
         }
+    }
+
+    private function resolveQuestionWeight(Request $request, string $typeSubtest): float
+    {
+        if ($request->filled('question_score')) {
+            return max(0, (float) $request->input('question_score'));
+        }
+
+        return $this->getDefaultWeight($typeSubtest);
+    }
+
+    private function resolveMultipleAnswerScores(Request $request): array
+    {
+        return [
+            'score_correct' => (float) $request->input('multiple_answer_score_correct', 1),
+            'score_wrong' => (float) $request->input('multiple_answer_score_wrong', 0),
+            'scoring_mode' => in_array($request->input('multiple_answer_scoring_mode'), ['fullscore', 'partial'], true)
+                ? $request->input('multiple_answer_scoring_mode')
+                : 'fullscore',
+        ];
+    }
+
+    private function resolveMultipleAnswerAwardedScore(Question $question, $detail): float
+    {
+        $defaultWeight = (float) ($question->default_weight ?? 1);
+        $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $selectedIds = collect($meta['selected_option_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($selectedIds)) {
+            $options = $question->relationLoaded('questionOptions')
+                ? $question->questionOptions
+                : $question->questionOptions()->get();
+
+            $correctIds = $options
+                ->where('is_correct', true)
+                ->pluck('question_option_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            sort($selectedIds);
+            sort($correctIds);
+
+            $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+            $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+            $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+            $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? (($maxWeight > 0 && count($correctIds) > 0) ? ($maxWeight / count($correctIds)) : 1));
+            $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+            $scoringMode = (string) ($multipleAnswerMeta['scoring_mode'] ?? 'fullscore');
+            $totalCorrectCount = max(1, count($correctIds));
+            $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
+            $wrongCount = $missedCorrect + $wrongSelected;
+            $fullScore = $totalCorrectCount * $scoreCorrect;
+            $score = 0.0;
+
+            if ($scoringMode === 'partial') {
+                if ($matchedCorrect > 0) {
+                    $score = ($matchedCorrect / $totalCorrectCount) * $fullScore;
+                } else {
+                    $score = $wrongCount * $scoreWrong;
+                }
+            } else {
+                $score = ($matchedCorrect * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+
+        if (is_numeric($storedScore)) {
+            return max(0, min((float) $storedScore, $maxWeight));
+        }
+
+        return $detail->is_correct ? $maxWeight : 0;
+    }
+
+    private function resolveMatchingAwardedScore(Question $question, $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = $questionMeta['matching_scores'] ?? [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+        $wrongCount = max(0, $totalCount - $correctCount);
+
+        if ($totalCount > 0) {
+            $fullScore = $totalCount * $scoreCorrect;
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                if ($correctCount > 0) {
+                    $score = ($correctCount / $totalCount) * $fullScore;
+                } else {
+                    $score = $wrongCount * $scoreWrong;
+                }
+            } else {
+                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
     }
 
     /**
@@ -691,6 +876,15 @@ class QuestionController extends Controller
                         }
 
                         switch ($questionType) {
+                            case 'multiple_answer':
+                                if ($detail->is_correct) {
+                                    $correctAnswers++;
+                                } else {
+                                    $wrongAnswers++;
+                                }
+
+                                $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                                break;
                             case 'matching':
                                 if ($detail->is_correct) {
                                     $correctAnswers++;
@@ -698,14 +892,7 @@ class QuestionController extends Controller
                                     $wrongAnswers++;
                                 }
 
-                                $weight = (float) ($question->default_weight ?? 1);
-                                if ($weight <= 0) {
-                                    $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                                        ? count($question->metadata['matching_pairs'])
-                                        : 1;
-                                    $weight = max(1, $pairs);
-                                }
-                                $totalScore += $detail->is_correct ? $weight : 0;
+                                $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                                 break;
 
                             case 'short_answer':
@@ -792,6 +979,10 @@ class QuestionController extends Controller
             $questionType = $question->question_type ?? 'multiple_choice';
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
                 case 'matching':
                     $weight = (float) ($question->default_weight ?? 0);
                     if ($weight <= 0) {

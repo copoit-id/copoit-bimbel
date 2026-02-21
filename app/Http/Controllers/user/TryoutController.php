@@ -115,6 +115,8 @@ class TryoutController extends Controller
         }
 
         switch ($type) {
+            case 'multiple_answer':
+                return $this->handleMultipleAnswer($data, $question);
             case 'matching':
                 return $this->handleMatchingAnswer($data, $question);
             case 'short_answer':
@@ -125,6 +127,148 @@ class TryoutController extends Controller
             default:
                 return $this->handleMultipleChoiceAnswer($data, $question);
         }
+    }
+
+    private function handleMultipleAnswer(array $data, Question $question): array
+    {
+        Validator::make($data, [
+            'option_ids' => 'required|array|min:1',
+            'option_ids.*' => 'required|exists:question_options,question_option_id'
+        ])->validate();
+
+        $selectedIds = collect($data['option_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $validIds = $question->questionOptions()
+            ->whereIn('question_option_id', $selectedIds)
+            ->pluck('question_option_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        sort($selectedIds);
+        sort($validIds);
+        if ($selectedIds !== $validIds) {
+            throw ValidationException::withMessages([
+                'option_ids' => 'Pilihan jawaban tidak valid untuk soal ini.'
+            ]);
+        }
+
+        $correctIds = $question->questionOptions()
+            ->where('is_correct', true)
+            ->pluck('question_option_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+        sort($correctIds);
+
+        $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+        $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $multipleAnswerMeta['scoring_mode']
+            : 'fullscore';
+
+        $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+        $isCorrect = $selectedIds === $correctIds;
+        $totalCorrect = max(1, count($correctIds));
+        $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+        $missedCorrect = max(0, $totalCorrect - $matchedCorrect);
+        $wrongCount = $missedCorrect + $wrongSelected;
+        $fullScore = $totalCorrect * $scoreCorrect;
+        $scoreObtained = 0.0;
+        if ($scoringMode === 'partial') {
+            $scoreObtained = $matchedCorrect > 0
+                ? ($matchedCorrect / $totalCorrect) * $fullScore
+                : ($wrongCount * $scoreWrong);
+        } else {
+            $scoreObtained = ($matchedCorrect * $scoreCorrect) + ($wrongCount * $scoreWrong);
+        }
+        $scoreObtained = max(0, $scoreObtained);
+        $ratio = $totalCorrect > 0 ? ($matchedCorrect / $totalCorrect) : 0;
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => null,
+                'answer_json' => [
+                    'selected_option_ids' => $selectedIds,
+                    'correct_matched' => $matchedCorrect,
+                    'correct_total' => $totalCorrect,
+                    'wrong_selected' => $wrongSelected,
+                    'wrong_count' => $wrongCount,
+                    'scoring_mode' => $scoringMode,
+                    'score_ratio' => $ratio,
+                    'score_obtained' => $scoreObtained,
+                ],
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'option_ids' => $selectedIds,
+                'is_correct' => $isCorrect,
+                'score_obtained' => $scoreObtained,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function resolveMultipleAnswerAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $defaultWeight = (float) ($question->default_weight ?? 1);
+        $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $selectedIds = collect($meta['selected_option_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($selectedIds)) {
+            $correctIds = $question->questionOptions()
+                ->where('is_correct', true)
+                ->pluck('question_option_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            sort($selectedIds);
+            sort($correctIds);
+            $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+            $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+            $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+            $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? (($maxWeight > 0 && count($correctIds) > 0) ? ($maxWeight / count($correctIds)) : 1));
+            $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+            $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                ? $multipleAnswerMeta['scoring_mode']
+                : 'fullscore';
+            $totalCorrectCount = max(1, count($correctIds));
+            $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
+            $wrongCount = $missedCorrect + $wrongSelected;
+            $fullScore = $totalCorrectCount * $scoreCorrect;
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $matchedCorrect > 0
+                    ? ($matchedCorrect / $totalCorrectCount) * $fullScore
+                    : ($wrongCount * $scoreWrong);
+            } else {
+                $score = ($matchedCorrect * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+
+        if (is_numeric($storedScore)) {
+            return max(0, min((float) $storedScore, $maxWeight));
+        }
+
+        return $detail->is_correct ? $maxWeight : 0;
     }
 
     private function handleMultipleChoiceAnswer(array $data, Question $question): array
@@ -303,6 +447,25 @@ class TryoutController extends Controller
 
         $total = count($correctMap);
         $isCorrect = $total > 0 ? $correctCount === $total : false;
+        $wrongCount = max(0, $total - $correctCount);
+
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+        $fullScore = $total * $scoreCorrect;
+        $scoreObtained = 0.0;
+        if ($scoringMode === 'partial') {
+            $scoreObtained = $correctCount > 0
+                ? ($correctCount / max(1, $total)) * $fullScore
+                : ($wrongCount * $scoreWrong);
+        } else {
+            $scoreObtained = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+        }
+        $scoreObtained = max(0, $scoreObtained);
 
         return [
             'detail' => [
@@ -313,7 +476,10 @@ class TryoutController extends Controller
                     'summary' => [
                         'correct' => $correctCount,
                         'total' => $total,
+                        'wrong' => $wrongCount,
                     ],
+                    'scoring_mode' => $scoringMode,
+                    'score_obtained' => $scoreObtained,
                 ],
                 'answer_file_path' => null,
                 'is_correct' => $isCorrect,
@@ -322,9 +488,49 @@ class TryoutController extends Controller
                 'is_correct' => $isCorrect,
                 'correct' => $correctCount,
                 'total' => $total,
+                'score_obtained' => $scoreObtained,
             ],
             'delete_file' => false,
         ];
+    }
+
+    private function resolveMatchingAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+        $wrongCount = max(0, $totalCount - $correctCount);
+
+        if ($totalCount > 0) {
+            $fullScore = $totalCount * $scoreCorrect;
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $correctCount > 0
+                    ? ($correctCount / $totalCount) * $fullScore
+                    : ($wrongCount * $scoreWrong);
+            } else {
+                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
     }
 
     private function handleAudioAnswer(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
@@ -1167,15 +1373,11 @@ class TryoutController extends Controller
             $pendingReview = $answerMeta['pending_review'] ?? false;
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
                 case 'matching':
-                    if ($detail->is_correct) {
-                        $weight = (float) ($question->default_weight ?? 1);
-                        if ($weight <= 0) {
-                            $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
-                            $weight = max(1, $pairs);
-                        }
-                        $totalScore += $weight;
-                    }
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
@@ -1925,6 +2127,16 @@ class TryoutController extends Controller
             }
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
+
                 case 'matching':
                     if ($detail->is_correct) {
                         $correctAnswers++;
@@ -1932,12 +2144,7 @@ class TryoutController extends Controller
                         $wrongAnswers++;
                     }
 
-                    $weight = (float) ($question->default_weight ?? 1);
-                    if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
-                        $weight = max(1, $pairs);
-                    }
-                    $totalScore += $detail->is_correct ? $weight : 0;
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
@@ -2028,6 +2235,11 @@ class TryoutController extends Controller
             $questionType = $question->question_type ?? 'multiple_choice';
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
                 case 'matching':
                     $weight = (float) ($question->default_weight ?? 0);
                     if ($weight <= 0) {

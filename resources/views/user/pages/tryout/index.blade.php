@@ -66,6 +66,13 @@
                                         'option_key' => optional($userAnswerDetail->questionOption)->option_key,
                                     ];
                                     break;
+                                case 'multiple_answer':
+                                    $initialAnswer = [
+                                        'question_id' => $currentQuestion->question_id,
+                                        'type' => 'multiple_answer',
+                                        'option_ids' => $userAnswerDetail->answer_json['selected_option_ids'] ?? [],
+                                    ];
+                                    break;
                                 case 'matching':
                                     $initialAnswer = [
                                         'question_id' => $currentQuestion->question_id,
@@ -111,6 +118,27 @@
                                     value="{{ $option->question_option_id }}"
                                     data-option-key="{{ $optionKey }}"
                                     class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
+                                <span class="ml-4 flex-1 text-gray-700">
+                                    <span class="font-semibold mr-2">{{ $optionKey }}.</span>
+                                    {!! $option->option_text !!}
+                                </span>
+                            </label>
+                            @endforeach
+                        </div>
+                        @elseif($questionType === 'multiple_answer')
+                        <div class="space-y-3" id="multipleAnswerOptions">
+                            @foreach($currentQuestion->questionOptions as $option)
+                            @php
+                                $optionKey = $option->option_key ?? chr(65 + $loop->index);
+                            @endphp
+                            <label
+                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
+                                for="option_multi_{{ $option->question_option_id }}">
+                                <input type="checkbox" id="option_multi_{{ $option->question_option_id }}"
+                                    name="answer_options[]"
+                                    value="{{ $option->question_option_id }}"
+                                    data-option-key="{{ $optionKey }}"
+                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-checkbox">
                                 <span class="ml-4 flex-1 text-gray-700">
                                     <span class="font-semibold mr-2">{{ $optionKey }}.</span>
                                     {!! $option->option_text !!}
@@ -465,6 +493,8 @@
                 case 'multiple_choice':
                 case 'true_false':
                     return !!answer.option_id;
+                case 'multiple_answer':
+                    return Array.isArray(answer.option_ids) && answer.option_ids.length > 0;
                 case 'matching':
                     if (!answer.matching_answers) {
                         return false;
@@ -476,7 +506,7 @@
                 case 'audio':
                     return !!(answer.answer_audio_base64 || answer.answer_audio_remote);
                 default:
-                    return !!answer.answer_audio_remote;
+                    return false;
             }
         }
 
@@ -527,6 +557,23 @@
             }
         }
 
+        function highlightSelectedMultipleOptions() {
+            document.querySelectorAll('.answer-checkbox').forEach(checkbox => {
+                const label = checkbox.closest('.answer-option-label');
+                if (!label) {
+                    return;
+                }
+
+                if (checkbox.checked) {
+                    label.classList.remove('border-gray-200');
+                    label.classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+                } else {
+                    label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+                    label.classList.add('border-gray-200');
+                }
+            });
+        }
+
         function applyAnswerToUI() {
             const saved = getAnswer(questionId);
             if (!saved) {
@@ -544,6 +591,17 @@
                         }
                     }
                     break;
+                case 'multiple_answer': {
+                    const selectedIds = Array.isArray(saved.option_ids)
+                        ? saved.option_ids.map(id => id.toString())
+                        : (Array.isArray(saved.selected_option_ids) ? saved.selected_option_ids.map(id => id.toString()) : []);
+
+                    document.querySelectorAll('.answer-checkbox').forEach(checkbox => {
+                        checkbox.checked = selectedIds.includes((checkbox.value || '').toString());
+                    });
+                    highlightSelectedMultipleOptions();
+                    break;
+                }
                 case 'matching':
                     if (saved.matching_answers) {
                         document.querySelectorAll('.matching-select').forEach(select => {
@@ -613,6 +671,29 @@
                         option_key: this.dataset.optionKey || null
                     });
                     highlightSelectedOption(this);
+                });
+            });
+        }
+
+        if (questionType === 'multiple_answer') {
+            const checkboxes = document.querySelectorAll('.answer-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const selected = Array.from(checkboxes)
+                        .filter(item => item.checked)
+                        .map(item => item.value);
+
+                    if (selected.length === 0) {
+                        clearAnswer(questionId);
+                        highlightSelectedMultipleOptions();
+                        return;
+                    }
+
+                    setAnswer(questionId, {
+                        type: 'multiple_answer',
+                        option_ids: selected
+                    });
+                    highlightSelectedMultipleOptions();
                 });
             });
         }
