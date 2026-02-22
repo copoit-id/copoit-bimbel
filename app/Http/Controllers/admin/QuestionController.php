@@ -77,9 +77,8 @@ class QuestionController extends Controller
                 case 'matching':
                     $this->validateMatchingQuestion($request);
                     $metadata = $this->buildMatchingMetadata($request);
-                    $pairCount = count($metadata['matching_pairs'] ?? []);
                     $scoreCorrect = (float) (($metadata['matching_scores']['score_correct'] ?? 1));
-                    $matchingWeight = max(0, $scoreCorrect) * max(1, $pairCount);
+                    $matchingWeight = max(0, $scoreCorrect);
 
                     Question::create([
                         'tryout_detail_id' => $tryout_detail_id,
@@ -251,9 +250,8 @@ class QuestionController extends Controller
                 case 'matching':
                     $this->validateMatchingQuestion($request);
                     $metadata = $this->buildMatchingMetadata($request);
-                    $pairCount = count($metadata['matching_pairs'] ?? []);
                     $scoreCorrect = (float) (($metadata['matching_scores']['score_correct'] ?? 1));
-                    $matchingWeight = max(0, $scoreCorrect) * max(1, $pairCount);
+                    $matchingWeight = max(0, $scoreCorrect);
 
                     QuestionOption::where('question_id', $question->question_id)->delete();
 
@@ -796,16 +794,17 @@ class QuestionController extends Controller
         $wrongCount = max(0, $totalCount - $correctCount);
 
         if ($totalCount > 0) {
-            $fullScore = $totalCount * $scoreCorrect;
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
             $score = 0.0;
             if ($scoringMode === 'partial') {
                 if ($correctCount > 0) {
                     $score = ($correctCount / $totalCount) * $fullScore;
                 } else {
-                    $score = $wrongCount * $scoreWrong;
+                    $score = $scoreWrong;
                 }
             } else {
-                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
             }
 
             return max(0, $score);
@@ -985,12 +984,10 @@ class QuestionController extends Controller
                     $total += $weight > 0 ? $weight : 1;
                     break;
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
                     }
                     $total += $weight;
                     break;

@@ -325,14 +325,15 @@ class EssayReviewController extends Controller
         $wrongCount = max(0, $totalCount - $correctCount);
 
         if ($totalCount > 0) {
-            $fullScore = $totalCount * $scoreCorrect;
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
             $score = 0.0;
             if ($scoringMode === 'partial') {
                 $score = $correctCount > 0
                     ? ($correctCount / $totalCount) * $fullScore
-                    : ($wrongCount * $scoreWrong);
+                    : $scoreWrong;
             } else {
-                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
             }
 
             return max(0, $score);
@@ -369,12 +370,10 @@ class EssayReviewController extends Controller
                     break;
 
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
                     }
                     $total += $weight;
                     break;

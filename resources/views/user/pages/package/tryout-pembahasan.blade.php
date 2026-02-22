@@ -135,6 +135,12 @@
         $selectedOptionIds = collect($answerMeta['selected_option_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
             ->all();
+        $matchingPairs = isset($questionMeta['matching_pairs']) && is_array($questionMeta['matching_pairs'])
+            ? $questionMeta['matching_pairs']
+            : [];
+        $userMatches = isset($answerMeta['matches']) && is_array($answerMeta['matches'])
+            ? $answerMeta['matches']
+            : [];
         @endphp
 
         {{-- Subtest Header --}}
@@ -240,6 +246,52 @@
                 <p class="text-gray-700">{!! nl2br(e($detail->answer_text ?? '')) ?: '-' !!}</p>
                 @if($detail->answer_json['pending_review'] ?? false)
                 <p class="text-xs text-gray-500 mt-2">Belum dikoreksi.</p>
+                @endif
+            </div>
+            @elseif(($question->question_type ?? '') === 'matching')
+            <div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg">
+                <p class="font-semibold text-gray-800 mb-2">Jawaban Peserta:</p>
+                @if(empty($matchingPairs))
+                <p class="text-sm text-gray-500">Belum ada pasangan pencocokan untuk soal ini.</p>
+                @else
+                <div class="space-y-2">
+                    @foreach($matchingPairs as $pair)
+                    @php
+                        $leftText = trim((string) ($pair['left'] ?? ''));
+                        $rightText = trim((string) ($pair['right'] ?? ''));
+                        $userRight = trim((string) ($userMatches[$leftText] ?? ''));
+                        $isPairCorrect = $userRight !== '' && $userRight === $rightText;
+                    @endphp
+                    <div class="flex items-center gap-2 text-sm {{ $isPairCorrect ? 'text-green' : 'text-gray-700' }}">
+                        <span class="font-medium text-gray-800">{{ $leftText !== '' ? $leftText : '-' }}</span>
+                        <i class="ri-arrow-right-line text-gray-400"></i>
+                        <span>{{ $userRight !== '' ? $userRight : '-' }}</span>
+                        @if($isPairCorrect)
+                        <i class="ri-check-line text-green"></i>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+            <div class="mt-3 p-3 bg-green border border-green rounded-lg text-white">
+                <p class="font-semibold text-white mb-2">Jawaban Yang Benar:</p>
+                @if(empty($matchingPairs))
+                <p class="text-sm text-white">Belum ada pasangan pencocokan yang tersimpan.</p>
+                @else
+                <div class="space-y-2 text-sm text-white">
+                    @foreach($matchingPairs as $pair)
+                    @php
+                        $leftText = trim((string) ($pair['left'] ?? ''));
+                        $rightText = trim((string) ($pair['right'] ?? ''));
+                    @endphp
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-white">{{ $leftText !== '' ? $leftText : '-' }}</span>
+                        <i class="ri-arrow-right-line text-white/90"></i>
+                        <span>{{ $rightText !== '' ? $rightText : '-' }}</span>
+                    </div>
+                    @endforeach
+                </div>
                 @endif
             </div>
             @else

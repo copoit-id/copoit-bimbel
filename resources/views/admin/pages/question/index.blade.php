@@ -118,9 +118,12 @@
                 });
                 $metadata = is_array($question->metadata) ? $question->metadata : [];
                 $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
                 $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
                 if (($question->question_type ?? '') === 'multiple_answer' && isset($multipleAnswerMeta['score_correct'])) {
                     $displayWeight = (float) $multipleAnswerMeta['score_correct'];
+                } elseif (($question->question_type ?? '') === 'matching' && isset($matchingMeta['score_correct'])) {
+                    $displayWeight = (float) $matchingMeta['score_correct'];
                 }
                 $typeLabels = [
                 'multiple_choice' => 'Multiple Choice',
@@ -136,6 +139,9 @@
                     @if(($question->question_type ?? '') === 'multiple_answer')
                         {{ $typeLabels[$question->question_type] ?? 'Multiple Answer' }}
                         - {{ in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $multipleAnswerMeta['scoring_mode'] : 'fullscore' }}
+                    @elseif(($question->question_type ?? '') === 'matching')
+                        {{ $typeLabels[$question->question_type] ?? 'Pencocokan' }}
+                        - {{ in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $matchingMeta['scoring_mode'] : 'fullscore' }}
                     @else
                         {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type)) }}
                     @endif

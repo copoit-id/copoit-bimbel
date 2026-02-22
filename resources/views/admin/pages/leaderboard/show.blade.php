@@ -100,8 +100,14 @@
                 @forelse($rankings as $index => $ranking)
                 @php
                 $rank = ($rankings->currentPage() - 1) * $rankings->perPage() + $index + 1;
-                $rawScore = round($ranking->raw_score ?? 0);
-                $maxScore = round($ranking->max_score ?? 0);
+                $rawScoreValue = (float) ($ranking->raw_score ?? 0);
+                $maxScoreValue = (float) ($ranking->max_score ?? 0);
+                $rawScore = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                    ? number_format($rawScoreValue, 0)
+                    : number_format($rawScoreValue, 2);
+                $maxScore = abs($maxScoreValue - round($maxScoreValue)) < 0.01
+                    ? number_format($maxScoreValue, 0)
+                    : number_format($maxScoreValue, 2);
                 $bgClass = '';
                 if($rank == 1) $bgClass = 'bg-yellow-50/50';
                 elseif($rank == 2) $bgClass = 'bg-gray-50/50';

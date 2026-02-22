@@ -44,6 +44,12 @@ class TryoutController extends Controller
         return 0;
     }
 
+    private function normalizeQuestionType(?string $type): string
+    {
+        $resolved = $type ?: 'multiple_choice';
+        return $resolved === 'multiple_select' ? 'multiple_answer' : $resolved;
+    }
+
     private function maybeShowSubtestBreak(
         Tryout $tryout,
         ?Package $package,
@@ -108,7 +114,7 @@ class TryoutController extends Controller
 
     private function processAnswerByType(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
     {
-        $type = $question->question_type ?? 'multiple_choice';
+        $type = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
 
         if ($type === 'true_false') {
             $type = 'multiple_choice';
@@ -457,14 +463,14 @@ class TryoutController extends Controller
         $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
             ? $matchingMeta['scoring_mode']
             : 'fullscore';
-        $fullScore = $total * $scoreCorrect;
+        $fullScore = max(0, $scoreCorrect);
         $scoreObtained = 0.0;
         if ($scoringMode === 'partial') {
             $scoreObtained = $correctCount > 0
                 ? ($correctCount / max(1, $total)) * $fullScore
-                : ($wrongCount * $scoreWrong);
+                : $scoreWrong;
         } else {
-            $scoreObtained = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+            $scoreObtained = $isCorrect ? $fullScore : $scoreWrong;
         }
         $scoreObtained = max(0, $scoreObtained);
 
@@ -512,14 +518,15 @@ class TryoutController extends Controller
         $wrongCount = max(0, $totalCount - $correctCount);
 
         if ($totalCount > 0) {
-            $fullScore = $totalCount * $scoreCorrect;
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
             $score = 0.0;
             if ($scoringMode === 'partial') {
                 $score = $correctCount > 0
                     ? ($correctCount / $totalCount) * $fullScore
-                    : ($wrongCount * $scoreWrong);
+                    : $scoreWrong;
             } else {
-                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
             }
 
             return max(0, $score);
@@ -1369,7 +1376,7 @@ class TryoutController extends Controller
                 continue;
             }
 
-            $questionType = $question->question_type ?? 'multiple_choice';
+            $questionType = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
             $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
             $pendingReview = $answerMeta['pending_review'] ?? false;
 
@@ -2120,7 +2127,7 @@ class TryoutController extends Controller
                 continue;
             }
 
-            $questionType = $question->question_type ?? 'multiple_choice';
+            $questionType = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
             $pendingReview = false;
             $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
             if (isset($answerMeta['pending_review'])) {
@@ -2233,7 +2240,7 @@ class TryoutController extends Controller
         $total = 0;
 
         foreach ($questions as $question) {
-            $questionType = $question->question_type ?? 'multiple_choice';
+            $questionType = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
 
             switch ($questionType) {
                 case 'multiple_answer':
@@ -2242,10 +2249,10 @@ class TryoutController extends Controller
                     break;
 
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
                     }
                     $total += $weight;
                     break;

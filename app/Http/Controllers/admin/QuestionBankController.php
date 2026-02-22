@@ -186,14 +186,11 @@ class QuestionBankController extends Controller
                 ? max(1, count((array) $request->input('correct_answers', [])))
                 : 0;
             $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
-            $matchingPairCount = $questionType === 'matching'
-                ? max(1, count((array) ($metadata['matching_pairs'] ?? [])))
-                : 0;
             $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
             $resolvedWeight = $questionType === 'multiple_answer'
                 ? max(0, $scoreCorrect) * $correctAnswersCount
                 : ($questionType === 'matching'
-                    ? max(0, $matchingScoreCorrect) * $matchingPairCount
+                    ? max(0, $matchingScoreCorrect)
                     : ($validated['default_weight'] ?? 1));
 
             $bankQuestion = QuestionBankQuestion::create([
@@ -282,14 +279,11 @@ class QuestionBankController extends Controller
                 ? max(1, count((array) $request->input('correct_answers', [])))
                 : 0;
             $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
-            $matchingPairCount = $questionType === 'matching'
-                ? max(1, count((array) ($metadata['matching_pairs'] ?? [])))
-                : 0;
             $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
             $resolvedWeight = $questionType === 'multiple_answer'
                 ? max(0, $scoreCorrect) * $correctAnswersCount
                 : ($questionType === 'matching'
-                    ? max(0, $matchingScoreCorrect) * $matchingPairCount
+                    ? max(0, $matchingScoreCorrect)
                     : ($validated['default_weight'] ?? 1));
 
             $question->update([
