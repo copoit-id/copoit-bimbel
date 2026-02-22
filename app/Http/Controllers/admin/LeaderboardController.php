@@ -130,7 +130,9 @@ class LeaderboardController extends Controller
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
 
-        $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+        $rankings = $this->sortLeaderboardRows(
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get())
+        );
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -153,8 +155,8 @@ class LeaderboardController extends Controller
         $row = 2;
         foreach ($rankings as $index => $ranking) {
             $rank = $index + 1;
-            $score = round($ranking->raw_score ?? 0);
-            $maxScore = round($ranking->max_score ?? 0);
+            $score = round((float) ($ranking->raw_score ?? 0), 2);
+            $maxScore = round((float) ($ranking->max_score ?? 0), 2);
             $finishedAt = $ranking->finished_at;
             $startedAt = $ranking->started_at;
             $duration = $this->formatDuration($startedAt, $finishedAt);
@@ -199,7 +201,9 @@ class LeaderboardController extends Controller
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
 
-        $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+        $rankings = $this->sortLeaderboardRows(
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get())
+        );
 
         $html = view('admin.pages.leaderboard.export-pdf', [
             'package' => $package,
@@ -274,12 +278,7 @@ class LeaderboardController extends Controller
 
     private function paginateLeaderboardRows(Collection $rankings, int $perPage = 15)
     {
-        $sorted = $rankings
-            ->sortBy([
-                ['raw_score', 'desc'],
-                ['finished_at', 'asc'],
-            ])
-            ->values();
+        $sorted = $this->sortLeaderboardRows($rankings);
 
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $items = $sorted->slice(($currentPage - 1) * $perPage, $perPage)->values();
@@ -294,6 +293,16 @@ class LeaderboardController extends Controller
                 'query' => request()->query(),
             ]
         );
+    }
+
+    private function sortLeaderboardRows(Collection $rankings): Collection
+    {
+        return $rankings
+            ->sortBy([
+                ['raw_score', 'desc'],
+                ['finished_at', 'asc'],
+            ])
+            ->values();
     }
 
     private function buildLeaderboardRows(Collection $rankings): Collection
@@ -465,14 +474,15 @@ class LeaderboardController extends Controller
         $wrongCount = max(0, $totalCount - $correctCount);
 
         if ($totalCount > 0) {
-            $fullScore = $totalCount * $scoreCorrect;
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
             $score = 0.0;
             if ($scoringMode === 'partial') {
                 $score = $correctCount > 0
                     ? ($correctCount / $totalCount) * $fullScore
-                    : ($wrongCount * $scoreWrong);
+                    : $scoreWrong;
             } else {
-                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
             }
 
             return max(0, $score);
@@ -509,12 +519,10 @@ class LeaderboardController extends Controller
                     break;
 
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
                     }
                     $total += $weight;
                     break;

@@ -61,8 +61,14 @@
         <tbody>
             @forelse($rankings as $index => $ranking)
                 @php
-                    $score = round($ranking->raw_score ?? 0);
-                    $maxScore = round($ranking->max_score ?? 0);
+                    $rawScoreValue = (float) ($ranking->raw_score ?? 0);
+                    $maxScoreValue = (float) ($ranking->max_score ?? 0);
+                    $score = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                        ? number_format($rawScoreValue, 0)
+                        : number_format($rawScoreValue, 2);
+                    $maxScore = abs($maxScoreValue - round($maxScoreValue)) < 0.01
+                        ? number_format($maxScoreValue, 0)
+                        : number_format($maxScoreValue, 2);
                     $status = $ranking->is_passed ? 'Lulus' : 'Tidak Lulus';
                 @endphp
                 <tr>

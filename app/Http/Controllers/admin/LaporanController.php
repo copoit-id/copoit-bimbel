@@ -563,14 +563,15 @@ class LaporanController extends Controller
         $wrongCount = max(0, $totalCount - $correctCount);
 
         if ($totalCount > 0) {
-            $fullScore = $totalCount * $scoreCorrect;
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
             $score = 0.0;
             if ($scoringMode === 'partial') {
                 $score = $correctCount > 0
                     ? ($correctCount / $totalCount) * $fullScore
-                    : ($wrongCount * $scoreWrong);
+                    : $scoreWrong;
             } else {
-                $score = ($correctCount * $scoreCorrect) + ($wrongCount * $scoreWrong);
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
             }
 
             return max(0, $score);

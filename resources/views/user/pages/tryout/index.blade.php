@@ -23,7 +23,7 @@
                     <div class="mb-8">
                     <div class="question-rich-text text-gray-700 leading-relaxed">
                         {!! $currentQuestion->question_text !!}
-                    </div>
+                    </div>  
 
                         @if($currentQuestion->sound)
                         <div class="mt-4">
@@ -38,7 +38,8 @@
 
                     <!-- Answer Options -->
                     @php
-                        $questionType = $currentQuestion->question_type ?? 'multiple_choice';
+                        $rawQuestionType = $currentQuestion->question_type ?? 'multiple_choice';
+                        $questionType = $rawQuestionType === 'multiple_select' ? 'multiple_answer' : $rawQuestionType;
                         $metadata = is_array($currentQuestion->metadata) ? $currentQuestion->metadata : [];
                         $matchingPairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs']) ? $metadata['matching_pairs'] : [];
                         $matchingRightOptions = [];
@@ -105,46 +106,24 @@
                         <input type="hidden" name="question_id" value="{{ $currentQuestion->question_id }}">
                         <input type="hidden" id="questionType" value="{{ $questionType }}">
 
-                        @if(in_array($questionType, ['multiple_choice', 'true_false']))
+                        @if(in_array($questionType, ['multiple_choice', 'true_false', 'multiple_answer']))
                         <div class="space-y-3" id="multipleChoiceOptions">
                             @foreach($currentQuestion->questionOptions as $option)
                             @php
                                 $optionKey = $option->option_key ?? chr(65 + $loop->index);
+                                $isMultipleAnswer = $questionType === 'multiple_answer';
                             @endphp
                             <label
-                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
+                                class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
                                 for="option_{{ $option->question_option_id }}">
-                                <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
+                                <input type="{{ $isMultipleAnswer ? 'checkbox' : 'radio' }}" id="option_{{ $option->question_option_id }}" name="{{ $isMultipleAnswer ? 'answer_options[]' : 'answer_option' }}"
                                     value="{{ $option->question_option_id }}"
                                     data-option-key="{{ $optionKey }}"
-                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
+                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-input">
                                 <span class="ml-4 flex-1 text-gray-700">
                                     <span class="flex items-start gap-2">
                                         <span class="font-semibold shrink-0">{{ $optionKey }}.</span>
-                                        <span class="[&_p]:inline [&_p]:m-0 [&_div]:inline">{!! $option->option_text !!}</span>
-                                    </span>
-                                </span>
-                            </label>
-                            @endforeach
-                        </div>
-                        @elseif($questionType === 'multiple_answer')
-                        <div class="space-y-3" id="multipleAnswerOptions">
-                            @foreach($currentQuestion->questionOptions as $option)
-                            @php
-                                $optionKey = $option->option_key ?? chr(65 + $loop->index);
-                            @endphp
-                            <label
-                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label"
-                                for="option_multi_{{ $option->question_option_id }}">
-                                <input type="checkbox" id="option_multi_{{ $option->question_option_id }}"
-                                    name="answer_options[]"
-                                    value="{{ $option->question_option_id }}"
-                                    data-option-key="{{ $optionKey }}"
-                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-checkbox">
-                                <span class="ml-4 flex-1 text-gray-700">
-                                    <span class="flex items-start gap-2">
-                                        <span class="font-semibold shrink-0">{{ $optionKey }}.</span>
-                                        <span class="[&_p]:inline [&_p]:m-0 [&_div]:inline">{!! $option->option_text !!}</span>
+                                        <span class="option-inline-text [&_p]:inline [&_p]:m-0 [&_div]:inline">{!! $option->option_text !!}</span>
                                     </span>
                                 </span>
                             </label>
@@ -409,7 +388,9 @@
         const answersKey = `tryout_answers_${attemptToken}`;
         const questionId = {{ $currentQuestion->question_id }};
         const questionType = (document.getElementById('questionType')?.value || 'multiple_choice');
-        const normalizedType = questionType === 'true_false' ? 'multiple_choice' : questionType;
+        const normalizedType = questionType === 'true_false'
+            ? 'multiple_choice'
+            : (questionType === 'multiple_select' ? 'multiple_answer' : questionType);
         const csrfToken = '{{ csrf_token() }}';
         const finishForm = document.getElementById('finishForm');
         const answersPayloadInput = document.getElementById('answersPayloadInput');
@@ -510,7 +491,7 @@
                 case 'audio':
                     return !!(answer.answer_audio_base64 || answer.answer_audio_remote);
                 default:
-                    return false;
+                    return !!answer.answer_audio_remote;
             }
         }
 
@@ -549,33 +530,23 @@
             updateNavigation(qid);
         }
 
-        function highlightSelectedOption(radio) {
-            document.querySelectorAll('.answer-option-label').forEach(label => {
-                label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-                label.classList.add('border-gray-200');
-            });
-            const label = radio.closest('.answer-option-label');
-            if (label) {
+        function updateOptionLabelState(input) {
+            const label = input.closest('.answer-option-label');
+            if (!label) {
+                return;
+            }
+
+            if (input.checked) {
                 label.classList.remove('border-gray-200');
                 label.classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+            } else {
+                label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
+                label.classList.add('border-gray-200');
             }
         }
 
-        function highlightSelectedMultipleOptions() {
-            document.querySelectorAll('.answer-checkbox').forEach(checkbox => {
-                const label = checkbox.closest('.answer-option-label');
-                if (!label) {
-                    return;
-                }
-
-                if (checkbox.checked) {
-                    label.classList.remove('border-gray-200');
-                    label.classList.add('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-                } else {
-                    label.classList.remove('border-primary', 'bg-primary/10', 'ring-1', 'ring-primary');
-                    label.classList.add('border-gray-200');
-                }
-            });
+        function refreshAllOptionLabelState() {
+            document.querySelectorAll('.answer-input').forEach(input => updateOptionLabelState(input));
         }
 
         function applyAnswerToUI() {
@@ -591,21 +562,19 @@
                         const radio = document.querySelector(`input[name="answer_option"][value="${saved.option_id}"]`);
                         if (radio) {
                             radio.checked = true;
-                            highlightSelectedOption(radio);
+                            refreshAllOptionLabelState();
                         }
                     }
                     break;
-                case 'multiple_answer': {
-                    const selectedIds = Array.isArray(saved.option_ids)
-                        ? saved.option_ids.map(id => id.toString())
-                        : (Array.isArray(saved.selected_option_ids) ? saved.selected_option_ids.map(id => id.toString()) : []);
-
-                    document.querySelectorAll('.answer-checkbox').forEach(checkbox => {
-                        checkbox.checked = selectedIds.includes((checkbox.value || '').toString());
-                    });
-                    highlightSelectedMultipleOptions();
+                case 'multiple_answer':
+                    if (Array.isArray(saved.option_ids)) {
+                        const selectedIds = saved.option_ids.map(id => String(id));
+                        document.querySelectorAll('input[name="answer_options[]"]').forEach(input => {
+                            input.checked = selectedIds.includes(String(input.value));
+                        });
+                        refreshAllOptionLabelState();
+                    }
                     break;
-                }
                 case 'matching':
                     if (saved.matching_answers) {
                         document.querySelectorAll('.matching-select').forEach(select => {
@@ -666,38 +635,39 @@
             }
         }
 
-        if (['multiple_choice', 'true_false'].includes(questionType)) {
-            document.querySelectorAll('.answer-radio').forEach(radio => {
+        if (['multiple_choice', 'true_false'].includes(normalizedType)) {
+            document.querySelectorAll('input[name="answer_option"]').forEach(radio => {
                 radio.addEventListener('change', function() {
                     setAnswer(questionId, {
-                        type: questionType,
+                        type: normalizedType,
                         option_id: this.value,
                         option_key: this.dataset.optionKey || null
                     });
-                    highlightSelectedOption(this);
+                    refreshAllOptionLabelState();
                 });
             });
         }
 
-        if (questionType === 'multiple_answer') {
-            const checkboxes = document.querySelectorAll('.answer-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    const selected = Array.from(checkboxes)
-                        .filter(item => item.checked)
-                        .map(item => item.value);
+        if (normalizedType === 'multiple_answer') {
+            const inputs = document.querySelectorAll('input[name="answer_options[]"]');
+            inputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const selected = Array.from(inputs).filter(item => item.checked);
+                    const optionIds = selected.map(item => Number(item.value));
+                    const optionKeys = selected.map(item => item.dataset.optionKey || null).filter(Boolean);
 
-                    if (selected.length === 0) {
+                    if (optionIds.length === 0) {
                         clearAnswer(questionId);
-                        highlightSelectedMultipleOptions();
+                        refreshAllOptionLabelState();
                         return;
                     }
 
                     setAnswer(questionId, {
                         type: 'multiple_answer',
-                        option_ids: selected
+                        option_ids: optionIds,
+                        option_keys: optionKeys
                     });
-                    highlightSelectedMultipleOptions();
+                    refreshAllOptionLabelState();
                 });
             });
         }
@@ -1042,7 +1012,7 @@
 
         Object.keys(answerCache).forEach(updateNavigation);
         applyAnswerToUI();
-        if (questionType === 'audio') {
+        if (normalizedType === 'audio') {
             updateAudioPreview();
         }
         setupTimer();

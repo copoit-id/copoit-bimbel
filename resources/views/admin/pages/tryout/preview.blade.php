@@ -114,8 +114,12 @@
                         $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
                         $metadata = is_array($question->metadata) ? $question->metadata : [];
                         $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                        $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
                         $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
                             ? $multipleAnswerMeta['scoring_mode']
+                            : 'fullscore';
+                        $matchingScoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                            ? $matchingMeta['scoring_mode']
                             : 'fullscore';
                         $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? $displayWeight);
                         $multipleAnswerCorrectCount = max(1, $question->questionOptions->where('is_correct', true)->count());
@@ -124,12 +128,16 @@
                             : $multipleAnswerTotalScore;
                         if (($question->question_type ?? '') === 'multiple_answer') {
                             $displayWeight = $multipleAnswerTotalScore;
+                        } elseif (($question->question_type ?? '') === 'matching') {
+                            $displayWeight = (float) ($matchingMeta['score_correct'] ?? $displayWeight);
                         }
                         $questionTypeLabel = ucwords(str_replace('_', ' ', $question->question_type ?? 'multiple_choice'));
                     @endphp
                     <span class="preview-pill inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                         @if(($question->question_type ?? '') === 'multiple_answer')
                             Multiple Answer - [{{ $multipleAnswerScoringMode }}]
+                        @elseif(($question->question_type ?? '') === 'matching')
+                            Pencocokan - [{{ $matchingScoringMode }}]
                         @else
                             {{ $questionTypeLabel }}
                         @endif
@@ -167,6 +175,27 @@
                 @endif
 
                 <div class="mb-4">
+                    @if(($question->question_type ?? '') === 'matching')
+                    <h4 class="font-semibold text-gray-900 mb-2">Detail Jawaban:</h4>
+                    @php
+                        $matchingPairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs'])
+                            ? $metadata['matching_pairs']
+                            : [];
+                    @endphp
+                    @if(empty($matchingPairs))
+                    <p class="text-sm text-gray-500">Belum ada pasangan pencocokan yang tersimpan.</p>
+                    @else
+                    <ul class="space-y-2 text-gray-600">
+                        @foreach($matchingPairs as $pair)
+                        <li class="flex items-center gap-2">
+                            <span class="font-medium text-gray-800">{{ $pair['left'] ?? '-' }}</span>
+                            <i class="ri-arrow-right-line text-gray-400"></i>
+                            <span class="text-gray-600">{{ $pair['right'] ?? '-' }}</span>
+                        </li>
+                        @endforeach
+                    </ul>
+                    @endif
+                    @else
                     <h4 class="font-semibold text-gray-900 mb-2">Pilihan Jawaban:</h4>
                     <div class="space-y-2">
                         @foreach($question->questionOptions as $optionIndex => $option)
@@ -211,6 +240,7 @@
                         </div>
                         @endforeach
                     </div>
+                    @endif
                 </div>
 
                 @if($question->explanation)
