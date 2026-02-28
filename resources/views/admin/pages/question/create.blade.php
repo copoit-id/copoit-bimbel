@@ -30,7 +30,7 @@
 
             @php
             $rawType = old('question_type', isset($question) ? $question->question_type : 'multiple_choice');
-            $currentType = in_array($rawType, ['short_answer', 'essay']) ? $rawType : (in_array($rawType, ['true_false', 'multiple_answer']) ?
+            $currentType = in_array($rawType, ['short_answer', 'essay', 'multiple_true_false']) ? $rawType : (in_array($rawType, ['true_false', 'multiple_answer']) ?
             'multiple_choice' : $rawType);
 
             $metadata = isset($question) ? ($question->metadata ?? []) : [];
@@ -62,6 +62,31 @@
                 $audioInstructions = old('audio_instructions', $audioMeta['instructions'] ?? '');
                 $audioMaxDuration = old('audio_max_duration', $audioMeta['max_duration'] ?? '');
                 $audioMaxSize = old('audio_max_size', $audioMeta['max_size'] ?? '');
+
+                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
+                $mtfTrueLabel = old('mtf_true_label', $mtfMeta['true_label'] ?? 'Benar');
+                $mtfFalseLabel = old('mtf_false_label', $mtfMeta['false_label'] ?? 'Salah');
+                $mtfScoringMode = old('mtf_scoring_mode', $mtfMeta['scoring_mode'] ?? 'fullscore');
+                $mtfScoreCorrect = old('mtf_score_correct', $mtfMeta['score_correct'] ?? 1);
+                $mtfScoreWrong = old('mtf_score_wrong', $mtfMeta['score_wrong'] ?? 0);
+                $mtfStatementsInput = old('mtf_statements', $mtfMeta['statements'] ?? []);
+                $mtfStatements = [];
+                if (is_array($mtfStatementsInput)) {
+                    foreach ($mtfStatementsInput as $idx => $stmt) {
+                        $mtfStatements[] = [
+                            'id' => is_array($stmt) ? ($stmt['id'] ?? ('stmt_' . ($idx + 1))) : ('stmt_' . ($idx + 1)),
+                            'text' => is_array($stmt) ? ($stmt['text'] ?? '') : '',
+                            'correct' => is_array($stmt) && in_array(($stmt['correct'] ?? ''), ['true', 'false'], true) ? $stmt['correct'] : 'true',
+                        ];
+                    }
+                }
+                while (count($mtfStatements) < 2) {
+                    $mtfStatements[] = [
+                        'id' => 'stmt_' . (count($mtfStatements) + 1),
+                        'text' => '',
+                        'correct' => 'true',
+                    ];
+                }
                 @endphp
 
                 <div class="p-6 space-y-6">
@@ -78,6 +103,7 @@
                             <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
                             </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
+                            <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
                             <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
@@ -324,6 +350,94 @@
                         </button>
                     </div>
 
+                    <!-- Multiple True/False -->
+                    <div class="space-y-4 question-type-section" data-question-type="multiple_true_false" style="display:none;">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-800">Multiple True/False</h3>
+                            <p class="text-sm text-gray-600">Isi beberapa pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label for="mtf_true_label" class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 1</label>
+                                <input type="text" id="mtf_true_label" name="mtf_true_label" value="{{ $mtfTrueLabel }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Contoh: Benar / Setuju">
+                            </div>
+                            <div>
+                                <label for="mtf_false_label" class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 2</label>
+                                <input type="text" id="mtf_false_label" name="mtf_false_label" value="{{ $mtfFalseLabel }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Contoh: Salah / Tidak Setuju">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                            <div>
+                                <label for="mtf_scoring_mode" class="block text-sm font-medium text-gray-700 mb-1">Mode Penilaian</label>
+                                <select id="mtf_scoring_mode" name="mtf_scoring_mode"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="fullscore" {{ $mtfScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
+                                    <option value="partial" {{ $mtfScoringMode === 'partial' ? 'selected' : '' }}>Partial</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="mtf_score_correct" class="block text-sm font-medium text-gray-700 mb-1">Skor Benar (Total)</label>
+                                <input type="number" id="mtf_score_correct" name="mtf_score_correct" step="0.1"
+                                    value="{{ $mtfScoreCorrect }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="mtf_score_wrong" class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                                <input type="number" id="mtf_score_wrong" name="mtf_score_wrong" step="0.1"
+                                    value="{{ $mtfScoreWrong }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-100 text-gray-700">
+                                    <tr>
+                                        <th class="px-5 py-3.5 text-left font-semibold w-[75%]">Pernyataan</th>
+                                        <th class="px-5 py-3.5 text-center font-semibold whitespace-nowrap w-[10%]" id="mtfHeaderTrue">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Kolom 1' }}</th>
+                                        <th class="px-5 py-3.5 text-center font-semibold whitespace-nowrap w-[10%]" id="mtfHeaderFalse">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Kolom 2' }}</th>
+                                        <th class="px-5 py-3.5 text-center font-semibold w-[5%] min-w-[72px]">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mtfStatementsContainer">
+                                    @foreach($mtfStatements as $index => $statement)
+                                    <tr class="mtf-row border-t border-gray-200" data-index="{{ $index }}">
+                                        <td class="px-5 py-3.5 align-top">
+                                            <input type="hidden" name="mtf_statements[{{ $index }}][id]" value="{{ $statement['id'] }}">
+                                            <input type="hidden" name="mtf_statements[{{ $index }}][correct]" value="{{ $statement['correct'] === 'false' ? 'false' : 'true' }}" class="mtf-correct-input">
+                                            <textarea name="mtf_statements[{{ $index }}][text]" rows="2"
+                                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                placeholder="Tulis pernyataan...">{{ $statement['text'] }}</textarea>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-center align-middle">
+                                            <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                                name="mtf_display_correct_{{ $index }}" value="true" {{ $statement['correct'] === 'true' ? 'checked' : '' }}>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-center align-middle">
+                                            <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                                name="mtf_display_correct_{{ $index }}" value="false" {{ $statement['correct'] === 'false' ? 'checked' : '' }}>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-center align-middle">
+                                            <button type="button"
+                                                class="remove-mtf-row inline-flex items-center justify-center w-9 h-9 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors">
+                                                <i class="ri-delete-bin-line"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" id="addMtfRow"
+                            class="px-4 py-2 border border-dashed border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors flex items-center gap-2">
+                            <i class="ri-add-line"></i>
+                            Tambah Pernyataan
+                        </button>
+                    </div>
+
                     <!-- Short Answer / Essay -->
                     <div class="space-y-4 question-type-section" data-question-type="short_answer"
                         style="display:none;">
@@ -458,6 +572,12 @@
         const form = document.querySelector('form');
         const matchingContainer = document.getElementById('matchingPairsContainer');
         const addMatchingPairBtn = document.getElementById('addMatchingPair');
+        const mtfContainer = document.getElementById('mtfStatementsContainer');
+        const addMtfRowBtn = document.getElementById('addMtfRow');
+        const mtfTrueLabelInput = document.getElementById('mtf_true_label');
+        const mtfFalseLabelInput = document.getElementById('mtf_false_label');
+        const mtfHeaderTrue = document.getElementById('mtfHeaderTrue');
+        const mtfHeaderFalse = document.getElementById('mtfHeaderFalse');
         const optionRows = document.querySelectorAll('.option-row');
         const questionScoreContainer = document.getElementById('questionScoreContainer');
         const multipleAnswerScoreContainer = document.getElementById('multipleAnswerScoreContainer');
@@ -648,6 +768,98 @@
                 return row;
             }
         }
+
+        if (addMtfRowBtn && mtfContainer) {
+            let mtfIndex = mtfContainer.querySelectorAll('.mtf-row').length;
+
+            addMtfRowBtn.addEventListener('click', function() {
+                const row = createMtfRow(mtfIndex);
+                mtfContainer.appendChild(row);
+                mtfIndex += 1;
+            });
+
+            mtfContainer.addEventListener('click', function(event) {
+                const removeButton = event.target.closest('.remove-mtf-row');
+                if (!removeButton) {
+                    return;
+                }
+
+                const rows = mtfContainer.querySelectorAll('.mtf-row');
+                if (rows.length <= 2) {
+                    alert('Minimal harus ada dua pernyataan.');
+                    return;
+                }
+
+                removeButton.closest('.mtf-row').remove();
+            });
+
+            mtfContainer.addEventListener('change', function(event) {
+                const radio = event.target.closest('.mtf-correct-radio');
+                if (!radio) {
+                    return;
+                }
+
+                const row = radio.closest('.mtf-row');
+                if (!row) {
+                    return;
+                }
+
+                const hiddenInput = row.querySelector('.mtf-correct-input');
+                if (hiddenInput) {
+                    hiddenInput.value = radio.value === 'false' ? 'false' : 'true';
+                }
+            });
+
+            function createMtfRow(index, textValue = '', correctValue = 'true') {
+                const row = document.createElement('tr');
+                const normalizedCorrect = correctValue === 'false' ? 'false' : 'true';
+                row.className = 'mtf-row border-t border-gray-200';
+                row.dataset.index = index.toString();
+                row.innerHTML = `
+                    <td class="px-5 py-3.5 align-top">
+                        <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
+                        <input type="hidden" name="mtf_statements[${index}][correct]" value="${normalizedCorrect}" class="mtf-correct-input">
+                        <textarea name="mtf_statements[${index}][text]" rows="2"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="Tulis pernyataan...">${textValue}</textarea>
+                    </td>
+                    <td class="px-5 py-3.5 text-center align-middle">
+                        <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                            name="mtf_display_correct_${index}" value="true" ${normalizedCorrect === 'true' ? 'checked' : ''}>
+                    </td>
+                    <td class="px-5 py-3.5 text-center align-middle">
+                        <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                            name="mtf_display_correct_${index}" value="false" ${normalizedCorrect === 'false' ? 'checked' : ''}>
+                    </td>
+                    <td class="px-5 py-3.5 text-center align-middle">
+                        <button type="button"
+                            class="remove-mtf-row inline-flex items-center justify-center w-9 h-9 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    </td>
+                `;
+                return row;
+            }
+        }
+
+        function syncMtfHeaderLabels() {
+            if (mtfHeaderTrue && mtfTrueLabelInput) {
+                const text = mtfTrueLabelInput.value.trim();
+                mtfHeaderTrue.textContent = text !== '' ? text : 'Kolom 1';
+            }
+            if (mtfHeaderFalse && mtfFalseLabelInput) {
+                const text = mtfFalseLabelInput.value.trim();
+                mtfHeaderFalse.textContent = text !== '' ? text : 'Kolom 2';
+            }
+        }
+
+        if (mtfTrueLabelInput) {
+            mtfTrueLabelInput.addEventListener('input', syncMtfHeaderLabels);
+        }
+        if (mtfFalseLabelInput) {
+            mtfFalseLabelInput.addEventListener('input', syncMtfHeaderLabels);
+        }
+        syncMtfHeaderLabels();
 
         function configureOptionRows(questionType) {
             const isTrueFalse = questionType === 'true_false';

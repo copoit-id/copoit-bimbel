@@ -53,6 +53,10 @@
                         shuffle($shuffledMatchingOptions);
                         $shortMeta = isset($metadata['short_answer']) && is_array($metadata['short_answer']) ? $metadata['short_answer'] : [];
                         $audioMeta = isset($metadata['audio_answer']) && is_array($metadata['audio_answer']) ? $metadata['audio_answer'] : [];
+                        $mtfMeta = isset($metadata['multiple_true_false']) && is_array($metadata['multiple_true_false']) ? $metadata['multiple_true_false'] : [];
+                        $mtfStatements = isset($mtfMeta['statements']) && is_array($mtfMeta['statements']) ? $mtfMeta['statements'] : [];
+                        $mtfTrueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+                        $mtfFalseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
                         $pendingReview = false;
 
                         $initialAnswer = null;
@@ -79,6 +83,13 @@
                                         'question_id' => $currentQuestion->question_id,
                                         'type' => 'matching',
                                         'matching_answers' => $userAnswerDetail->answer_json['matches'] ?? [],
+                                    ];
+                                    break;
+                                case 'multiple_true_false':
+                                    $initialAnswer = [
+                                        'question_id' => $currentQuestion->question_id,
+                                        'type' => 'multiple_true_false',
+                                        'mtf_answers' => $userAnswerDetail->answer_json['answers'] ?? [],
                                     ];
                                     break;
                                 case 'short_answer':
@@ -153,6 +164,50 @@
                                 </div>
                             </div>
                             @endforeach
+                            @endif
+                        </div>
+
+                        @elseif($questionType === 'multiple_true_false')
+                        <div class="space-y-4" id="mtfAnswerContainer">
+                            @if(empty($mtfStatements))
+                            <p class="text-sm text-gray-500">Belum ada pernyataan untuk soal ini.</p>
+                            @else
+                            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                                <table class="min-w-full text-sm">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="px-5 py-3.5 text-left font-semibold text-gray-800 w-[78%]">Pernyataan</th>
+                                            <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[11%]">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Benar' }}</th>
+                                            <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[11%]">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah' }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($mtfStatements as $index => $statement)
+                                        @php
+                                            $statementId = trim((string) ($statement['id'] ?? 'stmt_' . ($index + 1)));
+                                            $statementText = trim((string) ($statement['text'] ?? ''));
+                                        @endphp
+                                        <tr class="border-t border-gray-200">
+                                            <td class="px-5 py-3.5 text-gray-800 align-top">{!! $statementText !== '' ? $statementText : '-' !!}</td>
+                                            <td class="px-5 py-3.5 text-center align-middle">
+                                                <input type="radio"
+                                                    name="mtf_statement_{{ $statementId }}"
+                                                    value="true"
+                                                    class="mtf-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                                    data-statement-id="{{ $statementId }}">
+                                            </td>
+                                            <td class="px-5 py-3.5 text-center align-middle">
+                                                <input type="radio"
+                                                    name="mtf_statement_{{ $statementId }}"
+                                                    value="false"
+                                                    class="mtf-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                                    data-statement-id="{{ $statementId }}">
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                             @endif
                         </div>
 
@@ -480,6 +535,11 @@
                     return !!answer.option_id;
                 case 'multiple_answer':
                     return Array.isArray(answer.option_ids) && answer.option_ids.length > 0;
+                case 'multiple_true_false':
+                    if (!answer.mtf_answers || typeof answer.mtf_answers !== 'object') {
+                        return false;
+                    }
+                    return Object.values(answer.mtf_answers).every(value => ['true', 'false'].includes((value || '').toString()));
                 case 'matching':
                     if (!answer.matching_answers) {
                         return false;
@@ -585,6 +645,15 @@
                         });
                     }
                     break;
+                case 'multiple_true_false':
+                    if (saved.mtf_answers) {
+                        document.querySelectorAll('.mtf-radio').forEach(radio => {
+                            const statementId = radio.dataset.statementId;
+                            const value = (saved.mtf_answers[statementId] || '').toString();
+                            radio.checked = value !== '' && value === radio.value;
+                        });
+                    }
+                    break;
                 case 'short_answer':
                 case 'essay':
                     if (saved.answer_text) {
@@ -686,6 +755,39 @@
                         setAnswer(questionId, {
                             type: 'matching',
                             matching_answers: matches
+                        });
+                    });
+                });
+            }
+        }
+
+        if (normalizedType === 'multiple_true_false') {
+            const radios = document.querySelectorAll('.mtf-radio');
+            if (radios.length) {
+                radios.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        const answers = {};
+                        const grouped = {};
+
+                        radios.forEach(item => {
+                            const statementId = item.dataset.statementId;
+                            if (!statementId) {
+                                return;
+                            }
+                            if (!grouped[statementId]) {
+                                grouped[statementId] = [];
+                            }
+                            grouped[statementId].push(item);
+                        });
+
+                        Object.keys(grouped).forEach(statementId => {
+                            const checked = grouped[statementId].find(item => item.checked);
+                            answers[statementId] = checked ? checked.value : '';
+                        });
+
+                        setAnswer(questionId, {
+                            type: 'multiple_true_false',
+                            mtf_answers: answers
                         });
                     });
                 });

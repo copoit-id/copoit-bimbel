@@ -157,6 +157,7 @@
                                 $defaultWeight = (float) ($question->default_weight ?? 0);
                                 $metadata = is_array($question->metadata) ? $question->metadata : [];
                                 $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
                                 $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
                                     ? $multipleAnswerMeta['scoring_mode']
                                     : 'fullscore';
@@ -165,6 +166,7 @@
                                 $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
                                     ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
                                     : $multipleAnswerTotalScore;
+                                $mtfScoreCorrect = (float) ($mtfMeta['score_correct'] ?? $defaultWeight);
                             @endphp
                             @if(($question->question_type ?? '') === 'multiple_answer')
                                 @if($multipleAnswerScoringMode === 'partial')
@@ -174,6 +176,8 @@
                                     Benar semua :
                                     {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }}
                                 @endif
+                            @elseif(($question->question_type ?? '') === 'multiple_true_false')
+                                {{ rtrim(rtrim(number_format($mtfScoreCorrect, 2, '.', ''), '0'), '.') }} poin
                             @else
                                 {{ $defaultWeight }} poin
                             @endif

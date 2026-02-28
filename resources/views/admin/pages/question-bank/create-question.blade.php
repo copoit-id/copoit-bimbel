@@ -40,7 +40,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('question_type', 'multiple_choice') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -192,6 +192,70 @@
                     </div>
                 </div>
 
+                <div class="space-y-4 question-section hidden" data-type="multiple_true_false">
+                    @php
+                        $mtfStatements = old('mtf_statements', [
+                            ['id' => 'stmt_1', 'text' => '', 'correct' => 'true'],
+                            ['id' => 'stmt_2', 'text' => '', 'correct' => 'false'],
+                        ]);
+                        if (is_array($mtfStatements) && count($mtfStatements) < 2) {
+                            $mtfStatements = array_pad($mtfStatements, 2, ['id' => '', 'text' => '', 'correct' => 'true']);
+                        }
+                    @endphp
+                    <h3 class="text-lg font-semibold text-gray-900">Multiple True / False</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 1</label>
+                            <input type="text" name="mtf_true_label" value="{{ old('mtf_true_label', 'Benar') }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 2</label>
+                            <input type="text" name="mtf_false_label" value="{{ old('mtf_false_label', 'Salah') }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Mode Penilaian</label>
+                            <select name="mtf_scoring_mode"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="fullscore" @selected(old('mtf_scoring_mode', 'fullscore') === 'fullscore')>Benar/Salah Fullscore</option>
+                                <option value="partial" @selected(old('mtf_scoring_mode') === 'partial')>Partial</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Benar (Total)</label>
+                            <input type="number" name="mtf_score_correct" step="0.1" value="{{ old('mtf_score_correct', 1) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                            <input type="number" name="mtf_score_wrong" step="0.1" value="{{ old('mtf_score_wrong', 0) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-600">Isi daftar pernyataan dan tentukan kunci per baris.</p>
+                        <button type="button" id="addMtfRow" class="text-sm font-semibold text-primary hover:underline">Tambah Pernyataan</button>
+                    </div>
+                    <div id="mtfStatementsContainer" class="space-y-3">
+                        @foreach($mtfStatements as $idx => $stmt)
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mtf-row">
+                            <input type="hidden" name="mtf_statements[{{ $idx }}][id]" value="{{ $stmt['id'] ?? ('stmt_' . ($idx + 1)) }}">
+                            <textarea name="mtf_statements[{{ $idx }}][text]" rows="2"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="Pernyataan">{{ $stmt['text'] ?? '' }}</textarea>
+                            <select name="mtf_statements[{{ $idx }}][correct]"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="true" @selected(($stmt['correct'] ?? 'true') === 'true')>Kolom 1</option>
+                                <option value="false" @selected(($stmt['correct'] ?? 'true') === 'false')>Kolom 2</option>
+                            </select>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+
                 <div class="space-y-4 question-section hidden" data-type="short_answer">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jawaban Referensi</label>
@@ -280,6 +344,8 @@
         const customScoreToggle = document.querySelector('input[name="use_custom_scores"]');
         const optionRows = document.querySelectorAll('.question-section[data-type="multiple_choice"] .flex.flex-col.gap-2.border');
         const multipleAnswerScoringContainer = document.getElementById('multipleAnswerScoringContainer');
+        const mtfContainer = document.getElementById('mtfStatementsContainer');
+        const addMtfBtn = document.getElementById('addMtfRow');
 
         function toggleSections() {
             const type = typeSelect.value;
@@ -294,6 +360,8 @@
                     section.classList.toggle('hidden', type !== 'essay');
                 } else if (section.dataset.type === 'matching') {
                     section.classList.toggle('hidden', type !== 'matching');
+                } else if (section.dataset.type === 'multiple_true_false') {
+                    section.classList.toggle('hidden', type !== 'multiple_true_false');
                 } else if (section.dataset.type === 'audio') {
                     section.classList.toggle('hidden', type !== 'audio');
                 }
@@ -392,6 +460,25 @@
                     placeholder="Kolom kanan">
             `;
             matchingContainer.appendChild(row);
+        });
+
+        addMtfBtn?.addEventListener('click', () => {
+            if (!mtfContainer) return;
+            const index = mtfContainer.querySelectorAll('.mtf-row').length;
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mtf-row';
+            row.innerHTML = `
+                <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
+                <textarea name="mtf_statements[${index}][text]" rows="2"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="Pernyataan"></textarea>
+                <select name="mtf_statements[${index}][correct]"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="true">Kolom 1</option>
+                    <option value="false">Kolom 2</option>
+                </select>
+            `;
+            mtfContainer.appendChild(row);
         });
 
         typeSelect?.addEventListener('change', toggleSections);

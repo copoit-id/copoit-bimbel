@@ -123,6 +123,8 @@ class TryoutController extends Controller
         switch ($type) {
             case 'multiple_answer':
                 return $this->handleMultipleAnswer($data, $question);
+            case 'multiple_true_false':
+                return $this->handleMultipleTrueFalseAnswer($data, $question);
             case 'matching':
                 return $this->handleMatchingAnswer($data, $question);
             case 'short_answer':
@@ -530,6 +532,140 @@ class TryoutController extends Controller
             }
 
             return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
+    private function handleMultipleTrueFalseAnswer(array $data, Question $question): array
+    {
+        $input = $data['mtf_answers'] ?? null;
+
+        if (is_string($input)) {
+            $decoded = json_decode($input, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $input = $decoded;
+            }
+        }
+
+        if (!is_array($input)) {
+            throw ValidationException::withMessages([
+                'mtf_answers' => 'Jawaban multiple true/false tidak valid.',
+            ]);
+        }
+
+        $meta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $statements = isset($meta['statements']) && is_array($meta['statements']) ? $meta['statements'] : [];
+        if (empty($statements)) {
+            throw ValidationException::withMessages([
+                'mtf_answers' => 'Soal multiple true/false belum memiliki daftar pernyataan.',
+            ]);
+        }
+
+        $normalizedAnswers = [];
+        $correctCount = 0;
+        $total = 0;
+
+        foreach ($statements as $index => $statement) {
+            $statementId = trim((string) ($statement['id'] ?? 'stmt_' . ($index + 1)));
+            $correct = in_array(($statement['correct'] ?? null), ['true', 'false'], true)
+                ? (string) $statement['correct']
+                : 'true';
+
+            if (!array_key_exists($statementId, $input)) {
+                throw ValidationException::withMessages([
+                    'mtf_answers' => 'Harap lengkapi jawaban untuk semua pernyataan.',
+                ]);
+            }
+
+            $selected = strtolower(trim((string) $input[$statementId]));
+            if (!in_array($selected, ['true', 'false'], true)) {
+                throw ValidationException::withMessages([
+                    'mtf_answers' => 'Pilihan jawaban tidak valid.',
+                ]);
+            }
+
+            $normalizedAnswers[$statementId] = $selected;
+            $total++;
+            if ($selected === $correct) {
+                $correctCount++;
+            }
+        }
+
+        $isCorrect = $total > 0 ? $correctCount === $total : false;
+        $wrongCount = max(0, $total - $correctCount);
+        $scoreCorrect = (float) ($meta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($meta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($meta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $meta['scoring_mode']
+            : 'fullscore';
+
+        $fullScore = max(0, $scoreCorrect);
+        $scoreObtained = 0.0;
+        if ($scoringMode === 'partial') {
+            $scoreObtained = $correctCount > 0
+                ? ($correctCount / max(1, $total)) * $fullScore
+                : $scoreWrong;
+        } else {
+            $scoreObtained = $isCorrect ? $fullScore : $scoreWrong;
+        }
+        $scoreObtained = max(0, $scoreObtained);
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => null,
+                'answer_json' => [
+                    'answers' => $normalizedAnswers,
+                    'summary' => [
+                        'correct' => $correctCount,
+                        'total' => $total,
+                        'wrong' => $wrongCount,
+                    ],
+                    'scoring_mode' => $scoringMode,
+                    'score_obtained' => $scoreObtained,
+                ],
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'is_correct' => $isCorrect,
+                'correct' => $correctCount,
+                'total' => $total,
+                'score_obtained' => $scoreObtained,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function resolveMultipleTrueFalseAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $scoreCorrect = (float) ($questionMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $scoreWrong = (float) ($questionMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($questionMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $questionMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = $correctCount === $totalCount;
+            if ($scoringMode === 'partial') {
+                return max(0, $correctCount > 0 ? ($correctCount / $totalCount) * $fullScore : $scoreWrong);
+            }
+
+            return max(0, $isExactCorrect ? $fullScore : $scoreWrong);
         }
 
         $storedScore = $meta['score_obtained'] ?? null;
@@ -1384,6 +1520,9 @@ class TryoutController extends Controller
                 case 'multiple_answer':
                     $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
                     break;
+                case 'multiple_true_false':
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
+                    break;
                 case 'matching':
                     $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
@@ -2144,6 +2283,15 @@ class TryoutController extends Controller
 
                     $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
                     break;
+                case 'multiple_true_false':
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
+                    break;
 
                 case 'matching':
                     if ($detail->is_correct) {
@@ -2245,6 +2393,11 @@ class TryoutController extends Controller
             switch ($questionType) {
                 case 'multiple_answer':
                     $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+                case 'multiple_true_false':
+                    $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                    $weight = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     $total += $weight > 0 ? $weight : 1;
                     break;
 

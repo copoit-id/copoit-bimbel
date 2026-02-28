@@ -149,11 +149,28 @@
                             ? $selectedOptions->implode(', ')
                             : '-';
                     }
-                    if(!$participantAnswer && !empty($detail->answer_json['matches'])) {
-                        $pairs = collect($detail->answer_json['matches'])->map(function($pair) {
-                            return ($pair['left'] ?? '?') . ' → ' . ($pair['right'] ?? '?');
-                        });
-                        $participantAnswer = $pairs->implode(', ');
+                    if($question && $questionType === 'matching') {
+                        $userMatches = is_array($answerMeta['matches'] ?? null) ? $answerMeta['matches'] : [];
+                        $pairs = collect($userMatches)->map(function($right, $left) {
+                            return (string) $left . ' → ' . (string) ($right !== '' ? $right : '-');
+                        })->values();
+                        $participantAnswer = $pairs->isNotEmpty() ? $pairs->implode('<br>') : '-';
+                    }
+                    if($question && $questionType === 'multiple_true_false') {
+                        $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                        $mtfStatements = is_array($mtfMeta['statements'] ?? null) ? $mtfMeta['statements'] : [];
+                        $mtfAnswers = is_array($answerMeta['answers'] ?? null) ? $answerMeta['answers'] : [];
+                        $trueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+                        $falseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
+                        $pairs = collect($mtfStatements)->map(function($stmt) use ($mtfAnswers, $trueLabel, $falseLabel) {
+                            $statementId = (string) ($stmt['id'] ?? '');
+                            $answer = strtolower((string) ($mtfAnswers[$statementId] ?? ''));
+                            $label = $answer === 'true'
+                                ? ($trueLabel !== '' ? $trueLabel : 'Benar')
+                                : ($answer === 'false' ? ($falseLabel !== '' ? $falseLabel : 'Salah') : '-');
+                            return (string) ($stmt['text'] ?? '-') . ' → ' . $label;
+                        })->values();
+                        $participantAnswer = $pairs->isNotEmpty() ? $pairs->implode('<br>') : '-';
                     }
                     $correctAnswer = $correctOption->option_text ?? ($question->answer_text ?? '-');
                     if($question && $questionType === 'multiple_answer') {
@@ -164,6 +181,27 @@
                         $correctAnswer = $correctOptions->isNotEmpty()
                             ? $correctOptions->implode(', ')
                             : '-';
+                    }
+                    if($question && $questionType === 'matching') {
+                        $matchingPairs = is_array($question->metadata['matching_pairs'] ?? null) ? $question->metadata['matching_pairs'] : [];
+                        $pairs = collect($matchingPairs)->map(function($pair) {
+                            return (string) ($pair['left'] ?? '-') . ' → ' . (string) ($pair['right'] ?? '-');
+                        })->values();
+                        $correctAnswer = $pairs->isNotEmpty() ? $pairs->implode('<br>') : '-';
+                    }
+                    if($question && $questionType === 'multiple_true_false') {
+                        $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                        $mtfStatements = is_array($mtfMeta['statements'] ?? null) ? $mtfMeta['statements'] : [];
+                        $trueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+                        $falseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
+                        $pairs = collect($mtfStatements)->map(function($stmt) use ($trueLabel, $falseLabel) {
+                            $correct = strtolower((string) ($stmt['correct'] ?? 'true'));
+                            $label = $correct === 'true'
+                                ? ($trueLabel !== '' ? $trueLabel : 'Benar')
+                                : ($falseLabel !== '' ? $falseLabel : 'Salah');
+                            return (string) ($stmt['text'] ?? '-') . ' → ' . $label;
+                        })->values();
+                        $correctAnswer = $pairs->isNotEmpty() ? $pairs->implode('<br>') : '-';
                     }
                     @endphp
                     <tr class="bg-white border-b border-dashed border-gray-200 answer-row">

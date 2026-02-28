@@ -115,11 +115,15 @@
                         $metadata = is_array($question->metadata) ? $question->metadata : [];
                         $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
                         $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
+                        $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
                         $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
                             ? $multipleAnswerMeta['scoring_mode']
                             : 'fullscore';
                         $matchingScoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
                             ? $matchingMeta['scoring_mode']
+                            : 'fullscore';
+                        $mtfScoringMode = in_array(($mtfMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                            ? $mtfMeta['scoring_mode']
                             : 'fullscore';
                         $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? $displayWeight);
                         $multipleAnswerCorrectCount = max(1, $question->questionOptions->where('is_correct', true)->count());
@@ -130,6 +134,8 @@
                             $displayWeight = $multipleAnswerTotalScore;
                         } elseif (($question->question_type ?? '') === 'matching') {
                             $displayWeight = (float) ($matchingMeta['score_correct'] ?? $displayWeight);
+                        } elseif (($question->question_type ?? '') === 'multiple_true_false') {
+                            $displayWeight = (float) ($mtfMeta['score_correct'] ?? $displayWeight);
                         }
                         $questionTypeLabel = ucwords(str_replace('_', ' ', $question->question_type ?? 'multiple_choice'));
                     @endphp
@@ -138,6 +144,8 @@
                             Multiple Answer - [{{ $multipleAnswerScoringMode }}]
                         @elseif(($question->question_type ?? '') === 'matching')
                             Pencocokan - [{{ $matchingScoringMode }}]
+                        @elseif(($question->question_type ?? '') === 'multiple_true_false')
+                            Multiple True/False - [{{ $mtfScoringMode }}]
                         @else
                             {{ $questionTypeLabel }}
                         @endif
@@ -196,6 +204,55 @@
                     </ul>
                     @endif
                     @else
+                    @if(($question->question_type ?? '') === 'multiple_true_false')
+                    @php
+                        $mtfStatements = is_array($mtfMeta['statements'] ?? null) ? $mtfMeta['statements'] : [];
+                        $mtfTrueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+                        $mtfFalseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
+                        $mtfTotalScore = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 1));
+                        $mtfPerStatement = count($mtfStatements) > 0 ? ($mtfTotalScore / count($mtfStatements)) : $mtfTotalScore;
+                    @endphp
+                    <h4 class="font-semibold text-gray-900 mb-2">Detail Jawaban:</h4>
+                    @if(empty($mtfStatements))
+                    <p class="text-sm text-gray-500">Belum ada pernyataan Multiple True/False yang tersimpan.</p>
+                    @else
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-5 py-3 text-left font-semibold text-gray-700 w-[68%]">Pernyataan</th>
+                                    <th class="px-5 py-3 text-center font-semibold text-gray-700 whitespace-nowrap w-[10%]">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Benar' }}</th>
+                                    <th class="px-5 py-3 text-center font-semibold text-gray-700 whitespace-nowrap w-[10%]">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah' }}</th>
+                                    <th class="px-5 py-3 text-center font-semibold text-gray-700 whitespace-nowrap w-[12%]">Poin</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($mtfStatements as $statement)
+                                @php
+                                    $isTrue = ($statement['correct'] ?? 'true') === 'true';
+                                @endphp
+                                <tr class="border-t border-gray-200">
+                                    <td class="px-5 py-3.5 text-gray-800">{{ $statement['text'] ?? '-' }}</td>
+                                    <td class="px-5 py-3.5 text-center align-middle">
+                                        @if($isTrue)<i class="ri-checkbox-circle-fill text-green-600 text-lg"></i>@endif
+                                    </td>
+                                    <td class="px-5 py-3.5 text-center align-middle">
+                                        @if(!$isTrue)<i class="ri-checkbox-circle-fill text-green-600 text-lg"></i>@endif
+                                    </td>
+                                    <td class="px-5 py-3.5 text-center text-gray-600 whitespace-nowrap align-middle">
+                                        @if($mtfScoringMode === 'partial')
+                                        {{ number_format($mtfPerStatement, 2) }} poin
+                                        @else
+                                        Benar semua : {{ rtrim(rtrim(number_format($mtfTotalScore, 2, '.', ''), '0'), '.') }} poin
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
+                    @else
                     <h4 class="font-semibold text-gray-900 mb-2">Pilihan Jawaban:</h4>
                     <div class="space-y-2">
                         @foreach($question->questionOptions as $optionIndex => $option)
@@ -240,6 +297,7 @@
                         </div>
                         @endforeach
                     </div>
+                    @endif
                     @endif
                 </div>
 
