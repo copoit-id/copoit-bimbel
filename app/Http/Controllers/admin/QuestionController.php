@@ -21,6 +21,7 @@ class QuestionController extends Controller
     private const SUPPORTED_TYPES = [
         'multiple_choice',
         'multiple_answer',
+        'multiple_true_false',
         'matching',
         'short_answer',
         'essay',
@@ -74,6 +75,24 @@ class QuestionController extends Controller
             $soundPath = $this->handleSoundUpload($request);
 
             switch ($questionType) {
+                case 'multiple_true_false':
+                    $this->validateMultipleTrueFalseQuestion($request);
+                    $metadata = $this->buildMultipleTrueFalseMetadata($request);
+                    $scoreCorrect = (float) (($metadata['multiple_true_false']['score_correct'] ?? 1));
+                    $questionWeight = max(0, $scoreCorrect);
+
+                    Question::create([
+                        'tryout_detail_id' => $tryout_detail_id,
+                        'question_type' => 'multiple_true_false',
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $questionWeight,
+                        'custom_score' => 'yes',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
                 case 'matching':
                     $this->validateMatchingQuestion($request);
                     $metadata = $this->buildMatchingMetadata($request);
@@ -247,6 +266,25 @@ class QuestionController extends Controller
             $soundPath = $this->handleSoundUpload($request, $question->sound);
 
             switch ($questionType) {
+                case 'multiple_true_false':
+                    $this->validateMultipleTrueFalseQuestion($request);
+                    $metadata = $this->buildMultipleTrueFalseMetadata($request);
+                    $scoreCorrect = (float) (($metadata['multiple_true_false']['score_correct'] ?? 1));
+                    $questionWeight = max(0, $scoreCorrect);
+
+                    QuestionOption::where('question_id', $question->question_id)->delete();
+
+                    $question->update([
+                        'question_type' => 'multiple_true_false',
+                        'question_text' => $request->question_text,
+                        'sound' => $soundPath,
+                        'explanation' => $request->explanation,
+                        'default_weight' => $questionWeight,
+                        'custom_score' => 'yes',
+                        'metadata' => $metadata,
+                    ]);
+                    break;
+
                 case 'matching':
                     $this->validateMatchingQuestion($request);
                     $metadata = $this->buildMatchingMetadata($request);
@@ -526,6 +564,22 @@ class QuestionController extends Controller
         $request->validate($rules, [], $attributes);
     }
 
+    private function validateMultipleTrueFalseQuestion(Request $request): void
+    {
+        $rules = [
+            'mtf_true_label' => 'required|string|min:1|max:50',
+            'mtf_false_label' => 'required|string|min:1|max:50',
+            'mtf_scoring_mode' => 'required|in:fullscore,partial',
+            'mtf_score_correct' => 'required|numeric',
+            'mtf_score_wrong' => 'required|numeric',
+            'mtf_statements' => 'required|array|min:2',
+            'mtf_statements.*.text' => 'required|string|min:1',
+            'mtf_statements.*.correct' => 'required|in:true,false',
+        ];
+
+        $request->validate($rules);
+    }
+
     private function buildMatchingMetadata(Request $request): array
     {
         $pairs = [];
@@ -551,6 +605,43 @@ class QuestionController extends Controller
                 'scoring_mode' => in_array($request->input('matching_scoring_mode'), ['fullscore', 'partial'], true)
                     ? $request->input('matching_scoring_mode')
                     : 'fullscore',
+            ],
+        ];
+    }
+
+    private function buildMultipleTrueFalseMetadata(Request $request): array
+    {
+        $statements = [];
+        foreach ($request->input('mtf_statements', []) as $index => $row) {
+            $text = trim((string) ($row['text'] ?? ''));
+            $correct = strtolower((string) ($row['correct'] ?? ''));
+            $id = trim((string) ($row['id'] ?? ''));
+
+            if ($text === '' || !in_array($correct, ['true', 'false'], true)) {
+                continue;
+            }
+
+            if ($id === '') {
+                $id = 'stmt_' . ($index + 1);
+            }
+
+            $statements[] = [
+                'id' => $id,
+                'text' => $text,
+                'correct' => $correct,
+            ];
+        }
+
+        return [
+            'multiple_true_false' => [
+                'true_label' => trim((string) $request->input('mtf_true_label', 'Benar')),
+                'false_label' => trim((string) $request->input('mtf_false_label', 'Salah')),
+                'scoring_mode' => in_array($request->input('mtf_scoring_mode'), ['fullscore', 'partial'], true)
+                    ? $request->input('mtf_scoring_mode')
+                    : 'fullscore',
+                'score_correct' => (float) $request->input('mtf_score_correct', 1),
+                'score_wrong' => (float) $request->input('mtf_score_wrong', 0),
+                'statements' => $statements,
             ],
         ];
     }
@@ -819,6 +910,43 @@ class QuestionController extends Controller
         return $detail->is_correct ? max(0, $weight) : 0;
     }
 
+    private function resolveMultipleTrueFalseAwardedScore(Question $question, $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $scoreCorrect = (float) ($questionMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $scoreWrong = (float) ($questionMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($questionMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $questionMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
+            if ($scoringMode === 'partial') {
+                if ($correctCount > 0) {
+                    return max(0, ($correctCount / $totalCount) * $fullScore);
+                }
+
+                return max(0, $scoreWrong);
+            }
+
+            return max(0, $isExactCorrect ? $fullScore : $scoreWrong);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
     /**
      * Determine if option is considered "correct" based on subtest type
      */
@@ -893,6 +1021,16 @@ class QuestionController extends Controller
                                 }
 
                                 $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
+                                break;
+
+                            case 'multiple_true_false':
+                                if ($detail->is_correct) {
+                                    $correctAnswers++;
+                                } else {
+                                    $wrongAnswers++;
+                                }
+
+                                $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
                                 break;
 
                             case 'short_answer':
@@ -986,6 +1124,15 @@ class QuestionController extends Controller
                 case 'matching':
                     $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
                     $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
+                    if ($weight <= 0) {
+                        $weight = 1;
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'multiple_true_false':
+                    $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                    $weight = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
                         $weight = 1;
                     }

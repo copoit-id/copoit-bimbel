@@ -141,6 +141,17 @@
         $userMatches = isset($answerMeta['matches']) && is_array($answerMeta['matches'])
             ? $answerMeta['matches']
             : [];
+        $mtfMeta = is_array($questionMeta['multiple_true_false'] ?? null) ? $questionMeta['multiple_true_false'] : [];
+        $mtfStatements = is_array($mtfMeta['statements'] ?? null) ? $mtfMeta['statements'] : [];
+        $mtfUserAnswers = is_array($answerMeta['answers'] ?? null) ? $answerMeta['answers'] : [];
+        $mtfTrueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+        $mtfFalseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
+        $mtfScoringMode = in_array(($mtfMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $mtfMeta['scoring_mode']
+            : 'fullscore';
+        $mtfScoreCorrect = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $mtfScoreWrong = (float) ($mtfMeta['score_wrong'] ?? 0);
+        $mtfPerStatementScore = count($mtfStatements) > 0 ? ($mtfScoreCorrect / count($mtfStatements)) : $mtfScoreCorrect;
         @endphp
 
         {{-- Subtest Header --}}
@@ -197,6 +208,24 @@
                         $scoreEarned = $isExactCorrect ? $multipleAnswerTotalScore : $scoreWrong;
                     }
 
+                    $scoreEarned = max(0, $scoreEarned);
+                } elseif (($question->question_type ?? '') === 'multiple_true_false') {
+                    $summary = is_array($answerMeta['summary'] ?? null) ? $answerMeta['summary'] : [];
+                    $correctCount = (int) ($summary['correct'] ?? 0);
+                    $totalCount = (int) ($summary['total'] ?? count($mtfStatements));
+                    $isExactCorrect = $totalCount > 0 && $correctCount === $totalCount;
+
+                    if ($totalCount > 0) {
+                        if ($mtfScoringMode === 'partial') {
+                            $scoreEarned = $correctCount > 0
+                                ? ($correctCount / $totalCount) * $mtfScoreCorrect
+                                : $mtfScoreWrong;
+                        } else {
+                            $scoreEarned = $isExactCorrect ? $mtfScoreCorrect : $mtfScoreWrong;
+                        }
+                    } else {
+                        $scoreEarned = (float) ($answerMeta['score_obtained'] ?? 0);
+                    }
                     $scoreEarned = max(0, $scoreEarned);
                 } else {
                     $storedScore = $answerMeta['score_obtained'] ?? null;
@@ -292,6 +321,71 @@
                     </div>
                     @endforeach
                 </div>
+                @endif
+            </div>
+            @elseif(($question->question_type ?? '') === 'multiple_true_false')
+            <div class="mt-4">
+                @if(empty($mtfStatements))
+                <p class="text-sm text-gray-500">Belum ada pernyataan Multiple True/False untuk soal ini.</p>
+                @else
+                <div class="overflow-x-auto border border-gray-200 rounded-lg bg-gray-50/70">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-100/80">
+                            <tr>
+                                <th class="px-5 py-3.5 text-left font-semibold text-gray-800 w-[63%]">Pernyataan</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[9%]">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Benar' }}</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[9%]">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah' }}</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[9%]">Status</th>
+                                <th class="px-5 py-3.5 text-right font-semibold text-gray-800 whitespace-nowrap w-[10%]">Kunci</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($mtfStatements as $stmt)
+                            @php
+                                $statementId = (string) ($stmt['id'] ?? '');
+                                $userAnswer = strtolower((string) ($mtfUserAnswers[$statementId] ?? ''));
+                                $correctAnswer = strtolower((string) ($stmt['correct'] ?? 'true'));
+                                $isStmtCorrect = $userAnswer !== '' && $userAnswer === $correctAnswer;
+                                $correctLabel = $correctAnswer === 'true'
+                                    ? ($mtfTrueLabel !== '' ? $mtfTrueLabel : 'Benar')
+                                    : ($mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah');
+                            @endphp
+                            <tr class="border-t border-gray-200">
+                                <td class="px-5 py-3.5 text-gray-800 align-top">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if($userAnswer === 'true')
+                                    <i class="ri-checkbox-circle-fill {{ $isStmtCorrect ? 'text-green' : 'text-red' }} text-lg"></i>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if($userAnswer === 'false')
+                                    <i class="ri-checkbox-circle-fill {{ $isStmtCorrect ? 'text-green' : 'text-red' }} text-lg"></i>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if($isStmtCorrect)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green text-white">Benar</span>
+                                    @elseif($userAnswer === '')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-200 text-gray-700">Kosong</span>
+                                    @else
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red text-white">Salah</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3.5 text-right text-gray-700 whitespace-nowrap align-middle">
+                                    {{ $correctLabel }}
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
+            </div>
+            <div class="mt-3 p-3 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm">
+                @if($mtfScoringMode === 'partial')
+                Setiap pernyataan benar bernilai {{ number_format($mtfPerStatementScore, 2) }} poin. Jika semua salah, nilai mengikuti skor salah.
+                @else
+                Nilai penuh diberikan jika semua pernyataan benar: {{ rtrim(rtrim(number_format($mtfScoreCorrect, 2, '.', ''), '0'), '.') }} poin.
                 @endif
             </div>
             @else

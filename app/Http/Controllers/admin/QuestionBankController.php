@@ -139,7 +139,7 @@ class QuestionBankController extends Controller
         $importTarget = $request->integer('import_for');
 
         $baseRules = [
-            'question_type' => ['required', 'in:multiple_choice,multiple_answer,true_false,matching,essay,short_answer,audio'],
+            'question_type' => ['required', 'in:multiple_choice,multiple_answer,multiple_true_false,true_false,matching,essay,short_answer,audio'],
             'question_text' => ['required', 'string'],
             'explanation' => ['nullable', 'string'],
             'default_weight' => ['nullable', 'numeric', 'min:0', 'max:999'],
@@ -156,6 +156,9 @@ class QuestionBankController extends Controller
                 break;
             case 'multiple_answer':
                 $this->validateMultipleChoice($request, true);
+                break;
+            case 'multiple_true_false':
+                $this->validateMultipleTrueFalse($request);
                 break;
             case 'true_false':
                 $this->validateTrueFalse($request);
@@ -187,11 +190,14 @@ class QuestionBankController extends Controller
                 : 0;
             $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
             $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
+            $mtfScoreCorrect = (float) ($metadata['multiple_true_false']['score_correct'] ?? 1);
             $resolvedWeight = $questionType === 'multiple_answer'
                 ? max(0, $scoreCorrect) * $correctAnswersCount
                 : ($questionType === 'matching'
                     ? max(0, $matchingScoreCorrect)
-                    : ($validated['default_weight'] ?? 1));
+                    : ($questionType === 'multiple_true_false'
+                        ? max(0, $mtfScoreCorrect)
+                        : ($validated['default_weight'] ?? 1)));
 
             $bankQuestion = QuestionBankQuestion::create([
                 'question_bank_id' => $questionBank->id,
@@ -199,7 +205,7 @@ class QuestionBankController extends Controller
                 'question_text' => $validated['question_text'],
                 'explanation' => $validated['explanation'] ?? null,
                 'default_weight' => $resolvedWeight,
-                'custom_score' => $questionType === 'multiple_answer' ? 'yes' : ($request->boolean('use_custom_scores') ? 'yes' : 'no'),
+                'custom_score' => in_array($questionType, ['multiple_answer', 'multiple_true_false'], true) ? 'yes' : ($request->boolean('use_custom_scores') ? 'yes' : 'no'),
                 'metadata' => $metadata ?: null,
                 'sound' => $soundPath,
                 'created_by' => Auth::id(),
@@ -230,7 +236,7 @@ class QuestionBankController extends Controller
         $importTarget = $request->integer('import_for');
 
         $baseRules = [
-            'question_type' => ['required', 'in:multiple_choice,multiple_answer,true_false,matching,essay,short_answer,audio'],
+            'question_type' => ['required', 'in:multiple_choice,multiple_answer,multiple_true_false,true_false,matching,essay,short_answer,audio'],
             'question_text' => ['required', 'string'],
             'explanation' => ['nullable', 'string'],
             'default_weight' => ['nullable', 'numeric', 'min:0', 'max:999'],
@@ -247,6 +253,9 @@ class QuestionBankController extends Controller
                 break;
             case 'multiple_answer':
                 $this->validateMultipleChoice($request, true);
+                break;
+            case 'multiple_true_false':
+                $this->validateMultipleTrueFalse($request);
                 break;
             case 'true_false':
                 $this->validateTrueFalse($request);
@@ -280,18 +289,21 @@ class QuestionBankController extends Controller
                 : 0;
             $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
             $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
+            $mtfScoreCorrect = (float) ($metadata['multiple_true_false']['score_correct'] ?? 1);
             $resolvedWeight = $questionType === 'multiple_answer'
                 ? max(0, $scoreCorrect) * $correctAnswersCount
                 : ($questionType === 'matching'
                     ? max(0, $matchingScoreCorrect)
-                    : ($validated['default_weight'] ?? 1));
+                    : ($questionType === 'multiple_true_false'
+                        ? max(0, $mtfScoreCorrect)
+                        : ($validated['default_weight'] ?? 1)));
 
             $question->update([
                 'question_type' => $questionType,
                 'question_text' => $validated['question_text'],
                 'explanation' => $validated['explanation'] ?? null,
                 'default_weight' => $resolvedWeight,
-                'custom_score' => $questionType === 'multiple_answer' ? 'yes' : ($request->boolean('use_custom_scores') ? 'yes' : 'no'),
+                'custom_score' => in_array($questionType, ['multiple_answer', 'multiple_true_false'], true) ? 'yes' : ($request->boolean('use_custom_scores') ? 'yes' : 'no'),
                 'metadata' => $metadata ?: null,
                 'sound' => $soundPath,
             ]);
@@ -481,6 +493,20 @@ class QuestionBankController extends Controller
         ]);
     }
 
+    private function validateMultipleTrueFalse(Request $request): void
+    {
+        $request->validate([
+            'mtf_true_label' => ['required', 'string', 'max:50'],
+            'mtf_false_label' => ['required', 'string', 'max:50'],
+            'mtf_scoring_mode' => ['required', 'in:fullscore,partial'],
+            'mtf_score_correct' => ['required', 'numeric'],
+            'mtf_score_wrong' => ['required', 'numeric'],
+            'mtf_statements' => ['required', 'array', 'min:2'],
+            'mtf_statements.*.text' => ['required', 'string'],
+            'mtf_statements.*.correct' => ['required', 'in:true,false'],
+        ]);
+    }
+
     private function validateShortAnswer(Request $request): void
     {
         $request->validate([
@@ -503,6 +529,7 @@ class QuestionBankController extends Controller
     {
         return match ($type) {
             'matching' => $this->buildMatchingMetadata($request),
+            'multiple_true_false' => $this->buildMultipleTrueFalseMetadata($request),
             'short_answer', 'essay' => $this->buildShortAnswerMetadata($request, $type),
             'audio' => $this->buildAudioMetadata($request),
             'multiple_answer' => [
@@ -516,6 +543,38 @@ class QuestionBankController extends Controller
             ],
             default => [],
         };
+    }
+
+    private function buildMultipleTrueFalseMetadata(Request $request): array
+    {
+        $statements = [];
+        foreach ($request->input('mtf_statements', []) as $index => $row) {
+            $text = trim((string) ($row['text'] ?? ''));
+            $correct = strtolower((string) ($row['correct'] ?? ''));
+            $id = trim((string) ($row['id'] ?? ''));
+            if ($text === '' || !in_array($correct, ['true', 'false'], true)) {
+                continue;
+            }
+
+            $statements[] = [
+                'id' => $id !== '' ? $id : 'stmt_' . ($index + 1),
+                'text' => $text,
+                'correct' => $correct,
+            ];
+        }
+
+        return [
+            'multiple_true_false' => [
+                'true_label' => trim((string) $request->input('mtf_true_label', 'Benar')),
+                'false_label' => trim((string) $request->input('mtf_false_label', 'Salah')),
+                'scoring_mode' => in_array($request->input('mtf_scoring_mode'), ['fullscore', 'partial'], true)
+                    ? $request->input('mtf_scoring_mode')
+                    : 'fullscore',
+                'score_correct' => (float) $request->input('mtf_score_correct', 1),
+                'score_wrong' => (float) $request->input('mtf_score_wrong', 0),
+                'statements' => $statements,
+            ],
+        ];
     }
 
     private function buildMatchingMetadata(Request $request): array

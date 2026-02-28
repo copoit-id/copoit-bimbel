@@ -447,6 +447,10 @@ class LaporanController extends Controller
                     $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
+                case 'multiple_true_false':
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
+                    break;
+
                 case 'short_answer':
                 case 'essay':
                     if ($pendingReview) {
@@ -575,6 +579,39 @@ class LaporanController extends Controller
             }
 
             return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
+    private function resolveMultipleTrueFalseAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $scoreCorrect = (float) ($questionMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $scoreWrong = (float) ($questionMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($questionMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $questionMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = $correctCount === $totalCount;
+            if ($scoringMode === 'partial') {
+                return max(0, $correctCount > 0 ? ($correctCount / $totalCount) * $fullScore : $scoreWrong);
+            }
+
+            return max(0, $isExactCorrect ? $fullScore : $scoreWrong);
         }
 
         $storedScore = $meta['score_obtained'] ?? null;

@@ -119,15 +119,19 @@
                 $metadata = is_array($question->metadata) ? $question->metadata : [];
                 $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
                 $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
+                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
                 $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
                 if (($question->question_type ?? '') === 'multiple_answer' && isset($multipleAnswerMeta['score_correct'])) {
                     $displayWeight = (float) $multipleAnswerMeta['score_correct'];
                 } elseif (($question->question_type ?? '') === 'matching' && isset($matchingMeta['score_correct'])) {
                     $displayWeight = (float) $matchingMeta['score_correct'];
+                } elseif (($question->question_type ?? '') === 'multiple_true_false' && isset($mtfMeta['score_correct'])) {
+                    $displayWeight = (float) $mtfMeta['score_correct'];
                 }
                 $typeLabels = [
                 'multiple_choice' => 'Multiple Choice',
                 'multiple_answer' => 'Multiple Answer',
+                'multiple_true_false' => 'Multiple True/False',
                 'true_false' => 'Benar/Salah',
                 'matching' => 'Pencocokan',
                 'essay' => 'Essay',
@@ -142,6 +146,9 @@
                     @elseif(($question->question_type ?? '') === 'matching')
                         {{ $typeLabels[$question->question_type] ?? 'Pencocokan' }}
                         - {{ in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $matchingMeta['scoring_mode'] : 'fullscore' }}
+                    @elseif(($question->question_type ?? '') === 'multiple_true_false')
+                        {{ $typeLabels[$question->question_type] ?? 'Multiple True/False' }}
+                        - {{ in_array(($mtfMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $mtfMeta['scoring_mode'] : 'fullscore' }}
                     @else
                         {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type)) }}
                     @endif
@@ -190,6 +197,54 @@
                 </ul>
                 @else
                 <p class="text-sm text-gray-500">Belum ada pasangan pencocokan yang tersimpan.</p>
+                @endif
+                @break
+
+                @case('multiple_true_false')
+                @php
+                $mtfStatements = isset($mtfMeta['statements']) && is_array($mtfMeta['statements']) ? $mtfMeta['statements'] : [];
+                $mtfTrueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+                $mtfFalseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
+                $mtfScoringMode = in_array(($mtfMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $mtfMeta['scoring_mode'] : 'fullscore';
+                $mtfTotalScore = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 1));
+                $mtfPerStatementScore = count($mtfStatements) > 0 ? ($mtfTotalScore / count($mtfStatements)) : $mtfTotalScore;
+                @endphp
+                @if(!empty($mtfStatements))
+                <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-5 py-3.5 text-left font-semibold text-gray-800 w-[70%]">Pernyataan</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[10%]">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Benar' }}</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[10%]">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah' }}</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[10%]">Poin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($mtfStatements as $stmt)
+                            @php $isTrue = (($stmt['correct'] ?? 'true') === 'true'); @endphp
+                            <tr class="border-t border-gray-200">
+                                <td class="px-5 py-3.5 text-gray-800">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if($isTrue)<i class="ri-checkbox-circle-fill text-green text-lg"></i>@endif
+                                </td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if(!$isTrue)<i class="ri-checkbox-circle-fill text-green text-lg"></i>@endif
+                                </td>
+                                <td class="px-5 py-3.5 text-center text-gray-600 whitespace-nowrap align-middle">
+                                    @if($mtfScoringMode === 'partial')
+                                    {{ number_format($mtfPerStatementScore, 2) }} poin
+                                    @else
+                                    Benar semua : {{ rtrim(rtrim(number_format($mtfTotalScore, 2, '.', ''), '0'), '.') }} poin
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @else
+                <p class="text-sm text-gray-500">Belum ada pernyataan Multiple True/False yang tersimpan.</p>
                 @endif
                 @break
 
