@@ -22,6 +22,16 @@
 
         return in_array($feature . '.view', $permissionSlugs, true);
     };
+    $isMasterActive = request()->routeIs('admin.package.*')
+        || request()->routeIs('admin.tryout.*')
+        || request()->routeIs('admin.question.*')
+        || request()->routeIs('admin.class.*')
+        || request()->routeIs('admin.question-bank.*');
+    $isUserActive = request()->routeIs('admin.user.*') || request()->routeIs('admin.akses.*');
+    $isReportActive = request()->routeIs('admin.leaderboard.*')
+        || request()->routeIs('admin.laporan.*')
+        || request()->routeIs('admin.essay-review.*')
+        || request()->routeIs('admin.feedback.*');
 @endphp
 
 <aside id="logo-sidebar"
@@ -39,66 +49,161 @@
                 </a>
             </li>
             @endif
-            @if($canFeatureView('package'))
             <li>
-                <a href="{{ route('admin.package.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.package.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-store-3-line text-[20px] {{ request()->routeIs('admin.package.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Manajemen Paket</span>
+                <details class="group" {{ $isMasterActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isMasterActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                        <span class="flex items-center">
+                            <i class="ri-stack-line text-[20px] {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Manajemen Master</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    </summary>
+                    <ul class="mt-1 ms-2 space-y-1">
+                        @if($canFeatureView('package'))
+                        <li>
+                            <a href="{{ route('admin.package.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.package.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-store-3-line text-[20px] {{ request()->routeIs('admin.package.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Manajemen Paket</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('tryout') || $canFeatureView('question'))
+                        <li>
+                            <a href="{{ route('admin.tryout.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.tryout.*')  || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-draft-line text-[20px] {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Manajemen Tryout</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('class'))
+                        <li>
+                            <a href="{{ route('admin.class.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-video-line text-[20px] {{ request()->routeIs('admin.class.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Manajemen Kelas</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('question_bank'))
+                        <li>
+                            <a href="{{ route('admin.question-bank.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Bank Soal</span>
+                            </a>
+                        </li>
+                        @endif
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <a href="{{ route('admin.update-notifications.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.update-notifications.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-notification-3-line text-[20px] {{ request()->routeIs('admin.update-notifications.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Notifikasi Update</span>
                 </a>
             </li>
-            @endif
-            @if($canFeatureView('tryout') || $canFeatureView('question'))
             <li>
-                <a href="{{ route('admin.tryout.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.tryout.*')  || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-draft-line text-[20px] {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Manajemen Tryout</span>
-                </a>
+                <details class="group" {{ $isUserActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isUserActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                        <span class="flex items-center">
+                            <i class="ri-user-2-line text-[20px] {{ $isUserActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">User</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isUserActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    </summary>
+                    <ul class="mt-1 ms-2 space-y-1">
+                        @if($canFeatureView('user'))
+                        <li>
+                            <a href="{{ route('admin.user.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-user-3-line text-[20px] {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Manajemen Users</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('akses'))
+                        <li>
+                            <a href="{{ route('admin.akses.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.akses.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-key-line text-[20px] {{ request()->routeIs('admin.akses.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Akses User</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('user'))
+                        <li>
+                            <a href="{{ route('admin.user.login-as-page') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i class="ri-user-shared-line text-[20px] {{ request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Login As User</span>
+                            </a>
+                        </li>
+                        @endif
+                    </ul>
+                </details>
             </li>
-            @endif
-            @if($canFeatureView('class'))
             <li>
-                <a href="{{ route('admin.class.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-video-line text-[20px] {{ request()->routeIs('admin.class.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Manajemen Kelas</span>
-                </a>
+                <details class="group" {{ $isReportActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isReportActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                        <span class="flex items-center">
+                            <i class="ri-file-chart-line text-[20px] {{ $isReportActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Laporan Tryout</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isReportActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    </summary>
+                    <ul class="mt-1 ms-2 space-y-1">
+                        @if($canFeatureView('leaderboard'))
+                        <li>
+                            <a href="{{ route('admin.leaderboard.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.leaderboard.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-bar-chart-line text-[20px] {{ request()->routeIs('admin.leaderboard.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Leaderboard</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('laporan'))
+                        <li>
+                            <a href="{{ route('admin.laporan.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.laporan.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-file-chart-line text-[20px] {{ request()->routeIs('admin.laporan.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Laporan Tryout</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('essay_review'))
+                        <li>
+                            <a href="{{ route('admin.essay-review.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.essay-review.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-pencil-line text-[20px] {{ request()->routeIs('admin.essay-review.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Koreksi Essay</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('feedback'))
+                        <li>
+                            <a href="{{ route('admin.feedback.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.feedback.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-message-3-line text-[20px] {{ request()->routeIs('admin.feedback.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Feedback Tryout</span>
+                            </a>
+                        </li>
+                        @endif
+                    </ul>
+                </details>
             </li>
-            @endif
-            @if($canFeatureView('question_bank'))
-            <li>
-                <a href="{{ route('admin.question-bank.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Bank Soal</span>
-                </a>
-            </li>
-            @endif
-            @if($canFeatureView('user'))
-            <li>
-                <a href="{{ route('admin.user.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-user-3-line text-[20px] {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Manajemen Users</span>
-                </a>
-            </li>
-            @endif
-            @if($canFeatureView('akses'))
-            <li>
-                <a href="{{ route('admin.akses.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.akses.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-key-line text-[20px] {{ request()->routeIs('admin.akses.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Akses User</span>
-                </a>
-            </li>
-            @endif
             @if($canFeatureView('pembayaran'))
             <li>
                 <a href="{{ route('admin.pembayaran.index') }}"
@@ -106,46 +211,6 @@
                     <i
                         class="ri-money-dollar-circle-line text-[20px] {{ request()->routeIs('admin.pembayaran.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
                     <span class="ms-3">Pembayaran</span>
-                </a>
-            </li>
-            @endif
-            @if($canFeatureView('leaderboard'))
-            <li>
-                <a href="{{ route('admin.leaderboard.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.leaderboard.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-bar-chart-line text-[20px] {{ request()->routeIs('admin.leaderboard.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Leaderboard</span>
-                </a>
-            </li>
-            @endif
-            @if($canFeatureView('laporan'))
-            <li>
-                <a href="{{ route('admin.laporan.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.laporan.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-file-chart-line text-[20px] {{ request()->routeIs('admin.laporan.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Laporan Tryout</span>
-                </a>
-            </li>
-            @endif
-            @if($canFeatureView('essay_review'))
-            <li>
-                <a href="{{ route('admin.essay-review.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.essay-review.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-pencil-line text-[20px] {{ request()->routeIs('admin.essay-review.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Koreksi Essay</span>
-                </a>
-            </li>
-            @endif
-            @if($canFeatureView('feedback'))
-            <li>
-                <a href="{{ route('admin.feedback.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.feedback.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-message-3-line text-[20px] {{ request()->routeIs('admin.feedback.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Feedback Tryout</span>
                 </a>
             </li>
             @endif
@@ -159,6 +224,13 @@
                 </a>
             </li>
             @endif
+            <li>
+                <a href="{{ route('admin.activity.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.activity.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-history-line text-[20px] {{ request()->routeIs('admin.activity.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Activity</span>
+                </a>
+            </li>
             @if($clientBranding['certificate_management_enabled'] ?? true)
             @if($canFeatureView('certificate'))
             <li>
@@ -170,15 +242,6 @@
                 </a>
             </li>
             @endif
-            @endif
-            @if($canFeatureView('user'))
-            <li>
-                <a href="{{ route('admin.user.login-as-page') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i class="ri-user-shared-line text-[20px] {{ request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Login As User</span>
-                </a>
-            </li>
             @endif
             @if($canFeatureView('settings'))
             <li>

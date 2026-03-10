@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\ActivityLogger;
 
 class PackageController extends Controller
 {
@@ -433,6 +434,10 @@ class PackageController extends Controller
             $query->where('package_id', $id_package);
         })->orderBy('schedule_time', 'desc')->get();
 
+        ActivityLogger::log('class_list_opened', 'success', Auth::user(), [
+            'package_id' => $id_package,
+        ]);
+
         return view('user.pages.package.bimbel', compact('package', 'classes'));
     }
 
@@ -461,7 +466,79 @@ class PackageController extends Controller
                 $query->where('user_id', Auth::id());
             }])->get();
 
+        ActivityLogger::log('tryout_list_opened', 'success', Auth::user(), [
+            'package_id' => $id_package,
+        ]);
+
         return view('user.pages.package.tryout', compact('package', 'tryouts'));
+    }
+
+    public function openClassZoom(ClassModel $class)
+    {
+        $packageIds = $class->packages()->pluck('packages.package_id')->all();
+        if (!empty($class->package_id)) {
+            $packageIds[] = $class->package_id;
+        }
+        $packageIds = array_unique($packageIds);
+
+        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+            ->whereIn('package_id', $packageIds)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->exists();
+
+        if (!$hasAccess) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Anda tidak memiliki akses ke kelas ini');
+        }
+
+        ActivityLogger::log('class_zoom_opened', 'success', Auth::user(), [
+            'class_id' => $class->class_id,
+            'package_ids' => $packageIds,
+        ]);
+
+        if (empty($class->zoom_link)) {
+            return redirect()->back()->with('error', 'Link zoom tidak tersedia.');
+        }
+
+        return redirect()->away($class->zoom_link);
+    }
+
+    public function openClassMaterial(ClassModel $class)
+    {
+        $packageIds = $class->packages()->pluck('packages.package_id')->all();
+        if (!empty($class->package_id)) {
+            $packageIds[] = $class->package_id;
+        }
+        $packageIds = array_unique($packageIds);
+
+        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+            ->whereIn('package_id', $packageIds)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->exists();
+
+        if (!$hasAccess) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Anda tidak memiliki akses ke materi ini');
+        }
+
+        ActivityLogger::log('class_material_opened', 'success', Auth::user(), [
+            'class_id' => $class->class_id,
+            'package_ids' => $packageIds,
+        ]);
+
+        if (empty($class->drive_link)) {
+            return redirect()->back()->with('error', 'Link materi tidak tersedia.');
+        }
+
+        return redirect()->away($class->drive_link);
     }
 
     public function riwayatTryout($id_package, $id_tryout)

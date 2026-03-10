@@ -144,6 +144,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::post('/tryout/{tryout_id}/join', [EventController::class, 'joinFreeTryout'])->name('user.event.tryout.join');
     });
 
+    Route::get('/class/{class}/zoom', [PackageController::class, 'openClassZoom'])->name('user.class.zoom');
+    Route::get('/class/{class}/material', [PackageController::class, 'openClassMaterial'])->name('user.class.material');
+
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
 
     Route::prefix('tryout')->group(function () {
@@ -210,6 +213,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
+    Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [\App\Http\Controllers\superadmin\RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [\App\Http\Controllers\superadmin\RoleController::class, 'store'])->name('roles.store');
     Route::put('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'update'])->name('roles.update');
@@ -220,6 +224,9 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
 // Admin Routes (add auth middleware)
 Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
+    Route::get('/update-notifications', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'index'])->name('update-notifications.index');
+    Route::get('/update-notifications/{updateNotification}', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'show'])->name('update-notifications.show');
 
     // Profile routes
     Route::get('/profile', [\App\Http\Controllers\admin\ProfileController::class, 'index'])->name('profile.index');

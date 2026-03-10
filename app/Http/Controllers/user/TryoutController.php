@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
+use App\Services\ActivityLogger;
 
 class TryoutController extends Controller
 {
@@ -833,6 +834,12 @@ class TryoutController extends Controller
             ->where('tryout_id', $id_tryout)
             ->count();
 
+        ActivityLogger::log('tryout_lobby_opened', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempts' => $attempts,
+        ]);
+
         return view('user.pages.tryout.lobby', compact(
             'package',
             'tryout',
@@ -1091,6 +1098,13 @@ class TryoutController extends Controller
                 $currentSubtest['end_number'] ?? $number,
             ];
         $isLastQuestionOfSubtest = $number === ($currentSubtest['end_number'] ?? $number);
+
+        ActivityLogger::log('tryout_started', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'question_number' => $number,
+            'attempt_token' => $attemptToken,
+        ]);
 
         return view('user.pages.tryout.index', compact(
             'package',
@@ -1681,6 +1695,12 @@ class TryoutController extends Controller
             $this->processRegularScoring($userAnswers, $now);
         }
 
+        ActivityLogger::log('tryout_finished', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempt_token' => (string) ($request->input('attempt_token') ?: ($userAnswers->first()->attempt_token ?? '')),
+        ]);
+
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
@@ -1878,6 +1898,13 @@ class TryoutController extends Controller
         $tryoutDetails = $tryout->tryoutDetails;
 
         $latestStatus = $latestUserAnswers->first()->status ?? 'completed';
+
+        ActivityLogger::log('tryout_result_viewed', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempt_token' => $latestAttemptToken,
+            'status' => $latestStatus,
+        ]);
 
         if ($tryout->requiresIrtScoring()) {
             if ($latestStatus === 'pending_release') {

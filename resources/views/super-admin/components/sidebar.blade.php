@@ -17,6 +17,13 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('super-admin.activity.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.activity.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-history-line text-[20px]"></i>
+                    <span class="ms-3">Activity</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('super-admin.roles.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.roles.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i class="ri-shield-keyhole-line text-[20px]"></i>

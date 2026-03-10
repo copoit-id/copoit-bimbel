@@ -33,7 +33,7 @@
 
                     <td class="px-6 py-4">
                         <div class="flex justify-center">
-                            <a href="{{ $class->zoom_link }}" target="_blank"
+                            <a href="{{ route('user.class.zoom', $class->class_id) }}" target="_blank"
                                 class="flex items-center gap-2 border border-primary px-4 py-1 rounded-xl">
                                 <i class="ri-video-on-line text-primary"></i>
                                 <span class="text-primary">Masuk</span>
@@ -43,7 +43,7 @@
 
                     <td class="px-6 py-4">
                         <div class="flex justify-center">
-                            <a href="{{ $class->drive_link }}" target="_blank"
+                            <a href="{{ route('user.class.material', $class->class_id) }}" target="_blank"
                                 class="flex items-center gap-2 border border-red-500 px-4 py-1 rounded-xl">
                                 <i class="ri-video-line text-red-500"></i>
                                 <span class="text-red-500">Baca</span>

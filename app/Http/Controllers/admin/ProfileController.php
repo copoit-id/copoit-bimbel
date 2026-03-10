@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use App\Rules\SafeName;
+use App\Services\ActivityLogger;
 
 class ProfileController extends Controller
 {
@@ -35,6 +36,8 @@ class ProfileController extends Controller
             'date_of_birth' => $request->date_of_birth,
         ]);
 
+        ActivityLogger::log('profile_updated', 'success', $user, ['scope' => 'admin'], $request);
+
         return redirect()->route('admin.profile.index')
             ->with('success', 'Profile berhasil diperbarui');
     }
@@ -57,6 +60,8 @@ class ProfileController extends Controller
         $user->update([
             'password' => Hash::make($request->password),
         ]);
+
+        ActivityLogger::log('password_changed', 'success', $user, ['scope' => 'admin'], $request);
 
         return redirect()->route('admin.profile.index')
             ->with('success', 'Password berhasil diperbarui');

@@ -18,6 +18,8 @@ use Carbon\Carbon;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use App\Services\ActivityLogger;
 
 class AuthController extends Controller
 {
@@ -47,6 +49,19 @@ class AuthController extends Controller
 
     public function authenticate(Request $request)
     {
+        $throttleKey = $this->throttleKey($request);
+        $lockUntil = Cache::get($this->lockKey($throttleKey));
+        if ($lockUntil) {
+            $remaining = max(0, Carbon::now()->diffInSeconds(Carbon::parse($lockUntil), false));
+            ActivityLogger::log('login_locked', 'failed', null, [
+                'email' => (string) $request->input('email'),
+                'remaining_seconds' => $remaining,
+            ], $request, (string) $request->input('email'));
+            return back()->withErrors([
+                'email' => 'Terlalu banyak percobaan login. Coba lagi dalam ' . $remaining . ' detik.',
+            ])->withInput($request->except('password'));
+        }
+
         $rules = [
             'email' => 'required|email',
             'password' => 'required',
@@ -75,9 +90,12 @@ class AuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
+            Cache::forget($this->attemptsKey($throttleKey));
+            Cache::forget($this->lockKey($throttleKey));
             $request->session()->regenerate();
 
             $user = Auth::user();
+            ActivityLogger::log('login_success', 'success', $user, [], $request);
 
             // Redirect based on user role
             if ($user->isSuperAdmin()) {
@@ -109,6 +127,21 @@ class AuthController extends Controller
                 return redirect()->intended(route('user.dashboard.index'));
             }
         }
+
+        $attemptKey = $this->attemptsKey($throttleKey);
+        $attempts = (int) Cache::get($attemptKey, 0) + 1;
+        Cache::put($attemptKey, $attempts, Carbon::now()->addDay());
+
+        $lockSeconds = $this->lockSecondsForAttempts($attempts);
+        if ($lockSeconds > 0) {
+            Cache::put($this->lockKey($throttleKey), Carbon::now()->addSeconds($lockSeconds), Carbon::now()->addSeconds($lockSeconds));
+        }
+
+        ActivityLogger::log('login_failed', 'failed', null, [
+            'email' => (string) $request->input('email'),
+            'attempts' => $attempts,
+            'lock_seconds' => $lockSeconds,
+        ], $request, (string) $request->input('email'));
 
         return back()->withErrors([
             'email' => 'Email atau password yang Anda masukkan salah.',
@@ -165,6 +198,8 @@ class AuthController extends Controller
 
             $this->sendNewRegistrationNotification($user);
 
+            ActivityLogger::log('register', 'success', $user, [], $request);
+
             Auth::login($user);
 
             return redirect()->route('user.dashboard.index')
@@ -212,6 +247,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        ActivityLogger::log('logout', 'success', $request->user(), [], $request);
         Auth::logout();
 
         $request->session()->invalidate();
@@ -260,8 +296,15 @@ class AuthController extends Controller
                 $message->subject("Reset Password - {$brandName}");
             });
 
+            ActivityLogger::log('reset_requested', 'success', $user, [
+                'expires_at' => Carbon::now()->addHour()->toDateTimeString(),
+            ], $request);
+
             return redirect()->back()->with('success', 'Link reset password telah dikirim ke email Anda');
         } catch (\Exception $e) {
+            ActivityLogger::log('reset_requested', 'failed', $user, [
+                'error' => $e->getMessage(),
+            ], $request);
             return redirect()->back()->with('error', 'Gagal mengirim email. Silakan coba lagi.');
         }
     }
@@ -273,6 +316,9 @@ class AuthController extends Controller
             ->first();
 
         if (!$user) {
+            ActivityLogger::log('reset_token_invalid', 'failed', null, [
+                'token_hash' => sha1($token),
+            ]);
             return redirect()->route('login')->with('error', 'Token reset password tidak valid atau sudah kadaluarsa');
         }
 
@@ -295,6 +341,9 @@ class AuthController extends Controller
             ->first();
 
         if (!$user) {
+            ActivityLogger::log('reset_failed', 'failed', null, [
+                'token_hash' => sha1((string) $request->token),
+            ], $request);
             return redirect()->route('login')->with('error', 'Token reset password tidak valid atau sudah kadaluarsa');
         }
 
@@ -305,12 +354,43 @@ class AuthController extends Controller
             'reset_token_expires' => null
         ]);
 
+        ActivityLogger::log('reset_completed', 'success', $user, [], $request);
+
         return redirect()->route('login')->with('success', 'Password berhasil direset. Silakan login dengan password baru');
     }
 
     private function getBrandName(): string
     {
         return config('client.branding.name', 'Copoit Academy');
+    }
+
+    private function throttleKey(Request $request): string
+    {
+        return 'login:' . sha1(strtolower((string) $request->input('email')) . '|' . $request->ip());
+    }
+
+    private function lockKey(string $throttleKey): string
+    {
+        return $throttleKey . ':lock';
+    }
+
+    private function attemptsKey(string $throttleKey): string
+    {
+        return $throttleKey . ':attempts';
+    }
+
+    private function lockSecondsForAttempts(int $attempts): int
+    {
+        if ($attempts <= 5) {
+            return 0;
+        }
+
+        return match ($attempts) {
+            6 => 10 * 60,
+            7 => 30 * 60,
+            8 => 2 * 60 * 60,
+            default => 24 * 60 * 60,
+        };
     }
 
     private function sendNewRegistrationNotification(User $newUser): void
