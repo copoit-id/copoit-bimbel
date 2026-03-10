@@ -4,7 +4,9 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClientProfile;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -28,6 +30,12 @@ class SettingController extends Controller
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'payment_gateway' => 'xendit',
+            'payment_gateway_mode' => 'sandbox',
+            'xendit_secret_key' => null,
+            'xendit_webhook_token' => null,
+            'midtrans_server_key' => null,
+            'midtrans_client_key' => null,
             'smtp_host' => null,
             'smtp_port' => null,
             'smtp_encryption' => null,
@@ -57,6 +65,12 @@ class SettingController extends Controller
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string', 'max:255'],
+            'payment_gateway' => ['nullable', 'in:xendit,midtrans'],
+            'payment_gateway_mode' => ['nullable', 'in:sandbox,production'],
+            'xendit_secret_key' => ['nullable', 'string', 'max:255'],
+            'xendit_webhook_token' => ['nullable', 'string', 'max:255'],
+            'midtrans_server_key' => ['nullable', 'string', 'max:255'],
+            'midtrans_client_key' => ['nullable', 'string', 'max:255'],
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
@@ -66,6 +80,10 @@ class SettingController extends Controller
             $rules['payment_bank_name'] = ['required', 'string', 'max:255'];
             $rules['payment_account_number'] = ['required', 'string', 'max:100'];
             $rules['payment_account_holder'] = ['required', 'string', 'max:255'];
+        }
+        if ($request->input('payment_mode') === 'gateway') {
+            $rules['payment_gateway'] = ['required', 'in:xendit,midtrans'];
+            $rules['payment_gateway_mode'] = ['required', 'in:sandbox,production'];
         }
 
         $validated = $request->validate($rules, [
@@ -86,6 +104,53 @@ class SettingController extends Controller
 
         if ($newPassword === '') {
             unset($validated['smtp_app_password']);
+        }
+
+        $xenditSecret = trim((string) ($validated['xendit_secret_key'] ?? ''));
+        $xenditWebhook = trim((string) ($validated['xendit_webhook_token'] ?? ''));
+        $midtransServer = trim((string) ($validated['midtrans_server_key'] ?? ''));
+        $midtransClient = trim((string) ($validated['midtrans_client_key'] ?? ''));
+
+        if ($xenditSecret === '') {
+            unset($validated['xendit_secret_key']);
+        }
+        if ($xenditWebhook === '') {
+            unset($validated['xendit_webhook_token']);
+        }
+        if ($midtransServer === '') {
+            unset($validated['midtrans_server_key']);
+        }
+        if ($midtransClient === '') {
+            unset($validated['midtrans_client_key']);
+        }
+
+        $sensitiveKeys = [
+            'xendit_secret_key',
+            'xendit_webhook_token',
+            'midtrans_server_key',
+            'midtrans_client_key',
+        ];
+        $sensitiveChanged = false;
+        foreach ($sensitiveKeys as $key) {
+            if (array_key_exists($key, $validated)) {
+                $sensitiveChanged = true;
+                break;
+            }
+        }
+
+        if ($sensitiveChanged) {
+            $request->validate([
+                'admin_password' => ['required', 'string'],
+            ], [
+                'admin_password.required' => 'Password admin wajib diisi untuk mengubah kredensial pembayaran.',
+            ]);
+
+            $user = $request->user();
+            if (!$user || !Hash::check((string) $request->input('admin_password'), $user->password)) {
+                return back()
+                    ->withErrors(['admin_password' => 'Password admin tidak valid.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password']));
+            }
         }
 
         // SMTP wajib lengkap hanya jika memang dikonfigurasi/diaktifkan.
@@ -135,8 +200,28 @@ class SettingController extends Controller
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['enable_utbk_types'] = false;
         $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
+        $validated['payment_gateway'] = $validated['payment_gateway']
+            ?? ($profile->payment_gateway ?? 'xendit');
+        $validated['payment_gateway_mode'] = $validated['payment_gateway_mode']
+            ?? ($profile->payment_gateway_mode ?? 'sandbox');
         $validated['smtp_notification_email'] = $validated['smtp_notification_email']
             ?? ($validated['smtp_email'] ?? $profile->smtp_notification_email);
+
+        $changedFields = [];
+        foreach ($validated as $key => $value) {
+            if (in_array($key, $sensitiveKeys, true)) {
+                $changedFields[] = $key . ':updated';
+                continue;
+            }
+            if ($key === 'smtp_app_password') {
+                $changedFields[] = 'smtp_app_password:updated';
+                continue;
+            }
+            $original = $profile->exists ? $profile->getOriginal($key) : null;
+            if ((string) $original !== (string) $value) {
+                $changedFields[] = $key;
+            }
+        }
 
         $profile->fill($validated);
 
@@ -145,6 +230,10 @@ class SettingController extends Controller
         }
 
         $profile->save();
+
+        ActivityLogger::log('settings_updated', 'success', $request->user(), [
+            'changes' => $changedFields,
+        ], $request);
 
         return redirect()
             ->route('admin.settings.index')

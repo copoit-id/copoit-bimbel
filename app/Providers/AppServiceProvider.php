@@ -41,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'payment_gateway' => 'xendit',
+            'payment_gateway_mode' => 'sandbox',
+            'xendit_secret_key' => null,
+            'xendit_webhook_token' => null,
+            'midtrans_server_key' => null,
+            'midtrans_client_key' => null,
             'smtp_host' => null,
             'smtp_port' => null,
             'smtp_encryption' => null,
@@ -69,6 +75,12 @@ class AppServiceProvider extends ServiceProvider
             $defaults['payment_account_number'] = $clientProfile->payment_account_number ?? $defaults['payment_account_number'];
             $defaults['payment_account_holder'] = $clientProfile->payment_account_holder ?? $defaults['payment_account_holder'];
             $defaults['payment_bank_note'] = $clientProfile->payment_bank_note ?? $defaults['payment_bank_note'];
+            $defaults['payment_gateway'] = $clientProfile->payment_gateway ?: $defaults['payment_gateway'];
+            $defaults['payment_gateway_mode'] = $clientProfile->payment_gateway_mode ?: $defaults['payment_gateway_mode'];
+            $defaults['xendit_secret_key'] = $clientProfile->xendit_secret_key ?? $defaults['xendit_secret_key'];
+            $defaults['xendit_webhook_token'] = $clientProfile->xendit_webhook_token ?? $defaults['xendit_webhook_token'];
+            $defaults['midtrans_server_key'] = $clientProfile->midtrans_server_key ?? $defaults['midtrans_server_key'];
+            $defaults['midtrans_client_key'] = $clientProfile->midtrans_client_key ?? $defaults['midtrans_client_key'];
             $defaults['smtp_host'] = $clientProfile->smtp_host ?? $defaults['smtp_host'];
             $defaults['smtp_port'] = $clientProfile->smtp_port ?? $defaults['smtp_port'];
             $defaults['smtp_encryption'] = $clientProfile->smtp_encryption ?? $defaults['smtp_encryption'];
@@ -92,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
             'app.name' => $branding['name'],
         ]);
 
+        $this->applyDynamicPaymentConfiguration($branding);
         $this->applyDynamicMailConfiguration($branding);
 
         view()->share('clientProfile', $clientProfile);
@@ -119,6 +132,35 @@ class AppServiceProvider extends ServiceProvider
             'mail.mailers.smtp.scheme' => $smtpEncryption ?: null,
             'mail.from.address' => $smtpEmail,
             'mail.from.name' => $branding['name'] ?? config('app.name'),
+        ]);
+    }
+
+    private function applyDynamicPaymentConfiguration(array $branding): void
+    {
+        $gateway = $branding['payment_gateway'] ?: env('PAYMENT_GATEWAY', 'xendit');
+        $mode = $branding['payment_gateway_mode'] ?: (env('MIDTRANS_IS_PRODUCTION') ? 'production' : 'sandbox');
+        $mode = $mode === 'production' ? 'production' : 'sandbox';
+
+        $midtransSnapUrl = $mode === 'production'
+            ? 'https://app.midtrans.com/snap/v1/transactions'
+            : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
+
+        $midtransStatusUrl = $mode === 'production'
+            ? 'https://api.midtrans.com/v2'
+            : 'https://api.sandbox.midtrans.com/v2';
+
+        $xenditBaseUrl = 'https://api.xendit.co';
+
+        config([
+            'services.payment_gateway' => $gateway,
+            'services.xendit.secret_key' => $branding['xendit_secret_key'] ?: env('XENDIT_SECRET_KEY'),
+            'services.xendit.webhook_token' => $branding['xendit_webhook_token'] ?: env('XENDIT_WEBHOOK_TOKEN'),
+            'services.xendit.base_url' => $xenditBaseUrl,
+            'services.midtrans.server_key' => $branding['midtrans_server_key'] ?: env('MIDTRANS_SERVER_KEY'),
+            'services.midtrans.client_key' => $branding['midtrans_client_key'] ?: env('MIDTRANS_CLIENT_KEY'),
+            'services.midtrans.is_production' => $mode === 'production',
+            'services.midtrans.snap_url' => $midtransSnapUrl,
+            'services.midtrans.status_url' => $midtransStatusUrl,
         ]);
     }
 

@@ -35,6 +35,10 @@ class ActivityController extends Controller
                 'label' => 'Akun',
                 'actions' => ['register', 'profile_updated', 'password_changed'],
             ],
+            'pengaturan' => [
+                'label' => 'Pengaturan',
+                'actions' => ['settings_updated'],
+            ],
         ];
 
         $actionLabels = [
@@ -57,6 +61,7 @@ class ActivityController extends Controller
             'register' => 'Registrasi',
             'profile_updated' => 'Update profil',
             'password_changed' => 'Ganti password',
+            'settings_updated' => 'Update pengaturan',
         ];
 
         $tab = $request->input('tab', 'all');

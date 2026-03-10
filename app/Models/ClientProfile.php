@@ -24,6 +24,12 @@ class ClientProfile extends Model
         'payment_account_number',
         'payment_account_holder',
         'payment_bank_note',
+        'payment_gateway',
+        'payment_gateway_mode',
+        'xendit_secret_key',
+        'xendit_webhook_token',
+        'midtrans_server_key',
+        'midtrans_client_key',
         'smtp_host',
         'smtp_port',
         'smtp_encryption',
@@ -39,5 +45,9 @@ class ClientProfile extends Model
         'enable_utbk_types' => 'boolean',
         'allow_video_thumbnail' => 'boolean',
         'smtp_app_password' => 'encrypted',
+        'xendit_secret_key' => 'encrypted',
+        'xendit_webhook_token' => 'encrypted',
+        'midtrans_server_key' => 'encrypted',
+        'midtrans_client_key' => 'encrypted',
     ];
 }

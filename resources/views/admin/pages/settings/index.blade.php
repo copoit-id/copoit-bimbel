@@ -220,6 +220,8 @@
             </div>
             @php
             $paymentMode = old('payment_mode', $profile->payment_mode ?? ($branding['payment_mode'] ?? 'gateway'));
+            $paymentGateway = old('payment_gateway', $profile->payment_gateway ?? ($branding['payment_gateway'] ?? 'xendit'));
+            $paymentGatewayMode = old('payment_gateway_mode', $profile->payment_gateway_mode ?? ($branding['payment_gateway_mode'] ?? 'sandbox'));
             @endphp
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
@@ -242,7 +244,7 @@
             @error('payment_mode')
             <p class="text-xs text-red-500">{{ $message }}</p>
             @enderror
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div id="payment-manual-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div>
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Nama Bank</label>
                     <input type="text" name="payment_bank_name"
@@ -280,6 +282,117 @@
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
                         placeholder="Contoh: Kirim bukti max 1x24 jam">
                     @error('payment_bank_note')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+            <div id="payment-gateway-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Gateway</label>
+                    <select name="payment_gateway"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        <option value="xendit" {{ $paymentGateway === 'xendit' ? 'selected' : '' }}>Xendit</option>
+                        <option value="midtrans" {{ $paymentGateway === 'midtrans' ? 'selected' : '' }}>Midtrans</option>
+                    </select>
+                    @error('payment_gateway')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Mode</label>
+                    <select name="payment_gateway_mode"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        <option value="sandbox" {{ $paymentGatewayMode === 'sandbox' ? 'selected' : '' }}>Sandbox</option>
+                        <option value="production" {{ $paymentGatewayMode === 'production' ? 'selected' : '' }}>Production</option>
+                    </select>
+                    @error('payment_gateway_mode')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="md:col-span-2 bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-600">
+                    <p class="font-semibold text-gray-900 mb-2">Endpoint Otomatis</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-xs uppercase text-gray-500">Xendit Base URL</p>
+                            <p id="xendit-base-url">https://api.xendit.co</p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase text-gray-500">Midtrans Snap URL</p>
+                            <p id="midtrans-snap-url">https://app.sandbox.midtrans.com/snap/v1/transactions</p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase text-gray-500">Midtrans Status URL</p>
+                            <p id="midtrans-status-url">https://api.sandbox.midtrans.com/v2</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis berdasarkan mode. Tidak dapat diubah manual.</p>
+                </div>
+                <div data-gateway-fields="xendit" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Xendit Secret Key</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="xendit_secret_key"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                value="{{ old('xendit_secret_key', $profile->xendit_secret_key ?? '') }}"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="xendit_secret_key">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="xendit_secret_key">Show</button>
+                        </div>
+                        @error('xendit_secret_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Xendit Webhook Token</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="xendit_webhook_token"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                value="{{ old('xendit_webhook_token', $profile->xendit_webhook_token ?? '') }}"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="xendit_webhook_token">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="xendit_webhook_token">Show</button>
+                        </div>
+                        @error('xendit_webhook_token')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+                <div data-gateway-fields="midtrans" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Midtrans Server Key</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="midtrans_server_key"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                value="{{ old('midtrans_server_key', $profile->midtrans_server_key ?? '') }}"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="midtrans_server_key">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="midtrans_server_key">Show</button>
+                        </div>
+                        @error('midtrans_server_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Midtrans Client Key</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="midtrans_client_key"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                value="{{ old('midtrans_client_key', $profile->midtrans_client_key ?? '') }}"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="midtrans_client_key">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="midtrans_client_key">Show</button>
+                        </div>
+                        @error('midtrans_client_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Password Admin</label>
+                    <input type="password" name="admin_password"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Wajib diisi untuk mengubah kredensial pembayaran">
+                    @error('admin_password')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
@@ -385,6 +498,77 @@
                     previewEl.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
+            });
+        });
+
+        const paymentModeInputs = document.querySelectorAll('input[name="payment_mode"]');
+        const paymentManualFields = document.getElementById('payment-manual-fields');
+        const paymentGatewayFields = document.getElementById('payment-gateway-fields');
+        const paymentGatewaySelect = document.querySelector('select[name="payment_gateway"]');
+        const paymentGatewayModeSelect = document.querySelector('select[name="payment_gateway_mode"]');
+        const xenditBaseUrlEl = document.getElementById('xendit-base-url');
+        const midtransSnapUrlEl = document.getElementById('midtrans-snap-url');
+        const midtransStatusUrlEl = document.getElementById('midtrans-status-url');
+        const gatewayBlocks = document.querySelectorAll('[data-gateway-fields]');
+
+        const gatewayEndpoints = {
+            sandbox: {
+                xenditBase: 'https://api.xendit.co',
+                midtransSnap: 'https://app.sandbox.midtrans.com/snap/v1/transactions',
+                midtransStatus: 'https://api.sandbox.midtrans.com/v2'
+            },
+            production: {
+                xenditBase: 'https://api.xendit.co',
+                midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
+                midtransStatus: 'https://api.midtrans.com/v2'
+            }
+        };
+
+        const togglePaymentFields = () => {
+            const mode = document.querySelector('input[name="payment_mode"]:checked')?.value || 'gateway';
+            const gateway = paymentGatewaySelect?.value || 'xendit';
+            if (paymentManualFields) {
+                paymentManualFields.classList.toggle('hidden', mode !== 'manual');
+                paymentManualFields.querySelectorAll('input,select,textarea').forEach((el) => {
+                    el.disabled = mode !== 'manual';
+                });
+            }
+            if (paymentGatewayFields) {
+                paymentGatewayFields.classList.toggle('hidden', mode !== 'gateway');
+                paymentGatewayFields.querySelectorAll('input,select,textarea').forEach((el) => {
+                    el.disabled = mode !== 'gateway';
+                });
+            }
+
+            gatewayBlocks.forEach((block) => {
+                const type = block.getAttribute('data-gateway-fields');
+                const isActive = gateway === type;
+                block.classList.toggle('hidden', !isActive);
+                block.querySelectorAll('input').forEach((el) => {
+                    el.disabled = !isActive || mode !== 'gateway';
+                });
+            });
+
+            const env = paymentGatewayModeSelect?.value || 'sandbox';
+            const endpoints = gatewayEndpoints[env] || gatewayEndpoints.sandbox;
+            if (xenditBaseUrlEl) xenditBaseUrlEl.textContent = endpoints.xenditBase;
+            if (midtransSnapUrlEl) midtransSnapUrlEl.textContent = endpoints.midtransSnap;
+            if (midtransStatusUrlEl) midtransStatusUrlEl.textContent = endpoints.midtransStatus;
+        };
+
+        paymentModeInputs.forEach((input) => input.addEventListener('change', togglePaymentFields));
+        paymentGatewaySelect?.addEventListener('change', togglePaymentFields);
+        paymentGatewayModeSelect?.addEventListener('change', togglePaymentFields);
+        togglePaymentFields();
+
+        document.querySelectorAll('[data-secret-toggle]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const key = button.getAttribute('data-secret-toggle');
+                const input = document.querySelector(`[data-secret-field="${key}"]`);
+                if (!input) return;
+                const isHidden = input.getAttribute('type') === 'password';
+                input.setAttribute('type', isHidden ? 'text' : 'password');
+                button.textContent = isHidden ? 'Hide' : 'Show';
             });
         });
     });
