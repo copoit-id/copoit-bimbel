@@ -11,8 +11,14 @@
         window.MathJax = {
             skipStartupTypeset: true,
             tex2jax: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                inlineMath: [
+                    ['$', '$'],
+                    ['\\(', '\\)']
+                ],
+                displayMath: [
+                    ['$$', '$$'],
+                    ['\\[', '\\]']
+                ],
                 processEscapes: true
             },
             messageStyle: 'none',
@@ -31,7 +37,7 @@
 <body>
     @include('user.components.navbar')
 
-    <div class="px-[30px] md:px-[150px]">
+    <div class="px-3 md:px-[150px]">
         @yield('content')
     </div>
     @include('components.flash-alert')
@@ -40,7 +46,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
     <script>
-        window.renderMathJax = function () {
+        window.renderMathJax = function() {
             if (window.MathJax) {
                 if (window.MathJax.Hub) {
                     MathJax.Hub.Queue(['Typeset', MathJax.Hub]);
@@ -50,7 +56,7 @@
             }
         };
 
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             window.renderMathJax();
         });
     </script>

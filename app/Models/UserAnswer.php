@@ -54,7 +54,9 @@ class UserAnswer extends Model
     // Accessor untuk timezone Jakarta
     public function getStartedAtAttribute($value)
     {
-        return $value ? Carbon::parse($value)->setTimezone('Asia/Jakarta') : null;
+        if (!$value) return null;
+        if ($value instanceof Carbon) return $value->setTimezone('Asia/Jakarta');
+        return Carbon::parse($value)->setTimezone('Asia/Jakarta');
     }
 
     public function getFinishedAtAttribute($value)

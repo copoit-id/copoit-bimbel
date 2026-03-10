@@ -1032,18 +1032,22 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
         }
 
-        // Calculate total time untuk SKD Full
+        // Calculate total time for the ENTIRE tryout based on the very first subtest started
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
         $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
-        $startTime = Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
+
+        // Find the earliest started_at for this attempt to ensure a consistent total timer
+        $firstStartTime = UserAnswer::where('attempt_token', $attemptToken)->min('started_at');
+        $startTime = Carbon::parse($firstStartTime, 'Asia/Jakarta');
         $endTime = $startTime->copy()->addMinutes($totalDuration);
 
-        // Check if time is up - auto finish jika waktu habis
-        if ($now->gte($endTime)) {
+        // Check if time is up - auto finish if time exceeded
+        if ($now->gt($endTime)) {
             return $this->finishTryout(request(), $id_package, $id_tryout);
         }
 
-        $remainingSeconds = $endTime->diffInSeconds($now);
+        $remainingSeconds = (int) $now->diffInSeconds($endTime, false);
+        if ($remainingSeconds <= 0) $remainingSeconds = 1;
 
         // Hitung timer per subtest untuk tampilan
         $subtestDurationMinutes = max(1, (int) ($currentSubtest['duration'] ?? 60));
@@ -1060,12 +1064,6 @@ class TryoutController extends Controller
             ? $now->diffInSeconds($subtestEnd)
             : 0;
 
-        // Get user's answer for current question dari subtest yang sesuai
-        $userAnswerDetail = UserAnswerDetail::where('user_answer_id', $currentUserAnswer->user_answer_id)
-            ->where('question_id', $currentQuestion->question_id)
-            ->with('questionOption')
-            ->first();
-
         // Get all user answers untuk navigation status dari semua subtest
         $allUserAnswers = UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
@@ -1073,9 +1071,15 @@ class TryoutController extends Controller
             ->where('status', 'in_progress')
             ->get();
 
-        $userAnswerDetails = UserAnswerDetail::whereIn('user_answer_id', $allUserAnswers->pluck('user_answer_id'))
-            ->pluck('question_id')
-            ->toArray();
+        // Get all user's answer details for this attempt
+        $allAnswerDetails = UserAnswerDetail::whereIn('user_answer_id', $allUserAnswers->pluck('user_answer_id'))
+            ->with('questionOption')
+            ->get()
+            ->keyBy('question_id');
+
+        $userAnswerDetail = $allAnswerDetails->get($currentQuestion->question_id);
+
+        $userAnswerDetails = $allAnswerDetails->pluck('question_id')->toArray();
 
         // Get flagged questions dari session dengan attempt_token
         $flaggedQuestions = session('flagged_questions_' . $attemptToken, []);
@@ -1101,6 +1105,7 @@ class TryoutController extends Controller
             'totalQuestions',
             'allQuestions',
             'userAnswerDetails',
+            'allAnswerDetails',
             'flaggedQuestions',
             'subtestInfo',
             'currentSubtest',
