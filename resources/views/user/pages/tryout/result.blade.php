@@ -66,7 +66,7 @@
         </div>
 
         <!-- SKD Subtest Results -->
-        @if(isset($subtestResults) && count($subtestResults) > 1)
+        @if(isset($subtestResults) && count($subtestResults) >= 1)
         <div class="bg-white rounded-lg border border-border p-6 mb-6">
             <h2 class="text-lg font-bold text-dark mb-4">Hasil Per Subtest</h2>
             <div class="space-y-4">
@@ -76,7 +76,7 @@
                         <div class="flex items-center gap-3">
                             <div
                                 class="w-12 h-12 rounded-lg text-primary bg-primary/10 flex items-center justify-center text-sm font-bold">
-                                {{ strtoupper($result['type']) }}
+                                {{ strtoupper($result['alias'] ?? $result['type']) }}
                             </div>
                             <div>
                                 <p class="font-medium text-dark">{{ $result['name'] }}</p>
@@ -94,7 +94,7 @@
                                     @endif
                                 </p>
                                 </div>
-                               
+
                             </div>
                         </div>
                     </div>

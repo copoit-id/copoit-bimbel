@@ -331,6 +331,7 @@ class LaporanController extends Controller
                 'wrong' => $answer->wrong_answers,
                 'unanswered' => $answer->unanswered,
                 'score' => round($answer->score ?? 0, 1),
+                'alias' => $this->formatSubtestAlias(optional($answer->tryoutDetail)->type_subtest),
             ];
         });
 
@@ -366,6 +367,29 @@ class LaporanController extends Controller
             'liveScore' => $liveScore,
             'generatedAt' => Carbon::now('Asia/Jakarta'),
         ]);
+    }
+
+    private function formatSubtestAlias(?string $type): string
+    {
+        if (!$type) {
+            return 'Sub';
+        }
+
+        return [
+            'twk' => 'TWK',
+            'tiu' => 'TIU',
+            'tkp' => 'TKP',
+            'penalaran_umum' => 'PU',
+            'pengetahuan_umum' => 'PPU',
+            'pengetahuan_kuantitatif' => 'PK',
+            'pemahaman_bacaan_menulis' => 'PBM',
+            'literasi_bahasa_indonesia' => 'LBI',
+            'literasi_bahasa_inggris' => 'LBE',
+            'penalaran_matematika' => 'PM',
+            'writing' => 'WT',
+            'reading' => 'RD',
+            'listening' => 'LS',
+        ][$type] ?? strtoupper(Str::limit($type, 3, ''));
     }
 
     private function formatSubtestName(?string $type): string
@@ -500,7 +524,7 @@ class LaporanController extends Controller
         $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $selectedIds = collect($meta['selected_option_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values()
             ->all();
@@ -509,7 +533,7 @@ class LaporanController extends Controller
             $correctIds = $question->questionOptions()
                 ->where('is_correct', true)
                 ->pluck('question_option_id')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn($id) => (int) $id)
                 ->unique()
                 ->values()
                 ->all();

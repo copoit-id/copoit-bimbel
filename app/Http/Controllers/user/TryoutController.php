@@ -145,7 +145,7 @@ class TryoutController extends Controller
         ])->validate();
 
         $selectedIds = collect($data['option_ids'])
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values()
             ->all();
@@ -153,7 +153,7 @@ class TryoutController extends Controller
         $validIds = $question->questionOptions()
             ->whereIn('question_option_id', $selectedIds)
             ->pluck('question_option_id')
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->values()
             ->all();
 
@@ -168,7 +168,7 @@ class TryoutController extends Controller
         $correctIds = $question->questionOptions()
             ->where('is_correct', true)
             ->pluck('question_option_id')
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->values()
             ->all();
         sort($correctIds);
@@ -230,7 +230,7 @@ class TryoutController extends Controller
         $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $selectedIds = collect($meta['selected_option_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values()
             ->all();
@@ -239,7 +239,7 @@ class TryoutController extends Controller
             $correctIds = $question->questionOptions()
                 ->where('is_correct', true)
                 ->pluck('question_option_id')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn($id) => (int) $id)
                 ->unique()
                 ->values()
                 ->all();
@@ -1178,6 +1178,12 @@ class TryoutController extends Controller
             'literasi_bahasa_indonesia' => 'LBI',
             'literasi_bahasa_inggris' => 'LBE',
             'penalaran_matematika' => 'PM',
+            'twk' => 'TWK',
+            'tiu' => 'TIU',
+            'tkp' => 'TKP',
+            'writing' => 'WT',
+            'reading' => 'RD',
+            'listening' => 'LS',
         ];
 
         return $map[$type] ?? strtoupper((string) $type);
@@ -1655,7 +1661,6 @@ class TryoutController extends Controller
                 ->where('status', 'in_progress')
                 ->with(['tryoutDetail'])
                 ->get();
-
         }
 
         if ($userAnswers->isEmpty()) {
@@ -2063,7 +2068,7 @@ class TryoutController extends Controller
             $singleUserAnswer = $latestUserAnswers->first();
             $rawScore = $this->calculateTotalScore($singleUserAnswer, $singleUserAnswer->tryoutDetail->type_subtest);
             $maxScore = $this->getMaxPossibleScoreForDetail($singleUserAnswer->tryout_detail_id, $singleUserAnswer->tryoutDetail->type_subtest);
-            $subtestResults = null;
+            $subtestResults = $this->calculateSubtestResultsFromUserAnswers($latestUserAnswers);
             $singleIsPassed = $this->isSubtestPassed(
                 $singleUserAnswer->tryoutDetail,
                 $rawScore,
@@ -2146,6 +2151,7 @@ class TryoutController extends Controller
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
                 'name' => $this->getSubtestName($detail->type_subtest),
+                'alias' => $this->getSubtestAlias($detail->type_subtest),
                 'total_questions' => $totalQuestions,
                 'correct_answers' => $correctCount,
                 'wrong_answers' => $wrongCount,
