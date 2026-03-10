@@ -84,8 +84,13 @@
                 <i class="ri-refresh-line"></i> Reset
             </button>
         </div>
-        <div id="payment-count" class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
-            Total: <span class="font-medium text-gray-700">{{ $payments->total() ?? 0 }} Transaksi</span>
+        <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+            <div id="payment-count" class="text-sm text-gray-500">
+                Total: <span class="font-medium text-gray-700">{{ $payments->total() ?? 0 }} Transaksi</span>
+            </div>
+            <a href="{{ route('admin.pembayaran.manual.create') }}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">
+                Tambah Pembayaran Manual
+            </a>
         </div>
     </div>
 

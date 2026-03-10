@@ -5,9 +5,12 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\UserPackageAcces;
+use App\Models\User;
+use App\Models\Package;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class PembayaranController extends Controller
 {
@@ -15,6 +18,7 @@ class PembayaranController extends Controller
     {
         // Get all payments with user and package info
         $payments = Payment::with(['user', 'package'])
+            ->where('status', 'pending')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -31,6 +35,59 @@ class PembayaranController extends Controller
             'pendingPayments',
             'failedPayments'
         ));
+    }
+
+    public function createManual()
+    {
+        $packages = Package::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.pages.pembayaran.manual-create', compact('packages'));
+    }
+
+    public function storeManual(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'package_id' => 'required|exists:packages,package_id',
+            'amount' => 'required|numeric|min:0',
+            'payment_method' => 'required|string|max:50',
+            'notes' => 'nullable|string|max:500',
+        ], [
+            'email.exists' => 'Email user tidak ditemukan.',
+            'package_id.exists' => 'Paket tidak valid.',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+        $package = Package::where('package_id', $validated['package_id'])->first();
+
+        if (!$user || !$package) {
+            return redirect()->route('admin.pembayaran.index')
+                ->with('error', 'User atau paket tidak ditemukan.');
+        }
+
+        $transactionId = 'MANUAL-' . Str::upper(Str::random(10));
+        while (Payment::where('transaction_id', $transactionId)->exists()) {
+            $transactionId = 'MANUAL-' . Str::upper(Str::random(10));
+        }
+
+        Payment::create([
+            'transaction_id' => $transactionId,
+            'user_id' => $user->id,
+            'package_id' => $package->package_id,
+            'amount' => $validated['amount'],
+            'admin_fee' => 0,
+            'total_amount' => $validated['amount'],
+            'status' => 'pending',
+            'payment_method' => $validated['payment_method'],
+            'payment_details' => json_encode(['manual' => true]),
+            'notes' => $validated['notes'] ?? ('Manual entry by ' . Auth::user()->name),
+        ]);
+
+        return redirect()->route('admin.pembayaran.index')
+            ->with('success', 'Pembayaran manual berhasil ditambahkan.');
     }
 
     public function show($id)

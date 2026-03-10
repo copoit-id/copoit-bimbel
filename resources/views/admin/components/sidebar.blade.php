@@ -32,6 +32,7 @@
         || request()->routeIs('admin.laporan.*')
         || request()->routeIs('admin.essay-review.*')
         || request()->routeIs('admin.feedback.*');
+    $isFinanceActive = request()->routeIs('admin.finance.*') || request()->routeIs('admin.pembayaran.*');
 @endphp
 
 <aside id="logo-sidebar"
@@ -101,13 +102,6 @@
                         @endif
                     </ul>
                 </details>
-            </li>
-            <li>
-                <a href="{{ route('admin.update-notifications.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.update-notifications.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i class="ri-notification-3-line text-[20px] {{ request()->routeIs('admin.update-notifications.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Notifikasi Update</span>
-                </a>
             </li>
             <li>
                 <details class="group" {{ $isUserActive ? 'open' : '' }}>
@@ -204,16 +198,40 @@
                     </ul>
                 </details>
             </li>
-            @if($canFeatureView('pembayaran'))
             <li>
-                <a href="{{ route('admin.pembayaran.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.pembayaran.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i
-                        class="ri-money-dollar-circle-line text-[20px] {{ request()->routeIs('admin.pembayaran.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">Pembayaran</span>
-                </a>
+                <details class="group" {{ $isFinanceActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isFinanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                        <span class="flex items-center">
+                            <i class="ri-wallet-3-line text-[20px] {{ $isFinanceActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Keuangan</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isFinanceActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    </summary>
+                    <ul class="mt-1 ms-2 space-y-1">
+                        <li>
+                            <a href="{{ route('admin.finance.income.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.finance.income.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i class="ri-arrow-down-circle-line text-[20px] {{ request()->routeIs('admin.finance.income.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Pemasukan</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.finance.expenses.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.finance.expenses.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i class="ri-arrow-up-circle-line text-[20px] {{ request()->routeIs('admin.finance.expenses.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Pengeluaran</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.pembayaran.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.pembayaran.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i class="ri-money-dollar-circle-line text-[20px] {{ request()->routeIs('admin.pembayaran.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Pembayaran</span>
+                            </a>
+                        </li>
+                    </ul>
+                </details>
             </li>
-            @endif
             @if($canFeatureView('faq'))
             <li>
                 <a href="{{ route('admin.faq.index') }}"
@@ -243,6 +261,13 @@
             </li>
             @endif
             @endif
+            <li>
+                <a href="{{ route('admin.update-notifications.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.update-notifications.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-notification-3-line text-[20px] {{ request()->routeIs('admin.update-notifications.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Notifikasi Update</span>
+                </a>
+            </li>
             @if($canFeatureView('settings'))
             <li>
                 <a href="{{ route('admin.settings.index') }}"

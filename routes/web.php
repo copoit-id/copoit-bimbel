@@ -227,6 +227,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
     Route::get('/update-notifications', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'index'])->name('update-notifications.index');
     Route::get('/update-notifications/{updateNotification}', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'show'])->name('update-notifications.show');
+    Route::prefix('keuangan')->name('finance.')->group(function () {
+        Route::get('/pemasukan', [\App\Http\Controllers\admin\FinanceIncomeController::class, 'index'])->name('income.index');
+        Route::get('/pengeluaran', [\App\Http\Controllers\admin\ExpenseController::class, 'index'])->name('expenses.index');
+        Route::get('/pengeluaran/tambah', [\App\Http\Controllers\admin\ExpenseController::class, 'create'])->name('expenses.create');
+        Route::post('/pengeluaran', [\App\Http\Controllers\admin\ExpenseController::class, 'store'])->name('expenses.store');
+        Route::delete('/pengeluaran/{expense}', [\App\Http\Controllers\admin\ExpenseController::class, 'destroy'])->name('expenses.destroy');
+    });
 
     // Profile routes
     Route::get('/profile', [\App\Http\Controllers\admin\ProfileController::class, 'index'])->name('profile.index');
@@ -383,6 +390,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/{id}', [PembayaranController::class, 'show'])->name('show');
         Route::post('/{id}/confirm', [PembayaranController::class, 'confirm'])->name('confirm');
         Route::post('/{id}/reject', [PembayaranController::class, 'reject'])->name('reject');
+        Route::get('/manual/create', [PembayaranController::class, 'createManual'])->name('manual.create');
+        Route::post('/manual', [PembayaranController::class, 'storeManual'])->name('manual');
     });
 
     // Certificate Management Routes
