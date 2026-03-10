@@ -9,6 +9,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    private const URL_LIKE_PATTERN = '~(?:https?://\\S+|www\\.\\S+|\\b[a-z0-9][a-z0-9-]{1,61}\\.[a-z]{2,}(?:\\.[a-z]{2,})?\\b)~i';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -45,6 +47,48 @@ class User extends Authenticatable
             'password' => 'hashed',
             'admin_expires_at' => 'datetime',
         ];
+    }
+
+    public static function containsUrlLike(string $value): bool
+    {
+        return (bool) preg_match(self::URL_LIKE_PATTERN, $value);
+    }
+
+    public static function sanitizeName(string $name): string
+    {
+        $name = preg_replace('/[\\x00-\\x1F\\x7F]/', '', $name);
+        $name = trim(preg_replace('/\\s+/', ' ', $name));
+
+        if ($name === '') {
+            return '';
+        }
+
+        $name = preg_replace(self::URL_LIKE_PATTERN, '', $name);
+        $name = trim(preg_replace('/\\s+/', ' ', $name));
+
+        return $name;
+    }
+
+    public static function obfuscateUrlLike(string $value): string
+    {
+        return preg_replace_callback(self::URL_LIKE_PATTERN, function ($matches) {
+            return str_replace(['.', ':', '/'], ['[.]', '[:]', '[/]'], $matches[0]);
+        }, $value);
+    }
+
+    public function getSafeNameForEmailAttribute(): string
+    {
+        $name = (string) ($this->attributes['name'] ?? '');
+        if ($name === '') {
+            return '';
+        }
+
+        return self::obfuscateUrlLike($name);
+    }
+
+    public function setNameAttribute($value): void
+    {
+        $this->attributes['name'] = self::sanitizeName((string) $value);
     }
 
     // Relationships

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\SafeName;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -22,7 +23,7 @@ class SuperAdminController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|email|max:255|unique:users,email',
             'username' => 'nullable|string|max:255|unique:users,username',
             'password' => 'required|string|min:8|confirmed',
@@ -85,7 +86,7 @@ class SuperAdminController extends Controller
         }
 
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|email|max:255|unique:users,email,' . $admin->id,
             'username' => 'nullable|string|max:255|unique:users,username,' . $admin->id,
             'password' => 'nullable|string|min:8|confirmed',

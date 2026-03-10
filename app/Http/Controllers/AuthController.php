@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Rules\RecaptchaRule;
+use App\Rules\SafeName;
 use App\Services\RecaptchaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -125,7 +126,7 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $rules = [
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'date_of_birth' => 'required|date|before:today',

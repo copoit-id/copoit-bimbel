@@ -94,7 +94,7 @@
         </div>
 
         <div class="content">
-            <h2>Halo, {{ $user->name }}!</h2>
+            <h2>Halo, {{ $user->safe_name_for_email }}!</h2>
 
             <p>Kami menerima permintaan untuk reset password akun Anda di {{ $clientBranding['name'] ?? config('client.branding.name') }}.</p>
 

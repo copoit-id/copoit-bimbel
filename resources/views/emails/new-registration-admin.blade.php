@@ -20,7 +20,7 @@
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                     <tr>
                         <td style="padding:8px 0; width:160px; color:#6b7280;">Nama</td>
-                        <td style="padding:8px 0; font-weight:600;">{{ $newUser->name }}</td>
+                        <td style="padding:8px 0; font-weight:600;">{{ $newUser->safe_name_for_email }}</td>
                     </tr>
                     <tr>
                         <td style="padding:8px 0; width:160px; color:#6b7280;">Email</td>

@@ -145,6 +145,8 @@ class UserImportController extends Controller
                     $updatedCsv = $data['updated_at'] ?? null;
 
                     // Validasi minimal
+                    $name = User::sanitizeName($name);
+
                     if ($email === '' || $name === '') {
                         $skipped++;
                         $processed++;
