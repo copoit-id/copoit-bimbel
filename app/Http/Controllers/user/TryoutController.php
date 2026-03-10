@@ -555,9 +555,7 @@ class TryoutController extends Controller
         }
 
         if (!is_array($input)) {
-            throw ValidationException::withMessages([
-                'mtf_answers' => 'Jawaban multiple true/false tidak valid.',
-            ]);
+            $input = [];
         }
 
         $meta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
@@ -579,16 +577,16 @@ class TryoutController extends Controller
                 : 'true';
 
             if (!array_key_exists($statementId, $input)) {
-                throw ValidationException::withMessages([
-                    'mtf_answers' => 'Harap lengkapi jawaban untuk semua pernyataan.',
-                ]);
+                $normalizedAnswers[$statementId] = '';
+                $total++;
+                continue;
             }
 
             $selected = strtolower(trim((string) $input[$statementId]));
             if (!in_array($selected, ['true', 'false'], true)) {
-                throw ValidationException::withMessages([
-                    'mtf_answers' => 'Pilihan jawaban tidak valid.',
-                ]);
+                $normalizedAnswers[$statementId] = '';
+                $total++;
+                continue;
             }
 
             $normalizedAnswers[$statementId] = $selected;
