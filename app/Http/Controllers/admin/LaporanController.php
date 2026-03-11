@@ -375,10 +375,16 @@ class LaporanController extends Controller
             return 'Sub';
         }
 
+        $typeLower = strtolower($type);
+
+        if (\Illuminate\Support\Str::contains($typeLower, 'wawasan kebangsaan') || $typeLower === 'twk')
+            return 'TWK';
+        if (\Illuminate\Support\Str::contains($typeLower, 'inteleg') || $typeLower === 'tiu')
+            return 'TIU';
+        if (\Illuminate\Support\Str::contains($typeLower, 'karakteristik') || $typeLower === 'tkp')
+            return 'TKP';
+
         return [
-            'twk' => 'TWK',
-            'tiu' => 'TIU',
-            'tkp' => 'TKP',
             'penalaran_umum' => 'PU',
             'pengetahuan_umum' => 'PPU',
             'pengetahuan_kuantitatif' => 'PK',
@@ -389,7 +395,7 @@ class LaporanController extends Controller
             'writing' => 'WT',
             'reading' => 'RD',
             'listening' => 'LS',
-        ][$type] ?? strtoupper(Str::limit($type, 3, ''));
+        ][$typeLower] ?? strtoupper(\Illuminate\Support\Str::limit($type, 3, ''));
     }
 
     private function formatSubtestName(?string $type): string
@@ -656,7 +662,7 @@ class LaporanController extends Controller
                 return [
                     'tryout_detail_id' => (int) $detail->tryout_detail_id,
                     'type' => (string) $detail->type_subtest,
-                    'label' => strtoupper((string) $detail->type_subtest),
+                    'label' => $this->formatSubtestAlias((string) ($detail->type_subtest ?? $detail->name)),
                 ];
             })
             ->values();

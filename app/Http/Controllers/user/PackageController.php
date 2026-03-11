@@ -22,31 +22,37 @@ class PackageController extends Controller
         $kelasPackages = Package::where('type_package', 'bimbel')
             ->where('status', 'active')
             ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
+            ->withCount([
+                'userAccess' => function ($query) {
+                    $query->where('user_id', Auth::id())
+                        ->where('status', 'active')
+                        ->where('end_date', '>', Carbon::now());
+                }
+            ])
             ->get();
 
         $tryoutPackages = Package::where('type_package', 'tryout')
             ->where('status', 'active')
             ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
+            ->withCount([
+                'userAccess' => function ($query) {
+                    $query->where('user_id', Auth::id())
+                        ->where('status', 'active')
+                        ->where('end_date', '>', Carbon::now());
+                }
+            ])
             ->get();
 
         $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
             ->where('status', 'active')
             ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
+            ->withCount([
+                'userAccess' => function ($query) {
+                    $query->where('user_id', Auth::id())
+                        ->where('status', 'active')
+                        ->where('end_date', '>', Carbon::now());
+                }
+            ])
             ->get();
 
         return view('user.pages.package.index', compact(
@@ -192,22 +198,22 @@ class PackageController extends Controller
                 'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
                 'Content-Type' => 'application/json',
             ])->post($baseUrl . '/v2/invoices', [
-                'external_id' => $transactionId,
-                'amount' => $package->price,
-                'description' => 'Pembelian ' . $package->name,
-                'invoice_duration' => 86400, // 24 hours
-                'customer' => [
-                    'given_names' => Auth::user()->name,
-                    'email' => Auth::user()->email,
-                ],
-                'customer_notification_preference' => [
-                    'invoice_created' => ['email'],
-                    'invoice_reminder' => ['email'],
-                    'invoice_paid' => ['email'],
-                ],
-                'success_redirect_url' => route('user.package.payment.success'),
-                'failure_redirect_url' => route('user.package.payment.failed'),
-            ]);
+                        'external_id' => $transactionId,
+                        'amount' => $package->price,
+                        'description' => 'Pembelian ' . $package->name,
+                        'invoice_duration' => 86400, // 24 hours
+                        'customer' => [
+                            'given_names' => Auth::user()->name,
+                            'email' => Auth::user()->email,
+                        ],
+                        'customer_notification_preference' => [
+                            'invoice_created' => ['email'],
+                            'invoice_reminder' => ['email'],
+                            'invoice_paid' => ['email'],
+                        ],
+                        'success_redirect_url' => route('user.package.payment.success'),
+                        'failure_redirect_url' => route('user.package.payment.failed'),
+                    ]);
 
             if ($response->successful()) {
                 $invoiceData = $response->json();
@@ -272,28 +278,28 @@ class PackageController extends Controller
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->post($snapUrl, [
-                'transaction_details' => [
-                    'order_id' => $transactionId,
-                    'gross_amount' => (int) round($package->price),
-                ],
-                'item_details' => [
-                    [
-                        'id' => (string) $package->package_id,
-                        'price' => (int) round($package->price),
-                        'quantity' => 1,
-                        'name' => Str::limit($package->name, 50, ''),
-                    ],
-                ],
-                'customer_details' => [
-                    'first_name' => Auth::user()->name,
-                    'email' => Auth::user()->email,
-                ],
-                'callbacks' => [
-                    'finish' => route('user.package.payment.success'),
-                    'error' => route('user.package.payment.failed'),
-                    'pending' => route('user.package.riwayatPembelian'),
-                ],
-            ]);
+                        'transaction_details' => [
+                            'order_id' => $transactionId,
+                            'gross_amount' => (int) round($package->price),
+                        ],
+                        'item_details' => [
+                            [
+                                'id' => (string) $package->package_id,
+                                'price' => (int) round($package->price),
+                                'quantity' => 1,
+                                'name' => Str::limit($package->name, 50, ''),
+                            ],
+                        ],
+                        'customer_details' => [
+                            'first_name' => Auth::user()->name,
+                            'email' => Auth::user()->email,
+                        ],
+                        'callbacks' => [
+                            'finish' => route('user.package.payment.success'),
+                            'error' => route('user.package.payment.failed'),
+                            'pending' => route('user.package.riwayatPembelian'),
+                        ],
+                    ]);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -462,9 +468,12 @@ class PackageController extends Controller
 
         // Get tryouts for this package with user attempts
         $tryouts = $package->tryouts()
-            ->with(['tryoutDetails.questions', 'userAnswers' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }])->get();
+            ->with([
+                'tryoutDetails.questions',
+                'userAnswers' => function ($query) {
+                    $query->where('user_id', Auth::id());
+                }
+            ])->get();
 
         ActivityLogger::log('tryout_list_opened', 'success', Auth::user(), [
             'package_id' => $id_package,
@@ -605,45 +614,45 @@ class PackageController extends Controller
                 $totalScore = (float) ($firstAnswer->utbk_total_score ?? 0);
                 $finalPercentage = $totalScore / 10;
             } else
-            // Calculate total score untuk attempt ini
-            if ($userAnswers->count() > 1) {
-                // SKD Full - hitung total dari semua subtest
-                $totalScore = 0;
-                $totalMaxScore = 0;
-                $totalCorrect = 0;
-                $totalWrong = 0;
-                $totalUnanswered = 0;
+                // Calculate total score untuk attempt ini
+                if ($userAnswers->count() > 1) {
+                    // SKD Full - hitung total dari semua subtest
+                    $totalScore = 0;
+                    $totalMaxScore = 0;
+                    $totalCorrect = 0;
+                    $totalWrong = 0;
+                    $totalUnanswered = 0;
 
-                foreach ($userAnswers as $ua) {
-                    $subtestScore = $this->calculateTotalScore($ua, $ua->tryoutDetail->type_subtest);
-                    $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
-                        $ua->tryout_detail_id,
-                        $ua->tryoutDetail->type_subtest
+                    foreach ($userAnswers as $ua) {
+                        $subtestScore = $this->calculateTotalScore($ua, $ua->tryoutDetail->type_subtest);
+                        $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
+                            $ua->tryout_detail_id,
+                            $ua->tryoutDetail->type_subtest
+                        );
+
+                        $totalScore += $subtestScore;
+                        $totalMaxScore += $maxSubtestScore;
+                        $totalCorrect += $ua->correct_answers ?? 0;
+                        $totalWrong += $ua->wrong_answers ?? 0;
+                        $totalUnanswered += $ua->unanswered ?? 0;
+                    }
+
+                    $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
+                    $isPassed = $this->isAttemptPassed($userAnswers, $tryout->tryoutDetails->count());
+                } else {
+                    // Single subtest
+                    $singleAnswer = $userAnswers->first();
+                    $rawScore = $this->calculateTotalScore($singleAnswer, $singleAnswer->tryoutDetail->type_subtest);
+                    $maxScore = $this->getMaxPossibleScoreForDetail(
+                        $singleAnswer->tryout_detail_id,
+                        $singleAnswer->tryoutDetail->type_subtest
                     );
-
-                    $totalScore += $subtestScore;
-                    $totalMaxScore += $maxSubtestScore;
-                    $totalCorrect += $ua->correct_answers ?? 0;
-                    $totalWrong += $ua->wrong_answers ?? 0;
-                    $totalUnanswered += $ua->unanswered ?? 0;
+                    $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+                    $isPassed = $this->isAttemptPassed($userAnswers, 1);
+                    $totalCorrect = $singleAnswer->correct_answers ?? 0;
+                    $totalWrong = $singleAnswer->wrong_answers ?? 0;
+                    $totalUnanswered = $singleAnswer->unanswered ?? 0;
                 }
-
-                $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
-                $isPassed = $this->isAttemptPassed($userAnswers, $tryout->tryoutDetails->count());
-            } else {
-                // Single subtest
-                $singleAnswer = $userAnswers->first();
-                $rawScore = $this->calculateTotalScore($singleAnswer, $singleAnswer->tryoutDetail->type_subtest);
-                $maxScore = $this->getMaxPossibleScoreForDetail(
-                    $singleAnswer->tryout_detail_id,
-                    $singleAnswer->tryoutDetail->type_subtest
-                );
-                $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
-                $isPassed = $this->isAttemptPassed($userAnswers, 1);
-                $totalCorrect = $singleAnswer->correct_answers ?? 0;
-                $totalWrong = $singleAnswer->wrong_answers ?? 0;
-                $totalUnanswered = $singleAnswer->unanswered ?? 0;
-            }
 
             // Calculate duration
             $startTime = Carbon::parse($firstAnswer->started_at);
@@ -751,7 +760,7 @@ class PackageController extends Controller
         $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $selectedIds = collect($meta['selected_option_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values()
             ->all();
@@ -760,7 +769,7 @@ class PackageController extends Controller
             $correctIds = $question->questionOptions()
                 ->where('is_correct', true)
                 ->pluck('question_option_id')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn($id) => (int) $id)
                 ->unique()
                 ->values()
                 ->all();
@@ -876,7 +885,7 @@ class PackageController extends Controller
 
     private function isUtbkSubtestPassed($detail, float $score): bool
     {
-        if (! $detail) {
+        if (!$detail) {
             return false;
         }
 
@@ -1312,9 +1321,11 @@ class PackageController extends Controller
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>', Carbon::now());
             })
-            ->with(['package' => function ($query) {
-                $query->where('status', 'active');
-            }])
+            ->with([
+                'package' => function ($query) {
+                    $query->where('status', 'active');
+                }
+            ])
             ->get()
             ->filter(function ($access) {
                 return $access->package !== null;
@@ -1446,114 +1457,70 @@ class PackageController extends Controller
                     return $bestAttempt;
                 }
 
-                // Untuk SKD Full, gabungkan skor dari semua subtest
-                if ($userAnswers->count() > 1) {
-                    // Group by attempt_token untuk mendapatkan attempt terbaik
-                    $attemptGroups = $userAnswers->groupBy('attempt_token');
+                // Gabungkan skor dari semua subtest dengan group_by attempt_token
+                $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                    $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout) {
-                        if ($tryout->is_toefl == 1) {
-                            // For TOEFL, use the actual TOEFL total score
-                            $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
-
-                            return [
-                                'user' => $attempt->first()->user,
-                                'raw_score' => $toeflScore,
-                                'max_score' => 677, // TOEFL max score
-                                'percentage' => $toeflScore,
-                                'finished_at' => $attempt->max('finished_at'),
-                                'correct_answers' => $attempt->sum('correct_answers'),
-                                'wrong_answers' => $attempt->sum('wrong_answers'),
-                                'unanswered' => $attempt->sum('unanswered'),
-                                'is_passed' => $this->isToeflPassed((int) $toeflScore)
-                            ];
-                        } else {
-                            // Regular scoring
-                            $totalScore = 0;
-                            $totalMaxScore = 0;
-                            $allSubtestsPassed = true;
-
-                            foreach ($attempt as $userAnswer) {
-                                $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
-                                $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
-                                    $userAnswer->tryout_detail_id,
-                                    $userAnswer->tryoutDetail->type_subtest
-                                );
-
-                                $totalScore += $subtestScore;
-                                $totalMaxScore += $maxSubtestScore;
-
-                                $detail = $userAnswer->tryoutDetail;
-                                if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
-                                    $allSubtestsPassed = false;
-                                }
-                            }
-
-                            $percentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
-
-                            return [
-                                'user' => $attempt->first()->user,
-                                'raw_score' => $totalScore,
-                                'max_score' => $totalMaxScore,
-                                'percentage' => $percentage,
-                                'finished_at' => $attempt->max('finished_at'),
-                                'correct_answers' => $attempt->sum('correct_answers'),
-                                'wrong_answers' => $attempt->sum('wrong_answers'),
-                                'unanswered' => $attempt->sum('unanswered'),
-                                'is_passed' => $allSubtestsPassed
-                            ];
-                        }
-                    })->filter()->sortByDesc('raw_score')->values()->first();
-
-                    return $bestAttempt;
-                } else {
-                    // Single subtest - ambil yang terbaik
-                    $bestAttempt = $userAnswers->sortByDesc(function ($answer) {
-                        return $this->calculateTotalScore($answer, $answer->tryoutDetail->type_subtest);
-                    })->first();
-
+                $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout) {
                     if ($tryout->is_toefl == 1) {
-                        // For TOEFL single section (shouldn't happen but handle it)
-                        $toeflScore = $bestAttempt->toefl_total_score ?? $bestAttempt->score;
+                        // For TOEFL, use the actual TOEFL total score
+                        $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
 
                         return [
-                            'user' => $bestAttempt->user,
+                            'user' => $attempt->first()->user,
                             'raw_score' => $toeflScore,
-                            'max_score' => 677,
+                            'max_score' => 677, // TOEFL max score
                             'percentage' => $toeflScore,
-                            'finished_at' => $bestAttempt->finished_at,
-                            'correct_answers' => $bestAttempt->correct_answers ?? 0,
-                            'wrong_answers' => $bestAttempt->wrong_answers ?? 0,
-                            'unanswered' => $bestAttempt->unanswered ?? 0,
-                            'is_passed' => $this->isToeflPassed((int) $toeflScore)
+                            'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
+                            'correct_answers' => $attempt->sum('correct_answers'),
+                            'wrong_answers' => $attempt->sum('wrong_answers'),
+                            'unanswered' => $attempt->sum('unanswered'),
+                            'is_passed' => $this->isToeflPassed((int) $toeflScore),
+                            'subtest_scores' => []
                         ];
                     } else {
-                        $rawScore = $this->calculateTotalScore($bestAttempt, $bestAttempt->tryoutDetail->type_subtest);
-                        $maxScore = $this->getMaxPossibleScoreForDetail(
-                            $bestAttempt->tryout_detail_id,
-                            $bestAttempt->tryoutDetail->type_subtest
-                        );
-                        $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
-                        $isPassed = $this->isSubtestPassed(
-                            $bestAttempt->tryoutDetail,
-                            $rawScore,
-                            $maxScore,
-                            $bestAttempt->tryoutDetail->type_subtest
-                        );
+                        // Regular scoring
+                        $totalScore = 0;
+                        $totalMaxScore = 0;
+                        $allSubtestsPassed = true;
+                        $subtestScores = [];
+
+                        foreach ($attempt as $userAnswer) {
+                            $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+                            $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
+                                $userAnswer->tryout_detail_id,
+                                $userAnswer->tryoutDetail->type_subtest
+                            );
+
+                            $totalScore += $subtestScore;
+                            $totalMaxScore += $maxSubtestScore;
+                            $subtestScores[$userAnswer->tryout_detail_id] = $subtestScore;
+
+                            $detail = $userAnswer->tryoutDetail;
+                            if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
+                                $allSubtestsPassed = false;
+                            }
+                        }
+
+                        $percentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
 
                         return [
-                            'user' => $bestAttempt->user,
-                            'raw_score' => $rawScore,
-                            'max_score' => $maxScore,
+                            'user' => $attempt->first()->user,
+                            'raw_score' => $totalScore,
+                            'max_score' => $totalMaxScore,
                             'percentage' => $percentage,
-                            'finished_at' => $bestAttempt->finished_at,
-                            'correct_answers' => $bestAttempt->correct_answers ?? 0,
-                            'wrong_answers' => $bestAttempt->wrong_answers ?? 0,
-                            'unanswered' => $bestAttempt->unanswered ?? 0,
-                            'is_passed' => $isPassed
+                            'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
+                            'correct_answers' => $attempt->sum('correct_answers'),
+                            'wrong_answers' => $attempt->sum('wrong_answers'),
+                            'unanswered' => $attempt->sum('unanswered'),
+                            'is_passed' => $allSubtestsPassed,
+                            'subtest_scores' => $subtestScores
                         ];
                     }
-                }
+                })->filter()->sortByDesc('raw_score')->values()->first();
+
+                return $bestAttempt;
             })
             ->filter() // Remove null values
             ->sortByDesc('raw_score')
@@ -1631,8 +1598,8 @@ class PackageController extends Controller
 
         if ($tryout->requiresIrtScoring()) {
             $totalQuestions = $questionCounts->sum();
-            $answeredCount = $latestUserAnswers->sum(fn ($ua) => $ua->userAnswerDetails->count());
-            $correctAnswers = $latestUserAnswers->sum(fn ($ua) => $ua->userAnswerDetails->where('is_correct', true)->count());
+            $answeredCount = $latestUserAnswers->sum(fn($ua) => $ua->userAnswerDetails->count());
+            $correctAnswers = $latestUserAnswers->sum(fn($ua) => $ua->userAnswerDetails->where('is_correct', true)->count());
             $wrongAnswers = max(0, $answeredCount - $correctAnswers);
             $unanswered = max(0, $totalQuestions - $answeredCount);
 

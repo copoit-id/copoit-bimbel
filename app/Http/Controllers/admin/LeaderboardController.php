@@ -305,30 +305,52 @@ class LeaderboardController extends Controller
             ->values();
     }
 
-    private function buildLeaderboardRows(Collection $rankings): Collection
+    private function buildLeaderboardRows(Collection $allAnswers): Collection
     {
-        return $rankings->map(function (UserAnswer $ranking) {
-            $ranking->loadMissing([
-                'tryoutDetail',
-                'userAnswerDetails.question',
-                'userAnswerDetails.questionOption',
-                'userAnswerDetails.question.questionOptions',
-            ]);
+        return $allAnswers->groupBy('user_id')->map(function ($userAnswers) {
+            $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-            $type = $ranking->tryoutDetail->type_subtest ?? null;
-            $rawScore = $type ? $this->calculateTotalScore($ranking, $type) : (float) ($ranking->score ?? 0);
-            $maxScore = $type
-                ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type)
-                : 0;
-            $detail = $ranking->tryoutDetail;
-            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
+            $bestAttempt = $attemptGroups->map(function ($attempt) {
+                $totalScore = 0.0;
+                $totalMaxScore = 0.0;
+                $allSubtestsPassed = true;
+                $subtestScores = [];
 
-            $ranking->raw_score = $rawScore;
-            $ranking->max_score = $maxScore;
-            $ranking->is_passed = $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
+                foreach ($attempt as $ranking) {
+                    $ranking->loadMissing([
+                        'tryoutDetail',
+                        'userAnswerDetails.question',
+                        'userAnswerDetails.questionOption',
+                        'userAnswerDetails.question.questionOptions',
+                    ]);
 
-            return $ranking;
-        });
+                    $type = $ranking->tryoutDetail->type_subtest ?? null;
+                    $rawScore = $type ? $this->calculateTotalScore($ranking, $type) : (float) ($ranking->score ?? 0);
+                    $maxScore = $type ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type) : 0;
+                    $detail = $ranking->tryoutDetail;
+
+                    if (!$this->isSubtestPassed($detail, $rawScore, $maxScore, $type)) {
+                        $allSubtestsPassed = false;
+                    }
+
+                    $totalScore += $rawScore;
+                    $totalMaxScore += $maxScore;
+                    $subtestScores[$ranking->tryout_detail_id] = $rawScore;
+                }
+
+                $representative = $attempt->first();
+                $representative->raw_score = $totalScore;
+                $representative->max_score = $totalMaxScore;
+                $representative->is_passed = $allSubtestsPassed;
+                $representative->subtest_scores = $subtestScores;
+                $representative->started_at = $attempt->min('started_at');
+                $representative->finished_at = $attempt->max('finished_at');
+
+                return $representative;
+            })->filter()->sortByDesc('raw_score')->values()->first();
+
+            return $bestAttempt;
+        })->filter()->values();
     }
 
     private function calculateTotalScore(UserAnswer $userAnswer, string $type_subtest): float
@@ -411,7 +433,7 @@ class LeaderboardController extends Controller
         $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $selectedIds = collect($meta['selected_option_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values()
             ->all();
@@ -420,7 +442,7 @@ class LeaderboardController extends Controller
             $correctIds = $question->questionOptions()
                 ->where('is_correct', true)
                 ->pluck('question_option_id')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn($id) => (int) $id)
                 ->unique()
                 ->values()
                 ->all();
