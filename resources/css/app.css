@@ -1,68 +1,155 @@
-@import 'tailwindcss';
+/* ==========================================================================
+   Main Application Stylesheet
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Google Fonts (MUST be first before any other styles)
+   --------------------------------------------------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
+/* ---------------------------------------------------------------------------
+   Tailwind CSS v4
+   --------------------------------------------------------------------------- */
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Source Directories for Tailwind
+   --------------------------------------------------------------------------- */
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/* ---------------------------------------------------------------------------
+   Theme Configuration - Custom Colors
+   --------------------------------------------------------------------------- */
 @theme {
+    /* Primary - Dynamic from database */
     --color-primary: var(--client-color-primary, #1C3259);
+    --color-primary-hover: color-mix(in srgb, var(--client-color-primary, #1C3259) 90%, black);
+    --color-primary-light: color-mix(in srgb, var(--client-color-primary, #1C3259) 15%, transparent);
+
+    /* Secondary */
     --color-secondary: var(--client-color-secondary, #F3F3F3);
-    --color-border : #F3F3F3;
-    --color-dark : #444444;
-    --color-blue-light : #DBEAFE;
-    --color-green : #2AA471;
-    --color-green-light : #E3F9E9;
-    --color-red : #FF3860;
-    --color-red-light : #FFEAEE;
-    --color-light : #F3F3F3;
-    --color-background : #F9FAFB;
-    --color-grey3 : #656565;
+
+    /* Background Colors */
+    --color-bg: #F9FAFB;
+    --color-bg-white: #ffffff;
+
+    /* Border Colors */
+    --color-border: #F3F3F3;
+    --color-border-light: #e5e7eb;
+
+    /* Text Colors */
+    --color-text: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-muted: #9ca3af;
+    --color-dark: #444444;
+    --color-grey3: #656565;
+
+    /* Accent Colors */
+    --color-blue-light: #DBEAFE;
+    --color-green: #2AA471;
+    --color-green-light: #E3F9E9;
+    --color-red: #FF3860;
+    --color-red-light: #FFEAEE;
 }
 
+/* ---------------------------------------------------------------------------
+   Custom Utilities (ensures these classes are always generated)
+   --------------------------------------------------------------------------- */
+@layer utilities {
+    .bg-primary {
+        background-color: var(--color-primary);
+    }
+    .text-primary {
+        color: var(--color-primary);
+    }
+    .border-primary {
+        border-color: var(--color-primary);
+    }
+    .bg-secondary {
+        background-color: var(--color-secondary);
+    }
+    .text-green {
+        color: var(--color-green);
+    }
+    .bg-green {
+        background-color: var(--color-green);
+    }
+    .text-red {
+        color: var(--color-red);
+    }
+    .bg-red {
+        background-color: var(--color-red);
+    }
+    .bg-green-light {
+        background-color: var(--color-green-light);
+    }
+    .bg-red-light {
+        background-color: var(--color-red-light);
+    }
+    .bg-blue-light {
+        background-color: var(--color-blue-light);
+    }
+    .text-dark {
+        color: var(--color-dark);
+    }
+    .bg-dark {
+        background-color: var(--color-dark);
+    }
+    .text-grey3 {
+        color: var(--color-grey3);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Base Styles
+   --------------------------------------------------------------------------- */
 body {
-  font-family: "Poppins", sans-serif;
-  font-style: normal;
-  @apply bg-background
+    font-family: "Poppins", sans-serif;
+    background-color: var(--color-bg);
 }
 
+/* ---------------------------------------------------------------------------
+   Question Rich Text Styles (CKEditor Content)
+   --------------------------------------------------------------------------- */
 .question-rich-text {
-  font-size: 0.95rem;
-  line-height: 1.7;
-  color: #0f172a;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #0f172a;
 }
 
 .question-rich-text p {
-  margin-bottom: 0.65rem;
+    margin-bottom: 0.65rem;
 }
 
 .question-rich-text table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.85rem 0;
-  table-layout: auto;
-  font-size: 0.94rem;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.85rem 0;
+    table-layout: auto;
+    font-size: 0.94rem;
 }
 
 .question-rich-text table th,
 .question-rich-text table td {
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  padding: 0.55rem 0.75rem;
-  text-align: left;
-  vertical-align: top;
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
 }
 
 .question-rich-text table thead th {
-  background-color: #f8fafc;
-  color: #0f172a;
-  font-weight: 600;
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-weight: 600;
 }
 
 .question-rich-text table tbody tr:nth-child(even) td {
-  background-color: #fdfdfd;
+    background-color: #fdfdfd;
 }
 
 .question-rich-text table tbody tr:hover td {
-  background-color: #f1f5f9;
+    background-color: #f1f5f9;
 }

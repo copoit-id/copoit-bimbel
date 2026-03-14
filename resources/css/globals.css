@@ -1,0 +1,188 @@
+/* ==========================================================================
+   Global Styles - Base Reset & Typography
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Base Reset
+   --------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    -moz-tab-size: 4;
+    tab-size: 4;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-family-base);
+    font-style: normal;
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------------------------------------------------------------------------
+   Typography Base
+   --------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-text-primary);
+}
+
+p {
+    margin-bottom: var(--space-4);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Focus Styles (Accessibility)
+   --------------------------------------------------------------------------- */
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Selection
+   --------------------------------------------------------------------------- */
+::selection {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+/* ---------------------------------------------------------------------------
+   Scrollbar Styling
+   --------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-gray-300);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-400);
+}
+
+/* ---------------------------------------------------------------------------
+   Utility Classes
+   --------------------------------------------------------------------------- */
+
+/* Container */
+.container {
+    width: 100%;
+    max-width: var(--container-max-width);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+}
+
+@media (min-width: 640px) {
+    .container {
+        padding-left: var(--space-6);
+        padding-right: var(--space-6);
+    }
+}
+
+/* Screen Reader Only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Question Rich Text Styles (CKEditor Content)
+   --------------------------------------------------------------------------- */
+.question-rich-text {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #0f172a;
+}
+
+.question-rich-text p {
+    margin-bottom: 0.65rem;
+}
+
+.question-rich-text table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.85rem 0;
+    table-layout: auto;
+    font-size: 0.94rem;
+}
+
+.question-rich-text table th,
+.question-rich-text table td {
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.question-rich-text table thead th {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.question-rich-text table tbody tr:nth-child(even) td {
+    background-color: #fdfdfd;
+}
+
+.question-rich-text table tbody tr:hover td {
+    background-color: #f1f5f9;
+}

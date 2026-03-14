@@ -1,8 +1,37 @@
-@props(['title' => null,'icon' => null ,'route' => '#', 'color' => 'primary'])
-<a href="{{ $route }}"
-    class="bg-{{$color}} text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
-    @if ($icon)
-    <i class="{{ $icon }}"></i>
-    @endif
-    {{ $title }}
-</a>
+{{--
+    Button Component (Legacy - Redirect to ui.Button)
+    
+    This component is kept for backward compatibility.
+    Please use <x-ui.button> for new code.
+--}}
+
+@props([
+    'title' => null,
+    'icon' => null,
+    'route' => '#',
+    'color' => 'primary',
+    'type' => 'button',
+])
+
+{{-- Map legacy color to variant --}}
+@php
+$variantMap = [
+    'primary' => 'primary',
+    'secondary' => 'secondary',
+    'danger' => 'danger',
+    'success' => 'success',
+    'outline' => 'outline',
+];
+$variant = $variantMap[$color] ?? 'primary';
+@endphp
+
+<x-ui.button
+    :variant="$variant"
+    size="md"
+    :href="$route !== '#' ? $route : null"
+    :icon="$icon"
+    :type="$type"
+    {{ $attributes }}
+>
+    {{ $title ?? $slot }}
+</x-ui.button>

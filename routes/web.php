@@ -36,6 +36,10 @@ Route::get('/phpinfo', function () {
     phpinfo();
 });
 
+Route::get('/test-css', function () {
+    return view('test-css');
+});
+
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');
     Artisan::call('storage:link');
