@@ -111,7 +111,12 @@
                         $maxWeight = optional($question->questionOptions)->max(function($opt){
                             return is_null($opt->weight) ? 0 : (float)$opt->weight;
                         });
-                        $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                        // Untuk essay/short_answer, gunakan essay_score_correct (field "Benar")
+                        if (in_array($question->question_type ?? '', ['short_answer', 'essay'])) {
+                            $displayWeight = (float) ($question->essay_score_correct ?? $question->default_weight ?? 0);
+                        } else {
+                            $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                        }
                         $metadata = is_array($question->metadata) ? $question->metadata : [];
                         $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
                         $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];

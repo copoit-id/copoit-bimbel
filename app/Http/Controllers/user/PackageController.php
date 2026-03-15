@@ -716,8 +716,15 @@ class PackageController extends Controller
                     if ($pendingReview) {
                         continue 2;
                     }
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    // Gunakan score_obtained dari answer_json (hasil koreksi AI/manual)
+                    $scoreObtained = isset($answerMeta['score_obtained']) ? (float) $answerMeta['score_obtained'] : null;
+                    if ($scoreObtained !== null) {
+                        $totalScore += $scoreObtained;
+                    } else {
+                        // Fallback: gunakan essay_score_correct atau default_weight
+                        $weight = (float) ($question->getEssayScoreCorrect() ?? $question->default_weight ?? 1);
+                        $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    }
                     break;
 
                 case 'audio':
@@ -961,7 +968,8 @@ class PackageController extends Controller
 
                 case 'short_answer':
                 case 'essay':
-                    $weight = (float) ($question->default_weight ?? 1);
+                    // Gunakan essay_score_correct (field "Benar") untuk max score
+                    $weight = (float) ($question->getEssayScoreCorrect() ?? $question->default_weight ?? 1);
                     $total += $weight > 0 ? $weight : 1;
                     break;
 

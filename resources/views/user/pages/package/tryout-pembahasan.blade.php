@@ -122,11 +122,6 @@
         $isCorrect = $detail->is_correct;
         $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $isPendingReview = ($answerMeta['pending_review'] ?? false) === true;
-        
-        // DEBUG: Hapus nanti
-        if (($question->question_type ?? '') === 'essay') {
-            echo '<!-- DEBUG: pending_review=' . ($answerMeta['pending_review'] ?? 'NOT SET') . ', isPendingReview=' . ($isPendingReview ? 'TRUE' : 'FALSE') . ' -->';
-        }
         $questionMeta = is_array($question->metadata ?? null) ? $question->metadata : [];
         $multipleAnswerMeta = is_array($questionMeta['multiple_answer'] ?? null) ? $questionMeta['multiple_answer'] : [];
         $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)

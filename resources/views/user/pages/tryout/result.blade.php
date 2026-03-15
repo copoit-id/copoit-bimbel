@@ -179,3 +179,28 @@
 
     @include('user.components.feedback-modal', ['package' => $package ?? null, 'tryout' => $tryout])
 @endsection
+
+@section('scripts')
+<script>
+    // Cek apakah ada essay yang menunggu koreksi
+    const pendingCount = {{ $pendingReviewCount ?? 0 }};
+    
+    if (pendingCount > 0) {
+        console.log(`Found ${pendingCount} essays pending review, starting polling...`);
+        
+        // Polling setiap 5 detik untuk refresh halaman saat ada yang selesai
+        const pollInterval = setInterval(() => {
+            fetch(`{{ route('user.tryout.check-essay-status') }}?attempt_token={{ $latestAttemptToken }}&count_only=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.pending_count === 0) {
+                        console.log('All essays corrected, refreshing page...');
+                        clearInterval(pollInterval);
+                        location.reload();
+                    }
+                })
+                .catch(error => console.error('Error checking status:', error));
+        }, 5000);
+    }
+</script>
+@endsection

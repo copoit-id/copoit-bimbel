@@ -1584,12 +1584,16 @@ class TryoutController extends Controller
                 case 'short_answer':
                 case 'essay':
                     if ($pendingReview) {
+                        // Essay masih menunggu koreksi, skip penambahan skor
                         break;
                     }
 
-                    if ($detail->is_correct) {
-                        $weight = (float) ($question->default_weight ?? 1);
-                        $totalScore += $weight > 0 ? $weight : 1;
+                    // Gunakan score_obtained dari answer_json (dari AI atau admin)
+                    if (isset($answerMeta['score_obtained'])) {
+                        $totalScore += (float) $answerMeta['score_obtained'];
+                    } elseif ($detail->is_correct) {
+                        // Fallback: kalau benar tapi belum ada score_obtained, gunakan essay_score_correct
+                        $totalScore += $question->getEssayScoreCorrect();
                     }
                     break;
 
@@ -2479,8 +2483,8 @@ class TryoutController extends Controller
 
                 case 'short_answer':
                 case 'essay':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    // Untuk essay, gunakan essay_score_correct dari model
+                    $total += $question->getEssayScoreCorrect();
                     break;
 
                 case 'audio':
@@ -2615,6 +2619,7 @@ class TryoutController extends Controller
     {
         $questionIds = $request->get('question_ids', []);
         $attemptToken = $request->get('attempt_token');
+        $countOnly = $request->get('count_only', false);
         
         if (is_string($questionIds)) {
             $questionIds = explode(',', $questionIds);
@@ -2622,7 +2627,7 @@ class TryoutController extends Controller
         
         $questionIds = array_filter(array_map('intval', (array) $questionIds));
         
-        if (empty($questionIds) || empty($attemptToken)) {
+        if (empty($attemptToken)) {
             return response()->json([]);
         }
         
@@ -2635,11 +2640,24 @@ class TryoutController extends Controller
             return response()->json([]);
         }
         
+        // Build query
+        $query = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+            ->whereHas('question', fn($q) => $q->where('question_type', 'essay'));
+        
+        // Filter by question IDs if provided
+        if (!empty($questionIds)) {
+            $query->whereIn('question_id', $questionIds);
+        }
+        
+        // If count only, return pending count
+        if ($countOnly) {
+            $pendingCount = $query->whereRaw("JSON_EXTRACT(answer_json, '$.pending_review') = true")
+                ->count();
+            return response()->json(['pending_count' => $pendingCount]);
+        }
+        
         // Get answer details for the questions
-        $results = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->whereIn('question_id', $questionIds)
-            ->whereHas('question', fn($q) => $q->where('question_type', 'essay'))
-            ->get()
+        $results = $query->get()
             ->map(function ($detail) {
                 $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
                 
