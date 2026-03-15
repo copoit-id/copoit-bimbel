@@ -39,101 +39,167 @@
         </div>
     </div>
 
+    @php
+        $totalPending = collect($subtestResults ?? [])->sum('pending_count');
+        
+        // Calculate total time spent
+        $firstStartTime = null;
+        $lastEndTime = null;
+        foreach ($subtestResults ?? [] as $subtest) {
+            if (isset($subtest['started_at']) && (!$firstStartTime || $subtest['started_at'] < $firstStartTime)) {
+                $firstStartTime = $subtest['started_at'];
+            }
+            if (isset($subtest['finished_at']) && (!$lastEndTime || $subtest['finished_at'] > $lastEndTime)) {
+                $lastEndTime = $subtest['finished_at'];
+            }
+        }
+        
+        $totalSeconds = 0;
+        $formattedTime = '-';
+        if ($firstStartTime && $lastEndTime) {
+            $start = \Carbon\Carbon::parse($firstStartTime);
+            $end = \Carbon\Carbon::parse($lastEndTime);
+            $totalSeconds = $start->diffInSeconds($end);
+            $hours = floor($totalSeconds / 3600);
+            $minutes = floor(($totalSeconds % 3600) / 60);
+            $seconds = $totalSeconds % 60;
+            if ($hours > 0) {
+                $formattedTime = sprintf('%d:%02d:%02d', $hours, $minutes, $seconds);
+            } else {
+                $formattedTime = sprintf('%02d:%02d', $minutes, $seconds);
+            }
+        }
+        
+        $answeredCount = $correctAnswers + $wrongAnswers + ($pendingReviewCount ?? 0);
+        $avgSecondsPerQuestion = $answeredCount > 0 ? round($totalSeconds / $answeredCount) : 0;
+        $avgTimeText = $avgSecondsPerQuestion > 0 ? sprintf('%02d:%02d', floor($avgSecondsPerQuestion / 60), $avgSecondsPerQuestion % 60) : '-';
+    @endphp
+
     <!-- Statistics Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ $totalQuestions }}</div>
-            <div class="text-sm text-blue-600">Total Soal</div>
+    <div class="flex gap-3 w-full mb-6">
+        <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+            <i class="ri-file-list-line text-xl text-gray-700 mb-1"></i>
+            <div class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $totalQuestions }}</div>
+            <div class="text-xs md:text-sm text-gray-500">Total</div>
         </div>
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-green-600">{{ $correctAnswers }}</div>
-            <div class="text-sm text-green-600">Benar</div>
+        <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+            <i class="ri-check-line text-xl text-gray-700 mb-1"></i>
+            <div class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $correctAnswers }}</div>
+            <div class="text-xs md:text-sm text-gray-500">Benar</div>
         </div>
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-red-600">{{ $wrongAnswers }}</div>
-            <div class="text-sm text-red-600">Salah</div>
+        <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+            <i class="ri-close-line text-xl text-gray-700 mb-1"></i>
+            <div class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $wrongAnswers }}</div>
+            <div class="text-xs md:text-sm text-gray-500">Salah</div>
         </div>
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-gray-600">{{ $unansweredCount ?? 0 }}</div>
-            <div class="text-sm text-gray-600">Tidak Dijawab</div>
+        <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+            <i class="ri-time-line text-xl text-gray-700 mb-1"></i>
+            <div class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $formattedTime }}</div>
+            <div class="text-xs md:text-sm text-gray-500">Waktu</div>
         </div>
-        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-amber-600">{{ $pendingReviewCount ?? 0 }}</div>
-            <div class="text-sm text-amber-600">Belum Dikoreksi</div>
+        <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+            <i class="ri-timer-line text-xl text-gray-700 mb-1"></i>
+            <div class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $avgTimeText }}</div>
+            <div class="text-xs md:text-sm text-gray-500">Rata-rata</div>
         </div>
+        @if (($pendingReviewCount ?? 0) > 0)
+            <div class="flex-1 text-center p-4 bg-gray-100 rounded-lg border border-gray-300 min-w-0">
+                <i class="ri-time-line text-xl text-gray-700 mb-1"></i>
+                <div class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $pendingReviewCount }}</div>
+                <div class="text-xs md:text-sm text-gray-600">Menunggu</div>
+            </div>
+        @endif
     </div>
 
+    <!-- AI Processing Section - Show when there are pending essays -->
+    @if ($totalPending > 0)
+        <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="ri-robot-line text-2xl text-gray-700"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-base font-semibold text-gray-900">Sedang Diproses oleh AI</h3>
+                    <p class="text-sm text-gray-600 mt-1">
+                        {{ $totalPending }} jawaban essay sedang dalam proses koreksi. 
+                        Halaman akan otomatis memperbarui saat selesai.
+                    </p>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm">
+                        <span class="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse"></span>
+                        Memproses
+                    </span>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @php
+        $shortLabels = [
+            'general' => 'G', 'listening' => 'L', 'reading' => 'R', 'writing' => 'W',
+            'twk' => 'TWK', 'tiu' => 'TIU', 'tkp' => 'TKP',
+            'penalaran_umum' => 'PU', 'pengetahuan_umum' => 'PPU', 
+            'pengetahuan_kuantitatif' => 'PK', 'pemahaman_bacaan_menulis' => 'PBM',
+            'literasi_bahasa_indonesia' => 'LBI', 'literasi_bahasa_inggris' => 'LBE',
+            'penalaran_matematika' => 'PM', 'word' => 'W', 'excel' => 'E', 'ppt' => 'P',
+            'teknis' => 'T', 'social culture' => 'SC', 'interview' => 'I'
+        ];
+    @endphp
     <!-- Subtest Results -->
-    <div class="mb-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Hasil Per Subtest</h3>
-        <div class="space-y-4">
+    <div class="mb-6 {{ $totalPending > 0 ? 'opacity-60' : '' }}">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Hasil Per Subtest</h3>
+            @if ($totalPending > 0)
+                <span class="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+                    <i class="ri-time-line animate-pulse"></i>
+                    Menunggu Koreksi
+                </span>
+            @endif
+        </div>
+        
+        <div class="space-y-3">
             @foreach($subtestResults as $subtest)
+            @php
+                $typeKey = strtolower($subtest['type'] ?? '');
+                $shortLabel = $shortLabels[$typeKey] ?? strtoupper(substr($subtest['alias'] ?? $subtest['type'] ?? 'S', 0, 2));
+            @endphp
             <div class="border border-gray-200 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h4 class="text-lg font-medium text-gray-800">{{ $subtest['name'] }}</h4>
-                    <div class="flex items-center space-x-2">
-                        <span class="text-2xl font-bold
-                            @if($subtest['is_passed']) text-green-600
-                            @else text-red-600 @endif">
-                            {{ number_format($subtest['percentage'], 1) }}%
-                        </span>
-                        @if($subtest['is_passed'])
-                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                            <i class="ri-check-line mr-1"></i>Lulus
-                        </span>
-                        @else
-                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
-                            <i class="ri-close-line mr-1"></i>Tidak Lulus
-                        </span>
-                        @endif
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-xs font-bold text-white">
+                            {{ $shortLabel }}
+                        </div>
+                        <h4 class="font-medium text-gray-900">{{ $subtest['name'] }}</h4>
                     </div>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="w-full bg-gray-200 rounded-full h-3 mb-3">
-                    <div class="h-3 rounded-full transition-all duration-500
-                        @if($subtest['is_passed']) bg-green-500
-                        @else bg-red-500 @endif" style="width: {{ min($subtest['percentage'], 100) }}%">
-                    </div>
-                </div>
-
-                @if(!is_null($subtest['passing_score']))
-                <div class="text-xs text-gray-500 mb-3">
-                    Passing Grade:
-                    @if(($subtest['passing_type'] ?? 'score') === 'percentage')
-                        {{ number_format($subtest['passing_score'], 1) }}%
+                    @if(($subtest['pending_count'] ?? 0) > 0)
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl font-semibold text-gray-900">{{ number_format($subtest['percentage'], 1) }}%</span>
+                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
+                                <i class="ri-time-line animate-pulse"></i>
+                                {{ $subtest['pending_count'] }} menunggu
+                            </span>
+                        </div>
                     @else
-                        {{ $subtest['passing_score'] }}
-                        @if(!is_null($subtest['passing_percentage']))
-                            ({{ number_format($subtest['passing_percentage'], 1) }}%)
-                        @endif
+                        <span class="text-xl font-semibold text-gray-900">{{ number_format($subtest['percentage'], 1) }}%</span>
                     @endif
                 </div>
-                @endif
-
-                <!-- Subtest Statistics -->
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-                    <div class="text-center">
-                        <div class="font-medium text-gray-600">{{ $subtest['total_questions'] }}</div>
-                        <div class="text-gray-500">Total Soal</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="font-medium text-green-600">{{ $subtest['correct_answers'] }}</div>
-                        <div class="text-gray-500">Benar</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="font-medium text-red-600">{{ $subtest['wrong_answers'] }}</div>
-                        <div class="text-gray-500">Salah</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="font-medium text-gray-600">{{ $subtest['unanswered'] }}</div>
-                        <div class="text-gray-500">Kosong</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="font-medium text-blue-600">{{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
-                        </div>
-                        <div class="text-gray-500">Skor</div>
-                    </div>
+                
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-gray-500">
+                        {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }} 
+                        <span class="mx-1">-</span> 
+                        Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
+                    </p>
+                    @if(($subtest['pending_count'] ?? 0) > 0)
+                        <span class="inline-flex px-3 py-1 text-xs font-medium rounded bg-gray-300 text-gray-700">
+                            Menunggu
+                        </span>
+                    @else
+                        <span class="inline-flex px-3 py-1 text-xs font-medium rounded {{ $subtest['is_passed'] ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
+                            {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
+                        </span>
+                    @endif
                 </div>
             </div>
             @endforeach
@@ -246,6 +312,23 @@
     scoreElements.forEach(element => {
         element.classList.add('score-animation');
     });
+    
+    // Polling for AI essay correction status
+    const pendingCount = {{ $pendingReviewCount ?? 0 }};
+    
+    if (pendingCount > 0) {
+        const pollInterval = setInterval(() => {
+            fetch(`{{ route('user.tryout.check-essay-status') }}?attempt_token={{ $latestAttemptToken ?? '' }}&count_only=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.pending_count === 0) {
+                        clearInterval(pollInterval);
+                        location.reload();
+                    }
+                })
+                .catch(error => console.error('Error checking status:', error));
+        }, 5000);
+    }
 });
 </script>
 @endsection

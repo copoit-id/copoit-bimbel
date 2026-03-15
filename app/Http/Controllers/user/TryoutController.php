@@ -2212,6 +2212,10 @@ class TryoutController extends Controller
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
                 return empty($meta['pending_review']) && !$detail->is_correct;
             })->count();
+            $pendingCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                return !empty($meta['pending_review']);
+            })->count();
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
@@ -2220,6 +2224,7 @@ class TryoutController extends Controller
                 'total_questions' => $totalQuestions,
                 'correct_answers' => $correctCount,
                 'wrong_answers' => $wrongCount,
+                'pending_count' => $pendingCount,
                 'unanswered' => max(0, $totalQuestions - $answeredCount),
                 'raw_score' => $subtestScore,
                 'max_score' => $maxSubtestScore,
