@@ -60,4 +60,13 @@ return [
     'tinymce' => [
         'key' => env('TINYMCE_API_KEY'),
     ],
+
+    'ai_similarity' => [
+        'enabled' => env('AI_SIMILARITY_ENABLED', true),
+        'url' => env('SIMILARITY_SERVICE_URL', 'http://localhost:8000'),
+        'timeout' => env('SIMILARITY_SERVICE_TIMEOUT', 20),
+        'threshold' => env('ESSAY_AUTO_PASS_THRESHOLD', 0.6),
+        'callback_url' => env('SIMILARITY_CALLBACK_URL'),
+        'callback_secret' => env('SIMILARITY_CALLBACK_SECRET'),
+    ],
 ];

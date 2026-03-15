@@ -125,6 +125,10 @@ class QuestionController extends Controller
                         'default_weight' => $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest),
                         'custom_score' => $request->filled('question_score') ? 'yes' : 'no',
                         'metadata' => $metadata,
+                        'essay_scoring_mode' => $request->input('essay_scoring_mode', 'full'),
+                        'essay_score_correct' => $request->filled('essay_score_correct') ? $request->input('essay_score_correct') : null,
+                        'essay_score_wrong' => $request->input('essay_score_wrong', 0),
+                        'answer_key' => $request->input('short_answer_expected'), // Simpan kunci jawaban
                     ]);
                     break;
 
@@ -319,6 +323,10 @@ class QuestionController extends Controller
                         'default_weight' => $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest),
                         'custom_score' => $request->filled('question_score') ? 'yes' : 'no',
                         'metadata' => $metadata,
+                        'essay_scoring_mode' => $request->input('essay_scoring_mode', 'full'),
+                        'essay_score_correct' => $request->filled('essay_score_correct') ? $request->input('essay_score_correct') : null,
+                        'essay_score_wrong' => $request->input('essay_score_wrong', 0),
+                        'answer_key' => $request->input('short_answer_expected'), // Update kunci jawaban
                     ]);
                     break;
 
@@ -651,7 +659,10 @@ class QuestionController extends Controller
         $rules = [
             'short_answer_expected' => 'nullable|string',
             'short_answer_case_sensitive' => 'nullable|boolean',
-            'essay_scoring_mode' => 'nullable|in:auto,manual',
+            'essay_evaluation_mode' => 'nullable|in:auto,manual',
+            'essay_scoring_mode' => 'nullable|in:full,range',
+            'essay_score_correct' => 'nullable|numeric|min:0',
+            'essay_score_wrong' => 'nullable|numeric|min:0',
             'question_score' => 'nullable|numeric|min:0',
         ];
 
@@ -673,8 +684,9 @@ class QuestionController extends Controller
             }
         }
 
+        // Evaluation mode: auto atau manual (untuk penentuan apakah butuh review)
         $evaluationMode = $questionType === 'essay'
-            ? $request->input('essay_scoring_mode', 'manual')
+            ? $request->input('essay_evaluation_mode', 'manual')
             : 'auto';
 
         if (!in_array($evaluationMode, ['auto', 'manual'], true)) {
@@ -696,6 +708,8 @@ class QuestionController extends Controller
                 'evaluation_mode' => $evaluationMode,
                 'manual_review' => $manualReview,
             ],
+            // Simpan correct_answer untuk AI matching
+            'correct_answer' => $expectedAnswers[0] ?? null,
         ];
     }
 

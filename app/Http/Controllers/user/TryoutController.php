@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessEssayCorrection;
+use App\Models\EssayCorrectionJob;
 use App\Models\Package;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
@@ -332,25 +334,24 @@ class TryoutController extends Controller
 
         $isCorrect = false;
 
-        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
-            if (!$evaluationMode) {
-                $evaluationMode = $manualReview ? 'manual' : 'auto';
-            }
-
-            $manualReview = $evaluationMode !== 'auto' || empty($expectedAnswers);
+        // Untuk essay, SELALU pending review (baik mode auto maupun manual)
+        // Mode auto = AI yang akan koreksi via webhook
+        // Mode manual = Admin yang akan koreksi
+        if ($question->question_type === 'essay') {
+            $manualReview = true; // Essay selalu pending review
+        } elseif (empty($expectedAnswers)) {
+            // Short answer tanpa expected answers = manual review
+            $manualReview = true;
         }
 
-        if (!$manualReview && !empty($expectedAnswers)) {
+        // Hanya evaluate otomatis untuk short answer (bukan essay)
+        // Essay selalu pending untuk AI atau manual review
+        if (!$manualReview && !empty($expectedAnswers) && $question->question_type !== 'essay') {
             foreach ($expectedAnswers as $expected) {
                 $expectedValue = trim((string) $expected);
-
-                if ($question->question_type === 'essay') {
-                    $isCorrect = $this->matchesEssayAnswer($answerText, $expectedValue);
-                } else {
-                    $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
-                    $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
-                    $isCorrect = $userComparable === $expectedComparable;
-                }
+                $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
+                $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
+                $isCorrect = $userComparable === $expectedComparable;
 
                 if ($isCorrect) {
                     break;
@@ -358,6 +359,16 @@ class TryoutController extends Controller
             }
         }
 
+        // Untuk essay, SELALU pending_review = true dan is_correct = false (placeholder)
+        // Karena essay akan dikoreksi oleh AI (mode auto) atau admin (mode manual)
+        if ($question->question_type === 'essay') {
+            $finalIsCorrect = false; // Placeholder, akan diupdate oleh AI/admin
+            $manualReview = true;    // Selalu pending untuk essay
+            $isCorrect = false;      // Jangan tampilkan sebagai benar sebelum dikoreksi
+        } else {
+            $finalIsCorrect = $isCorrect;
+        }
+        
         $answerJson = [
             'pending_review' => $manualReview,
             'case_sensitive' => $caseSensitive,
@@ -365,13 +376,23 @@ class TryoutController extends Controller
             'expected_answers' => $expectedAnswers,
         ];
 
+        // DEBUG LOG
+        \Log::info('Essay answer saved', [
+            'question_id' => $question->question_id,
+            'question_type' => $question->question_type,
+            'manual_review' => $manualReview,
+            'evaluation_mode' => $evaluationMode,
+            'expected_answers_count' => count($expectedAnswers),
+            'answer_json' => $answerJson,
+        ]);
+
         return [
             'detail' => [
                 'question_option_id' => null,
                 'answer_text' => $answerText,
                 'answer_json' => $answerJson,
                 'answer_file_path' => null,
-                'is_correct' => $isCorrect,
+                'is_correct' => $finalIsCorrect,
             ],
             'response' => [
                 'is_correct' => $isCorrect,
@@ -1283,6 +1304,11 @@ class TryoutController extends Controller
             }
 
             $this->updateSingleSubtestStats($userAnswer);
+            
+            // Trigger AI correction untuk essay mode auto
+            if ($question->question_type === 'essay') {
+                $this->triggerAiCorrectionIfNeeded($userAnswerDetail, $question);
+            }
 
             $responsePayload = array_merge([
                 'success' => true,
@@ -1378,13 +1404,18 @@ class TryoutController extends Controller
                 $detailPayload = $result['detail'];
                 $detailPayload['answered_at'] = $now;
 
-                UserAnswerDetail::updateOrCreate(
+                $userAnswerDetail = UserAnswerDetail::updateOrCreate(
                     [
                         'user_answer_id' => $userAnswer->user_answer_id,
                         'question_id' => $question->question_id
                     ],
                     $detailPayload
                 );
+
+                // Trigger AI correction untuk essay mode auto saat finish/submit
+                if ($question->question_type === 'essay') {
+                    $this->triggerAiCorrectionIfNeeded($userAnswerDetail, $question);
+                }
 
                 if (
                     !empty($result['delete_file'])
@@ -2518,5 +2549,110 @@ class TryoutController extends Controller
         $answerDetail->save();
 
         return response()->json(['status' => 'success']);
+    }
+
+    /**
+     * Trigger AI correction untuk essay dengan mode auto
+     * PER ATTEMPT TOKEN - setiap submit membuat job terpisah
+     * Dipanggil setelah essay disimpan
+     */
+    private function triggerAiCorrectionIfNeeded(UserAnswerDetail $detail, Question $question): void
+    {
+        // Cek apakah essay mode auto dan ada expected answers
+        $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $evaluationMode = $answerMeta['evaluation_mode'] ?? 'manual';
+        $expectedAnswers = $answerMeta['expected_answers'] ?? [];
+        
+        \Log::info("AI Correction: Checking trigger", [
+            'detail_id' => $detail->user_answer_detail_id,
+            'evaluation_mode' => $evaluationMode,
+            'expected_answers_count' => count($expectedAnswers),
+            'question_type' => $question->question_type,
+        ]);
+        
+        if ($evaluationMode !== 'auto' || empty($expectedAnswers)) {
+            \Log::info("AI Correction: Skipping - mode={$evaluationMode}, has_answers=" . (empty($expectedAnswers) ? 'no' : 'yes'));
+            return; // Hanya proses yang auto dan ada kunci jawaban
+        }
+        
+        try {
+            $userAnswer = $detail->userAnswer;
+            if (!$userAnswer) {
+                return;
+            }
+            
+            $tryoutId = $userAnswer->tryout_id;
+            $userId = $userAnswer->user_id;
+            
+            // PER ATTEMPT: Selalu buat job baru untuk setiap attempt
+            // Tidak digabung dengan job yang sudah ada
+            $job = EssayCorrectionJob::create([
+                'tryout_id' => $tryoutId,
+                'user_id' => $userId,
+                'user_answer_id' => $userAnswer->user_answer_id, // Link ke attempt spesifik
+                'job_type' => 'single', // Per attempt/token
+                'status' => 'pending',
+                'total_essays' => 1, // Selalu 1 essay per job untuk clarity
+                'method' => 'semantic',
+                'threshold' => config('services.ai_similarity.threshold', 0.6),
+                'callback_url' => config('services.ai_similarity.callback_url'),
+            ]);
+            
+            // Dispatch ke queue
+            ProcessEssayCorrection::dispatch($job->id);
+            
+            \Log::info("AI Correction: Created job {$job->id} for attempt {$userAnswer->user_answer_id}, detail {$detail->user_answer_detail_id}");
+            
+        } catch (\Exception $e) {
+            \Log::error("AI Correction: Failed to trigger for detail {$detail->user_answer_detail_id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Check essay correction status for real-time updates
+     */
+    public function checkEssayStatus(Request $request)
+    {
+        $questionIds = $request->get('question_ids', []);
+        $attemptToken = $request->get('attempt_token');
+        
+        if (is_string($questionIds)) {
+            $questionIds = explode(',', $questionIds);
+        }
+        
+        $questionIds = array_filter(array_map('intval', (array) $questionIds));
+        
+        if (empty($questionIds) || empty($attemptToken)) {
+            return response()->json([]);
+        }
+        
+        // Get user answer by attempt token
+        $userAnswer = UserAnswer::where('attempt_token', $attemptToken)
+            ->where('user_id', Auth::id())
+            ->first();
+        
+        if (!$userAnswer) {
+            return response()->json([]);
+        }
+        
+        // Get answer details for the questions
+        $results = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+            ->whereIn('question_id', $questionIds)
+            ->whereHas('question', fn($q) => $q->where('question_type', 'essay'))
+            ->get()
+            ->map(function ($detail) {
+                $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                
+                return [
+                    'question_id' => $detail->question_id,
+                    'pending_review' => $answerMeta['pending_review'] ?? false,
+                    'is_correct' => $detail->is_correct,
+                    'score_obtained' => $answerMeta['score_obtained'] ?? 0,
+                    'ai_similarity' => $answerMeta['ai_similarity'] ?? 0,
+                    'evaluation_mode' => $answerMeta['evaluation_mode'] ?? 'manual',
+                ];
+            });
+        
+        return response()->json($results);
     }
 }

@@ -53,9 +53,14 @@
                 implode("\n", $shortAnswerMeta['expected_answers']) : '');
                 $shortAnswerCaseSensitive = filter_var(old('short_answer_case_sensitive',
                 $shortAnswerMeta['case_sensitive'] ?? false), FILTER_VALIDATE_BOOLEAN);
+                $essayEvaluationMode = old(
+                    'essay_evaluation_mode',
+                    $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
+                );
+                
                 $essayScoringMode = old(
                     'essay_scoring_mode',
-                    $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
+                    isset($question) ? $question->essay_scoring_mode : 'full'
                 );
 
                 $audioMeta = $metadata['audio_answer'] ?? [];
@@ -108,16 +113,6 @@
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
                         <p class="text-xs text-gray-500 mt-2">Pilih tipe soal untuk menampilkan form yang sesuai.</p>
-                    </div>
-
-                    <div id="questionScoreContainer"
-                        class="space-y-2 {{ in_array($rawType, ['short_answer','essay','audio']) ? '' : 'hidden' }}">
-                        <label for="question_score" class="block text-sm font-medium text-gray-700">Skor Soal (Custom)</label>
-                        <input type="number" id="question_score" name="question_score" min="0" step="0.1"
-                            value="{{ old('question_score', isset($question) ? $question->default_weight : $tryout_detail->default_weight ?? 1) }}"
-                            class="w-full md:w-1/3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Contoh: 5">
-                        <p class="text-xs text-gray-500">Dipakai untuk tipe short answer, essay, dan audio.</p>
                     </div>
 
                     <!-- Question Text -->
@@ -450,17 +445,58 @@
                             <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
                             <div class="flex flex-wrap gap-4">
                                 <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                    <input type="radio" name="essay_scoring_mode" value="auto" {{ $essayScoringMode === 'auto' ? 'checked' : '' }}
+                                    <input type="radio" name="essay_evaluation_mode" value="auto" {{ $essayEvaluationMode === 'auto' ? 'checked' : '' }}
                                         class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                     Otomatis (berdasarkan jawaban referensi)
                                 </label>
                                 <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                    <input type="radio" name="essay_scoring_mode" value="manual" {{ $essayScoringMode !== 'auto' ? 'checked' : '' }}
+                                    <input type="radio" name="essay_evaluation_mode" value="manual" {{ $essayEvaluationMode !== 'auto' ? 'checked' : '' }}
                                         class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                     Manual (perlu dikoreksi)
                                 </label>
                             </div>
                         </div>
+                        
+                        {{-- Mode Penilaian Essay: FULL vs RANGE --}}
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mode Penilaian Skor Essay</label>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                        <input type="radio" name="essay_scoring_mode" value="full" {{ old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : 'full') === 'full' ? 'checked' : '' }}
+                                            class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                        FULL (Benar/Salah)
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                        <input type="radio" name="essay_scoring_mode" value="range" {{ old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : '') === 'range' ? 'checked' : '' }}
+                                            class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                        RANGE (Proporsional)
+                                    </label>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">
+                                    <strong>FULL:</strong> Benar = Skor Benar, Salah = Skor Salah | 
+                                    <strong>RANGE:</strong> Skor proporsional berdasarkan similarity (0 - Skor Benar)
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Benar</label>
+                                    <input type="number" name="essay_score_correct" step="0.01" min="0"
+                                        value="{{ old('essay_score_correct', isset($question) ? $question->essay_score_correct : '') }}"
+                                        placeholder="{{ $tryout_detail->default_weight ?? 1 }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <p class="text-xs text-gray-500 mt-1">Kosongkan = pakai default weight</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Salah</label>
+                                    <input type="number" name="essay_score_wrong" step="0.01" min="0"
+                                        value="{{ old('essay_score_wrong', isset($question) ? $question->essay_score_wrong : 0) }}"
+                                        placeholder="0"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
                             <label for="short_answer_expected"
                                 class="block text-sm font-medium text-gray-700 mb-2">Daftar
@@ -579,7 +615,6 @@
         const mtfHeaderTrue = document.getElementById('mtfHeaderTrue');
         const mtfHeaderFalse = document.getElementById('mtfHeaderFalse');
         const optionRows = document.querySelectorAll('.option-row');
-        const questionScoreContainer = document.getElementById('questionScoreContainer');
         const multipleAnswerScoreContainer = document.getElementById('multipleAnswerScoreContainer');
 
         function shouldShowSection(sectionType, currentType) {
@@ -615,11 +650,6 @@
             if (customScoreToggle) {
                 const showCustomToggle = currentType === 'multiple_choice' || currentType === 'true_false';
                 customScoreToggle.style.display = showCustomToggle ? '' : 'none';
-            }
-
-            if (questionScoreContainer) {
-                const useQuestionScore = ['short_answer', 'essay', 'audio'].includes(currentType);
-                questionScoreContainer.classList.toggle('hidden', !useQuestionScore);
             }
 
             if (multipleAnswerScoreContainer) {

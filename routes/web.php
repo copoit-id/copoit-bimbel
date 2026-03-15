@@ -162,6 +162,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::post('/{id_package}/{id_tryout}/finish', [TryoutController::class, 'finishTryout'])->name('user.tryout.finish');
         Route::get('/{id_package}/{id_tryout}/hasil', [TryoutController::class, 'indexResult'])->name('user.tryout.result');
         Route::post('/{id_package}/{id_tryout}/feedback', [UserFeedbackController::class, 'store'])->name('user.tryout.feedback.store');
+        Route::get('/check-essay-status', [TryoutController::class, 'checkEssayStatus'])->name('user.tryout.check-essay-status');
         Route::post(
             '/listening/mark-played/{id_package}/{id_tryout}/{question_id}',
             [TryoutController::class, 'markPlayed']
@@ -356,6 +357,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Koreksi essay
     Route::prefix('essay-review')->name('essay-review.')->group(function () {
         Route::get('/', [EssayReviewController::class, 'index'])->name('index');
+        Route::post('/automatic/start', [EssayReviewController::class, 'startAutomaticCorrection'])->name('automatic.start');
+        Route::get('/jobs/status', [EssayReviewController::class, 'getJobStatus'])->name('jobs.status');
+        Route::delete('/jobs/{job}', [EssayReviewController::class, 'deleteJob'])->name('jobs.delete');
+        Route::post('/jobs/{job}/retry', [EssayReviewController::class, 'retryJob'])->name('jobs.retry');
         Route::get('/{tryout}', [EssayReviewController::class, 'tryout'])->name('tryout');
         Route::get('/{tryout}/user/{user}', [EssayReviewController::class, 'user'])->name('user');
         Route::post('/{detail}/review', [EssayReviewController::class, 'review'])->name('review');

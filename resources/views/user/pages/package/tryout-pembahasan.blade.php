@@ -121,7 +121,12 @@
         $selectedOption = $detail->questionOption;
         $isCorrect = $detail->is_correct;
         $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
-        $isPendingReview = !empty($answerMeta['pending_review']);
+        $isPendingReview = ($answerMeta['pending_review'] ?? false) === true;
+        
+        // DEBUG: Hapus nanti
+        if (($question->question_type ?? '') === 'essay') {
+            echo '<!-- DEBUG: pending_review=' . ($answerMeta['pending_review'] ?? 'NOT SET') . ', isPendingReview=' . ($isPendingReview ? 'TRUE' : 'FALSE') . ' -->';
+        }
         $questionMeta = is_array($question->metadata ?? null) ? $question->metadata : [];
         $multipleAnswerMeta = is_array($questionMeta['multiple_answer'] ?? null) ? $questionMeta['multiple_answer'] : [];
         $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
@@ -168,17 +173,47 @@
         </div>
         @endif
 
-        <div
-            class="card-pembahasan w-full border border-dashed p-4 rounded-lg {{ $isCorrect ? 'border-green bg-green-light/30' : 'border-red bg-red-light/30' }}">
+        @php
+            // Tentukan border color berdasarkan status
+            if ($isPendingReview) {
+                $cardBorderClass = 'border-amber-400 bg-amber-50/30';
+            } elseif ($isCorrect) {
+                $cardBorderClass = 'border-green bg-green-light/30';
+            } else {
+                $cardBorderClass = 'border-red bg-red-light/30';
+            }
+        @endphp
+        <div class="card-pembahasan essay-card w-full border border-dashed p-4 rounded-lg {{ $cardBorderClass }} {{ ($isPendingReview && ($answerMeta['evaluation_mode'] ?? 'manual') === 'auto') ? 'essay-pending-ai' : '' }}" 
+             data-question-id="{{ $question->question_id }}" 
+             data-pending="{{ $isPendingReview ? 'true' : 'false' }}">
             <div class="flex items-center justify-start gap-4">
                 <p class="font-semibold">Soal {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                     {{ strtoupper($detail->subtest_type) }}
                 </span>
-                <span
-                    class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isPendingReview ? 'bg-amber-100 text-amber-700 border-amber-200' : ($isCorrect ? 'bg-green text-white' : 'bg-red text-white') }}">
-                    <i class="ri-checkbox-circle-fill"></i>
-                    <p class="text-sm">{{ $isPendingReview ? 'Belum Dikoreksi' : ($isCorrect ? 'Benar' : 'Salah') }}</p>
+                @php
+                    $evalMode = $answerMeta['evaluation_mode'] ?? 'manual';
+                    if ($isPendingReview && $evalMode === 'auto') {
+                        $statusBadgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+                        $statusText = 'Sedang diproses AI';
+                        $statusIcon = 'ri-loader-4-line';
+                    } elseif ($isPendingReview) {
+                        $statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                        $statusText = 'Belum Dikoreksi';
+                        $statusIcon = 'ri-time-line';
+                    } elseif ($isCorrect) {
+                        $statusBadgeClass = 'bg-green text-white';
+                        $statusText = 'Benar';
+                        $statusIcon = 'ri-checkbox-circle-fill';
+                    } else {
+                        $statusBadgeClass = 'bg-red text-white';
+                        $statusText = 'Salah';
+                        $statusIcon = 'ri-close-circle-fill';
+                    }
+                @endphp
+                <span class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $statusBadgeClass }}">
+                    <i class="{{ $statusIcon }}{{ $isPendingReview && $evalMode === 'auto' ? ' animate-spin' : '' }}"></i>
+                    <p class="text-sm">{{ $statusText }}</p>
                 </span>
                 @php
                 // Calculate score earned for this question
@@ -228,31 +263,45 @@
                     }
                     $scoreEarned = max(0, $scoreEarned);
                 } else {
-                    $storedScore = $answerMeta['score_obtained'] ?? null;
-                    if(is_numeric($storedScore)) {
-                        $scoreEarned = (float) $storedScore;
-                    } elseif($selectedOption) {
-                    switch($detail->subtest_type) {
-                        case 'twk':
-                        case 'tiu':
-                            $scoreEarned = $isCorrect ? 5 : 0;
-                            break;
-                        case 'tkp':
-                            $scoreEarned = $selectedOption->weight ?? 0;
-                            break;
-                        default:
-                            $scoreEarned = $selectedOption->weight ?? ($isCorrect ? 1 : 0);
-                            break;
+                    // Essay dan tipe lainnya
+                    if ($isPendingReview) {
+                        $scoreEarned = 0; // Jangan tampilkan score kalau masih pending
+                    } else {
+                        $storedScore = $answerMeta['score_obtained'] ?? null;
+                        if(is_numeric($storedScore)) {
+                            $scoreEarned = (float) $storedScore;
+                        } elseif($selectedOption) {
+                            switch($detail->subtest_type) {
+                                case 'twk':
+                                case 'tiu':
+                                    $scoreEarned = $isCorrect ? 5 : 0;
+                                    break;
+                                case 'tkp':
+                                    $scoreEarned = $selectedOption->weight ?? 0;
+                                    break;
+                                default:
+                                    $scoreEarned = $selectedOption->weight ?? ($isCorrect ? 1 : 0);
+                                    break;
+                            }
+                        }
                     }
                 }
-                }
                 @endphp
-                @if($scoreEarned > 0)
-                <span
-                    class="flex items-center gap-1 border border-primary bg-primary/10 text-primary px-3 py-1 rounded-lg">
-                    <i class="ri-star-fill text-sm"></i>
-                    <p class="text-sm">+{{ $scoreEarned }} poin</p>
-                </span>
+                @if($isPendingReview)
+                    {{-- Belum dikoreksi - tampilkan MENUNGGU --}}
+                    <span class="essay-status-badge flex items-center gap-1 border border-amber-200 bg-amber-50 text-amber-700 px-3 py-1 rounded-lg text-sm">
+                        <i class="ri-time-line"></i>
+                        Menunggu
+                    </span>
+                @else
+                    {{-- Sudah dikoreksi - tampilkan nilai --}}
+                    <span class="essay-score-badge flex items-center gap-1 border {{ $isCorrect ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700' }} px-3 py-1 rounded-lg text-sm">
+                        <i class="{{ $isCorrect ? 'ri-check-line' : 'ri-close-line' }}"></i>
+                        {{ $isCorrect ? 'Benar' : 'Salah' }}
+                        @if($scoreEarned > 0)
+                            ({{ $scoreEarned }} poin)
+                        @endif
+                    </span>
                 @endif
             </div>
 
@@ -273,9 +322,37 @@
             <div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg">
                 <p class="font-semibold text-gray-800 mb-1">Jawaban Peserta:</p>
                 <p class="text-gray-700">{!! nl2br(e($detail->answer_text ?? '')) ?: '-' !!}</p>
-                @if($detail->answer_json['pending_review'] ?? false)
-                <p class="text-xs text-gray-500 mt-2">Belum dikoreksi.</p>
-                @endif
+                @php
+                    $aiSimilarity = $detail->answer_json['ai_similarity'] ?? null;
+                    $aiCorrectedAt = $detail->answer_json['ai_corrected_at'] ?? null;
+                @endphp
+                <div class="essay-ai-info">
+                    @if($detail->answer_json['pending_review'] ?? false)
+                        @php
+                            $evalMode = $detail->answer_json['evaluation_mode'] ?? 'manual';
+                        @endphp
+                        @if($evalMode === 'auto')
+                            <div class="flex items-center gap-2 mt-2 text-blue-600">
+                                <i class="ri-loader-4-line animate-spin"></i>
+                                <p class="text-xs font-medium">Sedang diproses AI...</p>
+                            </div>
+                        @else
+                            <p class="text-xs text-gray-500 mt-2">Menunggu koreksi admin.</p>
+                        @endif
+                    @elseif($aiCorrectedAt)
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                                <i class="ri-robot-line"></i>
+                                Dikoreksi AI
+                            </span>
+                            @if($aiSimilarity !== null)
+                                <span class="text-xs text-gray-500">
+                                    Similarity: {{ round($aiSimilarity * 100, 1) }}%
+                                </span>
+                            @endif
+                        </div>
+                    @endif
+                </div>
             </div>
             @elseif(($question->question_type ?? '') === 'matching')
             <div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg">
@@ -605,7 +682,89 @@
 
 @section('scripts')
 <script>
-    console.log('Pembahasan SKD Full loaded');
+    console.log('Pembahasan loaded');
+    
+    // Cek apakah ada essay yang menunggu koreksi AI
+    const pendingEssays = document.querySelectorAll('.essay-pending-ai');
+    const allEssayCards = document.querySelectorAll('.essay-card[data-pending="true"]');
+    
+    console.log(`Found ${pendingEssays.length} pending AI essays`);
+    console.log(`Found ${allEssayCards.length} total pending essays`);
+    
+    if (pendingEssays.length > 0 || allEssayCards.length > 0) {
+        console.log('Starting polling for essay corrections...');
+        
+        // Polling setiap 3 detik untuk cek status (lebih cepat biar responsif)
+        const pollInterval = setInterval(() => {
+            // Cek apakah masih ada yang pending
+            const stillPending = document.querySelectorAll('.essay-card[data-pending="true"]');
+            if (stillPending.length === 0) {
+                console.log('No more pending essays, stopping polling');
+                clearInterval(pollInterval);
+                return;
+            }
+            
+            // Get question IDs yang pending
+            const questionIds = Array.from(stillPending).map(el => el.dataset.questionId);
+            console.log(`Checking status for questions: ${questionIds.join(',')}`);
+            
+            // Fetch status update
+            fetch(`{{ route('user.tryout.check-essay-status') }}?question_ids=${questionIds.join(',')}&attempt_token={{ $token }}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Received status update:', data);
+                    data.forEach(result => {
+                        if (!result.pending_review) {
+                            console.log(`Question ${result.question_id} is done! Updating UI...`);
+                            // Essay sudah dikoreksi, update UI
+                            const card = document.querySelector(`.essay-card[data-question-id="${result.question_id}"]`);
+                            if (card) {
+                                updateEssayCard(card, result);
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error checking essay status:', error));
+        }, 3000); // Cek setiap 3 detik
+    } else {
+        console.log('No pending essays found');
+    }
+    
+    function updateEssayCard(card, result) {
+        // Update status badge
+        const statusBadge = card.querySelector('.essay-status-badge');
+        if (statusBadge) {
+            if (result.is_correct) {
+                statusBadge.className = 'essay-status-badge flex items-center gap-1 border border-green-200 bg-green-50 text-green-700 px-3 py-1 rounded-lg text-sm';
+                statusBadge.innerHTML = '<i class="ri-check-line"></i> Benar' + (result.score_obtained > 0 ? ` (${result.score_obtained} poin)` : '');
+            } else {
+                statusBadge.className = 'essay-status-badge flex items-center gap-1 border border-red-200 bg-red-50 text-red-700 px-3 py-1 rounded-lg text-sm';
+                statusBadge.innerHTML = '<i class="ri-close-line"></i> Salah' + (result.score_obtained > 0 ? ` (${result.score_obtained} poin)` : '');
+            }
+        }
+        
+        // Update AI info
+        const aiInfo = card.querySelector('.essay-ai-info');
+        if (aiInfo) {
+            aiInfo.innerHTML = `
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                        <i class="ri-robot-line"></i> Dikoreksi AI
+                    </span>
+                    <span class="text-xs text-gray-500">Similarity: ${Math.round(result.ai_similarity * 100)}%</span>
+                </div>
+            `;
+        }
+        
+        // Update card border
+        card.classList.remove('border-amber-400', 'bg-amber-50/30', 'essay-pending-ai');
+        if (result.is_correct) {
+            card.classList.add('border-green', 'bg-green-light/30');
+        } else {
+            card.classList.add('border-red', 'bg-red-light/30');
+        }
+        card.dataset.pending = 'false';
+    }
 </script>
 @endsection
 
