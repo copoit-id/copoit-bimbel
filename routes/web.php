@@ -49,7 +49,7 @@ Route::post('/locale', function (Request $request) {
 
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');
-    Artisan::call('storage:link');
+    // Artisan::call('storage:link');
     Artisan::call('optimize:clear');
 });
 
