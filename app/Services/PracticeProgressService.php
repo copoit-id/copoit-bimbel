@@ -19,10 +19,56 @@ class PracticeProgressService
                 'answered_questions' => 0,
                 'flagged_questions' => [],
                 'status' => 'in_progress',
+                'study_started_at' => null,
+                'study_duration_seconds' => 0,
             ]
         );
 
         return $this->refreshTotals($session);
+    }
+
+    /**
+     * Memulai atau melanjutkan sesi belajar (timer mulai dari 0 jika baru)
+     */
+    public function startStudySession(PracticeSession $session): PracticeSession
+    {
+        $session->study_started_at = now();
+        $session->save();
+
+        return $session->refresh();
+    }
+
+    /**
+     * Mengakhiri sesi belajar dan menambahkan durasi ke total
+     */
+    public function endStudySession(PracticeSession $session, ?int $additionalSeconds = null): PracticeSession
+    {
+        if ($session->study_started_at) {
+            $elapsed = $additionalSeconds ?? max(0, now()->diffInSeconds($session->study_started_at));
+            $session->study_duration_seconds += (int) $elapsed;
+            $session->study_started_at = null;
+            $session->save();
+        }
+
+        return $session->refresh();
+    }
+
+    /**
+     * Get formatted study duration
+     */
+    public function getStudyDurationFormatted(PracticeSession $session): string
+    {
+        $totalSeconds = $session->study_duration_seconds;
+
+        if ($session->study_started_at) {
+            $totalSeconds += max(0, now()->diffInSeconds($session->study_started_at));
+        }
+
+        $hours = floor($totalSeconds / 3600);
+        $minutes = floor(($totalSeconds % 3600) / 60);
+        $seconds = $totalSeconds % 60;
+
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
     }
 
     public function refreshTotals(PracticeSession $session): PracticeSession

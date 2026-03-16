@@ -150,6 +150,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
             ->name('user.practice.play');
         Route::post('/jawaban/{question}', [PracticeController::class, 'saveAnswer'])->name('user.practice.answer');
         Route::post('/flag', [PracticeController::class, 'toggleFlag'])->name('user.practice.flag');
+        Route::post('/record-exit', [PracticeController::class, 'recordExit'])->name('user.practice.record-exit');
     });
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');

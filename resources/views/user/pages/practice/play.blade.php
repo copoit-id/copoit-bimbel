@@ -267,18 +267,14 @@ const PRACTICE_FLAG_TOKEN = '{{ csrf_token() }}';
 const PRACTICE_CURRENT_QUESTION_ID = {{ $question->id }};
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Timer mulai dari 0 setiap masuk halaman
     const practiceTimerEls = document.querySelectorAll('[data-practice-timer]');
-    if (practiceTimerEls.length > 0) {
-        const timerStorageKey = 'practice_timer_started_at';
-        const now = Date.now();
-        let startedAt = Number(sessionStorage.getItem(timerStorageKey) || 0);
-        if (!startedAt || Number.isNaN(startedAt) || startedAt > now) {
-            startedAt = now;
-            sessionStorage.setItem(timerStorageKey, String(startedAt));
-        }
+    let timerStartTime = Date.now();
+    let timerInterval = null;
 
+    if (practiceTimerEls.length > 0) {
         const renderPracticeTimer = () => {
-            const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timerStartTime) / 1000));
             const hours = Math.floor(elapsedSeconds / 3600);
             const minutes = Math.floor((elapsedSeconds % 3600) / 60);
             const seconds = elapsedSeconds % 60;
@@ -290,8 +286,51 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         renderPracticeTimer();
-        setInterval(renderPracticeTimer, 1000);
+        timerInterval = setInterval(renderPracticeTimer, 1000);
     }
+
+    // Fungsi untuk mencatat waktu keluar dari halaman
+    const recordStudyDuration = () => {
+        if (!timerStartTime) return;
+
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timerStartTime) / 1000));
+
+        // Kirim ke backend menggunakan sendBeacon untuk beforeunload
+        const data = JSON.stringify({
+            _token: PRACTICE_FLAG_TOKEN,
+            duration_seconds: elapsedSeconds
+        });
+
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('{{ route('user.practice.record-exit') }}', new Blob([data], { type: 'application/json' }));
+        } else {
+            // Fallback untuk browser yang tidak support sendBeacon
+            fetch('{{ route('user.practice.record-exit') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': PRACTICE_FLAG_TOKEN,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: data,
+                keepalive: true
+            }).catch(() => {});
+        }
+    };
+
+    // Catat waktu keluar saat user meninggalkan halaman
+    window.addEventListener('beforeunload', recordStudyDuration);
+
+    // Tangani klik link navigasi internal (Sebelumnya, Selanjutnya, Kembali)
+    document.querySelectorAll('a[href*="practice"]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            // Hentikan timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            recordStudyDuration();
+        });
+    });
 
     const antiCopyRoot = document.querySelector('[data-anticopy="practice"]') || document.body;
     const protectedBlocks = antiCopyRoot.querySelectorAll('.practice-protected');

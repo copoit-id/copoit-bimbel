@@ -50,6 +50,10 @@ class PracticeController extends Controller
 
         $userId = Auth::id();
         $session = $this->practiceProgress->getOrCreateSession($userId);
+
+        // Mulai sesi belajar baru (timer mulai dari 0)
+        $this->practiceProgress->startStudySession($session);
+
         $stats = $this->practiceProgress->getStatsForUser($userId);
 
         $questions = QuestionBankQuestion::with([
@@ -199,6 +203,31 @@ class PracticeController extends Controller
         return response()->json([
             'success' => true,
             'flagged' => $isFlagged,
+        ]);
+    }
+
+    /**
+     * Mencatat waktu keluar dari halaman latihan
+     */
+    public function recordExit(Request $request): JsonResponse
+    {
+        if (!$this->hasPracticeAccess()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses QB hanya untuk member premium.',
+            ], 403);
+        }
+
+        $userId = Auth::id();
+        $session = $this->practiceProgress->getOrCreateSession($userId);
+
+        // Simpan durasi belajar
+        $this->practiceProgress->endStudySession($session);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Durasi belajar tersimpan.',
+            'total_study_duration' => $this->practiceProgress->getStudyDurationFormatted($session),
         ]);
     }
 
