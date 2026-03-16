@@ -42,6 +42,28 @@ class PracticeController extends Controller
         ]);
     }
 
+    /**
+     * Mulai sesi latihan BARU - selalu reset timer
+     */
+    public function start()
+    {
+        if ($response = $this->ensurePracticeAccess()) {
+            return $response;
+        }
+
+        $userId = Auth::id();
+        $session = $this->practiceProgress->getOrCreateSession($userId);
+
+        // Simpan durasi sesi lama (kalau ada) dan mulai sesi baru
+        $this->practiceProgress->endSession($session);
+        $this->practiceProgress->startSession($session);
+
+        return redirect()->route('user.practice.play', ['number' => 1]);
+    }
+
+    /**
+     * Play soal - timer lanjut selama sesi aktif
+     */
     public function play(Request $request, int $number = 1)
     {
         if ($response = $this->ensurePracticeAccess()) {
@@ -51,8 +73,11 @@ class PracticeController extends Controller
         $userId = Auth::id();
         $session = $this->practiceProgress->getOrCreateSession($userId);
 
-        // Mulai sesi belajar baru (timer mulai dari 0)
-        $this->practiceProgress->startStudySession($session);
+        // Pastikan ada sesi aktif (tanpa reset saat pindah soal/refresh)
+        $session = $this->practiceProgress->ensureActiveSession($session);
+
+        // Timer dihitung dari session_start (selalu lanjut selama sesi aktif)
+        $timerSeconds = $this->practiceProgress->getTimerSeconds($session);
 
         $stats = $this->practiceProgress->getStatsForUser($userId);
 
@@ -109,6 +134,7 @@ class PracticeController extends Controller
             'initialFeedback' => $initialFeedback,
             'flaggedQuestions' => $flaggedQuestions,
             'isCurrentFlagged' => $isCurrentFlagged,
+            'timerSeconds' => $timerSeconds,
         ]);
     }
 
@@ -207,7 +233,31 @@ class PracticeController extends Controller
     }
 
     /**
-     * Mencatat waktu keluar dari halaman latihan
+     * Selesai belajar - akhiri sesi dan simpan durasi
+     */
+    public function finishStudy(Request $request): JsonResponse
+    {
+        if (!$this->hasPracticeAccess()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses QB hanya untuk member premium.',
+            ], 403);
+        }
+
+        $userId = Auth::id();
+        $session = $this->practiceProgress->getOrCreateSession($userId);
+
+        // Akhiri sesi (simpan durasi ke total, reset session_start)
+        $this->practiceProgress->endSession($session);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sesi belajar selesai.',
+        ]);
+    }
+
+    /**
+     * Rekam heartbeat atau akhiri sesi saat keluar.
      */
     public function recordExit(Request $request): JsonResponse
     {
@@ -220,14 +270,20 @@ class PracticeController extends Controller
 
         $userId = Auth::id();
         $session = $this->practiceProgress->getOrCreateSession($userId);
+        $shouldEnd = (bool) $request->boolean('exit');
+        $durationSeconds = (int) $request->input('duration_seconds', 0);
 
-        // Simpan durasi belajar
-        $this->practiceProgress->endStudySession($session);
+        if ($shouldEnd) {
+            $this->practiceProgress->endSession($session);
+        } else {
+            if (!$session->session_start && $durationSeconds > 0) {
+                $session = $this->practiceProgress->ensureActiveSessionFromDuration($session, $durationSeconds);
+            }
+            $this->practiceProgress->recordHeartbeat($session);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Durasi belajar tersimpan.',
-            'total_study_duration' => $this->practiceProgress->getStudyDurationFormatted($session),
         ]);
     }
 

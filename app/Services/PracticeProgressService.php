@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\PracticeSession;
+use App\Models\PracticeStudySession;
 use App\Models\QuestionBankQuestion;
 use App\Models\Tryout;
 use App\Models\UserTryoutUnlock;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class PracticeProgressService
@@ -19,8 +21,9 @@ class PracticeProgressService
                 'answered_questions' => 0,
                 'flagged_questions' => [],
                 'status' => 'in_progress',
-                'study_started_at' => null,
+                'session_start' => null,
                 'study_duration_seconds' => 0,
+                'active_study_session_id' => null,
             ]
         );
 
@@ -28,29 +31,134 @@ class PracticeProgressService
     }
 
     /**
-     * Memulai atau melanjutkan sesi belajar (timer mulai dari 0 jika baru)
+     * Memulai sesi belajar BARU - set session_start ke sekarang
      */
-    public function startStudySession(PracticeSession $session): PracticeSession
+    public function startSession(PracticeSession $session): PracticeSession
     {
-        $session->study_started_at = now();
+        $active = $this->getActiveStudySession($session);
+        if ($active) {
+            $session->session_start = $active->started_at;
+            $session->active_study_session_id = $active->id;
+            $session->save();
+
+            return $session->refresh();
+        }
+
+        $now = now();
+        $nextNumber = (int) (PracticeStudySession::where('practice_session_id', $session->id)->max('session_number') ?? 0) + 1;
+
+        $studySession = PracticeStudySession::create([
+            'practice_session_id' => $session->id,
+            'session_number' => $nextNumber,
+            'started_at' => $now,
+            'duration_seconds' => 0,
+            'last_heartbeat_at' => $now,
+        ]);
+
+        $session->session_start = $now;
+        $session->active_study_session_id = $studySession->id;
+        $session->save();
+
+        return $session->refresh();
+    }
+
+    public function ensureActiveSession(PracticeSession $session): PracticeSession
+    {
+        $startTime = $this->resolveActiveStart($session);
+        if ($startTime) {
+            return $session->refresh();
+        }
+
+        return $this->startSession($session);
+    }
+
+    public function ensureActiveSessionFromDuration(PracticeSession $session, int $durationSeconds): PracticeSession
+    {
+        $startTime = $this->resolveActiveStart($session);
+        if ($startTime) {
+            return $session->refresh();
+        }
+
+        $now = now();
+        $startedAt = $now->copy()->subSeconds(max(0, $durationSeconds));
+        $nextNumber = (int) (PracticeStudySession::where('practice_session_id', $session->id)->max('session_number') ?? 0) + 1;
+
+        $studySession = PracticeStudySession::create([
+            'practice_session_id' => $session->id,
+            'session_number' => $nextNumber,
+            'started_at' => $startedAt,
+            'duration_seconds' => max(0, $durationSeconds),
+            'last_heartbeat_at' => $now,
+        ]);
+
+        $session->session_start = $startedAt;
+        $session->active_study_session_id = $studySession->id;
         $session->save();
 
         return $session->refresh();
     }
 
     /**
-     * Mengakhiri sesi belajar dan menambahkan durasi ke total
+     * Mengakhiri sesi belajar - simpan durasi dan reset session_start
      */
-    public function endStudySession(PracticeSession $session, ?int $additionalSeconds = null): PracticeSession
+    public function endSession(PracticeSession $session): PracticeSession
     {
-        if ($session->study_started_at) {
-            $elapsed = $additionalSeconds ?? max(0, now()->diffInSeconds($session->study_started_at));
+        $startTime = $this->resolveActiveStart($session);
+        if ($startTime) {
+            $now = now();
+            $elapsed = max(0, $now->diffInSeconds($startTime));
+
+            $studySession = $this->getActiveStudySession($session);
+            if ($studySession) {
+                $studySession->duration_seconds = max($studySession->duration_seconds, (int) $elapsed);
+                $studySession->ended_at = $now;
+                $studySession->last_heartbeat_at = $now;
+                $studySession->save();
+            }
+
             $session->study_duration_seconds += (int) $elapsed;
-            $session->study_started_at = null;
+            $session->session_start = null;
+            $session->active_study_session_id = null;
             $session->save();
         }
 
         return $session->refresh();
+    }
+
+    /**
+     * Catat heartbeat supaya durasi sesi tersimpan berkala.
+     */
+    public function recordHeartbeat(PracticeSession $session): ?PracticeStudySession
+    {
+        $startTime = $this->resolveActiveStart($session);
+        if (!$startTime) {
+            return null;
+        }
+
+        $now = now();
+        $elapsed = max(0, $now->diffInSeconds($startTime));
+        $studySession = $this->getActiveStudySession($session);
+
+        if ($studySession) {
+            $studySession->duration_seconds = max($studySession->duration_seconds, (int) $elapsed);
+            $studySession->last_heartbeat_at = $now;
+            $studySession->save();
+        }
+
+        return $studySession;
+    }
+
+    /**
+     * Get timer seconds untuk view - hitung dari session_start
+     */
+    public function getTimerSeconds(PracticeSession $session): int
+    {
+        $startTime = $this->resolveActiveStart($session);
+        if (!$startTime) {
+            return 0;
+        }
+
+        return max(0, now()->diffInSeconds($startTime));
     }
 
     /**
@@ -60,8 +168,9 @@ class PracticeProgressService
     {
         $totalSeconds = $session->study_duration_seconds;
 
-        if ($session->study_started_at) {
-            $totalSeconds += max(0, now()->diffInSeconds($session->study_started_at));
+        $startTime = $this->resolveActiveStart($session);
+        if ($startTime) {
+            $totalSeconds += max(0, now()->diffInSeconds($startTime));
         }
 
         $hours = floor($totalSeconds / 3600);
@@ -228,6 +337,42 @@ class PracticeProgressService
             'unlocked_count' => $unlockedCount,
             'next_unlock_remaining' => $nextUnlockRemaining,
         ];
+    }
+
+    private function getActiveStudySession(PracticeSession $session): ?PracticeStudySession
+    {
+        if ($session->active_study_session_id) {
+            $active = PracticeStudySession::where('id', $session->active_study_session_id)
+                ->whereNull('ended_at')
+                ->first();
+
+            if ($active) {
+                return $active;
+            }
+        }
+
+        return PracticeStudySession::where('practice_session_id', $session->id)
+            ->whereNull('ended_at')
+            ->orderByDesc('started_at')
+            ->first();
+    }
+
+    private function resolveActiveStart(PracticeSession $session): ?Carbon
+    {
+        if ($session->session_start) {
+            return $session->session_start;
+        }
+
+        $active = $this->getActiveStudySession($session);
+        if ($active) {
+            $session->session_start = $active->started_at;
+            $session->active_study_session_id = $active->id;
+            $session->save();
+
+            return $active->started_at;
+        }
+
+        return null;
     }
 
     private function calculateThreshold(int $totalQuestions, int $itemCount): int

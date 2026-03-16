@@ -21,7 +21,12 @@
     $flaggedQuestions = $flaggedQuestions ?? [];
     $isCurrentFlagged = $isCurrentFlagged ?? false;
 @endphp
-<div class="min-h-screen bg-gray-50 pt-20 md:pt-8 pb-16" data-anticopy="practice">
+<div id="practice-page"
+    class="min-h-screen bg-gray-50 pt-20 md:pt-8 pb-16"
+    data-anticopy="practice"
+    data-question-id="{{ $question->id }}"
+    data-question-number="{{ $number }}"
+    data-timer-seconds="{{ $timerSeconds }}">
     <div class="max-w-6xl mx-auto px-4">
         <div class="flex flex-col lg:flex-row gap-6">
             <div class="lg:flex-1">
@@ -42,7 +47,7 @@
                                 <i class="ri-calculator-line text-lg"></i>
                                 {{ __('Kalkulator') }}
                             </button>
-                            <a href="{{ route('user.practice.index') }}" class="inline-flex items-center text-sm text-primary hover:underline">
+                            <a href="{{ route('user.practice.index') }}" class="inline-flex items-center text-sm text-primary hover:underline" data-practice-exit>
                                 <i class="ri-arrow-left-line mr-1"></i> {{ __('Kembali ke Latihan') }}
                             </a>
                         </div>
@@ -153,6 +158,7 @@
                         @if($number > 1)
                         <div class="flex gap-3">
                             <a href="{{ route('user.practice.play', ['number' => $number - 1]) }}"
+                                data-practice-nav
                                 class="inline-flex items-center justify-center px-3 md:px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
                                 aria-label="{{ __('Sebelumnya') }}">
                                 <i class="ri-arrow-left-line text-lg md:text-base md:mr-2"></i>
@@ -174,6 +180,7 @@
                         <div class="flex gap-3">
                             @if($number < $totalQuestions)
                                 <a href="{{ route('user.practice.play', ['number' => $number + 1]) }}"
+                                    data-practice-nav
                                     class="inline-flex items-center justify-center px-3 md:px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
                                     aria-label="{{ __('Selanjutnya') }}">
                                     <span class="hidden md:inline">{{ __('Selanjutnya') }}</span>
@@ -206,6 +213,7 @@
                         <div class="grid grid-cols-5 gap-2 practice-nav-grid">
                             @foreach($navigation as $item)
                                 <a href="{{ route('user.practice.play', ['number' => $item['number']]) }}"
+                                    data-practice-nav
                                     data-question-id="{{ $item['question_id'] }}"
                                     class="relative w-full h-10 flex items-center justify-center rounded-lg text-sm font-semibold
                                     {{ $item['number'] === $number ? 'bg-primary text-white' : ($item['answered'] ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-600') }}">
@@ -259,102 +267,150 @@
     </div>
 </div>
 
+<script type="application/json" id="practice-initial-feedback">@json($initialFeedback)</script>
+
 @endsection
 
 @push('scripts')
 <script>
 const PRACTICE_FLAG_TOKEN = '{{ csrf_token() }}';
-const PRACTICE_CURRENT_QUESTION_ID = {{ $question->id }};
+const PRACTICE_RECORD_EXIT_URL = '{{ route('user.practice.record-exit') }}';
+const PRACTICE_FLAG_URL = '{{ route('user.practice.flag') }}';
+
+window.practiceState = window.practiceState || {
+    timerStartTime: null,
+    timerInterval: null,
+    heartbeatInterval: null,
+    globalsBound: false,
+    isNavigating: false,
+};
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Timer mulai dari 0 setiap masuk halaman
-    const practiceTimerEls = document.querySelectorAll('[data-practice-timer]');
-    let timerStartTime = Date.now();
-    let timerInterval = null;
+    initPracticePage();
+});
 
-    if (practiceTimerEls.length > 0) {
-        const renderPracticeTimer = () => {
-            const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timerStartTime) / 1000));
-            const hours = Math.floor(elapsedSeconds / 3600);
-            const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-            const seconds = elapsedSeconds % 60;
-            const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-            practiceTimerEls.forEach((el) => {
-                el.textContent = display;
-            });
-        };
-
-        renderPracticeTimer();
-        timerInterval = setInterval(renderPracticeTimer, 1000);
+function initPracticePage() {
+    const data = getPracticeData();
+    if (!data) {
+        return;
     }
 
-    // Fungsi untuk mencatat waktu keluar dari halaman
-    const recordStudyDuration = () => {
-        if (!timerStartTime) return;
+    bindGlobalPracticeEvents();
+    initTimer(data);
+    setupAntiCopy(data.root);
+    setupAnswerForm(data);
+    setupCalculator();
+    setupPracticeFlagging(data.questionId);
+}
 
-        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timerStartTime) / 1000));
+function getPracticeRoot() {
+    return document.getElementById('practice-page');
+}
 
-        // Kirim ke backend menggunakan sendBeacon untuk beforeunload
-        const data = JSON.stringify({
-            _token: PRACTICE_FLAG_TOKEN,
-            duration_seconds: elapsedSeconds
+function getPracticeData() {
+    const root = getPracticeRoot();
+    if (!root) {
+        return null;
+    }
+
+    return {
+        root,
+        questionId: parseInt(root.dataset.questionId || '0', 10),
+        questionNumber: parseInt(root.dataset.questionNumber || '1', 10),
+        timerSeconds: parseInt(root.dataset.timerSeconds || '0', 10),
+    };
+}
+
+function initTimer(data) {
+    const practiceTimerEls = document.querySelectorAll('[data-practice-timer]');
+    if (practiceTimerEls.length === 0) {
+        return;
+    }
+
+    if (!window.practiceState.timerStartTime) {
+        window.practiceState.timerStartTime = Date.now() - (data.timerSeconds * 1000);
+    }
+
+    const renderPracticeTimer = () => {
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - window.practiceState.timerStartTime) / 1000));
+        const hours = Math.floor(elapsedSeconds / 3600);
+        const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+        const seconds = elapsedSeconds % 60;
+        const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        document.querySelectorAll('[data-practice-timer]').forEach((el) => {
+            el.textContent = display;
         });
-
-        if (navigator.sendBeacon) {
-            navigator.sendBeacon('{{ route('user.practice.record-exit') }}', new Blob([data], { type: 'application/json' }));
-        } else {
-            // Fallback untuk browser yang tidak support sendBeacon
-            fetch('{{ route('user.practice.record-exit') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': PRACTICE_FLAG_TOKEN,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: data,
-                keepalive: true
-            }).catch(() => {});
-        }
     };
 
-    // Catat waktu keluar saat user meninggalkan halaman
-    window.addEventListener('beforeunload', recordStudyDuration);
+    renderPracticeTimer();
 
-    // Tangani klik link navigasi internal (Sebelumnya, Selanjutnya, Kembali)
-    document.querySelectorAll('a[href*="practice"]').forEach(link => {
-        link.addEventListener('click', (e) => {
-            // Hentikan timer
-            if (timerInterval) {
-                clearInterval(timerInterval);
-            }
-            recordStudyDuration();
-        });
+    if (!window.practiceState.timerInterval) {
+        window.practiceState.timerInterval = setInterval(renderPracticeTimer, 1000);
+    }
+
+    if (!window.practiceState.heartbeatInterval) {
+        window.practiceState.heartbeatInterval = setInterval(() => {
+            recordStudyDuration(false);
+        }, 30000);
+    }
+}
+
+function recordStudyDuration(exit = false) {
+    if (!window.practiceState.timerStartTime) {
+        return;
+    }
+
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - window.practiceState.timerStartTime) / 1000));
+    const data = JSON.stringify({
+        _token: PRACTICE_FLAG_TOKEN,
+        duration_seconds: elapsedSeconds,
+        exit: !!exit,
     });
 
-    const antiCopyRoot = document.querySelector('[data-anticopy="practice"]') || document.body;
-    const protectedBlocks = antiCopyRoot.querySelectorAll('.practice-protected');
-    const antiCopyHandler = (event) => {
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon(PRACTICE_RECORD_EXIT_URL, new Blob([data], { type: 'application/json' }));
+    } else {
+        fetch(PRACTICE_RECORD_EXIT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': PRACTICE_FLAG_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: data,
+            keepalive: true
+        }).catch(() => {});
+    }
+}
+
+function bindGlobalPracticeEvents() {
+    if (window.practiceState.globalsBound) {
+        return;
+    }
+    window.practiceState.globalsBound = true;
+
+    window.addEventListener('beforeunload', () => recordStudyDuration(false));
+
+    document.addEventListener('click', (event) => {
+        const exitLink = event.target.closest('[data-practice-exit]');
+        if (exitLink) {
+            recordStudyDuration(true);
+            return;
+        }
+
+        const link = event.target.closest('a[data-practice-nav]');
+        if (!link) {
+            return;
+        }
+
         event.preventDefault();
-    };
-
-    ['copy', 'cut', 'paste', 'contextmenu', 'selectstart', 'dragstart'].forEach((eventName) => {
-        protectedBlocks.forEach((block) => {
-            block.addEventListener(eventName, antiCopyHandler, true);
-        });
+        navigatePractice(link.href);
     });
 
-    const isSelectionInsideProtected = () => {
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) {
-            return false;
-        }
-
-        const anchorParent = selection.anchorNode?.parentElement;
-        const focusParent = selection.focusNode?.parentElement;
-
-        return !!(anchorParent?.closest('.practice-protected') || focusParent?.closest('.practice-protected'));
-    };
+    window.addEventListener('popstate', () => {
+        navigatePractice(window.location.href, true);
+    });
 
     document.addEventListener('keydown', (event) => {
         if (!isSelectionInsideProtected()) {
@@ -365,18 +421,89 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
         }
     }, true);
+}
 
-    const form = document.getElementById('practiceAnswerForm');
-    if (!form) return;
+function navigatePractice(url, replaceState = false) {
+    if (window.practiceState.isNavigating) {
+        return;
+    }
+
+    window.practiceState.isNavigating = true;
+    recordStudyDuration(false);
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(response => response.text())
+        .then(html => {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const newRoot = doc.getElementById('practice-page');
+            const currentRoot = getPracticeRoot();
+
+            if (!newRoot || !currentRoot) {
+                window.location.href = url;
+                return;
+            }
+
+            currentRoot.replaceWith(newRoot);
+            if (doc.title) {
+                document.title = doc.title;
+            }
+
+            if (!replaceState) {
+                history.pushState({}, '', url);
+            }
+
+            initPracticePage();
+        })
+        .catch(() => {
+            window.location.href = url;
+        })
+        .finally(() => {
+            window.practiceState.isNavigating = false;
+        });
+}
+
+function setupAntiCopy(root) {
+    const antiCopyRoot = root || document.body;
+    const protectedBlocks = antiCopyRoot.querySelectorAll('.practice-protected');
+    const antiCopyHandler = (event) => {
+        event.preventDefault();
+    };
+
+    ['copy', 'cut', 'paste', 'contextmenu', 'selectstart', 'dragstart'].forEach((eventName) => {
+        protectedBlocks.forEach((block) => {
+            block.addEventListener(eventName, antiCopyHandler, true);
+        });
+    });
+}
+
+function isSelectionInsideProtected() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return false;
+    }
+
+    const anchorParent = selection.anchorNode?.parentElement;
+    const focusParent = selection.focusNode?.parentElement;
+
+    return !!(anchorParent?.closest('.practice-protected') || focusParent?.closest('.practice-protected'));
+}
+
+function setupAnswerForm(data) {
+    const form = data.root.querySelector('#practiceAnswerForm');
+    if (!form) {
+        return;
+    }
 
     const questionType = form.dataset.questionType;
-    const initialFeedback = @json($initialFeedback);
-    const feedbackBox = document.getElementById('practiceFeedback');
-    const statusBadge = document.getElementById('practiceFeedbackStatus');
-    const correctWrapper = document.getElementById('practiceFeedbackCorrectWrapper');
-    const correctContainer = document.getElementById('practiceFeedbackCorrect');
-    const explanationWrapper = document.getElementById('practiceFeedbackExplanationWrapper');
-    const explanationContainer = document.getElementById('practiceFeedbackExplanation');
+    const feedbackBox = data.root.querySelector('#practiceFeedback');
+    const statusBadge = data.root.querySelector('#practiceFeedbackStatus');
+    const correctWrapper = data.root.querySelector('#practiceFeedbackCorrectWrapper');
+    const correctContainer = data.root.querySelector('#practiceFeedbackCorrect');
+    const explanationWrapper = data.root.querySelector('#practiceFeedbackExplanationWrapper');
+    const explanationContainer = data.root.querySelector('#practiceFeedbackExplanation');
+    const feedbackScript = data.root.querySelector('#practice-initial-feedback');
+    const initialFeedback = feedbackScript ? JSON.parse(feedbackScript.textContent || 'null') : null;
+
     const debounce = (fn, delay = 600) => {
         let timeout;
         return (...args) => {
@@ -386,100 +513,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateNavigation = () => {
-        const navLinks = document.querySelectorAll('.practice-nav-grid a');
+        const navLinks = data.root.querySelectorAll('.practice-nav-grid a');
         navLinks.forEach(link => {
-            if (parseInt(link.textContent.trim(), 10) === {{ $number }}) {
+            if (parseInt(link.textContent.trim(), 10) === data.questionNumber) {
                 link.classList.remove('bg-gray-100', 'text-gray-600', 'bg-emerald-50', 'text-emerald-600', 'border', 'border-emerald-100');
                 link.classList.add('bg-primary', 'text-white');
             }
         });
     };
-
-    const handleSubmit = () => {
-        const formData = new FormData(form);
-
-        if (questionType === 'matching') {
-            const data = {};
-            let allFilled = true;
-            form.querySelectorAll('.matching-select').forEach(select => {
-                if (!select.value) {
-                    allFilled = false;
-                }
-                data[select.dataset.left] = select.value;
-            });
-            if (!allFilled) {
-                return;
-            }
-            formData.set('matching_answers', JSON.stringify(data));
-        } else if (questionType === 'essay' || questionType === 'short_answer') {
-            const text = (formData.get('answer_text') || '').trim();
-            if (!text.length) {
-                return;
-            }
-            formData.set('answer_text', text);
-        } else if (questionType === 'audio') {
-            const file = form.querySelector('input[type="file"]');
-            if (!file || !file.files.length) return;
-        } else if (questionType === 'multiple_choice' || questionType === 'true_false') {
-            const selected = form.querySelector('input[type="radio"]:checked');
-            if (!selected) return;
-        }
-
-        fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: formData,
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (!data.success) {
-                throw data;
-            }
-            updateNavigation();
-            renderFeedback(data.feedback);
-            const progressLabel = document.getElementById('practice-progress-label');
-            const nextUnlock = document.getElementById('practice-next-unlock');
-            if (progressLabel && data.answered_count !== undefined && data.total_questions !== undefined) {
-                progressLabel.textContent = `${data.answered_count} / ${data.total_questions}`;
-            }
-            if (nextUnlock && data.next_unlock_remaining !== undefined && data.tryout_count !== undefined) {
-                if (data.tryout_count === 0) {
-                    nextUnlock.textContent = @json(__('Tryout akan muncul setelah admin menambahkannya.'));
-                } else if (data.next_unlock_remaining === 0 && data.unlocked_count >= data.tryout_count) {
-                    nextUnlock.textContent = @json(__('Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.'));
-                } else if (!data.threshold_per_tryout) {
-                    nextUnlock.textContent = @json(__('Tryout akan terbuka otomatis begitu tersedia.'));
-                } else {
-                    nextUnlock.innerHTML = @json(__('Selesaikan <span class="font-semibold text-gray-800">:count</span> soal lagi untuk membuka tryout berikutnya.')).replace(':count', data.next_unlock_remaining);
-                }
-            }
-        })
-        .catch(error => {
-            console.error(error);
-        });
-    };
-
-    if (questionType === 'multiple_choice' || questionType === 'true_false') {
-        form.querySelectorAll('input[type="radio"]').forEach(radio => {
-            radio.addEventListener('change', handleSubmit);
-        });
-    } else if (questionType === 'matching') {
-        form.querySelectorAll('.matching-select').forEach(select => {
-            select.addEventListener('change', debounce(handleSubmit));
-        });
-    } else if (questionType === 'essay' || questionType === 'short_answer') {
-        const textarea = form.querySelector('textarea[name="answer_text"]');
-        if (textarea) {
-            textarea.addEventListener('input', debounce(handleSubmit));
-        }
-    } else if (questionType === 'audio') {
-        const fileInput = form.querySelector('input[type="file"]');
-        if (fileInput) {
-            fileInput.addEventListener('change', handleSubmit);
-        }
-    }
 
     const renderFeedback = (payload) => {
         if (!feedbackBox || !payload) {
@@ -519,13 +560,96 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const handleSubmit = () => {
+        const formData = new FormData(form);
+
+        if (questionType === 'matching') {
+            const dataMap = {};
+            let allFilled = true;
+            form.querySelectorAll('.matching-select').forEach(select => {
+                if (!select.value) {
+                    allFilled = false;
+                }
+                dataMap[select.dataset.left] = select.value;
+            });
+            if (!allFilled) {
+                return;
+            }
+            formData.set('matching_answers', JSON.stringify(dataMap));
+        } else if (questionType === 'essay' || questionType === 'short_answer') {
+            const text = (formData.get('answer_text') || '').trim();
+            if (!text.length) {
+                return;
+            }
+            formData.set('answer_text', text);
+        } else if (questionType === 'audio') {
+            const file = form.querySelector('input[type="file"]');
+            if (!file || !file.files.length) return;
+        } else if (questionType === 'multiple_choice' || questionType === 'true_false') {
+            const selected = form.querySelector('input[type="radio"]:checked');
+            if (!selected) return;
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(dataResponse => {
+            if (!dataResponse.success) {
+                throw dataResponse;
+            }
+            updateNavigation();
+            renderFeedback(dataResponse.feedback);
+            const progressLabel = document.getElementById('practice-progress-label');
+            const nextUnlock = document.getElementById('practice-next-unlock');
+            if (progressLabel && dataResponse.answered_count !== undefined && dataResponse.total_questions !== undefined) {
+                progressLabel.textContent = `${dataResponse.answered_count} / ${dataResponse.total_questions}`;
+            }
+            if (nextUnlock && dataResponse.next_unlock_remaining !== undefined && dataResponse.tryout_count !== undefined) {
+                if (dataResponse.tryout_count === 0) {
+                    nextUnlock.textContent = @json(__('Tryout akan muncul setelah admin menambahkannya.'));
+                } else if (dataResponse.next_unlock_remaining === 0 && dataResponse.unlocked_count >= dataResponse.tryout_count) {
+                    nextUnlock.textContent = @json(__('Semua tryout sudah terbuka. Tetap lanjutkan latihan untuk mempertahankan progresmu.'));
+                } else if (!dataResponse.threshold_per_tryout) {
+                    nextUnlock.textContent = @json(__('Tryout akan terbuka otomatis begitu tersedia.'));
+                } else {
+                    nextUnlock.innerHTML = @json(__('Selesaikan <span class="font-semibold text-gray-800">:count</span> soal lagi untuk membuka tryout berikutnya.')).replace(':count', dataResponse.next_unlock_remaining);
+                }
+            }
+        })
+        .catch(error => {
+            console.error(error);
+        });
+    };
+
+    if (questionType === 'multiple_choice' || questionType === 'true_false') {
+        form.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', handleSubmit);
+        });
+    } else if (questionType === 'matching') {
+        form.querySelectorAll('.matching-select').forEach(select => {
+            select.addEventListener('change', debounce(handleSubmit));
+        });
+    } else if (questionType === 'essay' || questionType === 'short_answer') {
+        const textarea = form.querySelector('textarea[name="answer_text"]');
+        if (textarea) {
+            textarea.addEventListener('input', debounce(handleSubmit));
+        }
+    } else if (questionType === 'audio') {
+        const fileInput = form.querySelector('input[type="file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleSubmit);
+        }
+    }
+
     if (initialFeedback) {
         renderFeedback(initialFeedback);
     }
-
-    setupCalculator();
-    setupPracticeFlagging();
-});
+}
 
 function setupCalculator() {
     const modal = document.getElementById('calculatorModal');
@@ -576,15 +700,16 @@ function setupCalculator() {
     });
 }
 
-function setupPracticeFlagging() {
-    const flagButton = document.getElementById('practiceFlagButton');
+function setupPracticeFlagging(questionId) {
+    const root = getPracticeRoot();
+    const flagButton = root ? root.querySelector('#practiceFlagButton') : null;
     if (!flagButton) {
         return;
     }
 
     const flagIcon = flagButton.querySelector('i');
     const flagText = flagButton.querySelector('.flag-text');
-    const navCurrent = document.querySelector(`.practice-nav-grid a[data-question-id="${PRACTICE_CURRENT_QUESTION_ID}"]`);
+    const navCurrent = root?.querySelector(`.practice-nav-grid a[data-question-id="${questionId}"]`);
     let state = flagButton.dataset.flagged === 'true';
 
     const updateNavBadge = (flagged) => {
@@ -627,7 +752,7 @@ function setupPracticeFlagging() {
                 'X-CSRF-TOKEN': PRACTICE_FLAG_TOKEN,
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ question_id: PRACTICE_CURRENT_QUESTION_ID }),
+            body: JSON.stringify({ question_id: questionId }),
         })
             .then(response => response.json())
             .then(data => {
