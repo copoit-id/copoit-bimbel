@@ -224,6 +224,21 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::put('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/{role}/permissions', [\App\Http\Controllers\superadmin\RoleController::class, 'updatePermissions'])->name('roles.permissions');
+
+    // Plan Master Data Routes (CRUD Plan templates)
+    Route::get('/plans', [\App\Http\Controllers\superadmin\PlanController::class, 'index'])->name('plans.index');
+    Route::get('/plans/create', [\App\Http\Controllers\superadmin\PlanController::class, 'create'])->name('plans.create');
+    Route::post('/plans', [\App\Http\Controllers\superadmin\PlanController::class, 'store'])->name('plans.store');
+    Route::get('/plans/{plan}/edit', [\App\Http\Controllers\superadmin\PlanController::class, 'edit'])->name('plans.edit');
+    Route::put('/plans/{plan}', [\App\Http\Controllers\superadmin\PlanController::class, 'update'])->name('plans.update');
+    Route::delete('/plans/{plan}', [\App\Http\Controllers\superadmin\PlanController::class, 'destroy'])->name('plans.destroy');
+
+    // Plan Management Routes (Current project plan)
+    Route::get('/plan-management', [\App\Http\Controllers\superadmin\PlanManagementController::class, 'index'])->name('plan-management.index');
+    Route::get('/plan-management/change', [\App\Http\Controllers\superadmin\PlanManagementController::class, 'changeForm'])->name('plan-management.change');
+    Route::post('/plan-management/assign', [\App\Http\Controllers\superadmin\PlanManagementController::class, 'assign'])->name('plan-management.assign');
+    Route::put('/plan-management/subscriptions/{subscription}', [\App\Http\Controllers\superadmin\PlanManagementController::class, 'updateSubscription'])->name('plan-management.subscriptions.update');
+    Route::post('/plan-management/reset-essay', [\App\Http\Controllers\superadmin\PlanManagementController::class, 'resetEssayCounter'])->name('plan-management.reset-essay');
 });
 
 // Admin Routes (add auth middleware)

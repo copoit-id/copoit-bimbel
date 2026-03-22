@@ -30,6 +30,20 @@
                     <span class="ms-3">Role & Akses</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('super-admin.plans.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.plans.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-vip-crown-line text-[20px]"></i>
+                    <span class="ms-3">Manajemen Plan</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('super-admin.plan-management.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.plan-management.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-dashboard-3-line text-[20px]"></i>
+                    <span class="ms-3">Plan & Quota</span>
+                </a>
+            </li>
         </ul>
     </div>
 </aside>

@@ -8,12 +8,47 @@
             <h2 class="text-2xl font-bold">Manajemen Paket</h2>
             <p class="text-gray-500">Kelola paket bimbel dan tryout</p>
         </div>
-        <a href="{{ route('admin.package.create') }}"
-            class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
-            <i class="ri-add-line"></i>
-            Tambah Paket
-        </a>
+        
+        {{-- Button dengan Cek Plan Quota --}}
+        {{-- Tooltip position 'bottom' karena button di atas halaman --}}
+        <x-plan-quota-button 
+            feature="package"
+            href="{{ route('admin.package.create') }}"
+            icon="ri-add-line"
+            label="Tambah Paket"
+            variant="primary"
+            size="md"
+            tooltipPosition="bottom" />
     </div>
+
+    {{-- Alert Quota Status --}}
+    @php
+        $packageQuota = $planQuota['package'] ?? \App\Services\PlanQuotaService::canCreatePackage();
+    @endphp
+    
+    @if(!$packageQuota['allowed'])
+        <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-information-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota Plan Terpenuhi</p>
+                    <p>{{ $packageQuota['reason'] }} Silakan hubungi administrator untuk upgrade plan.</p>
+                </div>
+            </div>
+        </div>
+    @elseif($packageQuota['limit'] > 0 && $packageQuota['current'] >= $packageQuota['limit'] - 2)
+        {{-- Warning jika hampir penuh --}}
+        <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-alert-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota Hampir Penuh</p>
+                    <p>Anda telah menggunakan {{ $packageQuota['current'] }} dari {{ $packageQuota['limit'] }} paket. Segera upgrade plan untuk menambah lebih banyak paket.</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Package List -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach ($packages as $package)

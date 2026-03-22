@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PackageRequest;
 use App\Services\PackageService;
+use App\Services\PlanQuotaService;
 use App\Models\ClassModel;
 use App\Models\Package;
 use App\Models\Question;
@@ -26,6 +27,14 @@ class PackageController extends Controller
 
     public function create()
     {
+        // Cek quota package - backend validation
+        $quotaCheck = PlanQuotaService::canCreatePackage();
+        
+        if (!$quotaCheck['allowed']) {
+            return redirect()->route('admin.package.index')
+                ->with('error', $quotaCheck['reason']);
+        }
+
         $classes = ClassModel::all();
         return view('admin.pages.package.create', compact('classes'));
     }
@@ -33,6 +42,14 @@ class PackageController extends Controller
     public function store(Request $request)
     {
         try {
+            // Cek quota package - backend validation (hindari bypass HTML)
+            $quotaCheck = PlanQuotaService::canCreatePackage();
+            
+            if (!$quotaCheck['allowed']) {
+                return redirect()->route('admin.package.index')
+                    ->with('error', $quotaCheck['reason']);
+            }
+
             $allowVideoThumbnail = config('client.branding.allow_video_thumbnail', false);
 
             $validationRules = [

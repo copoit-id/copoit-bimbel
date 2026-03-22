@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Management - Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    
+    <!-- HEADER -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <h1 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-crown text-yellow-500 mr-2"></i>
+                Super Admin - Plan Management
+            </h1>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        
+        <!-- ==================== HALAMAN 1: LIST PLANS ==================== -->
+        <div class="mb-12">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-800">📦 Manajemen Plan</h2>
+                    <p class="text-sm text-gray-500">Kelola paket langganan untuk client</p>
+                </div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-plus mr-2"></i>Buat Plan Baru
+                </button>
+            </div>
+
+            <!-- Plan Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                <!-- TRIAL PLAN -->
+                <div class="bg-white rounded-xl shadow-sm border-2 border-purple-300 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-purple-500 text-white text-xs px-3 py-1 rounded-bl-lg">
+                        DEFAULT TRIAL
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-gift text-purple-600 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="font-bold text-gray-800">Trial</h3>
+                                <p class="text-xs text-gray-500">14 Hari</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <span class="text-2xl font-bold text-gray-800">GRATIS</span>
+                        </div>
+
+                        <ul class="space-y-2 text-sm mb-6">
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                2 Package
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                20 Users
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                3 Bank Soal
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                100 Essay/bln
+                            </li>
+                        </ul>
+
+                        <div class="flex gap-2">
+                            <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button class="flex-1 bg-purple-50 text-purple-600 py-2 rounded-lg text-sm cursor-not-allowed">
+                                <i class="fas fa-check mr-1"></i>Aktif
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BASIC PLAN -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-box text-blue-600 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="font-bold text-gray-800">Basic</h3>
+                                <p class="text-xs text-gray-500">Starter</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <span class="text-2xl font-bold text-gray-800">Rp 0</span>
+                            <span class="text-gray-500">/bulan</span>
+                        </div>
+
+                        <ul class="space-y-2 text-sm mb-6">
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                3 Package
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                50 Users
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                5 Bank Soal
+                            </li>
+                            <li class="flex items-center text-gray-400">
+                                <i class="fas fa-times text-red-400 mr-2"></i>
+                                Essay AI (Disabled)
+                            </li>
+                        </ul>
+
+                        <div class="flex gap-2">
+                            <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg text-sm">
+                                <i class="fas fa-trash mr-1"></i>Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PRO PLAN -->
+                <div class="bg-white rounded-xl shadow-md border-2 border-blue-400 relative">
+                    <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs px-3 py-1 rounded-bl-lg">
+                        POPULER
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-rocket text-blue-600 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="font-bold text-gray-800">Pro</h3>
+                                <p class="text-xs text-gray-500">Recommended</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <span class="text-2xl font-bold text-gray-800">Rp 299K</span>
+                            <span class="text-gray-500">/bulan</span>
+                        </div>
+
+                        <ul class="space-y-2 text-sm mb-6">
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                10 Package
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                500 Users
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                20 Bank Soal
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                1,000 Essay/bln
+                            </li>
+                        </ul>
+
+                        <div class="flex gap-2">
+                            <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg text-sm">
+                                <i class="fas fa-trash mr-1"></i>Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ENTERPRISE PLAN -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-crown text-yellow-600 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="font-bold text-gray-800">Enterprise</h3>
+                                <p class="text-xs text-gray-500">Unlimited</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <span class="text-2xl font-bold text-gray-800">Rp 999K</span>
+                            <span class="text-gray-500">/bulan</span>
+                        </div>
+
+                        <ul class="space-y-2 text-sm mb-6">
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Unlimited Package
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Unlimited Users
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Unlimited Bank Soal
+                            </li>
+                            <li class="flex items-center text-gray-600">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                10,000 Essay/bln
+                            </li>
+                        </ul>
+
+                        <div class="flex gap-2">
+                            <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg text-sm">
+                                <i class="fas fa-trash mr-1"></i>Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== HALAMAN 2: CREATE/EDIT PLAN ==================== -->
+        <div class="mb-12">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-800">
+                        <i class="fas fa-plus-circle text-blue-500 mr-2"></i>
+                        Buat Plan Baru / Edit Plan
+                    </h2>
+                </div>
+                
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        <!-- Kolom Kiri: Informasi Dasar -->
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-700 mb-4 uppercase tracking-wide">
+                                    Informasi Plan
+                                </h3>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            Nama Plan <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" placeholder="Contoh: Pro, Enterprise, dll" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            Deskripsi
+                                        </label>
+                                        <textarea rows="3" placeholder="Deskripsi singkat tentang plan ini..."
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                Harga (Rp)
+                                            </label>
+                                            <input type="number" placeholder="299000" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                Durasi (Hari)
+                                            </label>
+                                            <input type="number" placeholder="30" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <p class="text-xs text-gray-500 mt-1">0 = Lifetime</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex gap-4">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" class="w-4 h-4 text-blue-600 rounded">
+                                            <span class="ml-2 text-sm text-gray-700">Plan Trial</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" class="w-4 h-4 text-blue-600 rounded">
+                                            <span class="ml-2 text-sm text-gray-700">Default untuk Client Baru</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Kolom Kanan: Limits & Features -->
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-700 mb-4 uppercase tracking-wide">
+                                    Batasan & Limit
+                                </h3>
+                                
+                                <div class="space-y-4 bg-gray-50 p-4 rounded-lg">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                <i class="fas fa-box text-blue-500 mr-1"></i>
+                                                Max Package
+                                            </label>
+                                            <input type="number" placeholder="10" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <p class="text-xs text-gray-500 mt-1">-1 = Unlimited</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                <i class="fas fa-users text-green-500 mr-1"></i>
+                                                Max Users
+                                            </label>
+                                            <input type="number" placeholder="500" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <p class="text-xs text-gray-500 mt-1">-1 = Unlimited</p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            <i class="fas fa-database text-purple-500 mr-1"></i>
+                                            Max Bank Soal
+                                        </label>
+                                        <input type="number" placeholder="20" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-700 mb-4 uppercase tracking-wide">
+                                    Essay AI Feature
+                                </h3>
+                                
+                                <div class="bg-blue-50 p-4 rounded-lg space-y-4">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" checked class="w-4 h-4 text-blue-600 rounded">
+                                        <span class="ml-2 text-sm font-medium text-gray-700">Enable Essay AI</span>
+                                    </label>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            Limit Essay per Bulan
+                                        </label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="number" placeholder="1000" 
+                                                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <span class="text-sm text-gray-500 whitespace-nowrap">essay</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">0 = Unlimited, kosong = Feature disabled</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
+                        <button class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                            Batal
+                        </button>
+                        <button class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                            <i class="fas fa-save mr-2"></i>Simpan Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== HALAMAN 3: ASSIGN PLAN KE CLIENT ==================== -->
+        <div class="mb-12">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-800">
+                        <i class="fas fa-user-tag text-green-500 mr-2"></i>
+                        Assign Plan ke Client
+                    </h2>
+                </div>
+                
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        
+                        <!-- Info Client -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-building text-blue-600 text-2xl"></i>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h3 class="font-bold text-gray-800">Bimbel Maju Jaya</h3>
+                                        <p class="text-sm text-gray-500">bimbelmaju@email.com</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Client ID:</span>
+                                        <span class="font-mono">#CLT-001</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Bergabung:</span>
+                                        <span>15 Jan 2025</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">Status:</span>
+                                        <span class="text-green-600 font-medium">Aktif</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Assign -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Pilih Plan <span class="text-red-500">*</span>
+                                    </label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option>-- Pilih Plan --</option>
+                                        <option value="trial">🎁 Trial (14 hari)</option>
+                                        <option value="basic">📦 Basic (Gratis)</option>
+                                        <option value="pro" selected>🚀 Pro (Rp 299K/bulan)</option>
+                                        <option value="enterprise">👑 Enterprise (Rp 999K/bulan)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Status Subscription
+                                    </label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        <option value="active">Aktif</option>
+                                        <option value="trial">Trial</option>
+                                        <option value="suspended">Suspended</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Mulai Berlaku
+                                    </label>
+                                    <input type="datetime-local" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Berakhir (Opsional)
+                                    </label>
+                                    <input type="datetime-local" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-xs text-gray-500 mt-1">Kosongkan untuk lifetime</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Catatan (Internal)
+                                </label>
+                                <textarea rows="2" placeholder="Catatan untuk super admin..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+
+                            <!-- Preview Limit Plan yang Dipilih -->
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <h4 class="font-medium text-blue-800 mb-3">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Detail Plan: Pro
+                                </h4>
+                                <div class="grid grid-cols-4 gap-4 text-center">
+                                    <div class="bg-white rounded-lg p-3">
+                                        <div class="text-2xl font-bold text-blue-600">10</div>
+                                        <div class="text-xs text-gray-500">Package</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3">
+                                        <div class="text-2xl font-bold text-green-600">500</div>
+                                        <div class="text-xs text-gray-500">Users</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3">
+                                        <div class="text-2xl font-bold text-purple-600">20</div>
+                                        <div class="text-xs text-gray-500">Bank Soal</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3">
+                                        <div class="text-2xl font-bold text-orange-600">1K</div>
+                                        <div class="text-xs text-gray-500">Essay/mo</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                            Batal
+                        </button>
+                        <button class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+                            <i class="fas fa-check mr-2"></i>Assign Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== HALAMAN 4: MONITORING USAGE CLIENT ==================== -->
+        <div class="mb-12">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-gray-800">
+                        <i class="fas fa-chart-pie text-purple-500 mr-2"></i>
+                        Monitoring Usage - Bimbel Maju Jaya
+                    </h2>
+                    <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                        Plan: Pro (Aktif)
+                    </span>
+                </div>
+                
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        
+                        <!-- Package Usage -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="text-sm text-gray-500">Package</div>
+                                <i class="fas fa-box text-blue-500"></i>
+                            </div>
+                            <div class="text-2xl font-bold text-gray-800">3 <span class="text-sm text-gray-500">/ 10</span></div>
+                            <div class="mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: 30%"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">30% terpakai</div>
+                            </div>
+                        </div>
+
+                        <!-- Users Usage -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="text-sm text-gray-500">Users</div>
+                                <i class="fas fa-users text-green-500"></i>
+                            </div>
+                            <div class="text-2xl font-bold text-gray-800">127 <span class="text-sm text-gray-500">/ 500</span></div>
+                            <div class="mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 25%"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">25% terpakai</div>
+                            </div>
+                        </div>
+
+                        <!-- Question Bank Usage -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="text-sm text-gray-500">Bank Soal</div>
+                                <i class="fas fa-database text-purple-500"></i>
+                            </div>
+                            <div class="text-2xl font-bold text-gray-800">8 <span class="text-sm text-gray-500">/ 20</span></div>
+                            <div class="mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-purple-500 h-2 rounded-full" style="width: 40%"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">40% terpakai</div>
+                            </div>
+                        </div>
+
+                        <!-- Essay AI Usage -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="text-sm text-gray-500">Essay AI (Bulan Ini)</div>
+                                <i class="fas fa-robot text-orange-500"></i>
+                            </div>
+                            <div class="text-2xl font-bold text-gray-800">234 <span class="text-sm text-gray-500">/ 1,000</span></div>
+                            <div class="mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-orange-500 h-2 rounded-full" style="width: 23%"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">23% terpakai • Reset 1 Apr</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Riwayat Subscription -->
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-700 mb-4">Riwayat Subscription</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-gray-600 font-medium">Plan</th>
+                                        <th class="px-4 py-3 text-left text-gray-600 font-medium">Status</th>
+                                        <th class="px-4 py-3 text-left text-gray-600 font-medium">Mulai</th>
+                                        <th class="px-4 py-3 text-left text-gray-600 font-medium">Berakhir</th>
+                                        <th class="px-4 py-3 text-left text-gray-600 font-medium">Assigned By</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <tr>
+                                        <td class="px-4 py-3 font-medium">🚀 Pro</td>
+                                        <td class="px-4 py-3"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Aktif</span></td>
+                                        <td class="px-4 py-3 text-gray-600">1 Feb 2025</td>
+                                        <td class="px-4 py-3 text-gray-600">1 Mar 2025</td>
+                                        <td class="px-4 py-3 text-gray-600">Super Admin</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3 font-medium">🎁 Trial</td>
+                                        <td class="px-4 py-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">Expired</span></td>
+                                        <td class="px-4 py-3 text-gray-600">15 Jan 2025</td>
+                                        <td class="px-4 py-3 text-gray-600">29 Jan 2025</td>
+                                        <td class="px-4 py-3 text-gray-600">System</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== HALAMAN 5: CLIENT VIEW - UPGRADE PROMPT ==================== -->
+        <div class="mb-12">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Tampilan di Admin Client (Saat Limit/Feature Terbatas)</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Package Limit Tercapai -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-gray-800">📦 Manajemen Package</h3>
+                        <span class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">3/3 Package</span>
+                    </div>
+                    
+                    <button disabled class="w-full py-3 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed flex items-center justify-center">
+                        <i class="fas fa-lock mr-2"></i>
+                        Tambah Package Baru
+                    </button>
+                    
+                    <div class="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-triangle text-orange-500 mt-0.5 mr-2"></i>
+                            <div>
+                                <p class="text-sm text-orange-800 font-medium">Anda telah mencapai limit package</p>
+                                <p class="text-xs text-orange-600 mt-1">
+                                    Upgrade ke Plan Pro untuk menambah hingga 10 package.
+                                </p>
+                                <button class="mt-2 text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded">
+                                    Lihat Plan Upgrade
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Essay AI Disabled -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-gray-800">📝 Koreksi Essay</h3>
+                        <span class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded">Plan Basic</span>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <button disabled class="w-full py-3 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed flex items-center justify-center">
+                            <i class="fas fa-robot mr-2"></i>
+                            Koreksi dengan AI
+                            <i class="fas fa-lock ml-2"></i>
+                        </button>
+                        
+                        <button class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center">
+                            <i class="fas fa-user-check mr-2"></i>
+                            Koreksi Manual
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="flex items-start">
+                            <i class="fas fa-lightbulb text-blue-500 mt-0.5 mr-2"></i>
+                            <div>
+                                <p class="text-sm text-blue-800 font-medium">Fitur AI tersedia di Plan Pro</p>
+                                <p class="text-xs text-blue-600 mt-1">
+                                    Koreksi otomatis 1000 essay/bulan dengan AI.
+                                </p>
+                                <button class="mt-2 text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded">
+                                    Upgrade ke Pro
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== HALAMAN 6: LIST CLIENT DENGAN PLAN ==================== -->
+        <div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-800">
+                            <i class="fas fa-users-cog text-indigo-500 mr-2"></i>
+                            Daftar Client & Plan
+                        </h2>
+                        <div class="flex gap-2">
+                            <select class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
+                                <option>Semua Plan</option>
+                                <option>Trial</option>
+                                <option>Basic</option>
+                                <option>Pro</option>
+                                <option>Enterprise</option>
+                            </select>
+                            <input type="text" placeholder="Cari client..." 
+                                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Client</th>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Plan</th>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Status</th>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Package</th>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Users</th>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Berakhir</th>
+                                <th class="px-4 py-3 text-left text-gray-600 font-medium">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center">
+                                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                            <span class="text-xs font-bold text-blue-600">BM</span>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-800">Bimbel Maju Jaya</div>
+                                            <div class="text-xs text-gray-500">bimbelmaju@email.com</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Pro</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Aktif</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center">
+                                        <span class="text-gray-600">3/10</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5 ml-2">
+                                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: 30%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center">
+                                        <span class="text-gray-600">127/500</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5 ml-2">
+                                            <div class="bg-green-500 h-1.5 rounded-full" style="width: 25%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600">1 Mar 2025</td>
+                                <td class="px-4 py-3">
+                                    <button class="text-blue-600 hover:text-blue-800 mr-2" title="Edit Plan">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="text-green-600 hover:text-green-800" title="Lihat Usage">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center">
+                                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                                            <span class="text-xs font-bold text-purple-600">SB</span>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-800">Smart Brain Bimbel</div>
+                                            <div class="text-xs text-gray-500">smartbrain@email.com</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">Trial</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Trial</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center">
+                                        <span class="text-gray-600">1/2</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5 ml-2">
+                                            <div class="bg-purple-500 h-1.5 rounded-full" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center">
+                                        <span class="text-gray-600">8/20</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5 ml-2">
+                                            <div class="bg-green-500 h-1.5 rounded-full" style="width: 40%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600">5 hari lagi</td>
+                                <td class="px-4 py-3">
+                                    <button class="text-blue-600 hover:text-blue-800 mr-2" title="Edit Plan">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="text-green-600 hover:text-green-800" title="Lihat Usage">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="bg-white border-t mt-12">
+        <div class="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-gray-500">
+            Mockup UI Plan Management System • Generated for Review
+        </div>
+    </div>
+
+</body>
+</html>
