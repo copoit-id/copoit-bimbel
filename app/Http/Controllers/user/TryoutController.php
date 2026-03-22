@@ -16,6 +16,7 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
 use App\Models\QuestionOption;
+use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -2582,6 +2583,13 @@ class TryoutController extends Controller
         if ($evaluationMode !== 'auto' || empty($expectedAnswers)) {
             \Log::info("AI Correction: Skipping - mode={$evaluationMode}, has_answers=" . (empty($expectedAnswers) ? 'no' : 'yes'));
             return; // Hanya proses yang auto dan ada kunci jawaban
+        }
+        
+        // Cek quota Essay AI - backend validation
+        $quotaCheck = PlanQuotaService::canUseEssayAI();
+        if (!$quotaCheck['allowed']) {
+            \Log::info("AI Correction: Skipping - quota exceeded or feature disabled");
+            return; // Skip AI correction jika quota habis atau fitur tidak tersedia
         }
         
         try {

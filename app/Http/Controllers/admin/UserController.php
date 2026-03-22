@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,13 @@ class UserController extends Controller
 
     public function create()
     {
+        // Cek quota user - backend validation
+        $quotaCheck = PlanQuotaService::canRegisterUser();
+        if (!$quotaCheck['allowed']) {
+            return redirect()->route('admin.user.index')
+                ->with('error', $quotaCheck['reason']);
+        }
+
         $roleOptions = $this->getRoleOptions();
         return view('admin.pages.user.create', [
             'user' => null,
@@ -46,6 +54,13 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        // Cek quota user - backend validation (hindari bypass)
+        $quotaCheck = PlanQuotaService::canRegisterUser();
+        if (!$quotaCheck['allowed']) {
+            return redirect()->route('admin.user.index')
+                ->with('error', $quotaCheck['reason']);
+        }
+
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([

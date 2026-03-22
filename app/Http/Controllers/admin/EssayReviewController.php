@@ -8,6 +8,7 @@ use App\Models\EssayCorrectionJob;
 use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
+use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -704,6 +705,15 @@ class EssayReviewController extends Controller
                     'success' => false,
                     'message' => 'Hanya bisa retry job yang gagal'
                 ], 422);
+            }
+            
+            // Cek quota Essay AI - backend validation
+            $quotaCheck = PlanQuotaService::canUseEssayAI();
+            if (!$quotaCheck['allowed']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $quotaCheck['reason'] ?? 'Kuota Essay AI habis atau fitur tidak tersedia'
+                ], 403);
             }
             
             // Reset job status

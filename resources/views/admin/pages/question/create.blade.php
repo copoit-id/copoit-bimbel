@@ -53,10 +53,18 @@
                 implode("\n", $shortAnswerMeta['expected_answers']) : '');
                 $shortAnswerCaseSensitive = filter_var(old('short_answer_case_sensitive',
                 $shortAnswerMeta['case_sensitive'] ?? false), FILTER_VALIDATE_BOOLEAN);
+                
+                // Essay AI Quota Check
+                $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssayAI();
+                
                 $essayEvaluationMode = old(
                     'essay_evaluation_mode',
                     $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
                 );
+                // Force manual jika AI tidak tersedia
+                if (!$essayAI['allowed'] && $essayEvaluationMode === 'auto') {
+                    $essayEvaluationMode = 'manual';
+                }
                 
                 $essayScoringMode = old(
                     'essay_scoring_mode',
@@ -443,11 +451,22 @@
                         </div>
                         <div class="space-y-2" data-essay-scoring style="display:none;">
                             <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
+                            @if(!$essayAI['allowed'])
+                                <div class="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-2 rounded-lg text-sm">
+                                    <i class="ri-information-line mr-1"></i>
+                                    Essay AI tidak tersedia. Mode otomatis dinonaktifkan. 
+                                    Silakan upgrade paket atau hubungi admin untuk mengaktifkan fitur ini.
+                                </div>
+                            @endif
                             <div class="flex flex-wrap gap-4">
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <label class="inline-flex items-center gap-2 text-sm {{ $essayAI['allowed'] ? 'text-gray-700' : 'text-gray-400 cursor-not-allowed' }}">
                                     <input type="radio" name="essay_evaluation_mode" value="auto" {{ $essayEvaluationMode === 'auto' ? 'checked' : '' }}
-                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                        {{ !$essayAI['allowed'] ? 'disabled' : '' }}
+                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary disabled:opacity-50">
                                     Otomatis (berdasarkan jawaban referensi)
+                                    @if(!$essayAI['allowed'])
+                                        <i class="ri-lock-line text-gray-400 ml-1" title="{{ $essayAI['reason'] ?? 'Essay AI tidak tersedia' }}"></i>
+                                    @endif
                                 </label>
                                 <label class="inline-flex items-center gap-2 text-sm text-gray-700">
                                     <input type="radio" name="essay_evaluation_mode" value="manual" {{ $essayEvaluationMode !== 'auto' ? 'checked' : '' }}

@@ -1,6 +1,11 @@
 @extends('admin.layout.admin')
 @section('title', 'Tambah Soal Bank')
 @section('content')
+
+@php
+$essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssayAI();
+@endphp
+
 <div class="space-y-6">
     <div class="flex justify-between items-center">
         <x-breadcrumb>
@@ -280,14 +285,31 @@
                     </div>
                     <div class="space-y-2">
                         <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
+                        @if(!$essayAI['enabled'])
+                            <div class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                                <i class="ri-information-line mr-1"></i>
+                                Essay AI tidak tersedia di plan Anda. Koreksi otomatis tidak bisa digunakan.
+                                Silakan upgrade paket atau hubungi admin untuk mengaktifkan fitur ini.
+                            </div>
+                        @elseif(!$essayAI['allowed'])
+                            <div class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                                <i class="ri-information-line mr-1"></i>
+                                Kuota Essay AI habis. Koreksi otomatis tidak bisa digunakan.
+                                Silakan upgrade paket atau hubungi admin untuk menambah kuota.
+                            </div>
+                        @endif
                         <div class="flex flex-wrap gap-4">
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <label class="inline-flex items-center gap-2 text-sm {{ $essayAI['allowed'] ? 'text-gray-700' : 'text-gray-400 cursor-not-allowed' }}">
                                 <input type="radio" name="essay_scoring_mode" value="auto" @checked(old('essay_scoring_mode') === 'auto')
-                                    class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                    class="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                    {{ !$essayAI['allowed'] ? 'disabled' : '' }}>
                                 Otomatis (berdasarkan jawaban referensi)
+                                @if(!$essayAI['allowed'])
+                                    <i class="ri-lock-line text-gray-400" title="{{ $essayAI['reason'] ?? 'Fitur tidak tersedia' }}"></i>
+                                @endif
                             </label>
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input type="radio" name="essay_scoring_mode" value="manual" @checked(old('essay_scoring_mode', 'manual') !== 'auto')
+                                <input type="radio" name="essay_scoring_mode" value="manual" @checked(old('essay_scoring_mode', 'manual') !== 'auto' || !$essayAI['allowed'])
                                     class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                 Manual (belum dikoreksi)
                             </label>

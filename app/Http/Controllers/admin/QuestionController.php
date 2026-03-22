@@ -8,6 +8,7 @@ use App\Models\QuestionOption;
 use App\Models\TryoutDetail;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
+use App\Services\PlanQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
@@ -667,6 +668,16 @@ class QuestionController extends Controller
         ];
 
         $request->validate($rules);
+
+        // Cek Essay AI quota jika mode auto dipilih
+        if ($request->input('essay_evaluation_mode') === 'auto') {
+            $quotaCheck = PlanQuotaService::canUseEssayAI();
+            if (!$quotaCheck['allowed']) {
+                throw ValidationException::withMessages([
+                    'essay_evaluation_mode' => 'Essay AI tidak tersedia: ' . $quotaCheck['reason']
+                ]);
+            }
+        }
     }
 
     private function buildShortAnswerMetadata(Request $request, string $questionType): array
@@ -688,6 +699,14 @@ class QuestionController extends Controller
         $evaluationMode = $questionType === 'essay'
             ? $request->input('essay_evaluation_mode', 'manual')
             : 'auto';
+
+        // Force manual jika Essay AI tidak tersedia
+        if ($evaluationMode === 'auto') {
+            $quotaCheck = PlanQuotaService::canUseEssayAI();
+            if (!$quotaCheck['allowed']) {
+                $evaluationMode = 'manual';
+            }
+        }
 
         if (!in_array($evaluationMode, ['auto', 'manual'], true)) {
             $evaluationMode = 'manual';

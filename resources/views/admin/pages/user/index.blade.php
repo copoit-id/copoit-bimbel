@@ -14,11 +14,15 @@
                 <i class="ri-upload-line"></i>
                 Import CSV
             </a>
-            <a href="{{ route('admin.user.create') }}"
-                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                <i class="ri-add-line"></i>
-                Tambah User
-            </a>
+            {{-- Button dengan Cek Plan Quota --}}
+            <x-plan-quota-button 
+                feature="user"
+                href="{{ route('admin.user.create') }}"
+                icon="ri-add-line"
+                label="Tambah User"
+                variant="primary"
+                size="md"
+                tooltipPosition="bottom" />
         </div>
     </div>
 
@@ -34,6 +38,34 @@
         <i class="ri-error-warning-line text-lg"></i>
         <span>{{ session('error') }}</span>
     </div>
+    @endif
+
+    {{-- Alert Quota Status --}}
+    @php
+        $userQuota = $planQuota['user'] ?? \App\Services\PlanQuotaService::canRegisterUser();
+    @endphp
+    
+    @if(!$userQuota['allowed'])
+        <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-information-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota User Terpenuhi</p>
+                    <p>{{ $userQuota['reason'] }} Silakan hubungi administrator untuk upgrade plan.</p>
+                </div>
+            </div>
+        </div>
+    @elseif($userQuota['limit'] > 0 && $userQuota['current'] >= $userQuota['limit'] - 5)
+        {{-- Warning jika hampir penuh (5 user tersisa) --}}
+        <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-alert-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota User Hampir Penuh</p>
+                    <p>Anda telah menggunakan {{ $userQuota['current'] }} dari {{ $userQuota['limit'] }} user. Segera upgrade plan untuk menambah lebih banyak user.</p>
+                </div>
+            </div>
+        </div>
     @endif
 
     <form id="bulk-delete-form" action="{{ route('admin.user.bulk-destroy') }}" method="POST" class="hidden">

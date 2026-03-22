@@ -9,6 +9,7 @@ use App\Models\QuestionBankQuestion;
 use App\Models\QuestionBankQuestionOption;
 use App\Models\QuestionOption;
 use App\Models\TryoutDetail;
+use App\Services\PlanQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -93,6 +94,13 @@ class QuestionBankController extends Controller
 
     public function createQuestionForm(Request $request, QuestionBank $questionBank)
     {
+        // Cek quota question bank - backend validation
+        $quotaCheck = PlanQuotaService::canCreateQuestionBank();
+        if (!$quotaCheck['allowed']) {
+            return redirect()->route('admin.question-bank.show', $questionBank)
+                ->with('error', $quotaCheck['reason']);
+        }
+
         $importTarget = $request->integer('import_for');
         $matchingPairs = old('matching_pairs', [
             ['left' => '', 'right' => ''],
@@ -135,6 +143,13 @@ class QuestionBankController extends Controller
 
     public function storeQuestion(Request $request, QuestionBank $questionBank)
     {
+        // Cek quota question bank - backend validation (hindari bypass)
+        $quotaCheck = PlanQuotaService::canCreateQuestionBank();
+        if (!$quotaCheck['allowed']) {
+            return redirect()->route('admin.question-bank.show', $questionBank)
+                ->with('error', $quotaCheck['reason']);
+        }
+
         $questionType = $request->input('question_type', 'multiple_choice');
         $importTarget = $request->integer('import_for');
 
@@ -514,6 +529,17 @@ class QuestionBankController extends Controller
             'short_answer_case_sensitive' => ['nullable', 'boolean'],
             'essay_scoring_mode' => ['nullable', 'in:auto,manual'],
         ]);
+        
+        // Cek Essay AI quota jika mode otomatis dipilih
+        $scoringMode = $request->input('essay_scoring_mode');
+        if ($scoringMode === 'auto') {
+            $quotaCheck = PlanQuotaService::canUseEssayAI();
+            if (!$quotaCheck['allowed']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'essay_scoring_mode' => $quotaCheck['reason'] ?? 'Essay AI tidak tersedia atau kuota habis.'
+                ]);
+            }
+        }
     }
 
     private function validateAudio(Request $request): void

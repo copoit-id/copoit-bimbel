@@ -26,18 +26,82 @@
                 </span>
             @endif
         </a>
-        <a href="{{ route('admin.essay-review.index', ['tab' => 'automatic']) }}"
-            class="inline-flex items-center px-1 py-4 text-sm font-medium border-b-2 transition-colors {{ $tab === 'automatic' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-            <i class="ri-robot-line mr-2"></i>
-            Koreksi Otomatis (AI)
-            @if(isset($stats) && $stats['total_processing'] > 0)
-                <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
-                    {{ $stats['total_processing'] }}
-                </span>
-            @endif
-        </a>
+        
+        {{-- Essay AI Tab dengan Quota Check --}}
+        @php
+            $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssayAI();
+        @endphp
+        
+        @if($essayAI['enabled'])
+            <a href="{{ route('admin.essay-review.index', ['tab' => 'automatic']) }}"
+                class="inline-flex items-center px-1 py-4 text-sm font-medium border-b-2 transition-colors {{ $tab === 'automatic' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                <i class="ri-robot-line mr-2"></i>
+                Koreksi Otomatis (AI)
+                @if(isset($stats) && $stats['total_processing'] > 0)
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                        {{ $stats['total_processing'] }}
+                    </span>
+                @endif
+            </a>
+        @else
+            {{-- Tab AI Disabled dengan Tooltip --}}
+            <div class="relative group inline-flex">
+                <button type="button" disabled
+                    class="inline-flex items-center px-1 py-4 text-sm font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed">
+                    <i class="ri-lock-line mr-2"></i>
+                    Koreksi Otomatis (AI)
+                </button>
+                {{-- Tooltip --}}
+                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-72 z-50">
+                    <div class="bg-gray-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="ri-information-line text-orange-400"></i>
+                            <p class="font-medium">Fitur Tidak Tersedia</p>
+                        </div>
+                        <p class="text-gray-300">Essay AI tidak tersedia di plan Anda. Upgrade ke Plan Pro atau Enterprise untuk mengaktifkan fitur ini.</p>
+                        {{-- Arrow --}}
+                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                </div>
+            </div>
+        @endif
     </nav>
 </div>
+
+{{-- Alert Essay AI Status --}}
+@if($tab === 'automatic')
+    @if(!$essayAI['enabled'])
+        <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 mb-6">
+            <div class="flex items-center gap-2">
+                <i class="ri-lock-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Essay AI Tidak Tersedia</p>
+                    <p>Fitur koreksi essay otomatis tidak tersedia di plan Anda. Silakan hubungi administrator untuk upgrade plan.</p>
+                </div>
+            </div>
+        </div>
+    @elseif(!$essayAI['allowed'])
+        <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 mb-6">
+            <div class="flex items-center gap-2">
+                <i class="ri-information-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota Essay AI Habis</p>
+                    <p>{{ $essayAI['reason'] }}</p>
+                </div>
+            </div>
+        </div>
+    @elseif($essayAI['limit'] > 0 && $essayAI['current'] >= $essayAI['limit'] - 100)
+        <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700 mb-6">
+            <div class="flex items-center gap-2">
+                <i class="ri-alert-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota Essay AI Hampir Habis</p>
+                    <p>Anda telah menggunakan {{ $essayAI['current'] }} dari {{ $essayAI['limit'] }} essay. Segera upgrade plan untuk menambah kuota.</p>
+                </div>
+            </div>
+        </div>
+    @endif
+@endif
 
 @if($tab === 'manual')
     {{-- TAB MANUAL --}}

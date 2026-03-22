@@ -25,7 +25,14 @@
 
 @php
 // Get quota data from shared view or calculate fresh
-$quotaData = $planQuota[$feature] ?? \App\Services\PlanQuotaService::{'canCreate' . str_replace(['_', 'bank'], ['', 'Bank'], ucfirst($feature))}();
+$featureMethod = match($feature) {
+    'package' => 'canCreatePackage',
+    'user' => 'canRegisterUser',
+    'question_bank' => 'canCreateQuestionBank',
+    'essay_ai' => 'canUseEssayAI',
+    default => 'canCreatePackage',
+};
+$quotaData = $planQuota[$feature] ?? \App\Services\PlanQuotaService::{$featureMethod}();
 $isAllowed = $quotaData['allowed'] ?? false;
 $current = $quotaData['current'] ?? 0;
 $limit = $quotaData['limit'] ?? 0;

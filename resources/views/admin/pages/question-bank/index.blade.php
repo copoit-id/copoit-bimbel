@@ -7,11 +7,15 @@
             <h1 class="text-2xl font-bold text-gray-900">Bank Soal</h1>
             <p class="text-gray-500">Atur koleksi soal dan sub bank untuk mempermudah penyusunan tryout.</p>
         </div>
-        <button id="openCreateBank"
-            class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary/90">
-            <i class="ri-add-circle-line text-lg"></i>
-            Tambah Bank
-        </button>
+        {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
+        <x-plan-quota-button 
+            feature="question_bank"
+            href="#"
+            icon="ri-add-circle-line"
+            label="Tambah Bank"
+            variant="primary"
+            size="md"
+            tooltipPosition="bottom" />
     </div>
 
     @if (session('success'))
@@ -24,6 +28,34 @@
     <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
         {{ session('error') }}
     </div>
+    @endif
+
+    {{-- Alert Quota Status --}}
+    @php
+        $bankQuota = $planQuota['question_bank'] ?? \App\Services\PlanQuotaService::canCreateQuestionBank();
+    @endphp
+    
+    @if(!$bankQuota['allowed'])
+        <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-information-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota Soal Terpenuhi</p>
+                    <p>{{ $bankQuota['reason'] }} Silakan hubungi administrator untuk upgrade plan.</p>
+                </div>
+            </div>
+        </div>
+    @elseif($bankQuota['limit'] > 0 && $bankQuota['current'] >= $bankQuota['limit'] - 10)
+        {{-- Warning jika hampir penuh (10 soal tersisa) --}}
+        <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-alert-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota Soal Hampir Penuh</p>
+                    <p>Anda telah menggunakan {{ $bankQuota['current'] }} dari {{ $bankQuota['limit'] }} soal. Segera upgrade plan untuk menambah lebih banyak soal.</p>
+                </div>
+            </div>
+        </div>
     @endif
 
     @if ($tryoutDetail)
