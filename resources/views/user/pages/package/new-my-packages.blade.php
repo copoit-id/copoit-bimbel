@@ -5,6 +5,7 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$user = auth()->user();
 @endphp
 
 <!-- Header -->
@@ -24,7 +25,39 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     @foreach($activePackages as $access)
     @php
     $package = $access->package;
-    $progress = rand(20, 80); // TODO: Calculate actual progress
+    
+    // Load materials and tryouts with counts
+    $package->loadCount(['materials', 'tryouts']);
+    $materials = $package->materials;
+    $tryouts = $package->tryouts;
+    $totalItems = $materials->count() + $tryouts->count();
+    
+    // Calculate actual progress
+    $completedCount = 0;
+    
+    // Check completed materials
+    foreach ($materials as $material) {
+        $progress = \App\Models\MaterialProgressLog::where('user_id', $user->id)
+            ->where('material_id', $material->material_id)
+            ->where('is_completed', true)
+            ->first();
+        if ($progress) {
+            $completedCount++;
+        }
+    }
+    
+    // Check completed tryouts
+    foreach ($tryouts as $tryout) {
+        $attempt = \App\Models\UserAnswer::where('user_id', $user->id)
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('status', 'completed')
+            ->first();
+        if ($attempt) {
+            $completedCount++;
+        }
+    }
+    
+    $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
     @endphp
     <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
         <div class="flex items-start justify-between mb-4">
@@ -41,17 +74,18 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <div class="mb-4">
             <div class="flex items-center justify-between text-sm mb-2">
                 <span class="text-gray-500">Progress Belajar</span>
-                <span class="font-semibold" style="color: {{ $primaryColor }}">{{ $progress }}%</span>
+                <span class="font-semibold" style="color: {{ $primaryColor }}">{{ $progressPercent }}%</span>
             </div>
             <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all" style="width: {{ $progress }}%; background-color: {{ $primaryColor }}"></div>
+                <div class="h-full rounded-full transition-all" style="width: {{ $progressPercent }}%; background-color: {{ $primaryColor }}"></div>
             </div>
+            <p class="text-xs text-gray-400 mt-1">{{ $completedCount }}/{{ $totalItems }} selesai</p>
         </div>
         
         <!-- Meta info -->
         <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
             <span><i class="ri-calendar-line mr-1"></i>{{ $access->end_date ? $access->end_date->format('d M Y') : 'Lifetime' }}</span>
-            <span><i class="ri-book-open-line mr-1"></i>{{ $package->materials->count() }} Materi</span>
+            <span><i class="ri-book-open-line mr-1"></i>{{ $totalItems }} Item</span>
         </div>
         
         <!-- Actions -->
@@ -65,8 +99,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 @else
 <div class="text-center py-16">
-    <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <i class="ri-package-line text-4xl text-gray-400"></i>
+    <div class="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style="background-color: {{ $primaryColor }}10">
+        <i class="ri-package-line text-4xl" style="color: {{ $primaryColor }}"></i>
     </div>
     <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada paket aktif</h3>
     <p class="text-gray-400 text-sm mb-6">Yuk, pilih paket belajar yang sesuai dengan kebutuhanmu!</p>

@@ -21,20 +21,26 @@ class EventController extends Controller
     {
         $package = Package::where('package_id', $package_id)
             ->where('status', 'active')
-            ->where('type_price', 'free_unconditional')
+            ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
             ->firstOrFail();
 
-        // Check if user already joined
+        // Check if user already has active access (including not expired)
         $existing = UserPackageAcces::where('user_id', Auth::id())
             ->where('package_id', $package_id)
             ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
             ->first();
 
         if ($existing) {
+            // User already has active access, redirect to roadmap
             return response()->json([
-                'success' => false,
-                'message' => 'Anda sudah terdaftar di event ini'
-            ], 400);
+                'success' => true,
+                'message' => 'Anda sudah memiliki akses ke paket ini',
+                'redirect_url' => route('user.package.show', $package_id)
+            ]);
         }
 
         // Give free access - same as free package in PackageController
@@ -59,7 +65,8 @@ class EventController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Berhasil mengambil paket gratis! Anda akan diarahkan ke halaman paket pembelian.'
+            'message' => 'Berhasil mengambil paket gratis!',
+            'redirect_url' => route('user.package.show', $package_id)
         ]);
     }
 

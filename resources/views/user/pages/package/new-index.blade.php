@@ -36,7 +36,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     @forelse($packages as $package)
     @php
-    $isOwned = in_array($package->package_id, $userOwnedPackageIds);
+    $isOwned = in_array((int) $package->package_id, $userOwnedPackageIds);
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group">
         <!-- Package Image/Header -->
@@ -86,17 +86,23 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     <i class="ri-play-circle-line mr-2"></i>Mulai Belajar
                 </a>
                 @elseif($tab === 'free')
-                <button onclick="claimFreePackage({{ $package->package_id }})" 
-                        class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
-                        style="background-color: {{ $primaryColor }}">
-                    <i class="ri-gift-line mr-2"></i>Klaim Paket
-                </button>
+                <form action="{{ route('user.event.join', $package->package_id) }}" method="POST" class="claim-form">
+                    @csrf
+                    <button type="submit" 
+                            class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        <i class="ri-gift-line mr-2"></i>Klaim Paket
+                    </button>
+                </form>
                 @else
-                <button onclick="showPaymentModal({{ $package->package_id }})" 
-                        class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
-                        style="background-color: {{ $primaryColor }}">
-                    <i class="ri-shopping-cart-line mr-2"></i>Beli Paket
-                </button>
+                <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form">
+                    @csrf
+                    <button type="submit" 
+                            class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        <i class="ri-shopping-cart-line mr-2"></i>Beli Paket
+                    </button>
+                </form>
                 @endif
             @else
             <a href="{{ route('login') }}" 
@@ -116,6 +122,14 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <p class="text-gray-400 text-sm">Paket {{ $tab === 'paid' ? 'berbayar' : 'gratis' }} akan segera tersedia.</p>
     </div>
     @endforelse
+</div>
+
+<!-- Loading Modal -->
+<div id="loadingModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center backdrop-blur-sm">
+    <div class="bg-white px-6 py-5 rounded-2xl shadow-xl flex items-center gap-3">
+        <div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-transparent" style="border-top-color: {{ $primaryColor }}"></div>
+        <p class="text-sm font-medium text-gray-700">Memproses...</p>
+    </div>
 </div>
 
 @if(session('success'))
@@ -141,4 +155,77 @@ setTimeout(() => {
 }, 3000);
 </script>
 @endif
+@endsection
+
+@section('scripts')
+<script>
+$(document).ready(function() {
+    // Handle claim form
+    $('.claim-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const btn = form.find('button');
+        const originalText = btn.html();
+        
+        btn.prop('disabled', true).html('<i class="ri-loader-4-line animate-spin mr-2"></i>Memproses...');
+        $('#loadingModal').removeClass('hidden').addClass('flex');
+        
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                $('#loadingModal').addClass('hidden').removeClass('flex');
+                if (response.success) {
+                    // Redirect ke roadmap paket
+                    window.location.href = response.redirect_url || '{{ route("user.package.my") }}';
+                } else {
+                    btn.prop('disabled', false).html(originalText);
+                    alert(response.message || 'Terjadi kesalahan');
+                }
+            },
+            error: function(xhr) {
+                $('#loadingModal').addClass('hidden').removeClass('flex');
+                btn.prop('disabled', false).html(originalText);
+                const msg = xhr.responseJSON?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+                alert(msg);
+            }
+        });
+    });
+    
+    // Handle buy form
+    $('.buy-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const btn = form.find('button');
+        const originalText = btn.html();
+        
+        btn.prop('disabled', true).html('<i class="ri-loader-4-line animate-spin mr-2"></i>Memproses...');
+        $('#loadingModal').removeClass('hidden').addClass('flex');
+        
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                $('#loadingModal').addClass('hidden').removeClass('flex');
+                if (response.redirect_url) {
+                    window.location.href = response.redirect_url;
+                } else if (response.success) {
+                    window.location.href = '{{ route("user.package.riwayatPembelian") }}';
+                } else {
+                    btn.prop('disabled', false).html(originalText);
+                    alert(response.message || 'Terjadi kesalahan');
+                }
+            },
+            error: function(xhr) {
+                $('#loadingModal').addClass('hidden').removeClass('flex');
+                btn.prop('disabled', false).html(originalText);
+                const msg = xhr.responseJSON?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+                alert(msg);
+            }
+        });
+    });
+});
+</script>
 @endsection

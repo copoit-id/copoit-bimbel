@@ -24,6 +24,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    @yield('styles')
     @php
     $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     @endphp

@@ -7,6 +7,8 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
+use App\Models\MaterialProgressLog;
+use App\Models\UserAnswer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +23,7 @@ class PackageController extends Controller
     {
         $tab = $request->get('tab', 'paid'); // paid or free
         
-        // Get user's owned package IDs
+        // Get user's owned package IDs (cast to int for consistent comparison)
         $userOwnedPackageIds = [];
         if (Auth::check()) {
             $userOwnedPackageIds = UserPackageAcces::where('user_id', Auth::id())
@@ -31,6 +33,7 @@ class PackageController extends Controller
                         ->orWhere('end_date', '>', Carbon::now());
                 })
                 ->pluck('package_id')
+                ->map(fn($id) => (int) $id)
                 ->toArray();
         }
         
@@ -1819,7 +1822,88 @@ class PackageController extends Controller
                 ->with('error', 'Anda tidak memiliki akses ke paket ini.');
         }
         
-        return view('user.pages.package.roadmap', compact('package'));
+        // Prepare roadmap items with status
+        $roadmapItems = collect();
+        $completedCount = 0;
+        $orderCounter = 1;
+        
+        // Process materials first (sorted by pivot order)
+        $sortedMaterials = $package->materials->sortBy(function($material) {
+            return $material->pivot->order_number ?? 0;
+        });
+        
+        foreach ($sortedMaterials as $material) {
+            $progress = MaterialProgressLog::where('user_id', $user->id)
+                ->where('material_id', $material->material_id)
+                ->first();
+            $isCompleted = $progress && $progress->is_completed;
+            $isInProgress = $progress && !$progress->is_completed;
+            $itemProgress = $progress ? ($progress->progress_percent ?? 0) : 0;
+            
+            if ($isCompleted) {
+                $completedCount++;
+            }
+            
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'material',
+                'title' => $material->title,
+                'subtitle' => $material->category?->name ?? 'Materi Belajar',
+                'icon' => $material->type === 'video' ? 'ri-video-line' : ($material->type === 'document' ? 'ri-file-text-line' : 'ri-live-line'),
+                'route' => route('user.material.show', $material->material_id),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => $isInProgress,
+                'progress_percent' => $itemProgress,
+                'status_text' => $isCompleted ? 'Selesai' : ($isInProgress ? 'Berlangsung' : 'Mulai'),
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+            
+            $orderCounter++;
+        }
+        
+        // Process tryouts (append at the end)
+        foreach ($package->tryouts as $tryout) {
+            $attempt = UserAnswer::where('user_id', $user->id)
+                ->where('tryout_id', $tryout->tryout_id)
+                ->where('status', 'completed')
+                ->first();
+            $isCompleted = $attempt !== null;
+            
+            if ($isCompleted) {
+                $completedCount++;
+            }
+            
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'tryout',
+                'title' => $tryout->name,
+                'subtitle' => 'Tryout Latihan',
+                'icon' => 'ri-file-list-3-line',
+                'route' => route('user.tryout.lobby', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => false,
+                'progress_percent' => 0,
+                'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+            
+            $orderCounter++;
+        }
+        
+        $totalItems = $roadmapItems->count();
+        $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
+        
+        // Find next item to start
+        $nextItem = $roadmapItems->first(fn($item) => !$item['is_completed']) ?? $roadmapItems->first();
+        
+        return view('user.pages.package.roadmap', compact(
+            'package',
+            'roadmapItems',
+            'completedCount',
+            'totalItems',
+            'progressPercent',
+            'nextItem'
+        ));
     }
 
     /**
