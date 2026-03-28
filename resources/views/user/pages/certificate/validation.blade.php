@@ -1,4 +1,4 @@
-@extends('user.layout.user')
+@extends('user.layout.new-user')
 @section('title', 'Validasi Sertifikat')
 
 @section('content')

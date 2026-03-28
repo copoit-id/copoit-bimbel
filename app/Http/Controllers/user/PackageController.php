@@ -17,49 +17,38 @@ use App\Services\ActivityLogger;
 
 class PackageController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $kelasPackages = Package::where('type_package', 'bimbel')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount([
-                'userAccess' => function ($query) {
-                    $query->where('user_id', Auth::id())
-                        ->where('status', 'active')
-                        ->where('end_date', '>', Carbon::now());
-                }
-            ])
-            ->get();
-
-        $tryoutPackages = Package::where('type_package', 'tryout')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount([
-                'userAccess' => function ($query) {
-                    $query->where('user_id', Auth::id())
-                        ->where('status', 'active')
-                        ->where('end_date', '>', Carbon::now());
-                }
-            ])
-            ->get();
-
-        $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount([
-                'userAccess' => function ($query) {
-                    $query->where('user_id', Auth::id())
-                        ->where('status', 'active')
-                        ->where('end_date', '>', Carbon::now());
-                }
-            ])
-            ->get();
-
-        return view('user.pages.package.index', compact(
-            'kelasPackages',
-            'tryoutPackages',
-            'sertifikasiPackages'
-        ));
+        $tab = $request->get('tab', 'paid'); // paid or free
+        
+        // Get user's owned package IDs
+        $userOwnedPackageIds = [];
+        if (Auth::check()) {
+            $userOwnedPackageIds = UserPackageAcces::where('user_id', Auth::id())
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->pluck('package_id')
+                ->toArray();
+        }
+        
+        if ($tab === 'free') {
+            // Free packages (gratis)
+            $packages = Package::where('status', 'active')
+                ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
+                ->withCount(['materials', 'tryouts'])
+                ->get();
+        } else {
+            // Paid packages (berbayar)
+            $packages = Package::where('status', 'active')
+                ->where('type_price', 'paid')
+                ->withCount(['materials', 'tryouts'])
+                ->get();
+        }
+        
+        return view('user.pages.package.new-index', compact('packages', 'tab', 'userOwnedPackageIds'));
     }
 
     public function buyPackage(Request $request, $package_id)
@@ -1786,5 +1775,83 @@ class PackageController extends Controller
             default:
                 return ucfirst($type);
         }
+    }
+
+    /**
+     * Display user's active packages with step by step view
+     */
+    public function myPackages()
+    {
+        $user = Auth::user();
+        
+        $activePackages = UserPackageAcces::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->with('package')
+            ->get();
+        
+        return view('user.pages.package.new-my-packages', compact('activePackages'));
+    }
+    
+    /**
+     * Show package roadmap (new gamified view)
+     */
+    public function showPackage($packageId)
+    {
+        $user = Auth::user();
+        $package = Package::with(['materials', 'tryouts'])->findOrFail($packageId);
+        
+        // Check access
+        $hasAccess = UserPackageAcces::where('user_id', $user->id)
+            ->where('package_id', $packageId)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->exists();
+        
+        if (!$hasAccess) {
+            return redirect()->route('user.package.my')
+                ->with('error', 'Anda tidak memiliki akses ke paket ini.');
+        }
+        
+        return view('user.pages.package.roadmap', compact('package'));
+    }
+
+    /**
+     * List all tryouts accessible by user (standalone view)
+     */
+    public function listTryout()
+    {
+        $user = Auth::user();
+        
+        // Get packages that user has access to
+        $accessiblePackageIds = $user->userPackageAccess()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->pluck('package_id')
+            ->toArray();
+        
+        // Get all tryouts from accessible packages
+        $tryouts = \App\Models\Tryout::whereHas('packages', function ($query) use ($accessiblePackageIds) {
+            $query->whereIn('packages.package_id', $accessiblePackageIds);
+        })
+        ->orWhereHas('detailPackages', function ($query) use ($accessiblePackageIds) {
+            $query->whereIn('detail_packages.package_id', $accessiblePackageIds);
+        })
+        ->with(['tryoutDetails', 'userAnswers' => function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        }])
+        ->where('is_active', true)
+        ->get();
+        
+        return view('user.pages.tryout.new-list', compact('tryouts'));
     }
 }

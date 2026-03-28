@@ -1,86 +1,72 @@
-@extends('user.layout.user')
-@section('title', 'Event')
+@extends('user.layout.new-user')
+
+@section('title', 'Bantuan')
+
 @section('content')
-<div class="help">
-    <x-page-desc title="Bantuan" description="Pertanyaan yang sering diajukan"></x-page-desc>
-    <div class="grid md:grid-cols-2 mt-6">
-        @forelse($faqs as $faq)
-        @php $modalId = 'faq-modal-' . $loop->index; @endphp
-        <div class="bg-white px-4 py-2 border border-gray-900/10 flex justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <i class="ri-question-line text-2xl"></i>
-                <p>{{ $faq->question }}</p>
-            </div>
-            <button data-modal-target="{{ $modalId }}" data-modal-toggle="{{ $modalId }}"
-                class="bg-primary px-2 rounded-lg text-white">
-                <i class="ri-eye-line"></i>
-            </button>
-        </div>
-        @empty
-        <div class="col-span-2 bg-white px-4 py-6 border border-gray-900/10 text-center text-gray-500">
-            Belum ada FAQ yang tersedia.
-        </div>
-        @endforelse
+@php
+$primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+@endphp
+
+<!-- Header -->
+<div class="flex items-center gap-4 mb-6">
+    <a href="{{ route('user.dashboard.index') }}" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <i class="ri-arrow-left-line text-xl text-gray-600"></i>
+    </a>
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Bantuan</h1>
+        <p class="text-gray-500 text-sm">Pertanyaan yang sering diajukan</p>
     </div>
 </div>
 
-@foreach($faqs as $faq)
-@php $modalId = 'faq-modal-' . $loop->index; @endphp
-<div id="{{ $modalId }}" data-modal-backdrop="static" tabindex="-1" aria-hidden="true"
-    class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
-    <div class="relative p-4 w-full max-w-2xl max-h-full">
-        <div class="relative bg-white rounded-lg shadow-sm ">
-            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t border-gray-200">
-                <h3 class="text-xl font-semibold text-gray-900">
-                    {{ $faq->question }}
-                </h3>
-                <button type="button"
-                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center"
-                    data-modal-hide="{{ $modalId }}">
-                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
-                        viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
-                    </svg>
-                    <span class="sr-only">Close modal</span>
-                </button>
-            </div>
-            <div class="p-4 md:p-5 space-y-4 max-h-72 overflow-y-auto">
-                <div class="text-base leading-relaxed text-gray-500">
-                    {!! $faq->answer !!}
+<!-- FAQ Grid -->
+<div class="grid gap-4">
+    @forelse($faqs as $faq)
+    <div x-data="{ open: false }" class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <button @click="open = !open" class="w-full p-5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
+                    <i class="ri-question-line text-xl"></i>
                 </div>
+                <span class="font-medium text-gray-800">{{ $faq->question }}</span>
             </div>
-            <div class="flex items-center justify-center w-full p-4 md:p-5 border-t border-gray-200 rounded-b">
-                <button data-modal-hide="{{ $modalId }}" type="button"
-                    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-                    Kembali</button>
+            <i class="ri-arrow-down-s-line text-xl text-gray-400 transition-transform" :class="{ 'rotate-180': open }"></i>
+        </button>
+        <div x-show="open" x-collapse class="border-t border-gray-100">
+            <div class="p-5 text-gray-600 leading-relaxed">
+                {!! $faq->answer !!}
             </div>
         </div>
     </div>
+    @empty
+    <div class="text-center py-16">
+        <div class="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style="background-color: {{ $primaryColor }}10">
+            <i class="ri-question-mark text-4xl" style="color: {{ $primaryColor }}"></i>
+        </div>
+        <h3 class="font-semibold text-gray-700 mb-1">Belum ada FAQ</h3>
+        <p class="text-gray-400 text-sm">Pertanyaan umum akan ditampilkan di sini.</p>
+    </div>
+    @endforelse
 </div>
-@endforeach
 
+<!-- Contact Card -->
+<div class="mt-8 bg-white rounded-2xl p-6 border border-gray-100">
+    <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
+            <i class="ri-customer-service-2-line text-xl"></i>
+        </div>
+        <div class="flex-1">
+            <h3 class="font-semibold text-gray-800">Masih butuh bantuan?</h3>
+            <p class="text-sm text-gray-500">Tim support kami siap membantu kamu.</p>
+        </div>
+        <a href="mailto:{{ $clientBranding['contact_email'] ?? 'support@example.com' }}" class="px-4 py-2 rounded-xl text-white font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+            Hubungi Kami
+        </a>
+    </div>
+</div>
 @endsection
+
 @section('scripts')
 <script>
-    console.log('Dashboard scripts loaded');
+    console.log('Help page loaded');
 </script>
-@endsection
-@section('styles')
-<style>
-    /* Ensure modal backdrop is above navbar */
-    [data-modal-backdrop] {
-        z-index: 60 !important;
-    }
-
-    /* Ensure modal content is above backdrop */
-    [data-modal-backdrop]>div {
-        z-index: 65 !important;
-    }
-
-    /* Ensure navbar stays below modal */
-    nav {
-        z-index: 40 !important;
-    }
-</style>
 @endsection

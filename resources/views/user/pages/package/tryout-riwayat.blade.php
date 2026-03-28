@@ -1,116 +1,76 @@
-@extends('user.layout.user')
-@section('title', 'Riwayat Tryout')
-@section('content')
-<div class="package-bimbel bg-white p-4 rounded-lg border border-border">
-    <x-page-desc title="Riwayat - {{ $tryout->name }}" description="Lihat riwayat pengerjaan tryout Anda"
-        name_link="Kembali ke Tryout" url_link="{{ route('user.package.tryout', $package->package_id) }}">
-    </x-page-desc>
+@extends('user.layout.new-user')
 
-    <div class="relative overflow-x-auto mt-4">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3 text-center">#</th>
-                    <th scope="col" class="px-6 py-3">Tanggal & Waktu</th>
-                    <th scope="col" class="px-6 py-3 text-center">Nilai</th>
-                    <th scope="col" class="px-6 py-3 text-center">Status</th>
-                    <th scope="col" class="px-6 py-3 text-center">Durasi Pengerjaan</th>
-                    @if ($tryout->type_tryout !== 'certification' || $tryout->is_toefl !== 1)
-                    <th scope="col" class="px-6 py-3 text-center">Action</th>
-                    @endif
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($attemptHistory as $index => $attempt)
-                <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
-                    <td class="px-6 py-4 text-center">{{ $index + 1 }}</td>
-                    <td class="px-6 py-4">
-                        <p class="font-semibold">{{
-                            \Carbon\Carbon::parse($attempt['created_at'])->locale('id')->translatedFormat('l, d F Y') }}
-                        </p>
-                        <p>Pukul {{ \Carbon\Carbon::parse($attempt['started_at'])->format('H:i') }} WIB</p>
-                    </td>
-                    <td class="px-6 py-4 text-center">{{ $attempt['score'] }}</td>
-                    <td class="px-6 py-4">
-                        <div class="flex justify-center">
-                            <span
-                                class="flex items-center gap-1 border {{ $attempt['is_passed'] ? 'border-green bg-green-light' : 'border-red bg-red-light' }} px-4 py-1 rounded-lg">
-                                <i
-                                    class="ri-checkbox-circle-fill {{ $attempt['is_passed'] ? 'text-green' : 'text-red' }} text-lg"></i>
-                                <span class="{{ $attempt['is_passed'] ? 'text-green' : 'text-red' }}">
-                                    {{ $attempt['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
-                                </span>
-                            </span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        {{ $attempt['duration'] }}
-                    </td>
-                    @if ($tryout->type_tryout !== 'certification' || $tryout->is_toefl !== 1)
-                    <td class="px-6 py-4">
-                        <div class="flex justify-center">
-                            <a href="{{ route('user.package.tryout.pembahasan', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id, 'token' => $attempt['attempt_token']]) }}"
-                                class="flex items-center gap-2 border border-primary px-4 py-1 rounded-md">
-                                <i class="ri-line-chart-line text-primary"></i>
-                                <span class="text-primary">Pembahasan</span>
-                            </a>
-                        </div>
-                    </td>
-                    @endif
-                </tr>
-                @empty
-                <tr class="bg-white border-b border-dashed border-gray-200">
-                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                        <div class="flex flex-col items-center gap-2">
-                            <i class="ri-file-list-line text-4xl text-gray-400"></i>
-                            <p>Belum ada riwayat tryout</p>
-                            <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
-                                class="mt-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                                Mulai Tryout
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
+@section('title', 'Riwayat Tryout - ' . $tryout->name)
+
+@section('content')
+@php
+$primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+@endphp
+
+<!-- Header -->
+<div class="flex items-center gap-4 mb-6">
+    <a href="{{ route('user.package.tryout.list') }}" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <i class="ri-arrow-left-line text-xl text-gray-600"></i>
+    </a>
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Riwayat Tryout</h1>
+        <p class="text-gray-500 text-sm">{{ $tryout->name }}</p>
     </div>
 </div>
-@endsection
 
-@section('styles')
-<style>
-    /* Color definitions to match other views */
-    .bg-green {
-        background-color: #059669;
-    }
-
-    .text-green {
-        color: #059669;
-    }
-
-    .border-green {
-        border-color: #059669;
-    }
-
-    .bg-green-light {
-        background-color: #d1fae5;
-    }
-
-    .text-red {
-        color: #dc2626;
-    }
-
-    .bg-red {
-        background-color: #dc2626;
-    }
-
-    .border-red {
-        border-color: #dc2626;
-    }
-
-    .bg-red-light {
-        background-color: #fee2e2;
-    }
-</style>
+@if(count($attemptHistory) > 0)
+<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div class="divide-y divide-gray-100">
+        @foreach($attemptHistory as $attempt)
+        <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
+                        <i class="ri-file-list-3-line"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-800">Percobaan {{ $loop->iteration }}</p>
+                        <p class="text-xs text-gray-400">{{ $attempt['created_at']->format('d M Y, H:i') }}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $attempt['score'] }}</p>
+                    <span class="text-xs {{ $attempt['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
+                        {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 mb-1">Benar</p>
+                    <p class="font-semibold text-green-600">{{ $attempt['correct_answers'] }}</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 mb-1">Salah</p>
+                    <p class="font-semibold text-red-600">{{ $attempt['wrong_answers'] }}</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 mb-1">Durasi</p>
+                    <p class="font-semibold text-gray-700">{{ $attempt['duration'] }}</p>
+                </div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+</div>
+@else
+<div class="text-center py-16">
+    <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="ri-file-list-3-line text-3xl text-gray-400"></i>
+    </div>
+    <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada riwayat</h3>
+    <p class="text-gray-400 text-sm mb-4">Kamu belum mengerjakan tryout ini.</p>
+    <a href="{{ route('user.tryout.lobby', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
+       class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" 
+       style="background-color: {{ $primaryColor }}">
+        <i class="ri-play-circle-line mr-2"></i>Kerjakan Tryout
+    </a>
+</div>
+@endif
 @endsection
