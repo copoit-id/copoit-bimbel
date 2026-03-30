@@ -35,7 +35,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('essay_correction_jobs', function (Blueprint $table) {
+            $table->dropForeign(['user_answer_id']);
+            $table->dropIndex(['user_answer_id', 'status']);
             $table->dropColumn([
+                'user_answer_id',
                 'ai_job_id',
                 'method',
                 'threshold',
