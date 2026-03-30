@@ -25,16 +25,27 @@
         $progress = rand(20, 80); // TODO: Calculate actual progress
         @endphp
         <a href="{{ route('user.package.show', $package->package_id) }}" class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden group">
-            <div class="p-6">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                        <i class="ri-package-line text-2xl text-primary"></i>
+            {{-- Package Image --}}
+            <div class="relative h-40 bg-gray-100 overflow-hidden">
+                @if($package->image && file_exists(public_path('storage/' . $package->image)))
+                    <img src="{{ asset('storage/' . $package->image) }}" 
+                         alt="{{ $package->name }}"
+                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="absolute inset-0 flex items-center justify-center bg-gray-100" style="display: none;">
+                        <i class="ri-image-line text-4xl text-gray-300"></i>
                     </div>
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Aktif
-                    </span>
-                </div>
-                
+                @else
+                    <div class="w-full h-full flex items-center justify-center bg-gray-100">
+                        <i class="ri-image-line text-4xl text-gray-300"></i>
+                    </div>
+                @endif
+                <span class="absolute top-3 right-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Aktif
+                </span>
+            </div>
+            
+            <div class="p-6">
                 <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">{{ $package->name }}</h3>
                 <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ $package->description ?: 'Tidak ada deskripsi' }}</p>
                 

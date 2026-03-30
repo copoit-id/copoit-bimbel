@@ -59,14 +59,26 @@ $user = auth()->user();
     
     $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
     @endphp
-    <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
-        <div class="flex items-start justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
-                <i class="ri-road-map-line text-xl"></i>
-            </div>
-            <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Aktif</span>
+    <div class="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
+        {{-- Package Image --}}
+        <div class="relative h-40 bg-gray-100 overflow-hidden">
+            @if($package->image && file_exists(public_path('storage/' . $package->image)))
+                <img src="{{ asset('storage/' . $package->image) }}" 
+                     alt="{{ $package->name }}"
+                     class="w-full h-full object-cover"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="absolute inset-0 flex items-center justify-center bg-gray-100" style="display: none;">
+                    <i class="ri-image-line text-4xl text-gray-300"></i>
+                </div>
+            @else
+                <div class="w-full h-full flex items-center justify-center bg-gray-100">
+                    <i class="ri-image-line text-4xl text-gray-300"></i>
+                </div>
+            @endif
+            <span class="absolute top-3 right-3 px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Aktif</span>
         </div>
         
+        <div class="p-5">
         <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
         <p class="text-sm text-gray-400 mb-4 line-clamp-2">{{ $package->description ?? 'Paket pembelajaran lengkap' }}</p>
         
@@ -94,6 +106,7 @@ $user = auth()->user();
            style="background-color: {{ $primaryColor }}">
             <i class="ri-play-circle-line mr-1"></i>Lanjutkan Belajar
         </a>
+        </div>
     </div>
     @endforeach
 </div>
