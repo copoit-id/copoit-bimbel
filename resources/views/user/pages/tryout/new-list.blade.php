@@ -11,8 +11,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 <div class="flex items-center justify-between mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-800">Tryout</h1>
-        <p class="text-gray-500 mt-1">Uji kemampuanmu dengan tryout berkualitas</p>
+        <p class="text-gray-500 mt-1">Jelajahi semua tryout yang tersedia</p>
     </div>
+    <a href="{{ route('user.package.my') }}?tab=tryouts" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
+        <i class="ri-file-list-3-line mr-1"></i>Tryout Saya
+    </a>
 </div>
 
 <!-- Stats Card -->
@@ -46,12 +49,16 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <i class="ri-file-list-3-line text-xl {{ $isCompleted ? 'text-green-600' : ($isInProgress ? 'text-yellow-600' : '') }}"
                    style="{{ !$isCompleted && !$isInProgress ? 'color: ' . $primaryColor : '' }}"></i>
             </div>
-            @if($isCompleted)
-            <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Selesai</span>
-            @elseif($isInProgress)
-            <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang dikerjakan</span>
+            @if($tryout->has_access)
+                @if($isCompleted)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Selesai</span>
+                @elseif($isInProgress)
+                <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang dikerjakan</span>
+                @else
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Aktif</span>
+                @endif
             @else
-            <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">Belum dikerjakan</span>
+                <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium"><i class="ri-lock-line mr-1"></i>TerKunci</span>
             @endif
         </div>
         
@@ -74,24 +81,42 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @endif
         </div>
         
-        @if($isCompleted)
-        <div class="flex items-center justify-between pt-4 border-t">
-            <div>
-                <p class="text-xs text-gray-400">Skor</p>
-                <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $userAnswer->score ?? '-' }}</p>
+        @if($tryout->has_access)
+            {{-- User has access --}}
+            @if($isCompleted)
+            <div class="flex items-center justify-between pt-4 border-t">
+                <div>
+                    <p class="text-xs text-gray-400">Skor</p>
+                    <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $userAnswer->score ?? '-' }}</p>
+                </div>
+                <a href="{{ route('user.tryout.result', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
+                   class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white"
+                   style="background-color: {{ $primaryColor }}">
+                    Lihat Hasil
+                </a>
             </div>
-            <a href="{{ route('user.tryout.result', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
-               class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white"
-               style="background-color: {{ $primaryColor }}">
-                Lihat Hasil
+            @else
+            <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
+               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
+               style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
+                {{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
             </a>
-        </div>
+            @endif
         @else
-        <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
-           class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
-           style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
-            {{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
-        </a>
+            {{-- User doesn't have access --}}
+            @if($tryout->access_via_package)
+            <a href="{{ route('user.package.my') }}?tab=packages" 
+               class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+               style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                <i class="ri-shopping-bag-line mr-1"></i>
+                Dapatkan Akses
+            </a>
+            @else
+            <button disabled class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
+                <i class="ri-lock-line mr-1"></i>
+                Tidak Tersedia
+            </button>
+            @endif
         @endif
     </div>
     @endforeach
@@ -102,10 +127,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <i class="ri-file-list-3-line text-4xl text-gray-400"></i>
     </div>
     <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada tryout</h3>
-    <p class="text-gray-400 text-sm mb-6">Kamu belum memiliki akses ke tryout apapun.</p>
-    <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
-        <i class="ri-store-3-line mr-2"></i>Lihat Paket
-    </a>
+    <p class="text-gray-400 text-sm mb-6">Tryout akan segera tersedia.</p>
 </div>
 @endif
 @endsection

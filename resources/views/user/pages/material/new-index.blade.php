@@ -19,8 +19,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 <div class="flex items-center justify-between mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-800">Materi Pembelajaran</h1>
-        <p class="text-gray-500 mt-1">Pilih materi yang ingin kamu pelajari</p>
+        <p class="text-gray-500 mt-1">Jelajahi semua materi yang tersedia</p>
     </div>
+    <a href="{{ route('user.package.my') }}?tab=materials" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
+        <i class="ri-book-marked-line mr-1"></i>Materi Saya
+    </a>
 </div>
 
 <!-- Filter Tabs -->
@@ -58,8 +61,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @if(isset($materials) && $materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($materials as $material)
-    <a href="{{ route('user.material.show', $material->material_id) }}" 
-       class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
+    <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
         <div class="flex items-start gap-4">
             <div class="w-14 h-14 {{ $material->type === 'video' ? 'bg-red-100 text-red-500' : ($material->type === 'document' ? 'bg-blue-100 text-blue-500' : 'bg-purple-100 text-purple-500') }} rounded-xl flex items-center justify-center flex-shrink-0">
                 <i class="{{ $material->type_icon }} text-2xl"></i>
@@ -71,7 +73,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
                     @endif
                 </div>
-                <h3 class="font-medium text-gray-800 text-sm line-clamp-2 group-hover:text-emerald-600 transition-colors" style="--tw-text-opacity: 1; color: {{ $primaryColor }};">{{ $material->title }}</h3>
+                <h3 class="font-medium text-gray-800 text-sm line-clamp-2">{{ $material->title }}</h3>
                 <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
             </div>
         </div>
@@ -80,25 +82,56 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         $userAccess = $material->userAccess->first();
         @endphp
         
-        <div class="mt-4 pt-3 border-t flex items-center justify-between">
-            @if($userAccess && $userAccess->is_completed)
-            <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
-                <i class="ri-check-line"></i>Selesai
-            </span>
-            @elseif($userAccess && $userAccess->is_in_progress)
-            <div class="flex items-center gap-2 flex-1">
-                <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full" style="width: {{ $userAccess->progress_percentage }}%; background-color: {{ $primaryColor }}"></div>
+        <div class="mt-4 pt-3 border-t">
+            @if($material->has_access)
+                {{-- User has access --}}
+                @if($userAccess && $userAccess->is_completed)
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
+                        <i class="ri-check-line"></i>Selesai
+                    </span>
                 </div>
-                <span class="text-xs text-gray-500">{{ $userAccess->progress_percentage }}%</span>
-            </div>
+                @elseif($userAccess && $userAccess->is_in_progress)
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full" style="width: {{ $userAccess->progress_percentage }}%; background-color: {{ $primaryColor }}"></div>
+                    </div>
+                    <span class="text-xs text-gray-500">{{ $userAccess->progress_percentage }}%</span>
+                </div>
+                @else
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs text-gray-400">Belum dimulai</span>
+                </div>
+                @endif
+                
+                <a href="{{ route('user.material.show', $material->material_id) }}" 
+                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $primaryColor }}">
+                    <i class="ri-play-circle-line mr-1"></i>
+                    {{ $userAccess && $userAccess->is_in_progress ? 'Lanjutkan Belajar' : 'Lihat Materi' }}
+                </a>
             @else
-            <span class="text-xs text-gray-400">Belum dimulai</span>
+                {{-- User doesn't have access --}}
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs text-gray-400"><i class="ri-lock-line mr-1"></i>Belum diakses</span>
+                </div>
+                
+                @if($material->access_via_package)
+                <a href="{{ route('user.package.my') }}?tab=packages" 
+                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                    <i class="ri-shopping-bag-line mr-1"></i>
+                    Dapatkan Akses
+                </a>
+                @else
+                <button disabled class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
+                    <i class="ri-lock-line mr-1"></i>
+                    Tidak Tersedia
+                </button>
+                @endif
             @endif
-            
-            <i class="ri-arrow-right-line text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" style="--tw-text-opacity: 1; color: {{ $primaryColor }};"></i>
         </div>
-    </a>
+    </div>
     @endforeach
 </div>
 
@@ -114,7 +147,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <i class="ri-book-open-line text-3xl text-gray-400"></i>
     </div>
     <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada materi</h3>
-    <p class="text-gray-400 text-sm">Materi akan muncul di sini setelah kamu memiliki akses.</p>
+    <p class="text-gray-400 text-sm">Materi pembelajaran akan segera tersedia.</p>
 </div>
 @endif
 @endsection

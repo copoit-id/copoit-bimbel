@@ -1907,7 +1907,7 @@ class PackageController extends Controller
     }
 
     /**
-     * List all tryouts accessible by user (standalone view)
+     * List all tryouts - tampilkan SEMUA dengan status akses user
      */
     public function listTryout()
     {
@@ -1923,19 +1923,20 @@ class PackageController extends Controller
             ->pluck('package_id')
             ->toArray();
         
-        // Get all tryouts from accessible packages
-        $tryouts = \App\Models\Tryout::whereHas('packages', function ($query) use ($accessiblePackageIds) {
-            $query->whereIn('packages.package_id', $accessiblePackageIds);
-        })
-        ->orWhereHas('detailPackages', function ($query) use ($accessiblePackageIds) {
-            $query->whereIn('detail_packages.package_id', $accessiblePackageIds);
-        })
-        ->with(['tryoutDetails', 'userAnswers' => function ($query) use ($user) {
+        // Get ALL active tryouts with their packages
+        $tryouts = \App\Models\Tryout::with(['tryoutDetails', 'packages', 'userAnswers' => function ($query) use ($user) {
             $query->where('user_id', $user->id);
         }])
         ->where('is_active', true)
         ->get();
         
-        return view('user.pages.tryout.new-list', compact('tryouts'));
+        // Mark each tryout with access status
+        foreach ($tryouts as $tryout) {
+            $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
+            $tryout->has_access = !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
+            $tryout->access_via_package = $tryout->packages->first();
+        }
+        
+        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds'));
     }
 }

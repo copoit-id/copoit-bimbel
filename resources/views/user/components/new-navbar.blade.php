@@ -16,6 +16,61 @@ function isActive($route, $current) {
 .nav-item-active i {
     color: {{ $primaryColor }} !important;
 }
+.dropdown-menu {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.5rem;
+    min-width: 200px;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+    border: 1px solid #e5e7eb;
+    z-index: 50;
+    padding: 0.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    transition-delay: 0.1s;
+}
+.group:hover .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition-delay: 0s;
+}
+/* Delay saat mouse leave - dropdown tetap terlihat selama 500ms */
+.group:not(:hover) .dropdown-menu {
+    transition-delay: 0.3s;
+}
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #4b5563;
+    transition: all 0.15s;
+}
+.dropdown-item:hover {
+    background-color: #f3f4f6;
+    color: {{ $primaryColor }};
+}
+.dropdown-item i {
+    margin-right: 0.625rem;
+    font-size: 1.1rem;
+    color: #9ca3af;
+}
+.dropdown-item:hover i {
+    color: {{ $primaryColor }};
+}
+.dropdown-divider {
+    height: 1px;
+    background-color: #e5e7eb;
+    margin: 0.375rem 0;
+}
 </style>
 
 <nav class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
@@ -43,20 +98,33 @@ function isActive($route, $current) {
                 </a>
                 
                 @if($user)
-                <a href="{{ route('user.material.index') }}" 
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.material', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-book-open-line mr-1.5 {{ isActive('user.material', $currentRoute) ? '' : 'text-gray-400' }}"></i>Materi
-                </a>
+                {{-- Materi with Dropdown --}}
+                <div class="relative group">
+                    <a href="{{ route('user.material.index') }}" 
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center {{ isActive('user.material', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <i class="ri-book-open-line mr-1.5 {{ isActive('user.material', $currentRoute) ? '' : 'text-gray-400' }}"></i>Materi
+                        <i class="ri-arrow-down-s-line ml-1 text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="{{ route('user.material.index') }}" class="dropdown-item {{ isActive('user.material.index', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-apps-line"></i>Semua Materi
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="{{ route('user.material.videos') }}" class="dropdown-item {{ isActive('user.material.videos', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-video-line"></i>Video
+                        </a>
+                        <a href="{{ route('user.material.documents') }}" class="dropdown-item {{ isActive('user.material.documents', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-file-text-line"></i>Dokumen
+                        </a>
+                        <a href="{{ route('user.material.live-sessions') }}" class="dropdown-item {{ isActive('user.material.live-sessions', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-live-line"></i>Live Session
+                        </a>
+                    </div>
+                </div>
                 
                 <a href="{{ route('user.package.tryout.list') }}" 
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
-                </a>
-                
-                {{-- Paket Saya (khusus user login) --}}
-                <a href="{{ route('user.package.my') }}" 
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.package.my', $currentRoute) || isActive('user.package.show', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-road-map-line mr-1.5 {{ isActive('user.package.my', $currentRoute) || isActive('user.package.show', $currentRoute) ? '' : 'text-gray-400' }}"></i>Paket Saya
                 </a>
                 @endif
                 
@@ -65,6 +133,32 @@ function isActive($route, $current) {
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $currentRoute === 'user.package.index' ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-store-3-line mr-1.5 {{ $currentRoute === 'user.package.index' ? '' : 'text-gray-400' }}"></i>Paket
                 </a>
+                
+                @if($user)
+                {{-- Paket Saya with Dropdown (paling kanan) --}}
+                <div class="relative group">
+                    <a href="{{ route('user.package.my') }}" 
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center {{ isActive('user.package.my', $currentRoute) || isActive('user.package.show', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <i class="ri-road-map-line mr-1.5 {{ isActive('user.package.my', $currentRoute) || isActive('user.package.show', $currentRoute) ? '' : 'text-gray-400' }}"></i>Paket Saya
+                        <i class="ri-arrow-down-s-line ml-1 text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="{{ route('user.package.my') }}?tab=packages" class="dropdown-item">
+                            <i class="ri-folder-3-line"></i>Daftar Paket
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="{{ route('user.package.my') }}?tab=videos" class="dropdown-item">
+                            <i class="ri-video-line"></i>Video Saya
+                        </a>
+                        <a href="{{ route('user.package.my') }}?tab=documents" class="dropdown-item">
+                            <i class="ri-file-text-line"></i>Dokumen Saya
+                        </a>
+                        <a href="{{ route('user.package.my') }}?tab=tryouts" class="dropdown-item">
+                            <i class="ri-file-list-3-line"></i>Tryout Saya
+                        </a>
+                    </div>
+                </div>
+                @endif
             </div>
             
             <!-- Right Side -->

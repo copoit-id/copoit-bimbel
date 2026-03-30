@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Auth;
 class MaterialController extends Controller
 {
     /**
-     * Halaman utama materi - menampilkan kategori & featured materials
+     * Halaman utama materi - menampilkan SEMUA materi dengan status akses user
      */
     public function index()
     {
@@ -28,18 +28,25 @@ class MaterialController extends Controller
             }])
             ->get();
         
-        // Get user's accessible materials
+        // Get user's accessible material IDs
         $accessibleMaterialIds = $this->getUserAccessibleMaterialIds($user);
         
-        // Featured/recent materials
-        $featuredMaterials = Material::active()
-            ->whereIn('material_id', $accessibleMaterialIds)
-            ->with('categories')
-            ->latest()
-            ->limit(6)
-            ->get();
+        // Get ALL active materials with user's access status
+        $materials = Material::active()
+            ->with(['categories', 'packages'])
+            ->with(['userAccess' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }])
+            ->ordered()
+            ->paginate(12);
         
-        // Get user's progress
+        // Mark each material with access status
+        foreach ($materials as $material) {
+            $material->has_access = in_array($material->material_id, $accessibleMaterialIds);
+            $material->access_via_package = $material->packages->first();
+        }
+        
+        // Get user's progress for owned materials
         $userProgress = UserMaterialAccess::byUser($user->id)
             ->with('material')
             ->latest()
@@ -55,14 +62,15 @@ class MaterialController extends Controller
         
         return view('user.pages.material.new-index', compact(
             'categories',
-            'featuredMaterials',
+            'materials',
             'userProgress',
-            'stats'
+            'stats',
+            'accessibleMaterialIds'
         ));
     }
     
     /**
-     * List video materials
+     * List video materials - tampilkan SEMUA dengan status akses
      */
     public function videos()
     {
@@ -71,18 +79,23 @@ class MaterialController extends Controller
         
         $materials = Material::active()
             ->byType('video')
-            ->whereIn('material_id', $accessibleMaterialIds)
-            ->with(['categories', 'userAccess' => function ($query) use ($user) {
+            ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             }])
             ->ordered()
             ->paginate(12);
         
-        return view('user.pages.material.new-videos', compact('materials'));
+        // Mark each material with access status
+        foreach ($materials as $material) {
+            $material->has_access = in_array($material->material_id, $accessibleMaterialIds);
+            $material->access_via_package = $material->packages->first();
+        }
+        
+        return view('user.pages.material.new-videos', compact('materials', 'accessibleMaterialIds'));
     }
     
     /**
-     * List document/PDF materials
+     * List document/PDF materials - tampilkan SEMUA dengan status akses
      */
     public function documents()
     {
@@ -91,18 +104,23 @@ class MaterialController extends Controller
         
         $materials = Material::active()
             ->byType('document')
-            ->whereIn('material_id', $accessibleMaterialIds)
-            ->with(['categories', 'userAccess' => function ($query) use ($user) {
+            ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             }])
             ->ordered()
             ->paginate(12);
         
-        return view('user.pages.material.new-documents', compact('materials'));
+        // Mark each material with access status
+        foreach ($materials as $material) {
+            $material->has_access = in_array($material->material_id, $accessibleMaterialIds);
+            $material->access_via_package = $material->packages->first();
+        }
+        
+        return view('user.pages.material.new-documents', compact('materials', 'accessibleMaterialIds'));
     }
     
     /**
-     * List live sessions
+     * List live sessions - tampilkan SEMUA dengan status akses
      */
     public function liveSessions()
     {
@@ -111,14 +129,19 @@ class MaterialController extends Controller
         
         $materials = Material::active()
             ->byType('live_session')
-            ->whereIn('material_id', $accessibleMaterialIds)
-            ->with(['categories', 'userAccess' => function ($query) use ($user) {
+            ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             }])
             ->ordered()
             ->paginate(12);
         
-        return view('user.pages.material.new-live-sessions', compact('materials'));
+        // Mark each material with access status
+        foreach ($materials as $material) {
+            $material->has_access = in_array($material->material_id, $accessibleMaterialIds);
+            $material->access_via_package = $material->packages->first();
+        }
+        
+        return view('user.pages.material.new-live-sessions', compact('materials', 'accessibleMaterialIds'));
     }
     
     /**
