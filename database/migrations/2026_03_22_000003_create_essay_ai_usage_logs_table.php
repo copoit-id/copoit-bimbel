@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::create('essay_ai_usage_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('client_profile_id')->constrained('client_profile')->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('essay_correction_job_id')->nullable()->constrained('essay_correction_jobs')->onDelete('set null');
             
@@ -20,7 +19,6 @@ return new class extends Migration
             $table->timestamps();
             
             // Indexes
-            $table->index(['client_profile_id', 'used_at']);
             $table->index('used_at');
         });
     }
