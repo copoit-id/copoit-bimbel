@@ -119,9 +119,16 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 // Route untuk logout as (admin kembali ke akun admin)
 Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
 
+// Public user routes (no auth required)
+Route::prefix('user')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('user.dashboard.index');
+    
+    // Public package listing (berbayar & gratis)
+    Route::get('/paket', [PackageController::class, 'index'])->name('user.package.index');
+});
+
 // User routes (add auth middleware)
 Route::prefix('user')->middleware('auth')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('user.dashboard.index');
 
     // Profile routes
     Route::get('/profile', [\App\Http\Controllers\user\ProfileController::class, 'index'])->name('user.profile.index');
@@ -129,7 +136,6 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::put('/profile/password', [\App\Http\Controllers\user\ProfileController::class, 'updatePassword'])->name('user.profile.password.update');
 
     Route::prefix('paket-pembelian')->group(function () {
-        Route::get('/', [PackageController::class, 'index'])->name('user.package.index');
         Route::post('/{package_id}/buy', [PackageController::class, 'buyPackage'])->name('user.package.buy');
         Route::get('/payment/success', [PackageController::class, 'paymentSuccess'])->name('user.package.payment.success');
         Route::get('/payment/failed', [PackageController::class, 'paymentFailed'])->name('user.package.payment.failed');
@@ -170,7 +176,6 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 
     Route::prefix('package')->group(function () {
-        Route::get('/', [PackageController::class, 'index'])->name('user.package.index');
         Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
         Route::get('/sertifikasi-list', [PackageController::class, 'listSertifikasi'])->name('user.package.sertifikasi.list');
         Route::post('/buy/{package_id}', [PackageController::class, 'buyPackage'])->name('user.package.buy');
@@ -182,6 +187,23 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/statistik', [PackageController::class, 'statistikTryout'])->name('user.package.tryout.statistik');
+    });
+
+    // My Packages (Step by Step)
+    Route::get('/paket-saya', [PackageController::class, 'myPackages'])->name('user.package.my');
+    Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])->name('user.package.show');
+
+    // Material Routes (Standalone)
+    Route::prefix('materi')->name('user.material.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\user\MaterialController::class, 'index'])->name('index');
+        Route::get('/video', [\App\Http\Controllers\user\MaterialController::class, 'videos'])->name('videos');
+        Route::get('/belajar', [\App\Http\Controllers\user\MaterialController::class, 'documents'])->name('documents');
+        Route::get('/live-session', [\App\Http\Controllers\user\MaterialController::class, 'liveSessions'])->name('live-sessions');
+        Route::get('/kategori/{category_id}', [\App\Http\Controllers\user\MaterialController::class, 'byCategory'])->name('category');
+        Route::get('/{material_id}', [\App\Http\Controllers\user\MaterialController::class, 'show'])->name('show');
+        Route::post('/{material_id}/start', [\App\Http\Controllers\user\MaterialController::class, 'start'])->name('start');
+        Route::post('/{material_id}/progress', [\App\Http\Controllers\user\MaterialController::class, 'updateProgress'])->name('progress');
+        Route::post('/{material_id}/complete', [\App\Http\Controllers\user\MaterialController::class, 'complete'])->name('complete');
     });
 
     // Certificate validation routes
@@ -332,6 +354,25 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
     Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
     Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
+
+    // Material Management Routes
+    Route::prefix('materi')->name('material.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\admin\MaterialManagementController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\admin\MaterialManagementController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\admin\MaterialManagementController::class, 'store'])->name('store');
+        Route::get('/{material}/edit', [\App\Http\Controllers\admin\MaterialManagementController::class, 'edit'])->name('edit');
+        Route::put('/{material}', [\App\Http\Controllers\admin\MaterialManagementController::class, 'update'])->name('update');
+        Route::delete('/{material}', [\App\Http\Controllers\admin\MaterialManagementController::class, 'destroy'])->name('destroy');
+        Route::post('/{material}/toggle', [\App\Http\Controllers\admin\MaterialManagementController::class, 'toggle'])->name('toggle');
+
+        // Material Categories
+        Route::prefix('kategori')->name('category.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'store'])->name('store');
+            Route::put('/{category}', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'update'])->name('update');
+            Route::delete('/{category}', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'destroy'])->name('destroy');
+        });
+    });
 
     Route::prefix('feedback')->name('feedback.')->group(function () {
         Route::get('/', [AdminFeedbackController::class, 'index'])->name('index');

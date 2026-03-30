@@ -90,6 +90,14 @@
                             </a>
                         </li>
                         @endif
+                        <li>
+                            <a href="{{ route('admin.material.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-book-open-line text-[20px] {{ request()->routeIs('admin.material.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Manajemen Materi</span>
+                            </a>
+                        </li>
                         @if($canFeatureView('question_bank'))
                         <li>
                             <a href="{{ route('admin.question-bank.index') }}"

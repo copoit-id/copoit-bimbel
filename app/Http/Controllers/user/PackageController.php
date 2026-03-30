@@ -7,6 +7,8 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
+use App\Models\MaterialProgressLog;
+use App\Models\UserAnswer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,49 +19,39 @@ use App\Services\ActivityLogger;
 
 class PackageController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $kelasPackages = Package::where('type_package', 'bimbel')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount([
-                'userAccess' => function ($query) {
-                    $query->where('user_id', Auth::id())
-                        ->where('status', 'active')
-                        ->where('end_date', '>', Carbon::now());
-                }
-            ])
-            ->get();
-
-        $tryoutPackages = Package::where('type_package', 'tryout')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount([
-                'userAccess' => function ($query) {
-                    $query->where('user_id', Auth::id())
-                        ->where('status', 'active')
-                        ->where('end_date', '>', Carbon::now());
-                }
-            ])
-            ->get();
-
-        $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount([
-                'userAccess' => function ($query) {
-                    $query->where('user_id', Auth::id())
-                        ->where('status', 'active')
-                        ->where('end_date', '>', Carbon::now());
-                }
-            ])
-            ->get();
-
-        return view('user.pages.package.index', compact(
-            'kelasPackages',
-            'tryoutPackages',
-            'sertifikasiPackages'
-        ));
+        $tab = $request->get('tab', 'paid'); // paid or free
+        
+        // Get user's owned package IDs (cast to int for consistent comparison)
+        $userOwnedPackageIds = [];
+        if (Auth::check()) {
+            $userOwnedPackageIds = UserPackageAcces::where('user_id', Auth::id())
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->pluck('package_id')
+                ->map(fn($id) => (int) $id)
+                ->toArray();
+        }
+        
+        if ($tab === 'free') {
+            // Free packages (gratis)
+            $packages = Package::where('status', 'active')
+                ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
+                ->withCount(['materials', 'tryouts'])
+                ->get();
+        } else {
+            // Paid packages (berbayar)
+            $packages = Package::where('status', 'active')
+                ->where('type_price', 'paid')
+                ->withCount(['materials', 'tryouts'])
+                ->get();
+        }
+        
+        return view('user.pages.package.new-index', compact('packages', 'tab', 'userOwnedPackageIds'));
     }
 
     public function buyPackage(Request $request, $package_id)
@@ -1786,5 +1778,164 @@ class PackageController extends Controller
             default:
                 return ucfirst($type);
         }
+    }
+
+    /**
+     * Display user's active packages with step by step view
+     */
+    public function myPackages()
+    {
+        $user = Auth::user();
+        
+        $activePackages = UserPackageAcces::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->with('package')
+            ->get();
+        
+        return view('user.pages.package.new-my-packages', compact('activePackages'));
+    }
+    
+    /**
+     * Show package roadmap (new gamified view)
+     */
+    public function showPackage($packageId)
+    {
+        $user = Auth::user();
+        $package = Package::with(['materials', 'tryouts'])->findOrFail($packageId);
+        
+        // Check access
+        $hasAccess = UserPackageAcces::where('user_id', $user->id)
+            ->where('package_id', $packageId)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->exists();
+        
+        if (!$hasAccess) {
+            return redirect()->route('user.package.my')
+                ->with('error', 'Anda tidak memiliki akses ke paket ini.');
+        }
+        
+        // Prepare roadmap items with status
+        $roadmapItems = collect();
+        $completedCount = 0;
+        $orderCounter = 1;
+        
+        // Process materials first (sorted by pivot order)
+        $sortedMaterials = $package->materials->sortBy(function($material) {
+            return $material->pivot->order_number ?? 0;
+        });
+        
+        foreach ($sortedMaterials as $material) {
+            $progress = MaterialProgressLog::where('user_id', $user->id)
+                ->where('material_id', $material->material_id)
+                ->first();
+            $isCompleted = $progress && $progress->is_completed;
+            $isInProgress = $progress && !$progress->is_completed;
+            $itemProgress = $progress ? ($progress->progress_percent ?? 0) : 0;
+            
+            if ($isCompleted) {
+                $completedCount++;
+            }
+            
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'material',
+                'title' => $material->title,
+                'subtitle' => $material->category?->name ?? 'Materi Belajar',
+                'icon' => $material->type === 'video' ? 'ri-video-line' : ($material->type === 'document' ? 'ri-file-text-line' : 'ri-live-line'),
+                'route' => route('user.material.show', $material->material_id),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => $isInProgress,
+                'progress_percent' => $itemProgress,
+                'status_text' => $isCompleted ? 'Selesai' : ($isInProgress ? 'Berlangsung' : 'Mulai'),
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+            
+            $orderCounter++;
+        }
+        
+        // Process tryouts (append at the end)
+        foreach ($package->tryouts as $tryout) {
+            $attempt = UserAnswer::where('user_id', $user->id)
+                ->where('tryout_id', $tryout->tryout_id)
+                ->where('status', 'completed')
+                ->first();
+            $isCompleted = $attempt !== null;
+            
+            if ($isCompleted) {
+                $completedCount++;
+            }
+            
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'tryout',
+                'title' => $tryout->name,
+                'subtitle' => 'Tryout Latihan',
+                'icon' => 'ri-file-list-3-line',
+                'route' => route('user.tryout.lobby', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => false,
+                'progress_percent' => 0,
+                'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+            
+            $orderCounter++;
+        }
+        
+        $totalItems = $roadmapItems->count();
+        $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
+        
+        // Find next item to start
+        $nextItem = $roadmapItems->first(fn($item) => !$item['is_completed']) ?? $roadmapItems->first();
+        
+        return view('user.pages.package.roadmap', compact(
+            'package',
+            'roadmapItems',
+            'completedCount',
+            'totalItems',
+            'progressPercent',
+            'nextItem'
+        ));
+    }
+
+    /**
+     * List all tryouts accessible by user (standalone view)
+     */
+    public function listTryout()
+    {
+        $user = Auth::user();
+        
+        // Get packages that user has access to
+        $accessiblePackageIds = $user->userPackageAccess()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->pluck('package_id')
+            ->toArray();
+        
+        // Get all tryouts from accessible packages
+        $tryouts = \App\Models\Tryout::whereHas('packages', function ($query) use ($accessiblePackageIds) {
+            $query->whereIn('packages.package_id', $accessiblePackageIds);
+        })
+        ->orWhereHas('detailPackages', function ($query) use ($accessiblePackageIds) {
+            $query->whereIn('detail_packages.package_id', $accessiblePackageIds);
+        })
+        ->with(['tryoutDetails', 'userAnswers' => function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        }])
+        ->where('is_active', true)
+        ->get();
+        
+        return view('user.pages.tryout.new-list', compact('tryouts'));
     }
 }

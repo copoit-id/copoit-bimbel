@@ -116,4 +116,35 @@ class Package extends Model
     {
         return $this->payments()->where('status', 'success')->sum('total_amount');
     }
+
+    // Materials relationships
+    public function materials()
+    {
+        return $this->belongsToMany(Material::class, 'package_materials', 'package_id', 'material_id')
+            ->withPivot(['section_name', 'order_number', 'is_required', 'unlock_condition'])
+            ->orderBy('package_materials.order_number');
+    }
+
+    public function packageMaterials()
+    {
+        return $this->hasMany(PackageMaterial::class, 'package_id', 'package_id');
+    }
+
+    // Polymorphic materials through detail_packages
+    public function materialsThroughDetail()
+    {
+        return $this->hasManyThrough(
+            Material::class,
+            DetailPackage::class,
+            'package_id',
+            'material_id',
+            'package_id',
+            'detailable_id'
+        )->where('detail_packages.detailable_type', Material::class);
+    }
+
+    public function getTotalMaterialsAttribute()
+    {
+        return $this->materials()->count();
+    }
 }

@@ -1,4 +1,4 @@
-x@extends('user.layout.new-user')
+@extends('user.layout.new-user')
 
 @section('title', $package->name . ' - Roadmap')
 

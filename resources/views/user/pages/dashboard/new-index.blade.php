@@ -1,0 +1,247 @@
+@extends('user.layout.new-user')
+
+@section('title', 'Dashboard')
+
+@section('content')
+@php
+$user = auth()->user();
+$primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$isGuest = !$user;
+
+// Calculate real stats for authenticated user
+if ($user) {
+    // Calculate real accuracy from user answers
+    $totalAnswered = \App\Models\UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
+        $q->where('user_id', $user->id);
+    })->count();
+    
+    $totalCorrect = \App\Models\UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
+        $q->where('user_id', $user->id);
+    })->where('is_correct', true)->count();
+    
+    $accuracyPercent = $totalAnswered > 0 ? round(($totalCorrect / $totalAnswered) * 100) : 0;
+    
+    // Get real recent tryout results (latest 3)
+    $recentTryouts = \App\Models\UserAnswer::where('user_id', $user->id)
+        ->where('status', 'completed')
+        ->with('tryout')
+        ->orderBy('created_at', 'desc')
+        ->take(3)
+        ->get();
+        
+    // Calculate real progress for each active package
+    $packageProgress = [];
+    foreach ($activePackages as $access) {
+        $pkg = $access->package;
+        $totalItems = $pkg->materials->count() + $pkg->tryouts->count();
+        $completedItems = 0;
+        
+        // Count completed materials
+        foreach ($pkg->materials as $material) {
+            $progress = \App\Models\MaterialProgressLog::where('user_id', $user->id)
+                ->where('material_id', $material->material_id)
+                ->where('is_completed', true)
+                ->first();
+            if ($progress) $completedItems++;
+        }
+        
+        // Count completed tryouts
+        foreach ($pkg->tryouts as $tryout) {
+            $attempt = \App\Models\UserAnswer::where('user_id', $user->id)
+                ->where('tryout_id', $tryout->tryout_id)
+                ->where('status', 'completed')
+                ->first();
+            if ($attempt) $completedItems++;
+        }
+        
+        $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
+    }
+}
+@endphp
+
+<!-- Welcome Card -->
+<div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">
+                {{ $isGuest ? 'Selamat Datang!' : 'Halo, ' . $user->name }}
+            </h1>
+            <p class="text-gray-500 mt-1">
+                {{ $isGuest ? 'Mulai perjalanan belajarmu sekarang' : 'Tetap semangat belajar ya!' }}
+            </p>
+        </div>
+        @if($isGuest)
+            <a href="{{ route('login') }}" class="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                Masuk / Daftar
+            </a>
+        @endif
+    </div>
+</div>
+
+@if(!$isGuest)
+<!-- Akses Cepat -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-video-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Video Materi</h3>
+    </a>
+    
+    <a href="{{ route('user.package.tryout.list') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-file-list-3-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Tryout</h3>
+    </a>
+    
+    <a href="{{ route('user.package.my') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-road-map-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Paket Saya</h3>
+    </a>
+    
+    <a href="{{ route('user.package.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-store-3-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Beli Paket</h3>
+    </a>
+</div>
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Progress Paket -->
+    <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-800">Progress Belajar</h3>
+            <a href="{{ route('user.package.my') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }}">Lihat semua</a>
+        </div>
+        
+        @if($activePackages->count() > 0)
+        <div class="space-y-4">
+            @foreach($activePackages->take(3) as $access)
+            @php
+            $pkg = $access->package;
+            $progress = $packageProgress[$pkg->package_id] ?? 0;
+            @endphp
+            <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color: {{ $primaryColor }}">
+                    <i class="ri-road-map-line text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h4 class="font-semibold text-gray-800 truncate">{{ $pkg->name }}</h4>
+                    <div class="flex items-center gap-2 mt-1">
+                        <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all" style="width: {{ $progress }}%; background-color: {{ $primaryColor }}"></div>
+                        </div>
+                        <span class="text-sm font-medium text-gray-600 w-10 text-right">{{ $progress }}%</span>
+                    </div>
+                </div>
+                <a href="{{ route('user.package.show', $pkg->package_id) }}" class="p-2 hover:bg-gray-200 rounded-lg transition-colors shrink-0" style="color: {{ $primaryColor }}">
+                    <i class="ri-arrow-right-line"></i>
+                </a>
+            </div>
+            @endforeach
+        </div>
+        @else
+        <div class="text-center py-8">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="ri-road-map-line text-2xl text-gray-400"></i>
+            </div>
+            <p class="text-gray-400 text-sm mb-3">Belum ada paket aktif</p>
+            <a href="{{ route('user.package.index') }}" class="inline-block px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style="background-color: {{ $primaryColor }}">
+                Lihat Paket
+            </a>
+        </div>
+        @endif
+    </div>
+    
+    <!-- Akurasi -->
+    <div class="bg-white rounded-2xl p-6 border border-gray-100">
+        <h3 class="font-bold text-gray-800 mb-4">Akurasi Jawaban</h3>
+        <div class="flex flex-col items-center">
+            <div class="relative w-32 h-32 mb-3">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="{{ $primaryColor }}" stroke-width="10" 
+                            stroke-dasharray="264" stroke-dashoffset="{{ 264 - (264 * $accuracyPercent / 100) }}"
+                            stroke-linecap="round"/>
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <span class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $accuracyPercent }}%</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-500 text-center">
+                {{ $totalCorrect ?? 0 }} benar dari {{ $totalAnswered ?? 0 }} soal
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Hasil Tryout Terakhir -->
+@if($recentTryouts->count() > 0)
+<div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-gray-800">Hasil Tryout Terakhir</h3>
+        <a href="{{ route('user.package.tryout.list') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }}">Lihat semua</a>
+    </div>
+    
+    <div class="space-y-3">
+        @foreach($recentTryouts as $attempt)
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0" style="background-color: {{ $primaryColor }}">
+                    <i class="ri-file-list-3-line"></i>
+                </div>
+                <div>
+                    <h5 class="font-semibold text-gray-800 text-sm">{{ $attempt->tryout->name ?? 'Tryout' }}</h5>
+                    <p class="text-xs text-gray-400">{{ $attempt->created_at->diffForHumans() }}</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-lg font-bold" style="color: {{ $primaryColor }}">{{ $attempt->score ?? 0 }}</span>
+                <span class="text-xs {{ ($attempt->is_passed ?? false) ? 'text-green-500' : 'text-red-500' }} block">
+                    {{ ($attempt->is_passed ?? false) ? 'Lulus' : 'Belum Lulus' }}
+                </span>
+            </div>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
+@else
+<!-- Guest View -->
+<div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
+    <h3 class="font-bold text-gray-800 mb-4">Paket Tersedia</h3>
+    
+    @php
+    $publicPackages = \App\Models\Package::where('is_active', true)
+        ->where('status', 'active')
+        ->limit(3)
+        ->get();
+    @endphp
+    
+    @if($publicPackages->count() > 0)
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        @foreach($publicPackages as $pkg)
+        <div class="border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+                <i class="ri-package-line text-xl"></i>
+            </div>
+            <h3 class="font-semibold text-gray-800 mb-1">{{ $pkg->name }}</h3>
+            <p class="text-sm text-gray-400 mb-3">{{ $pkg->description ?? 'Paket pembelajaran' }}</p>
+            <a href="{{ route('login') }}" class="block w-full py-2 text-center rounded-lg text-white text-sm hover:opacity-90" style="background-color: {{ $primaryColor }}">
+                Lihat Detail
+            </a>
+        </div>
+        @endforeach
+    </div>
+    @else
+    <p class="text-gray-400 text-center py-8">Belum ada paket tersedia</p>
+    @endif
+</div>
+@endif
+@endsection

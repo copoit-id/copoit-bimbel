@@ -13,72 +13,34 @@ class EventController extends Controller
 {
     public function index()
     {
-        $freeTypes = ['free_unconditional', 'free_conditional'];
-
-        $kelasPackages = Package::where('type_package', 'bimbel')
-            ->where('status', 'active')
-            ->whereIn('type_price', $freeTypes)
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->with(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }])
-            ->get();
-
-        $tryoutPackages = Package::where('type_package', 'tryout')
-            ->where('status', 'active')
-            ->whereIn('type_price', $freeTypes)
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->with(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }])
-            ->get();
-
-        $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
-            ->where('status', 'active')
-            ->whereIn('type_price', $freeTypes)
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->with(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }])
-            ->get();
-
-        return view('user.pages.event.index', compact(
-            'kelasPackages',
-            'tryoutPackages',
-            'sertifikasiPackages'
-        ));
+        // Redirect to package index with free tab - Event merged with Package
+        return redirect()->route('user.package.index', ['tab' => 'free']);
     }
 
     public function joinEvent($package_id)
     {
         $package = Package::where('package_id', $package_id)
             ->where('status', 'active')
-            ->where('type_price', 'free_unconditional')
+            ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
             ->firstOrFail();
 
-        // Check if user already joined
+        // Check if user already has active access (including not expired)
         $existing = UserPackageAcces::where('user_id', Auth::id())
             ->where('package_id', $package_id)
             ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
             ->first();
 
         if ($existing) {
+            // User already has active access, redirect to roadmap
             return response()->json([
-                'success' => false,
-                'message' => 'Anda sudah terdaftar di event ini'
-            ], 400);
+                'success' => true,
+                'message' => 'Anda sudah memiliki akses ke paket ini',
+                'redirect_url' => route('user.package.show', $package_id)
+            ]);
         }
 
         // Give free access - same as free package in PackageController
@@ -103,7 +65,8 @@ class EventController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Berhasil mengambil paket gratis! Anda akan diarahkan ke halaman paket pembelian.'
+            'message' => 'Berhasil mengambil paket gratis!',
+            'redirect_url' => route('user.package.show', $package_id)
         ]);
     }
 

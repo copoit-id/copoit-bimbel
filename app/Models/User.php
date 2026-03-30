@@ -117,6 +117,16 @@ class User extends Authenticatable
         return $this->hasMany(Certificate::class, 'user_id', 'id');
     }
 
+    public function materialAccess()
+    {
+        return $this->hasMany(UserMaterialAccess::class, 'user_id');
+    }
+
+    public function materialProgressLogs()
+    {
+        return $this->hasMany(MaterialProgressLog::class, 'user_id');
+    }
+
     // Helper methods
     public function hasActivePackageAccess($packageId)
     {
@@ -224,5 +234,49 @@ class User extends Authenticatable
         $this->effectivePermissionSlugs = $slugs;
 
         return $this->effectivePermissionSlugs;
+    }
+
+    // Material access helpers
+    public function hasMaterialAccess(int $materialId): bool
+    {
+        return $this->materialAccess()
+            ->where('material_id', $materialId)
+            ->where('status', '!=', 'not_started')
+            ->exists();
+    }
+
+    public function canAccessMaterial(int $materialId): bool
+    {
+        // Check direct access
+        $hasDirectAccess = $this->materialAccess()
+            ->where('material_id', $materialId)
+            ->where('status', '!=', 'not_started')
+            ->exists();
+
+        if ($hasDirectAccess) {
+            return true;
+        }
+
+        // Check access via package - menggunakan query builder untuk menghindari masalah relasi
+        $activePackageIds = $this->userPackageAccess()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', now());
+            })
+            ->pluck('package_id')
+            ->toArray();
+        
+        return \DB::table('package_materials')
+            ->where('material_id', $materialId)
+            ->whereIn('package_id', $activePackageIds)
+            ->exists();
+    }
+
+    public function getMaterialProgress(int $materialId): ?UserMaterialAccess
+    {
+        return $this->materialAccess()
+            ->where('material_id', $materialId)
+            ->first();
     }
 }

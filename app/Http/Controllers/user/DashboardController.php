@@ -18,6 +18,17 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
+        // If no user, just show guest view with public packages
+        if (!$user) {
+            return view('user.pages.dashboard.new-index', [
+                'user' => null,
+                'activePackages' => collect(),
+                'recentAttempts' => collect(),
+                'stats' => [],
+                'expiringSoon' => collect()
+            ]);
+        }
+
         // Get active packages with proper query
         $activePackages = UserPackageAcces::where('user_id', $user->id)
             ->where('status', 'active')
@@ -101,7 +112,8 @@ class DashboardController extends Controller
             ->with('package')
             ->get();
 
-        return view('user.pages.dashboard.index', compact(
+        // Check if user wants new layout (default for now)
+        return view('user.pages.dashboard.new-index', compact(
             'activePackages',
             'recentAttempts',
             'stats',
