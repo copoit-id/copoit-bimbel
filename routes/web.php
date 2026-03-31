@@ -437,14 +437,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Route akses user
     Route::prefix('akses')->name('akses.')->group(function () {
         Route::get('/', [AksesController::class, 'index'])->name('index');
+        Route::get('/manage', [AksesController::class, 'manage'])->name('manage');
+        Route::post('/grant', [AksesController::class, 'grant'])->name('grant');
+        Route::post('/revoke', [AksesController::class, 'revoke'])->name('revoke');
+        
+        // Legacy routes for backward compatibility
         Route::get('/paket/{package_id}', [AksesController::class, 'show'])->name('show');
-        Route::get('/paket/{package_id}/user/{user_id}', [AksesController::class, 'detail'])->name('detail');
-        Route::get('/paket/{package_id}/create', [AksesController::class, 'create'])->name('create');
-        Route::post('/paket/{package_id}/store', [AksesController::class, 'store'])->name('store');
-        Route::post('/paket/{package_id}/bulk-destroy', [AksesController::class, 'bulkDestroy'])->name('bulk-destroy');
-        Route::post('/paket/{package_id}/user/{user_id}/extend', [AksesController::class, 'extendAccess'])->name('extend');
-        Route::post('/paket/{package_id}/user/{user_id}/revoke', [AksesController::class, 'revokeAccess'])->name('revoke');
-        Route::post('/paket/{package_id}/user/{user_id}/toggle', [AksesController::class, 'toggleStatus'])->name('toggle');
         Route::post('/pengajuan/{access}/approve', [AksesController::class, 'approveRequest'])->name('requests.approve');
         Route::post('/pengajuan/{access}/reject', [AksesController::class, 'rejectRequest'])->name('requests.reject');
     });

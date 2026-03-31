@@ -10,7 +10,7 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <a href="{{ route('admin.akses.create', ['package_id' => $package->package_id]) }}"
+        <a href="{{ route('admin.akses.create', ['type' => 'package']) }}"
             class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
             <i class="ri-add-line"></i>
             Tambah Akses User

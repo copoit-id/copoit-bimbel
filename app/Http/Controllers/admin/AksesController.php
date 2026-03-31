@@ -3,353 +3,265 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Material;
 use App\Models\Package;
 use App\Models\Tryout;
 use App\Models\User;
+use App\Models\UserMaterialAccess;
 use App\Models\UserPackageAcces;
+use App\Models\UserTryoutAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AksesController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil semua paket dengan statistik akses user
-        $packages = Package::withCount([
-            'userAccess',
-            'userAccess as active_users_count' => function ($query) {
-                $query->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            },
-            'userAccess as expired_users_count' => function ($query) {
-                $query->where('status', 'expired')
-                    ->orWhere('end_date', '<', Carbon::now());
-            }
-        ])->get();
-
-        // Statistik total
-        $totalPackages = $packages->count();
-        $totalUserAccess = UserPackageAcces::count();
-        $activeAccess = UserPackageAcces::where('status', 'active')
-            ->where('end_date', '>', Carbon::now())
-            ->count();
-        $expiredAccess = UserPackageAcces::where('status', 'expired')
-            ->orWhere('end_date', '<', Carbon::now())
-            ->count();
-
+        $tab = $request->get('tab', 'packages');
+        
+        // Get items based on tab
+        $items = match($tab) {
+            'packages' => Package::withCount([
+                'userAccess',
+                'userAccess as active_users_count' => fn($q) => $q->where('status', 'active')->where('end_date', '>', Carbon::now()),
+                'userAccess as expired_users_count' => fn($q) => $q->where('status', 'expired')->orWhere('end_date', '<', Carbon::now()),
+            ])->get(),
+            'videos' => Material::where('type', 'video')->where('is_active', true)->withCount('userAccess')->get(),
+            'documents' => Material::where('type', 'document')->where('is_active', true)->withCount('userAccess')->get(),
+            'live' => Material::where('type', 'live_session')->where('is_active', true)->withCount('userAccess')->get(),
+            'tryouts' => Tryout::where('is_active', true)->withCount('userAccess')->get(),
+            default => collect(),
+        };
+        
+        // Pending requests (only for packages)
         $pendingRequests = UserPackageAcces::where('requirement_status', 'pending')
             ->with(['user', 'package'])
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $pendingRequestCount = $pendingRequests->count();
-
         return view('admin.pages.akses.index', compact(
-            'packages',
-            'totalPackages',
-            'totalUserAccess',
-            'activeAccess',
-            'expiredAccess',
-            'pendingRequests',
-            'pendingRequestCount'
+            'tab', 'items', 'pendingRequests'
         ));
+    }
+
+    /**
+     * Show access management for specific item
+     */
+    public function manage(Request $request)
+    {
+        $type = $request->get('type', 'package');
+        $itemId = $request->get('item_id');
+        
+        if (!$itemId) {
+            return redirect()->route('admin.akses.index');
+        }
+        
+        // Normalize type (remove trailing 's' if present)
+        $normalizedType = rtrim($type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+        
+        // Get item details
+        $item = match($normalizedType) {
+            'package' => Package::findOrFail($itemId),
+            'video', 'document', 'live_session' => Material::findOrFail($itemId),
+            'tryout' => Tryout::findOrFail($itemId),
+            default => abort(404),
+        };
+        
+        // Normalize type for queries
+        $normalizedType = rtrim($type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+        
+        // Get users with access
+        $usersWithAccess = match($normalizedType) {
+            'package' => UserPackageAcces::where('package_id', $itemId)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+            'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+            'tryout' => UserTryoutAccess::where('tryout_id', $itemId)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+            default => collect(),
+        };
+        
+        // Get all users (with pagination and search)
+        $search = $request->get('search');
+        $usersQuery = User::where('role', 'user')
+            ->where('status', 'aktif')
+            ->when($search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"))
+            ->orderBy('name');
+        
+        $allUsers = $usersQuery->paginate(20)->withQueryString();
+        
+        // Mark users who already have access
+        $accessUserIds = $usersWithAccess->pluck('user_id')->toArray();
+        foreach ($allUsers as $user) {
+            $user->has_access = in_array($user->id, $accessUserIds);
+        }
+        
+        return view('admin.pages.akses.manage', compact(
+            'type', 'item', 'usersWithAccess', 'allUsers', 'search'
+        ));
+    }
+
+    /**
+     * Grant access to user
+     */
+    public function grant(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts',
+            'item_id' => 'required|integer',
+            'user_id' => 'required|exists:users,id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after:start_date',
+            'access_type' => 'required|in:free,paid',
+        ]);
+        
+        $type = $request->type;
+        $itemId = $request->item_id;
+        $userId = $request->user_id;
+        
+        // Normalize type
+        $normalizedType = rtrim($type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+        
+        // Check if already has access
+        $hasAccess = match($normalizedType) {
+            'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->exists(),
+            'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->exists(),
+            'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->exists(),
+            default => true,
+        };
+        
+        if ($hasAccess) {
+            return response()->json(['success' => false, 'message' => 'User sudah memiliki akses']);
+        }
+        
+        // Grant access
+        match($normalizedType) {
+            'package' => $this->grantPackageAccess($userId, $itemId, $request),
+            'video', 'document', 'live_session' => $this->grantMaterialAccess($userId, $itemId, $request),
+            'tryout' => $this->grantTryoutAccess($userId, $itemId, $request),
+            default => null,
+        };
+        
+        return response()->json(['success' => true, 'message' => 'Akses berhasil diberikan']);
+    }
+
+    /**
+     * Revoke access from user
+     */
+    public function revoke(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts',
+            'item_id' => 'required|integer',
+            'user_id' => 'required|exists:users,id',
+        ]);
+        
+        $type = $request->type;
+        $itemId = $request->item_id;
+        $userId = $request->user_id;
+        
+        // Normalize type
+        $normalizedType = rtrim($type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+        
+        match($normalizedType) {
+            'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->delete(),
+            'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->delete(),
+            'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->delete(),
+            default => null,
+        };
+        
+        return response()->json(['success' => true, 'message' => 'Akses berhasil dicabut']);
+    }
+
+    private function grantPackageAccess($userId, $packageId, $request)
+    {
+        $endDate = $request->end_date ?? Carbon::now()->addDays(30);
+        
+        UserPackageAcces::create([
+            'user_id' => $userId,
+            'package_id' => $packageId,
+            'start_date' => $request->start_date ?? Carbon::now(),
+            'end_date' => $endDate,
+            'status' => $endDate->isPast() ? 'expired' : 'active',
+            'payment_amount' => $request->access_type === 'paid' ? 1 : 0,
+            'payment_status' => $request->access_type === 'paid' ? 'paid' : 'free',
+            'created_by' => Auth::id(),
+        ]);
+    }
+
+    private function grantMaterialAccess($userId, $materialId, $request)
+    {
+        UserMaterialAccess::create([
+            'user_id' => $userId,
+            'material_id' => $materialId,
+            'access_type' => $request->access_type,
+            'access_source' => 'direct',
+            'status' => 'not_started',
+        ]);
+    }
+
+    private function grantTryoutAccess($userId, $tryoutId, $request)
+    {
+        UserTryoutAccess::create([
+            'user_id' => $userId,
+            'tryout_id' => $tryoutId,
+            'access_type' => $request->access_type,
+            'access_source' => 'direct',
+            'status' => 'not_started',
+            'expires_at' => $request->end_date,
+        ]);
+    }
+
+    // Legacy methods for backward compatibility
+    public function show($package_id)
+    {
+        return redirect()->route('admin.akses.manage', ['type' => 'package', 'item_id' => $package_id]);
     }
 
     public function approveRequest(Request $request, UserPackageAcces $access)
     {
         if ($access->requirement_status !== 'pending') {
-            return redirect()->route('admin.akses.index')
-                ->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
+            return redirect()->back()->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
         }
 
-        $package = Package::findOrFail($access->package_id);
-        $startDate = Carbon::now();
-        $endDate = Carbon::now()->addDays(30);
-
         $access->update([
-            'start_date' => $startDate,
-            'end_date' => $endDate,
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addDays(30),
             'status' => 'active',
             'payment_amount' => 0,
             'payment_status' => 'free',
             'requirement_status' => 'approved',
-            'requirement_review_notes' => null,
-            'notes' => $package->conditional_requirement ?? $access->notes,
             'created_by' => Auth::id(),
         ]);
 
-        return redirect()->route('admin.akses.index')
-            ->with('success', 'Pengajuan akses berhasil disetujui.');
+        return redirect()->back()->with('success', 'Pengajuan akses berhasil disetujui.');
     }
 
     public function rejectRequest(Request $request, UserPackageAcces $access)
     {
         if ($access->requirement_status !== 'pending') {
-            return redirect()->route('admin.akses.index')
-                ->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
+            return redirect()->back()->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
         }
-
-        $validated = $request->validate([
-            'review_notes' => 'nullable|string|max:500',
-        ]);
 
         $access->update([
             'status' => 'pending',
             'payment_status' => 'conditional',
             'requirement_status' => 'rejected',
-            'requirement_review_notes' => $validated['review_notes'] ?? 'Pengajuan ditolak oleh admin.',
+            'requirement_review_notes' => $request->review_notes ?? 'Pengajuan ditolak oleh admin.',
         ]);
 
-        return redirect()->route('admin.akses.index')
-            ->with('success', 'Pengajuan akses berhasil ditolak.');
-    }
-
-    public function show($package_id)
-    {
-        try {
-            $package = Package::findOrFail($package_id);
-
-            // Get user accesses for this package with user details
-            $userAccesses = UserPackageAcces::where('package_id', $package_id)
-                ->with('user') // Make sure to load the user relationship
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            return view('admin.pages.akses.show', compact('package', 'userAccesses'));
-        } catch (\Exception $e) {
-            return redirect()->route('admin.akses.index')
-                ->with('error', 'Package not found');
-        }
-    }
-
-    public function store(Request $request, $package_id)
-    {
-        $request->validate([
-            'user_ids' => 'required|array|min:1',
-            'user_ids.*' => 'exists:users,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'payment_status' => 'required|in:paid,pending,failed,free',
-            'payment_amount' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        try {
-            $package = Package::findOrFail($package_id);
-            $successCount = 0;
-            $errorUsers = [];
-
-            foreach ($request->user_ids as $userId) {
-                // Check if user already has access
-                $existingAccess = UserPackageAcces::where('package_id', $package_id)
-                    ->where('user_id', $userId)
-                    ->first();
-
-                if ($existingAccess) {
-                    $user = User::find($userId);
-                    $errorUsers[] = $user->name;
-                    continue;
-                }
-
-                // Tentukan status berdasarkan tanggal
-                $endDate = Carbon::parse($request->end_date);
-                $status = $endDate->isPast() ? 'expired' : 'active';
-
-                // Create new access
-                UserPackageAcces::create([
-                    'user_id' => $userId,
-                    'package_id' => $package_id,
-                    'start_date' => $request->start_date,
-                    'end_date' => $request->end_date,
-                    'status' => $status,
-                    'payment_amount' => $request->payment_amount ?: 0,
-                    'payment_status' => $request->payment_status,
-                    'notes' => $request->notes,
-                    'created_by' => 1, // nanti diganti dengan auth()->id()
-                ]);
-
-                $successCount++;
-            }
-
-            $message = "Berhasil memberikan akses kepada {$successCount} user";
-            if (!empty($errorUsers)) {
-                $message .= ". User yang sudah memiliki akses: " . implode(', ', $errorUsers);
-            }
-
-            return redirect()->route('admin.akses.show', $package_id)
-                ->with('success', $message);
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Gagal memberikan akses: ' . $e->getMessage())
-                ->withInput();
-        }
-    }
-
-    public function detail($package_id, $user_id)
-    {
-        try {
-            $package = Package::findOrFail($package_id);
-            $user = User::findOrFail($user_id);
-
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
-                ->where('user_id', $user_id)
-                ->firstOrFail();
-
-            // Update status berdasarkan tanggal saat ini
-            if ($userAccess->end_date->isPast() && $userAccess->status === 'active') {
-                $userAccess->update(['status' => 'expired']);
-            }
-
-            // Simulasi aktivitas terbaru user (nanti bisa diganti dengan data real)
-            $recentActivities = collect([
-                (object)[
-                    'activity' => 'Login ke sistem',
-                    'time' => Carbon::now()->subHours(rand(1, 24)),
-                    'type' => 'login',
-                    'icon' => 'ri-login-circle-line',
-                    'color' => 'text-green-600'
-                ],
-                (object)[
-                    'activity' => 'Mengerjakan tryout ' . $package->name,
-                    'time' => Carbon::now()->subHours(rand(1, 48)),
-                    'type' => 'tryout',
-                    'icon' => 'ri-file-text-line',
-                    'color' => 'text-blue-600'
-                ],
-                (object)[
-                    'activity' => 'Mengikuti kelas online',
-                    'time' => Carbon::now()->subDays(rand(1, 7)),
-                    'type' => 'class',
-                    'icon' => 'ri-video-line',
-                    'color' => 'text-purple-600'
-                ],
-                (object)[
-                    'activity' => 'Download materi pembelajaran',
-                    'time' => Carbon::now()->subDays(rand(1, 10)),
-                    'type' => 'download',
-                    'icon' => 'ri-download-line',
-                    'color' => 'text-orange-600'
-                ]
-            ])->take(5);
-
-            return view('admin.pages.akses.detail', compact(
-                'package',
-                'user',
-                'userAccess',
-                'recentActivities'
-            ));
-        } catch (\Exception $e) {
-            return redirect()->route('admin.akses.show', $package_id)
-                ->with('error', 'Data tidak ditemukan');
-        }
-    }
-
-    public function create($package_id)
-    {
-        try {
-            $package = Package::findOrFail($package_id);
-
-            // Get users yang belum memiliki akses ke paket ini
-            $availableUsers = User::whereNotIn('id', function ($query) use ($package_id) {
-                $query->select('user_id')
-                    ->from('user_package_access')
-                    ->where('package_id', $package_id);
-            })
-                ->where('role', 'user')
-                ->where('status', 'aktif')
-                ->orderBy('name')
-                ->get();
-
-            return view('admin.pages.akses.create', compact('package', 'availableUsers'));
-        } catch (\Exception $e) {
-            return redirect()->route('admin.akses.index')
-                ->with('error', 'Paket tidak ditemukan');
-        }
-    }
-
-    public function extendAccess(Request $request, $package_id, $user_id)
-    {
-        $request->validate([
-            'end_date' => 'required|date|after:today',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        try {
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
-                ->where('user_id', $user_id)
-                ->firstOrFail();
-
-            $userAccess->update([
-                'end_date' => $request->end_date,
-                'status' => 'active',
-                'notes' => $request->notes ?: $userAccess->notes,
-            ]);
-
-            return redirect()->back()
-                ->with('success', 'Akses berhasil diperpanjang');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Gagal memperpanjang akses: ' . $e->getMessage());
-        }
-    }
-
-    public function revokeAccess($package_id, $user_id)
-    {
-        try {
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
-                ->where('user_id', $user_id)
-                ->firstOrFail();
-
-            $userAccess->update([
-                'status' => 'suspended',
-                'end_date' => Carbon::now(),
-            ]);
-
-            return redirect()->back()
-                ->with('success', 'Akses berhasil dicabut');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Gagal mencabut akses: ' . $e->getMessage());
-        }
-    }
-
-    public function toggleStatus($package_id, $user_id)
-    {
-        try {
-            $userAccess = UserPackageAcces::where('package_id', $package_id)
-                ->where('user_id', $user_id)
-                ->firstOrFail();
-
-            $newStatus = $userAccess->status === 'active' ? 'suspended' : 'active';
-
-            $userAccess->update(['status' => $newStatus]);
-
-            $message = $newStatus === 'active' ? 'Akses berhasil diaktifkan' : 'Akses berhasil disuspend';
-
-            return redirect()->back()
-                ->with('success', $message);
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan saat mengubah status akses');
-        }
-    }
-
-    public function bulkDestroy(Request $request, $package_id)
-    {
-        $validated = $request->validate([
-            'access_ids' => ['required', 'array', 'min:1'],
-            'access_ids.*' => ['integer'],
-        ], [], [
-            'access_ids' => 'Akses yang dipilih',
-        ]);
-
-        $deleted = UserPackageAcces::where('package_id', $package_id)
-            ->whereIn('user_package_access_id', $validated['access_ids'])
-            ->delete();
-
-        return redirect()
-            ->route('admin.akses.show', $package_id)
-            ->with('success', "Berhasil menghapus {$deleted} akses.");
+        return redirect()->back()->with('success', 'Pengajuan akses berhasil ditolak.');
     }
 }

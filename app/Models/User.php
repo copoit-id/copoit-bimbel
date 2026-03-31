@@ -279,4 +279,47 @@ class User extends Authenticatable
             ->where('material_id', $materialId)
             ->first();
     }
+
+    /**
+     * Relasi ke tryout access (individual)
+     */
+    public function tryoutAccess()
+    {
+        return $this->hasMany(UserTryoutAccess::class, 'user_id');
+    }
+
+    /**
+     * Cek apakah user bisa akses tryout (direct atau via package)
+     */
+    public function canAccessTryout(int $tryoutId): bool
+    {
+        // Check direct access
+        $hasDirectAccess = $this->tryoutAccess()
+            ->where('tryout_id', $tryoutId)
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
+            ->exists();
+
+        if ($hasDirectAccess) {
+            return true;
+        }
+
+        // Check access via package
+        $activePackageIds = $this->userPackageAccess()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', now());
+            })
+            ->pluck('package_id')
+            ->toArray();
+        
+        return \DB::table('detail_packages')
+            ->where('detailable_id', $tryoutId)
+            ->where('detailable_type', Tryout::class)
+            ->whereIn('package_id', $activePackageIds)
+            ->exists();
+    }
 }

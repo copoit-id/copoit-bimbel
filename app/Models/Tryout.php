@@ -91,6 +91,14 @@ class Tryout extends Model
         return $this->hasMany(FeedbackSubmission::class, 'tryout_id', 'tryout_id');
     }
 
+    /**
+     * Relasi ke user access (individual)
+     */
+    public function userAccess()
+    {
+        return $this->hasMany(UserTryoutAccess::class, 'tryout_id', 'tryout_id');
+    }
+
     public function classes()
     {
         return $this->belongsToMany(ClassModel::class, 'class_assessments', 'tryout_id', 'class_id')
