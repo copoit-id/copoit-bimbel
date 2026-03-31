@@ -387,7 +387,14 @@
 
 @section('scripts')
 <script>
-    console.log('Pembahasan SKD Full loaded');
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Pembahasan SKD Full loaded');
+        
+        // Render MathJax for math formulas
+        if (typeof window.renderMathJax === 'function') {
+            window.renderMathJax();
+        }
+    });
 </script>
 @endsection
 

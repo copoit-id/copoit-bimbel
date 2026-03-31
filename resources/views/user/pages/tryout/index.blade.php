@@ -354,6 +354,11 @@
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Tryout page loaded (client-first mode)');
 
+        // Render MathJax for math formulas
+        if (typeof window.renderMathJax === 'function') {
+            window.renderMathJax();
+        }
+
         const attemptToken = '{{ $attemptToken }}';
         const answersKey = `tryout_answers_${attemptToken}`;
         const questionId = {{ $currentQuestion->question_id }};

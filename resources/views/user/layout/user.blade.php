@@ -10,6 +10,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    @include('components.mathjax')
 </head>
 
 <body>
