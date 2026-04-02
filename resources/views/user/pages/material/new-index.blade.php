@@ -21,9 +21,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <h1 class="text-2xl font-bold text-gray-800">Materi Pembelajaran</h1>
         <p class="text-gray-500 mt-1">Jelajahi semua materi yang tersedia</p>
     </div>
+    @if($user)
     <a href="{{ route('user.package.my') }}?tab=materials" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
         <i class="ri-book-marked-line mr-1"></i>Materi Saya
     </a>
+    @endif
 </div>
 
 <!-- Filter Tabs -->
@@ -83,7 +85,18 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         @endphp
         
         <div class="mt-4 pt-3 border-t">
-            @if($material->has_access)
+            @if(!$user)
+                {{-- Guest - perlu login --}}
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs text-gray-400"><i class="ri-lock-line mr-1"></i>Login untuk akses</span>
+                </div>
+                <a href="{{ route('login') }}" 
+                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                    <i class="ri-login-box-line mr-1"></i>
+                    Masuk untuk Akses
+                </a>
+            @elseif($material->has_access)
                 {{-- User has access --}}
                 @if($userAccess && $userAccess->is_completed)
                 <div class="flex items-center justify-between mb-3">

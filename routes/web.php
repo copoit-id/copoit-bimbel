@@ -118,6 +118,18 @@ Route::prefix('user')->group(function () {
     
     // Public package detail (bisa diakses guest)
     Route::get('/paket/{package_id}/detail', [PackageController::class, 'detail'])->name('user.package.detail');
+    
+    // Public material listing (bisa diakses guest)
+    Route::prefix('materi')->name('user.material.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\user\MaterialController::class, 'index'])->name('index');
+        Route::get('/video', [\App\Http\Controllers\user\MaterialController::class, 'videos'])->name('videos');
+        Route::get('/belajar', [\App\Http\Controllers\user\MaterialController::class, 'documents'])->name('documents');
+        Route::get('/live-session', [\App\Http\Controllers\user\MaterialController::class, 'liveSessions'])->name('live-sessions');
+        Route::get('/kategori/{category_id}', [\App\Http\Controllers\user\MaterialController::class, 'byCategory'])->name('category');
+    });
+    
+    // Public tryout listing (bisa diakses guest)
+    Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
 });
 
 // User routes (add auth middleware)
@@ -169,25 +181,20 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 
     Route::prefix('package')->group(function () {
-        Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
         Route::get('/sertifikasi-list', [PackageController::class, 'listSertifikasi'])->name('user.package.sertifikasi.list');
         Route::get('/sertifikasi/{id_package}', [PackageController::class, 'indexSertifikasi'])->name('user.package.sertifikasi');
         Route::get('/{id_package}/tryout/{id_tryout}/statistik', [PackageController::class, 'statistikTryout'])->name('user.package.tryout.statistik');
         // Note: user.package.buy, user.package.bimbel, user.package.tryout, user.package.tryout.riwayat, 
         // user.package.tryout.ranking sudah didefinisikan di paket-pembelian prefix
+        // user.package.tryout.list sudah didefinisikan di public routes
     });
 
     // My Packages (Step by Step)
     Route::get('/paket-saya', [PackageController::class, 'myPackages'])->name('user.package.my');
     Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])->name('user.package.show');
 
-    // Material Routes (Standalone)
+    // Material Routes yang butuh auth (detail dan actions)
     Route::prefix('materi')->name('user.material.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\user\MaterialController::class, 'index'])->name('index');
-        Route::get('/video', [\App\Http\Controllers\user\MaterialController::class, 'videos'])->name('videos');
-        Route::get('/belajar', [\App\Http\Controllers\user\MaterialController::class, 'documents'])->name('documents');
-        Route::get('/live-session', [\App\Http\Controllers\user\MaterialController::class, 'liveSessions'])->name('live-sessions');
-        Route::get('/kategori/{category_id}', [\App\Http\Controllers\user\MaterialController::class, 'byCategory'])->name('category');
         Route::get('/{material_id}', [\App\Http\Controllers\user\MaterialController::class, 'show'])->name('show');
         Route::post('/{material_id}/start', [\App\Http\Controllers\user\MaterialController::class, 'start'])->name('start');
         Route::post('/{material_id}/progress', [\App\Http\Controllers\user\MaterialController::class, 'updateProgress'])->name('progress');

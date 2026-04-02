@@ -1940,30 +1940,27 @@ class PackageController extends Controller
 
     /**
      * List all tryouts - tampilkan SEMUA dengan status akses user
+     * BISA diakses oleh GUEST
      */
     public function listTryout()
     {
-        // Check if user is authenticated
-        if (!Auth::check()) {
-            return redirect()->route('login')
-                ->with('error', 'Silakan login terlebih dahulu untuk melihat daftar tryout.');
-        }
-        
         $user = Auth::user();
         
-        // Get packages that user has access to
-        $accessiblePackageIds = $user->userPackageAccess()
+        // Get packages that user has access to (empty for guest)
+        $accessiblePackageIds = $user ? $user->userPackageAccess()
             ->where('status', 'active')
             ->where(function ($query) {
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>', Carbon::now());
             })
             ->pluck('package_id')
-            ->toArray();
+            ->toArray() : [];
         
         // Get ALL active tryouts with their packages
         $tryouts = \App\Models\Tryout::with(['tryoutDetails', 'packages', 'userAnswers' => function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+            if ($user) {
+                $query->where('user_id', $user->id);
+            }
         }])
         ->where('is_active', true)
         ->get();
@@ -1971,7 +1968,7 @@ class PackageController extends Controller
         // Mark each tryout with access status
         foreach ($tryouts as $tryout) {
             $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
-            $tryout->has_access = !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
+            $tryout->has_access = $user && !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
             $tryout->access_via_package = $tryout->packages->first();
         }
         

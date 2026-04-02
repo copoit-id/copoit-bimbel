@@ -4,6 +4,7 @@
 
 @section('content')
 @php
+$user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @endphp
 
@@ -45,7 +46,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @if($materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     @foreach($materials as $material)
-    <a href="{{ route('user.material.show', $material->material_id) }}" 
+    @php
+    $isAccessible = $user && $material->has_access;
+    $linkUrl = $isAccessible ? route('user.material.show', $material->material_id) : ($user ? route('user.package.my') . '?tab=packages' : route('login'));
+    @endphp
+    <a href="{{ $linkUrl }}" 
        class="bg-white rounded-xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
         <div class="flex items-start gap-4">
             <div class="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -56,23 +61,32 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <p class="text-sm text-gray-400 line-clamp-2 mb-3">{{ $material->description ?? 'Live session interaktif' }}</p>
                 
                 @php
-                $userAccess = $material->userAccess->first();
+                $userAccess = $user ? $material->userAccess->first() : null;
                 @endphp
                 
                 <div class="flex items-center gap-3">
-                    @if($userAccess && $userAccess->is_completed)
+                    @if(!$user)
+                    <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
+                        <i class="ri-lock-line mr-1"></i>Login untuk akses
+                    </span>
+                    <span class="text-purple-500 text-sm font-medium group-hover:translate-x-1 transition-transform flex items-center">
+                        Login <i class="ri-arrow-right-line ml-1"></i>
+                    </span>
+                    @elseif($userAccess && $userAccess->is_completed)
                     <span class="px-2.5 py-1 text-xs rounded-full font-medium" style="background-color: {{ $primaryColor }}20; color: {{ $primaryColor }}">
                         <i class="ri-check-line mr-1"></i>Sudah diikuti
+                    </span>
+                    <span class="text-purple-500 text-sm font-medium group-hover:translate-x-1 transition-transform flex items-center">
+                        Detail <i class="ri-arrow-right-line ml-1"></i>
                     </span>
                     @else
                     <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
                         <i class="ri-live-line mr-1"></i>Live Session
                     </span>
-                    @endif
-                    
                     <span class="text-purple-500 text-sm font-medium group-hover:translate-x-1 transition-transform flex items-center">
                         Detail <i class="ri-arrow-right-line ml-1"></i>
                     </span>
+                    @endif
                 </div>
             </div>
         </div>

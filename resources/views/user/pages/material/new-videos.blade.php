@@ -4,6 +4,7 @@
 
 @section('content')
 @php
+$user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @endphp
 
@@ -45,7 +46,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @if($materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($materials as $material)
-    <a href="{{ route('user.material.show', $material->material_id) }}" 
+    @php
+    $isAccessible = $user && $material->has_access;
+    $linkUrl = $isAccessible ? route('user.material.show', $material->material_id) : ($user ? route('user.package.my') . '?tab=packages' : route('login'));
+    @endphp
+    <a href="{{ $linkUrl }}" 
        class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
         <!-- Thumbnail -->
         <div class="aspect-video bg-gray-100 relative">
@@ -71,12 +76,16 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @endif
             
             @php
-            $userAccess = $material->userAccess->first();
+            $userAccess = $user ? $material->userAccess->first() : null;
             @endphp
             
             @if($userAccess && $userAccess->is_completed)
             <div class="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow" style="background-color: {{ $primaryColor }}">
                 <i class="ri-check-line text-white"></i>
+            </div>
+            @elseif(!$user)
+            <div class="absolute top-2 right-2 px-2 py-1 bg-black/70 text-white text-xs rounded flex items-center gap-1">
+                <i class="ri-lock-line"></i>Login
             </div>
             @endif
         </div>
@@ -86,7 +95,13 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <h3 class="font-medium text-gray-800 mb-1 line-clamp-2 group-hover:text-red-500 transition-colors">{{ $material->title }}</h3>
             <p class="text-sm text-gray-400 line-clamp-2">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
             
-            @if($userAccess)
+            @if(!$user)
+            <div class="mt-3 flex items-center justify-between">
+                <span class="text-xs text-gray-500">
+                    <i class="ri-login-box-line mr-1"></i>Login untuk akses
+                </span>
+            </div>
+            @elseif($userAccess)
             <div class="mt-3 flex items-center justify-between">
                 <span class="text-xs {{ $userAccess->is_completed ? 'text-emerald-600' : 'text-yellow-600' }}" style="{{ $userAccess->is_completed ? 'color: ' . $primaryColor : '' }}">
                     {{ $userAccess->is_completed ? 'Selesai ditonton' : 'Sedang ditonton' }}

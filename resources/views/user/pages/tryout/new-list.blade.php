@@ -4,6 +4,7 @@
 
 @section('content')
 @php
+$user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @endphp
 
@@ -13,12 +14,15 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <h1 class="text-2xl font-bold text-gray-800">Tryout</h1>
         <p class="text-gray-500 mt-1">Jelajahi semua tryout yang tersedia</p>
     </div>
+    @if($user)
     <a href="{{ route('user.package.my') }}?tab=tryouts" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout Saya
     </a>
+    @endif
 </div>
 
-<!-- Stats Card -->
+@if($user)
+<!-- Stats Card (hanya untuk user login) -->
 <div class="rounded-2xl p-6 text-white mb-6" style="background: linear-gradient(135deg, {{ $primaryColor }}, {{ $primaryColor }}dd);">
     <div class="flex items-center justify-between">
         <div>
@@ -30,6 +34,20 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         </div>
     </div>
 </div>
+@else
+<!-- Guest Info Card -->
+<div class="rounded-2xl p-6 text-white mb-6" style="background: linear-gradient(135deg, {{ $primaryColor }}, {{ $primaryColor }}dd);">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-white/80 text-sm mb-1">Ingin mengerjakan tryout?</p>
+            <h2 class="text-xl font-bold">Login untuk akses penuh</h2>
+        </div>
+        <a href="{{ route('login') }}" class="px-4 py-2 bg-white rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors" style="color: {{ $primaryColor }}">
+            Masuk Sekarang
+        </a>
+    </div>
+</div>
+@endif
 
 <!-- Tryouts Grid -->
 @if($tryouts->count() > 0)
@@ -81,7 +99,15 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @endif
         </div>
         
-        @if($tryout->has_access)
+        @if(!$user)
+            {{-- Guest - perlu login --}}
+            <a href="{{ route('login') }}" 
+               class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+               style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                <i class="ri-login-box-line mr-1"></i>
+                Masuk untuk Akses
+            </a>
+        @elseif($tryout->has_access)
             {{-- User has access --}}
             @if($isCompleted)
             <div class="flex items-center justify-between pt-4 border-t">

@@ -97,8 +97,7 @@ function isActive($route, $current) {
                     <i class="ri-home-5-line mr-1.5 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}"></i>Beranda
                 </a>
                 
-                @if($user)
-                {{-- Materi with Dropdown --}}
+                {{-- Materi with Dropdown - Accessible by Guest & User --}}
                 <div class="relative group">
                     <a href="{{ route('user.material.index') }}" 
                        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center {{ isActive('user.material', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
@@ -122,11 +121,11 @@ function isActive($route, $current) {
                     </div>
                 </div>
                 
+                {{-- Tryout - Accessible by Guest & User --}}
                 <a href="{{ route('user.package.tryout.list') }}" 
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
                 </a>
-                @endif
                 
                 {{-- Paket (untuk semua user - berbayar & gratis) --}}
                 <a href="{{ route('user.package.index') }}" 
@@ -226,24 +225,29 @@ function isActive($route, $current) {
             <span class="text-xs mt-0.5">Beranda</span>
         </a>
         
-        @if($user)
+        {{-- Materi - Accessible by Guest & User --}}
         <a href="{{ route('user.material.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.material', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.material', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-book-open-line text-xl"></i>
             <span class="text-xs mt-0.5">Materi</span>
         </a>
         
-        <a href="{{ route('user.package.my') }}" class="flex flex-col items-center p-2 {{ isActive('user.package.my', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.package.my', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
-            <i class="ri-road-map-line text-xl"></i>
-            <span class="text-xs mt-0.5">Saya</span>
+        {{-- Tryout - Accessible by Guest & User --}}
+        <a href="{{ route('user.package.tryout.list') }}" class="flex flex-col items-center p-2 {{ isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.package.tryout', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
+            <i class="ri-file-list-3-line text-xl"></i>
+            <span class="text-xs mt-0.5">Tryout</span>
         </a>
-        @endif
         
         <a href="{{ route('user.package.index') }}" class="flex flex-col items-center p-2 {{ $currentRoute === 'user.package.index' ? '' : 'text-gray-400' }}" style="{{ $currentRoute === 'user.package.index' ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-store-3-line text-xl"></i>
             <span class="text-xs mt-0.5">Paket</span>
         </a>
         
-        @if(!$user)
+        @if($user)
+        <a href="{{ route('user.package.my') }}" class="flex flex-col items-center p-2 {{ isActive('user.package.my', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.package.my', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
+            <i class="ri-road-map-line text-xl"></i>
+            <span class="text-xs mt-0.5">Saya</span>
+        </a>
+        @else
         <a href="{{ route('login') }}" class="flex flex-col items-center p-2 text-gray-400">
             <i class="ri-login-box-line text-xl"></i>
             <span class="text-xs mt-0.5">Masuk</span>
