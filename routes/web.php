@@ -7,16 +7,25 @@ use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\admin\DiscussionController;
 use App\Http\Controllers\admin\EssayReviewController;
+use App\Http\Controllers\admin\ExpenseController;
+use App\Http\Controllers\admin\FaqController;
 use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
+use App\Http\Controllers\admin\FinanceIncomeController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
+use App\Http\Controllers\admin\MaterialCategoryController;
+use App\Http\Controllers\admin\MaterialManagementController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\PembayaranController;
+use App\Http\Controllers\admin\ProfileController;
 use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionBankController;
+use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
+use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
+use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\DashboardController;
@@ -262,25 +271,25 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
 Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission', 'no-cache'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
-    Route::get('/update-notifications', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'index'])->name('update-notifications.index');
-    Route::get('/update-notifications/{updateNotification}', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'show'])->name('update-notifications.show');
+    Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');
+    Route::get('/update-notifications/{updateNotification}', [UpdateNotificationController::class, 'show'])->name('update-notifications.show');
     Route::prefix('keuangan')->name('finance.')->group(function () {
-        Route::get('/pemasukan', [\App\Http\Controllers\admin\FinanceIncomeController::class, 'index'])->name('income.index');
-        Route::get('/pengeluaran', [\App\Http\Controllers\admin\ExpenseController::class, 'index'])->name('expenses.index');
-        Route::get('/pengeluaran/tambah', [\App\Http\Controllers\admin\ExpenseController::class, 'create'])->name('expenses.create');
-        Route::post('/pengeluaran', [\App\Http\Controllers\admin\ExpenseController::class, 'store'])->name('expenses.store');
-        Route::delete('/pengeluaran/{expense}', [\App\Http\Controllers\admin\ExpenseController::class, 'destroy'])->name('expenses.destroy');
+        Route::get('/pemasukan', [FinanceIncomeController::class, 'index'])->name('income.index');
+        Route::get('/pengeluaran', [ExpenseController::class, 'index'])->name('expenses.index');
+        Route::get('/pengeluaran/tambah', [ExpenseController::class, 'create'])->name('expenses.create');
+        Route::post('/pengeluaran', [ExpenseController::class, 'store'])->name('expenses.store');
+        Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
     });
 
     // Profile routes
-    Route::get('/profile', [\App\Http\Controllers\admin\ProfileController::class, 'index'])->name('profile.index');
-    Route::put('/profile', [\App\Http\Controllers\admin\ProfileController::class, 'update'])->name('profile.update');
-    Route::put('/profile/password', [\App\Http\Controllers\admin\ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 
     // Admin User Import Routes
-    Route::get('/user/import', [\App\Http\Controllers\admin\UserImportController::class, 'showImportForm'])->name('user.import');
-    Route::post('/user/import', [\App\Http\Controllers\admin\UserImportController::class, 'import'])->name('user.import.process');
-    Route::get('/user/import/template', [\App\Http\Controllers\admin\UserImportController::class, 'downloadTemplate'])->name('user.import.template');
+    Route::get('/user/import', [UserImportController::class, 'showImportForm'])->name('user.import');
+    Route::post('/user/import', [UserImportController::class, 'import'])->name('user.import.process');
+    Route::get('/user/import/template', [UserImportController::class, 'downloadTemplate'])->name('user.import.template');
     Route::get('/user/import/status/{token}', function (string $token) {
         return response()->json([
             'progress' => cache()->get("import_users:{$token}:progress"),
@@ -341,8 +350,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
 
     // Question Import Routes (separated)
     Route::prefix('soal-import')->name('question-import.')->group(function () {
-        Route::get('/{tryout_detail_id}/download-template', [\App\Http\Controllers\admin\QuestionImportController::class, 'downloadTemplate'])->name('download-template');
-        Route::post('/{tryout_detail_id}/import', [\App\Http\Controllers\admin\QuestionImportController::class, 'import'])->name('import');
+        Route::get('/{tryout_detail_id}/download-template', [QuestionImportController::class, 'downloadTemplate'])->name('download-template');
+        Route::post('/{tryout_detail_id}/import', [QuestionImportController::class, 'import'])->name('import');
     });
 
     Route::resource('tryout', AdminTryoutController::class);
@@ -352,20 +361,20 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
 
     // Material Management Routes
     Route::prefix('materi')->name('material.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\admin\MaterialManagementController::class, 'index'])->name('index');
-        Route::get('/create', [\App\Http\Controllers\admin\MaterialManagementController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\admin\MaterialManagementController::class, 'store'])->name('store');
-        Route::get('/{material}/edit', [\App\Http\Controllers\admin\MaterialManagementController::class, 'edit'])->name('edit');
-        Route::put('/{material}', [\App\Http\Controllers\admin\MaterialManagementController::class, 'update'])->name('update');
-        Route::delete('/{material}', [\App\Http\Controllers\admin\MaterialManagementController::class, 'destroy'])->name('destroy');
-        Route::post('/{material}/toggle', [\App\Http\Controllers\admin\MaterialManagementController::class, 'toggle'])->name('toggle');
+        Route::get('/', [MaterialManagementController::class, 'index'])->name('index');
+        Route::get('/create', [MaterialManagementController::class, 'create'])->name('create');
+        Route::post('/', [MaterialManagementController::class, 'store'])->name('store');
+        Route::get('/{material}/edit', [MaterialManagementController::class, 'edit'])->name('edit');
+        Route::put('/{material}', [MaterialManagementController::class, 'update'])->name('update');
+        Route::delete('/{material}', [MaterialManagementController::class, 'destroy'])->name('destroy');
+        Route::post('/{material}/toggle', [MaterialManagementController::class, 'toggle'])->name('toggle');
 
         // Material Categories
         Route::prefix('kategori')->name('category.')->group(function () {
-            Route::get('/', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'index'])->name('index');
-            Route::post('/', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'store'])->name('store');
-            Route::put('/{category}', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'update'])->name('update');
-            Route::delete('/{category}', [\App\Http\Controllers\admin\MaterialCategoryController::class, 'destroy'])->name('destroy');
+            Route::get('/', [MaterialCategoryController::class, 'index'])->name('index');
+            Route::post('/', [MaterialCategoryController::class, 'store'])->name('store');
+            Route::put('/{category}', [MaterialCategoryController::class, 'update'])->name('update');
+            Route::delete('/{category}', [MaterialCategoryController::class, 'destroy'])->name('destroy');
         });
     });
 
@@ -403,7 +412,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     });
 
     Route::resource('discussion', DiscussionController::class);
-    Route::resource('faq', \App\Http\Controllers\admin\FaqController::class)->except(['show']);
+    Route::resource('faq', FaqController::class)->except(['show']);
 
     // Koreksi essay
     Route::prefix('essay-review')->name('essay-review.')->group(function () {
@@ -466,10 +475,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     });
 
     // Certificate download route
-    Route::get('certificate/{certificate}/download', [\App\Http\Controllers\admin\CertificateController::class, 'downloadTemplate'])
+    Route::get('certificate/{certificate}/download', [CertificateController::class, 'downloadTemplate'])
         ->middleware('certificate.enabled')
         ->name('certificate.downloadTemplate');
-    Route::post('certificate/bulk-action', [\App\Http\Controllers\admin\CertificateController::class, 'bulkAction'])
+    Route::post('certificate/bulk-action', [CertificateController::class, 'bulkAction'])
         ->middleware('certificate.enabled')
         ->name('certificate.bulkAction');
 });
