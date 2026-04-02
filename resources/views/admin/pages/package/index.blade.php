@@ -148,6 +148,14 @@
                 </a>
                 @endif
 
+                {{-- Share Button --}}
+                <button type="button" 
+                    onclick="copyPackageLink({{ $package->package_id }})"
+                    class="bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm transition-colors"
+                    title="Copy link detail paket">
+                    <i class="ri-share-line"></i>
+                </button>
+
                 <a href="{{ route('admin.package.edit', $package->package_id) }}"
                     class="bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm">
                     <i class="ri-pencil-fill"></i>
@@ -167,4 +175,44 @@
         @endforeach
     </div>
 </div>
+
+{{-- Toast Notification --}}
+<div id="toast-notification" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2">
+    <i class="ri-check-line text-xl"></i>
+    <span id="toast-message">Link berhasil disalin!</span>
+</div>
+
+<script>
+function copyPackageLink(packageId) {
+    const baseUrl = '{{ url('/') }}';
+    const link = baseUrl + '/user/paket/' + packageId + '/detail';
+    
+    navigator.clipboard.writeText(link).then(function() {
+        showToast('Link detail paket berhasil disalin!');
+    }).catch(function(err) {
+        // Fallback untuk browser lama
+        const textArea = document.createElement('textarea');
+        textArea.value = link;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showToast('Link detail paket berhasil disalin!');
+    });
+}
+
+function showToast(message) {
+    const toast = document.getElementById('toast-notification');
+    const toastMessage = document.getElementById('toast-message');
+    toastMessage.textContent = message;
+    
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    
+    setTimeout(function() {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 3000);
+}
+</script>
 @endsection

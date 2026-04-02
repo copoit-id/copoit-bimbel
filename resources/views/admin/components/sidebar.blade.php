@@ -26,6 +26,8 @@
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
+        || request()->routeIs('admin.material.*')
+        || request()->routeIs('admin.material-category.*')
         || request()->routeIs('admin.question-bank.*');
     $isUserActive = request()->routeIs('admin.user.*') || request()->routeIs('admin.akses.*');
     $isReportActive = request()->routeIs('admin.leaderboard.*')
@@ -35,7 +37,7 @@
     $isFinanceActive = request()->routeIs('admin.finance.*') || request()->routeIs('admin.pembayaran.*');
 @endphp
 
-<aside id="logo-sidebar"
+<aside id="logo-sidebar" x-ignore
     class="fixed top-0 left-0 z-40 w-64 h-screen pt-20 transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
@@ -51,8 +53,8 @@
             </li>
             @endif
             <li>
-                <details class="group" {{ $isMasterActive ? 'open' : '' }}>
-                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isMasterActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                <details id="menu-master" class="group" {{ $isMasterActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isMasterActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
                         <span class="flex items-center">
                             <i class="ri-stack-line text-[20px] {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                             <span class="ms-3">Manajemen Master</span>
@@ -92,9 +94,9 @@
                         @endif
                         <li>
                             <a href="{{ route('admin.material.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.*') || request()->routeIs('admin.material-category.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <i
-                                    class="ri-book-open-line text-[20px] {{ request()->routeIs('admin.material.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                    class="ri-book-open-line text-[20px] {{ request()->routeIs('admin.material.*') || request()->routeIs('admin.material-category.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
                                 <span class="ms-3">Manajemen Materi</span>
                             </a>
                         </li>
@@ -112,8 +114,8 @@
                 </details>
             </li>
             <li>
-                <details class="group" {{ $isUserActive ? 'open' : '' }}>
-                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isUserActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                <details id="menu-user" class="group" {{ $isUserActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isUserActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
                         <span class="flex items-center">
                             <i class="ri-user-2-line text-[20px] {{ $isUserActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                             <span class="ms-3">User</span>
@@ -154,8 +156,8 @@
                 </details>
             </li>
             <li>
-                <details class="group" {{ $isReportActive ? 'open' : '' }}>
-                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isReportActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                <details id="menu-report" class="group" {{ $isReportActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isReportActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
                         <span class="flex items-center">
                             <i class="ri-file-chart-line text-[20px] {{ $isReportActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                             <span class="ms-3">Laporan Tryout</span>
@@ -207,8 +209,8 @@
                 </details>
             </li>
             <li>
-                <details class="group" {{ $isFinanceActive ? 'open' : '' }}>
-                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isFinanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                <details id="menu-finance" class="group" {{ $isFinanceActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isFinanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
                         <span class="flex items-center">
                             <i class="ri-wallet-3-line text-[20px] {{ $isFinanceActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                             <span class="ms-3">Keuangan</span>

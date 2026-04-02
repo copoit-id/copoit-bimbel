@@ -231,7 +231,7 @@ Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'check
 Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
 
 // Super Admin Routes
-Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin'])->group(function () {
+Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
@@ -259,7 +259,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
 });
 
 // Admin Routes (add auth middleware)
-Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission', 'no-cache'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
     Route::get('/update-notifications', [\App\Http\Controllers\admin\UpdateNotificationController::class, 'index'])->name('update-notifications.index');

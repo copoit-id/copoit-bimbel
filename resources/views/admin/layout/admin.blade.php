@@ -5,7 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, proxy-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="turbo-cache-control" content="no-cache">
     <title>{{ $clientBranding['name'] }} - Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -137,6 +141,46 @@
     @vite('resources/js/app.js')
     @stack('scripts')
     @yield('scripts')
+    
+    {{-- Fix sidebar navigation issues --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Stop Alpine.js from interfering with details elements
+            const detailsElements = document.querySelectorAll('#logo-sidebar details');
+            detailsElements.forEach(function(details) {
+                // Remove any Alpine.js bindings
+                details.removeAttribute('x-data');
+                details.removeAttribute('x-bind');
+                details.removeAttribute('x-on:click');
+            });
+            
+            // Ensure all sidebar links work properly - direct navigation
+            const sidebarLinks = document.querySelectorAll('#logo-sidebar a');
+            sidebarLinks.forEach(function(link) {
+                // Remove any existing listeners by cloning
+                const newLink = link.cloneNode(true);
+                link.parentNode.replaceChild(newLink, link);
+            });
+        });
+        
+        // Handle page cache issues
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                // Page was loaded from bfcache (back button), reload to ensure fresh state
+                window.location.reload();
+            }
+        });
+        
+        // Refresh CSRF token periodically to prevent session expiry issues
+        setInterval(function() {
+            fetch('{{ route("admin.dashboard") }}', {
+                method: 'HEAD',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).catch(function() {});
+        }, 300000); // Every 5 minutes
+    </script>
 </body>
 
 </html>
