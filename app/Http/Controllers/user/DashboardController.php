@@ -8,6 +8,7 @@ use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
 use App\Models\UserAnswer;
 use App\Models\Package;
+use App\Models\MaterialProgressLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,12 +21,18 @@ class DashboardController extends Controller
 
         // If no user, just show guest view with public packages
         if (!$user) {
+            // Get public packages for guest view (BE logic di BE)
+            $publicPackages = Package::where('status', 'active')
+                ->limit(3)
+                ->get();
+            
             return view('user.pages.dashboard.new-index', [
                 'user' => null,
                 'activePackages' => collect(),
                 'recentAttempts' => collect(),
                 'stats' => [],
-                'expiringSoon' => collect()
+                'expiringSoon' => collect(),
+                'publicPackages' => $publicPackages
             ]);
         }
 
@@ -112,12 +119,64 @@ class DashboardController extends Controller
             ->with('package')
             ->get();
 
+        // Calculate accuracy stats
+        $totalAnswered = UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->count();
+        
+        $totalCorrect = UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->where('is_correct', true)->count();
+        
+        $accuracyPercent = $totalAnswered > 0 ? round(($totalCorrect / $totalAnswered) * 100) : 0;
+        
+        // Get recent tryout results (latest 3)
+        $recentTryouts = UserAnswer::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->with('tryout')
+            ->orderBy('created_at', 'desc')
+            ->take(3)
+            ->get();
+        
+        // Calculate package progress
+        $packageProgress = [];
+        foreach ($activePackages as $access) {
+            $pkg = $access->package;
+            $totalItems = $pkg->materials->count() + $pkg->tryouts->count();
+            $completedItems = 0;
+            
+            // Count completed materials
+            foreach ($pkg->materials as $material) {
+                $progress = \App\Models\MaterialProgressLog::where('user_id', $user->id)
+                    ->where('material_id', $material->material_id)
+                    ->where('is_completed', true)
+                    ->first();
+                if ($progress) $completedItems++;
+            }
+            
+            // Count completed tryouts
+            foreach ($pkg->tryouts as $tryout) {
+                $attempt = UserAnswer::where('user_id', $user->id)
+                    ->where('tryout_id', $tryout->tryout_id)
+                    ->where('status', 'completed')
+                    ->first();
+                if ($attempt) $completedItems++;
+            }
+            
+            $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
+        }
+
         // Check if user wants new layout (default for now)
         return view('user.pages.dashboard.new-index', compact(
             'activePackages',
             'recentAttempts',
             'stats',
-            'expiringSoon'
+            'expiringSoon',
+            'totalAnswered',
+            'totalCorrect',
+            'accuracyPercent',
+            'recentTryouts',
+            'packageProgress'
         ));
     }
 

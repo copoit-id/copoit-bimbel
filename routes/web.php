@@ -82,18 +82,8 @@ Route::get('/setup-project', function () {
 });
 
 Route::get('/', function () {
-    if (Auth::check()) {
-        $user = Auth::user();
-        if ($user->isSuperAdmin()) {
-            return redirect()->route('super-admin.admins.index');
-        }
-
-        return $user->canAccessAdminPanel()
-            ? redirect()->route('admin.dashboard')
-            : redirect()->route('user.dashboard.index');
-    }
-
-    return redirect()->route('login');
+    // Default ke user dashboard (support guest & logged in user)
+    return redirect()->route('user.dashboard.index');
 });
 
 Route::get('/live-score/{tryout}', [LaporanController::class, 'publicLiveScore'])
@@ -125,6 +115,9 @@ Route::prefix('user')->group(function () {
     
     // Public package listing (berbayar & gratis)
     Route::get('/paket', [PackageController::class, 'index'])->name('user.package.index');
+    
+    // Public package detail (bisa diakses guest)
+    Route::get('/paket/{package_id}/detail', [PackageController::class, 'detail'])->name('user.package.detail');
 });
 
 // User routes (add auth middleware)
@@ -178,15 +171,10 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::prefix('package')->group(function () {
         Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
         Route::get('/sertifikasi-list', [PackageController::class, 'listSertifikasi'])->name('user.package.sertifikasi.list');
-        Route::post('/buy/{package_id}', [PackageController::class, 'buyPackage'])->name('user.package.buy');
-
-        // Existing routes
-        Route::get('/bimbel/{id_package}', [PackageController::class, 'indexBimbel'])->name('user.package.bimbel');
-        Route::get('/tryout/{id_package}', [PackageController::class, 'indexTryout'])->name('user.package.tryout');
         Route::get('/sertifikasi/{id_package}', [PackageController::class, 'indexSertifikasi'])->name('user.package.sertifikasi');
-        Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
-        Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/statistik', [PackageController::class, 'statistikTryout'])->name('user.package.tryout.statistik');
+        // Note: user.package.buy, user.package.bimbel, user.package.tryout, user.package.tryout.riwayat, 
+        // user.package.tryout.ranking sudah didefinisikan di paket-pembelian prefix
     });
 
     // My Packages (Step by Step)
@@ -210,14 +198,14 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::prefix('sertifikat')->middleware('certificate.enabled')->group(function () {
         Route::get('/validasi', [CertificateValidationController::class, 'index'])->name('user.certificate.validation');
         Route::post('/validasi', [CertificateValidationController::class, 'validateCertificate'])->name('user.certificate.validate');
-        Route::post('/download', [CertificateValidationController::class, 'downloadCertificate'])->name('user.certificate.download');
+        Route::post('/download', [CertificateValidationController::class, 'downloadCertificate'])->name('user.certificate.download.post');
         Route::get('/download/{certificate_id}', [CertificateValidationController::class, 'downloadById'])->name('user.certificate.validation.download');
 
         // Certificate generation routes
         Route::get('/preview/{package_id}/{tryout_id}/{token}', [\App\Http\Controllers\user\CertificateController::class, 'preview'])->name('user.certificate.preview');
         Route::get('/view/{certificate_id}/{token}', [\App\Http\Controllers\user\CertificateController::class, 'view'])->name('user.certificate.view');
         Route::get('/preview-with-data/{certificate_id}/{token}', [\App\Http\Controllers\user\CertificateController::class, 'previewWithData'])->name('user.certificate.preview.with.data');
-        Route::get('/download/{certificate_id}/{token}', [\App\Http\Controllers\user\CertificateController::class, 'download'])->name('user.certificate.download');
+        Route::get('/download/{certificate_id}/{token}', [\App\Http\Controllers\user\CertificateController::class, 'download'])->name('user.certificate.download.file');
 
         // Template preview route
         Route::get('/template/preview', [\App\Http\Controllers\user\CertificateController::class, 'previewTemplate'])->name('user.certificate.template.preview');

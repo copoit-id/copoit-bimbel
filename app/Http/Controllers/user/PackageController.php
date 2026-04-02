@@ -56,6 +56,14 @@ class PackageController extends Controller
 
     public function buyPackage(Request $request, $package_id)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Silakan login terlebih dahulu untuk membeli paket.'
+            ], 401);
+        }
+        
         try {
             $package = Package::findOrFail($package_id);
 
@@ -410,6 +418,12 @@ class PackageController extends Controller
 
     public function indexBimbel($id_package)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses kelas.');
+        }
+        
         $package = Package::findOrFail($id_package);
 
         // Check if user has access - perbaiki query akses
@@ -441,6 +455,12 @@ class PackageController extends Controller
 
     public function indexTryout($id_package)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses tryout.');
+        }
+        
         $package = Package::findOrFail($id_package);
 
         // Check if user has access - perbaiki query akses
@@ -1785,6 +1805,12 @@ class PackageController extends Controller
      */
     public function myPackages()
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk melihat paket Anda.');
+        }
+        
         $user = Auth::user();
         
         $activePackages = UserPackageAcces::where('user_id', $user->id)
@@ -1804,6 +1830,12 @@ class PackageController extends Controller
      */
     public function showPackage($packageId)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses paket.');
+        }
+        
         $user = Auth::user();
         $package = Package::with(['materials', 'tryouts'])->findOrFail($packageId);
         
@@ -1911,6 +1943,12 @@ class PackageController extends Controller
      */
     public function listTryout()
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk melihat daftar tryout.');
+        }
+        
         $user = Auth::user();
         
         // Get packages that user has access to
@@ -1938,5 +1976,50 @@ class PackageController extends Controller
         }
         
         return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds'));
+    }
+
+    /**
+     * Show public package detail (accessible by guest)
+     */
+    public function detail($package_id)
+    {
+        $package = Package::with(['materials', 'tryouts.tryoutDetails'])
+            ->where('status', 'active')
+            ->findOrFail($package_id);
+        
+        // Check if user is logged in and has access
+        $hasAccess = false;
+        $isOwned = false;
+        
+        if (Auth::check()) {
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $package_id)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+            $isOwned = $hasAccess;
+        }
+        
+        // Calculate total duration and questions
+        $totalDuration = 0;
+        $totalQuestions = 0;
+        
+        foreach ($package->tryouts as $tryout) {
+            foreach ($tryout->tryoutDetails as $detail) {
+                $totalDuration += $detail->duration;
+                $totalQuestions += \App\Models\Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
+            }
+        }
+        
+        return view('user.pages.package.detail-public', compact(
+            'package',
+            'hasAccess',
+            'isOwned',
+            'totalDuration',
+            'totalQuestions'
+        ));
     }
 }

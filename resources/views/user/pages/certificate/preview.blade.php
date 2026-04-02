@@ -111,7 +111,7 @@
             </a>
 
             <!-- Download Certificate Button -->
-            <a href="{{ route('user.certificate.download', ['certificate_id' => $existingCertificate->certificate_id,'token' => $token]) }}"
+            <a href="{{ route('user.certificate.download.file', ['certificate_id' => $existingCertificate->certificate_id,'token' => $token]) }}"
                 class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
                 <i class="ri-download-line mr-2"></i>Download Sertifikat
             </a>

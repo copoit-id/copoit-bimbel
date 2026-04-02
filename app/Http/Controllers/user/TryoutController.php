@@ -804,6 +804,12 @@ class TryoutController extends Controller
 
     public function indexLobby($id_package, $id_tryout)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses tryout.');
+        }
+        
         if ($id_package === 'free') {
             // Free tryout access dengan timezone Jakarta
             $now = Carbon::now('Asia/Jakarta');
@@ -874,6 +880,12 @@ class TryoutController extends Controller
 
     public function indexTryout($id_package, $id_tryout, $number)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengerjakan tryout.');
+        }
+        
         $now = Carbon::now('Asia/Jakarta');
 
         // Handle free tryouts or package tryouts

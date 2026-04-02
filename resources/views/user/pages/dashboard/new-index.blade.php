@@ -7,56 +7,6 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
-
-// Calculate real stats for authenticated user
-if ($user) {
-    // Calculate real accuracy from user answers
-    $totalAnswered = \App\Models\UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
-        $q->where('user_id', $user->id);
-    })->count();
-    
-    $totalCorrect = \App\Models\UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
-        $q->where('user_id', $user->id);
-    })->where('is_correct', true)->count();
-    
-    $accuracyPercent = $totalAnswered > 0 ? round(($totalCorrect / $totalAnswered) * 100) : 0;
-    
-    // Get real recent tryout results (latest 3)
-    $recentTryouts = \App\Models\UserAnswer::where('user_id', $user->id)
-        ->where('status', 'completed')
-        ->with('tryout')
-        ->orderBy('created_at', 'desc')
-        ->take(3)
-        ->get();
-        
-    // Calculate real progress for each active package
-    $packageProgress = [];
-    foreach ($activePackages as $access) {
-        $pkg = $access->package;
-        $totalItems = $pkg->materials->count() + $pkg->tryouts->count();
-        $completedItems = 0;
-        
-        // Count completed materials
-        foreach ($pkg->materials as $material) {
-            $progress = \App\Models\MaterialProgressLog::where('user_id', $user->id)
-                ->where('material_id', $material->material_id)
-                ->where('is_completed', true)
-                ->first();
-            if ($progress) $completedItems++;
-        }
-        
-        // Count completed tryouts
-        foreach ($pkg->tryouts as $tryout) {
-            $attempt = \App\Models\UserAnswer::where('user_id', $user->id)
-                ->where('tryout_id', $tryout->tryout_id)
-                ->where('status', 'completed')
-                ->first();
-            if ($attempt) $completedItems++;
-        }
-        
-        $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
-    }
-}
 @endphp
 
 <!-- Welcome Card -->
@@ -217,13 +167,6 @@ if ($user) {
 <div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
     <h3 class="font-bold text-gray-800 mb-4">Paket Tersedia</h3>
     
-    @php
-    $publicPackages = \App\Models\Package::where('is_active', true)
-        ->where('status', 'active')
-        ->limit(3)
-        ->get();
-    @endphp
-    
     @if($publicPackages->count() > 0)
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         @foreach($publicPackages as $pkg)
@@ -233,7 +176,7 @@ if ($user) {
             </div>
             <h3 class="font-semibold text-gray-800 mb-1">{{ $pkg->name }}</h3>
             <p class="text-sm text-gray-400 mb-3">{{ $pkg->description ?? 'Paket pembelajaran' }}</p>
-            <a href="{{ route('login') }}" class="block w-full py-2 text-center rounded-lg text-white text-sm hover:opacity-90" style="background-color: {{ $primaryColor }}">
+            <a href="{{ route('user.package.detail', $pkg->package_id) }}" class="block w-full py-2 text-center rounded-lg text-white text-sm hover:opacity-90" style="background-color: {{ $primaryColor }}">
                 Lihat Detail
             </a>
         </div>

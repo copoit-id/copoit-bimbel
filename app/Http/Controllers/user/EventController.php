@@ -19,6 +19,14 @@ class EventController extends Controller
 
     public function joinEvent($package_id)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Silakan login terlebih dahulu untuk mengklaim paket gratis.'
+            ], 401);
+        }
+        
         $package = Package::where('package_id', $package_id)
             ->where('status', 'active')
             ->whereIn('type_price', ['free_unconditional', 'free_conditional'])

@@ -62,7 +62,9 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         
         <!-- Content -->
         <div class="p-5">
-            <h3 class="font-bold text-lg text-gray-800 mb-2">{{ $package->name }}</h3>
+            <a href="{{ route('user.package.detail', $package->package_id) }}" class="block">
+                <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $package->name }}</h3>
+            </a>
             <p class="text-gray-500 text-sm mb-4 line-clamp-2">{{ $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' }}</p>
             
             <!-- Stats -->
@@ -77,40 +79,47 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 </span>
             </div>
             
-            <!-- Action Button -->
-            @auth
-                @if($isOwned)
-                <a href="{{ route('user.package.show', $package->package_id) }}" 
-                   class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
-                   style="background-color: {{ $primaryColor }}">
-                    <i class="ri-play-circle-line mr-2"></i>Mulai Belajar
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <a href="{{ route('user.package.detail', $package->package_id) }}" 
+                   class="flex-1 py-2.5 rounded-xl text-center font-medium border transition-all hover:bg-gray-50"
+                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                    <i class="ri-eye-line mr-1"></i>Detail
                 </a>
-                @elseif($tab === 'free')
-                <form action="{{ route('user.event.join', $package->package_id) }}" method="POST" class="claim-form">
-                    @csrf
-                    <button type="submit" 
-                            class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
-                            style="background-color: {{ $primaryColor }}">
-                        <i class="ri-gift-line mr-2"></i>Klaim Paket
-                    </button>
-                </form>
+                @auth
+                    @if($isOwned)
+                    <a href="{{ route('user.package.show', $package->package_id) }}" 
+                       class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        <i class="ri-play-circle-line mr-1"></i>Mulai
+                    </a>
+                    @elseif($tab === 'free')
+                    <form action="{{ route('user.event.join', $package->package_id) }}" method="POST" class="claim-form flex-1">
+                        @csrf
+                        <button type="submit" 
+                                class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                                style="background-color: {{ $primaryColor }}">
+                            <i class="ri-gift-line mr-1"></i>Klaim
+                        </button>
+                    </form>
+                    @else
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1">
+                        @csrf
+                        <button type="submit" 
+                                class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                                style="background-color: {{ $primaryColor }}">
+                            <i class="ri-shopping-cart-line mr-1"></i>Beli
+                        </button>
+                    </form>
+                    @endif
                 @else
-                <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form">
-                    @csrf
-                    <button type="submit" 
-                            class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
-                            style="background-color: {{ $primaryColor }}">
-                        <i class="ri-shopping-cart-line mr-2"></i>Beli Paket
-                    </button>
-                </form>
-                @endif
-            @else
-            <a href="{{ route('login') }}" 
-               class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
-               style="background-color: {{ $primaryColor }}">
-                <i class="ri-login-box-line mr-2"></i>Masuk untuk Akses
-            </a>
-            @endauth
+                <a href="{{ route('login') }}" 
+                   class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $primaryColor }}">
+                    <i class="ri-login-box-line mr-1"></i>Masuk
+                </a>
+                @endauth
+            </div>
         </div>
     </div>
     @empty
