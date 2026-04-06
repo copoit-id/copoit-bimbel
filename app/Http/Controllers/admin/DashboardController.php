@@ -19,6 +19,11 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
+        // Redirect super admin to super admin dashboard
+        if (auth()->user()->isSuperAdmin()) {
+            return redirect()->route('super-admin.admins.index');
+        }
+        
         $period = $request->get('period', '30d'); // 7d, 30d, 90d, 1y
         
         // Calculate date ranges
