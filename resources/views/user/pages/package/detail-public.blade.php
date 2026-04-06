@@ -47,7 +47,7 @@ $isGuest = !Auth::check();
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div class="flex-1">
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">{{ $package->name }}</h2>
-                <p class="text-gray-600 mb-4">{{ $package->description ?? 'Paket pembelajaran lengkap untuk meningkatkan skill dan persiapan ujianmu.' }}</p>
+                <div class="text-gray-600 mb-4 package-description">{!! $package->description ?? 'Paket pembelajaran lengkap untuk meningkatkan skill dan persiapan ujianmu.' !!}</div>
                 
                 <!-- Stats -->
                 <div class="flex flex-wrap gap-4">
@@ -357,4 +357,20 @@ $(document).ready(function() {
     });
 });
 </script>
+
+@section('styles')
+<style>
+.package-description p { margin-bottom: 0.75rem; }
+.package-description p:last-child { margin-bottom: 0; }
+.package-description ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.package-description ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.package-description a { color: #10b981; text-decoration: underline; }
+.package-description strong { font-weight: 600; }
+.package-description em { font-style: italic; }
+.package-description h1, .package-description h2, .package-description h3 { font-weight: 700; margin-bottom: 0.5rem; }
+.package-description h1 { font-size: 1.5rem; }
+.package-description h2 { font-size: 1.25rem; }
+.package-description h3 { font-size: 1.125rem; }
+</style>
+@endsection
 @endsection

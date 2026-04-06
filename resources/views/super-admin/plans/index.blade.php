@@ -45,7 +45,7 @@
                                 @endif
                             </div>
                             <p class="text-sm text-gray-500 mb-2">{{ $plan->slug }} • {{ $plan->formatted_price }} • {{ $plan->duration_days == 0 ? 'Lifetime' : $plan->duration_days . ' hari' }}</p>
-                            <p class="text-sm text-gray-600">{{ $plan->description ?? '-' }}</p>
+                            <div class="text-sm text-gray-600 plan-description">{!! $plan->description ?? '-' !!}</div>
                         </div>
                         <div class="flex items-center gap-2">
                             <a href="{{ route('super-admin.plans.edit', $plan->id) }}" 
@@ -92,4 +92,16 @@
         </div>
     </div>
 </div>
+
+@push('styles')
+<style>
+.plan-description p { margin-bottom: 0.5rem; }
+.plan-description p:last-child { margin-bottom: 0; }
+.plan-description ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.plan-description ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.plan-description a { color: #10b981; text-decoration: underline; }
+.plan-description strong { font-weight: 600; }
+.plan-description em { font-style: italic; }
+</style>
+@endpush
 @endsection

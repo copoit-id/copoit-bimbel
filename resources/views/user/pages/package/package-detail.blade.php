@@ -19,7 +19,7 @@
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">{{ $package->name }}</h1>
                 @if($package->description)
-                <p class="text-gray-600 mt-2">{{ $package->description }}</p>
+                <div class="text-gray-600 mt-2 package-description">{!! $package->description !!}</div>
                 @endif
             </div>
             <div class="text-right">
@@ -130,4 +130,20 @@
         @endif
     </div>
 </div>
+
+@section('styles')
+<style>
+.package-description p { margin-bottom: 0.75rem; }
+.package-description p:last-child { margin-bottom: 0; }
+.package-description ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.package-description ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.package-description a { color: #10b981; text-decoration: underline; }
+.package-description strong { font-weight: 600; }
+.package-description em { font-style: italic; }
+.package-description h1, .package-description h2, .package-description h3 { font-weight: 700; margin-bottom: 0.5rem; }
+.package-description h1 { font-size: 1.5rem; }
+.package-description h2 { font-size: 1.25rem; }
+.package-description h3 { font-size: 1.125rem; }
+</style>
+@endsection
 @endsection

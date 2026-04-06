@@ -175,7 +175,7 @@ $isGuest = !$user;
                 <i class="ri-package-line text-xl"></i>
             </div>
             <h3 class="font-semibold text-gray-800 mb-1">{{ $pkg->name }}</h3>
-            <p class="text-sm text-gray-400 mb-3">{{ $pkg->description ?? 'Paket pembelajaran' }}</p>
+            <div class="text-sm text-gray-400 mb-3 plan-description">{!! $pkg->description ?? 'Paket pembelajaran' !!}</div>
             <a href="{{ route('user.package.detail', $pkg->package_id) }}" class="block w-full py-2 text-center rounded-lg text-white text-sm hover:opacity-90" style="background-color: {{ $primaryColor }}">
                 Lihat Detail
             </a>
@@ -187,4 +187,15 @@ $isGuest = !$user;
     @endif
 </div>
 @endif
+@section('styles')
+<style>
+.plan-description p { margin-bottom: 0.5rem; }
+.plan-description p:last-child { margin-bottom: 0; }
+.plan-description ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.plan-description ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.plan-description a { color: var(--primary-color, #10b981); text-decoration: underline; }
+.plan-description strong { font-weight: 600; }
+.plan-description em { font-style: italic; }
+</style>
+@endsection
 @endsection
