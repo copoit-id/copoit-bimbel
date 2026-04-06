@@ -19,6 +19,7 @@ class Plan extends Model
         'max_packages',
         'max_users',
         'max_question_banks',
+        'max_tryouts',
         'essay_ai_enabled',
         'essay_ai_monthly_limit',
         'is_default',
@@ -37,6 +38,7 @@ class Plan extends Model
         'max_packages' => 'integer',
         'max_users' => 'integer',
         'max_question_banks' => 'integer',
+        'max_tryouts' => 'integer',
         'essay_ai_monthly_limit' => 'integer',
         'trial_duration_days' => 'integer',
         'duration_days' => 'integer',
@@ -80,6 +82,11 @@ class Plan extends Model
         return $this->max_question_banks === -1;
     }
 
+    public function isUnlimitedTryouts(): bool
+    {
+        return $this->max_tryouts === -1;
+    }
+
     public function isUnlimitedEssayAI(): bool
     {
         return $this->essay_ai_enabled && $this->essay_ai_monthly_limit === 0;
@@ -114,6 +121,11 @@ class Plan extends Model
     public function getMaxQuestionBanksTextAttribute(): string
     {
         return $this->isUnlimitedQuestionBanks() ? 'Unlimited' : $this->max_question_banks;
+    }
+
+    public function getMaxTryoutsTextAttribute(): string
+    {
+        return $this->isUnlimitedTryouts() ? 'Unlimited' : $this->max_tryouts;
     }
 
     public function getEssayAILimitTextAttribute(): string

@@ -21,7 +21,8 @@ class PlanSeeder extends Seeder
                 'is_active' => true,
                 'max_packages' => 2,
                 'max_users' => 20,
-                'max_question_banks' => 3,
+                'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => 2,
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 10,
                 'is_default' => true,
@@ -35,13 +36,14 @@ class PlanSeeder extends Seeder
             ['slug' => 'langganan-paket-s'],
             [
                 'name' => 'Langganan - Paket S',
-                'description' => 'Paket S - 100 Packages, 100 Users, 10 Essay AI/bulan',
+                'description' => 'Paket S - 50 Users, 10 Tryout, 10 Paket',
                 'price' => 99000,
                 'duration_days' => 0,
                 'is_active' => true,
-                'max_packages' => 100,
-                'max_users' => 100,
+                'max_packages' => 10,
+                'max_users' => 50,
                 'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => 10,
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 10,
                 'is_default' => false,
@@ -55,13 +57,14 @@ class PlanSeeder extends Seeder
             ['slug' => 'langganan-paket-m'],
             [
                 'name' => 'Langganan - Paket M',
-                'description' => 'Paket M - 200 Packages, 100 Users, 20 Essay AI/bulan',
+                'description' => 'Paket M - 100 Users, 15 Tryout, 20 Paket',
                 'price' => 149000,
                 'duration_days' => 0,
                 'is_active' => true,
-                'max_packages' => 200,
+                'max_packages' => 20,
                 'max_users' => 100,
                 'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => 15,
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 20,
                 'is_default' => false,
@@ -75,13 +78,14 @@ class PlanSeeder extends Seeder
             ['slug' => 'langganan-paket-l'],
             [
                 'name' => 'Langganan - Paket L',
-                'description' => 'Paket L - 300 Packages, 200 Users, 30 Essay AI/bulan',
+                'description' => 'Paket L - 300 Users, 20 Tryout, 30 Paket',
                 'price' => 249000,
                 'duration_days' => 0,
                 'is_active' => true,
-                'max_packages' => 300,
-                'max_users' => 200,
+                'max_packages' => 30,
+                'max_users' => 300,
                 'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => 20,
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 30,
                 'is_default' => false,
@@ -95,13 +99,14 @@ class PlanSeeder extends Seeder
             ['slug' => 'langganan-paket-xl'],
             [
                 'name' => 'Langganan - Paket XL',
-                'description' => 'Paket XL - 400 Packages, 300 Users, 40 Essay AI/bulan',
+                'description' => 'Paket XL - 400 Users, 40 Tryout, 40 Paket',
                 'price' => 349000,
                 'duration_days' => 0,
                 'is_active' => true,
-                'max_packages' => 400,
-                'max_users' => 300,
+                'max_packages' => 40,
+                'max_users' => 400,
                 'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => 40,
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 40,
                 'is_default' => false,
@@ -115,13 +120,14 @@ class PlanSeeder extends Seeder
             ['slug' => 'langganan-paket-x2l'],
             [
                 'name' => 'Langganan - Paket X2L',
-                'description' => 'Paket X2L - 800 Packages, 600 Users, 50 Essay AI/bulan',
+                'description' => 'Paket X2L - 800 Users, 50 Tryout, 50 Paket',
                 'price' => 599000,
                 'duration_days' => 0,
                 'is_active' => true,
-                'max_packages' => 800,
-                'max_users' => 600,
+                'max_packages' => 50,
+                'max_users' => 800,
                 'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => 50,
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 50,
                 'is_default' => false,
@@ -135,13 +141,14 @@ class PlanSeeder extends Seeder
             ['slug' => 'langganan-paket-x3l'],
             [
                 'name' => 'Langganan - Paket X3L',
-                'description' => 'Paket X3L - Unlimited Packages, Unlimited Users, Unlimited Essay AI',
+                'description' => 'Paket X3L - Unlimited Users, Unlimited Tryout, Unlimited Paket',
                 'price' => 999000,
                 'duration_days' => 0,
                 'is_active' => true,
                 'max_packages' => -1, // Unlimited
                 'max_users' => -1, // Unlimited
                 'max_question_banks' => -1, // Unlimited
+                'max_tryouts' => -1, // Unlimited
                 'essay_ai_enabled' => true,
                 'essay_ai_monthly_limit' => 0, // 0 = Unlimited
                 'is_default' => false,
