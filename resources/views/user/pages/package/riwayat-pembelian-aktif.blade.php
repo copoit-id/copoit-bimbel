@@ -57,7 +57,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <!-- Content -->
         <div class="p-5">
             <h3 class="font-bold text-lg text-gray-800 mb-2">{{ $package->name }}</h3>
-            <p class="text-gray-500 text-sm mb-4">{{ $package->description ?? 'Paket belajar lengkap.' }}</p>
+            <div class="text-gray-500 text-sm mb-4">{!! $package->description ?? 'Paket belajar lengkap.' !!}</div>
             
             <!-- Info -->
             <div class="space-y-2 mb-4 text-sm">

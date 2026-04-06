@@ -65,7 +65,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <a href="{{ route('user.package.detail', $package->package_id) }}" class="block">
                 <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $package->name }}</h3>
             </a>
-            <p class="text-gray-500 text-sm mb-4 line-clamp-2">{{ $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' }}</p>
+            <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
             
             <!-- Stats -->
             <div class="flex items-center gap-4 mb-4 text-sm text-gray-500">

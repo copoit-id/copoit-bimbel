@@ -143,7 +143,7 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
             
             <div class="p-5">
             <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
-            <p class="text-sm text-gray-400 mb-4 line-clamp-2">{{ $package->description ?? 'Paket pembelajaran lengkap' }}</p>
+            <div class="text-sm text-gray-400 mb-4 line-clamp-2">{!! $package->description ?? 'Paket pembelajaran lengkap' !!}</div>
             
             <!-- Progress -->
             <div class="mb-4">

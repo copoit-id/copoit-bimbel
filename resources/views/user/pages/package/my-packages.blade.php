@@ -47,7 +47,7 @@
             
             <div class="p-6">
                 <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">{{ $package->name }}</h3>
-                <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ $package->description ?: 'Tidak ada deskripsi' }}</p>
+                <div class="text-sm text-gray-500 mb-4 line-clamp-2">{!! $package->description ?: 'Tidak ada deskripsi' !!}</div>
                 
                 <!-- Progress -->
                 <div class="mb-4">

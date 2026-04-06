@@ -40,7 +40,7 @@ $hasEvents = $kelasPackages->count() > 0 || $tryoutPackages->count() > 0 || $ser
                 </div>
                 
                 <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
-                <p class="text-sm text-gray-400 mb-4 line-clamp-2">{{ $package->description ?? 'Event tryout gratis' }}</p>
+                <div class="text-sm text-gray-400 mb-4 line-clamp-2">{!! $package->description ?? 'Event tryout gratis' !!}</div>
                 
                 @if($package->user_access_count > 0)
                 <a href="{{ route('user.package.show', $package->package_id) }}" 
@@ -84,7 +84,7 @@ $hasEvents = $kelasPackages->count() > 0 || $tryoutPackages->count() > 0 || $ser
                 </div>
                 
                 <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
-                <p class="text-sm text-gray-400 mb-4 line-clamp-2">{{ $package->description ?? 'Kelas pembelajaran gratis' }}</p>
+                <div class="text-sm text-gray-400 mb-4 line-clamp-2">{!! $package->description ?? 'Kelas pembelajaran gratis' !!}</div>
                 
                 @if($package->user_access_count > 0)
                 <a href="{{ route('user.package.show', $package->package_id) }}" 
@@ -128,7 +128,7 @@ $hasEvents = $kelasPackages->count() > 0 || $tryoutPackages->count() > 0 || $ser
                 </div>
                 
                 <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
-                <p class="text-sm text-gray-400 mb-4 line-clamp-2">{{ $package->description ?? 'Sertifikasi gratis' }}</p>
+                <div class="text-sm text-gray-400 mb-4 line-clamp-2">{!! $package->description ?? 'Sertifikasi gratis' !!}</div>
                 
                 @if($package->user_access_count > 0)
                 <a href="{{ route('user.package.show', $package->package_id) }}" 
