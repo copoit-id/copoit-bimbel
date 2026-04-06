@@ -168,17 +168,44 @@ $isGuest = !$user;
     <h3 class="font-bold text-gray-800 mb-4">Paket Tersedia</h3>
     
     @if($publicPackages->count() > 0)
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach($publicPackages as $pkg)
-        <div class="border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
-                <i class="ri-package-line text-xl"></i>
+        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full">
+            <!-- Package Image/Header -->
+            <div class="h-32 relative overflow-hidden shrink-0" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
+                @if($pkg->thumbnail)
+                <img src="{{ asset('storage/' . $pkg->thumbnail) }}" alt="{{ $pkg->name }}" class="w-full h-full object-cover">
+                @else
+                <div class="w-full h-full flex items-center justify-center">
+                    <i class="ri-book-3-line text-6xl" style="color: {{ $primaryColor }}40"></i>
+                </div>
+                @endif
+                
+                @if($pkg->type_price == 'paid')
+                <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold" style="background-color: {{ $primaryColor }}; color: white;">
+                    {{ $pkg->formatted_price }}
+                </div>
+                @else
+                <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+                    GRATIS
+                </div>
+                @endif
             </div>
-            <h3 class="font-semibold text-gray-800 mb-1">{{ $pkg->name }}</h3>
-            <div class="text-sm text-gray-400 mb-3 plan-description">{!! $pkg->description ?? 'Paket pembelajaran' !!}</div>
-            <a href="{{ route('user.package.detail', $pkg->package_id) }}" class="block w-full py-2 text-center rounded-lg text-white text-sm hover:opacity-90" style="background-color: {{ $primaryColor }}">
-                Lihat Detail
-            </a>
+            
+            <!-- Content -->
+            <div class="p-5 flex flex-col flex-grow">
+                <a href="{{ route('user.package.detail', $pkg->package_id) }}" class="block">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $pkg->name }}</h3>
+                </a>
+                <div class="text-gray-500 text-sm mb-4 line-clamp-2 plan-description flex-grow">{!! $pkg->description ?? 'Paket pembelajaran' !!}</div>
+                
+                <!-- Action Button -->
+                <a href="{{ route('user.package.detail', $pkg->package_id) }}" 
+                   class="block w-full py-2.5 text-center rounded-xl font-medium text-white hover:opacity-90 transition-opacity mt-auto"
+                   style="background-color: {{ $primaryColor }}">
+                    <i class="ri-eye-line mr-1"></i>Lihat Detail
+                </a>
+            </div>
         </div>
         @endforeach
     </div>
