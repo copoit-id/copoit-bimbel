@@ -47,11 +47,25 @@
                 </div>
 
                 <div>
-                    <label for="type_tryout" class="block text-sm font-medium text-gray-700 mb-2">Tipe Tryout <span
+                    <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">Tipe Tryout <span
+                            class="text-red-500">*</span></label>
+                    <select id="assessment_type" name="assessment_type" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        onchange="toggleKecermatanMode()">
+                        <option value="standard" {{ old('assessment_type', 'standard')=='standard' ? 'selected' : '' }}>Tryout Reguler</option>
+                        <option value="pre_test" {{ old('assessment_type')=='pre_test' ? 'selected' : '' }}>Pre Test</option>
+                        <option value="post_test" {{ old('assessment_type')=='post_test' ? 'selected' : '' }}>Post Test</option>
+                        <option value="kecermatan" {{ old('assessment_type')=='kecermatan' ? 'selected' : '' }}>Kecermatan</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Pilih "Kecermatan" untuk membuat tryout dengan format tes kecermatan.</p>
+                </div>
+
+                <div id="type_tryout_wrapper">
+                    <label for="type_tryout" class="block text-sm font-medium text-gray-700 mb-2">Tipe Subtest <span
                             class="text-red-500">*</span></label>
                     <select id="type_tryout" name="type_tryout" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Pilih Tipe Tryout</option>
+                        <option value="">Pilih Tipe Subtest</option>
                         <option value="tiu" {{ old('type_tryout')=='tiu' ? 'selected' : '' }}>TIU (Tes Intelegensi Umum)
                         </option>
                         <option value="twk" {{ old('type_tryout')=='twk' ? 'selected' : '' }}>TWK (Tes Wawasan
@@ -65,6 +79,9 @@
                             Certification</option>
                     </select>
                 </div>
+                
+                <!-- Hidden field untuk kecermatan -->
+                <input type="hidden" id="type_tryout_kecermatan" name="type_tryout" value="general" disabled>
             </div>
 
             <!-- Description -->
@@ -296,6 +313,52 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Kecermatan Section -->
+                        <div class="kecermatan-duration hidden">
+                            <h4 class="text-md font-medium text-gray-800 mb-3">Tes Kecermatan</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="duration_kecermatan"
+                                        class="block text-sm font-medium text-gray-700 mb-2">
+                                        Durasi per Kolom (Menit) <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="duration_kecermatan" name="duration_kecermatan"
+                                        value="{{ old('duration_kecermatan', 10) }}" min="1"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        placeholder="10">
+                                </div>
+                                <div>
+                                    <label for="passing_score_kecermatan"
+                                        class="block text-sm font-medium text-gray-700 mb-2">
+                                        Passing Score <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" id="passing_score_kecermatan"
+                                        name="passing_score_kecermatan"
+                                        value="{{ old('passing_score_kecermatan', 70) }}" min="0" max="1000"
+                                        step="0.01"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        placeholder="70.00">
+                                </div>
+                                <div>
+                                    <label for="passing_type_kecermatan"
+                                        class="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipe Passing <span class="text-red-500">*</span>
+                                    </label>
+                                    <select id="passing_type_kecermatan" name="passing_type_kecermatan"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="score" @selected(old('passing_type_kecermatan', 'score') === 'score')>Skor</option>
+                                        <option value="percentage" @selected(old('passing_type_kecermatan', 'score') === 'percentage')>Persentase</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-sm text-blue-700">
+                                    <i class="ri-information-line mr-1"></i>
+                                    Untuk mengelola soal kecermatan, simpan tryout terlebih dahulu, kemudian akses menu "Kelola Soal Kecermatan".
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -429,6 +492,9 @@
                 case 'certification':
                     showDurationField('certification-duration', 'duration_certification', 120, 'passing_score_certification', 70);
                     break;
+                case 'kecermatan':
+                    showDurationField('kecermatan-duration', 'duration_kecermatan', 10, 'passing_score_kecermatan', 70);
+                    break;
             }
 
             // Calculate total duration after showing fields
@@ -544,11 +610,70 @@
             }
         });
 
+        // Handle assessment_type change for kecermatan
+        const assessmentSelect = document.getElementById('assessment_type');
+        if (assessmentSelect) {
+            assessmentSelect.addEventListener('change', toggleKecermatanConfig);
+        }
+
+        function toggleKecermatanConfig() {
+            const assessmentType = assessmentSelect ? assessmentSelect.value : '';
+            const kecermatanSection = document.querySelector('.kecermatan-duration');
+            
+            if (assessmentType === 'kecermatan') {
+                // Hide all other duration sections
+                const allDurationFields = subtestDurations.querySelectorAll('[class*="-duration"]');
+                allDurationFields.forEach(field => {
+                    field.classList.add('hidden');
+                });
+                // Show kecermatan section
+                if (kecermatanSection) {
+                    kecermatanSection.classList.remove('hidden');
+                    const inputs = kecermatanSection.querySelectorAll('input');
+                    inputs.forEach(input => input.setAttribute('required', 'required'));
+                }
+                subtestDurations.classList.remove('hidden');
+            } else {
+                // Hide kecermatan section
+                if (kecermatanSection) {
+                    kecermatanSection.classList.add('hidden');
+                    const inputs = kecermatanSection.querySelectorAll('input');
+                    inputs.forEach(input => input.removeAttribute('required'));
+                }
+                // Show appropriate section based on type_tryout
+                toggleDurationFields();
+            }
+        }
+
         // Initialize on page load
         toggleDurationFields();
+        toggleKecermatanConfig(); // Check initial state
+        toggleKecermatanMode(); // Check initial state for type_tryout
         syncAllPassingScoreLimits();
 
         console.log('Create tryout form scripts loaded');
     });
+
+    // Function to toggle kecermatan mode - hide/show type_tryout
+    function toggleKecermatanMode() {
+        const assessmentSelect = document.getElementById('assessment_type');
+        const typeTryoutWrapper = document.getElementById('type_tryout_wrapper');
+        const typeTryoutSelect = document.getElementById('type_tryout');
+        const typeTryoutHidden = document.getElementById('type_tryout_kecermatan');
+        
+        if (!assessmentSelect) return;
+        
+        if (assessmentSelect.value === 'kecermatan') {
+            // Hide type_tryout select and use hidden input with value 'general'
+            if (typeTryoutWrapper) typeTryoutWrapper.style.display = 'none';
+            if (typeTryoutSelect) typeTryoutSelect.removeAttribute('required');
+            if (typeTryoutHidden) typeTryoutHidden.removeAttribute('disabled');
+        } else {
+            // Show type_tryout select
+            if (typeTryoutWrapper) typeTryoutWrapper.style.display = 'block';
+            if (typeTryoutSelect) typeTryoutSelect.setAttribute('required', 'required');
+            if (typeTryoutHidden) typeTryoutHidden.setAttribute('disabled', 'disabled');
+        }
+    }
 </script>
 @endsection

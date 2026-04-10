@@ -49,6 +49,20 @@ Route::get('/test-css', function () {
     return view('test-css');
 });
 
+// Routes untuk Kecermatan
+use App\Http\Controllers\admin\KecermatanController;
+
+Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])->group(function () {
+    Route::get('/paket/{package_id}/tryout/{tryout_id}/kecermatan', [KecermatanController::class, 'index'])->name('kecermatan.index');
+    Route::get('/paket/{package_id}/tryout/{tryout_id}/kecermatan/create', [KecermatanController::class, 'create'])->name('kecermatan.create');
+    Route::post('/paket/{package_id}/tryout/{tryout_id}/kecermatan', [KecermatanController::class, 'store'])->name('kecermatan.store');
+    Route::get('/paket/{package_id}/tryout/{tryout_id}/kecermatan/{column_id}/edit', [KecermatanController::class, 'edit'])->name('kecermatan.edit');
+    Route::put('/paket/{package_id}/tryout/{tryout_id}/kecermatan/{column_id}', [KecermatanController::class, 'update'])->name('kecermatan.update');
+    Route::delete('/paket/{package_id}/tryout/{tryout_id}/kecermatan/{column_id}', [KecermatanController::class, 'destroy'])->name('kecermatan.destroy');
+    Route::get('/paket/{package_id}/tryout/{tryout_id}/kecermatan/{column_id}/preview', [KecermatanController::class, 'preview'])->name('kecermatan.preview');
+    Route::post('/paket/{package_id}/tryout/{tryout_id}/kecermatan/{column_id}/regenerate', [KecermatanController::class, 'regenerateSoal'])->name('kecermatan.regenerate');
+});
+
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');
     Artisan::call('storage:link');

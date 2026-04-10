@@ -2,6 +2,11 @@
 @section('title', 'Manajemen Soal')
 @section('content')
 
+@php
+    $isKecermatan = $tryout->assessment_type === 'kecermatan';
+    $tryoutDetailId = $tryout->tryoutDetails->first()->tryout_detail_id ?? null;
+@endphp
+
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
@@ -14,15 +19,118 @@
             @endif
         </x-slot>
     </x-breadcrumb>
-    <x-btn title="Tambah Soal"
-        route="{{ route('admin.package.tryout.soal.create', ['package_id' => $package->package_id, 'tryout_detail_id' => $tryout->tryoutDetails->first()->tryout_detail_id]) }}"
-        icon="ri-add-fill">
-    </x-btn>
+    
+    @if($isKecermatan)
+        {{-- Tombol untuk Kecermatan --}}
+        <x-btn title="Tambah Kolom Kecermatan"
+            route="{{ route('admin.kecermatan.create', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            icon="ri-add-fill">
+        </x-btn>
+    @else
+        {{-- Tombol normal untuk tryout biasa --}}
+        <x-btn title="Tambah Soal"
+            route="{{ route('admin.package.tryout.soal.create', ['package_id' => $package->package_id, 'tryout_detail_id' => $tryoutDetailId]) }}"
+            icon="ri-add-fill">
+        </x-btn>
+    @endif
 </div>
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border flex justify-center text-center">
     <x-page-desc title="Manajemen Soal - {{ $tryout->name }}">
     </x-page-desc>
 </div>
+
+{{-- Tampilan Khusus Kecermatan --}}
+@if($isKecermatan)
+<div class="mt-4">
+    @if($tryout->kecermatanColumns && $tryout->kecermatanColumns->count() > 0)
+        <div class="grid grid-cols-1 gap-4">
+            @foreach($tryout->kecermatanColumns as $column)
+            <div class="bg-white border border-border rounded-xl p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ $column->nama_kolom }}</h3>
+                        <div class="flex gap-2 mt-2">
+                            <span class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ $column->jumlah_soal }} Soal
+                            </span>
+                            <span class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ $column->durasi_kolom }} Menit
+                            </span>
+                            <span class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 capitalize">
+                                {{ $column->tipe_kolom }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="{{ route('admin.kecermatan.preview', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id, 'column_id' => $column->column_id]) }}"
+                            class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 flex items-center gap-1 text-sm">
+                            <i class="ri-eye-line"></i> Preview
+                        </a>
+                        <a href="{{ route('admin.kecermatan.edit', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id, 'column_id' => $column->column_id]) }}"
+                            class="bg-primary/10 text-primary px-3 py-2 rounded-lg hover:bg-primary/20 flex items-center gap-1 text-sm">
+                            <i class="ri-pencil-line"></i> Edit
+                        </a>
+                        <form action="{{ route('admin.kecermatan.destroy', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id, 'column_id' => $column->column_id]) }}" 
+                            method="POST" class="inline" 
+                            onsubmit="return confirm('Apakah Anda yakin ingin menghapus kolom ini? Semua soal terkait akan ikut terhapus.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="bg-red-100 text-red-700 px-3 py-2 rounded-lg hover:bg-red-200 flex items-center gap-1 text-sm">
+                                <i class="ri-delete-bin-line"></i> Hapus
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                {{-- Preview Kolom --}}
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-gray-600 mb-2">Isi Kolom:</p>
+                    <div class="flex gap-4 justify-center">
+                        @foreach($column->kolom_data as $item)
+                            <div class="w-12 h-12 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center text-xl font-bold text-gray-800">
+                                {{ $item }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Baris Soal --}}
+                <div class="space-y-2">
+                    <p class="text-sm text-gray-600">Baris Soal ({{ $column->rows->count() }} baris):</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                        @foreach($column->rows as $row)
+                            <div class="bg-gray-50 px-3 py-2 rounded text-sm truncate" title="Baris {{ $row->row_number }}">
+                                <span class="font-medium">Baris {{ $row->row_number }}:</span> 
+                                {!! strip_tags($row->row_text) !!}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Info Soal --}}
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-600">
+                        <i class="ri-information-line mr-1"></i>
+                        Total {{ $column->jumlah_soal * $column->rows->count() }} soal telah digenerate otomatis ({{ $column->jumlah_soal }} soal × {{ $column->rows->count() }} baris)
+                    </p>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    @else
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
+            <i class="ri-questionnaire-line text-5xl text-blue-400 mb-4"></i>
+            <h3 class="text-lg font-semibold text-blue-900 mb-2">Belum Ada Kolom Kecermatan</h3>
+            <p class="text-blue-700 mb-4">Tambahkan kolom kecermatan untuk mulai membuat soal.</p>
+            <a href="{{ route('admin.kecermatan.create', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+                class="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                <i class="ri-add-line"></i> Tambah Kolom Kecermatan
+            </a>
+        </div>
+    @endif
+</div>
+@else
+{{-- Tampilan Normal untuk Tryout Biasa --}}
 <div class="mt-4 space-y-4">
     @foreach ($questions as $question)
     <div class="bg-white border border-border rounded-xl p-6 flex flex-col">
@@ -103,6 +211,7 @@
     </div>
     @endforeach
 </div>
+@endif {{-- End isKecermatan --}}
 @endsection
 @section('scripts')
 <script>

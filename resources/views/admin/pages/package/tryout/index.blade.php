@@ -58,9 +58,15 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
+                        @if($tryout->assessment_type === 'kecermatan')
+                        <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
+                            KECERMATAN
+                        </span>
+                        @else
                         <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
                             {{ strtoupper($tryout->type_tryout) }}
                         </span>
+                        @endif
                     </td>
                     <td class="px-6 py-4 text-center">{{ $totalDuration }} menit</td>
                     <td class="px-6 py-4 text-center">{{ $totalQuestions }} soal</td>

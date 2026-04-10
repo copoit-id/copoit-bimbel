@@ -294,10 +294,13 @@ class PackageController extends Controller
     }
     public function storeTryout(Request $request, $package_id)
     {
+        $assessmentType = $request->input('assessment_type');
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'required|string',
-            'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,certification',
+            'type_tryout' => $assessmentType === 'kecermatan' ? 'nullable' : 'required|in:tiu,twk,tkp,skd_full,general,certification',
+            'assessment_type' => 'nullable|in:standard,pre_test,post_test,kecermatan',
             'duration_total' => 'required|integer|min:1',
             'passing_score_total' => 'required|numeric|min:0|max:100',
             'passing_type_twk' => 'nullable|in:score,percentage',
@@ -305,6 +308,7 @@ class PackageController extends Controller
             'passing_type_tkp' => 'nullable|in:score,percentage',
             'passing_type_general' => 'nullable|in:score,percentage',
             'passing_type_certification' => 'nullable|in:score,percentage',
+            'passing_type_kecermatan' => 'nullable|in:score,percentage',
             'section_break_duration' => 'nullable|integer|min:0|max:3600',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
@@ -315,11 +319,15 @@ class PackageController extends Controller
         ]);
 
         // Buat tryout baru
+        // Jika assessment_type = kecermatan, type_tryout otomatis = general
+        $typeTryout = $request->input('assessment_type') === 'kecermatan' ? 'general' : $request->type_tryout;
+        
         $tryout = Tryout::create([
             'package_id' => $package_id,
             'name' => $request->name,
             'description' => $request->description,
-            'type_tryout' => $request->type_tryout,
+            'type_tryout' => $typeTryout,
+            'assessment_type' => $request->input('assessment_type', 'standard'),
             'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
             'is_certification' => $request->has('is_certification'),
             'start_date' => $request->start_date,
@@ -410,6 +418,17 @@ class PackageController extends Controller
                 'passing_type' => $request->input('passing_type_general', 'score'),
             ]);
         }
+        
+        // Handle kecermatan based on assessment_type
+        if ($tryout && $request->input('assessment_type') === 'kecermatan') {
+            TryoutDetail::create([
+                'tryout_id' => $tryout->tryout_id,
+                'type_subtest' => 'general',
+                'duration' => $request->duration_kecermatan ?? 10,
+                'passing_score' => $request->passing_score_kecermatan ?? 70,
+                'passing_type' => $request->input('passing_type_kecermatan', 'score'),
+            ]);
+        }
 
         return redirect()->route('admin.package.tryout.index', $package_id)
             ->with('success', 'Tryout "' . $tryout->name . '" berhasil ditambahkan');
@@ -426,7 +445,16 @@ class PackageController extends Controller
             }
 
             $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout = Tryout::with(['tryoutDetails', 'kecermatanColumns.rows'])->where('tryout_id', $tryout_detail->tryout_id)->first();
+            
+            // Jika kecermatan, redirect ke halaman kecermatan
+            if ($tryout && $tryout->assessment_type === 'kecermatan') {
+                return redirect()->route('admin.kecermatan.index', [
+                    'package_id' => $package_id,
+                    'tryout_id' => $tryout->tryout_id
+                ]);
+            }
+            
             $questions = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->get();
 
             return view('admin.pages.package.tryout.soal', compact('package', 'tryout', 'questions'));

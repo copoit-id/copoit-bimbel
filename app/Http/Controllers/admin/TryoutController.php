@@ -106,10 +106,13 @@ class TryoutController extends Controller
         $isIrtEnabled = $this->shouldEnableIrt($request);
 
         try {
+            // Jika assessment_type = kecermatan, type_tryout otomatis = general
+            $typeTryout = $request->input('assessment_type') === 'kecermatan' ? 'general' : $request->type_tryout;
+            
             $tryout = Tryout::create([
                 'name' => $request->name,
                 'description' => $request->description,
-                'type_tryout' => $request->type_tryout,
+                'type_tryout' => $typeTryout,
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
@@ -125,6 +128,17 @@ class TryoutController extends Controller
             ]);
 
             $this->createTryoutDetails($tryout, $request);
+            
+            // Handle kecermatan based on assessment_type
+            if ($request->input('assessment_type') === 'kecermatan') {
+                TryoutDetail::create([
+                    'tryout_id' => $tryout->tryout_id,
+                    'type_subtest' => 'general',
+                    'duration' => $request->duration_kecermatan ?? 10,
+                    'passing_score' => $request->passing_score_kecermatan ?? 70,
+                    'passing_type' => $request->input('passing_type_kecermatan', 'score'),
+                ]);
+            }
 
             return redirect()->route('admin.tryout.index')
                 ->with('success', 'Tryout "' . $tryout->name . '" berhasil ditambahkan');
@@ -374,6 +388,8 @@ class TryoutController extends Controller
             case 'ppt':
                 $this->createSubtest($tryout->tryout_id, 'ppt', $request->duration_ppt ?? 30, $request->passing_score_ppt ?? 70, $request->input('passing_type_ppt', 'score'));
                 break;
+
+
             default:
                 $this->createUtbkSingleSubtest($tryout, $request);
                 break;
@@ -592,7 +608,7 @@ class TryoutController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'type_tryout' => ['required', Rule::in($typeOptions)],
-            'assessment_type' => ['required', Rule::in(['standard', 'pre_test', 'post_test'])],
+            'assessment_type' => ['required', Rule::in(['standard', 'pre_test', 'post_test', 'kecermatan'])],
             'section_break_duration' => 'nullable|integer|min:0|max:3600',
             'answer_persistence_mode' => ['nullable', Rule::in(['client_side', 'hybrid_subtest'])],
             'subtest_display_mode' => ['nullable', Rule::in(['per_subtest', 'combined'])],

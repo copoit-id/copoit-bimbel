@@ -106,6 +106,12 @@ class Tryout extends Model
             ->withTimestamps();
     }
 
+    // Kecermatan relationship
+    public function kecermatanColumns()
+    {
+        return $this->hasMany(KecermatanColumn::class, 'tryout_id', 'tryout_id')->orderBy('order');
+    }
+
     // Helper method untuk mendapatkan total soal
     public function getTotalQuestionsAttribute()
     {

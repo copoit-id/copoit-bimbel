@@ -53,7 +53,21 @@
                     </div>
 
                     <div>
-                        <label for="type_tryout" class="block text-sm font-medium text-gray-700 mb-2">Tipe Tryout <span
+                        <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">Tipe Tryout <span class="text-red-500">*</span></label>
+                        <select id="assessment_type" name="assessment_type" required
+                            onchange="toggleKecermatanMode()"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="standard" {{ (isset($tryout) && $tryout->assessment_type === 'standard') || old('assessment_type', 'standard') === 'standard' ? 'selected' : '' }}>Tryout Reguler</option>
+                            <option value="pre_test" {{ (isset($tryout) && $tryout->assessment_type === 'pre_test') || old('assessment_type') === 'pre_test' ? 'selected' : '' }}>Pre Test</option>
+                            <option value="post_test" {{ (isset($tryout) && $tryout->assessment_type === 'post_test') || old('assessment_type') === 'post_test' ? 'selected' : '' }}>Post Test</option>
+                            <option value="kecermatan" {{ (isset($tryout) && $tryout->assessment_type === 'kecermatan') || old('assessment_type') === 'kecermatan' ? 'selected' : '' }}>Kecermatan</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas. Pilih "Kecermatan" untuk membuat tryout tes kecermatan.</p>
+                    </div>
+
+                    <!-- Type Subtest - Hidden when kecermatan -->
+                    <div id="type_tryout_wrapper">
+                        <label for="type_tryout" class="block text-sm font-medium text-gray-700 mb-2">Tipe Subtest <span
                                 class="text-red-500">*</span></label>
                         <select id="type_tryout" name="type_tryout" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -108,17 +122,9 @@
                                 old('type_tryout') === 'general' ? 'selected' : '' }}>General</option>
                         </select>
                     </div>
-
-                    <div>
-                        <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">Kategori Penilaian <span class="text-red-500">*</span></label>
-                        <select id="assessment_type" name="assessment_type" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="standard" {{ (isset($tryout) && $tryout->assessment_type === 'standard') || old('assessment_type', 'standard') === 'standard' ? 'selected' : '' }}>Tryout Reguler</option>
-                            <option value="pre_test" {{ (isset($tryout) && $tryout->assessment_type === 'pre_test') || old('assessment_type') === 'pre_test' ? 'selected' : '' }}>Pre Test</option>
-                            <option value="post_test" {{ (isset($tryout) && $tryout->assessment_type === 'post_test') || old('assessment_type') === 'post_test' ? 'selected' : '' }}>Post Test</option>
-                        </select>
-                        <p class="text-xs text-gray-500 mt-1">Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas.</p>
-                    </div>
+                    
+                    <!-- Hidden field for kecermatan -->
+                    <input type="hidden" id="type_tryout_kecermatan" name="type_tryout" value="general" disabled>
                 </div>
 
                 <div>
@@ -801,6 +807,39 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Kecermatan Config -->
+                    <div id="kecermatan_config" class="config-section hidden space-y-4">
+                        <h4 class="font-medium text-gray-800">Konfigurasi Tes Kecermatan</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Durasi per Kolom (menit)</label>
+                                <input type="number" name="duration_kecermatan" min="1" max="60"
+                                    value="{{ isset($tryout) ? $tryout->tryoutDetails->first()?->duration : old('duration_kecermatan', 10) }}"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Passing Score</label>
+                                <input type="number" name="passing_score_kecermatan" min="0" max="100" step="0.1"
+                                    value="{{ isset($tryout) ? $tryout->tryoutDetails->first()?->passing_score : old('passing_score_kecermatan', 70) }}"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Tipe Passing</label>
+                                <select name="passing_type_kecermatan"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="score" @selected(old('passing_type_kecermatan', isset($tryout) ? $tryout->tryoutDetails->first()?->passing_type : 'score') === 'score')>Skor</option>
+                                    <option value="percentage" @selected(old('passing_type_kecermatan', isset($tryout) ? $tryout->tryoutDetails->first()?->passing_type : 'score') === 'percentage')>Persentase</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p class="text-sm text-blue-700">
+                                <i class="ri-information-line mr-1"></i>
+                                Tes kecermatan menggunakan format kolom dengan baris soal. Untuk mengelola soal kecermatan, simpan tryout terlebih dahulu.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1023,6 +1062,41 @@
         syncPassingScoreLimit(event.target);
       }
     });
+    
+    // Handle assessment_type change for kecermatan
+    const assessmentSelect = root.querySelector('#assessment_type');
+    if (assessmentSelect) {
+      assessmentSelect.addEventListener('change', toggleKecermatanConfig);
+      toggleKecermatanConfig(); // Initial check
+    }
+    
+    function toggleKecermatanConfig() {
+      const assessmentType = assessmentSelect ? assessmentSelect.value : '';
+      const kecermatanConfig = document.getElementById('kecermatan_config');
+      const typeSelectWrapper = typeSelect ? typeSelect.closest('.grid') : null;
+      
+      if (kecermatanConfig) {
+        if (assessmentType === 'kecermatan') {
+          // Show kecermatan config
+          kecermatanConfig.classList.remove('hidden');
+          setSectionEnabled(kecermatanConfig, true);
+          // Hide other configs
+          configSections.forEach(section => {
+            if (section.id !== 'kecermatan_config') {
+              section.classList.add('hidden');
+              setSectionEnabled(section, false);
+            }
+          });
+        } else {
+          // Hide kecermatan config
+          kecermatanConfig.classList.add('hidden');
+          setSectionEnabled(kecermatanConfig, false);
+          // Show config based on type_tryout
+          showConfigSection();
+        }
+      }
+    }
+    
     bindPassingScoreInputs();
     typeSelect.__tryoutBound = true;
   }
@@ -1040,6 +1114,31 @@
   const mo = new MutationObserver(() => initTryoutForm());
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
+
+// Function to toggle kecermatan mode - hide/show type_tryout
+function toggleKecermatanMode() {
+    const assessmentSelect = document.getElementById('assessment_type');
+    const typeTryoutWrapper = document.getElementById('type_tryout_wrapper');
+    const typeTryoutSelect = document.getElementById('type_tryout');
+    const typeTryoutHidden = document.getElementById('type_tryout_kecermatan');
+    
+    if (!assessmentSelect) return;
+    
+    if (assessmentSelect.value === 'kecermatan') {
+        // Hide type_tryout select and use hidden input with value 'general'
+        if (typeTryoutWrapper) typeTryoutWrapper.style.display = 'none';
+        if (typeTryoutSelect) typeTryoutSelect.removeAttribute('required');
+        if (typeTryoutHidden) typeTryoutHidden.removeAttribute('disabled');
+    } else {
+        // Show type_tryout select
+        if (typeTryoutWrapper) typeTryoutWrapper.style.display = 'block';
+        if (typeTryoutSelect) typeTryoutSelect.setAttribute('required', 'required');
+        if (typeTryoutHidden) typeTryoutHidden.setAttribute('disabled', 'disabled');
+    }
+}
+
+// Call on page load
+document.addEventListener('DOMContentLoaded', toggleKecermatanMode);
 </script>
 
 @endsection

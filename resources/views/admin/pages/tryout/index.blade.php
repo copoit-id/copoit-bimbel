@@ -118,7 +118,14 @@
                 @endphp
 
                 <div class="flex items-center gap-2">
-                    @if ($tryout->tryoutDetails->count() > 1)
+                    {{-- Kecermatan - Langsung ke halaman kecermatan --}}
+                    @if ($tryout->assessment_type === 'kecermatan')
+                    <a href="{{ route('admin.kecermatan.index', ['package_id' => 'standalone', 'tryout_id' => $tryout->tryout_id]) }}"
+                        class="flex-1 flex justify-center bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+                        <i class="ri-list-check mr-2"></i>
+                        Kelola Soal Kecermatan
+                    </a>
+                    @elseif ($tryout->tryoutDetails->count() > 1)
                     <!-- Multiple Subtest (SKD Full, Certification Full, PPPK Full, etc.) -->
                     <button data-modal-target="modal-{{ $tryout->tryout_id }}"
                         data-modal-toggle="modal-{{ $tryout->tryout_id }}"
