@@ -130,9 +130,16 @@
 
                 <div>
                     <label for="description" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Deskripsi') }}</label>
+                    @php
+                        $descriptionValue = old('description');
+                        if ($descriptionValue === null && isset($tryout)) {
+                            $descriptionValue = preg_replace('/<br\\s*\\/?\\>/i', "\n", (string) ($tryout->description ?? ''));
+                            $descriptionValue = html_entity_decode($descriptionValue, ENT_QUOTES);
+                        }
+                    @endphp
                     <textarea id="description" name="description" rows="4"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="{{ __('Masukkan deskripsi tryout...') }}">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
+                        placeholder="{{ __('Masukkan deskripsi tryout...') }}">{{ $descriptionValue }}</textarea>
                 </div>
 
                 <!-- Schedule -->

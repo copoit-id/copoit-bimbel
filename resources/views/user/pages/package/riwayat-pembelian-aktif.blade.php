@@ -31,7 +31,7 @@
                     @endif
                 </div>
                 <p class="text-lg font-bold text-black">{{ $package?->name }}</p>
-                <p class="font-light">{{ $package?->description }}</p>
+                <p class="font-light">{!! $package?->description !!}</p>
                 @if ($package?->type_price === 'paid')
                 <p class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</p>
                 @endif

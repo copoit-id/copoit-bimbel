@@ -1,7 +1,7 @@
 @extends('user.layout.tryout')
 @section('title', __('Hasil Tryout'))
 @section('content')
-<div class="min-h-screen bg-gray-50 py-8 pt-18">
+<div class="min-h-screen bg-gray-50 py-8 pt-20 md:pt-24">
     <div class="max-w-4xl mx-auto px-4">
         <!-- Main Result -->
         <div class="bg-white rounded-lg border border-border p-4 md:p-8 text-center mb-6">

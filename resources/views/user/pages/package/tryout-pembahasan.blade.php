@@ -135,13 +135,13 @@
 
         <div
             class="card-pembahasan w-full border border-dashed p-4 rounded-lg {{ $isCorrect ? 'border-green bg-green-light/30' : 'border-red bg-red-light/30' }}">
-            <div class="flex items-center justify-start gap-4">
+            <div class="flex flex-wrap items-center justify-start gap-2 md:gap-4">
                 <p class="font-semibold">{{ __('Soal') }} {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                     {{ strtoupper($detail->subtest_type) }}
                 </span>
                 <span
-                    class="flex items-center gap-1 border px-4 py-1 rounded-lg {{ $isPendingReview ? 'bg-amber-100 text-amber-700 border-amber-200' : ($isCorrect ? 'bg-green text-white' : 'bg-red text-white') }}">
+                    class="flex items-center gap-1 border px-3 py-1 rounded-lg {{ $isPendingReview ? 'bg-amber-100 text-amber-700 border-amber-200' : ($isCorrect ? 'bg-green text-white' : 'bg-red text-white') }}">
                     <i class="ri-checkbox-circle-fill"></i>
                     <p class="text-sm">{{ $isPendingReview ? __('Belum Dikoreksi') : ($isCorrect ? __('Benar') : __('Salah')) }}</p>
                 </span>
@@ -165,7 +165,7 @@
                 @endphp
                 @if($scoreEarned > 0)
                 <span
-                    class="flex items-center gap-1 border border-primary bg-primary/10 text-primary px-3 py-1 rounded-lg">
+                    class="flex items-center gap-1 border border-primary bg-primary/10 text-primary px-3 py-1 rounded-lg flex-shrink-0">
                     <i class="ri-star-fill text-sm"></i>
                     <p class="text-sm">+{{ $scoreEarned }} {{ __('poin') }}</p>
                 </span>
@@ -205,36 +205,36 @@
                 @if($isCorrectOption)
                 <!-- Correct answer - always GREEN -->
                 <div
-                    class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-green text-white border-green">
-                    <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
-                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
-                    <p>{!! $option->option_text !!}</p>
-                    <i class="ri-check-line text-lg"></i>
+                    class="flex w-full items-start gap-2 font-light border px-4 py-2 rounded-lg transition-colors bg-green text-white border-green">
+                    <input type="radio" disabled class="mr-1 mt-1 flex-shrink-0" {{ $isSelected ? 'checked' : '' }}>
+                    <span class="font-medium flex-shrink-0">{{ $optionKey }}.</span>
+                    <p class="flex-1">{!! $option->option_text !!}</p>
+                    <i class="ri-check-line text-lg flex-shrink-0"></i>
                     @if($detail->subtest_type === 'tkp')
-                    <span class="text-xs bg-white/20 px-2 py-1 rounded">{{ __('Bobot') }}: {{ $option->weight }}</span>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded flex-shrink-0">{{ __('Bobot') }}: {{ $option->weight }}</span>
                     @endif
                 </div>
                 @elseif($isSelected && !$isCorrect)
                 <!-- User's wrong answer - RED -->
                 <div
-                    class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
-                    <input type="radio" disabled class="mr-2" checked>
-                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
-                    <p>{!! $option->option_text !!}</p>
-                    <i class="ri-close-line text-lg"></i>
+                    class="flex w-full items-start gap-2 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
+                    <input type="radio" disabled class="mr-1 mt-1 flex-shrink-0" checked>
+                    <span class="font-medium flex-shrink-0">{{ $optionKey }}.</span>
+                    <p class="flex-1">{!! $option->option_text !!}</p>
+                    <i class="ri-close-line text-lg flex-shrink-0"></i>
                     @if($detail->subtest_type === 'tkp')
-                    <span class="text-xs bg-white/20 px-2 py-1 rounded">{{ __('Bobot') }}: {{ $option->weight }}</span>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded flex-shrink-0">{{ __('Bobot') }}: {{ $option->weight }}</span>
                     @endif
                 </div>
                 @else
                 <!-- All other options - NEUTRAL -->
                 <div
-                    class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors border-gray-900/10 hover:bg-gray-50">
-                    <input type="radio" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
-                    <span class="font-medium mr-2">{{ $optionKey }}.</span>
-                    <p>{!! $option->option_text !!}</p>
+                    class="flex w-full items-start gap-2 font-light border px-4 py-2 rounded-lg transition-colors border-gray-900/10 hover:bg-gray-50">
+                    <input type="radio" disabled class="mr-1 mt-1 flex-shrink-0" {{ $isSelected ? 'checked' : '' }}>
+                    <span class="font-medium flex-shrink-0">{{ $optionKey }}.</span>
+                    <p class="flex-1">{!! $option->option_text !!}</p>
                     @if($detail->subtest_type === 'tkp')
-                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ __('Bobot') }}: {{ $option->weight
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded flex-shrink-0">{{ __('Bobot') }}: {{ $option->weight
                         }}</span>
                     @endif
                 </div>

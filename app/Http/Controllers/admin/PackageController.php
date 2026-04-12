@@ -306,7 +306,7 @@ class PackageController extends Controller
         $tryout = Tryout::create([
             'package_id' => $package_id,
             'name' => $request->name,
-            'description' => $request->description,
+            'description' => $this->normalizeDescription($request->description),
             'type_tryout' => $request->type_tryout,
             'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
             'is_certification' => $request->has('is_certification'),
@@ -752,5 +752,17 @@ class PackageController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function normalizeDescription(?string $description): ?string
+    {
+        if ($description === null) {
+            return null;
+        }
+
+        $text = str_replace(["\r\n", "\r"], "\n", $description);
+        $text = str_replace("\t", '&emsp;', $text);
+
+        return nl2br($text, false);
     }
 }

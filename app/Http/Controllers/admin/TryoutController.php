@@ -111,7 +111,7 @@ class TryoutController extends Controller
         try {
             $tryout = Tryout::create([
                 'name' => $request->name,
-                'description' => $request->description,
+                'description' => $this->normalizeDescription($request->description),
                 'type_tryout' => $request->type_tryout,
                 'ordering' => (int) $request->input('ordering', 0),
                 'assessment_type' => $request->assessment_type,
@@ -181,7 +181,7 @@ class TryoutController extends Controller
             // Update master tryout fields
             $tryout->update([
                 'name' => $request->name,
-                'description' => $request->description,
+                'description' => $this->normalizeDescription($request->description),
                 'type_tryout' => $request->type_tryout,
                 'ordering' => (int) $request->input('ordering', 0),
                 'assessment_type' => $request->assessment_type,
@@ -560,6 +560,18 @@ class TryoutController extends Controller
     private function shouldEnableIrt(Request $request): bool
     {
         return $request->type_tryout === 'utbk_full' && $request->boolean('is_irt');
+    }
+
+    private function normalizeDescription(?string $description): ?string
+    {
+        if ($description === null) {
+            return null;
+        }
+
+        $text = str_replace(["\r\n", "\r"], "\n", $description);
+        $text = str_replace("\t", '&emsp;', $text);
+
+        return nl2br($text, false);
     }
 
     private function tryoutValidationRules(?string $currentType = null): array

@@ -75,7 +75,7 @@
 
             <div>
                 <h3 class="text-lg font-semibold text-gray-900">{{ $package->name }}</h3>
-                <p class="text-sm text-gray-600 mt-1">{{ $package->description ?? __('Belum ada deskripsi.') }}</p>
+                <p class="text-sm text-gray-600 mt-1">{!! $package->description ?? __('Belum ada deskripsi.') !!}</p>
             </div>
 
             <div class="space-y-2">

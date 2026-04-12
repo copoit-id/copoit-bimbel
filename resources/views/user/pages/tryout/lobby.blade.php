@@ -2,10 +2,12 @@
 @section('title', __('Lobby'))
 @section('content')
 <div class="lobby flex justify-center items-center w-full min:h-screen text-black">
-    <div class="w-3xl mx-auto p-8 mt-18 bg-white shadow rounded-lg flex justify-center items-center flex-col gap-2">
+    <div class="w-3xl mx-auto p-8 mt-26 bg-white shadow rounded-lg flex justify-center items-center flex-col gap-2">
         <div class="rounded-lg text-center">
             <h1 class="text-2xl font-bold mb-4">{{ $tryout->name }}</h1>
-            <p class="text-gray-600 mb-6">{{ $tryout->description }}</p>
+            <div class="text-gray-600 mb-6">
+                {!! $tryout->description ? nl2br($tryout->description) : '' !!}
+            </div>
 
             @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
             <!-- SKD Full Information -->

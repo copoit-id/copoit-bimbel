@@ -98,17 +98,27 @@
                         <label for="password" class="block text-sm font-medium text-gray-700">
                             {{ __('Password') }}
                         </label>
-                        <input id="password" name="password" type="password" autocomplete="new-password" required
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
+                        <div class="relative mt-1">
+                            <input id="password" name="password" type="password" autocomplete="new-password" required
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary pr-10">
+                            <button type="button" onclick="togglePassword('password', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none">
+                                <i class="ri-eye-line text-lg"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div>
                         <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
                             {{ __('Konfirmasi Password') }}
                         </label>
-                        <input id="password_confirmation" name="password_confirmation" type="password"
-                            autocomplete="new-password" required
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
+                        <div class="relative mt-1">
+                            <input id="password_confirmation" name="password_confirmation" type="password"
+                                autocomplete="new-password" required
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary pr-10">
+                            <button type="button" onclick="togglePassword('password_confirmation', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none">
+                                <i class="ri-eye-line text-lg"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -145,6 +155,21 @@
 
 </html>
 
+<script>
+    function togglePassword(inputId, button) {
+        const input = document.getElementById(inputId);
+        const icon = button.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('ri-eye-line');
+            icon.classList.add('ri-eye-off-line');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('ri-eye-off-line');
+            icon.classList.add('ri-eye-line');
+        }
+    }
+</script>
 @if($recaptcha_enabled)
 <script>
     document.addEventListener('DOMContentLoaded', function() {

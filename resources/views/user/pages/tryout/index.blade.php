@@ -12,7 +12,7 @@
                 <div class="bg-white rounded-lg border border-border p-6">
                     <!-- Header -->
                     <div class="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
-                        <div>
+                        <div class="min-w-0">
                             <h2 class="text-xl font-bold text-gray-800">{{ __('Soal :number dari :total', ['number' => $number, 'total' => $totalQuestions]) }}</h2>
                             @if(isset($currentSubtest))
                             <p class="text-sm text-gray-600 mt-1">{{ $currentSubtest['name'] }}</p>
@@ -27,7 +27,9 @@
                                 {{ __('Kalkulator') }}
                             </button>
                             @endif
-                            <div class="lg:hidden text-right">
+                        </div>
+                        <div class="lg:hidden w-full">
+                            <div class="flex items-center justify-between">
                                 <p class="text-[11px] uppercase tracking-wide text-gray-500">{{ __('Sisa Waktu') }}</p>
                                 <div id="timer" class="text-lg font-bold text-primary leading-none">00:00:00</div>
                             </div>
@@ -120,15 +122,15 @@
                                 $optionKey = $option->option_key ?? chr(65 + $loop->index);
                             @endphp
                             <label
-                                class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label select-none"
+                                class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/5 answer-option-label select-none"
                                 for="option_{{ $option->question_option_id }}">
                                 <input type="radio" id="option_{{ $option->question_option_id }}" name="answer_option"
                                     value="{{ $option->question_option_id }}"
                                     data-option-key="{{ $optionKey }}"
-                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio">
-                                <span class="ml-4 flex-1 text-gray-700">
-                                    <span class="font-semibold mr-2">{{ $optionKey }}.</span>
-                                    {!! $option->option_text !!}
+                                    class="w-5 h-5 text-primary border-gray-300 focus:ring-primary answer-radio mt-0.5 flex-shrink-0">
+                                <span class="ml-3 flex-1 text-gray-700 flex items-start gap-1">
+                                    <span class="font-semibold flex-shrink-0">{{ $optionKey }}.</span>
+                                    <span>{!! $option->option_text !!}</span>
                                 </span>
                             </label>
                             @endforeach
