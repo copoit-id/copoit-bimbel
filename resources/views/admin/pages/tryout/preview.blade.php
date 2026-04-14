@@ -289,6 +289,15 @@
         margin: 0;
     }
 
+    .option-inline-text li {
+        display: list-item;
+    }
+
+    .option-inline-text li p {
+        display: inline;
+        margin: 0;
+    }
+
     @media (max-width: 640px) {
         .preview-pill {
             font-size: 12px;

@@ -313,7 +313,7 @@
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-green text-white border-green">
                     <input type="{{ $choiceInputType }}" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
-                    <p>{!! $option->option_text !!}</p>
+                    <span class="option-inline-text">{!! $option->option_text !!}</span>
                     @if($isMultipleAnswerQuestion)
                         @if($multipleAnswerScoringMode === 'partial')
                         <span class="text-xs bg-white/20 px-2 py-1 rounded">
@@ -336,7 +336,7 @@
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
                     <input type="{{ $choiceInputType }}" disabled class="mr-2" checked>
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
-                    <p>{!! $option->option_text !!}</p>
+                    <span class="option-inline-text">{!! $option->option_text !!}</span>
                     @if($isMultipleAnswerQuestion && $multipleAnswerScoringMode === 'partial')
                     <span class="text-xs bg-white/20 px-2 py-1 rounded">0.00 poin</span>
                     @endif
@@ -351,7 +351,7 @@
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors border-gray-900/10 hover:bg-gray-50">
                     <input type="{{ $choiceInputType }}" disabled class="mr-2" {{ $isSelected ? 'checked' : '' }}>
                     <span class="font-medium mr-2">{{ $optionKey }}.</span>
-                    <p>{!! $option->option_text !!}</p>
+                    <span class="option-inline-text">{!! $option->option_text !!}</span>
                     @if($isMultipleAnswerQuestion && $multipleAnswerScoringMode === 'partial')
                     <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
                         {{ $isCorrectOption ? number_format($multipleAnswerPerCorrectScore, 2) : '0.00' }} poin
@@ -369,7 +369,7 @@
             @if(!$isCorrect && $correctOption && in_array($detail->subtest_type, ['twk', 'tiu']))
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p class="font-semibold text-green-800 mb-1">Jawaban Yang Benar:</p>
-                <p class="text-green-700">{{ $correctOption->option_key ?? 'A' }}. {!! $correctOption->option_text !!}</p>
+                <p class="text-green-700">{{ $correctOption->option_key ?? 'A' }}. <span class="option-inline-text">{!! $correctOption->option_text !!}</span></p>
             </div>
             @endif
             @endif
@@ -385,7 +385,7 @@
             @if($question->explanation)
             <div class="mt-4">
                 <p class="font-semibold text-gray-800 mb-2"># Pembahasan</p>
-                <div class="font-light text-gray-700 bg-gray-50 p-3 rounded-lg">
+                <div class="font-light text-gray-700 bg-gray-50 p-3 rounded-lg question-rich-text">
                     {{-- {!! nl2br(e($question->explanation)) !!} --}}
                     {!! $question->explanation !!}
                 </div>

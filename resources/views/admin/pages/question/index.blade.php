@@ -309,7 +309,7 @@
             @if ($question->explanation)
             <div class="bg-blue-50 border border-primary border-dashed rounded-lg p-4 mt-2">
                 <div class="font-semibold text-primary mb-1">Pembahasan</div>
-                <div class="text-primary">{!! $question->explanation !!}</div>
+                <div class="text-primary question-rich-text">{!! $question->explanation !!}</div>
             </div>
             @endif
 

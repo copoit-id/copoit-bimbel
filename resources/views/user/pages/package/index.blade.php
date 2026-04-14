@@ -15,12 +15,12 @@
     <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
     <div class="flex flex-col md:flex-row md:items-center justify-between">
         <div class="flex justify-start gap-2 mt-4">
-            <div id="btn-kelas" class="tab-btn px-6 py-1.5 bg-primary text-white rounded-xl cursor-pointer">
-                Kelas
-            </div>
             <div id="btn-tryout"
-                class="tab-btn px-6 py-1.5 border border-primary text-primary rounded-xl cursor-pointer">
+                class="tab-btn px-6 py-1.5 bg-primary text-white rounded-xl cursor-pointer">
                 Tryout
+            </div>
+            <div id="btn-kelas" class="tab-btn px-6 py-1.5 border border-primary text-primary rounded-xl cursor-pointer">
+                Kelas
             </div>
             <div id="btn-sertifikasi"
                 class="tab-btn px-6 py-1.5 border border-primary text-primary rounded-xl cursor-pointer">
@@ -466,7 +466,7 @@
 @section('scripts')
 <script>
     $(document).ready(function () {
-        const tabs = ['kelas', 'tryout', 'sertifikasi'];
+        const tabs = ['tryout', 'kelas', 'sertifikasi'];
 
         function activateTab(active) {
             tabs.forEach(tab => {
@@ -574,7 +574,7 @@
         });
 
         // Initialize first tab
-        activateTab('kelas');
+        activateTab('tryout');
     });
 </script>
 @endsection

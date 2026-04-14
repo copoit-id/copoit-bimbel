@@ -3,8 +3,8 @@
 @section('content')
 @php
     $tabConfig = [
-        'kelas' => ['label' => 'Kelas', 'packages' => $kelasPackages],
         'tryout' => ['label' => 'Tryout', 'packages' => $tryoutPackages],
+        'kelas' => ['label' => 'Kelas', 'packages' => $kelasPackages],
         'sertifikasi' => ['label' => 'Sertifikasi', 'packages' => $sertifikasiPackages],
     ];
     $typePriceLabels = [
@@ -265,7 +265,7 @@
 @section('scripts')
 <script>
     $(document).ready(function () {
-        const tabs = ['kelas', 'tryout', 'sertifikasi'];
+        const tabs = ['tryout', 'kelas', 'sertifikasi'];
 
         function activateTab(active) {
             tabs.forEach(tab => {
@@ -377,7 +377,7 @@
             });
         });
 
-        activateTab('kelas');
+        activateTab('tryout');
     });
 </script>
 @endsection

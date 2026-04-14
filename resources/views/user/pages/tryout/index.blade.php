@@ -123,7 +123,7 @@
                                 <span class="ml-4 flex-1 text-gray-700">
                                     <span class="flex items-start gap-2">
                                         <span class="font-semibold shrink-0">{{ $optionKey }}.</span>
-                                        <span class="option-inline-text [&_p]:inline [&_p]:m-0 [&_div]:inline">{!! $option->option_text !!}</span>
+                                        <span class="option-inline-text">{!! $option->option_text !!}</span>
                                     </span>
                                 </span>
                             </label>
