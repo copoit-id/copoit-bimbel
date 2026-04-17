@@ -178,12 +178,24 @@ class UserController extends Controller
 
         $completedTryouts = $user->userAnswers->where('status', 'completed');
         $totalTryouts = $completedTryouts->count();
-        $avgScore = $completedTryouts->avg('score') ?? 0;
+
+        $avgScore = $completedTryouts->avg(function ($answer) {
+            $tryout = $answer->tryout;
+            if ($tryout && method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring()) {
+                return (int) ($answer->utbk_total_score ?? 0);
+            }
+            return (float) ($answer->score ?? 0);
+        });
 
         $recentTryouts = $completedTryouts->take(5)->map(function ($answer) {
+            $tryout = $answer->tryout;
+            $isIrt = $tryout && method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
+            $score = $isIrt ? (int) ($answer->utbk_total_score ?? 0) : round((float) ($answer->score ?? 0), 1);
+
             return [
-                'name' => $answer->tryout->name ?? 'Unknown Tryout',
-                'score' => round($answer->score ?? 0, 1),
+                'name' => $tryout->name ?? 'Unknown Tryout',
+                'score' => $score,
+                'is_irt' => $isIrt,
                 'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
                 'is_passed' => $answer->is_passed ?? false
             ];
@@ -222,9 +234,15 @@ class UserController extends Controller
 
         $activities = $activities->sortByDesc('date')->take(8);
 
+        $hasIrt = $completedTryouts->contains(function ($answer) {
+            $tryout = $answer->tryout;
+            return $tryout && method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
+        });
+
         $statistics = [
             'total_tryouts' => $totalTryouts,
-            'avg_score' => round($avgScore, 1),
+            'avg_score' => $hasIrt ? round($avgScore, 0) : round($avgScore, 1),
+            'is_irt' => $hasIrt,
             'total_certificates' => $certificates->count(),
             'study_hours' => $totalStudyHours
         ];

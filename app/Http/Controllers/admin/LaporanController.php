@@ -43,6 +43,7 @@ class LaporanController extends Controller
 
         $headers = [
             'Tryout',
+            'IRT',
             'Tipe',
             'Subtest',
             'Total Soal',
@@ -55,12 +56,13 @@ class LaporanController extends Controller
         ];
 
         $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
 
         $row = 2;
         foreach ($tryouts as $tryout) {
             $sheet->fromArray([
                 $tryout->name,
+                $tryout->is_irt ? 'Ya' : '-',
                 $tryout->type_tryout === 'utbk_full' ? 'UTBK' : ucfirst($tryout->type_tryout),
                 $tryout->tryoutDetails->count(),
                 $tryout->total_questions,
@@ -68,14 +70,14 @@ class LaporanController extends Controller
                 $tryout->total_attempts,
                 $tryout->completed_attempts,
                 $tryout->completion_rate,
-                $tryout->avg_score . '%',
+                $tryout->is_irt ? $tryout->avg_score . ' (skala 0–1000)' : $tryout->avg_score . '%',
                 $tryout->is_active ? 'Aktif' : 'Tidak Aktif',
             ], null, 'A' . $row);
 
             $row++;
         }
 
-        foreach (range('A', 'J') as $column) {
+        foreach (range('A', 'K') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -124,6 +126,8 @@ class LaporanController extends Controller
             'directPackage',
         ])->findOrFail($id);
 
+        $isIrtTryout = $tryout->requiresIrtScoring();
+
         $participantGroups = UserAnswer::where('tryout_id', $tryout->tryout_id)
             ->select('user_id', 'attempt_token')
             ->groupBy('user_id', 'attempt_token')
@@ -145,6 +149,7 @@ class LaporanController extends Controller
                 SUM(wrong_answers) as total_wrong,
                 SUM(unanswered) as total_unanswered,
                 AVG(score) as average_score,
+                MAX(utbk_total_score) as utbk_total_score,
                 MAX(status) as attempt_status
             ")
             ->where('tryout_id', $tryout->tryout_id)
@@ -161,13 +166,18 @@ class LaporanController extends Controller
             ->groupBy(['user_id', 'attempt_token']);
 
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) use ($answersByAttempt) {
-                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt) {
+            ->map(function ($attempts) use ($answersByAttempt, $isIrtTryout) {
+                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt, $isIrtTryout) {
                     $userAnswers = $answersByAttempt[$attempt->user_id][$attempt->attempt_token] ?? collect();
-                    $rawScore = $userAnswers->sum(function ($answer) {
-                        return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
-                    });
-                    $attempt->raw_score = $rawScore;
+
+                    if ($isIrtTryout) {
+                        $attempt->display_score = (int) ($attempt->utbk_total_score ?? 0);
+                    } else {
+                        $rawScore = $userAnswers->sum(function ($answer) {
+                            return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
+                        });
+                        $attempt->display_score = round($rawScore, 1);
+                    }
 
                     return $attempt;
                 });
@@ -185,7 +195,7 @@ class LaporanController extends Controller
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
-                    'latest_score' => round($latest->raw_score ?? 0, 1),
+                    'latest_score' => $latest->display_score ?? 0,
                     'last_finished' => $latest->finished_at,
                     'attempts' => $sortedAttempts,
                     'status' => $status,
@@ -207,8 +217,12 @@ class LaporanController extends Controller
             'total_duration' => $tryout->tryoutDetails->sum('duration'),
             'total_participants' => $participantGroups->count(),
             'completed_participants' => $completedParticipantGroups->count(),
-            'average_score' => round(UserAnswer::where('tryout_id', $tryout->tryout_id)->where('status', 'completed')->avg('score') ?? 0, 1),
-            'highest_score' => round(UserAnswer::where('tryout_id', $tryout->tryout_id)->max('score') ?? 0, 1),
+            'average_score' => $isIrtTryout
+                ? round(UserAnswer::where('tryout_id', $tryout->tryout_id)->where('status', 'completed')->avg('utbk_total_score') ?? 0, 0)
+                : round(UserAnswer::where('tryout_id', $tryout->tryout_id)->where('status', 'completed')->avg('score') ?? 0, 1),
+            'highest_score' => $isIrtTryout
+                ? round(UserAnswer::where('tryout_id', $tryout->tryout_id)->max('utbk_total_score') ?? 0, 0)
+                : round(UserAnswer::where('tryout_id', $tryout->tryout_id)->max('score') ?? 0, 1),
         ];
 
         $statistics['completion_rate'] = $statistics['total_participants'] > 0
@@ -218,7 +232,7 @@ class LaporanController extends Controller
         $leaderboardPackageId = optional($tryout->packages->first())->package_id
             ?? optional($tryout->directPackage)->package_id;
 
-        return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
+        return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId', 'isIrtTryout'));
     }
 
     public function addTime(Request $request, $tryoutId, $userId)
@@ -331,13 +345,16 @@ class LaporanController extends Controller
 
         $answerDetails = $answerDetails->sortBy('subtest_name');
 
+        $isIrtTryout = $tryout->requiresIrtScoring();
+
         return view('admin.pages.laporan.answer', compact(
             'tryout',
             'user',
             'attemptToken',
             'overallStats',
             'subtests',
-            'answerDetails'
+            'answerDetails',
+            'isIrtTryout',
         ));
     }
 
@@ -381,10 +398,17 @@ class LaporanController extends Controller
     private function hydrateTryoutReport($tryouts): void
     {
         $tryouts->transform(function (Tryout $tryout) {
-            $tryout->avg_score = round(
-                $tryout->userAnswers()->where('status', 'completed')->avg('score') ?? 0,
-                1
-            );
+            if ($tryout->requiresIrtScoring()) {
+                $tryout->avg_score = round(
+                    $tryout->userAnswers()->where('status', 'completed')->avg('utbk_total_score') ?? 0,
+                    0
+                );
+            } else {
+                $tryout->avg_score = round(
+                    $tryout->userAnswers()->where('status', 'completed')->avg('score') ?? 0,
+                    1
+                );
+            }
             $tryout->completion_rate = $tryout->total_attempts > 0
                 ? round(($tryout->completed_attempts / $tryout->total_attempts) * 100)
                 : 0;

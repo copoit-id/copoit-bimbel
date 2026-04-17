@@ -108,7 +108,12 @@
                     <td class="py-3 px-4">
                         <div class="flex flex-col">
                             <p class="font-semibold text-gray-800 tryout-name">{{ $tryout->name }}</p>
-                            <p class="text-sm text-gray-500">{{ $tryout->type_tryout === 'utbk_full' ? 'UTBK' : ucfirst($tryout->type_tryout) }}</p>
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm text-gray-500">{{ $tryout->type_tryout === 'utbk_full' ? 'UTBK' : ucfirst($tryout->type_tryout) }}</p>
+                                @if($tryout->is_irt)
+                                <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">IRT</span>
+                                @endif
+                            </div>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
@@ -128,7 +133,12 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
+                        @if($tryout->is_irt)
+                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}</span>
+                        <p class="text-xs text-gray-500">skala 0–1000</p>
+                        @else
                         <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}%</span>
+                        @endif
                     </td>
                     <td class="px-6 py-4 text-center">
                         @php

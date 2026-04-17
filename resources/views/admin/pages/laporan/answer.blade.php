@@ -65,8 +65,11 @@
         <p class="text-3xl font-bold text-red-500">{{ $overallStats['wrong'] }}</p>
     </div>
     <div class="bg-white border border-border rounded-lg p-5 text-center">
-        <p class="text-sm text-gray-500">Skor Rata-rata</p>
+        <p class="text-sm text-gray-500">Skor Rata-rata{{ $isIrtTryout ?? false ? ' (IRT)' : '' }}</p>
         <p class="text-3xl font-bold text-primary">{{ $overallStats['score'] }}</p>
+        @if($isIrtTryout ?? false)
+        <p class="text-xs text-gray-400 mt-1">Skala 0–1000</p>
+        @endif
     </div>
 </div>
 

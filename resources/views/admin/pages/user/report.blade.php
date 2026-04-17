@@ -49,8 +49,11 @@
         <p class="text-3xl font-bold text-gray-800">{{ $statistics['total_tryouts'] }}</p>
     </div>
     <div class="bg-white border border-border rounded-lg p-6">
-        <p class="text-sm text-gray-600">Rata-rata Nilai</p>
+        <p class="text-sm text-gray-600">Rata-rata Nilai{{ ($statistics['is_irt'] ?? false) ? ' (IRT)' : '' }}</p>
         <p class="text-3xl font-bold text-gray-800">{{ $statistics['avg_score'] }}</p>
+        @if($statistics['is_irt'] ?? false)
+        <p class="text-xs text-gray-400">Skala 0–1000</p>
+        @endif
     </div>
     <div class="bg-white border border-border rounded-lg p-6">
         <p class="text-sm text-gray-600">Sertifikat</p>
@@ -69,7 +72,12 @@
             @forelse($recentTryouts as $tryout)
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                    <p class="font-medium text-gray-800">{{ Str::limit($tryout['name'], 25) }}</p>
+                    <div class="flex items-center gap-2">
+                        <p class="font-medium text-gray-800">{{ Str::limit($tryout['name'], 25) }}</p>
+                        @if($tryout['is_irt'] ?? false)
+                        <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">IRT</span>
+                        @endif
+                    </div>
                     <p class="text-sm text-gray-500">{{ $tryout['date']->format('d M Y, H:i') }}</p>
                 </div>
                 <div class="text-right">

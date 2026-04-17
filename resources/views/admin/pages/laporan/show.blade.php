@@ -46,9 +46,13 @@
         <p class="text-sm text-gray-400">{{ $statistics['completion_rate'] }}% selesai</p>
     </div>
     <div class="bg-white border border-border rounded-lg p-5">
-        <p class="text-sm text-gray-500">Rata-rata skor</p>
+        <p class="text-sm text-gray-500">Rata-rata skor{{ $isIrtTryout ?? false ? ' (IRT)' : '' }}</p>
         <p class="text-3xl font-bold text-gray-900">{{ $statistics['average_score'] }}</p>
+        @if($isIrtTryout ?? false)
+        <p class="text-sm text-gray-400">Skala 0–1000 · Tertinggi {{ $statistics['highest_score'] }}</p>
+        @else
         <p class="text-sm text-gray-400">Tertinggi {{ $statistics['highest_score'] }}</p>
+        @endif
     </div>
 </div>
 
@@ -147,7 +151,7 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-center">
-                                        <p class="text-lg font-semibold text-gray-900">{{ round($attempt->raw_score ?? 0, 1) }}</p>
+                                        <p class="text-lg font-semibold text-gray-900">{{ $isIrtTryout ?? false ? ($attempt->display_score ?? 0) : round($attempt->display_score ?? 0, 1) }}</p>
                                         <p class="text-[11px] text-gray-500">{{ $questions }} soal</p>
                                     </td>
                                     <td class="px-4 py-3 text-center">
