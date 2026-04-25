@@ -34,6 +34,11 @@ class LeaderboardController extends Controller
                     ->distinct('user_id')
                     ->count();
 
+                // Skip tryouts with no participants
+                if ($participantCount === 0) {
+                    return null;
+                }
+
                 // Get all packages that have this tryout
                 $packages = $tryout->packages;
                 $directPackage = $tryout->directPackage ? collect([$tryout->directPackage]) : collect();

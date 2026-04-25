@@ -63,7 +63,7 @@ class LaporanController extends Controller
                 $tryout->tryoutDetails->count(),
                 $tryout->total_questions,
                 $tryout->total_duration,
-                $tryout->total_attempts,
+                $tryout->unique_participants,
                 $tryout->completed_attempts,
                 $tryout->completion_rate,
                 $tryout->avg_score . '%',
@@ -295,7 +295,6 @@ class LaporanController extends Controller
             'directPackage',
         ])
             ->withCount([
-                'userAnswers as total_attempts',
                 'userAnswers as completed_attempts' => function ($query) {
                     $query->where('status', 'completed');
                 },
@@ -317,6 +316,12 @@ class LaporanController extends Controller
             $tryout->total_duration = $tryout->tryoutDetails->sum('duration');
             $tryout->leaderboard_package_id = optional($tryout->packages->first())->package_id
                 ?? optional($tryout->directPackage)->package_id;
+
+            // Count unique participants (distinct user_id with completed status)
+            $tryout->unique_participants = \App\Models\UserAnswer::where('tryout_id', $tryout->tryout_id)
+                ->where('status', 'completed')
+                ->distinct('user_id')
+                ->count('user_id');
 
             return $tryout;
         });

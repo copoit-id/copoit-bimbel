@@ -119,7 +119,7 @@
                         <p class="text-xs text-gray-500">{{ $tryout->total_duration }} menit</p>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->total_attempts }}</span>
+                        <span class="text-gray-800 font-medium">{{ $tryout->unique_participants }}</span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         <div class="inline-flex flex-col items-center">
