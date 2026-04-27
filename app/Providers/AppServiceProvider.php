@@ -24,7 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Blade::anonymousComponentPath(resource_path('views/components/ui'), 'ui');
+        Blade::anonymousComponentNamespace(resource_path('views/components/ui'), 'ui');
+        Blade::componentNamespace('App\\View\\Components\\Ui', 'ui');
         $defaultAsset = 'img/logo/logo-copoit.png';
 
         $defaults = [
