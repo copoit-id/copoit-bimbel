@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\ClientProfile;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -23,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Blade::anonymousComponentPath(resource_path('views/components/ui'), 'ui');
         $defaultAsset = 'img/logo/logo-copoit.png';
 
         $defaults = [
