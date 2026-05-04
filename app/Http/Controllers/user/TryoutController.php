@@ -1601,6 +1601,8 @@ class TryoutController extends Controller
             $userAnswer->update([
                 'finished_at' => $now,
                 'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
+                'raw_score' => $rawScore,
+                'max_score' => $maxScore,
                 'is_passed' => $isPassed,
                 'status' => 'completed'
             ]);

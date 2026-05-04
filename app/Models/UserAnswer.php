@@ -22,6 +22,8 @@ class UserAnswer extends Model
         'finished_at',
         'subtest_submitted_at',
         'score',
+        'raw_score',
+        'max_score',
         'utbk_total_score',
         'correct_answers',
         'total_questions',
@@ -33,6 +35,8 @@ class UserAnswer extends Model
         'finished_at' => 'datetime:Y-m-d H:i:s',
         'subtest_submitted_at' => 'datetime:Y-m-d H:i:s',
         'score' => 'decimal:2',
+        'raw_score' => 'decimal:2',
+        'max_score' => 'decimal:2',
         'utbk_total_score' => 'decimal:2'
     ];
 

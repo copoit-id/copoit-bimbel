@@ -264,9 +264,9 @@ class LeaderboardController extends Controller
     {
         return UserAnswer::where('tryout_id', $tryoutId)
             ->where('status', 'completed')
-            ->whereNotNull('score')
+            ->whereNotNull('raw_score')
             ->with(['user', 'tryoutDetail'])
-            ->orderBy('score', 'desc')
+            ->orderBy('raw_score', 'desc')
             ->orderBy('finished_at', 'asc');
     }
 
@@ -316,13 +316,20 @@ class LeaderboardController extends Controller
             ]);
 
             $type = $ranking->tryoutDetail->type_subtest ?? null;
-            $rawScore = $type ? $this->calculateTotalScore($ranking, $type) : (float) ($ranking->score ?? 0);
-            $maxScore = $type
-                ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type)
-                : 0;
-            $detail = $ranking->tryoutDetail;
-            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
+            $storedRawScore = (float) ($ranking->raw_score ?? 0);
+            $storedMaxScore = (float) ($ranking->max_score ?? 0);
 
+            if ($storedRawScore > 0 || $storedMaxScore > 0) {
+                $rawScore = $storedRawScore;
+                $maxScore = $storedMaxScore;
+            } else {
+                $rawScore = $type ? $this->calculateTotalScore($ranking, $type) : (float) ($ranking->score ?? 0);
+                $maxScore = $type
+                    ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type)
+                    : 0;
+            }
+
+            $detail = $ranking->tryoutDetail;
             $ranking->raw_score = $rawScore;
             $ranking->max_score = $maxScore;
             $ranking->is_passed = $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
