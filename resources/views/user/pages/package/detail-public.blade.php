@@ -235,32 +235,23 @@ $isGuest = !Auth::check();
     
     <!-- Sidebar -->
     <div class="space-y-6">
-        <!-- Benefits -->
+        <!-- Benefits (Dynamic from DB) -->
+        @php
+        $featureList = $package->features ? json_decode($package->features, true) : [];
+        @endphp
+        @if(!empty($featureList))
         <div class="bg-white rounded-2xl p-6 border border-gray-100">
             <h3 class="font-bold text-gray-800 mb-4">Benefit Paket</h3>
             <ul class="space-y-3">
+                @foreach($featureList as $feature)
                 <li class="flex items-start gap-3">
                     <i class="ri-check-line text-lg mt-0.5" style="color: {{ $primaryColor }}"></i>
-                    <span class="text-sm text-gray-600">Akses materi pembelajaran lengkap</span>
+                    <span class="text-sm text-gray-600">{{ $feature }}</span>
                 </li>
-                <li class="flex items-start gap-3">
-                    <i class="ri-check-line text-lg mt-0.5" style="color: {{ $primaryColor }}"></i>
-                    <span class="text-sm text-gray-600">Tryout dengan pembahasan detail</span>
-                </li>
-                <li class="flex items-start gap-3">
-                    <i class="ri-check-line text-lg mt-0.5" style="color: {{ $primaryColor }}"></i>
-                    <span class="text-sm text-gray-600">Sertifikat penyelesaian</span>
-                </li>
-                <li class="flex items-start gap-3">
-                    <i class="ri-check-line text-lg mt-0.5" style="color: {{ $primaryColor }}"></i>
-                    <span class="text-sm text-gray-600">Akses 24/7 selama masa aktif</span>
-                </li>
-                <li class="flex items-start gap-3">
-                    <i class="ri-check-line text-lg mt-0.5" style="color: {{ $primaryColor }}"></i>
-                    <span class="text-sm text-gray-600">Update materi terbaru</span>
-                </li>
+                @endforeach
             </ul>
         </div>
+        @endif
         
         <!-- Guest CTA -->
         @guest
