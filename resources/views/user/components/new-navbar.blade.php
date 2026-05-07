@@ -79,8 +79,8 @@ function isActive($route, $current) {
             <!-- Logo -->
             <div class="flex items-center">
                 <a href="{{ route('user.dashboard.index') }}" class="flex items-center gap-2">
-                    @if(!empty($clientBranding['logo']))
-                    <img src="{{ $clientBranding['logo'] }}" alt="Logo" class="h-8 w-auto">
+                    @if(!empty($clientBranding['logo_url']))
+                    <img src="{{ $clientBranding['logo_url'] }}" alt="Logo" class="h-8 w-auto">
                     @else
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}">
                         <i class="ri-book-open-line text-white text-lg"></i>
