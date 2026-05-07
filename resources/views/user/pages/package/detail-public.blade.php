@@ -235,8 +235,8 @@ $isGuest = !Auth::check();
     
     <!-- Sidebar -->
     <div class="space-y-6">
-        <!-- Benefits (Dynamic from DB) -->
-        @php
+        <!-- Benefits (Dynamic from DB) - DISABLED -->
+        {{-- @php
         $featureList = $package->features ? json_decode($package->features, true) : [];
         @endphp
         @if(!empty($featureList))
@@ -251,7 +251,7 @@ $isGuest = !Auth::check();
                 @endforeach
             </ul>
         </div>
-        @endif
+        @endif --}}
         
         <!-- Guest CTA -->
         @guest
