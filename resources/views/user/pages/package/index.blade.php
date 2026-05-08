@@ -70,81 +70,109 @@ if ($activeTab == 'berbayar') {
 @if($packages->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($packages as $package)
-    <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
-        <div class="flex items-start justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
-                <i class="ri-package-line text-xl"></i>
-            </div>
-            @if($package->type_price == 'paid')
-            <span class="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">Premium</span>
+    @php
+    $featureList = $package->features ? json_decode($package->features, true) : [];
+    @endphp
+    <div class="bg-white rounded-2xl border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all overflow-hidden">
+        <!-- Package Image -->
+        <div class="h-32 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}30 0%, {{ $primaryColor }}10 100%);">
+            @if($package->image)
+                @php
+                    $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+                    $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
+                    $thumbUrl = Storage::url($package->image);
+                @endphp
+                @if($thumbIsVideo)
+                <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+                @else
+                <img src="{{ $thumbUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+                @endif
             @else
-            <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Gratis</span>
+            <div class="w-full h-full flex items-center justify-center">
+                <i class="ri-book-3-line text-4xl" style="color: {{ $primaryColor }}40"></i>
+            </div>
+            @endif
+
+            <!-- Type Package Badge -->
+            <span class="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-gray-700 text-xs rounded-full font-medium capitalize">
+                <i class="ri-book-marked-line me-1"></i>{{ $package->type_package }}
+            </span>
+
+            <!-- Price Badge -->
+            @if($package->type_price == 'paid')
+            <div class="absolute top-3 right-3 px-3 py-1 bg-amber-500 text-white text-xs rounded-full font-bold">
+                Rp {{ number_format($package->price, 0, ',', '.') }}
+            </div>
+            @elseif($package->type_price == 'free_conditional')
+            <div class="absolute top-3 right-3 px-3 py-1 bg-orange-500 text-white text-xs rounded-full font-bold">
+                Gratis*
+            </div>
+            @else
+            <div class="absolute top-3 right-3 px-3 py-1 bg-green-500 text-white text-xs rounded-full font-bold">
+                GRATIS
+            </div>
             @endif
         </div>
-        
-        <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
-        <div class="text-sm text-gray-400 mb-4 line-clamp-2">{!! $package->description ?? 'Paket pembelajaran lengkap' !!}</div>
-        
-        <!-- Features -->
-        <div class="space-y-2 mb-4">
-            <div class="flex items-center text-sm text-gray-500">
-                <i class="ri-book-open-line mr-2" style="color: {{ $primaryColor }}"></i>
-                <span>{{ $package->materials->count() }} Materi</span>
+
+        <!-- Content -->
+        <div class="p-5">
+            <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
+            <div class="text-sm text-gray-500 mb-4 line-clamp-2">{!! $package->description ?? 'Paket pembelajaran lengkap' !!}</div>
+
+            <!-- Conditional Requirement -->
+            @if($package->type_price === 'free_conditional' && $package->conditional_requirement)
+            <p class="text-xs text-gray-500 mb-3">Syarat: {{ Str::limit($package->conditional_requirement, 60) }}</p>
+            @endif
+
+            <!-- Features -->
+            @if(!empty($featureList))
+            <div class="space-y-1.5 mb-4">
+                @foreach($featureList as $feature)
+                <div class="flex items-center text-sm text-gray-600">
+                    <i class="ri-checkbox-circle-fill mr-2" style="color: {{ $primaryColor }}"></i>
+                    <span class="truncate">{{ $feature }}</span>
+                </div>
+                @endforeach
             </div>
-            <div class="flex items-center text-sm text-gray-500">
-                <i class="ri-file-list-3-line mr-2" style="color: {{ $primaryColor }}"></i>
-                <span>{{ $package->tryouts->count() }} Tryout</span>
-            </div>
-            <div class="flex items-center text-sm text-gray-500">
-                <i class="ri-time-line mr-2" style="color: {{ $primaryColor }}"></i>
-                <span>{{ $package->duration }} Hari Akses</span>
-            </div>
-        </div>
-        
-        <!-- Price & Action -->
-        <div class="flex items-center justify-between pt-4 border-t">
-            <div>
-                @if($package->type_price == 'paid')
-                <span class="text-lg font-bold" style="color: {{ $primaryColor }}">{{ $package->formatted_price }}</span>
+            @endif
+
+            <!-- Action -->
+            <div class="flex items-center justify-between pt-3 border-t">
+                @if(auth()->check())
+                    @php
+                    $hasAccess = auth()->user()->userPackageAccess()
+                        ->where('package_id', $package->package_id)
+                        ->where('status', 'active')
+                        ->exists();
+                    @endphp
+
+                    @if($hasAccess)
+                    <a href="{{ route('user.package.show', $package->package_id) }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        Buka
+                    </a>
+                    @elseif($package->type_price == 'paid')
+                    <button onclick="buyPackage({{ $package->package_id }})"
+                            class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        Beli
+                    </button>
+                    @else
+                    <button onclick="claimPackage({{ $package->package_id }})"
+                            class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        Ambil
+                    </button>
+                    @endif
                 @else
-                <span class="text-lg font-bold text-green-600">Gratis</span>
-                @endif
-            </div>
-            
-            @if(auth()->check())
-                @php
-                $hasAccess = auth()->user()->userPackageAccess()
-                    ->where('package_id', $package->package_id)
-                    ->where('status', 'active')
-                    ->exists();
-                @endphp
-                
-                @if($hasAccess)
-                <a href="{{ route('user.package.show', $package->package_id) }}" 
+                <a href="{{ route('login') }}"
                    class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
-                    Buka
+                    Lihat Detail
                 </a>
-                @elseif($package->type_price == 'paid')
-                <button onclick="buyPackage({{ $package->package_id }})" 
-                        class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                        style="background-color: {{ $primaryColor }}">
-                    Beli
-                </button>
-                @else
-                <button onclick="claimPackage({{ $package->package_id }})" 
-                        class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                        style="background-color: {{ $primaryColor }}">
-                    Ambil
-                </button>
                 @endif
-            @else
-            <a href="{{ route('login') }}" 
-               class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
-               style="background-color: {{ $primaryColor }}">
-                Lihat Detail
-            </a>
-            @endif
+            </div>
         </div>
     </div>
     @endforeach
