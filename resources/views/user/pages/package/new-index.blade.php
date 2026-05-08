@@ -67,18 +67,18 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             </a>
             <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
             
-            <!-- Stats -->
-            <div class="flex items-center gap-4 mb-4 text-sm text-gray-500">
-                <span class="flex items-center gap-1">
-                    <i class="ri-video-line" style="color: {{ $primaryColor }}"></i>
-                    {{ $package->materials_count }} Materi
-                </span>
-                <span class="flex items-center gap-1">
-                    <i class="ri-file-list-3-line" style="color: {{ $primaryColor }}"></i>
-                    {{ $package->tryouts_count }} Tryout
-                </span>
+            <!-- Features -->
+            @if($package->features)
+            <div class="space-y-1.5 mb-4">
+                @foreach (json_decode($package->features) as $feature)
+                <div class="flex items-center text-sm text-gray-600">
+                    <i class="ri-checkbox-circle-fill mr-2" style="color: {{ $primaryColor }}"></i>
+                    <span>{{ $feature }}</span>
+                </div>
+                @endforeach
             </div>
-            
+            @endif
+
             <!-- Action Buttons -->
             <div class="flex gap-2">
                 <a href="{{ route('user.package.detail', $package->package_id) }}" 
