@@ -125,12 +125,12 @@ if ($activeTab == 'berbayar') {
             @endif
 
             <!-- Features -->
-            @if(!empty($featureList))
+            @if($package->features)
             <div class="space-y-1.5 mb-4">
-                @foreach($featureList as $feature)
+                @foreach (json_decode($package->features) as $feature)
                 <div class="flex items-center text-sm text-gray-600">
                     <i class="ri-checkbox-circle-fill mr-2" style="color: {{ $primaryColor }}"></i>
-                    <span class="truncate">{{ $feature }}</span>
+                    <span>{{ $feature }}</span>
                 </div>
                 @endforeach
             </div>
