@@ -72,7 +72,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <div class="space-y-1.5 mb-4">
                 @foreach (json_decode($package->features) as $feature)
                 <div class="flex items-center text-sm text-gray-600">
-                    <i class="ri-checkbox-circle-fill mr-2" style="color: {{ $primaryColor }}"></i>
+                    <i class="ri-checkbox-circle-fill mr-2 text-green-500"></i>
                     <span>{{ $feature }}</span>
                 </div>
                 @endforeach
