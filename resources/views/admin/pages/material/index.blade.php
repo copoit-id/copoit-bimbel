@@ -72,15 +72,6 @@
                 <h3 class="font-semibold text-gray-900 mb-1 line-clamp-2">{{ $material->title }}</h3>
                 <p class="text-sm text-gray-500 mb-3 line-clamp-2">{{ $material->description ?: 'Tidak ada deskripsi' }}</p>
                 
-                <!-- Categories -->
-                @if($material->categories->count() > 0)
-                <div class="flex flex-wrap gap-1 mb-3">
-                    @foreach($material->categories as $category)
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">{{ $category->name }}</span>
-                    @endforeach
-                </div>
-                @endif
-                
                 <!-- Meta -->
                 <div class="text-xs text-gray-400 mb-3">
                     <span>Order: {{ $material->order_number }}</span> • 

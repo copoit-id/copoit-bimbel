@@ -235,8 +235,8 @@ $isGuest = !Auth::check();
     
     <!-- Sidebar -->
     <div class="space-y-6">
-        <!-- Benefits (Dynamic from DB) - DISABLED -->
-        {{-- @php
+        <!-- Benefits (Dynamic from DB) -->
+        @php
         $featureList = $package->features ? json_decode($package->features, true) : [];
         @endphp
         @if(!empty($featureList))
@@ -245,13 +245,13 @@ $isGuest = !Auth::check();
             <ul class="space-y-3">
                 @foreach($featureList as $feature)
                 <li class="flex items-start gap-3">
-                    <i class="ri-check-line text-lg mt-0.5" style="color: {{ $primaryColor }}"></i>
+                    <i class="ri-checkbox-circle-fill text-lg mt-0.5 text-green"></i>
                     <span class="text-sm text-gray-600">{{ $feature }}</span>
                 </li>
                 @endforeach
             </ul>
         </div>
-        @endif --}}
+        @endif
         
         <!-- Guest CTA -->
         @guest

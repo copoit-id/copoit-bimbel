@@ -77,10 +77,12 @@
 
                     <div>
                         <label for="phone" class="block text-sm font-medium text-gray-700">
-                            No. Telepon (Opsional)
+                            No. HP <span class="text-red-500">*</span>
                         </label>
-                        <input id="phone" name="phone" type="tel" autocomplete="tel" value="{{ old('phone') }}"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
+                        <input id="phone" name="phone" type="tel" autocomplete="tel" required
+                            value="{{ old('phone') }}" placeholder="62xxxxxxxxxx"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
+                        <p class="text-xs text-gray-500 mt-1">Format: 62xxxxxxxxxx (contoh: 6281234567890)</p>
                     </div>
 
                     <div>

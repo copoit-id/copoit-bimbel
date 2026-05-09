@@ -198,9 +198,24 @@ $isGuest = !$user;
                     <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $pkg->name }}</h3>
                 </a>
                 <div class="text-gray-500 text-sm mb-4 line-clamp-2 plan-description flex-grow">{!! $pkg->description ?? 'Paket pembelajaran' !!}</div>
-                
+
+                <!-- Features -->
+                @if($pkg->features)
+                @php $pkgFeatureList = json_decode($pkg->features, true); @endphp
+                @if(!empty($pkgFeatureList))
+                <div class="space-y-1.5 mb-4">
+                    @foreach ($pkgFeatureList as $feature)
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="ri-checkbox-circle-fill mr-2 text-green"></i>
+                        <span>{{ $feature }}</span>
+                    </div>
+                    @endforeach
+                </div>
+                @endif
+                @endif
+
                 <!-- Action Button -->
-                <a href="{{ route('user.package.detail', $pkg->package_id) }}" 
+                <a href="{{ route('user.package.detail', $pkg->package_id) }}"
                    class="block w-full py-2.5 text-center rounded-xl font-medium text-white hover:opacity-90 transition-opacity mt-auto"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-eye-line mr-1"></i>Lihat Detail

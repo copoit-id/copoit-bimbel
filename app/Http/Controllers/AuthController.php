@@ -163,6 +163,7 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'date_of_birth' => 'required|date|before:today',
+            'phone' => ['required', 'string', 'regex:/^62[0-9]{8,14}$/'],
         ];
 
         // Add reCAPTCHA validation if enabled
@@ -193,6 +194,7 @@ class AuthController extends Controller
                 'username' => strtolower(str_replace(' ', '', $validatedData['name'])),
                 'password' => Hash::make($validatedData['password']),
                 'date_of_birth' => $validatedData['date_of_birth'],
+                'phone' => $validatedData['phone'],
                 'role' => 'user',
             ]);
 
