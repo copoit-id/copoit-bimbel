@@ -22,7 +22,8 @@ $isGuest = !Auth::check();
 <!-- Package Hero -->
 <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
     <!-- Cover Image -->
-    <div class="h-48 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}30 0%, {{ $primaryColor }}10 100%);">
+    <div class="relative overflow-hidden bg-gray-900 rounded-xl" style="aspect-ratio: 5 / 2;">
+        <div class="absolute inset-0 bg-gradient-to-br from-gray-900/60 via-gray-900/30 to-transparent z-10"></div>
         @if($package->image)
         @php
             $pkgDetailExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
@@ -35,17 +36,17 @@ $isGuest = !Auth::check();
         <img src="{{ $pkgDetailUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
         @endif
         @else
-        <div class="w-full h-full flex items-center justify-center">
-            <i class="ri-book-3-line text-8xl" style="color: {{ $primaryColor }}40"></i>
+        <div class="w-full h-full flex items-center justify-center bg-gray-800">
+            <i class="ri-book-3-line text-8xl text-gray-600"></i>
         </div>
         @endif
         
         @if($package->type_price === 'free_unconditional' || $package->type_price === 'free_conditional')
-        <div class="absolute top-4 right-4 px-4 py-2 rounded-full text-sm font-bold bg-green-500 text-white">
+        <div class="absolute top-4 right-4 z-20 px-4 py-2 rounded-full text-sm font-bold bg-green-500 text-white">
             <i class="ri-gift-line mr-1"></i>GRATIS
         </div>
         @else
-        <div class="absolute top-4 right-4 px-4 py-2 rounded-full text-sm font-bold text-white" style="background-color: {{ $primaryColor }}">
+        <div class="absolute top-4 right-4 z-20 px-4 py-2 rounded-full text-sm font-bold text-white" style="background-color: {{ $primaryColor }}">
             Rp {{ number_format($package->price, 0, ',', '.') }}
         </div>
         @endif
@@ -64,7 +65,19 @@ $isGuest = !Auth::check();
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-video-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $package->materials->count() }} Materi</span>
+                        <span>{{ $totalVideos }} Video</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-600">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
+                            <i class="ri-file-text-line" style="color: {{ $primaryColor }}"></i>
+                        </div>
+                        <span>{{ $totalDocuments }} Dokumen</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-600">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
+                            <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>
+                        </div>
+                        <span>{{ $totalLiveSessions }} Live Session</span>
                     </div>
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
@@ -74,15 +87,15 @@ $isGuest = !Auth::check();
                     </div>
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
-                            <i class="ri-time-line" style="color: {{ $primaryColor }}"></i>
+                            <i class="ri-group-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $totalDuration }} Menit Total</span>
+                        <span>{{ $package->classes->count() }} Kelas</span>
                     </div>
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
-                            <i class="ri-question-line" style="color: {{ $primaryColor }}"></i>
+                            <i class="ri-book-3-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $totalQuestions }} Soal</span>
+                        <span>{{ $package->materials->count() }} Materi</span>
                     </div>
                 </div>
             </div>

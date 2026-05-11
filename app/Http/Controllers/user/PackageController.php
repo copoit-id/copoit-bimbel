@@ -2000,23 +2000,32 @@ class PackageController extends Controller
             $isOwned = $hasAccess;
         }
         
-        // Calculate total duration and questions
-        $totalDuration = 0;
-        $totalQuestions = 0;
-        
-        foreach ($package->tryouts as $tryout) {
-            foreach ($tryout->tryoutDetails as $detail) {
-                $totalDuration += $detail->duration;
-                $totalQuestions += \App\Models\Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
+        // Calculate stats counts
+        $totalVideos = 0;
+        $totalDocuments = 0;
+        $totalLiveSessions = 0;
+
+        foreach ($package->materials as $material) {
+            switch ($material->type) {
+                case 'video':
+                    $totalVideos++;
+                    break;
+                case 'document':
+                    $totalDocuments++;
+                    break;
+                case 'live_session':
+                    $totalLiveSessions++;
+                    break;
             }
         }
-        
+
         return view('user.pages.package.detail-public', compact(
             'package',
             'hasAccess',
             'isOwned',
-            'totalDuration',
-            'totalQuestions'
+            'totalVideos',
+            'totalDocuments',
+            'totalLiveSessions'
         ));
     }
 }
