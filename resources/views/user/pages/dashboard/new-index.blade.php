@@ -189,7 +189,7 @@ $isGuest = !$user;
                     <i class="ri-book-3-line text-6xl" style="color: {{ $primaryColor }}40"></i>
                 </div>
                 @endif
-                
+
                 @if($pkg->type_price == 'paid')
                 <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold" style="background-color: {{ $primaryColor }}; color: white;">
                     {{ $pkg->formatted_price }}
@@ -200,13 +200,13 @@ $isGuest = !$user;
                 </div>
                 @endif
             </div>
-            
+
             <!-- Content -->
-            <div class="p-5 flex flex-col flex-grow">
+            <div class="p-5 flex flex-col flex-1">
                 <a href="{{ route('user.package.detail', $pkg->package_id) }}" class="block">
                     <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $pkg->name }}</h3>
                 </a>
-                <div class="text-gray-500 text-sm mb-4 line-clamp-2 plan-description flex-grow">{!! $pkg->description ?? 'Paket pembelajaran' !!}</div>
+                <div class="text-gray-500 text-sm mb-4 line-clamp-2 plan-description">{!! $pkg->description ?? 'Paket pembelajaran' !!}</div>
 
                 <!-- Features -->
                 @if($pkg->features)
@@ -225,7 +225,7 @@ $isGuest = !$user;
 
                 <!-- Action Button -->
                 <a href="{{ route('user.package.detail', $pkg->package_id) }}"
-                   class="block w-full py-2.5 text-center rounded-xl font-medium text-white hover:opacity-90 transition-opacity mt-auto"
+                   class="block w-full py-2.5 text-center rounded-xl font-medium text-white hover:opacity-90 transition-opacity mt-auto pt-2"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-eye-line mr-1"></i>Lihat Detail
                 </a>
