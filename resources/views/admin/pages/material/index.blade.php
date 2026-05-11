@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Manajemen Materi</h1>
-            <p class="text-gray-600">Kelola materi pembelajaran (video, dokumen, live session)</p>
+            <p class="text-gray-600">Kelola materi pembelajaran</p>
         </div>
         <a href="{{ route('admin.material.create') }}" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2">
             <i class="ri-add-line"></i>
@@ -27,80 +27,92 @@
     </div>
     @endif
 
+    <!-- Filter Tabs -->
+    <div class="flex gap-2 mb-6">
+        <a href="{{ route('admin.material.index') }}"
+           class="px-4 py-2 rounded-lg text-sm font-medium {{ !request('type') ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+            Semua
+        </a>
+        <a href="{{ route('admin.material.index', ['type' => 'video']) }}"
+           class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'video' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+            <i class="ri-video-line mr-1"></i>Video
+        </a>
+        <a href="{{ route('admin.material.index', ['type' => 'document']) }}"
+           class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'document' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+            <i class="ri-file-text-line mr-1"></i>Dokumen
+        </a>
+        <a href="{{ route('admin.material.index', ['type' => 'live']) }}"
+           class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'live' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+            <i class="ri-live-line mr-1"></i>Live Session
+        </a>
+    </div>
+
     <!-- Materials Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    @php
+    $typeColors = [
+        'video' => 'bg-primary/10 text-primary',
+        'document' => 'bg-primary/10 text-primary',
+        'live' => 'bg-primary/10 text-primary',
+    ];
+    @endphp
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         @forelse($materials as $material)
-        <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden">
-            <!-- Thumbnail -->
-            <div class="relative aspect-video bg-gray-100">
-                @if($material->thumbnail_url)
-                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
-                @else
-                <div class="w-full h-full flex items-center justify-center">
-                    <i class="{{ $material->type_icon }} text-4xl text-gray-400"></i>
+        <div class="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all">
+            <!-- Thumbnail / Icon -->
+            <div class="flex items-start gap-4 mb-4">
+                <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <i class="{{ $material->type_icon ?? 'ri-file-text-line' }} text-primary text-2xl"></i>
                 </div>
-                @endif
-                
-                <!-- Type Badge -->
-                <div class="absolute top-2 left-2">
-                    <span class="px-2 py-1 bg-black bg-opacity-70 text-white text-xs rounded">
-                        {{ $material->type_label }}
-                    </span>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ $material->type_label ?? 'Video' }}</span>
+                        @if($material->duration_minutes)
+                        <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
+                        @endif
+                    </div>
+                    <h3 class="font-semibold text-gray-800 text-sm line-clamp-2">{{ $material->title }}</h3>
                 </div>
-                
-                <!-- Status Badge -->
-                <div class="absolute top-2 right-2">
+            </div>
+
+            <!-- Description -->
+            @if($material->description)
+            <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ Str::limit($material->description, 80) }}</p>
+            @endif
+
+            <!-- Status & Actions -->
+            <div class="flex items-center justify-between pt-3 border-t">
+                <div>
                     @if($material->is_active)
-                    <span class="px-2 py-1 bg-green-500 text-white text-xs rounded">Aktif</span>
+                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                        <i class="ri-checkbox-circle-fill mr-1"></i>Aktif
+                    </span>
                     @else
-                    <span class="px-2 py-1 bg-gray-500 text-white text-xs rounded">Nonaktif</span>
+                    <span class="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
+                        <i class="ri-close-circle-fill mr-1"></i>Nonaktif
+                    </span>
                     @endif
                 </div>
-                
-                <!-- Duration -->
-                @if($material->duration_minutes)
-                <div class="absolute bottom-2 right-2">
-                    <span class="px-2 py-1 bg-black bg-opacity-70 text-white text-xs rounded">
-                        <i class="ri-time-line mr-1"></i>{{ $material->formatted_duration }}
-                    </span>
-                </div>
-                @endif
-            </div>
-            
-            <!-- Content -->
-            <div class="p-4">
-                <h3 class="font-semibold text-gray-900 mb-1 line-clamp-2">{{ $material->title }}</h3>
-                <p class="text-sm text-gray-500 mb-3 line-clamp-2">{{ $material->description ?: 'Tidak ada deskripsi' }}</p>
-                
-                <!-- Meta -->
-                <div class="text-xs text-gray-400 mb-3">
-                    <span>Order: {{ $material->order_number }}</span> • 
-                    <span>Oleh: {{ $material->creator?->name ?? 'Unknown' }}</span>
-                </div>
-                
-                <!-- Actions -->
-                <div class="flex items-center justify-between pt-3 border-t">
-                    <a href="{{ $material->content_url }}" target="_blank" class="text-primary hover:text-primary-dark text-sm">
-                        <i class="ri-external-link-line mr-1"></i>Lihat
+                <div class="flex items-center gap-1">
+                    <form action="{{ route('admin.material.toggle', $material) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit"
+                                class="p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
+                                title="{{ $material->is_active ? 'Nonaktifkan' : 'Aktifkan' }}">
+                            <i class="ri-{{ $material->is_active ? 'eye-off' : 'eye' }}-line text-lg"></i>
+                        </button>
+                    </form>
+                    <a href="{{ route('admin.material.edit', $material) }}" class="p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors" title="Edit">
+                        <i class="ri-edit-line text-lg"></i>
                     </a>
-                    <div class="flex gap-2">
-                        <form action="{{ route('admin.material.toggle', $material) }}" method="POST" class="inline">
-                            @csrf
-                            <button type="submit" class="p-1.5 {{ $material->is_active ? 'text-yellow-600 hover:text-yellow-800' : 'text-green-600 hover:text-green-800' }}" title="{{ $material->is_active ? 'Nonaktifkan' : 'Aktifkan' }}">
-                                <i class="ri-{{ $material->is_active ? 'eye-off' : 'eye' }}-line text-lg"></i>
-                            </button>
-                        </form>
-                        <a href="{{ route('admin.material.edit', $material) }}" class="p-1.5 text-blue-600 hover:text-blue-800" title="Edit">
-                            <i class="ri-edit-line text-lg"></i>
-                        </a>
-                        <form action="{{ route('admin.material.destroy', $material) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus materi ini?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="p-1.5 text-red-600 hover:text-red-800" title="Hapus">
-                                <i class="ri-delete-bin-line text-lg"></i>
-                            </button>
-                        </form>
-                    </div>
+                    <form action="{{ route('admin.material.destroy', $material) }}" method="POST" class="inline"
+                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus?')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-100 transition-colors" title="Hapus">
+                            <i class="ri-delete-bin-line text-lg"></i>
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -112,11 +124,16 @@
             <h3 class="text-lg font-medium text-gray-900 mb-1">Belum ada materi</h3>
             <p class="text-gray-500 mb-4">Mulai tambahkan materi pembelajaran</p>
             <a href="{{ route('admin.material.create') }}" class="inline-flex items-center text-primary hover:text-primary-dark">
-                <i class="ri-add-line mr-1"></i>
-                Tambah Materi Pertama
+                <i class="ri-add-line mr-1"></i>Tambah Materi Pertama
             </a>
         </div>
         @endforelse
     </div>
+
+    @if($materials->hasPages())
+    <div class="mt-6">
+        {{ $materials->links() }}
+    </div>
+    @endif
 </div>
 @endsection

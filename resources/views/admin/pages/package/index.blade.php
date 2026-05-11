@@ -128,6 +128,10 @@
 
             <div class="flex gap-2 mt-4">
                 @if ($package->type_package == 'bimbel')
+                <a href="{{ route('admin.package.material.index', ['package_id' => $package->package_id]) }}"
+                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    Materi
+                </a>
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout

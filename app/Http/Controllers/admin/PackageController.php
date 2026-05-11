@@ -8,12 +8,13 @@ use App\Http\Requests\PackageRequest;
 use App\Services\PackageService;
 use App\Services\PlanQuotaService;
 use App\Models\ClassModel;
+use App\Models\DetailPackage;
 use App\Models\Package;
+use App\Models\Material;
 use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
-use App\Models\DetailPackage;
 use Illuminate\Http\Request;
 
 Carbon::setLocale('id');
@@ -259,6 +260,57 @@ class PackageController extends Controller
             return redirect()->back()
                 ->with('error', 'Gagal menambahkan kelas: ' . $e->getMessage())
                 ->withInput();
+        }
+    }
+
+    public function indexMaterial($package_id)
+    {
+        try {
+            $package = Package::where('package_id', $package_id)->firstOrFail();
+
+            // Get all materials with their package relationship status
+            $materials = Material::with(['detailPackages' => function ($query) use ($package_id) {
+                $query->where('package_id', $package_id);
+            }])
+                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = materials.material_id AND package_id = ?) DESC", [Material::class, $package_id])
+                ->orderBy('created_at', 'desc')
+                ->paginate(15);
+
+            return view('admin.pages.package.material.index', compact('package', 'materials'));
+        } catch (\Exception $e) {
+            return redirect()->route('admin.package.index')
+                ->with('error', 'Paket tidak ditemukan');
+        }
+    }
+
+    public function toggleMaterial(Request $request, $package_id, $material_id)
+    {
+        try {
+            $package = Package::where('package_id', $package_id)->firstOrFail();
+            $material = Material::findOrFail($material_id);
+
+            // Check if already linked
+            $existing = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', Material::class)
+                ->where('detailable_id', $material_id)
+                ->first();
+
+            if ($existing) {
+                $existing->delete();
+                $message = 'Materi berhasil dihapus dari paket';
+            } else {
+                DetailPackage::create([
+                    'package_id' => $package_id,
+                    'detailable_type' => Material::class,
+                    'detailable_id' => $material_id,
+                ]);
+                $message = 'Materi berhasil ditambahkan ke paket';
+            }
+
+            return redirect()->back()->with('success', $message);
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 

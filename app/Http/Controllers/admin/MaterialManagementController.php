@@ -14,12 +14,17 @@ class MaterialManagementController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $materials = Material::with(['categories', 'creator'])
-            ->orderBy('order_number', 'asc')
+        $query = Material::with(['categories', 'creator']);
+
+        if ($request->has('type') && $request->type) {
+            $query->where('type', $request->type);
+        }
+
+        $materials = $query->orderBy('order_number', 'asc')
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(20);
 
         return view('admin.pages.material.index', compact('materials'));
     }
