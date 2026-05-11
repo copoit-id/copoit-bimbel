@@ -173,8 +173,17 @@ $isGuest = !$user;
         <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full">
             <!-- Package Image/Header -->
             <div class="h-32 relative overflow-hidden shrink-0" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
-                @if($pkg->thumbnail)
-                <img src="{{ asset('storage/' . $pkg->thumbnail) }}" alt="{{ $pkg->name }}" class="w-full h-full object-cover">
+                @if($pkg->image)
+                @php
+                    $pkgThumbExt = strtolower(pathinfo($pkg->image, PATHINFO_EXTENSION));
+                    $pkgIsVideo = in_array($pkgThumbExt, ['mp4','webm','mov','m4v'], true);
+                    $pkgThumbUrl = Storage::url($pkg->image);
+                @endphp
+                @if($pkgIsVideo)
+                <video src="{{ $pkgThumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+                @else
+                <img src="{{ $pkgThumbUrl }}" alt="{{ $pkg->name }}" class="w-full h-full object-cover">
+                @endif
                 @else
                 <div class="w-full h-full flex items-center justify-center">
                     <i class="ri-book-3-line text-6xl" style="color: {{ $primaryColor }}40"></i>

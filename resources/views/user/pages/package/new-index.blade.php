@@ -41,8 +41,17 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group">
         <!-- Package Image/Header -->
         <div class="h-32 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
-            @if($package->thumbnail)
-            <img src="{{ asset('storage/' . $package->thumbnail) }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+            @if($package->image)
+            @php
+                $pkgImgExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+                $pkgImgIsVid = in_array($pkgImgExt, ['mp4','webm','mov','m4v'], true);
+                $pkgImgUrl = Storage::url($package->image);
+            @endphp
+            @if($pkgImgIsVid)
+            <video src="{{ $pkgImgUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+            @else
+            <img src="{{ $pkgImgUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+            @endif
             @else
             <div class="w-full h-full flex items-center justify-center">
                 <i class="ri-book-3-line text-6xl" style="color: {{ $primaryColor }}40"></i>

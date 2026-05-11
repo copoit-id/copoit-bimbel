@@ -40,7 +40,16 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <!-- Package Image -->
         <div class="h-40 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
             @if($package->image)
-            <img src="{{ Storage::url($package->image) }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+            @php
+                $pkgImgExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+                $pkgImgIsVid = in_array($pkgImgExt, ['mp4','webm','mov','m4v'], true);
+                $pkgImgUrl = Storage::url($package->image);
+            @endphp
+            @if($pkgImgIsVid)
+            <video src="{{ $pkgImgUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+            @else
+            <img src="{{ $pkgImgUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+            @endif
             @else
             <div class="w-full h-full flex items-center justify-center">
                 <i class="ri-book-3-line text-6xl" style="color: {{ $primaryColor }}40"></i>

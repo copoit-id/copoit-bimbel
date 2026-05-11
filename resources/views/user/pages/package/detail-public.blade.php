@@ -23,8 +23,17 @@ $isGuest = !Auth::check();
 <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
     <!-- Cover Image -->
     <div class="h-48 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}30 0%, {{ $primaryColor }}10 100%);">
-        @if($package->thumbnail)
-        <img src="{{ asset('storage/' . $package->thumbnail) }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+        @if($package->image)
+        @php
+            $pkgDetailExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+            $pkgDetailIsVid = in_array($pkgDetailExt, ['mp4','webm','mov','m4v'], true);
+            $pkgDetailUrl = Storage::url($package->image);
+        @endphp
+        @if($pkgDetailIsVid)
+        <video src="{{ $pkgDetailUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+        @else
+        <img src="{{ $pkgDetailUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+        @endif
         @else
         <div class="w-full h-full flex items-center justify-center">
             <i class="ri-book-3-line text-8xl" style="color: {{ $primaryColor }}40"></i>

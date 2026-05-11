@@ -125,14 +125,17 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
         <div class="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
             {{-- Package Image --}}
             <div class="relative h-40 bg-gray-100 overflow-hidden">
-                @if($package->image && file_exists(public_path('storage/' . $package->image)))
-                    <img src="{{ asset('storage/' . $package->image) }}" 
-                         alt="{{ $package->name }}"
-                         class="w-full h-full object-cover"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="absolute inset-0 flex items-center justify-center bg-gray-100" style="display: none;">
-                        <i class="ri-image-line text-4xl text-gray-300"></i>
-                    </div>
+                @if($package->image)
+                    @php
+                        $pkgExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+                        $isPkgVideo = in_array($pkgExt, ['mp4','webm','mov','m4v'], true);
+                        $pkgUrl = Storage::url($package->image);
+                    @endphp
+                    @if($isPkgVideo)
+                    <video src="{{ $pkgUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+                    @else
+                    <img src="{{ $pkgUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+                    @endif
                 @else
                     <div class="w-full h-full flex items-center justify-center bg-gray-100">
                         <i class="ri-image-line text-4xl text-gray-300"></i>
