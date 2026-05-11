@@ -163,12 +163,6 @@ function isActive($route, $current) {
             <!-- Right Side -->
             <div class="flex items-center gap-3">
                 @if($user)
-                <!-- Notification -->
-                <button class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
-                    <i class="ri-notification-3-line text-xl"></i>
-                    <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style="background-color: {{ $primaryColor }}"></span>
-                </button>
-                
                 <!-- User Dropdown -->
                 <div class="relative" x-data="{ open: false }">
                     <button @click="open = !open" class="flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-gray-100 transition-colors">
