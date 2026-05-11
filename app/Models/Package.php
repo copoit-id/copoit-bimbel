@@ -64,6 +64,11 @@ class Package extends Model
         return $this->hasMany(UserPackageAcces::class, 'package_id', 'package_id');
     }
 
+    public function tesKorans()
+    {
+        return $this->hasMany(TesKoran::class, 'package_id', 'package_id');
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class);

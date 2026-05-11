@@ -29,6 +29,7 @@
         || request()->routeIs('admin.material.*')
         || request()->routeIs('admin.material-category.*')
         || request()->routeIs('admin.question-bank.*');
+    $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
     $isUserActive = request()->routeIs('admin.user.*') || request()->routeIs('admin.akses.*');
     $isReportActive = request()->routeIs('admin.leaderboard.*')
         || request()->routeIs('admin.laporan.*')
@@ -259,6 +260,15 @@
                     <span class="ms-3">Activity</span>
                 </a>
             </li>
+            @if($canFeatureView('tes_koran'))
+            <li>
+                <a href="{{ route('admin.tes-koran.index') }}"
+                    class="flex items-center py-2 px-4 {{ $isTesKoranActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-file-edit-line text-[20px] {{ $isTesKoranActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Tes Koran</span>
+                </a>
+            </li>
+            @endif
             @if($clientBranding['certificate_management_enabled'] ?? true)
             @if($canFeatureView('certificate'))
             <li>

@@ -22,6 +22,7 @@ use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionBankController;
 use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\user\EventController;
 use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
+use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Middleware\AdminMiddleware;
@@ -196,6 +198,15 @@ Route::prefix('user')->middleware('auth')->group(function () {
         // Note: user.package.buy, user.package.bimbel, user.package.tryout, user.package.tryout.riwayat, 
         // user.package.tryout.ranking sudah didefinisikan di paket-pembelian prefix
         // user.package.tryout.list sudah didefinisikan di public routes
+    });
+
+    // Tes Koran Routes
+    Route::prefix('tes-koran')->name('user.tes-koran.')->group(function () {
+        Route::get('/', [UserTesKoranController::class, 'index'])->name('index');
+        Route::get('/{tesKoran}', [UserTesKoranController::class, 'show'])->name('show');
+        Route::post('/{tesKoran}/start', [UserTesKoranController::class, 'start'])->name('start');
+        Route::get('/{tesKoran}/result/{result}', [UserTesKoranController::class, 'result'])->name('result');
+        Route::get('/riwayat', [UserTesKoranController::class, 'history'])->name('history');
     });
 
     // My Packages (Step by Step)
@@ -424,6 +435,21 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/{tryout}', [EssayReviewController::class, 'tryout'])->name('tryout');
         Route::get('/{tryout}/user/{user}', [EssayReviewController::class, 'user'])->name('user');
         Route::post('/{detail}/review', [EssayReviewController::class, 'review'])->name('review');
+    });
+
+    // Tes Koran Routes
+    Route::prefix('tes-koran')->name('tes-koran.')->group(function () {
+        Route::get('/', [AdminTesKoranController::class, 'index'])->name('index');
+        Route::get('/tambah-paket', [AdminTesKoranController::class, 'createPackage'])->name('create-package');
+        Route::post('/tambah-paket', [AdminTesKoranController::class, 'storePackage'])->name('store-package');
+        Route::get('/tambah', [AdminTesKoranController::class, 'create'])->name('create');
+        Route::post('/tambah', [AdminTesKoranController::class, 'store'])->name('store');
+        Route::get('/{tesKoran}/edit', [AdminTesKoranController::class, 'edit'])->name('edit');
+        Route::put('/{tesKoran}/edit', [AdminTesKoranController::class, 'update'])->name('update');
+        Route::delete('/{tesKoran}', [AdminTesKoranController::class, 'destroy'])->name('destroy');
+        Route::post('/{tesKoran}/toggle', [AdminTesKoranController::class, 'toggle'])->name('toggle');
+        Route::get('/{tesKoran}/hasil', [AdminTesKoranController::class, 'results'])->name('results');
+        Route::get('/{tesKoran}/preview', [AdminTesKoranController::class, 'preview'])->name('preview');
     });
 
     // Route untuk laporan user
