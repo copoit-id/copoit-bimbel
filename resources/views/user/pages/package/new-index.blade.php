@@ -38,9 +38,9 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     @php
     $isOwned = in_array((int) $package->package_id, $userOwnedPackageIds);
     @endphp
-    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group">
+    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col">
         <!-- Package Image/Header -->
-        <div class="h-32 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
+        <div class="h-32 relative overflow-hidden shrink-0" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
             @if($package->image)
             @php
                 $pkgImgExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
@@ -57,7 +57,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <i class="ri-book-3-line text-6xl" style="color: {{ $primaryColor }}40"></i>
             </div>
             @endif
-            
+
             @if($tab === 'paid')
             <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold" style="background-color: {{ $primaryColor }}; color: white;">
                 Rp {{ number_format($package->price, 0, ',', '.') }}
@@ -68,14 +68,14 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             </div>
             @endif
         </div>
-        
+
         <!-- Content -->
-        <div class="p-5">
+        <div class="p-5 flex flex-col flex-1">
             <a href="{{ route('user.package.detail', $package->package_id) }}" class="block">
                 <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $package->name }}</h3>
             </a>
             <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
-            
+
             <!-- Features -->
             @if($package->features)
             <div class="space-y-1.5 mb-4">
@@ -89,15 +89,15 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @endif
 
             <!-- Action Buttons -->
-            <div class="flex gap-2">
-                <a href="{{ route('user.package.detail', $package->package_id) }}" 
+            <div class="flex gap-2 mt-auto">
+                <a href="{{ route('user.package.detail', $package->package_id) }}"
                    class="flex-1 py-2.5 rounded-xl text-center font-medium border transition-all hover:bg-gray-50"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-eye-line mr-1"></i>Detail
                 </a>
                 @auth
                     @if($isOwned)
-                    <a href="{{ route('user.package.show', $package->package_id) }}" 
+                    <a href="{{ route('user.package.show', $package->package_id) }}"
                        class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
                        style="background-color: {{ $primaryColor }}">
                         <i class="ri-play-circle-line mr-1"></i>Mulai
@@ -105,7 +105,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     @elseif($tab === 'free')
                     <form action="{{ route('user.event.join', $package->package_id) }}" method="POST" class="claim-form flex-1">
                         @csrf
-                        <button type="submit" 
+                        <button type="submit"
                                 class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-gift-line mr-1"></i>Klaim
@@ -114,7 +114,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     @else
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1">
                         @csrf
-                        <button type="submit" 
+                        <button type="submit"
                                 class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-shopping-cart-line mr-1"></i>Beli
@@ -122,7 +122,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     </form>
                     @endif
                 @else
-                <a href="{{ route('login') }}" 
+                <a href="{{ route('login') }}"
                    class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-login-box-line mr-1"></i>Masuk
