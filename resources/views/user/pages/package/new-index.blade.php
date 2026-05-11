@@ -89,7 +89,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @endif
 
             <!-- Action Buttons -->
-            <div class="flex gap-2 mt-auto">
+            <div class="flex gap-2 mt-auto pt-2">
                 <a href="{{ route('user.package.detail', $package->package_id) }}"
                    class="flex-1 py-2.5 rounded-xl text-center font-medium border transition-all hover:bg-gray-50"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
