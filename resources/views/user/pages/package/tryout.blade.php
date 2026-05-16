@@ -9,10 +9,7 @@
         @forelse($tryouts as $tryout)
         @php
         $tryoutDetail = $tryout->tryoutDetails->first();
-        $questionCount = 0;
-        if ($tryoutDetail) {
-        $questionCount = \App\Models\Question::where('tryout_detail_id', $tryoutDetail->tryout_detail_id)->count();
-        }
+        $questionCount = $tryout->tryoutDetails->sum(fn($detail) => $detail->questions()->count());
         $userAttempts = $tryout->userAnswers->count();
         $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
         @endphp
