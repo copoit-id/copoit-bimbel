@@ -54,7 +54,7 @@ class LeaderboardController extends Controller
                     'package_id' => $allPackages->first()->package_id, // Use first package for routing
                     'name' => $tryout->name,
                     'description' => $tryout->description,
-                    'total_questions' => $tryoutDetail ? $tryoutDetail->questions()->count() : 0,
+                    'total_questions' => $tryout->tryoutDetails->sum(fn($detail) => $detail->questions()->count()),
                     'duration' => $tryoutDetail ? $tryoutDetail->duration : 0,
                     'difficulty' => $this->getDifficultyLevel($tryoutDetail ? $tryoutDetail->duration : 0),
                     'participant_count' => $participantCount,
