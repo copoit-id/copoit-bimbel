@@ -87,8 +87,16 @@ class LeaderboardController extends Controller
                 ->with('error', 'Tryout belum memiliki detail soal');
         }
 
+        $isSksFull = in_array($tryout->type_tryout, ['skd_full', 'pppk_full']);
+
         // Get leaderboard data - real participants
         $rankingRows = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+
+        // For SKD Full, group by user and combine subtest scores
+        if ($isSksFull) {
+            $rankingRows = $this->groupRankingsByUser($rankingRows);
+        }
+
         $rankings = $this->paginateLeaderboardRows($rankingRows);
 
         // Calculate statistics
@@ -100,10 +108,7 @@ class LeaderboardController extends Controller
         $averageScore = $rankingRows->avg('raw_score');
         $highestScore = $rankingRows->max('raw_score');
 
-        $passedCount = UserAnswer::where('tryout_id', $tryout_id)
-            ->where('status', 'completed')
-            ->where('is_passed', true)
-            ->count();
+        $passedCount = $rankingRows->where('is_passed', true)->count();
 
         $passRate = $totalParticipants > 0 ? ($passedCount / $totalParticipants) * 100 : 0;
 
@@ -112,7 +117,7 @@ class LeaderboardController extends Controller
             'average_score' => round($averageScore ?? 0, 1),
             'highest_score' => $highestScore ?? 0,
             'pass_rate' => round($passRate, 1),
-            'total_questions' => $tryoutDetail->questions()->count(),
+            'total_questions' => $tryout->tryoutDetails->sum(fn($detail) => $detail->questions()->count()),
             'duration' => $tryoutDetail->duration
         ];
 
@@ -130,9 +135,13 @@ class LeaderboardController extends Controller
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
 
-        $rankings = $this->sortLeaderboardRows(
-            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get())
-        );
+        $rankingRows = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+
+        if (in_array($tryout->type_tryout, ['skd_full', 'pppk_full'])) {
+            $rankingRows = $this->groupRankingsByUser($rankingRows);
+        }
+
+        $rankings = $this->sortLeaderboardRows($rankingRows);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -201,9 +210,13 @@ class LeaderboardController extends Controller
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
 
-        $rankings = $this->sortLeaderboardRows(
-            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get())
-        );
+        $rankingRows = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+
+        if (in_array($tryout->type_tryout, ['skd_full', 'pppk_full'])) {
+            $rankingRows = $this->groupRankingsByUser($rankingRows);
+        }
+
+        $rankings = $this->sortLeaderboardRows($rankingRows);
 
         $html = view('admin.pages.leaderboard.export-pdf', [
             'package' => $package,
@@ -319,7 +332,7 @@ class LeaderboardController extends Controller
             $storedRawScore = (float) ($ranking->raw_score ?? 0);
             $storedMaxScore = (float) ($ranking->max_score ?? 0);
 
-            if ($storedRawScore > 0 || $storedMaxScore > 0) {
+            if ($storedMaxScore > 0) {
                 $rawScore = $storedRawScore;
                 $maxScore = $storedMaxScore;
             } else {
@@ -336,6 +349,67 @@ class LeaderboardController extends Controller
 
             return $ranking;
         });
+    }
+
+    /**
+     * For SKD Full: group by user and combine subtest scores, picking best attempt per user
+     */
+    private function groupRankingsByUser(Collection $rankingRows): Collection
+    {
+        return $rankingRows->groupBy('user_id')
+            ->map(function ($userAnswers) {
+                // Group by attempt_token, sum subtest scores per attempt, pick best
+                $bestAttempt = $userAnswers
+                    ->groupBy('attempt_token')
+                    ->map(function ($attempt) {
+                        $totalRaw = $attempt->sum('raw_score');
+                        $totalMax = $attempt->sum('max_score');
+
+                        // Recalculate pass: all subtests must pass
+                        $allPassed = $attempt->every(function ($ua) {
+                            $detail = $ua->tryoutDetail;
+                            if (!$detail) {
+                                return false;
+                            }
+                            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($detail->type_subtest);
+                            $passingType = $detail->passing_type ?? 'score';
+
+                            if ($passingType === 'percentage') {
+                                $percentage = $ua->max_score > 0 ? ($ua->raw_score / $ua->max_score) * 100 : 0;
+                                return $percentage >= $passingScore;
+                            }
+
+                            return $ua->raw_score >= $passingScore;
+                        });
+
+                        return (object) [
+                            'raw_score' => $totalRaw,
+                            'max_score' => $totalMax,
+                            'is_passed' => $allPassed,
+                            'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
+                            'created_at' => $attempt->min('created_at'),
+                        ];
+                    })
+                    ->sortByDesc('raw_score')
+                    ->values()
+                    ->first();
+
+                $first = $userAnswers->first();
+                $first->raw_score = $bestAttempt->raw_score;
+                $first->max_score = $bestAttempt->max_score;
+                $first->is_passed = $bestAttempt->is_passed;
+                $first->finished_at = $bestAttempt->finished_at;
+                $first->started_at = $bestAttempt->started_at;
+                $first->created_at = $bestAttempt->created_at;
+
+                return $first;
+            })
+            ->sortBy([
+                ['raw_score', 'desc'],
+                ['finished_at', 'asc'],
+            ])
+            ->values();
     }
 
     private function calculateTotalScore(UserAnswer $userAnswer, string $type_subtest): float
