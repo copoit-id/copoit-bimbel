@@ -21,7 +21,7 @@ class Button extends Component
 
     public function render(): View
     {
-        return view('components.ui.Button.index');
+        return view('components.ui.button.index');
     }
 
     public function shouldRender(): bool
