@@ -32,7 +32,7 @@ class AuthController extends Controller
         if (Auth::check()) {
             $user = Auth::user();
             if ($user->isSuperAdmin()) {
-                return redirect()->route('super-admin.admins.index');
+                return redirect()->route('super-admin.roles.index');
             }
             return $user->canAccessAdminPanel()
                 ? redirect()->route('admin.dashboard')
@@ -80,7 +80,7 @@ class AuthController extends Controller
 
             // Redirect based on user role
             if ($user->isSuperAdmin()) {
-                return redirect()->intended(route('super-admin.admins.index'));
+                return redirect()->intended(route('super-admin.roles.index'));
             }
             if ($user->canAccessAdminPanel()) {
                 if ($user->role === 'admin_demo') {

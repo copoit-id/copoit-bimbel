@@ -81,7 +81,7 @@ Route::get('/', function () {
     if (Auth::check()) {
         $user = Auth::user();
         if ($user->isSuperAdmin()) {
-            return redirect()->route('super-admin.admins.index');
+            return redirect()->route('super-admin.roles.index');
         }
 
         return $user->canAccessAdminPanel()

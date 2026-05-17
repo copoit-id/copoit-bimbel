@@ -10,13 +10,6 @@
         <p class="text-[#999999] text-sm">Menu</p>
         <ul class="space-y-1 font-medium mt-2">
             <li>
-                <a href="{{ route('super-admin.admins.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.admins.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i class="ri-user-settings-line text-[20px]"></i>
-                    <span class="ms-3">Kelola Admin Demo</span>
-                </a>
-            </li>
-            <li>
                 <a href="{{ route('super-admin.roles.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.roles.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i class="ri-shield-keyhole-line text-[20px]"></i>
