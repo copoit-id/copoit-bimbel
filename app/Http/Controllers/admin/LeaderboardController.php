@@ -49,14 +49,15 @@ class LeaderboardController extends Controller
                     ? implode(' + ', array_slice($packageNames, 0, 2)) . (count($packageNames) > 2 ? ' + ' . (count($packageNames) - 2) . ' lainnya' : '')
                     : $packageNames[0] ?? 'Unknown Package';
 
+                $totalDuration = $tryout->tryoutDetails->sum('duration');
+
                 return [
                     'tryout_id' => $tryout->tryout_id,
                     'package_id' => $allPackages->first()->package_id, // Use first package for routing
                     'name' => $tryout->name,
                     'description' => $tryout->description,
                     'total_questions' => $tryout->tryoutDetails->sum(fn($detail) => $detail->questions()->count()),
-                    'duration' => $tryoutDetail ? $tryoutDetail->duration : 0,
-                    'difficulty' => $this->getDifficultyLevel($tryoutDetail ? $tryoutDetail->duration : 0),
+                    'duration' => $totalDuration,
                     'participant_count' => $participantCount,
                     'package_name' => $combinedPackageName,
                     'package_count' => count($packageNames),
@@ -118,7 +119,7 @@ class LeaderboardController extends Controller
             'highest_score' => $highestScore ?? 0,
             'pass_rate' => round($passRate, 1),
             'total_questions' => $tryout->tryoutDetails->sum(fn($detail) => $detail->questions()->count()),
-            'duration' => $tryoutDetail->duration
+            'duration' => $tryout->tryoutDetails->sum('duration')
         ];
 
         return view('admin.pages.leaderboard.show', compact(

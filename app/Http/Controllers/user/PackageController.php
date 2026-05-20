@@ -1441,8 +1441,7 @@ class PackageController extends Controller
             ->sortByDesc('raw_score')
             ->values();
 
-        $tryoutDetail = $tryout->tryoutDetails->first();
-        $totalDuration = $tryoutDetail ? $tryoutDetail->duration : 0;
+        $totalDuration = $tryout->tryoutDetails->sum('duration');
 
         return view('user.pages.package.tryout-rank', compact('package', 'tryout', 'rankings', 'totalDuration'));
     }

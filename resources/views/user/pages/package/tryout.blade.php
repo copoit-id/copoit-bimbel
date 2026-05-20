@@ -8,7 +8,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 text-gray-600">
         @forelse($tryouts as $tryout)
         @php
-        $tryoutDetail = $tryout->tryoutDetails->first();
+        $totalDuration = $tryout->tryoutDetails->sum('duration');
         $questionCount = $tryout->tryoutDetails->sum(fn($detail) => $detail->questions()->count());
         $userAttempts = $tryout->userAnswers->count();
         $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
@@ -23,7 +23,7 @@
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Durasi:</p>
-                    <p class="font-light">{{ $tryoutDetail ? $tryoutDetail->duration : 0 }} Menit</p>
+                    <p class="font-light">{{ $totalDuration }} Menit</p>
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Tipe:</p>
