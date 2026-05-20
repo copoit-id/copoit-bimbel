@@ -25,7 +25,7 @@
 <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
 
 <!-- Statistics Cards -->
-<div class="grid grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     <div class="bg-white p-4 rounded-lg border border-border">
         <div class="flex items-center justify-between">
             <div>
@@ -60,6 +60,15 @@
                 <p class="text-2xl font-bold text-dark">{{ $statistics['pass_rate'] }}%</p>
             </div>
             <i class="ri-check-double-line text-3xl text-dark"></i>
+        </div>
+    </div>
+    <div class="bg-white p-4 rounded-lg border border-border">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Durasi</p>
+                <p class="text-2xl font-bold text-dark">{{ $statistics['duration'] ?? 0 }} <span class="text-base font-semibold text-gray-500">Menit</span></p>
+            </div>
+            <i class="ri-timer-line text-3xl text-dark"></i>
         </div>
     </div>
 </div>
