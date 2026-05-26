@@ -6,6 +6,10 @@
 @php
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$paymentMode = $clientBranding['payment_mode'] ?? 'gateway';
+$bankName = $clientBranding['payment_bank_name'] ?? '';
+$accountNumber = $clientBranding['payment_account_number'] ?? '';
+$accountHolder = $clientBranding['payment_account_holder'] ?? '';
 @endphp
 
 <style>
@@ -29,7 +33,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 
 <!-- Filter Tabs -->
-<div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+<div class="flex gap-2 mb-6 overflow-x-auto pb-1">
     <a href="{{ route('user.material.index') }}" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap tab-active">
         Semua
     </a>
@@ -48,8 +52,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @if(isset($categories) && $categories->count() > 0)
 <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
     @foreach($categories as $category)
-    <a href="{{ route('user.material.category', $category->category_id) }}" 
-       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors">
+    <a href="{{ route('user.material.category', $category->category_id) }}"
+       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors flex-shrink-0">
         @if($category->icon)
         <i class="{{ $category->icon }}" style="color: {{ $primaryColor }}"></i>
         @endif
@@ -63,115 +67,87 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @if(isset($materials) && $materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($materials as $material)
-    <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
+    <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col">
+        {{-- Thumbnail --}}
         @if($material->thumbnail_url)
-        <div class="h-36">
+        <div class="h-36 overflow-hidden">
             <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
         </div>
         @endif
 
-        @php
-        $userAccess = $material->userAccess->first();
-        @endphp
-
-        @if(!$material->thumbnail_url)
-        <div class="p-4 flex items-start gap-4">
-            <div class="w-14 h-14 {{ $material->type === 'video' ? 'bg-red-100 text-red-500' : ($material->type === 'document' ? 'bg-blue-100 text-blue-500' : 'bg-purple-100 text-purple-500') }} rounded-xl flex items-center justify-center flex-shrink-0">
-                <i class="{{ $material->type_icon }} text-2xl"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ $material->type_label }}</span>
-                    @if($material->duration_minutes)
-                    <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
-                    @endif
-                </div>
-                <h3 class="font-medium text-gray-800 text-sm line-clamp-2">{{ $material->title }}</h3>
-                <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
-            </div>
-        </div>
-        @else
-        <div class="p-4">
-            <div class="flex items-center gap-2 mb-1">
-                <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ $material->type_label }}</span>
+        {{-- Card Body --}}
+        <div class="p-4 flex flex-col flex-1">
+            {{-- Type Badge & Duration --}}
+            <div class="flex items-center gap-2 mb-2">
+                <span class="px-2 py-0.5 rounded text-xs font-medium {{ $material->type === 'video' ? 'bg-red-100 text-red-600' : ($material->type === 'document' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600') }}">
+                    <i class="{{ $material->type_icon }} mr-0.5"></i>{{ $material->type_label }}
+                </span>
                 @if($material->duration_minutes)
-                <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
+                <span class="text-xs text-gray-400">
+                    <i class="ri-time-line mr-0.5"></i>{{ $material->formatted_duration }}
+                </span>
                 @endif
             </div>
-            <h3 class="font-medium text-gray-800 text-sm line-clamp-2">{{ $material->title }}</h3>
-            <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
-        </div>
-        @endif
 
-        <div class="px-4 pb-4 pt-3 border-t mt-auto">
-            @if(!$user)
-                {{-- Guest - perlu login --}}
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs text-gray-400"><i class="ri-lock-line mr-1"></i>Login untuk akses</span>
+            {{-- Title & Description --}}
+            <h3 class="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">{{ $material->title }}</h3>
+            <p class="text-xs text-gray-400 line-clamp-2 flex-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
+
+            {{-- Price (show if material has price and user doesn't have access) --}}
+            @if(!$material->has_access && $material->price > 0)
+            <div class="mt-3 pt-3 border-t border-gray-100">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-500">Harga:</span>
+                    <span class="font-bold text-sm" style="color: {{ $primaryColor }}">Rp {{ number_format($material->price, 0, ',', '.') }}</span>
                 </div>
+            </div>
+            @endif
+        </div>
+
+        {{-- Card Footer --}}
+        <div class="px-4 pb-4 pt-0">
+            @if(!$user)
+                {{-- Guest: Show login button --}}
                 <a href="{{ route('login') }}"
-                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+                   class="flex items-center justify-center w-full py-2.5 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-                    <i class="ri-login-box-line mr-1"></i>
-                    Masuk untuk Akses
+                    <i class="ri-login-box-line mr-1"></i>Masuk untuk Akses
                 </a>
             @elseif($material->has_access)
-                {{-- User has access --}}
+                {{-- User has access: Show access status & button --}}
+                @php
+                $userAccess = $material->userAccess->first();
+                @endphp
                 @if($userAccess && $userAccess->is_completed)
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 mb-2">
                     <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
-                        <i class="ri-check-line"></i>Selesai
+                        <i class="ri-checkbox-circle-fill"></i>Selesai
                     </span>
                 </div>
                 @elseif($userAccess && $userAccess->is_in_progress)
-                <div class="flex items-center gap-2 mb-3">
+                <div class="flex items-center gap-2 mb-2">
                     <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div class="h-full rounded-full" style="width: {{ $userAccess->progress_percentage }}%; background-color: {{ $primaryColor }}"></div>
                     </div>
                     <span class="text-xs text-gray-500">{{ $userAccess->progress_percentage }}%</span>
                 </div>
-                @else
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs text-gray-400">Belum dimulai</span>
-                </div>
                 @endif
-
                 <a href="{{ route('user.material.show', $material->material_id) }}"
-                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                   class="flex items-center justify-center w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>
-                    {{ $userAccess && $userAccess->is_in_progress ? 'Lanjutkan Belajar' : 'Lihat Materi' }}
+                    {{ ($userAccess && $userAccess->is_in_progress) ? 'Lanjutkan Belajar' : 'Lihat Materi' }}
                 </a>
             @else
-                {{-- User doesn't have access --}}
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs text-gray-400"><i class="ri-lock-line mr-1"></i>Belum diakses</span>
-                </div>
-
-                @if($material->access_via_package)
-                <a href="{{ route('user.package.my') }}?tab=packages"
-                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
-                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-                    <i class="ri-shopping-bag-line mr-1"></i>
-                    Dapatkan Akses
-                </a>
-                @elseif($material->price > 0)
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs text-gray-400"><i class="ri-shopping-cart-line mr-1"></i>Harga:</span>
-                    <span class="text-sm font-bold" style="color: {{ $primaryColor }}">Rp {{ number_format($material->price, 0, ',', '.') }}</span>
-                </div>
-                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price }}, '{{ addslashes($material->title) }}')"
-                   class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                   style="background-color: {{ $primaryColor }}">
-                    <i class="ri-shopping-cart-line mr-1"></i>
-                    Beli Sekarang
+                {{-- User logged in but no access: Always show buy button --}}
+                @php
+                $displayPrice = $material->price ?? 0;
+                @endphp
+                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
+                        class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                        style="background-color: {{ $primaryColor }}">
+                    <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
                 </button>
-                @else
-                <button disabled class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
-                    <i class="ri-lock-line mr-1"></i>
-                    Tidak Tersedia
-                </button>
-                @endif
             @endif
         </div>
     </div>
@@ -194,36 +170,27 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 @endif
 
-@php
-$paymentModeConfig = $clientBranding['payment_mode'] ?? 'gateway';
-$bankName = $clientBranding['payment_bank_name'] ?? '';
-$accountNumber = $clientBranding['payment_account_number'] ?? '';
-$accountHolder = $clientBranding['payment_account_holder'] ?? '';
-@endphp
-
-<!-- Purchase Modal for Individual Items -->
+<!-- Purchase Modal -->
 <div id="purchaseModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div class="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="flex items-center justify-between p-5 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Beli <span id="purchaseTypeDisplay"></span></h3>
-            <button onclick="closePurchaseModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
+            <button onclick="closePurchaseModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg">
                 <i class="ri-close-line text-xl"></i>
             </button>
         </div>
         <div class="p-5">
             <div id="purchaseError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
 
-            <!-- Item Info -->
-            <div class="mb-4 p-4 bg-gray-50 rounded-xl">
+            <div class="bg-gray-50 rounded-xl p-4 mb-5">
                 <p class="text-sm font-medium text-gray-600 mb-1">Item:</p>
                 <p class="font-semibold text-gray-800" id="purchaseNameDisplay"></p>
                 <div class="mt-2 pt-2 border-t border-gray-200">
                     <span class="text-sm text-gray-500">Total:</span>
-                    <span class="text-lg font-bold ml-2" style="color: {{ $primaryColor }}"><span id="purchasePriceDisplay"></span></span>
+                    <span class="text-lg font-bold ml-2" id="purchasePriceDisplay" style="color: {{ $primaryColor }}"></span>
                 </div>
             </div>
 
-            <!-- Bank Transfer Info -->
             <div class="bg-gray-50 rounded-xl p-4 mb-5">
                 <p class="text-sm font-medium text-gray-600 mb-3">Transfer ke rekening berikut:</p>
                 <div class="space-y-2">
@@ -247,12 +214,12 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Transfer <span class="text-red-500">*</span></label>
-                        <input type="file" name="payment_proof" id="paymentProof" accept="image/*,.pdf" required
-                               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+                        <input type="file" name="payment_proof" id="paymentProofInput" accept="image/*,.pdf" required
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
+                               style="--tw-ring-color: {{ $primaryColor }}">
                         <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, PDF. Maks: 20MB</p>
-                        <div id="proofPreviewContainer" class="mt-3 hidden">
-                            <p class="text-xs text-gray-500 mb-1">Preview:</p>
-                            <img id="proofImagePreview" src="" alt="Preview" class="max-h-40 rounded-lg border border-gray-200">
+                        <div id="proofPreview" class="mt-3 hidden">
+                            <img id="proofImage" src="" alt="Preview" class="max-h-40 rounded-lg border border-gray-200">
                         </div>
                     </div>
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -263,43 +230,60 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                     </div>
                 </div>
                 <div class="flex gap-3 mt-6">
-                    <button type="button" onclick="closePurchaseModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">
-                        Batal
-                    </button>
-                    <button type="submit" id="submitPurchaseBtn" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">
-                        Kirim Bukti Bayar
-                    </button>
+                    <button type="button" onclick="closePurchaseModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">Batal</button>
+                    <button type="submit" id="submitPurchaseBtn" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">Kirim Bukti Bayar</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+@endsection
 
+@push('scripts')
 <script>
-// Preview uploaded file
-document.getElementById('paymentProof')?.addEventListener('change', function(e) {
+let selectedType = null;
+let selectedId = null;
+let selectedPrice = 0;
+
+function buyIndividual(type, id, price, name) {
+    selectedType = type;
+    selectedId = id;
+    selectedPrice = price;
+    document.getElementById('purchaseTypeDisplay').textContent = type === 'material' ? 'Materi' : 'Tryout';
+    document.getElementById('purchaseNameDisplay').textContent = name;
+    document.getElementById('purchasePriceDisplay').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(price);
+    document.getElementById('purchaseError').classList.add('hidden');
+    document.getElementById('purchaseModal').classList.remove('hidden');
+    document.getElementById('purchaseModal').classList.add('flex');
+}
+
+function closePurchaseModal() {
+    document.getElementById('purchaseModal').classList.add('hidden');
+    document.getElementById('purchaseModal').classList.remove('flex');
+    document.getElementById('purchaseForm').reset();
+    document.getElementById('proofPreview').classList.add('hidden');
+    selectedType = null;
+    selectedId = null;
+}
+
+document.getElementById('paymentProofInput')?.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        const preview = document.getElementById('proofPreviewContainer');
-        const img = document.getElementById('proofImagePreview');
+        const preview = document.getElementById('proofPreview');
+        const img = document.getElementById('proofImage');
         img.src = URL.createObjectURL(file);
         preview.classList.remove('hidden');
     }
 });
 
-// Handle purchase form submission
 document.getElementById('purchaseForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
-
     const formData = new FormData(this);
-    formData.append('type', selectedPurchaseType);
-    formData.append('id', selectedPurchaseId);
-
-    const submitBtn = document.getElementById('submitPurchaseBtn');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i>Mengirim...';
-
+    formData.append('type', selectedType);
+    formData.append('id', selectedId);
+    const btn = document.getElementById('submitPurchaseBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i>Mengirim...';
     fetch('/user/pembelian/buy', {
         method: 'POST',
         headers: {
@@ -315,90 +299,22 @@ document.getElementById('purchaseForm')?.addEventListener('submit', function(e) 
             alert(data.message || 'Bukti pembayaran berhasil dikirim!');
             window.location.reload();
         } else {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-            const errorEl = document.getElementById('purchaseError');
-            errorEl.textContent = data.message || 'Terjadi kesalahan.';
-            errorEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = 'Kirim Bukti Bayar';
+            document.getElementById('purchaseError').textContent = data.message || 'Terjadi kesalahan.';
+            document.getElementById('purchaseError').classList.remove('hidden');
         }
     })
-    .catch(err => {
-        console.error(err);
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-        const errorEl = document.getElementById('purchaseError');
-        errorEl.textContent = 'Terjadi kesalahan. Silakan coba lagi.';
-        errorEl.classList.remove('hidden');
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = 'Kirim Bukti Bayar';
+        document.getElementById('purchaseError').textContent = 'Terjadi kesalahan.';
+        document.getElementById('purchaseError').classList.remove('hidden');
     });
 });
 
-// Close modal on backdrop click
 document.getElementById('purchaseModal')?.addEventListener('click', function(e) {
-    if (e.target === this) {
-        closePurchaseModal();
-    }
+    if (e.target === this) closePurchaseModal();
 });
 </script>
-
-@section('scripts')
-<script>
-const PAYMENT_MODE = '{{ $paymentModeConfig }}';
-let selectedPurchaseType = null;
-let selectedPurchaseId = null;
-let selectedPurchasePrice = 0;
-let selectedPurchaseName = '';
-
-function buyIndividual(type, id, price, name) {
-    selectedPurchaseType = type;
-    selectedPurchaseId = id;
-    selectedPurchasePrice = price;
-    selectedPurchaseName = name;
-
-    if (PAYMENT_MODE === 'manual') {
-        // Show modal for manual payment
-        document.getElementById('purchaseTypeDisplay').textContent = type === 'material' ? 'Materi' : 'Tryout';
-        document.getElementById('purchaseNameDisplay').textContent = name;
-        document.getElementById('purchasePriceDisplay').textContent = 'Rp ' + formatRupiah(price);
-        document.getElementById('purchaseModal').classList.remove('hidden');
-        document.getElementById('purchaseModal').classList.add('flex');
-    } else {
-        // Direct buy via API
-        fetch('/user/pembelian/buy', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ type: type, id: id })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message || 'Berhasil!');
-                if (data.redirect_url) {
-                    window.location.href = data.redirect_url;
-                }
-            } else {
-                alert(data.message || 'Terjadi kesalahan');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Terjadi kesalahan. Silakan coba lagi.');
-        });
-    }
-}
-
-function formatRupiah(number) {
-    return new Intl.NumberFormat('id-ID').format(number);
-}
-
-function closePurchaseModal() {
-    document.getElementById('purchaseModal').classList.add('hidden');
-    document.getElementById('purchaseModal').classList.remove('flex');
-    selectedPurchaseType = null;
-    selectedPurchaseId = null;
-}
-</script>
-@endsection
+@endpush
