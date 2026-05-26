@@ -91,6 +91,16 @@
                     </div>
 
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                        <select name="category_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="">(Tidak ada)</option>
+                            @foreach($categories as $category)
+                            <option value="{{ $category->category_id }}" {{ old('category_id', $selectedCategory) == $category->category_id ? 'selected' : '' }}>{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
                         <textarea name="description" rows="5" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Deskripsi singkat tentang materi...">{{ old('description', $material->description) }}</textarea>
                     </div>

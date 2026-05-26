@@ -67,7 +67,7 @@
                         <button onclick="openEditModal({{ $category->category_id }}, '{{ $category->name }}', '{{ $category->description }}', '{{ $category->icon }}', {{ $category->order_number }}, {{ $category->is_active ? 'true' : 'false' }})" class="text-blue-600 hover:text-blue-900 mr-3">
                             <i class="ri-edit-line text-lg"></i>
                         </button>
-                        <form action="{{ route('admin.material.category.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori ini?')">
+                        <form action="{{ route('admin.material.material-category.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori ini?')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="text-red-600 hover:text-red-900">
@@ -90,15 +90,15 @@
 </div>
 
 <!-- Create Modal -->
-<div id="createModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
-        <div class="flex justify-between items-center p-4 border-b">
-            <h3 class="text-lg font-semibold">Tambah Kategori</h3>
-            <button onclick="closeModal('createModal')" class="text-gray-500 hover:text-gray-700">
+<div id="createModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
+        <div class="flex justify-between items-center p-5 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-800">Tambah Kategori</h3>
+            <button onclick="closeModal('createModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
                 <i class="ri-close-line text-xl"></i>
             </button>
         </div>
-        <form action="{{ route('admin.material.category.store') }}" method="POST" class="p-4">
+        <form action="{{ route('admin.material.material-category.store') }}" method="POST" class="p-4">
             @csrf
             <div class="space-y-4">
                 <div>
@@ -128,11 +128,11 @@
 </div>
 
 <!-- Edit Modal -->
-<div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
-        <div class="flex justify-between items-center p-4 border-b">
-            <h3 class="text-lg font-semibold">Edit Kategori</h3>
-            <button onclick="closeModal('editModal')" class="text-gray-500 hover:text-gray-700">
+<div id="editModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
+        <div class="flex justify-between items-center p-5 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-800">Edit Kategori</h3>
+            <button onclick="closeModal('editModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
                 <i class="ri-close-line text-xl"></i>
             </button>
         </div>
@@ -184,7 +184,7 @@
 
     function openEditModal(id, name, description, icon, orderNumber, isActive) {
         const form = document.getElementById('editForm');
-        form.action = `{{ route('admin.material.category.index') }}/${id}`;
+        form.action = `{{ route('admin.material.material-category.index') }}/${id}`;
         
         document.getElementById('editName').value = name;
         document.getElementById('editDescription').value = description || '';

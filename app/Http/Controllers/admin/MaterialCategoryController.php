@@ -41,7 +41,7 @@ class MaterialCategoryController extends Controller
 
         MaterialCategory::create($validated);
 
-        return redirect()->route('admin.material.category.index')
+        return redirect()->route('admin.material.material-category.index')
             ->with('success', 'Kategori materi berhasil ditambahkan.');
     }
 
@@ -67,7 +67,7 @@ class MaterialCategoryController extends Controller
 
         $category->update($validated);
 
-        return redirect()->route('admin.material.category.index')
+        return redirect()->route('admin.material.material-category.index')
             ->with('success', 'Kategori materi berhasil diperbarui.');
     }
 
@@ -78,13 +78,13 @@ class MaterialCategoryController extends Controller
     {
         // Check if category has materials
         if ($category->materials()->count() > 0) {
-            return redirect()->route('admin.material.category.index')
+            return redirect()->route('admin.material.material-category.index')
                 ->with('error', 'Kategori tidak dapat dihapus karena masih memiliki materi.');
         }
 
         $category->delete();
 
-        return redirect()->route('admin.material.category.index')
+        return redirect()->route('admin.material.material-category.index')
             ->with('success', 'Kategori materi berhasil dihapus.');
     }
 }

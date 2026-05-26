@@ -51,8 +51,7 @@ class MaterialManagementController extends Controller
             'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'duration_minutes' => 'nullable|integer|min:1',
             'order_number' => 'nullable|integer|min:0',
-            'categories' => 'nullable|array',
-            'categories.*' => 'exists:material_categories,category_id',
+            'category_id' => 'nullable|exists:material_categories,category_id',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
             'title.max' => 'Judul materi maksimal 255 karakter.',
@@ -68,7 +67,7 @@ class MaterialManagementController extends Controller
             'duration_minutes.min' => 'Durasi minimal 1 menit.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
-            'categories.*.exists' => 'Kategori yang dipilih tidak valid.',
+            'category_id.exists' => 'Kategori tidak valid.',
         ]);
 
         // Handle thumbnail upload
@@ -85,16 +84,16 @@ class MaterialManagementController extends Controller
         // Set creator
         $validated['created_by'] = Auth::id();
 
-        // Extract categories
-        $categories = $validated['categories'] ?? [];
-        unset($validated['categories']);
+        // Extract category_id (single, not array)
+        $categoryId = $validated['category_id'] ?? null;
+        unset($validated['category_id']);
 
         // Create material
         $material = Material::create($validated);
 
-        // Attach categories
-        if (!empty($categories)) {
-            $material->categories()->attach($categories);
+        // Attach single category
+        if ($categoryId) {
+            $material->categories()->attach($categoryId);
         }
 
         return redirect()->route('admin.material.index')
@@ -107,9 +106,9 @@ class MaterialManagementController extends Controller
     public function edit(Material $material)
     {
         $categories = MaterialCategory::active()->ordered()->get();
-        $selectedCategories = $material->categories->pluck('category_id')->toArray();
+        $selectedCategory = $material->categories->first()?->category_id;
 
-        return view('admin.pages.material.edit', compact('material', 'categories', 'selectedCategories'));
+        return view('admin.pages.material.edit', compact('material', 'categories', 'selectedCategory'));
     }
 
     /**
@@ -126,8 +125,7 @@ class MaterialManagementController extends Controller
             'duration_minutes' => 'nullable|integer|min:1',
             'order_number' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
-            'categories' => 'nullable|array',
-            'categories.*' => 'exists:material_categories,category_id',
+            'category_id' => 'nullable|exists:material_categories,category_id',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
             'title.max' => 'Judul materi maksimal 255 karakter.',
@@ -143,7 +141,7 @@ class MaterialManagementController extends Controller
             'duration_minutes.min' => 'Durasi minimal 1 menit.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
-            'categories.*.exists' => 'Kategori yang dipilih tidak valid.',
+            'category_id.exists' => 'Kategori tidak valid.',
         ]);
 
         // Handle thumbnail upload
@@ -161,15 +159,19 @@ class MaterialManagementController extends Controller
         // Handle is_active
         $validated['is_active'] = $request->boolean('is_active', true);
 
-        // Extract categories
-        $categories = $validated['categories'] ?? [];
-        unset($validated['categories']);
+        // Extract category_id (single, not array)
+        $categoryId = $validated['category_id'] ?? null;
+        unset($validated['category_id']);
 
         // Update material
         $material->update($validated);
 
-        // Sync categories
-        $material->categories()->sync($categories);
+        // Sync single category
+        if ($categoryId) {
+            $material->categories()->sync([$categoryId]);
+        } else {
+            $material->categories()->detach();
+        }
 
         return redirect()->route('admin.material.index')
             ->with('success', 'Materi berhasil diperbarui.');

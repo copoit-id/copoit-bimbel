@@ -95,10 +95,18 @@
                         @endif
                         <li>
                             <a href="{{ route('admin.material.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.*') || request()->routeIs('admin.material-category.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.index') || request()->routeIs('admin.material.create') || request()->routeIs('admin.material.edit') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <i
-                                    class="ri-book-open-line text-[20px] {{ request()->routeIs('admin.material.*') || request()->routeIs('admin.material-category.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                    class="ri-book-open-line text-[20px] {{ request()->routeIs('admin.material.index') || request()->routeIs('admin.material.create') || request()->routeIs('admin.material.edit') ? $iconActiveClass : $iconInactiveClass }}"></i>
                                 <span class="ms-3">Manajemen Materi</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.material.material-category.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.material-category.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i
+                                    class="ri-folder-line text-[20px] {{ request()->routeIs('admin.material.material-category.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Kategori</span>
                             </a>
                         </li>
                         @if($canFeatureView('question_bank'))

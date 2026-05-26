@@ -385,7 +385,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/{material}/toggle', [MaterialManagementController::class, 'toggle'])->name('toggle');
 
         // Material Categories
-        Route::prefix('kategori')->name('category.')->group(function () {
+        Route::prefix('kategori')->name('material-category.')->group(function () {
             Route::get('/', [MaterialCategoryController::class, 'index'])->name('index');
             Route::post('/', [MaterialCategoryController::class, 'store'])->name('store');
             Route::put('/{category}', [MaterialCategoryController::class, 'update'])->name('update');
