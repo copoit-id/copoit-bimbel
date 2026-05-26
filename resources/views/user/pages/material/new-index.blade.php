@@ -63,8 +63,19 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 @if(isset($materials) && $materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($materials as $material)
-    <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
-        <div class="flex items-start gap-4">
+    <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
+        @if($material->thumbnail_url)
+        <div class="h-36">
+            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+        </div>
+        @endif
+
+        @php
+        $userAccess = $material->userAccess->first();
+        @endphp
+
+        @if(!$material->thumbnail_url)
+        <div class="p-4 flex items-start gap-4">
             <div class="w-14 h-14 {{ $material->type === 'video' ? 'bg-red-100 text-red-500' : ($material->type === 'document' ? 'bg-blue-100 text-blue-500' : 'bg-purple-100 text-purple-500') }} rounded-xl flex items-center justify-center flex-shrink-0">
                 <i class="{{ $material->type_icon }} text-2xl"></i>
             </div>
@@ -79,18 +90,26 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
             </div>
         </div>
-        
-        @php
-        $userAccess = $material->userAccess->first();
-        @endphp
-        
-        <div class="mt-4 pt-3 border-t">
+        @else
+        <div class="p-4">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ $material->type_label }}</span>
+                @if($material->duration_minutes)
+                <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
+                @endif
+            </div>
+            <h3 class="font-medium text-gray-800 text-sm line-clamp-2">{{ $material->title }}</h3>
+            <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
+        </div>
+        @endif
+
+        <div class="px-4 pb-4 pt-3 border-t mt-auto">
             @if(!$user)
                 {{-- Guest - perlu login --}}
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-xs text-gray-400"><i class="ri-lock-line mr-1"></i>Login untuk akses</span>
                 </div>
-                <a href="{{ route('login') }}" 
+                <a href="{{ route('login') }}"
                    class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-login-box-line mr-1"></i>
@@ -116,8 +135,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     <span class="text-xs text-gray-400">Belum dimulai</span>
                 </div>
                 @endif
-                
-                <a href="{{ route('user.material.show', $material->material_id) }}" 
+
+                <a href="{{ route('user.material.show', $material->material_id) }}"
                    class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>
@@ -128,9 +147,9 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-xs text-gray-400"><i class="ri-lock-line mr-1"></i>Belum diakses</span>
                 </div>
-                
+
                 @if($material->access_via_package)
-                <a href="{{ route('user.package.my') }}?tab=packages" 
+                <a href="{{ route('user.package.my') }}?tab=packages"
                    class="flex items-center justify-center w-full py-2 rounded-lg text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-shopping-bag-line mr-1"></i>

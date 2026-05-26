@@ -113,9 +113,15 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     <div class="space-y-3">
         @foreach($recentMaterials as $material)
         <a href="{{ route('user.material.show', $material->material_id) }}" class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
+            @if($material->thumbnail_url)
+            <div class="w-16 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+            </div>
+            @else
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white flex-shrink-0" style="background-color: {{ $primaryColor }}">
                 <i class="{{ $material->type_icon }} text-xl"></i>
             </div>
+            @endif
             <div class="flex-1">
                 <h4 class="font-medium text-gray-800">{{ $material->title }}</h4>
                 <p class="text-sm text-gray-500">{{ $material->type_label }} • {{ $material->category?->name ?? 'Umum' }}</p>

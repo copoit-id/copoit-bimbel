@@ -50,20 +50,30 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     $isAccessible = $user && $material->has_access;
     $linkUrl = $isAccessible ? route('user.material.show', $material->material_id) : ($user ? route('user.package.my') . '?tab=packages' : route('login'));
     @endphp
-    <a href="{{ $linkUrl }}" 
-       class="bg-white rounded-xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
-        <div class="flex items-start gap-4">
+    <a href="{{ $linkUrl }}"
+       class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
+        @if($material->thumbnail_url)
+        <div class="aspect-video bg-gray-100">
+            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+        </div>
+        @endif
+        <div class="p-5">
+        @if(!$material->thumbnail_url)
+        <div class="flex items-start gap-4 mb-4">
             <div class="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-50 rounded-xl flex items-center justify-center flex-shrink-0">
                 <i class="ri-live-line text-3xl text-purple-500"></i>
             </div>
             <div class="flex-1 min-w-0">
+        @else
+        <div>
+        @endif
                 <h3 class="font-medium text-gray-800 mb-1 line-clamp-2 group-hover:text-purple-500 transition-colors">{{ $material->title }}</h3>
                 <p class="text-sm text-gray-400 line-clamp-2 mb-3">{{ $material->description ?? 'Live session interaktif' }}</p>
-                
+
                 @php
                 $userAccess = $user ? $material->userAccess->first() : null;
                 @endphp
-                
+
                 <div class="flex items-center gap-3">
                     @if(!$user)
                     <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
@@ -89,6 +99,9 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     @endif
                 </div>
             </div>
+            @if(!$material->thumbnail_url)
+            </div>
+            @endif
         </div>
     </a>
     @endforeach

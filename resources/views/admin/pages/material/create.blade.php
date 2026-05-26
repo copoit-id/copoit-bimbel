@@ -65,21 +65,13 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Thumbnail</label>
-                        <input type="file" name="thumbnail" accept="image/*" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                        <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, GIF. Maks: 2MB</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                        <div class="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
-                            @forelse($categories as $category)
-                            <label class="flex items-center mb-2 last:mb-0">
-                                <input type="checkbox" name="categories[]" value="{{ $category->category_id }}" {{ in_array($category->category_id, old('categories', [])) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                <span class="ml-2 text-sm">{{ $category->name }}</span>
-                            </label>
-                            @empty
-                            <p class="text-sm text-gray-500">Belum ada kategori. <a href="{{ route('admin.material.category.index') }}" class="text-primary">Buat kategori</a></p>
-                            @endforelse
+                        <input type="file" name="thumbnail" accept="image/*" id="thumbnailInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <p class="text-xs text-gray-500 mt-1">Rasio ideal: <strong>16:9</strong> (contoh: 640x360, 1280x720). Format: JPG, PNG, GIF. Maks: 2MB</p>
+                        <div id="thumbnailPreview" class="mt-3 hidden">
+                            <div class="text-xs text-gray-500 mb-2">Preview (16:9):</div>
+                            <div class="bg-gray-100 rounded-lg overflow-hidden border border-gray-300" style="aspect-ratio: 16/9; max-width: 320px;">
+                                <img id="previewImage" src="" alt="Preview" class="w-full h-full object-cover">
+                            </div>
                         </div>
                     </div>
 
@@ -127,5 +119,24 @@
     
     // Initialize on load
     updatePlaceholder();
+
+    // Thumbnail preview
+    const thumbnailInput = document.getElementById('thumbnailInput');
+    const thumbnailPreview = document.getElementById('thumbnailPreview');
+    const previewImage = document.getElementById('previewImage');
+
+    if (thumbnailInput) {
+        thumbnailInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    previewImage.src = event.target.result;
+                    thumbnailPreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 </script>
 @endsection
