@@ -45,7 +45,7 @@ class MaterialController extends Controller
         
         // Mark each material with access status
         foreach ($materials as $material) {
-            $material->has_access = $user && in_array($material->material_id, $accessibleMaterialIds);
+            $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
         
@@ -93,7 +93,7 @@ class MaterialController extends Controller
         
         // Mark each material with access status
         foreach ($materials as $material) {
-            $material->has_access = $user && in_array($material->material_id, $accessibleMaterialIds);
+            $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
         
@@ -121,7 +121,7 @@ class MaterialController extends Controller
         
         // Mark each material with access status
         foreach ($materials as $material) {
-            $material->has_access = $user && in_array($material->material_id, $accessibleMaterialIds);
+            $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
         
@@ -149,7 +149,7 @@ class MaterialController extends Controller
         
         // Mark each material with access status
         foreach ($materials as $material) {
-            $material->has_access = $user && in_array($material->material_id, $accessibleMaterialIds);
+            $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
         

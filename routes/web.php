@@ -238,6 +238,13 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/template/preview', [\App\Http\Controllers\user\CertificateController::class, 'previewTemplate'])->name('user.certificate.template.preview');
         Route::get('/template/test', [\App\Http\Controllers\user\CertificateController::class, 'testSertifikat'])->name('user.certificate.template.test');
     });
+
+    // Individual purchase routes
+    Route::prefix('pembelian')->name('user.individual-purchase.')->group(function () {
+        Route::post('/buy', [\App\Http\Controllers\IndividualPurchaseController::class, 'buy'])->name('buy');
+        Route::get('/gateway/{type}/{id}', [\App\Http\Controllers\IndividualPurchaseController::class, 'gatewayRedirect'])->name('gateway');
+        Route::get('/history', [\App\Http\Controllers\IndividualPurchaseController::class, 'history'])->name('history');
+    });
 });
 
 // Webhook route (outside auth middleware) - make sure this is correct

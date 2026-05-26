@@ -52,6 +52,7 @@ class MaterialManagementController extends Controller
             'duration_minutes' => 'nullable|integer|min:1',
             'order_number' => 'nullable|integer|min:0',
             'category_id' => 'nullable|exists:material_categories,category_id',
+            'price' => 'nullable|numeric|min:0',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
             'title.max' => 'Judul materi maksimal 255 karakter.',
@@ -68,6 +69,8 @@ class MaterialManagementController extends Controller
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
             'category_id.exists' => 'Kategori tidak valid.',
+            'price.numeric' => 'Harga harus berupa angka.',
+            'price.min' => 'Harga minimal 0.',
         ]);
 
         // Handle thumbnail upload
@@ -126,6 +129,7 @@ class MaterialManagementController extends Controller
             'order_number' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
             'category_id' => 'nullable|exists:material_categories,category_id',
+            'price' => 'nullable|numeric|min:0',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
             'title.max' => 'Judul materi maksimal 255 karakter.',
@@ -142,6 +146,8 @@ class MaterialManagementController extends Controller
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
             'category_id.exists' => 'Kategori tidak valid.',
+            'price.numeric' => 'Harga harus berupa angka.',
+            'price.min' => 'Harga minimal 0.',
         ]);
 
         // Handle thumbnail upload

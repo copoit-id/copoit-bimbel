@@ -128,6 +128,21 @@
                         placeholder="Masukkan deskripsi tryout...">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
                 </div>
 
+                <!-- Price -->
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
+                            <input type="number" id="price" name="price" min="0" step="1000"
+                                value="{{ old('price', isset($tryout) ? $tryout->price : 0) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="0">
+                            <p class="text-xs text-gray-500 mt-1">Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</p>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
                 <!-- Schedule -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>

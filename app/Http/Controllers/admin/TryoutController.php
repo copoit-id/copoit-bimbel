@@ -122,6 +122,7 @@ class TryoutController extends Controller
                 'is_irt' => $isIrtEnabled,
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
                 'results_released_at' => null,
+                'price' => $request->price ?? 0,
             ]);
 
             $this->createTryoutDetails($tryout, $request);
@@ -191,6 +192,7 @@ class TryoutController extends Controller
                 'is_irt' => $isIrtEnabled,
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
                 'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
+                'price' => $request->price ?? 0,
             ]);
 
             // If type changed, rebuild subtests based on new type; else update existing ones
@@ -602,6 +604,7 @@ class TryoutController extends Controller
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
+            'price' => 'nullable|numeric|min:0',
         ];
 
         foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {

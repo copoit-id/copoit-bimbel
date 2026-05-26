@@ -27,6 +27,7 @@ class Tryout extends Model
         'assessment_type' => 'string',
         'answer_persistence_mode' => 'string',
         'subtest_display_mode' => 'string',
+        'price' => 'decimal',
     ];
 
     public function requiresIrtScoring(): bool
@@ -116,5 +117,78 @@ class Tryout extends Model
     public function getTotalDurationAttribute()
     {
         return $this->tryoutDetails()->sum('duration');
+    }
+
+    /**
+     * Check if user can access this tryout (via any method)
+     */
+    public function canUserAccess(int $userId): bool
+    {
+        // Check via package
+        $hasPackageAccess = $this->packages()
+            ->whereHas('userAccess', function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->where('status', 'active')
+                  ->where(function ($q) {
+                      $q->whereNull('end_date')->orWhere('end_date', '>', now());
+                  });
+            })
+            ->exists();
+
+        if ($hasPackageAccess) {
+            return true;
+        }
+
+        // Check via direct user access
+        $hasDirectAccess = $this->userAccess()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->where('status', 'completed')
+                  ->orWhere('status', 'in_progress');
+            })
+            ->exists();
+
+        if ($hasDirectAccess) {
+            return true;
+        }
+
+        // Check via individual purchase (if tryout has price > 0)
+        if ($this->price > 0) {
+            $hasIndividualPurchase = \App\Models\IndividualPurchase::where('user_id', $userId)
+                ->where('purchasable_type', self::class)
+                ->where('purchasable_id', $this->tryout_id)
+                ->where('status', 'approved')
+                ->exists();
+
+            if ($hasIndividualPurchase) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has purchased this individually
+     */
+    public function hasUserPurchased(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->tryout_id)
+            ->where('status', 'approved')
+            ->exists();
+    }
+
+    /**
+     * Check if user has pending purchase for this
+     */
+    public function hasPendingPurchase(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->tryout_id)
+            ->where('status', 'pending')
+            ->exists();
     }
 }

@@ -21,6 +21,7 @@ class Material extends Model
         'metadata' => 'array',
         'duration_minutes' => 'integer',
         'order_number' => 'integer',
+        'price' => 'decimal',
     ];
 
     /**
@@ -178,5 +179,75 @@ class Material extends Model
             'live_session' => 'ri-live-line',
             default => 'ri-book-line',
         };
+    }
+
+    /**
+     * Check if user can access this material (via any method)
+     */
+    public function canUserAccess(int $userId): bool
+    {
+        // Check via package
+        $hasPackageAccess = $this->packages()
+            ->whereHas('userAccess', function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->where('status', 'active')
+                  ->where(function ($q) {
+                      $q->whereNull('end_date')->orWhere('end_date', '>', now());
+                  });
+            })
+            ->exists();
+
+        if ($hasPackageAccess) {
+            return true;
+        }
+
+        // Check via direct user access
+        $hasDirectAccess = $this->userAccess()
+            ->where('user_id', $userId)
+            ->where('status', '!=', 'not_started')
+            ->exists();
+
+        if ($hasDirectAccess) {
+            return true;
+        }
+
+        // Check via individual purchase (if material has price > 0)
+        if ($this->price > 0) {
+            $hasIndividualPurchase = \App\Models\IndividualPurchase::where('user_id', $userId)
+                ->where('purchasable_type', self::class)
+                ->where('purchasable_id', $this->material_id)
+                ->where('status', 'approved')
+                ->exists();
+
+            if ($hasIndividualPurchase) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has purchased this individually
+     */
+    public function hasUserPurchased(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->material_id)
+            ->where('status', 'approved')
+            ->exists();
+    }
+
+    /**
+     * Check if user has pending purchase for this
+     */
+    public function hasPendingPurchase(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->material_id)
+            ->where('status', 'pending')
+            ->exists();
     }
 }
