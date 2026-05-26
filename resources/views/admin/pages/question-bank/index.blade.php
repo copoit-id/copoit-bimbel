@@ -8,14 +8,15 @@
             <p class="text-gray-500">Atur koleksi soal dan sub bank untuk mempermudah penyusunan tryout.</p>
         </div>
         {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
-        <x-plan-quota-button 
+        <x-plan-quota-button
             feature="question_bank"
             href="#"
             icon="ri-add-circle-line"
             label="Tambah Bank"
             variant="primary"
             size="md"
-            tooltipPosition="bottom" />
+            tooltipPosition="bottom"
+            id="openCreateBank" />
     </div>
 
     @if (session('success'))

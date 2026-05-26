@@ -21,6 +21,7 @@
     'variant' => 'primary',
     'size' => 'md',
     'tooltipPosition' => 'auto',
+    'id' => null,
 ])
 
 @php
@@ -77,14 +78,15 @@ $tooltipArrowClasses = match($tooltipPosition) {
 
 @if($isAllowed)
     {{-- Button Active --}}
-    <a href="{{ $href }}" 
+    <a href="{{ $href }}"
+       id="{{ $id }}"
        class="{{ $baseClasses }} {{ $sizeClasses[$size] }} {{ $variantClasses[$variant] }}">
         <i class="{{ $icon }}"></i>
         {{ $label }}
     </a>
 @else
     {{-- Button Disabled dengan Tooltip --}}
-    <div class="relative group inline-block" x-data="{ showTooltip: false }" 
+    <div class="relative group inline-block" x-data="{ showTooltip: false }"
          @mouseenter="showTooltip = true" @mouseleave="showTooltip = false">
         <button type="button" disabled
             class="{{ $baseClasses }} {{ $sizeClasses[$size] }} {{ $disabledClasses }}">
