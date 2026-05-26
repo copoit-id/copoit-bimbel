@@ -62,7 +62,7 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Harga (Rp)</label>
-                        <input type="number" name="price" value="{{ old('price', 0) }}" min="0" step="1000" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0">
+                        <input type="number" name="price" value="{{ old('price', 0) }}" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0">
                         <p class="text-xs text-gray-500 mt-1">Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</p>
                     </div>
                 </div>

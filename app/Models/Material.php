@@ -21,7 +21,7 @@ class Material extends Model
         'metadata' => 'array',
         'duration_minutes' => 'integer',
         'order_number' => 'integer',
-        'price' => 'decimal',
+        'price' => 'decimal:0',
     ];
 
     /**

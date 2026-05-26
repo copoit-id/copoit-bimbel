@@ -27,7 +27,7 @@ class Tryout extends Model
         'assessment_type' => 'string',
         'answer_persistence_mode' => 'string',
         'subtest_display_mode' => 'string',
-        'price' => 'decimal',
+        'price' => 'decimal:0',
     ];
 
     public function requiresIrtScoring(): bool

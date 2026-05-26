@@ -58,14 +58,14 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         @forelse($materials as $material)
-        <div class="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
             <!-- Thumbnail / Icon -->
-            <div class="flex items-start gap-4 mb-4">
-                <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <i class="{{ $material->type_icon ?? 'ri-file-text-line' }} text-primary text-2xl"></i>
+            <div class="flex items-start gap-3 mb-3">
+                <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="{{ $material->type_icon ?? 'ri-file-text-line' }} text-primary text-xl"></i>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ $material->type_label ?? 'Video' }}</span>
                         @if($material->duration_minutes)
                         <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
@@ -75,13 +75,20 @@
                 </div>
             </div>
 
+            <!-- Price -->
+            @if($material->price && $material->price > 0)
+            <div class="mb-2">
+                <span class="text-sm font-bold" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($material->price, 0, ',', '.') }}</span>
+            </div>
+            @endif
+
             <!-- Description -->
             @if($material->description)
             <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ Str::limit($material->description, 80) }}</p>
             @endif
 
             <!-- Status & Actions -->
-            <div class="flex items-center justify-between pt-3 border-t">
+            <div class="flex items-center justify-between pt-3 border-t border-gray-100">
                 <div>
                     @if($material->is_active)
                     <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
