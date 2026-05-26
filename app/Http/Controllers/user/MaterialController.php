@@ -21,19 +21,20 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         
-        // Get categories with material count
+        // Get categories with material count (only materials for sale)
         $categories = MaterialCategory::active()
             ->ordered()
             ->withCount(['materials' => function ($query) {
-                $query->active();
+                $query->active()->where('is_for_sale', true);
             }])
             ->get();
-        
+
         // Get user's accessible material IDs (empty array for guest)
         $accessibleMaterialIds = $user ? $this->getUserAccessibleMaterialIds($user) : [];
-        
-        // Get ALL active materials with user's access status
+
+        // Get ALL active materials with is_for_sale=true with user's access status
         $materials = Material::active()
+            ->where('is_for_sale', true)
             ->with(['categories', 'packages'])
             ->with(['userAccess' => function ($query) use ($user) {
                 if ($user) {
@@ -82,6 +83,7 @@ class MaterialController extends Controller
         $accessibleMaterialIds = $user ? $this->getUserAccessibleMaterialIds($user) : [];
         
         $materials = Material::active()
+            ->where('is_for_sale', true)
             ->byType('video')
             ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 if ($user) {
@@ -90,16 +92,16 @@ class MaterialController extends Controller
             }])
             ->ordered()
             ->paginate(12);
-        
+
         // Mark each material with access status
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
-        
+
         return view('user.pages.material.new-videos', compact('materials', 'accessibleMaterialIds'));
     }
-    
+
     /**
      * List document/PDF materials - tampilkan SEMUA dengan status akses
      * BISA diakses oleh GUEST
@@ -108,8 +110,9 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $accessibleMaterialIds = $user ? $this->getUserAccessibleMaterialIds($user) : [];
-        
+
         $materials = Material::active()
+            ->where('is_for_sale', true)
             ->byType('document')
             ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 if ($user) {
@@ -118,16 +121,16 @@ class MaterialController extends Controller
             }])
             ->ordered()
             ->paginate(12);
-        
+
         // Mark each material with access status
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
-        
+
         return view('user.pages.material.new-documents', compact('materials', 'accessibleMaterialIds'));
     }
-    
+
     /**
      * List live sessions - tampilkan SEMUA dengan status akses
      * BISA diakses oleh GUEST
@@ -136,8 +139,9 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $accessibleMaterialIds = $user ? $this->getUserAccessibleMaterialIds($user) : [];
-        
+
         $materials = Material::active()
+            ->where('is_for_sale', true)
             ->byType('live_session')
             ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 if ($user) {
@@ -146,16 +150,16 @@ class MaterialController extends Controller
             }])
             ->ordered()
             ->paginate(12);
-        
+
         // Mark each material with access status
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
-        
+
         return view('user.pages.material.new-live-sessions', compact('materials', 'accessibleMaterialIds'));
     }
-    
+
     /**
      * List materials by category
      * BISA diakses oleh GUEST
@@ -164,9 +168,10 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $category = MaterialCategory::active()->findOrFail($categoryId);
-        
+
         // Get ALL materials in this category for guest to browse
         $materials = Material::active()
+            ->where('is_for_sale', true)
             ->byCategory($categoryId)
             ->with(['categories', 'packages'])
             ->ordered()

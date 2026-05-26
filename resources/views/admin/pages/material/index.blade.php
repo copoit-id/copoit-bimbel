@@ -75,12 +75,20 @@
                 </div>
             </div>
 
-            <!-- Price -->
-            @if($material->price && $material->price > 0)
-            <div class="mb-2">
-                <span class="text-sm font-bold" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($material->price, 0, ',', '.') }}</span>
+            <!-- Price & Sale Label -->
+            <div class="mb-2 flex items-center justify-between">
+                @if($material->is_for_sale)
+                <span class="text-sm font-bold" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($material->price ?? 0, 0, ',', '.') }}</span>
+                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                    <i class="ri-checkbox-circle-fill mr-0.5"></i>Dijual
+                </span>
+                @else
+                <span></span>
+                <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">
+                    <i class="ri-forbid-line mr-0.5"></i>Tidak dijual
+                </span>
+                @endif
             </div>
-            @endif
 
             <!-- Description -->
             @if($material->description)

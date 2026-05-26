@@ -52,6 +52,7 @@ class MaterialManagementController extends Controller
             'duration_minutes' => 'nullable|integer|min:1',
             'order_number' => 'nullable|integer|min:0',
             'category_id' => 'nullable|exists:material_categories,category_id',
+            'is_for_sale' => 'nullable',
             'price' => 'nullable|numeric|min:0',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
@@ -78,6 +79,9 @@ class MaterialManagementController extends Controller
             $thumbnailPath = $request->file('thumbnail')->store('materials/thumbnails', 'public');
             $validated['thumbnail_url'] = Storage::url($thumbnailPath);
         }
+
+        // Handle is_for_sale checkbox (unchecked = not submitted)
+        $validated['is_for_sale'] = $request->boolean('is_for_sale');
 
         // Set default order_number if not provided
         if (empty($validated['order_number'])) {
@@ -129,6 +133,7 @@ class MaterialManagementController extends Controller
             'order_number' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
             'category_id' => 'nullable|exists:material_categories,category_id',
+            'is_for_sale' => 'nullable',
             'price' => 'nullable|numeric|min:0',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
@@ -164,6 +169,9 @@ class MaterialManagementController extends Controller
 
         // Handle is_active
         $validated['is_active'] = $request->boolean('is_active', true);
+
+        // Handle is_for_sale checkbox (unchecked = not submitted)
+        $validated['is_for_sale'] = $request->boolean('is_for_sale');
 
         // Extract category_id (single, not array)
         $categoryId = $validated['category_id'] ?? null;
