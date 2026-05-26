@@ -104,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
 
         config([
             'client.branding' => $branding,
+            'client.branding.payment_mode' => $branding['payment_mode'] ?? 'gateway',
             'app.name' => $branding['name'],
         ]);
 
