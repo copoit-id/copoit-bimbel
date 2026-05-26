@@ -23,9 +23,9 @@ class IndividualPurchase extends Model
     ];
 
     protected $casts = [
-        'price' => 'decimal',
-        'admin_fee' => 'decimal',
-        'total_amount' => 'decimal',
+        'price' => 'decimal:0',
+        'admin_fee' => 'decimal:0',
+        'total_amount' => 'decimal:0',
         'payment_details' => 'array',
         'approved_at' => 'datetime',
     ];
