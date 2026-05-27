@@ -247,10 +247,10 @@ setTimeout(() => {
 @endif
 @endsection
 
-@section('scripts')
 @php
 $paymentModeConfig = $clientBranding['payment_mode'] ?? 'gateway';
 @endphp
+@push('scripts')
 <script>
 const PAYMENT_MODE = '{{ $paymentModeConfig }}';
 let selectedPackageId = null;
@@ -409,4 +409,4 @@ $(document).ready(function() {
     });
 });
 </script>
-@endsection
+@endpush
