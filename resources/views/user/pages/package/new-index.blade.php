@@ -258,11 +258,11 @@ let selectedPrice = 0;
 let selectedPackageName = '';
 
 function handleBuy(packageId, price, packageName) {
-    if (PAYMENT_MODE === 'manual') {
-        selectedPackageId = packageId;
-        selectedPrice = price;
-        selectedPackageName = packageName;
+    selectedPackageId = packageId;
+    selectedPrice = price;
+    selectedPackageName = packageName;
 
+    if (PAYMENT_MODE === 'manual') {
         document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(price);
         document.getElementById('paymentError').classList.add('hidden');
         document.getElementById('paymentProof').value = '';
@@ -270,11 +270,37 @@ function handleBuy(packageId, price, packageName) {
         document.getElementById('paymentModal').classList.remove('hidden');
         document.getElementById('paymentModal').classList.add('flex');
     } else {
-        // Gateway mode - direct buy via form submit
+        // Gateway mode - always use AJAX to handle redirect_url from gateway
         const form = document.querySelector(`form[data-package-id="${packageId}"]`);
-        if (form) {
-            form.submit();
-        }
+        const submitBtn = form.querySelector('button');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Memproses...';
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: new FormData(form)
+        })
+        .then(r => r.json())
+        .then(data => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            if (data.success && data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                alert(data.message || 'Gagal membuat pembayaran. Coba lagi nanti.');
+            }
+        })
+        .catch(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            alert('Terjadi kesalahan. Silakan coba lagi.');
+        });
     }
 }
 
