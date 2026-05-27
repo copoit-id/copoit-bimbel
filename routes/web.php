@@ -13,6 +13,7 @@ use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\admin\FinanceIncomeController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
+use App\Http\Controllers\admin\IndividualPurchaseController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
@@ -496,6 +497,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/{id}/reject', [PembayaranController::class, 'reject'])->name('reject');
         Route::get('/manual/create', [PembayaranController::class, 'createManual'])->name('manual.create');
         Route::post('/manual', [PembayaranController::class, 'storeManual'])->name('manual');
+    });
+
+    // Route Pembelian Individual (Materi & Tryout)
+    Route::prefix('pembelian-individual')->name('individual-purchase.')->group(function () {
+        Route::get('/', [IndividualPurchaseController::class, 'index'])->name('index');
+        Route::get('/{id}', [IndividualPurchaseController::class, 'show'])->name('show');
+        Route::post('/{id}/confirm', [IndividualPurchaseController::class, 'confirm'])->name('confirm');
+        Route::post('/{id}/reject', [IndividualPurchaseController::class, 'reject'])->name('reject');
     });
 
     // Certificate Management Routes

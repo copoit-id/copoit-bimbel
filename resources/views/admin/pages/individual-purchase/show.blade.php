@@ -1,0 +1,160 @@
+@extends('admin.layout.admin')
+
+@section('title', 'Detail Pembelian Individual')
+
+@section('content')
+
+<div class="flex justify-between items-center">
+    <x-breadcrumb>
+        <x-slot name="items">
+            <x-breadcrumb-item href="{{ route('admin.individual-purchase.index') }}" title="Pembelian Individual" />
+            <x-breadcrumb-item href="" title="Detail" />
+        </x-slot>
+    </x-breadcrumb>
+</div>
+
+<div class="flex items-center gap-3 mt-4">
+    <a href="{{ route('admin.individual-purchase.index') }}" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <i class="ri-arrow-left-line text-xl text-gray-600"></i>
+    </a>
+    <div>
+        <h1 class="text-xl font-bold text-gray-800">Detail Pembelian Individual</h1>
+        <p class="text-sm text-gray-500">{{ $purchase->transaction_id }}</p>
+    </div>
+</div>
+
+@if(session('success'))
+<div class="mt-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+    {{ session('success') }}
+</div>
+@endif
+
+@if(session('error'))
+<div class="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+    {{ session('error') }}
+</div>
+@endif
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+    <!-- Left: Transaction Info -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white rounded-xl border border-gray-100 p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">Informasi Transaksi</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Transaction ID</p>
+                    <p class="font-medium text-gray-800">{{ $purchase->transaction_id }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Item</p>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">{{ $itemType }}</span>
+                        <p class="font-medium text-gray-800 text-sm">{{ $itemTitle }}</p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Harga</p>
+                    <p class="font-medium text-gray-800">Rp {{ number_format($purchase->price, 0, ',', '.') }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Total Bayar</p>
+                    <p class="font-bold text-lg" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($purchase->total_amount, 0, ',', '.') }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Metode</p>
+                    <p class="font-medium text-gray-800 capitalize">{{ $purchase->payment_method }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Tanggal Pengajuan</p>
+                    <p class="font-medium text-gray-800">{{ $purchase->created_at->format('d M Y, H:i') }}</p>
+                </div>
+                @if($purchase->approved_at)
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Diproses Tanggal</p>
+                    <p class="font-medium text-gray-800">{{ \Carbon\Carbon::parse($purchase->approved_at)->format('d M Y, H:i') }}</p>
+                </div>
+                @endif
+                @if($purchase->approver)
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Diproses Oleh</p>
+                    <p class="font-medium text-gray-800">{{ $purchase->approver->name }}</p>
+                </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- Payment Proof -->
+        <div class="bg-white rounded-xl border border-gray-100 p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">Bukti Pembayaran</h3>
+            @if($proofPath)
+            <div class="border border-gray-200 rounded-lg overflow-hidden max-w-md">
+                <img src="{{ asset('storage/' . $proofPath) }}" alt="Bukti Pembayaran" class="w-full object-contain max-h-96">
+            </div>
+            @else
+            <p class="text-sm text-gray-400 italic">Tidak ada bukti pembayaran</p>
+            @endif
+        </div>
+    </div>
+
+    <!-- Right: Status & Actions -->
+    <div class="space-y-6">
+        <!-- User Info -->
+        <div class="bg-white rounded-xl border border-gray-100 p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">User</h3>
+            <div class="flex items-center gap-3 mb-4">
+                <img src="https://ui-avatars.com/api/?name={{ urlencode($purchase->user->name ?? 'U') }}&background=444&color=fff&size=48"
+                     class="w-12 h-12 rounded-full">
+                <div>
+                    <p class="font-medium text-gray-800">{{ $purchase->user->name ?? 'Unknown' }}</p>
+                    <p class="text-sm text-gray-500">{{ $purchase->user->email ?? '' }}</p>
+                </div>
+            </div>
+            <a href="{{ route('admin.user.show', $purchase->user_id) }}"
+               class="text-sm text-primary hover:underline">
+                <i class="ri-external-link-line mr-1"></i>Lihat Profil User
+            </a>
+        </div>
+
+        <!-- Status -->
+        <div class="bg-white rounded-xl border border-gray-100 p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">Status</h3>
+            @if($purchase->status === 'pending')
+            <div class="flex items-center gap-2 mb-4">
+                <span class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                    <i class="ri-time-line mr-1"></i>Pending
+                </span>
+            </div>
+            <div class="flex gap-2">
+                <form action="{{ route('admin.individual-purchase.confirm', $purchase) }}" method="POST" class="flex-1">
+                    @csrf
+                    <button type="submit" onclick="return confirm('Setujui pembelian ini? User akan mendapat akses.')"
+                            class="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
+                        <i class="ri-check-line mr-1"></i>Setujui
+                    </button>
+                </form>
+                <form action="{{ route('admin.individual-purchase.reject', $purchase) }}" method="POST" class="flex-1">
+                    @csrf
+                    <button type="submit" onclick="return confirm('Tolak pembelian ini?')"
+                            class="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors">
+                        <i class="ri-close-line mr-1"></i>Tolak
+                    </button>
+                </form>
+            </div>
+            @elseif($purchase->status === 'approved')
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                    <i class="ri-check-line mr-1"></i>Disetujui
+                </span>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">User sudah mendapat akses ke item ini.</p>
+            @else
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1.5 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                    <i class="ri-close-line mr-1"></i>Ditolak
+                </span>
+            </div>
+            @endif
+        </div>
+    </div>
+</div>
+@endsection
