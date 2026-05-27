@@ -72,10 +72,13 @@ class PackageController extends Controller
                 ->first();
 
             if ($existingAccess && $existingAccess->status === 'active' && $existingAccess->end_date && Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now())) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah memiliki akses aktif ke paket ini'
-                ], 400);
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda sudah memiliki akses aktif ke paket ini'
+                    ], 400);
+                }
+                return redirect()->route('user.package.my')->with('error', 'Anda sudah memiliki akses aktif ke paket ini.');
             }
 
             switch ($package->type_price) {
@@ -149,16 +152,23 @@ class PackageController extends Controller
                     $paymentResponse = $this->createPayment($package);
 
                     if ($paymentResponse['success']) {
-                        return response()->json([
-                            'success' => true,
-                            'redirect_url' => $paymentResponse['redirect_url']
-                        ]);
+                        // For AJAX requests, return JSON; for native form submit, redirect directly
+                        if ($request->expectsJson()) {
+                            return response()->json([
+                                'success' => true,
+                                'redirect_url' => $paymentResponse['redirect_url']
+                            ]);
+                        }
+                        return redirect()->away($paymentResponse['redirect_url']);
                     }
 
-                    return response()->json([
-                        'success' => false,
-                        'message' => $paymentResponse['message']
-                    ], 500);
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $paymentResponse['message']
+                        ], 500);
+                    }
+                    return redirect()->back()->with('error', $paymentResponse['message']);
             }
         } catch (\Exception $e) {
             return response()->json([
