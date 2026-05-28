@@ -19,45 +19,69 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 
 @if(count($attemptHistory) > 0)
-<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-    <div class="divide-y divide-gray-100">
-        @foreach($attemptHistory as $attempt)
-        <div class="p-5">
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
-                        <i class="ri-file-list-3-line"></i>
-                    </div>
-                    <div>
-                        <p class="font-medium text-gray-800">Percobaan {{ $loop->iteration }}</p>
-                        <p class="text-xs text-gray-400">{{ $attempt['created_at']->format('d M Y, H:i') }}</p>
-                    </div>
+<div class="space-y-3">
+    @foreach($attemptHistory as $index => $attempt)
+    @php
+    $attemptNumber = $loop->iteration;
+    $isFirstAttempt = $index === 0;
+    @endphp
+    <div class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-all">
+        <div class="flex items-center justify-between">
+            {{-- Left: Info Percobaan --}}
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
+                    <span class="font-bold text-sm">{{ $attemptNumber }}</span>
                 </div>
-                <div class="text-right">
-                    <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $attempt['score'] }}</p>
-                    <span class="text-xs {{ $attempt['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
-                        {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
-                    </span>
+                <div>
+                    <p class="font-medium text-gray-800">Percobaan ke-{{ $attemptNumber }}</p>
+                    <p class="text-xs text-gray-400">{{ $attempt['created_at']->format('d M Y, H:i') }}</p>
                 </div>
             </div>
-            
-            <div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+
+            {{-- Middle: Stats --}}
+            <div class="hidden md:flex items-center gap-6 text-sm">
                 <div class="text-center">
-                    <p class="text-xs text-gray-400 mb-1">Benar</p>
+                    <p class="text-xs text-gray-400">Benar</p>
                     <p class="font-semibold text-green-600">{{ $attempt['correct_answers'] }}</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-xs text-gray-400 mb-1">Salah</p>
+                    <p class="text-xs text-gray-400">Salah</p>
                     <p class="font-semibold text-red-600">{{ $attempt['wrong_answers'] }}</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-xs text-gray-400 mb-1">Durasi</p>
+                    <p class="text-xs text-gray-400">Kosong</p>
+                    <p class="font-semibold text-gray-500">{{ $attempt['unanswered'] }}</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">Durasi</p>
                     <p class="font-semibold text-gray-700">{{ $attempt['duration'] }}</p>
                 </div>
             </div>
+
+            {{-- Right: Score & Actions --}}
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $attempt['score'] }}</p>
+                    <span class="text-xs {{ $attempt['is_passed'] ? 'text-green-600' : 'text-red-500' }}">
+                        {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('user.tryout.result', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}?attempt={{ $attempt['attempt_token'] }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        <i class="ri-eye-line mr-1"></i>Detail
+                    </a>
+                    <a href="{{ route('user.package.tryout.ranking', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium border-2 hover:opacity-90 transition-colors"
+                       style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                        <i class="ri-trophy-line mr-1"></i>Rank
+                    </a>
+                </div>
+            </div>
         </div>
-        @endforeach
     </div>
+    @endforeach
 </div>
 @else
 <div class="text-center py-16">
