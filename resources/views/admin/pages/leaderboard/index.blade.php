@@ -11,7 +11,7 @@
 </div>
 <x-page-desc title="Leaderboard - Pilih Tryout"></x-page-desc>
 
-<div class="grid grid-cols-4 gap-4 mt-6 text-gray-600">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6 text-gray-600">
     @forelse($tryouts as $tryout)
     <div class="bg-white px-5 py-5 shadow rounded-lg">
         <p class="text-lg font-bold text-black text-center mb-4">{{ Str::limit($tryout['name'], 25) }}</p>
@@ -70,7 +70,7 @@
         </div>
     </div>
     @empty
-    <div class="col-span-4 text-center py-12">
+    <div class="col-span-full text-center py-12">
         <i class="ri-trophy-line text-6xl text-gray-300 mb-4"></i>
         <h3 class="text-xl font-semibold text-gray-500 mb-2">Belum Ada Tryout Aktif</h3>
         <p class="text-gray-400 mb-4">Tidak ada tryout yang tersedia untuk ditampilkan leaderboard</p>
