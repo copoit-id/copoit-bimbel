@@ -1990,7 +1990,7 @@ class PackageController extends Controller
      */
     public function detail($package_id)
     {
-        $package = Package::with(['materials', 'tryouts.tryoutDetails'])
+        $package = Package::with(['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes'])
             ->where('status', 'active')
             ->findOrFail($package_id);
         
@@ -2010,12 +2010,13 @@ class PackageController extends Controller
             $isOwned = $hasAccess;
         }
         
-        // Calculate stats counts
+        // Calculate stats counts from materialsThroughDetail
         $totalVideos = 0;
         $totalDocuments = 0;
         $totalLiveSessions = 0;
+        $totalMaterials = $package->materialsThroughDetail->count();
 
-        foreach ($package->materials as $material) {
+        foreach ($package->materialsThroughDetail as $material) {
             switch ($material->type) {
                 case 'video':
                     $totalVideos++;
@@ -2035,7 +2036,8 @@ class PackageController extends Controller
             'isOwned',
             'totalVideos',
             'totalDocuments',
-            'totalLiveSessions'
+            'totalLiveSessions',
+            'totalMaterials'
         ));
     }
 }

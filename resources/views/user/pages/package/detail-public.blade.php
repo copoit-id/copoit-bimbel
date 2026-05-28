@@ -95,7 +95,7 @@ $isGuest = !Auth::check();
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-book-3-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $package->materials->count() }} Materi</span>
+                        <span>{{ $totalMaterials }} Materi</span>
                     </div>
                 </div>
             </div>
@@ -163,16 +163,16 @@ $isGuest = !Auth::check();
     <!-- Materials List -->
     <div class="lg:col-span-2 space-y-6">
         <!-- Materials Section -->
-        @if($package->materials->count() > 0)
+        @if($package->materialsThroughDetail->count() > 0)
         <div class="bg-white rounded-2xl p-6 border border-gray-100">
             <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <i class="ri-video-line" style="color: {{ $primaryColor }}"></i>
                 Materi Pembelajaran
-                <span class="ml-auto text-sm font-normal text-gray-500">{{ $package->materials->count() }} item</span>
+                <span class="ml-auto text-sm font-normal text-gray-500">{{ $package->materialsThroughDetail->count() }} item</span>
             </h3>
-            
+
             <div class="space-y-3">
-                @foreach($package->materials as $index => $material)
+                @foreach($package->materialsThroughDetail as $index => $material)
                 <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                     <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0" style="background-color: {{ $primaryColor }}">
                         {{ $index + 1 }}
