@@ -59,29 +59,29 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     $totalDuration = $tryout->getTotalDurationAttribute();
     $isCompleted = $userAnswer && $userAnswer->status === 'completed';
     $isInProgress = $userAnswer && $userAnswer->status === 'in_progress';
+    $isForSale = $tryout->is_for_sale && $tryout->price > 0;
     @endphp
-    <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
+    <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
         <div class="flex items-start justify-between mb-4">
-            <div class="w-12 h-12 {{ $isCompleted ? 'bg-green-100' : ($isInProgress ? 'bg-yellow-100' : 'bg-gray-100') }} rounded-xl flex items-center justify-center"
-                 style="{{ !$isCompleted && !$isInProgress ? 'background-color: ' . $primaryColor . '20' : '' }}">
-                <i class="ri-file-list-3-line text-xl {{ $isCompleted ? 'text-green-600' : ($isInProgress ? 'text-yellow-600' : '') }}"
-                   style="{{ !$isCompleted && !$isInProgress ? 'color: ' . $primaryColor : '' }}"></i>
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center"
+                 style="background-color: {{ $primaryColor }}20">
+                <i class="ri-file-list-3-line text-xl" style="color: {{ $primaryColor }}"></i>
             </div>
-            @if($tryout->has_access)
-                @if($isCompleted)
-                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Selesai</span>
-                @elseif($isInProgress)
-                <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang dikerjakan</span>
+            <div class="flex items-center gap-1">
+                @if($isForSale)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                    <i class="ri-shopping-cart-line mr-0.5"></i>Dijual
+                </span>
                 @else
-                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Aktif</span>
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                    <i class="ri-folder-fill mr-0.5"></i>Paket
+                </span>
                 @endif
-            @else
-                <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium"><i class="ri-lock-line mr-1"></i>TerKunci</span>
-            @endif
+            </div>
         </div>
-        
+
         <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $tryout->name }}</h3>
-        
+
         <div class="space-y-2 mb-4">
             <div class="flex items-center text-sm text-gray-500">
                 <i class="ri-question-line mr-2 text-gray-400"></i>
@@ -91,47 +91,31 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <i class="ri-time-line mr-2 text-gray-400"></i>
                 <span>{{ $totalDuration }} Menit</span>
             </div>
-            @if($tryout->start_date && $tryout->end_date)
+            @if($isForSale)
             <div class="flex items-center text-sm text-gray-500">
-                <i class="ri-calendar-line mr-2 text-gray-400"></i>
-                <span>{{ $tryout->start_date->format('d M') }} - {{ $tryout->end_date->format('d M') }}</span>
+                <i class="ri-money-dollar-circle-line mr-2 text-gray-400"></i>
+                <span class="font-semibold" style="color: {{ $primaryColor }}">Rp {{ number_format($tryout->price, 0, ',', '.') }}</span>
             </div>
             @endif
         </div>
-        
+
         @if(!$user)
             {{-- Guest - perlu login --}}
-            <a href="{{ route('login') }}" 
+            <a href="{{ route('login') }}"
                class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                 <i class="ri-login-box-line mr-1"></i>
                 Masuk untuk Akses
             </a>
-        @elseif($tryout->has_access)
-            {{-- User has access --}}
-            @if($isCompleted)
-            <div class="flex items-center justify-between pt-4 border-t">
-                <div>
-                    <p class="text-xs text-gray-400">Skor</p>
-                    <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $userAnswer->score ?? '-' }}</p>
-                </div>
-                <a href="{{ route('user.tryout.result', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
-                   class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white"
-                   style="background-color: {{ $primaryColor }}">
-                    Lihat Hasil
-                </a>
-            </div>
-            @else
-            <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
-               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
-               style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
-                {{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
+        @elseif($isForSale)
+            {{-- Tryout for individual sale --}}
+            @if($tryout->has_access)
+            <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+               style="background-color: {{ $primaryColor }}">
+                <i class="ri-play-circle-line mr-1"></i>Kerjakan
             </a>
-            @endif
-        @else
-            {{-- User doesn't have access --}}
-            @if($tryout->is_for_sale)
-            {{-- Tryout can be purchased individually --}}
+            @else
             <form action="{{ route('user.individual-purchase.buy') }}" method="POST" class="w-full">
                 @csrf
                 <input type="hidden" name="type" value="tryout">
@@ -139,10 +123,20 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <button type="submit" class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="ri-shopping-cart-line mr-1"></i>
-                    Beli Rp {{ number_format($tryout->price, 0, ',', '.') }}
+                    Beli Sekarang
                 </button>
             </form>
-            @elseif($tryout->access_via_package)
+            @endif
+        @elseif($tryout->has_access)
+            {{-- User has access via package - arahkan ke paket saya --}}
+            <a href="{{ route('user.package.my') }}?tab=tryouts"
+               class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+               style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                <i class="ri-folder-open-line mr-1"></i>Lihat di Paket Saya
+            </a>
+        @else
+            {{-- User doesn't have access --}}
+            @if($tryout->access_via_package)
             <a href="{{ route('user.package.my') }}?tab=packages"
                class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">

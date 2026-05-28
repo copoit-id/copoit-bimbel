@@ -117,49 +117,26 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-login-box-line mr-1"></i>Masuk untuk Akses
                 </a>
-            @elseif($material->has_access)
-                {{-- User has access: Show access status & button --}}
-                @php
-                $userAccess = $material->userAccess->first();
-                @endphp
-                @if($userAccess && $userAccess->is_completed)
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
-                        <i class="ri-checkbox-circle-fill"></i>Selesai
-                    </span>
-                </div>
-                @elseif($userAccess && $userAccess->is_in_progress)
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full" style="width: {{ $userAccess->progress_percentage }}%; background-color: {{ $primaryColor }}"></div>
-                    </div>
-                    <span class="text-xs text-gray-500">{{ $userAccess->progress_percentage }}%</span>
-                </div>
-                @endif
+            @elseif($material->is_for_sale)
+                {{-- Material for individual sale --}}
+                @if($material->has_access)
                 <a href="{{ route('user.material.show', $material->material_id) }}"
                    class="flex items-center justify-center w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
-                    <i class="ri-play-circle-line mr-1"></i>
-                    {{ ($userAccess && $userAccess->is_in_progress) ? 'Lanjutkan Belajar' : 'Lihat Materi' }}
+                    <i class="ri-play-circle-line mr-1"></i>Lihat Materi
                 </a>
-            @else
-                {{-- User logged in but no access --}}
-                @if($material->is_for_sale)
-                    {{-- Material can be purchased individually --}}
-                    @php
-                    $displayPrice = $material->price ?? 0;
-                    @endphp
-                    <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
-                            class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                            style="background-color: {{ $primaryColor }}">
-                        <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
-                    </button>
                 @else
-                    {{-- Material not for sale, only available via package --}}
-                    <div class="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
-                        <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
-                    </div>
+                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price ?? 0 }}, '{{ addslashes($material->title) }}')"
+                        class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                        style="background-color: {{ $primaryColor }}">
+                    <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
+                </button>
                 @endif
+            @else
+                {{-- Material not for sale, only available via package --}}
+                <div class="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
+                    <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
+                </div>
             @endif
         </div>
     </div>
