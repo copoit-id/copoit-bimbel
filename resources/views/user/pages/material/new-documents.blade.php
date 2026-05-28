@@ -55,7 +55,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <div class="flex">
             {{-- Thumbnail --}}
             @if($material->thumbnail_url)
-            <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="w-32 h-24 flex-shrink-0 overflow-hidden">
+            <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="w-32 aspect-video flex-shrink-0 overflow-hidden">
                 <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
             </a>
             @endif

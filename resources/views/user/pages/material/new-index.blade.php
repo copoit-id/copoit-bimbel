@@ -70,7 +70,7 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
     <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col">
         {{-- Thumbnail --}}
         @if($material->thumbnail_url)
-        <div class="h-36 overflow-hidden">
+        <div class="aspect-video overflow-hidden">
             <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
         </div>
         @endif
