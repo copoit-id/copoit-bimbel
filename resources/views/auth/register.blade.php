@@ -51,10 +51,12 @@
                 <div class="space-y-4">
                     <div>
                         <label for="name" class="block text-sm font-medium text-gray-700">
-                            Nama Lengkap
+                            Nama Lengkap <span class="text-red-500">*</span>
                         </label>
-                        <input id="name" name="name" type="text" autocomplete="name" required value="{{ old('name') }}"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
+                        <input id="name" name="name" type="text" autocomplete="name" required placeholder="Nama Lengkap"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
+                            value="{{ old('name') }}">
+                        <p class="text-xs text-gray-400 mt-1">Wajib diisi.</p>
                     </div>
 
                     <div>

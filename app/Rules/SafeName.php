@@ -9,11 +9,14 @@ class SafeName implements Rule
 {
     public function passes($attribute, $value): bool
     {
-        return !User::containsUrlLike((string) $value);
+        $name = trim((string) $value);
+
+        // Must not be URL-like (spam protection)
+        return !User::containsUrlLike($name);
     }
 
     public function message(): string
     {
-        return 'Nama tidak boleh mengandung URL atau domain.';
+        return 'Nama tidak boleh mengandung URL atau link.';
     }
 }
