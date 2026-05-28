@@ -65,11 +65,21 @@
                 <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
                     {{ strtoupper($tryout->type_tryout) }} {{ $tryout->is_toefl == 1 ? '- IRT' : '' }}
                 </span>
-                @if($tryout->is_certification)
-                <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">
-                    <i class="ri-award-line"></i> Sertifikasi
-                </span>
-                @endif
+                <div class="flex items-center gap-1">
+                    @if($tryout->is_certification)
+                    <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">
+                        <i class="ri-award-line"></i>
+                    </span>
+                    @endif
+                    @if($tryout->is_for_sale)
+                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                        <i class="ri-shopping-cart-fill"></i>
+                    </span>
+                    @endif
+                    <span class="px-2 py-1 {{ $tryout->is_displayed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500' }} rounded-full text-xs">
+                        <i class="ri-{{ $tryout->is_displayed ? 'eye-line' : 'eye-off-line' }}"></i>
+                    </span>
+                </div>
             </div>
 
             @if(($tryout->assessment_type ?? 'standard') !== 'standard')

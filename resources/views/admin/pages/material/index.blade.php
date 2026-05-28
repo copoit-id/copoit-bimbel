@@ -75,39 +75,33 @@
                 </div>
             </div>
 
-            <!-- Price & Sale Label -->
-            <div class="mb-2 flex items-center justify-between">
-                @if($material->is_for_sale)
-                <span class="text-sm font-bold" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($material->price ?? 0, 0, ',', '.') }}</span>
-                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                    <i class="ri-checkbox-circle-fill mr-0.5"></i>Dijual
+            <!-- Badges Row -->
+            <div class="mb-3 flex items-center gap-1.5 flex-wrap">
+                <span class="px-2 py-0.5 {{ $material->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }} text-xs rounded-full font-medium">
+                    <i class="ri-{{ $material->is_active ? 'checkbox-circle-fill' : 'close-circle-fill' }} mr-0.5"></i>{{ $material->is_active ? 'Aktif' : 'Nonaktif' }}
                 </span>
-                @else
-                <span></span>
-                <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">
-                    <i class="ri-forbid-line mr-0.5"></i>Tidak dijual
+                <span class="px-2 py-0.5 {{ $material->is_displayed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500' }} text-xs rounded-full font-medium">
+                    <i class="ri-{{ $material->is_displayed ? 'eye-line' : 'eye-off-line' }} mr-0.5"></i>{{ $material->is_displayed ? 'Tampil' : 'Hidden' }}
                 </span>
-                @endif
+                <span class="px-2 py-0.5 {{ $material->is_for_sale ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }} text-xs rounded-full font-medium">
+                    <i class="ri-{{ $material->is_for_sale ? 'shopping-cart-fill' : 'forbid-line' }} mr-0.5"></i>{{ $material->is_for_sale ? 'Dijual' : 'Paket' }}
+                </span>
             </div>
+
+            <!-- Price -->
+            @if($material->is_for_sale && $material->price > 0)
+            <div class="mb-2">
+                <span class="text-sm font-bold" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($material->price, 0, ',', '.') }}</span>
+            </div>
+            @endif
 
             <!-- Description -->
             @if($material->description)
             <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ Str::limit($material->description, 80) }}</p>
             @endif
 
-            <!-- Status & Actions -->
+            <!-- Actions -->
             <div class="flex items-center justify-between pt-3 border-t border-gray-100">
-                <div>
-                    @if($material->is_active)
-                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                        <i class="ri-checkbox-circle-fill mr-1"></i>Aktif
-                    </span>
-                    @else
-                    <span class="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
-                        <i class="ri-close-circle-fill mr-1"></i>Nonaktif
-                    </span>
-                    @endif
-                </div>
                 <div class="flex items-center gap-1">
                     <form action="{{ route('admin.material.toggle', $material) }}" method="POST" class="inline">
                         @csrf
