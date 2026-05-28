@@ -48,16 +48,20 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
     </a>
 </div>
 
-<!-- Categories -->
+<!-- Categories Filter -->
 @if(isset($categories) && $categories->count() > 0)
 <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
     @foreach($categories as $category)
-    <a href="{{ route('user.material.category', $category->category_id) }}"
-       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors flex-shrink-0">
+    <a href="{{ route('user.material.index', ['category' => $category->category_id]) }}"
+       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors flex-shrink-0 text-sm text-gray-700
+          {{ request('category') == $category->category_id ? 'border-primary' : '' }}">
         @if($category->icon)
         <i class="{{ $category->icon }}" style="color: {{ $primaryColor }}"></i>
         @endif
         <span class="text-sm text-gray-700">{{ $category->name }}</span>
+        @if($category->materials_count > 0)
+        <span class="ml-1 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">{{ $category->materials_count }}</span>
+        @endif
     </a>
     @endforeach
 </div>
@@ -139,15 +143,23 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                     {{ ($userAccess && $userAccess->is_in_progress) ? 'Lanjutkan Belajar' : 'Lihat Materi' }}
                 </a>
             @else
-                {{-- User logged in but no access: Always show buy button --}}
-                @php
-                $displayPrice = $material->price ?? 0;
-                @endphp
-                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
-                        class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                        style="background-color: {{ $primaryColor }}">
-                    <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
-                </button>
+                {{-- User logged in but no access --}}
+                @if($material->is_for_sale)
+                    {{-- Material can be purchased individually --}}
+                    @php
+                    $displayPrice = $material->price ?? 0;
+                    @endphp
+                    <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
+                            class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
+                    </button>
+                @else
+                    {{-- Material not for sale, only available via package --}}
+                    <div class="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
+                        <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
+                    </div>
+                @endif
             @endif
         </div>
     </div>

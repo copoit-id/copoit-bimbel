@@ -19,6 +19,7 @@ class Material extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
+        'is_displayed' => 'boolean',
         'metadata' => 'array',
         'duration_minutes' => 'integer',
         'order_number' => 'integer',

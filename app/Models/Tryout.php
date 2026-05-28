@@ -19,6 +19,7 @@ class Tryout extends Model
         'is_irt' => 'boolean',
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
+        'is_displayed' => 'boolean',
         'section_break_duration' => 'integer',
         'start_date' => 'datetime',
         'end_date' => 'datetime',

@@ -10,6 +10,7 @@ use App\Models\UserMaterialAccess;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class MaterialController extends Controller
 {
@@ -17,59 +18,65 @@ class MaterialController extends Controller
      * Halaman utama materi - menampilkan SEMUA materi dengan status akses user
      * BISA diakses oleh GUEST
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        
-        // Get categories with material count (only materials for sale)
+        $categoryId = $request->get('category');
+
+        // Get categories with material count (only displayed materials)
         $categories = MaterialCategory::active()
             ->ordered()
             ->withCount(['materials' => function ($query) {
-                $query->active()->where('is_for_sale', true);
+                $query->active()->where('is_displayed', true);
             }])
             ->get();
 
         // Get user's accessible material IDs (empty array for guest)
         $accessibleMaterialIds = $user ? $this->getUserAccessibleMaterialIds($user) : [];
 
-        // Get ALL active materials with is_for_sale=true with user's access status
-        $materials = Material::active()
-            ->where('is_for_sale', true)
+        // Get ALL displayed materials with user's access status
+        $materialsQuery = Material::active()
+            ->where('is_displayed', true)
             ->with(['categories', 'packages'])
             ->with(['userAccess' => function ($query) use ($user) {
                 if ($user) {
                     $query->where('user_id', $user->id);
                 }
-            }])
-            ->ordered()
-            ->paginate(12);
-        
+            }]);
+
+        if ($categoryId) {
+            $materialsQuery->byCategory($categoryId);
+        }
+
+        $materials = $materialsQuery->ordered()->paginate(12);
+
         // Mark each material with access status
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
-        
+
         // Get user's progress for owned materials (only for logged in user)
         $userProgress = $user ? UserMaterialAccess::byUser($user->id)
             ->with('material')
             ->latest()
             ->limit(5)
             ->get() : collect();
-        
+
         // Stats
         $stats = [
             'total_accessible' => count($accessibleMaterialIds),
             'completed' => $user ? $userProgress->where('status', 'completed')->count() : 0,
             'in_progress' => $user ? $userProgress->where('status', 'in_progress')->count() : 0,
         ];
-        
+
         return view('user.pages.material.new-index', compact(
             'categories',
             'materials',
             'userProgress',
             'stats',
-            'accessibleMaterialIds'
+            'accessibleMaterialIds',
+            'categoryId'
         ));
     }
     
@@ -77,103 +84,118 @@ class MaterialController extends Controller
      * List video materials - tampilkan SEMUA dengan status akses
      * BISA diakses oleh GUEST
      */
-    public function videos()
+    public function videos(Request $request)
     {
         $user = Auth::user();
+        $categoryId = $request->get('category');
 
         // Get categories for filter
         $categories = MaterialCategory::active()
             ->ordered()
             ->withCount(['materials' => function ($query) {
-                $query->active()->where('is_for_sale', true)->byType('video');
+                $query->active()->where('is_displayed', true)->byType('video');
             }])
             ->get();
 
-        $materials = Material::active()
-            ->where('is_for_sale', true)
+        $materialsQuery = Material::active()
+            ->where('is_displayed', true)
             ->byType('video')
             ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 if ($user) {
                     $query->where('user_id', $user->id);
                 }
-            }])
-            ->ordered()
-            ->paginate(12);
+            }]);
+
+        if ($categoryId) {
+            $materialsQuery->byCategory($categoryId);
+        }
+
+        $materials = $materialsQuery->ordered()->paginate(12);
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
 
-        return view('user.pages.material.new-videos', compact('materials', 'categories'));
+        return view('user.pages.material.new-videos', compact('materials', 'categories', 'categoryId'));
     }
 
     /**
      * List document/PDF materials
      */
-    public function documents()
+    public function documents(Request $request)
     {
         $user = Auth::user();
+        $categoryId = $request->get('category');
 
         // Get categories for filter
         $categories = MaterialCategory::active()
             ->ordered()
             ->withCount(['materials' => function ($query) {
-                $query->active()->where('is_for_sale', true)->byType('document');
+                $query->active()->where('is_displayed', true)->byType('document');
             }])
             ->get();
 
-        $materials = Material::active()
-            ->where('is_for_sale', true)
+        $materialsQuery = Material::active()
+            ->where('is_displayed', true)
             ->byType('document')
             ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 if ($user) {
                     $query->where('user_id', $user->id);
                 }
-            }])
-            ->ordered()
-            ->paginate(12);
+            }]);
+
+        if ($categoryId) {
+            $materialsQuery->byCategory($categoryId);
+        }
+
+        $materials = $materialsQuery->ordered()->paginate(12);
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
 
-        return view('user.pages.material.new-documents', compact('materials', 'categories'));
+        return view('user.pages.material.new-documents', compact('materials', 'categories', 'categoryId'));
     }
 
     /**
      * List live sessions
      */
-    public function liveSessions()
+    public function liveSessions(Request $request)
     {
         $user = Auth::user();
+        $categoryId = $request->get('category');
 
         // Get categories for filter
         $categories = MaterialCategory::active()
             ->ordered()
             ->withCount(['materials' => function ($query) {
-                $query->active()->where('is_for_sale', true)->byType('live_session');
+                $query->active()->where('is_displayed', true)->byType('live_session');
             }])
             ->get();
 
-        $materials = Material::active()
-            ->where('is_for_sale', true)
+        $materialsQuery = Material::active()
+            ->where('is_displayed', true)
             ->byType('live_session')
             ->with(['categories', 'packages', 'userAccess' => function ($query) use ($user) {
                 if ($user) {
                     $query->where('user_id', $user->id);
                 }
-            }])
-            ->ordered()
-            ->paginate(12);
+            }]);
+
+        if ($categoryId) {
+            $materialsQuery->byCategory($categoryId);
+        }
+
+        $materials = $materialsQuery->ordered()->paginate(12);
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
 
-        return view('user.pages.material.new-live-sessions', compact('materials', 'categories'));
+        return view('user.pages.material.new-live-sessions', compact('materials', 'categories', 'categoryId'));
     }
 
     /**
@@ -185,9 +207,9 @@ class MaterialController extends Controller
         $user = Auth::user();
         $category = MaterialCategory::active()->findOrFail($categoryId);
 
-        // Get ALL materials in this category for guest to browse
+        // Get ALL displayed materials in this category for guest to browse
         $materials = Material::active()
-            ->where('is_for_sale', true)
+            ->where('is_displayed', true)
             ->byCategory($categoryId)
             ->with(['categories', 'packages'])
             ->ordered()

@@ -130,8 +130,20 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @endif
         @else
             {{-- User doesn't have access --}}
-            @if($tryout->access_via_package)
-            <a href="{{ route('user.package.my') }}?tab=packages" 
+            @if($tryout->is_for_sale)
+            {{-- Tryout can be purchased individually --}}
+            <form action="{{ route('user.individual-purchase.buy') }}" method="POST" class="w-full">
+                @csrf
+                <input type="hidden" name="type" value="tryout">
+                <input type="hidden" name="id" value="{{ $tryout->tryout_id }}">
+                <button type="submit" class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                        style="background-color: {{ $primaryColor }}">
+                    <i class="ri-shopping-cart-line mr-1"></i>
+                    Beli Rp {{ number_format($tryout->price, 0, ',', '.') }}
+                </button>
+            </form>
+            @elseif($tryout->access_via_package)
+            <a href="{{ route('user.package.my') }}?tab=packages"
                class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                 <i class="ri-shopping-bag-line mr-1"></i>

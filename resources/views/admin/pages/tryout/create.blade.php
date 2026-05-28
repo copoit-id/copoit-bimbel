@@ -128,7 +128,7 @@
                         placeholder="Masukkan deskripsi tryout...">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
                 </div>
 
-                <!-- Price -->
+                <!-- Price & Display -->
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -138,6 +138,22 @@
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="0">
                             <p class="text-xs text-gray-500 mt-1">Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</p>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
+                                </label>
+                                <p class="text-xs text-gray-500 ml-6">Centang agar tryout ini bisa dibeli secara individual.</p>
+                            </div>
+                            <div>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', isset($tryout) ? $tryout->is_displayed : true) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">Tampilkan</span>
+                                </label>
+                                <p class="text-xs text-gray-500 ml-6">Centang untuk menampilkan tryout di halaman user. Kosongkan untuk menyembunyikan.</p>
+                            </div>
                         </div>
                     </div>
                 </div>

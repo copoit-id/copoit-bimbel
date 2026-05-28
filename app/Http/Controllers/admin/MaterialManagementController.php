@@ -53,6 +53,7 @@ class MaterialManagementController extends Controller
             'order_number' => 'nullable|integer|min:0',
             'category_id' => 'nullable|exists:material_categories,category_id',
             'is_for_sale' => 'nullable',
+            'is_displayed' => 'nullable',
             'price' => 'nullable|numeric|min:0',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
@@ -82,6 +83,9 @@ class MaterialManagementController extends Controller
 
         // Handle is_for_sale checkbox (unchecked = not submitted)
         $validated['is_for_sale'] = $request->boolean('is_for_sale');
+
+        // Handle is_displayed checkbox (unchecked = false)
+        $validated['is_displayed'] = $request->boolean('is_displayed');
 
         // Set default order_number if not provided
         if (empty($validated['order_number'])) {
@@ -134,6 +138,7 @@ class MaterialManagementController extends Controller
             'is_active' => 'boolean',
             'category_id' => 'nullable|exists:material_categories,category_id',
             'is_for_sale' => 'nullable',
+            'is_displayed' => 'nullable',
             'price' => 'nullable|numeric|min:0',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
@@ -172,6 +177,9 @@ class MaterialManagementController extends Controller
 
         // Handle is_for_sale checkbox (unchecked = not submitted)
         $validated['is_for_sale'] = $request->boolean('is_for_sale');
+
+        // Handle is_displayed checkbox (unchecked = false)
+        $validated['is_displayed'] = $request->boolean('is_displayed');
 
         // Extract category_id (single, not array)
         $categoryId = $validated['category_id'] ?? null;

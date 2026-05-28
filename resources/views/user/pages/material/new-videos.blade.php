@@ -42,18 +42,24 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     </a>
 </div>
 
-<!-- Categories -->
+<!-- Categories Filter -->
 @if(isset($categories) && $categories->count() > 0)
 <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+    <a href="{{ route('user.material.videos') }}"
+       class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors
+          {{ !$categoryId ? 'bg-red-500 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+        Semua
+    </a>
     @foreach($categories as $category)
-    <a href="{{ route('user.material.category', $category->category_id) }}"
-       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors flex-shrink-0 text-sm text-gray-700">
+    <a href="{{ route('user.material.videos', ['category' => $category->category_id]) }}"
+       class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors
+          {{ $categoryId == $category->category_id ? 'bg-red-500 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
         @if($category->icon)
-        <i class="{{ $category->icon }}" style="color: {{ $primaryColor }}"></i>
+        <i class="{{ $category->icon }}"></i>
         @endif
         {{ $category->name }}
         @if($category->materials_count > 0)
-        <span class="ml-1 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">{{ $category->materials_count }}</span>
+        <span class="ml-1 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full {{ $categoryId == $category->category_id ? '!bg-white/30 !text-white' : '' }}">{{ $category->materials_count }}</span>
         @endif
     </a>
     @endforeach
@@ -134,14 +140,20 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 @endif
             </div>
             @else
-            {{-- User logged in but no access: Beli button --}}
-            <div class="mt-3 pt-3 border-t border-gray-100">
+            {{-- User logged in but no access --}}
+            @if($material->is_for_sale)
+                {{-- Material can be purchased individually --}}
                 <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
                         class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
                 </button>
-            </div>
+            @else
+                {{-- Material not for sale, only available via package --}}
+                <div class="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
+                    <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
+                </div>
+            @endif
             @endif
         </div>
     </div>

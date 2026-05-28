@@ -1966,20 +1966,26 @@ class PackageController extends Controller
             ->pluck('package_id')
             ->toArray() : [];
         
-        // Get ALL active tryouts with their packages
+        // Get ALL active tryouts with their packages (only displayed)
         $tryouts = \App\Models\Tryout::with(['tryoutDetails', 'packages', 'userAnswers' => function ($query) use ($user) {
             if ($user) {
                 $query->where('user_id', $user->id);
             }
         }])
         ->where('is_active', true)
+        ->where('is_displayed', true)
         ->get();
-        
+
         // Mark each tryout with access status
         foreach ($tryouts as $tryout) {
             $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
-            $tryout->has_access = $user && !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
+            $tryout->has_access = $user && (
+                !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds))
+                || $tryout->canUserAccess($user->id)
+            );
             $tryout->access_via_package = $tryout->packages->first();
+            // Flag for individual sale
+            $tryout->is_for_sale = $tryout->is_for_sale && $tryout->price > 0;
         }
         
         return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds'));

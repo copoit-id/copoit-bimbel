@@ -69,6 +69,14 @@
                         <input type="number" name="price" value="{{ old('price', 0) }}" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0">
                         <p class="text-xs text-gray-500 mt-1">Harga dalam Rupiah (0 = gratis dalam paket).</p>
                     </div>
+
+                    <div>
+                        <label class="flex items-center mb-1">
+                            <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', true) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                            <span class="ml-2 text-sm font-medium text-gray-700">Tampilkan</span>
+                        </label>
+                        <p class="text-xs text-gray-500">Centang untuk menampilkan materi ini di halaman user. Kosongkan untuk menyembunyikan (hanya bisa diakses via paket).</p>
+                    </div>
                 </div>
 
                 <!-- Right Column -->

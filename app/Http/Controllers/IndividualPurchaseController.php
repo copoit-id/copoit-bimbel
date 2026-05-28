@@ -13,10 +13,13 @@ class IndividualPurchaseController extends Controller
     public function buy(Request $request)
     {
         if (!Auth::check()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Silakan login terlebih dahulu.'
-            ], 401);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Silakan login terlebih dahulu.'
+                ], 401);
+            }
+            return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu.');
         }
 
         $request->validate([
@@ -44,8 +47,8 @@ class IndividualPurchaseController extends Controller
             ], 404);
         }
 
-        // Check if item has price (can be sold individually)
-        if (!$item->price || $item->price <= 0) {
+        // Check if item has price and is for sale (can be sold individually)
+        if (!$item->is_for_sale || !$item->price || $item->price <= 0) {
             return response()->json([
                 'success' => false,
                 'message' => 'Item ini tidak dijual terpisah.'
