@@ -348,14 +348,14 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
             </div>
 
             {{-- Buttons --}}
-            <div class="pt-4 border-t flex gap-2">
+            <div class="flex gap-2">
                 <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
                    class="flex-1 py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                    style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>{{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
                 </a>
                 @if($hasAttempts)
-                <a href="{{ route('user.tryout.result', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
                    class="flex-1 py-2.5 text-center rounded-xl text-sm font-medium border-2 hover:opacity-90 transition-colors"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-history-line mr-1"></i>Riwayat
