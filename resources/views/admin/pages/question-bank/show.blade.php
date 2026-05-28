@@ -66,20 +66,29 @@
         @else
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             @foreach ($bank->children as $child)
-            <div class="rounded-xl border border-gray-200 p-4 shadow-sm">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
+            <div class="rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1 min-w-0">
                         <p class="text-xs uppercase tracking-wide text-gray-400">Sub Bank</p>
-                        <h3 class="text-base font-semibold text-gray-900">{{ $child->name }}</h3>
-                        <p class="text-sm text-gray-500 mt-1">{{ \Illuminate\Support\Str::limit($child->description, 60) }}
-                        </p>
+                        <h3 class="text-base font-semibold text-gray-900 line-clamp-2">{{ $child->name }}</h3>
+                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ Str::limit($child->description, 60) }}</p>
                     </div>
-                    <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary flex-shrink-0">
                         {{ $child->questions_count }} Soal
                     </span>
                 </div>
+                <div class="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
+                    <button type="button" onclick="editBank({{ $child->id }}, '{{ addslashes($child->name) }}', '{{ addslashes($child->description ?? '') }}')"
+                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
+                        <i class="ri-edit-line mr-1"></i>Edit
+                    </button>
+                    <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $child->questions_count }})"
+                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                        <i class="ri-delete-bin-line mr-1"></i>Hapus
+                    </button>
+                </div>
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $child->id, 'import_for' => $importTarget]) }}"
-                    class="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
+                    class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
                     Lihat Sub Bank
                 </a>
             </div>
@@ -201,11 +210,11 @@
                                 </form>
                                 @endif
                                 <form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}"
-                                    method="POST"
-                                    onsubmit="return confirm('Hapus soal dari bank ini?');">
+                                    method="POST">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit"
+                                    <button type="button"
+                                        onclick="openConfirmModal('confirmDelete', '{{ route('admin.question-bank.questions.destroy', $question->id) }}', 'DELETE', 'Hapus soal dari bank ini?')"
                                         class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100">
                                         <i class="ri-delete-bin-line"></i> Hapus
                                     </button>
@@ -229,6 +238,39 @@
         <div class="mt-4">
             {{ $questions->withQueryString()->links() }}
         </div>
+    </div>
+</div>
+
+<!-- Edit Bank Modal -->
+<div id="editBankModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-semibold text-gray-900">Edit Bank Soal</h3>
+            <button type="button" id="closeEditBank" class="text-gray-400 hover:text-gray-600">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <form id="editBankForm" method="POST" class="space-y-4">
+            @csrf
+            @method('PUT')
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Bank</label>
+                <input type="text" name="name" id="editBankName" required
+                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+                <textarea name="description" id="editBankDescription" rows="3"
+                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" id="cancelEditBank"
+                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Batal</button>
+                <button type="submit"
+                    class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -264,6 +306,8 @@
         </form>
     </div>
 </div>
+
+<x-confirm-modal id="confirmDelete" title="Hapus Bank Soal" message="Apakah Anda yakin?" confirmText="Ya, hapus" confirmVariant="danger" />
 
 @endsection
 
@@ -371,6 +415,34 @@
 
         updateBulkState();
         filterQuestions();
+
+        // Edit Bank modal
+        const editModal = document.getElementById('editBankModal');
+        const closeEditBtn = document.getElementById('closeEditBank');
+        const cancelEditBtn = document.getElementById('cancelEditBank');
+        closeEditBtn?.addEventListener('click', () => toggleModal(editModal, false));
+        cancelEditBtn?.addEventListener('click', () => toggleModal(editModal, false));
+        editModal?.addEventListener('click', (e) => {
+            if (e.target === editModal) toggleModal(editModal, false);
+        });
     });
+
+    function editBank(id, name, description) {
+        document.getElementById('editBankName').value = name;
+        document.getElementById('editBankDescription').value = description || '';
+        document.getElementById('editBankForm').action = '/admin/bank-soal/' + id;
+        const modal = document.getElementById('editBankModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function deleteBank(id, name, totalQuestions) {
+        let message = `Yakin ingin menghapus bank soal "${name}"?`;
+        if (totalQuestions > 0) {
+            message += `\n\nPERHATIAN: Bank ini berisi ${totalQuestions} soal. Semua soal akan ikut dihapus!`;
+        }
+        openConfirmModal('confirmDelete', '/admin/bank-soal/' + id, 'DELETE', message);
+    }
 </script>
 @endpush

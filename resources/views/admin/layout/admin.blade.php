@@ -41,6 +41,7 @@
 
 <body>
     @include('admin.components.navbar')
+    @include('components.confirm-modal')
     @include('admin.components.sidebar')
     @include('components.flash-alert')
 
@@ -141,7 +142,94 @@
     @vite('resources/js/app.js')
     @stack('scripts')
     @yield('scripts')
-    
+
+    <script>
+    (function() {
+        let pendingAction = { action: '', method: 'POST' };
+        let currentModalId = null;
+
+        function openConfirmModal(id, action, method, message) {
+            method = method || 'POST';
+            pendingAction = { action, method };
+            currentModalId = id;
+
+            const messageEl = document.getElementById(id + '_message');
+            if (messageEl) messageEl.textContent = message || 'Apakah Anda yakin?';
+
+            const modal = document.getElementById(id);
+            if (!modal) return;
+
+            modal.style.display = 'flex';
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeConfirmModal() {
+            if (currentModalId) {
+                const modal = document.getElementById(currentModalId);
+                if (modal) modal.style.display = 'none';
+            }
+            document.body.classList.remove('overflow-hidden');
+            currentModalId = null;
+        }
+
+        function submitConfirmForm() {
+            closeConfirmModal();
+
+            const form = document.createElement('form');
+            form.method = pendingAction.method || 'POST';
+            form.action = pendingAction.action || '#';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = document.querySelector('meta[name=csrf-token]').content;
+            form.appendChild(csrfInput);
+
+            if (pendingAction.method === 'PUT' || pendingAction.method === 'DELETE') {
+                const methodInput = document.createElement('input');
+                methodInput.type = 'hidden';
+                methodInput.name = '_method';
+                methodInput.value = pendingAction.method;
+                form.appendChild(methodInput);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        document.addEventListener('click', function(e) {
+            // Cancel button
+            const cancelBtn = e.target.closest('[data-confirm-cancel]');
+            if (cancelBtn) {
+                closeConfirmModal();
+                return;
+            }
+
+            // Confirm button
+            const confirmBtn = e.target.closest('[data-confirm-action]');
+            if (confirmBtn) {
+                submitConfirmForm();
+                return;
+            }
+
+            // Backdrop click
+            const modal = e.target.closest('[data-modal-confirm]');
+            if (modal && e.target === modal) {
+                closeConfirmModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && currentModalId) {
+                closeConfirmModal();
+            }
+        });
+
+        window.openConfirmModal = openConfirmModal;
+        window.closeConfirmModal = closeConfirmModal;
+    })();
+    </script>
+
     {{-- Fix sidebar navigation issues --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {

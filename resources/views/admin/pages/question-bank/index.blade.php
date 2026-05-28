@@ -97,22 +97,32 @@
         @else
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($rootBanks as $bank)
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1 min-w-0">
                         <p class="text-xs uppercase tracking-wide text-gray-400">Bank Soal</p>
-                        <h3 class="text-lg font-semibold text-gray-900">{{ $bank->name }}</h3>
-                        <p class="text-sm text-gray-500 mt-1">{{ \Illuminate\Support\Str::limit($bank->description, 80) }}</p>
+                        <h3 class="text-lg font-semibold text-gray-900 line-clamp-2">{{ $bank->name }}</h3>
+                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ Str::limit($bank->description, 80) }}</p>
                     </div>
-                    <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary flex-shrink-0">
                         {{ $bank->questions_count }} Soal
                     </span>
                 </div>
-                <div class="mt-4 flex flex-wrap gap-2 text-xs text-gray-500">
+                <div class="flex flex-wrap gap-2 text-xs text-gray-500 mb-auto">
                     <span class="rounded-full bg-gray-100 px-3 py-1">Sub bank: {{ $bank->children->count() }}</span>
                 </div>
+                <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+                    <button type="button" onclick="editBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', '{{ addslashes($bank->description ?? '') }}')"
+                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
+                        <i class="ri-edit-line mr-1"></i>Edit
+                    </button>
+                    <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bank->questions_count + $bank->children->sum('questions_count') }})"
+                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                        <i class="ri-delete-bin-line mr-1"></i>Hapus
+                    </button>
+                </div>
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
-                    class="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
+                    class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
                     {{ $tryoutDetail ? 'Pilih Bank' : 'Kelola Bank' }}
                 </a>
             </div>
@@ -122,7 +132,7 @@
     </div>
 </div>
 
-<!-- Create Bank Modal -->
+<x-confirm-modal id="confirmDelete" title="Hapus Bank Soal" message="Apakah Anda yakin?" confirmText="Ya, hapus" confirmVariant="danger" />
 <div id="createBankModal"
     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
     <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
@@ -165,37 +175,95 @@
         </form>
     </div>
 </div>
+
+<!-- Edit Bank Modal -->
+<div id="editBankModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-semibold text-gray-900">Edit Bank Soal</h3>
+            <button type="button" id="closeEditBank" class="text-gray-400 hover:text-gray-600">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <form id="editBankForm" method="POST" class="space-y-4">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="_method" value="PUT">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Bank</label>
+                <input type="text" name="name" id="editBankName" required
+                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+                <textarea name="description" id="editBankDescription" rows="3"
+                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" id="cancelEditBank"
+                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Batal</button>
+                <button type="submit"
+                    class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('createBankModal');
+        const editModal = document.getElementById('editBankModal');
         const openBtn = document.getElementById('openCreateBank');
         const closeBtn = document.getElementById('closeCreateBank');
         const cancelBtn = document.getElementById('cancelCreateBank');
+        const closeEditBtn = document.getElementById('closeEditBank');
+        const cancelEditBtn = document.getElementById('cancelEditBank');
 
-        function toggleModal(show) {
-            if (!modal) return;
+        function toggleModal(modalEl, show) {
+            if (!modalEl) return;
             if (show) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                modalEl.classList.remove('hidden');
+                modalEl.classList.add('flex');
                 document.body.classList.add('overflow-hidden');
             } else {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
+                modalEl.classList.add('hidden');
+                modalEl.classList.remove('flex');
                 document.body.classList.remove('overflow-hidden');
             }
         }
 
-        openBtn?.addEventListener('click', () => toggleModal(true));
-        closeBtn?.addEventListener('click', () => toggleModal(false));
-        cancelBtn?.addEventListener('click', () => toggleModal(false));
+        openBtn?.addEventListener('click', () => toggleModal(modal, true));
+        closeBtn?.addEventListener('click', () => toggleModal(modal, false));
+        cancelBtn?.addEventListener('click', () => toggleModal(modal, false));
         modal?.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                toggleModal(false);
-            }
+            if (event.target === modal) toggleModal(modal, false);
+        });
+
+        closeEditBtn?.addEventListener('click', () => toggleModal(editModal, false));
+        cancelEditBtn?.addEventListener('click', () => toggleModal(editModal, false));
+        editModal?.addEventListener('click', (event) => {
+            if (event.target === editModal) toggleModal(editModal, false);
         });
     });
+
+    function editBank(id, name, description) {
+        document.getElementById('editBankName').value = name;
+        document.getElementById('editBankDescription').value = description || '';
+        document.getElementById('editBankForm').action = '/admin/bank-soal/' + id;
+        document.getElementById('editBankModal').classList.remove('hidden');
+        document.getElementById('editBankModal').classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function deleteBank(id, name, totalQuestions) {
+        let message = `Yakin ingin menghapus bank soal "${name}"?`;
+        if (totalQuestions > 0) {
+            message += `\n\nPERHATIAN: Bank ini berisi ${totalQuestions} soal. Semua soal akan ikut dihapus!`;
+        }
+        openConfirmModal('confirmDelete', '/admin/bank-soal/' + id, 'DELETE', message);
+    }
 </script>
 @endpush

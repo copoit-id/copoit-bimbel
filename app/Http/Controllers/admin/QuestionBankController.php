@@ -65,6 +65,44 @@ class QuestionBankController extends Controller
         return back()->with('success', 'Bank soal berhasil disimpan.');
     }
 
+    public function update(Request $request, QuestionBank $questionBank)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+        ]);
+
+        $questionBank->update([
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return back()->with('success', 'Bank soal berhasil diperbarui.');
+    }
+
+    public function destroy(QuestionBank $questionBank)
+    {
+        // Delete all questions in this bank and sub-banks recursively
+        $this->deleteBankRecursively($questionBank);
+
+        return redirect()->route('admin.question-bank.index')
+            ->with('success', 'Bank soal berhasil dihapus.');
+    }
+
+    private function deleteBankRecursively(QuestionBank $bank): void
+    {
+        // Delete all questions in sub-banks first
+        foreach ($bank->children as $child) {
+            $this->deleteBankRecursively($child);
+        }
+
+        // Delete all questions in this bank (cascade will handle options if configured)
+        $bank->questions()->delete();
+
+        // Delete the bank
+        $bank->delete();
+    }
+
     public function show(QuestionBank $questionBank, Request $request)
     {
         $importTarget = $request->integer('import_for');

@@ -361,7 +361,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::prefix('bank-soal')->name('question-bank.')->group(function () {
         Route::get('/', [QuestionBankController::class, 'index'])->name('index');
         Route::post('/', [QuestionBankController::class, 'store'])->name('store');
-        Route::get('/{questionBank}', [QuestionBankController::class, 'show'])->name('show');
+
+        // Specific routes first (questions create/edit/update/delete)
         Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
         Route::get('/questions/{question}/edit', [QuestionBankController::class, 'editQuestionForm'])->name('questions.edit');
@@ -369,6 +370,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');
         Route::post('/questions/{question}/clone', [QuestionBankController::class, 'cloneToTryout'])->name('questions.clone');
         Route::post('/questions/bulk-clone', [QuestionBankController::class, 'bulkCloneToTryout'])->name('questions.bulk-clone');
+
+        // CRUD bank soal (show, update, delete)
+        Route::get('/{questionBank}', [QuestionBankController::class, 'show'])->name('show');
+        Route::put('/{questionBank}', [QuestionBankController::class, 'update'])->name('update');
+        Route::delete('/{questionBank}', [QuestionBankController::class, 'destroy'])->name('destroy');
     });
 
     // Question Import Routes (separated)
