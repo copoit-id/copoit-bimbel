@@ -311,30 +311,31 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach($myTryouts as $tryout)
         @php
-        $userAnswer = $tryout->userAnswers->first();
+        $userAnswers = $tryout->userAnswers;
+        $hasAttempts = $userAnswers->count() > 0;
+        $isInProgress = $userAnswers->where('status', 'in_progress')->count() > 0;
         $totalQuestions = $tryout->getTotalQuestionsAttribute();
         $totalDuration = $tryout->getTotalDurationAttribute();
-        $isCompleted = $userAnswer && $userAnswer->status === 'completed';
-        $isInProgress = $userAnswer && $userAnswer->status === 'in_progress';
+        $packageId = $tryout->packages->first()?->package_id ?? 0;
         @endphp
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
             <div class="flex items-start justify-between mb-4">
-                <div class="w-12 h-12 {{ $isCompleted ? 'bg-green-100' : ($isInProgress ? 'bg-yellow-100' : 'bg-gray-100') }} rounded-xl flex items-center justify-center"
-                     style="{{ !$isCompleted && !$isInProgress ? 'background-color: ' . $primaryColor . '20' : '' }}">
-                    <i class="ri-file-list-3-line text-xl {{ $isCompleted ? 'text-green-600' : ($isInProgress ? 'text-yellow-600' : '') }}"
-                       style="{{ !$isCompleted && !$isInProgress ? 'color: ' . $primaryColor : '' }}"></i>
+                <div class="w-12 h-12 {{ $hasAttempts ? ($isInProgress ? 'bg-yellow-100' : 'bg-green-100') : 'bg-gray-100' }} rounded-xl flex items-center justify-center"
+                     style="{{ !$hasAttempts ? 'background-color: ' . $primaryColor . '20' : '' }}">
+                    <i class="ri-file-list-3-line text-xl {{ $hasAttempts ? ($isInProgress ? 'text-yellow-600' : 'text-green-600') : '' }}"
+                       style="{{ !$hasAttempts ? 'color: ' . $primaryColor : '' }}"></i>
                 </div>
-                @if($isCompleted)
-                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Selesai</span>
-                @elseif($isInProgress)
-                <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang dikerjakan</span>
+                @if($isInProgress)
+                <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang Dikerjakan</span>
+                @elseif($hasAttempts)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Sudah Dikerjakan</span>
                 @else
-                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Belum dikerjakan</span>
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Belum Dikerjakan</span>
                 @endif
             </div>
-            
+
             <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $tryout->name }}</h3>
-            
+
             <div class="space-y-2 mb-4">
                 <div class="flex items-center text-sm text-gray-500">
                     <i class="ri-question-line mr-2 text-gray-400"></i>
@@ -345,26 +346,22 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
                     <span>{{ $totalDuration }} Menit</span>
                 </div>
             </div>
-            
-            @if($isCompleted)
-            <div class="flex items-center justify-between pt-4 border-t">
-                <div>
-                    <p class="text-xs text-gray-400">Skor</p>
-                    <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $userAnswer->score ?? '-' }}</p>
-                </div>
-                <a href="{{ route('user.tryout.result', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
-                   class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white"
-                   style="background-color: {{ $primaryColor }}">
-                    Lihat Hasil
+
+            {{-- Buttons --}}
+            <div class="pt-4 border-t flex gap-2">
+                <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                   class="flex-1 py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
+                    <i class="ri-play-circle-line mr-1"></i>{{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
                 </a>
+                @if($hasAttempts)
+                <a href="{{ route('user.tryout.result', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                   class="flex-1 py-2.5 text-center rounded-xl text-sm font-medium border-2 hover:opacity-90 transition-colors"
+                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                    <i class="ri-history-line mr-1"></i>Riwayat
+                </a>
+                @endif
             </div>
-            @else
-            <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
-               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
-               style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
-                {{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
-            </a>
-            @endif
         </div>
         @endforeach
     </div>
