@@ -42,6 +42,24 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     </a>
 </div>
 
+<!-- Categories -->
+@if(isset($categories) && $categories->count() > 0)
+<div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+    @foreach($categories as $category)
+    <a href="{{ route('user.material.category', $category->category_id) }}"
+       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors flex-shrink-0 text-sm text-gray-700">
+        @if($category->icon)
+        <i class="{{ $category->icon }}" style="color: {{ $primaryColor }}"></i>
+        @endif
+        {{ $category->name }}
+        @if($category->materials_count > 0)
+        <span class="ml-1 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">{{ $category->materials_count }}</span>
+        @endif
+    </a>
+    @endforeach
+</div>
+@endif
+
 <!-- Videos Grid -->
 @if($materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
