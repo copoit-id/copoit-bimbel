@@ -146,7 +146,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 
 @if($materials->hasPages())
 <div class="mt-8">
-    {{ $materials->links() }}
+    {{ $materials->appends(request()->query())->links() }}
 </div>
 @endif
 

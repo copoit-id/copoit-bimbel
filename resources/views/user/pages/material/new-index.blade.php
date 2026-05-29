@@ -145,7 +145,7 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
 
 @if($materials->hasPages())
 <div class="mt-8">
-    {{ $materials->links() }}
+    {{ $materials->appends(request()->query())->links() }}
 </div>
 @endif
 
