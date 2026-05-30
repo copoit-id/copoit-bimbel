@@ -175,8 +175,13 @@
         function submitConfirmForm() {
             closeConfirmModal();
 
+            if (pendingAction.method === 'GET') {
+                window.location.href = pendingAction.action || '#';
+                return;
+            }
+
             const form = document.createElement('form');
-            form.method = pendingAction.method || 'POST';
+            form.method = 'POST';
             form.action = pendingAction.action || '#';
 
             const csrfInput = document.createElement('input');
