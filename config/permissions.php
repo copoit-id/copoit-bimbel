@@ -92,5 +92,9 @@ return [
             'label' => 'Pembayaran',
             'routes' => ['admin.pembayaran.'],
         ],
+        'tes_koran' => [
+            'label' => 'Tes Koran',
+            'routes' => ['admin.tes-koran.'],
+        ],
     ],
 ];

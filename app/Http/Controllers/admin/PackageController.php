@@ -13,6 +13,7 @@ use App\Models\Package;
 use App\Models\Material;
 use App\Models\Question;
 use App\Models\QuestionOption;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use Illuminate\Http\Request;
@@ -55,7 +56,7 @@ class PackageController extends Controller
 
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'type_package' => 'required|in:bimbel,tryout,sertifikasi',
+                'type_package' => 'required|in:bimbel,tryout,sertifikasi,tes_koran',
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
@@ -128,7 +129,7 @@ class PackageController extends Controller
 
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'type_package' => 'required|in:bimbel,tryout,sertifikasi',
+                'type_package' => 'required|in:bimbel,tryout,sertifikasi,tes_koran',
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
@@ -305,6 +306,55 @@ class PackageController extends Controller
                     'detailable_id' => $material_id,
                 ]);
                 $message = 'Materi berhasil ditambahkan ke paket';
+            }
+
+            return redirect()->back()->with('success', $message);
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function indexTesKoran($package_id)
+    {
+        try {
+            $package = Package::where('package_id', $package_id)->firstOrFail();
+
+            $tesKorans = TesKoran::with(['detailPackages' => function ($query) use ($package_id) {
+                $query->where('package_id', $package_id);
+            }])
+                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tes_korans.id AND package_id = ?) DESC", [TesKoran::class, $package_id])
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+
+            return view('admin.pages.package.tes-koran.index', compact('package', 'tesKorans'));
+        } catch (\Exception $e) {
+            return redirect()->route('admin.package.index')
+                ->with('error', 'Paket tidak ditemukan');
+        }
+    }
+
+    public function toggleTesKoran(Request $request, $package_id, $tes_koran_id)
+    {
+        try {
+            $package = Package::where('package_id', $package_id)->firstOrFail();
+            $tesKoran = TesKoran::findOrFail($tes_koran_id);
+
+            $existing = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', TesKoran::class)
+                ->where('detailable_id', $tes_koran_id)
+                ->first();
+
+            if ($existing) {
+                $existing->delete();
+                $message = 'Tes Koran berhasil dihapus dari paket';
+            } else {
+                DetailPackage::create([
+                    'package_id' => $package_id,
+                    'detailable_type' => TesKoran::class,
+                    'detailable_id' => $tes_koran_id,
+                ]);
+                $message = 'Tes Koran berhasil ditambahkan ke paket';
             }
 
             return redirect()->back()->with('success', $message);

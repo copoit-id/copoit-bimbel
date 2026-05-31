@@ -341,6 +341,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('/paket/{package_id}/materi', [AdminPackageController::class, 'indexMaterial'])->name('package.material.index');
     Route::post('/paket/{package_id}/materi/{material_id}/toggle', [AdminPackageController::class, 'toggleMaterial'])->name('package.material.toggle');
 
+    // Package Tes Koran Management
+    Route::get('/paket/{package_id}/tes-koran', [AdminPackageController::class, 'indexTesKoran'])->name('package.tes-koran.index');
+    Route::post('/paket/{package_id}/tes-koran/{tes_koran_id}/toggle', [AdminPackageController::class, 'toggleTesKoran'])->name('package.tes-koran.toggle');
+
     // Package Tryout Soal Management
     Route::get('/paket/{package_id}/tryout/{tryout_detail_id}/soal', [AdminPackageController::class, 'indexSoal'])->name('package.tryout.soal');
     Route::get('/paket/{package_id}/tryout/{tryout_detail_id}/soal/tambah', [AdminPackageController::class, 'createSoal'])->name('package.tryout.soal.create');

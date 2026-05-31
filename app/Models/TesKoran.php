@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class TesKoran extends Model
 {
     protected $fillable = [
-        'package_id',
         'name',
         'test_type',
         'direction',
@@ -26,9 +26,15 @@ class TesKoran extends Model
         'rows_count' => 'integer',
     ];
 
-    public function package(): BelongsTo
+    public function detailPackages(): MorphToMany
     {
-        return $this->belongsTo(Package::class);
+        return $this->morphToMany(DetailPackage::class, 'detailable')
+            ->withTimestamps();
+    }
+
+    public function packages(): MorphToMany
+    {
+        return $this->morphToMany(Package::class, 'detailable', 'detail_packages');
     }
 
     public function results(): HasMany

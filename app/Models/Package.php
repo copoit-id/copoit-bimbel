@@ -66,7 +66,14 @@ class Package extends Model
 
     public function tesKorans()
     {
-        return $this->hasMany(TesKoran::class, 'package_id', 'package_id');
+        return $this->hasManyThrough(
+            TesKoran::class,
+            DetailPackage::class,
+            'package_id',
+            'id',
+            'package_id',
+            'detailable_id'
+        )->where('detail_packages.detailable_type', TesKoran::class);
     }
 
     public function payments()

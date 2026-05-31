@@ -11,8 +11,7 @@
         </x-slot>
     </x-breadcrumb>
 
-    <div class="max-w-2xl mx-auto">
-        <div class="bg-white rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-xl font-bold text-gray-800 mb-6">Buat Paket Tes Koran Baru</h2>
 
             @if($errors->any())
@@ -98,6 +97,5 @@
                 </div>
             </form>
         </div>
-    </div>
 </div>
 @endsection

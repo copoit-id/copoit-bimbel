@@ -150,6 +150,11 @@
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Sertifikasi
                 </a>
+                @elseif ($package->type_package == 'tes_koran')
+                <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
+                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    Tes Koran
+                </a>
                 @endif
 
                 {{-- Share Button --}}

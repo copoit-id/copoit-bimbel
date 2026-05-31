@@ -113,6 +113,9 @@
                                 <option value="sertifikasi" {{ (isset($package) && $package->type_package ===
                                     'sertifikasi') || old('type_package') === 'sertifikasi' ? 'selected' : ''
                                     }}>Sertifikasi</option>
+                                <option value="tes_koran" {{ (isset($package) && $package->type_package ===
+                                    'tes_koran') || old('type_package') === 'tes_koran' ? 'selected' : ''
+                                    }}>Tes Koran</option>
                             </select>
                         </div>
                     </div>

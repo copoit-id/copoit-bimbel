@@ -10,11 +10,6 @@
             <p class="text-gray-600">Kelola tes koran (Pauli & Kraepelin)</p>
         </div>
         <div class="flex gap-3">
-            <a href="{{ route('admin.tes-koran.create-package') }}"
-               class="bg-secondary hover:bg-secondary/90 text-dark px-4 py-2 rounded-lg flex items-center gap-2">
-                <i class="ri-folder-add-line"></i>
-                Tambah Paket
-            </a>
             <a href="{{ route('admin.tes-koran.create') }}"
                class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2">
                 <i class="ri-add-line"></i>
