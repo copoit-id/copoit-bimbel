@@ -462,8 +462,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Tes Koran Routes
     Route::prefix('tes-koran')->name('tes-koran.')->group(function () {
         Route::get('/', [AdminTesKoranController::class, 'index'])->name('index');
-        Route::get('/tambah-paket', [AdminTesKoranController::class, 'createPackage'])->name('create-package');
-        Route::post('/tambah-paket', [AdminTesKoranController::class, 'storePackage'])->name('store-package');
         Route::get('/tambah', [AdminTesKoranController::class, 'create'])->name('create');
         Route::post('/tambah', [AdminTesKoranController::class, 'store'])->name('store');
         Route::get('/{tesKoran}/edit', [AdminTesKoranController::class, 'edit'])->name('edit');

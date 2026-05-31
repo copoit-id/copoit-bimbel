@@ -3,9 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class TesKoran extends Model
 {
@@ -26,15 +24,12 @@ class TesKoran extends Model
         'rows_count' => 'integer',
     ];
 
-    public function detailPackages(): MorphToMany
+    public function getPackagesAttribute()
     {
-        return $this->morphToMany(DetailPackage::class, 'detailable')
-            ->withTimestamps();
-    }
-
-    public function packages(): MorphToMany
-    {
-        return $this->morphToMany(Package::class, 'detailable', 'detail_packages');
+        return Package::whereHas('detailPackages', function ($query) {
+            $query->where('detailable_id', $this->id)
+                  ->where('detailable_type', TesKoran::class);
+        })->get();
     }
 
     public function results(): HasMany
