@@ -100,7 +100,12 @@ class SettingController extends Controller
         $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
 
         $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));
-        $smtpPassword = $newPassword !== '' ? $newPassword : ($profile->smtp_app_password ?? null);
+        try {
+            $existingSmtpPassword = $profile->smtp_app_password ?? null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            $existingSmtpPassword = null;
+        }
+        $smtpPassword = $newPassword !== '' ? $newPassword : $existingSmtpPassword;
 
         // Jika user mengosongkan email & password SMTP, hapus semua konfigurasi SMTP.
         $shouldClearSmtp = empty($validated['smtp_email'] ?? null) && $newPassword === '';
@@ -163,7 +168,7 @@ class SettingController extends Controller
         }
 
         // SMTP wajib lengkap hanya jika memang dikonfigurasi/diaktifkan.
-        $smtpConfigured = !empty($profile->smtp_email) || !empty($profile->smtp_app_password);
+        $smtpConfigured = !empty($profile->smtp_email) || !empty($existingSmtpPassword);
         $smtpRequested = $request->filled('smtp_email')
             || $request->filled('smtp_app_password')
             || $request->filled('smtp_notification_email');
@@ -243,7 +248,19 @@ class SettingController extends Controller
             $profile->logo = 'img/logo/logo-copoit.png';
         }
 
-        $profile->save();
+        try {
+            $profile->save();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal menyimpan pengaturan', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()
+                ->withErrors(['general' => 'Gagal menyimpan pengaturan: ' . $e->getMessage()])
+                ->withInput($request->except(['admin_password', 'smtp_app_password']))
+                ->with('active_tab', $request->input('settings_tab', 'identity'));
+        }
 
         ActivityLogger::log('settings_updated', 'success', $request->user(), [
             'changes' => $changedFields,
