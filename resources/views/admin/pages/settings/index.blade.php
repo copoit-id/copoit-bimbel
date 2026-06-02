@@ -20,8 +20,8 @@
 
     @php
     $settingErrorKeys = $errors->keys();
-    $activeSettingsTab = old('settings_tab', 'identity');
-    if ($errors->isNotEmpty() && !old('settings_tab')) {
+    $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
+    if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {

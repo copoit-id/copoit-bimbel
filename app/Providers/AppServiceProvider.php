@@ -117,11 +117,11 @@ class AppServiceProvider extends ServiceProvider
 
     private function applyDynamicMailConfiguration(array $branding): void
     {
-        $smtpHost = $branding['smtp_host'] ?: env('MAIL_HOST', 'smtp.gmail.com');
-        $smtpPort = $branding['smtp_port'] ?: (int) env('MAIL_PORT', 587);
+        $smtpHost = $branding['smtp_host'] ?: config('mail.mailers.smtp.host', 'smtp.gmail.com');
+        $smtpPort = $branding['smtp_port'] ?: (int) config('mail.mailers.smtp.port', 587);
         $smtpEmail = $branding['smtp_email'] ?? null;
         $smtpPassword = $branding['smtp_app_password'] ?? null;
-        $smtpEncryption = $branding['smtp_encryption'] ?: env('MAIL_SCHEME', 'tls');
+        $smtpEncryption = $branding['smtp_encryption'] ?: (config('mail.mailers.smtp.scheme') ?? 'tls');
 
         if (!$smtpHost || !$smtpPort || !$smtpEmail || !$smtpPassword) {
             return;

@@ -94,15 +94,24 @@ class SettingController extends Controller
             'payment_account_holder.required' => 'Nama pemilik rekening wajib diisi untuk pembayaran manual.',
         ]);
 
-        $smtpHost = $profile->smtp_host ?: env('MAIL_HOST', 'smtp.gmail.com');
-        $smtpPort = $profile->smtp_port ?: (int) env('MAIL_PORT', 587);
-        $smtpEncryption = $profile->smtp_encryption ?: env('MAIL_SCHEME', 'tls');
+        $smtpHost = $profile->smtp_host ?: config('mail.mailers.smtp.host', 'smtp.gmail.com');
+        $smtpPort = $profile->smtp_port ?: (int) config('mail.mailers.smtp.port', 587);
+        $smtpEncryption = $profile->smtp_encryption ?: (config('mail.mailers.smtp.scheme') ?? 'tls');
         $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
 
         $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));
         $smtpPassword = $newPassword !== '' ? $newPassword : ($profile->smtp_app_password ?? null);
 
-        if ($newPassword === '') {
+        // Jika user mengosongkan email & password SMTP, hapus semua konfigurasi SMTP.
+        $shouldClearSmtp = empty($validated['smtp_email'] ?? null) && $newPassword === '';
+        if ($shouldClearSmtp) {
+            $validated['smtp_email'] = null;
+            $validated['smtp_app_password'] = null;
+            $validated['smtp_notification_email'] = null;
+            $validated['smtp_host'] = null;
+            $validated['smtp_port'] = null;
+            $validated['smtp_encryption'] = null;
+        } elseif ($newPassword === '') {
             unset($validated['smtp_app_password']);
         }
 
@@ -168,7 +177,7 @@ class SettingController extends Controller
                 ->withInput($request->except('smtp_app_password'));
         }
 
-        if ($shouldValidateSmtp) {
+        if ($shouldValidateSmtp && !$shouldClearSmtp) {
             $validated['smtp_host'] = $smtpHost;
             $validated['smtp_port'] = $smtpPort;
             $validated['smtp_encryption'] = $smtpEncryption;
@@ -204,8 +213,13 @@ class SettingController extends Controller
             ?? ($profile->payment_gateway ?? 'xendit');
         $validated['payment_gateway_mode'] = $validated['payment_gateway_mode']
             ?? ($profile->payment_gateway_mode ?? 'sandbox');
-        $validated['smtp_notification_email'] = $validated['smtp_notification_email']
-            ?? ($validated['smtp_email'] ?? $profile->smtp_notification_email);
+        if (array_key_exists('smtp_notification_email', $validated) && $validated['smtp_notification_email'] === null) {
+            // User sengaja mengosongkan field ini
+            $validated['smtp_notification_email'] = null;
+        } else {
+            $validated['smtp_notification_email'] = $validated['smtp_notification_email']
+                ?? ($validated['smtp_email'] ?? $profile->smtp_notification_email);
+        }
 
         $changedFields = [];
         foreach ($validated as $key => $value) {
@@ -237,7 +251,8 @@ class SettingController extends Controller
 
         return redirect()
             ->route('admin.settings.index')
-            ->with('success', 'Pengaturan branding berhasil diperbarui.');
+            ->with('success', 'Pengaturan berhasil diperbarui.')
+            ->with('active_tab', $request->input('settings_tab', 'identity'));
     }
 
     private function storeBrandingImage($file, ?string $existingPath = null, string $prefix = 'brand'): string
