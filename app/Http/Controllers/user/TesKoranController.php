@@ -41,11 +41,26 @@ class TesKoranController extends Controller
                 ->with('error', 'Anda tidak memiliki akses ke tes ini');
         }
 
-        // Generate columns data
-        $columns = $tesKoran->generateColumns($tesKoran->columns_count);
-        $columnsJson = json_encode($columns);
+        $sessionKey = $this->attemptSessionKey($tesKoran);
+        $attempt = session($sessionKey);
+        $expiresAt = isset($attempt['expires_at']) ? Carbon::parse($attempt['expires_at']) : null;
 
-        return view('user.pages.tes-koran.show', compact('tesKoran', 'package', 'columnsJson', 'columns'));
+        if (!$attempt || !$expiresAt || $expiresAt->isPast()) {
+            $attempt = [
+                'columns' => $tesKoran->generateColumns($tesKoran->columns_count),
+                'started_at' => now()->toIso8601String(),
+                'expires_at' => now()->addMinutes($tesKoran->duration_minutes)->toIso8601String(),
+            ];
+
+            session([$sessionKey => $attempt]);
+            $expiresAt = Carbon::parse($attempt['expires_at']);
+        }
+
+        $columns = $attempt['columns'];
+        $columnsJson = json_encode($columns);
+        $timeLeft = max(0, (int) floor(now()->diffInSeconds($expiresAt, false)));
+
+        return view('user.pages.tes-koran.show', compact('tesKoran', 'package', 'columnsJson', 'columns', 'timeLeft'));
     }
 
     public function start(Request $request, TesKoran $tesKoran)
@@ -58,9 +73,17 @@ class TesKoranController extends Controller
             'answers' => 'required|array',
         ]);
 
+        $sessionKey = $this->attemptSessionKey($tesKoran);
+        $attempt = session($sessionKey);
+
+        if (!$attempt || empty($attempt['columns'])) {
+            return response()->json(['error' => 'Sesi tes tidak ditemukan. Silakan mulai ulang tes.'], 422);
+        }
+
         $attemptToken = Str::uuid()->toString();
         $answers = $request->input('answers', []);
-        $columnsData = json_decode($request->input('columns_data', '[]'), true);
+        $columnsData = $attempt['columns'];
+        $startedAt = Carbon::parse($attempt['started_at'] ?? now());
 
         // Calculate results
         $result = $this->calculateResults($answers, $columnsData, $tesKoran);
@@ -79,10 +102,12 @@ class TesKoranController extends Controller
             'stability_score' => $result['stability_score'],
             'stability_status' => $result['stability_status'],
             'final_result' => $result['final_result'],
-            'started_at' => Carbon::now()->subMinutes($tesKoran->duration_minutes),
+            'started_at' => $startedAt,
             'finished_at' => Carbon::now(),
             'status' => 'completed',
         ]);
+
+        session()->forget($sessionKey);
 
         return response()->json([
             'success' => true,
@@ -100,6 +125,11 @@ class TesKoranController extends Controller
         $package = $tesKoran->accessiblePackageForUser(Auth::id());
 
         return view('user.pages.tes-koran.result', compact('tesKoran', 'package', 'result'));
+    }
+
+    private function attemptSessionKey(TesKoran $tesKoran): string
+    {
+        return 'tes_koran_attempt.' . Auth::id() . '.' . $tesKoran->id;
     }
 
     private function calculateResults(array $answers, array $columns, TesKoran $tesKoran): array

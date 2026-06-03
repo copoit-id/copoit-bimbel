@@ -19,7 +19,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 </p>
             </div>
             <div class="text-right">
-                <div id="timer" class="text-2xl font-bold text-primary">{{ $tesKoran->duration_minutes }}:00</div>
+                <div id="timer" class="text-2xl font-bold text-primary">{{ floor($timeLeft / 60) }}:{{ str_pad($timeLeft % 60, 2, '0', STR_PAD_LEFT) }}</div>
                 <p class="text-xs text-gray-400">Sisa Waktu</p>
             </div>
         </div>
@@ -45,7 +45,6 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     <div class="p-4 overflow-x-auto">
         <form id="tesKoranForm" method="POST" action="{{ route('user.tes-koran.start', $tesKoran) }}">
             @csrf
-            <input type="hidden" name="answers" id="answersJson">
             <input type="hidden" name="columns_data" id="columnsData" value="{{ $columnsJson }}">
 
             <div class="inline-block min-w-full">
@@ -111,16 +110,16 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const duration = {{ $tesKoran->duration_minutes }};
-    let timeLeft = duration * 60;
+    let timeLeft = Math.floor({{ $timeLeft }});
     const timerEl = document.getElementById('timer');
     const answeredCountEl = document.getElementById('answeredCount');
     const inputs = document.querySelectorAll('input[data-row][data-col]');
     const form = document.getElementById('tesKoranForm');
     const submitBtn = document.getElementById('submitBtn');
+    let isSubmitting = false;
 
     // Timer
     const timerInterval = setInterval(() => {
@@ -154,7 +153,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value.length === 1) {
                 const row = parseInt(this.dataset.row);
                 const col = parseInt(this.dataset.col);
-                const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${col + 1}"]`);
+                const nextInput = getNextInput(row, col);
+
                 if (nextInput) {
                     nextInput.focus();
                 }
@@ -169,39 +169,95 @@ document.addEventListener('DOMContentLoaded', function() {
                 const row = parseInt(this.dataset.row);
                 const col = parseInt(this.dataset.col);
 
-                if (col < {{ $tesKoran->columns_count - 1 }}) {
-                    const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${col + 1}"]`);
-                    if (nextInput) nextInput.focus();
-                } else if (row < {{ $tesKoran->rows_count - 2 }}) {
-                    const nextInput = document.querySelector(`input[data-row="${row + 1}"][data-col="1"]`);
-                    if (nextInput) nextInput.focus();
-                }
+                const nextInput = getNextInput(row, col);
+                if (nextInput) nextInput.focus();
             }
         });
     });
 
+    function getNextInput(row, col) {
+        const direction = '{{ $tesKoran->direction }}';
+
+        if (direction === 'bottom_to_top') {
+            if (row > 1) {
+                return document.querySelector(`input[data-row="${row - 1}"][data-col="${col}"]`);
+            }
+
+            if (col < {{ $tesKoran->columns_count - 1 }}) {
+                return document.querySelector(`input[data-row="{{ $tesKoran->rows_count - 1 }}"][data-col="${col + 1}"]`);
+            }
+
+            return null;
+        }
+
+        if (row < {{ $tesKoran->rows_count - 1 }}) {
+            return document.querySelector(`input[data-row="${row + 1}"][data-col="${col}"]`);
+        }
+
+        if (col < {{ $tesKoran->columns_count - 1 }}) {
+            return document.querySelector(`input[data-row="1"][data-col="${col + 1}"]`);
+        }
+
+        return null;
+    }
+
     // Submit form
-    function submitForm() {
+    async function submitForm() {
+        if (isSubmitting) return;
+        isSubmitting = true;
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i>Memproses...';
 
         // Collect answers
         const answers = {};
         inputs.forEach(input => {
-            const row = input.dataset.row;
+            const row = parseInt(input.dataset.row);
             const col = input.dataset.col;
-            if (!answers[row]) answers[row] = {};
-            answers[row][col] = input.value || null;
+            const answerIndex = row - 1;
+
+            if (!answers[col]) answers[col] = {};
+            answers[col][answerIndex] = input.value || null;
         });
 
-        document.getElementById('answersJson').value = JSON.stringify(answers);
-        form.submit();
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    answers,
+                    columns_data: document.getElementById('columnsData').value,
+                }),
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Gagal menyimpan jawaban.');
+            }
+
+            window.location.href = data.redirect;
+        } catch (error) {
+            alert(error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="ri-check-line mr-2"></i>Submit Jawaban';
+            isSubmitting = false;
+        }
     }
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
+
+    const firstInput = document.querySelector(
+        '{{ $tesKoran->direction === 'bottom_to_top' ? 'input[data-row="' . ($tesKoran->rows_count - 1) . '"][data-col="0"]' : 'input[data-row="1"][data-col="0"]' }}'
+    );
+    if (firstInput) firstInput.focus();
 });
 </script>
-@endsection
+@endpush
