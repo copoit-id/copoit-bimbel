@@ -47,10 +47,7 @@
                                 {{ old('plan_id', $currentSubscription?->plan_id) == $plan->id ? 'checked' : '' }}
                                 class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                             <div class="ml-4 flex-1">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-semibold text-gray-900">{{ $plan->name }}</span>
-                                    <span class="text-gray-900 font-medium">{{ $plan->formatted_price }}</span>
-                                </div>
+                                <span class="font-semibold text-gray-900">{{ $plan->name }}</span>
                                 <p class="text-sm text-gray-500 mt-1">
                                     {{ $plan->max_packages_text }} Package • 
                                     {{ $plan->max_users_text }} Users • 
