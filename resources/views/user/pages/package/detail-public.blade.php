@@ -87,6 +87,12 @@ $isGuest = !Auth::check();
                     </div>
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
+                            <i class="ri-file-edit-line" style="color: {{ $primaryColor }}"></i>
+                        </div>
+                        <span>{{ $package->tesKorans->count() }} Tes Koran</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-600">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-group-line" style="color: {{ $primaryColor }}"></i>
                         </div>
                         <span>{{ $package->classes->count() }} Kelas</span>
@@ -237,6 +243,50 @@ $isGuest = !Auth::check();
                            class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 shrink-0"
                            style="background-color: {{ $primaryColor }}">
                             Kerjakan
+                        </a>
+                        @else
+                        <span class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-200 text-gray-500 shrink-0">
+                            <i class="ri-lock-line mr-1"></i>Terlunci
+                        </span>
+                        @endif
+                    @else
+                    <span class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-200 text-gray-500 shrink-0">
+                        <i class="ri-lock-line mr-1"></i>Login untuk Akses
+                    </span>
+                    @endauth
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        @if($package->tesKorans->count() > 0)
+        <div class="bg-white rounded-2xl p-6 border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="ri-file-edit-line" style="color: {{ $primaryColor }}"></i>
+                Tes Koran
+                <span class="ml-auto text-sm font-normal text-gray-500">{{ $package->tesKorans->count() }} tes</span>
+            </h3>
+
+            <div class="space-y-3">
+                @foreach($package->tesKorans as $tesKoran)
+                <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color: {{ $primaryColor }}">
+                        <i class="ri-file-edit-line text-xl"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-medium text-gray-800">{{ $tesKoran->name }}</h4>
+                        <div class="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                            <span><i class="ri-file-list-line mr-1"></i>{{ ucfirst($tesKoran->test_type) }}</span>
+                            <span><i class="ri-time-line mr-1"></i>{{ $tesKoran->duration_minutes }} Menit</span>
+                        </div>
+                    </div>
+                    @auth
+                        @if($isOwned)
+                        <a href="{{ route('user.tes-koran.show', $tesKoran) }}"
+                           class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 shrink-0"
+                           style="background-color: {{ $primaryColor }}">
+                            Mulai
                         </a>
                         @else
                         <span class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-200 text-gray-500 shrink-0">

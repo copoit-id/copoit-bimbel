@@ -204,10 +204,10 @@ Route::prefix('user')->middleware('auth')->group(function () {
     // Tes Koran Routes
     Route::prefix('tes-koran')->name('user.tes-koran.')->group(function () {
         Route::get('/', [UserTesKoranController::class, 'index'])->name('index');
+        Route::get('/riwayat', [UserTesKoranController::class, 'history'])->name('history');
         Route::get('/{tesKoran}', [UserTesKoranController::class, 'show'])->name('show');
         Route::post('/{tesKoran}/start', [UserTesKoranController::class, 'start'])->name('start');
         Route::get('/{tesKoran}/result/{result}', [UserTesKoranController::class, 'result'])->name('result');
-        Route::get('/riwayat', [UserTesKoranController::class, 'history'])->name('history');
     });
 
     // My Packages (Step by Step)

@@ -12,7 +12,7 @@
     </x-breadcrumb>
 </div>
 <x-page-desc title="Pembelian Individual"
-    description="Kelola pembelian materi & tryout secara terpisah (tanpa paket)"></x-page-desc>
+    description="Kelola pembelian materi, tryout, dan tes koran secara terpisah (tanpa paket)"></x-page-desc>
 
 <!-- Type Tabs -->
 <div class="flex gap-2 mt-6">
@@ -23,6 +23,10 @@
     <a href="{{ route('admin.individual-purchase.index', ['type' => 'tryout', 'status' => $status]) }}"
        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'tryout' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
+    </a>
+    <a href="{{ route('admin.individual-purchase.index', ['type' => 'tes_koran', 'status' => $status]) }}"
+       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'tes_koran' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+        <i class="ri-file-edit-line mr-1"></i>Tes Koran
     </a>
 </div>
 
@@ -116,10 +120,18 @@
                     </td>
                     <td class="px-4 py-3">
                         @php
-                        $itemTitle = $purchase->purchasable?->title ?? 'N/A';
+                        $itemTitle = $purchase->purchasable?->title ?? $purchase->purchasable?->name ?? 'N/A';
                         $itemType = class_basename($purchase->purchasable_type ?? '');
-                        $typeIcon = $itemType === 'Tryout' ? 'ri-file-list-3-line' : 'ri-book-line';
-                        $typeColor = $itemType === 'Tryout' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50';
+                        $typeIcon = match ($itemType) {
+                            'Tryout' => 'ri-file-list-3-line',
+                            'TesKoran' => 'ri-file-edit-line',
+                            default => 'ri-book-line',
+                        };
+                        $typeColor = match ($itemType) {
+                            'Tryout' => 'text-purple-600 bg-purple-50',
+                            'TesKoran' => 'text-emerald-600 bg-emerald-50',
+                            default => 'text-blue-600 bg-blue-50',
+                        };
                         @endphp
                         <div>
                             <span class="px-1.5 py-0.5 rounded text-xs font-medium {{ $typeColor }}">

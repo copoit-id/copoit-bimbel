@@ -40,6 +40,14 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
     $q->where('user_id', $user->id);
 }])
 ->get();
+
+$myTesKorans = \App\Models\TesKoran::whereHas('packages', function($q) use ($accessiblePackageIds) {
+    $q->whereIn('packages.package_id', $accessiblePackageIds);
+})
+->with(['results' => function($q) use ($user) {
+    $q->where('user_id', $user->id);
+}])
+->get();
 @endphp
 
 <style>
@@ -79,6 +87,10 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tryouts' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
     </a>
+    <a href="{{ route('user.package.my') }}?tab=tes-koran"
+       class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tes-koran' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-file-edit-line mr-1"></i>Tes Koran
+    </a>
 </div>
 
 {{-- ==================== TAB: PACKAGES ==================== --}}
@@ -93,7 +105,8 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
         $package->loadCount(['materials', 'tryouts']);
         $materials = $package->materials;
         $tryouts = $package->tryouts;
-        $totalItems = $materials->count() + $tryouts->count();
+        $tesKorans = $package->tesKorans;
+        $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
         
         // Calculate actual progress
         $completedCount = 0;
@@ -113,6 +126,16 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
         foreach ($tryouts as $tryout) {
             $attempt = \App\Models\UserAnswer::where('user_id', $user->id)
                 ->where('tryout_id', $tryout->tryout_id)
+                ->where('status', 'completed')
+                ->first();
+            if ($attempt) {
+                $completedCount++;
+            }
+        }
+
+        foreach ($tesKorans as $tesKoran) {
+            $attempt = \App\Models\TesKoranResult::where('user_id', $user->id)
+                ->where('tes_koran_id', $tesKoran->id)
                 ->where('status', 'completed')
                 ->first();
             if ($attempt) {
@@ -372,6 +395,70 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
         </div>
         <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada tryout</h3>
         <p class="text-gray-400 text-sm mb-6">Tryout akan muncul di sini setelah kamu memiliki akses.</p>
+        <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+            <i class="ri-store-3-line mr-2"></i>Lihat Paket
+        </a>
+    </div>
+    @endif
+
+{{-- ==================== TAB: TES KORAN ==================== --}}
+@elseif($currentTab === 'tes-koran')
+    @if($myTesKorans->count() > 0)
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach($myTesKorans as $tesKoran)
+        @php
+        $results = $tesKoran->results;
+        $hasAttempts = $results->count() > 0;
+        $latestResult = $results->sortByDesc('created_at')->first();
+        @endphp
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 {{ $hasAttempts ? 'bg-green-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center"
+                     style="{{ !$hasAttempts ? 'background-color: ' . $primaryColor . '20' : '' }}">
+                    <i class="ri-file-edit-line text-xl {{ $hasAttempts ? 'text-green-600' : '' }}"
+                       style="{{ !$hasAttempts ? 'color: ' . $primaryColor : '' }}"></i>
+                </div>
+                @if($hasAttempts)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Sudah Dikerjakan</span>
+                @else
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Belum Dikerjakan</span>
+                @endif
+            </div>
+
+            <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $tesKoran->name }}</h3>
+
+            <div class="space-y-2 mb-4">
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-file-list-line mr-2 text-gray-400"></i>
+                    <span>{{ ucfirst($tesKoran->test_type) }}</span>
+                </div>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-time-line mr-2 text-gray-400"></i>
+                    <span>{{ $tesKoran->duration_minutes }} Menit</span>
+                </div>
+                @if($latestResult)
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-bar-chart-line mr-2 text-gray-400"></i>
+                    <span>Benar {{ $latestResult->total_correct }}</span>
+                </div>
+                @endif
+            </div>
+
+            <a href="{{ route('user.tes-koran.show', $tesKoran) }}"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+               style="background-color: {{ $primaryColor }}">
+                <i class="ri-play-circle-line mr-1"></i>{{ $hasAttempts ? 'Kerjakan Lagi' : 'Kerjakan' }}
+            </a>
+        </div>
+        @endforeach
+    </div>
+    @else
+    <div class="text-center py-16">
+        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="ri-file-edit-line text-4xl text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada tes koran</h3>
+        <p class="text-gray-400 text-sm mb-6">Tes Koran akan muncul di sini setelah kamu memiliki akses.</p>
         <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
             <i class="ri-store-3-line mr-2"></i>Lihat Paket
         </a>

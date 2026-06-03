@@ -12,6 +12,7 @@ class TesKoranController extends Controller
     public function index()
     {
         $tesKorans = TesKoran::orderBy('created_at', 'desc')
+            ->withCount('results')
             ->paginate(20);
 
         return view('admin.pages.tes-koran.index', compact('tesKorans'));
@@ -31,7 +32,14 @@ class TesKoranController extends Controller
             'duration_minutes' => 'required|integer|min:1|max:180',
             'columns_count' => 'required|integer|min:5|max:50',
             'rows_count' => 'required|integer|min:5|max:20',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'boolean',
+            'is_displayed' => 'boolean',
         ]);
+
+        $validated['price'] = (int) ($validated['price'] ?? 0);
+        $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
+        $validated['is_displayed'] = $request->boolean('is_displayed', true);
 
         TesKoran::create($validated);
 
@@ -53,8 +61,16 @@ class TesKoranController extends Controller
             'duration_minutes' => 'required|integer|min:1|max:180',
             'columns_count' => 'required|integer|min:5|max:50',
             'rows_count' => 'required|integer|min:5|max:20',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'boolean',
+            'is_displayed' => 'boolean',
             'is_active' => 'boolean',
         ]);
+
+        $validated['price'] = (int) ($validated['price'] ?? 0);
+        $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
+        $validated['is_displayed'] = $request->boolean('is_displayed');
+        $validated['is_active'] = $request->boolean('is_active');
 
         $tesKoran->update($validated);
 

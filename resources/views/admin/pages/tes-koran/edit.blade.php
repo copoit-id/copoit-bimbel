@@ -99,6 +99,35 @@
                     </div>
                 </div>
 
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
+                            <input type="number" id="price" name="price" min="0" step="1000"
+                                   value="{{ old('price', $tesKoran->price ?? 0) }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                   placeholder="0">
+                            <p class="text-xs text-gray-500 mt-1">Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</p>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="is_for_sale" value="1" {{ old('is_for_sale', $tesKoran->is_for_sale ?? false) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
+                                </label>
+                                <p class="text-xs text-gray-500 ml-6">Centang agar tes koran ini bisa dibeli secara individual.</p>
+                            </div>
+                            <div>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', $tesKoran->is_displayed ?? true) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">Tampilkan</span>
+                                </label>
+                                <p class="text-xs text-gray-500 ml-6">Centang untuk menampilkan tes koran di halaman user.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex items-center gap-2">
                     <input type="checkbox" id="is_active" name="is_active" value="1"
                            {{ $tesKoran->is_active ? 'checked' : '' }}

@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
-use App\Models\Package;
 use App\Models\TesKoran;
 use App\Models\TesKoranResult;
-use App\Models\UserPackageAcces;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,43 +14,29 @@ class TesKoranController extends Controller
 {
     public function index()
     {
-        $packages = Package::where('type_package', 'tes_koran')
+        $user = Auth::user();
+
+        $tesKorans = TesKoran::with('packages')
             ->where('is_active', true)
-            ->where('status', 'active')
-            ->with('tesKorans')
+            ->where('is_displayed', true)
+            ->orderBy('created_at', 'desc')
             ->get();
 
-        // Check access for each package
-        $packages = $packages->map(function ($package) {
-            $package->has_access = UserPackageAcces::where('user_id', Auth::id())
-                ->where('package_id', $package->package_id)
-                ->where('status', 'active')
-                ->where(function ($query) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>', Carbon::now());
-                })
-                ->exists();
-            return $package;
-        });
+        foreach ($tesKorans as $tesKoran) {
+            $tesKoran->has_access = $user ? $tesKoran->canUserAccess($user->id) : false;
+            $tesKoran->access_via_package = $tesKoran->accessiblePackageForUser($user?->id);
+            $tesKoran->is_for_sale = $tesKoran->is_for_sale && $tesKoran->price > 0;
+            $tesKoran->has_pending_purchase = $user ? $tesKoran->hasPendingPurchase($user->id) : false;
+        }
 
-        return view('user.pages.tes-koran.index', compact('packages'));
+        return view('user.pages.tes-koran.index', compact('tesKorans'));
     }
 
     public function show(TesKoran $tesKoran)
     {
-        $package = $tesKoran->package;
+        $package = $tesKoran->accessiblePackageForUser(Auth::id());
 
-        // Check access
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $package->package_id)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
-
-        if (!$hasAccess) {
+        if (!$tesKoran->canUserAccess(Auth::id())) {
             return redirect()->route('user.tes-koran.index')
                 ->with('error', 'Anda tidak memiliki akses ke tes ini');
         }
@@ -66,19 +50,7 @@ class TesKoranController extends Controller
 
     public function start(Request $request, TesKoran $tesKoran)
     {
-        $package = $tesKoran->package;
-
-        // Check access
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $package->package_id)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
-
-        if (!$hasAccess) {
+        if (!$tesKoran->canUserAccess(Auth::id())) {
             return response()->json(['error' => 'Akses ditolak'], 403);
         }
 
@@ -125,7 +97,7 @@ class TesKoranController extends Controller
             abort(403);
         }
 
-        $package = $tesKoran->package;
+        $package = $tesKoran->accessiblePackageForUser(Auth::id());
 
         return view('user.pages.tes-koran.result', compact('tesKoran', 'package', 'result'));
     }
@@ -202,7 +174,7 @@ class TesKoranController extends Controller
     public function history()
     {
         $results = TesKoranResult::where('user_id', Auth::id())
-            ->with('tesKoran.package')
+            ->with('tesKoran.packages')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 

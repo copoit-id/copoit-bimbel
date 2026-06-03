@@ -66,6 +66,49 @@
 
     </div>
 </div>
+
+@if(isset($tesKorans) && $tesKorans->count() > 0)
+<div class="package-bimbel bg-white p-4 rounded-lg border border-border mt-6">
+    <x-page-desc
+        :title="__('Tes Koran')"
+        :description="__('Tes Pauli dan Kraepelin yang termasuk dalam paket ini')">
+    </x-page-desc>
+
+    <div class="relative overflow-x-auto mt-4">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3">Nama Tes</th>
+                    <th scope="col" class="px-6 py-3 text-center">Tipe</th>
+                    <th scope="col" class="px-6 py-3 text-center">Durasi</th>
+                    <th scope="col" class="px-6 py-3 text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($tesKorans as $tesKoran)
+                <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
+                    <td class="px-6 py-4">
+                        <p class="font-semibold">{{ $tesKoran->name }}</p>
+                        <p class="text-xs text-gray-500">Kolom: {{ $tesKoran->columns_count }} | Baris: {{ $tesKoran->rows_count }}</p>
+                    </td>
+                    <td class="px-6 py-4 text-center">{{ ucfirst($tesKoran->test_type) }}</td>
+                    <td class="px-6 py-4 text-center">{{ $tesKoran->duration_minutes }} menit</td>
+                    <td class="px-6 py-4">
+                        <div class="flex justify-center">
+                            <a href="{{ route('user.tes-koran.show', $tesKoran) }}"
+                                class="flex items-center gap-2 border border-primary px-4 py-1 rounded-xl">
+                                <i class="ri-play-circle-line text-primary"></i>
+                                <span class="text-primary">Mulai</span>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 @endsection
 @section('scripts')
 <script>

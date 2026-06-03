@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\IndividualPurchase;
 use App\Models\Material;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +24,7 @@ class IndividualPurchaseController extends Controller
         }
 
         $request->validate([
-            'type' => 'required|in:material,tryout',
+            'type' => 'required|in:material,tryout,tes_koran',
             'id' => 'required|integer',
         ]);
 
@@ -35,9 +36,12 @@ class IndividualPurchaseController extends Controller
         if ($type === 'material') {
             $item = Material::find($id);
             $purchasableType = Material::class;
-        } else {
+        } elseif ($type === 'tryout') {
             $item = Tryout::find($id);
             $purchasableType = Tryout::class;
+        } else {
+            $item = TesKoran::find($id);
+            $purchasableType = TesKoran::class;
         }
 
         if (!$item) {
@@ -84,20 +88,17 @@ class IndividualPurchaseController extends Controller
         }
 
         // Check access via package
-        if ($type === 'material') {
-            if ($item->canUserAccess($userId)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah memiliki akses ke materi ini.'
-                ], 400);
-            }
-        } else {
-            if ($item->canUserAccess($userId)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah memiliki akses ke tryout ini.'
-                ], 400);
-            }
+        if ($item->canUserAccess($userId)) {
+            $itemLabel = match ($type) {
+                'material' => 'materi',
+                'tryout' => 'tryout',
+                default => 'tes koran',
+            };
+
+            return response()->json([
+                'success' => false,
+                'message' => "Anda sudah memiliki akses ke {$itemLabel} ini."
+            ], 400);
         }
 
         // For manual payment, require payment proof
@@ -144,6 +145,10 @@ class IndividualPurchaseController extends Controller
 
     public function gatewayRedirect(Request $request, string $type, int $id)
     {
+        if (!in_array($type, ['material', 'tryout', 'tes_koran'], true)) {
+            abort(404);
+        }
+
         // Placeholder for gateway integration
         // For now, create pending purchase and redirect to history
         $userId = Auth::id();
@@ -151,9 +156,12 @@ class IndividualPurchaseController extends Controller
         if ($type === 'material') {
             $item = Material::find($id);
             $purchasableType = Material::class;
-        } else {
+        } elseif ($type === 'tryout') {
             $item = Tryout::find($id);
             $purchasableType = Tryout::class;
+        } else {
+            $item = TesKoran::find($id);
+            $purchasableType = TesKoran::class;
         }
 
         if (!$item) {

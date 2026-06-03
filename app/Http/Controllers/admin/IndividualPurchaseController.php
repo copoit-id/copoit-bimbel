@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\User;
 use App\Models\UserMaterialAccess;
@@ -20,12 +21,14 @@ class IndividualPurchaseController extends Controller
      */
     public function index(Request $request)
     {
-        $type = $request->get('type', 'material'); // 'material' or 'tryout'
+        $type = $request->get('type', 'material');
         $status = $request->get('status', 'pending'); // 'pending', 'approved', 'rejected', 'all'
 
-        $purchasableType = $type === 'tryout'
-            ? Tryout::class
-            : Material::class;
+        $purchasableType = match ($type) {
+            'tryout' => Tryout::class,
+            'tes_koran' => TesKoran::class,
+            default => Material::class,
+        };
 
         $query = IndividualPurchase::with(['user', 'purchasable'])
             ->where('purchasable_type', $purchasableType)
@@ -62,7 +65,9 @@ class IndividualPurchaseController extends Controller
 
         // Get purchasable display info
         $itemType = class_basename($purchase->purchasable_type);
-        $itemTitle = $purchase->purchasable?->title ?? 'N/A';
+        $itemTitle = $purchase->purchasable?->title
+            ?? $purchase->purchasable?->name
+            ?? 'N/A';
 
         // Decode payment proof
         $paymentDetails = $purchase->payment_details ? json_decode($purchase->payment_details, true) : [];

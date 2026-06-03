@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
 use App\Models\MaterialProgressLog;
+use App\Models\TesKoranResult;
 use App\Models\UserAnswer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -41,13 +42,13 @@ class PackageController extends Controller
             // Free packages (gratis)
             $packages = Package::where('status', 'active')
                 ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
-                ->withCount(['materials', 'tryouts'])
+                ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         } else {
             // Paid packages (berbayar)
             $packages = Package::where('status', 'active')
                 ->where('type_price', 'paid')
-                ->withCount(['materials', 'tryouts'])
+                ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         }
         
@@ -434,7 +435,7 @@ class PackageController extends Controller
                 ->with('error', 'Silakan login terlebih dahulu untuk mengakses kelas.');
         }
         
-        $package = Package::findOrFail($id_package);
+        $package = Package::with('tesKorans')->findOrFail($id_package);
 
         // Check if user has access - perbaiki query akses
         $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -456,11 +457,16 @@ class PackageController extends Controller
             $query->where('package_id', $id_package);
         })->orderBy('schedule_time', 'desc')->get();
 
+        $tesKorans = $package->tesKorans()
+            ->where('is_active', true)
+            ->where('is_displayed', true)
+            ->get();
+
         ActivityLogger::log('class_list_opened', 'success', Auth::user(), [
             'package_id' => $id_package,
         ]);
 
-        return view('user.pages.package.bimbel', compact('package', 'classes'));
+        return view('user.pages.package.bimbel', compact('package', 'classes', 'tesKorans'));
     }
 
     public function indexTryout($id_package)
@@ -1847,7 +1853,7 @@ class PackageController extends Controller
         }
         
         $user = Auth::user();
-        $package = Package::with(['materials', 'tryouts'])->findOrFail($packageId);
+        $package = Package::with(['materials', 'tryouts', 'tesKorans'])->findOrFail($packageId);
         
         // Check access
         $hasAccess = UserPackageAcces::where('user_id', $user->id)
@@ -1931,6 +1937,34 @@ class PackageController extends Controller
             
             $orderCounter++;
         }
+
+        foreach ($package->tesKorans as $tesKoran) {
+            $attempt = TesKoranResult::where('user_id', $user->id)
+                ->where('tes_koran_id', $tesKoran->id)
+                ->where('status', 'completed')
+                ->first();
+            $isCompleted = $attempt !== null;
+
+            if ($isCompleted) {
+                $completedCount++;
+            }
+
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'tes_koran',
+                'title' => $tesKoran->name,
+                'subtitle' => 'Tes Koran',
+                'icon' => 'ri-file-edit-line',
+                'route' => route('user.tes-koran.show', $tesKoran),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => false,
+                'progress_percent' => 0,
+                'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+
+            $orderCounter++;
+        }
         
         $totalItems = $roadmapItems->count();
         $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
@@ -1996,7 +2030,7 @@ class PackageController extends Controller
      */
     public function detail($package_id)
     {
-        $package = Package::with(['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes'])
+        $package = Package::with(['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans'])
             ->where('status', 'active')
             ->findOrFail($package_id);
         

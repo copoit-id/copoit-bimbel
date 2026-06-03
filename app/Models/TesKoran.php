@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class TesKoran extends Model
 {
@@ -14,22 +16,30 @@ class TesKoran extends Model
         'duration_minutes',
         'columns_count',
         'rows_count',
+        'price',
+        'is_for_sale',
+        'is_displayed',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_for_sale' => 'boolean',
+        'is_displayed' => 'boolean',
         'duration_minutes' => 'integer',
         'columns_count' => 'integer',
         'rows_count' => 'integer',
+        'price' => 'decimal:0',
     ];
 
-    public function getPackagesAttribute()
+    public function detailPackages(): MorphMany
     {
-        return Package::whereHas('detailPackages', function ($query) {
-            $query->where('detailable_id', $this->id)
-                  ->where('detailable_type', TesKoran::class);
-        })->get();
+        return $this->morphMany(DetailPackage::class, 'detailable');
+    }
+
+    public function packages(): BelongsToMany
+    {
+        return $this->morphToMany(Package::class, 'detailable', 'detail_packages', 'detailable_id', 'package_id');
     }
 
     public function results(): HasMany
@@ -104,5 +114,59 @@ class TesKoran extends Model
         }
 
         return ['status' => 'datar', 'score' => 70];
+    }
+
+    public function canUserAccess(int $userId): bool
+    {
+        $hasPackageAccess = $this->packages()
+            ->whereHas('userAccess', function ($query) use ($userId) {
+                $query->where('user_id', $userId)
+                    ->where('status', 'active')
+                    ->where(function ($query) {
+                        $query->whereNull('end_date')->orWhere('end_date', '>', now());
+                    });
+            })
+            ->exists();
+
+        if ($hasPackageAccess) {
+            return true;
+        }
+
+        return $this->hasUserPurchased($userId);
+    }
+
+    public function hasUserPurchased(int $userId): bool
+    {
+        return IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->id)
+            ->where('status', IndividualPurchase::STATUS_APPROVED)
+            ->exists();
+    }
+
+    public function hasPendingPurchase(int $userId): bool
+    {
+        return IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->id)
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->exists();
+    }
+
+    public function accessiblePackageForUser(?int $userId): ?Package
+    {
+        if (!$userId) {
+            return $this->packages()->first();
+        }
+
+        return $this->packages()
+            ->whereHas('userAccess', function ($query) use ($userId) {
+                $query->where('user_id', $userId)
+                    ->where('status', 'active')
+                    ->where(function ($query) {
+                        $query->whereNull('end_date')->orWhere('end_date', '>', now());
+                    });
+            })
+            ->first() ?: $this->packages()->first();
     }
 }
