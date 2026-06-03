@@ -41,8 +41,14 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
 }])
 ->get();
 
-$myTesKorans = \App\Models\TesKoran::whereHas('packages', function($q) use ($accessiblePackageIds) {
-    $q->whereIn('packages.package_id', $accessiblePackageIds);
+$myTesKorans = \App\Models\TesKoran::where(function($q) use ($accessiblePackageIds, $user) {
+    $q->whereHas('packages', function($packageQuery) use ($accessiblePackageIds) {
+        $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+    })
+    ->orWhereHas('individualPurchases', function($purchaseQuery) use ($user) {
+        $purchaseQuery->where('user_id', $user->id)
+            ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED);
+    });
 })
 ->with(['results' => function($q) use ($user) {
     $q->where('user_id', $user->id);

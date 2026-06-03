@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\Package;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\User;
 use App\Models\UserMaterialAccess;
@@ -32,6 +34,11 @@ class AksesController extends Controller
             'documents' => Material::where('type', 'document')->where('is_active', true)->withCount('userAccess')->get(),
             'live' => Material::where('type', 'live_session')->where('is_active', true)->withCount('userAccess')->get(),
             'tryouts' => Tryout::where('is_active', true)->withCount('userAccess')->get(),
+            'tes_koran' => TesKoran::where('is_active', true)
+                ->withCount([
+                    'individualPurchases as user_access_count' => fn($q) => $q->where('status', IndividualPurchase::STATUS_APPROVED),
+                ])
+                ->get(),
             default => collect(),
         };
         
@@ -67,6 +74,7 @@ class AksesController extends Controller
             'package' => Package::findOrFail($itemId),
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
             'tryout' => Tryout::findOrFail($itemId),
+            'tes_koran' => TesKoran::findOrFail($itemId),
             default => abort(404),
         };
         
@@ -85,6 +93,12 @@ class AksesController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get(),
             'tryout' => UserTryoutAccess::where('tryout_id', $itemId)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+            'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
+                ->where('purchasable_id', $itemId)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
                 ->with('user')
                 ->orderBy('created_at', 'desc')
                 ->get(),
@@ -117,7 +131,7 @@ class AksesController extends Controller
     public function grant(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts',
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran',
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
             'start_date' => 'nullable|date',
@@ -138,6 +152,11 @@ class AksesController extends Controller
             'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->exists(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->exists(),
             'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->exists(),
+            'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
+                ->where('purchasable_id', $itemId)
+                ->where('user_id', $userId)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->exists(),
             default => true,
         };
         
@@ -150,6 +169,7 @@ class AksesController extends Controller
             'package' => $this->grantPackageAccess($userId, $itemId, $request),
             'video', 'document', 'live_session' => $this->grantMaterialAccess($userId, $itemId, $request),
             'tryout' => $this->grantTryoutAccess($userId, $itemId, $request),
+            'tes_koran' => $this->grantTesKoranAccess($userId, $itemId, $request),
             default => null,
         };
         
@@ -162,7 +182,7 @@ class AksesController extends Controller
     public function revoke(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts',
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran',
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
         ]);
@@ -179,6 +199,10 @@ class AksesController extends Controller
             'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->delete(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->delete(),
             'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->delete(),
+            'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
+                ->where('purchasable_id', $itemId)
+                ->where('user_id', $userId)
+                ->delete(),
             default => null,
         };
         
@@ -221,6 +245,25 @@ class AksesController extends Controller
             'access_source' => 'direct',
             'status' => 'not_started',
             'expires_at' => $request->end_date,
+        ]);
+    }
+
+    private function grantTesKoranAccess($userId, $tesKoranId, $request)
+    {
+        $tesKoran = TesKoran::findOrFail($tesKoranId);
+
+        IndividualPurchase::create([
+            'user_id' => $userId,
+            'purchasable_type' => TesKoran::class,
+            'purchasable_id' => $tesKoranId,
+            'price' => $request->access_type === 'paid' ? ($tesKoran->price ?? 0) : 0,
+            'admin_fee' => 0,
+            'total_amount' => $request->access_type === 'paid' ? ($tesKoran->price ?? 0) : 0,
+            'payment_method' => 'direct',
+            'status' => IndividualPurchase::STATUS_APPROVED,
+            'transaction_id' => 'DIRECT-TES-KORAN-' . $tesKoranId . '-' . $userId . '-' . time(),
+            'approved_at' => now(),
+            'approved_by' => Auth::id(),
         ]);
     }
 

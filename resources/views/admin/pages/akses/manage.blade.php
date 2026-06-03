@@ -21,6 +21,7 @@
             'document' => 'ri-file-text-line',
             'live' => 'ri-live-line',
             'tryout' => 'ri-file-list-3-line',
+            'tes_koran' => 'ri-file-edit-line',
             default => 'ri-apps-line',
         };
         $colorClass = match($type) {
@@ -29,6 +30,7 @@
             'document' => 'bg-green-100 text-green-600',
             'live' => 'bg-purple-100 text-purple-600',
             'tryout' => 'bg-orange-100 text-orange-600',
+            'tes_koran' => 'bg-emerald-100 text-emerald-600',
             default => 'bg-gray-100 text-gray-600',
         };
         @endphp
@@ -105,7 +107,7 @@
             <!-- Search -->
             <form method="GET" action="{{ route('admin.akses.manage') }}" class="flex gap-2">
                 <input type="hidden" name="type" value="{{ $type }}">
-                <input type="hidden" name="item_id" value="{{ $item->package_id ?? $item->material_id ?? $item->tryout_id }}">
+                <input type="hidden" name="item_id" value="{{ $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id }}">
                 <div class="relative flex-1">
                     <input type="text" name="search" value="{{ $search }}" 
                            placeholder="Cari user..."
@@ -116,7 +118,7 @@
                     Cari
                 </button>
                 @if($search)
-                <a href="{{ route('admin.akses.manage', ['type' => $type, 'item_id' => $item->package_id ?? $item->material_id ?? $item->tryout_id]) }}" 
+                <a href="{{ route('admin.akses.manage', ['type' => $type, 'item_id' => $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id]) }}"
                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
                     Reset
                 </a>
@@ -181,7 +183,7 @@ const rawType = '{{ $type }}';
 let type = rawType.replace(/s$/, ''); // Remove trailing 's'
 if (type === 'live') type = 'live_session';
 
-const itemId = '{{ $item->package_id ?? $item->material_id ?? $item->tryout_id }}';
+const itemId = '{{ $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id }}';
 const csrfToken = '{{ csrf_token() }}';
 
 function grantAccess(userId, userName) {

@@ -47,6 +47,11 @@ class TesKoran extends Model
         return $this->hasMany(TesKoranResult::class);
     }
 
+    public function individualPurchases(): MorphMany
+    {
+        return $this->morphMany(IndividualPurchase::class, 'purchasable');
+    }
+
     public function generateColumns(int $count): array
     {
         $columns = [];

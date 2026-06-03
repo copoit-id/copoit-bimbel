@@ -9,7 +9,7 @@
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="Kelola Akses User - Paket, Materi & Tryout"></x-page-desc>
+<x-page-desc title="Kelola Akses User - Paket, Materi, Tryout & Tes Koran"></x-page-desc>
 
 <!-- Tabs Navigation -->
 <div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex flex-wrap gap-1">
@@ -48,6 +48,13 @@
             {{ $tab === 'tryouts' ? $items->count() : '' }}
         </span>
     </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'tes_koran']) }}"
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tes_koran' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-file-edit-line mr-1"></i>Tes Koran
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'tes_koran' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'tes_koran' ? $items->count() : '' }}
+        </span>
+    </a>
 </div>
 
 <!-- Pending Requests Alert (Only for packages tab) -->
@@ -84,6 +91,7 @@
         'documents' => 'ri-file-text-line',
         'live' => 'ri-live-line',
         'tryouts' => 'ri-file-list-3-line',
+        'tes_koran' => 'ri-file-edit-line',
         default => 'ri-apps-line',
     };
     
@@ -94,6 +102,7 @@
         'documents' => 'bg-green-100 text-green-600',
         'live' => 'bg-purple-100 text-purple-600',
         'tryouts' => 'bg-orange-100 text-orange-600',
+        'tes_koran' => 'bg-emerald-100 text-emerald-600',
         default => 'bg-gray-100 text-gray-600',
     };
     @endphp
@@ -113,9 +122,9 @@
             
             <div class="mt-4 pt-4 border-t flex items-center justify-between">
                 <span class="text-xs text-gray-400">
-                    @if($tab === 'packages' && $item->price > 0)
+                    @if(in_array($tab, ['packages', 'tes_koran']) && $item->price > 0)
                         Rp {{ number_format($item->price, 0, ',', '.') }}
-                    @elseif($tab === 'packages')
+                    @elseif(in_array($tab, ['packages', 'tes_koran']))
                         Gratis
                     @else
                         {{ ucfirst(str_replace('_', ' ', $tab)) }}
