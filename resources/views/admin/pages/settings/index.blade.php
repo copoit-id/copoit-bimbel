@@ -20,8 +20,8 @@
 
     @php
     $settingErrorKeys = $errors->keys();
-    $activeSettingsTab = old('settings_tab', 'identity');
-    if ($errors->isNotEmpty() && !old('settings_tab')) {
+    $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
+    if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
@@ -48,6 +48,13 @@
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
+
+        @if ($errors->has('general'))
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
+            <p class="font-semibold">Terjadi kesalahan</p>
+            <p>{{ $errors->first('general') }}</p>
+        </div>
+        @endif
 
         <div class="bg-white border border-border rounded-2xl shadow-sm p-3 md:p-4">
             <div class="flex flex-wrap gap-2">
