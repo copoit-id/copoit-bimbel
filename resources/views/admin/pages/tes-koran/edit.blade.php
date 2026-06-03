@@ -24,6 +24,12 @@
         </div>
         @endif
 
+        <form id="deleteTesKoranForm" action="{{ route('admin.tes-koran.destroy', $tesKoran) }}" method="POST"
+              onsubmit="return confirm('Yakin hapus tes ini?')">
+            @csrf
+            @method('DELETE')
+        </form>
+
         <form action="{{ route('admin.tes-koran.update', $tesKoran) }}" method="POST">
             @csrf
             @method('PUT')
@@ -103,7 +109,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
-                            <input type="number" id="price" name="price" min="0" step="1000"
+                            <input type="number" id="price" name="price" min="0" step="1"
                                    value="{{ old('price', $tesKoran->price ?? 0) }}"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                    placeholder="0">
@@ -139,14 +145,9 @@
             </div>
 
             <div class="flex items-center justify-between mt-6 pt-4 border-t">
-                <form action="{{ route('admin.tes-koran.destroy', $tesKoran) }}" method="POST" class="inline"
-                      onsubmit="return confirm('Yakin hapus tes ini?')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">
-                        <i class="ri-delete-bin-line mr-1"></i>Hapus Tes
-                    </button>
-                </form>
+                <button type="submit" form="deleteTesKoranForm" class="text-red-600 hover:text-red-800 text-sm">
+                    <i class="ri-delete-bin-line mr-1"></i>Hapus Tes
+                </button>
 
                 <div class="flex gap-3">
                     <a href="{{ route('admin.tes-koran.preview', $tesKoran) }}"
