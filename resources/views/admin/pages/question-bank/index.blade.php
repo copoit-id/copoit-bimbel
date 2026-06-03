@@ -88,6 +88,17 @@
                 <h2 class="text-lg font-semibold text-gray-900">Daftar Bank Soal</h2>
                 <p class="text-sm text-gray-500">Pilih bank untuk melihat sub bank dan soal di dalamnya.</p>
             </div>
+            <form method="GET" action="{{ route('admin.question-bank.index') }}" class="flex items-center gap-2">
+                @if($importTarget)
+                <input type="hidden" name="import_for" value="{{ $importTarget }}">
+                @endif
+                <label for="bank-sort" class="text-sm text-gray-500">Urutkan</label>
+                <select id="bank-sort" name="sort" onchange="this.form.submit()"
+                    class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                    <option value="newest" @selected(($bankSort ?? 'newest') === 'newest')>Terbaru</option>
+                    <option value="oldest" @selected(($bankSort ?? 'newest') === 'oldest')>Terlama</option>
+                </select>
+            </form>
         </div>
 
         @if ($rootBanks->isEmpty())
@@ -110,6 +121,7 @@
                 </div>
                 <div class="flex flex-wrap gap-2 text-xs text-gray-500 mb-auto">
                     <span class="rounded-full bg-gray-100 px-3 py-1">Sub bank: {{ $bank->children->count() }}</span>
+                    <span class="rounded-full bg-gray-100 px-3 py-1">Dibuat: {{ optional($bank->created_at)->format('d M Y') }}</span>
                 </div>
                 <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
                     <button type="button" onclick="editBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', '{{ addslashes($bank->description ?? '') }}')"

@@ -23,11 +23,15 @@ class QuestionBankController extends Controller
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
             : null;
+        $bankSort = $request->input('sort', 'newest');
+        $bankSortDirection = $bankSort === 'oldest' ? 'asc' : 'desc';
 
         $rootBanks = QuestionBank::withCount('questions')
-            ->with('children')
+            ->with(['children' => function ($query) use ($bankSortDirection) {
+                $query->withCount('questions')->orderBy('created_at', $bankSortDirection);
+            }])
             ->whereNull('parent_id')
-            ->orderBy('name')
+            ->orderBy('created_at', $bankSortDirection)
             ->get();
 
         $stats = [
@@ -43,7 +47,8 @@ class QuestionBankController extends Controller
             'stats',
             'bankOptions',
             'tryoutDetail',
-            'importTarget'
+            'importTarget',
+            'bankSort'
         ));
     }
 
@@ -109,14 +114,30 @@ class QuestionBankController extends Controller
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
             : null;
+        $questionSort = $request->input('sort', 'newest');
+        $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
+        $questionType = $request->input('question_type', 'all');
 
-        $questionBank->load(['children' => function ($query) {
-            $query->withCount('questions')->orderBy('name');
+        $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
+            $query->withCount('questions')->orderBy('created_at', $questionSortDirection);
         }]);
 
-        $questions = $questionBank->questions()
-            ->with('options')
-            ->latest()
+        $questionTypeOptions = $questionBank->questions()
+            ->select('question_type')
+            ->whereNotNull('question_type')
+            ->distinct()
+            ->orderBy('question_type')
+            ->pluck('question_type');
+
+        $questionsQuery = $questionBank->questions()
+            ->with('options');
+
+        if ($questionType !== 'all') {
+            $questionsQuery->where('question_type', $questionType);
+        }
+
+        $questions = $questionsQuery
+            ->orderBy('created_at', $questionSortDirection)
             ->paginate(15);
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
@@ -127,6 +148,9 @@ class QuestionBankController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'tryoutDetail' => $tryoutDetail,
             'importTarget' => $importTarget,
+            'questionSort' => $questionSort,
+            'questionType' => $questionType,
+            'questionTypeOptions' => $questionTypeOptions,
         ]);
     }
 

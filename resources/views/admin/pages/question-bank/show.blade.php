@@ -72,6 +72,7 @@
                         <p class="text-xs uppercase tracking-wide text-gray-400">Sub Bank</p>
                         <h3 class="text-base font-semibold text-gray-900 line-clamp-2">{{ $child->name }}</h3>
                         <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ Str::limit($child->description, 60) }}</p>
+                        <p class="text-xs text-gray-400 mt-2">Dibuat: {{ optional($child->created_at)->format('d M Y') }}</p>
                     </div>
                     <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary flex-shrink-0">
                         {{ $child->questions_count }} Soal
@@ -104,6 +105,25 @@
                 <p class="text-sm text-gray-500">Soal yang disimpan dalam bank ini.</p>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                <form method="GET" action="{{ route('admin.question-bank.show', $bank->id) }}" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                    @if($importTarget)
+                    <input type="hidden" name="import_for" value="{{ $importTarget }}">
+                    @endif
+                    <select name="sort" onchange="this.form.submit()"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                        <option value="newest" @selected(($questionSort ?? 'newest') === 'newest')>Terbaru</option>
+                        <option value="oldest" @selected(($questionSort ?? 'newest') === 'oldest')>Terlama</option>
+                    </select>
+                    <select name="question_type" onchange="this.form.submit()"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                        <option value="all" @selected(($questionType ?? 'all') === 'all')>Semua Tipe</option>
+                        @foreach($questionTypeOptions as $typeOption)
+                        <option value="{{ $typeOption }}" @selected(($questionType ?? 'all') === $typeOption)>
+                            {{ ucwords(str_replace('_', ' ', $typeOption)) }}
+                        </option>
+                        @endforeach
+                    </select>
+                </form>
                 <div class="relative">
                     <input type="text" id="question-search" placeholder="Cari soal..."
                         class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -141,7 +161,7 @@
                         <th class="px-4 py-3 text-left">Soal</th>
                         <th class="px-4 py-3 text-left">Tipe</th>
                         <th class="px-4 py-3 text-left">Bobot</th>
-                        <th class="px-4 py-3 text-left">Terakhir Update</th>
+                        <th class="px-4 py-3 text-left">Dibuat</th>
                         <th class="px-4 py-3 text-left">Aksi</th>
                     </tr>
                 </thead>
@@ -191,7 +211,7 @@
                                 {{ $defaultWeight }} poin
                             @endif
                         </td>
-                        <td class="px-4 py-3">{{ optional($question->updated_at)->diffForHumans() }}</td>
+                        <td class="px-4 py-3">{{ optional($question->created_at)->format('d M Y H:i') }}</td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-2">
                                 <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
