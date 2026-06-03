@@ -6,7 +6,21 @@
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
+        $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     @endphp
+    <style>
+        .discussion-nav-btn:hover,
+        .discussion-nav-active {
+            border-color: {{ $primaryColor }} !important;
+            background-color: {{ $primaryColor }} !important;
+            color: #ffffff !important;
+        }
+
+        .discussion-nav-active {
+            box-shadow: 0 0 0 3px {{ $primaryColor }}33;
+            transform: translateY(-1px);
+        }
+    </style>
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col md:flex-row gap-4 text-dark">
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
@@ -112,6 +126,50 @@
     </div>
     @endif
 
+    @if($allAnswerDetails->isNotEmpty())
+    <div class="bg-white px-4 py-6 rounded-lg border border-border">
+        <div class="flex flex-col gap-2 mb-4 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h3 class="text-lg font-bold text-gray-800">Navigasi Soal</h3>
+                <p class="text-sm text-gray-500">Pilih nomor untuk melihat pembahasan soal tertentu.</p>
+            </div>
+            <span id="discussion-nav-status" class="text-sm text-gray-500">Menampilkan semua soal</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12">
+            <button type="button"
+                class="discussion-nav-btn discussion-nav-active col-span-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors"
+                data-question-target="all">
+                Semua
+            </button>
+            @foreach($allAnswerDetails as $navIndex => $navDetail)
+            @php
+                $navIsUnanswered = (bool) ($navDetail->is_unanswered ?? false);
+                $navAnswerMeta = is_array($navDetail->answer_json) ? $navDetail->answer_json : [];
+                $navIsPending = ($navAnswerMeta['pending_review'] ?? false) === true;
+                $navSelectedOption = $navDetail->questionOption;
+                $navIsTkp = ($navDetail->subtest_type ?? '') === 'tkp';
+                $navMaxWeight = (float) ($navDetail->question->questionOptions->max('weight') ?? 0);
+                $navIsCorrect = !$navIsUnanswered && ($navIsTkp
+                    ? ($navSelectedOption && (float) ($navSelectedOption->weight ?? 0) >= $navMaxWeight)
+                    : (bool) $navDetail->is_correct);
+                $navStateClass = $navIsPending
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : ($navIsUnanswered
+                        ? 'border-gray-200 bg-gray-50 text-gray-500'
+                        : ($navIsCorrect
+                            ? 'border-green-200 bg-green-50 text-green-700'
+                            : 'border-red-200 bg-red-50 text-red-700'));
+            @endphp
+            <button type="button"
+                class="discussion-nav-btn rounded-xl border px-3 py-3 text-sm font-semibold transition-colors {{ $navStateClass }}"
+                data-question-target="{{ $navIndex + 1 }}">
+                {{ $navIndex + 1 }}
+            </button>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col gap-8 text-dark">
         @php $currentSubtest = null; @endphp
         @foreach($allAnswerDetails as $index => $detail)
@@ -164,7 +222,7 @@
         {{-- Subtest Header --}}
         @if($currentSubtest !== $detail->subtest_type)
         @php $currentSubtest = $detail->subtest_type; @endphp
-        <div class="border-t-2 border-primary pt-6 -mt-2">
+        <div class="discussion-subtest-header border-t-2 border-primary pt-6 -mt-2">
             <div class="flex items-center gap-3 mb-4">
                 <div
                     class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
@@ -187,7 +245,8 @@
                 $cardBorderClass = 'border-red bg-red-light/30';
             }
         @endphp
-        <div class="card-pembahasan essay-card w-full border border-dashed p-4 rounded-lg {{ $cardBorderClass }} {{ ($isPendingReview && ($answerMeta['evaluation_mode'] ?? 'manual') === 'auto') ? 'essay-pending-ai' : '' }}" 
+        <div class="card-pembahasan essay-card w-full border border-dashed p-4 rounded-lg {{ $cardBorderClass }} {{ ($isPendingReview && ($answerMeta['evaluation_mode'] ?? 'manual') === 'auto') ? 'essay-pending-ai' : '' }}"
+             data-question-number="{{ $index + 1 }}"
              data-question-id="{{ $question->question_id }}" 
              data-pending="{{ $isPendingReview ? 'true' : 'false' }}">
             <div class="flex items-center justify-start gap-4">
@@ -714,6 +773,39 @@
 @section('scripts')
 <script>
     console.log('Pembahasan loaded');
+
+    const discussionNavButtons = document.querySelectorAll('.discussion-nav-btn');
+    const discussionCards = document.querySelectorAll('.card-pembahasan[data-question-number]');
+    const discussionSubtestHeaders = document.querySelectorAll('.discussion-subtest-header');
+    const discussionNavStatus = document.getElementById('discussion-nav-status');
+
+    function setDiscussionQuestion(target) {
+        discussionSubtestHeaders.forEach(header => {
+            header.classList.toggle('hidden', target !== 'all');
+        });
+
+        discussionCards.forEach(card => {
+            const shouldShow = target === 'all' || card.dataset.questionNumber === target;
+            card.classList.toggle('hidden', !shouldShow);
+        });
+
+        discussionNavButtons.forEach(button => {
+            button.classList.toggle('discussion-nav-active', button.dataset.questionTarget === target);
+        });
+
+        if (discussionNavStatus) {
+            discussionNavStatus.textContent = target === 'all'
+                ? 'Menampilkan semua soal'
+                : `Menampilkan soal ${target}`;
+        }
+
+    }
+
+    discussionNavButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            setDiscussionQuestion(button.dataset.questionTarget || 'all');
+        });
+    });
     
     // Cek apakah ada essay yang menunggu koreksi AI
     const pendingEssays = document.querySelectorAll('.essay-pending-ai');
