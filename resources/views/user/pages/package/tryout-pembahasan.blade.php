@@ -117,9 +117,16 @@
         @foreach($allAnswerDetails as $index => $detail)
         @php
         $question = $detail->question;
-        $correctOption = $question->questionOptions->where('is_correct', true)->first();
+        $isUnanswered = (bool) ($detail->is_unanswered ?? false);
+        $isTkp = ($detail->subtest_type ?? '') === 'tkp';
+        $maxOptionWeight = (float) ($question->questionOptions->max('weight') ?? 0);
+        $correctOption = $isTkp
+            ? $question->questionOptions->sortByDesc(fn ($option) => (float) ($option->weight ?? 0))->first()
+            : $question->questionOptions->where('is_correct', true)->first();
         $selectedOption = $detail->questionOption;
-        $isCorrect = $detail->is_correct;
+        $isCorrect = !$isUnanswered && ($isTkp
+            ? ($selectedOption && (float) ($selectedOption->weight ?? 0) >= $maxOptionWeight)
+            : (bool) $detail->is_correct);
         $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
         $isPendingReview = ($answerMeta['pending_review'] ?? false) === true;
         $questionMeta = is_array($question->metadata ?? null) ? $question->metadata : [];
@@ -172,6 +179,8 @@
             // Tentukan border color berdasarkan status
             if ($isPendingReview) {
                 $cardBorderClass = 'border-amber-400 bg-amber-50/30';
+            } elseif ($isUnanswered) {
+                $cardBorderClass = 'border-red bg-red-light/30';
             } elseif ($isCorrect) {
                 $cardBorderClass = 'border-green bg-green-light/30';
             } else {
@@ -196,6 +205,10 @@
                         $statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
                         $statusText = 'Belum Dikoreksi';
                         $statusIcon = 'ri-time-line';
+                    } elseif ($isUnanswered) {
+                        $statusBadgeClass = 'bg-red text-white';
+                        $statusText = 'Tidak Dijawab';
+                        $statusIcon = 'ri-close-circle-fill';
                     } elseif ($isCorrect) {
                         $statusBadgeClass = 'bg-green text-white';
                         $statusText = 'Benar';
@@ -287,6 +300,11 @@
                     <span class="essay-status-badge flex items-center gap-1 border border-amber-200 bg-amber-50 text-amber-700 px-3 py-1 rounded-lg text-sm">
                         <i class="ri-time-line"></i>
                         Menunggu
+                    </span>
+                @elseif($isUnanswered)
+                    <span class="essay-score-badge flex items-center gap-1 border border-red-200 bg-red-50 text-red-700 px-3 py-1 rounded-lg text-sm">
+                        <i class="ri-close-line"></i>
+                        Kosong
                     </span>
                 @else
                     {{-- Sudah dikoreksi - tampilkan nilai --}}
@@ -468,8 +486,11 @@
                 $isSelected = $isMultipleAnswerQuestion
                     ? in_array((int) $option->question_option_id, $selectedOptionIds, true)
                     : ($detail->question_option_id === $option->question_option_id);
-                $isCorrectOption = $option->is_correct;
-                $optionKey = $option->option_key ?? chr(65 + $loop->index);
+                $isCorrectOption = $isTkp
+                    ? ((float) ($option->weight ?? 0) >= $maxOptionWeight)
+                    : (bool) $option->is_correct;
+                $storedOptionKey = trim((string) ($option->option_key ?? ''));
+                $optionKey = $storedOptionKey !== '' ? $storedOptionKey : chr(65 + $loop->index);
                 $choiceInputType = $isMultipleAnswerQuestion ? 'checkbox' : 'radio';
                 @endphp
 
@@ -496,7 +517,7 @@
                     <span class="text-xs bg-white/20 px-2 py-1 rounded">Bobot: {{ $option->weight }}</span>
                     @endif
                 </div>
-                @elseif($isSelected && !$isCorrect)
+                @elseif($isSelected && !$isCorrectOption)
                 <!-- User's wrong answer - RED -->
                 <div
                     class="flex w-full items-center gap-1 font-light border px-4 py-2 rounded-lg transition-colors bg-red text-white border-red">
@@ -532,10 +553,25 @@
                 @endforeach
             </div>
 
+            @if($isUnanswered)
+            <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p class="font-semibold text-red-800 mb-1">Status Jawaban:</p>
+                <p class="text-red-700">Soal ini tidak dijawab.</p>
+            </div>
+            @endif
+
             @if(!$isCorrect && $correctOption && in_array($detail->subtest_type, ['twk', 'tiu']))
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p class="font-semibold text-green-800 mb-1">Jawaban Yang Benar:</p>
-                <p class="text-green-700">{{ $correctOption->option_key ?? 'A' }}. {!! $correctOption->option_text !!}</p>
+                @php
+                    $correctOptionIndex = $question->questionOptions
+                        ->values()
+                        ->search(fn ($option) => (int) $option->question_option_id === (int) $correctOption->question_option_id);
+                    $correctOptionIndex = $correctOptionIndex === false ? 0 : (int) $correctOptionIndex;
+                    $storedCorrectOptionKey = trim((string) ($correctOption->option_key ?? ''));
+                    $correctOptionKey = $storedCorrectOptionKey !== '' ? $storedCorrectOptionKey : chr(65 + $correctOptionIndex);
+                @endphp
+                <p class="text-green-700">{{ $correctOptionKey }}. {!! $correctOption->option_text !!}</p>
             </div>
             @endif
             @endif

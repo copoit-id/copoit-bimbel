@@ -1605,8 +1605,7 @@ class PackageController extends Controller
 
         $tryoutDetails = $tryout->tryoutDetails;
 
-        // Get all answer details with questions for pembahasan
-        $allAnswerDetails = collect();
+        $answeredDetailsByQuestionId = collect();
         foreach ($latestUserAnswers as $userAnswer) {
             $answerDetails = $userAnswer->userAnswerDetails()->with([
                 'question.questionOptions',
@@ -1618,8 +1617,47 @@ class PackageController extends Controller
                 $detail->subtest_name = $this->getSubtestName($userAnswer->tryoutDetail->type_subtest);
             }
 
-            $allAnswerDetails = $allAnswerDetails->concat($answerDetails);
+            foreach ($answerDetails as $detail) {
+                $answeredDetailsByQuestionId->put($detail->question_id, $detail);
+            }
         }
+
+        $userAnswersByTryoutDetailId = $latestUserAnswers->keyBy('tryout_detail_id');
+        $questions = \App\Models\Question::with('questionOptions')
+            ->whereIn('tryout_detail_id', $latestUserAnswers->pluck('tryout_detail_id'))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        $allAnswerDetails = $questions->map(function ($question) use ($answeredDetailsByQuestionId, $userAnswersByTryoutDetailId) {
+            $userAnswer = $userAnswersByTryoutDetailId->get($question->tryout_detail_id);
+            $detail = $answeredDetailsByQuestionId->get($question->question_id);
+
+            if (!$detail) {
+                $detail = new \App\Models\UserAnswerDetail([
+                    'user_answer_id' => $userAnswer?->user_answer_id,
+                    'question_id' => $question->question_id,
+                    'question_option_id' => null,
+                    'answer_text' => null,
+                    'answer_json' => [],
+                    'is_correct' => false,
+                    'answered_at' => null,
+                ]);
+                $detail->exists = false;
+                $detail->setRelation('questionOption', null);
+            }
+
+            $detail->setRelation('question', $question);
+            $detail->subtest_type = $userAnswer?->tryoutDetail?->type_subtest ?? $question->tryoutDetail?->type_subtest;
+            $detail->subtest_name = $this->getSubtestName($detail->subtest_type);
+            $detail->is_unanswered = !$detail->exists || (
+                !$detail->question_option_id
+                && blank($detail->answer_text)
+                && empty($detail->answer_json)
+            );
+
+            return $detail;
+        });
 
         $pendingReviewCount = $allAnswerDetails->filter(function ($detail) {
             $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
