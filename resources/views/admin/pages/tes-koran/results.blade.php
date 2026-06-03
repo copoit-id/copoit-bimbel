@@ -3,6 +3,10 @@
 @section('title', 'Hasil Tes Koran')
 
 @section('content')
+@php
+$primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+@endphp
+
 <div class="container mx-auto px-4">
     <x-breadcrumb>
         <x-slot name="items">
@@ -25,30 +29,30 @@
 
         <!-- Statistics Cards -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div class="p-4 rounded-lg border" style="background-color: {{ $primaryColor }}08; border-color: {{ $primaryColor }}30">
                 <p class="text-sm text-gray-500">Total Peserta</p>
-                <p class="text-2xl font-bold text-gray-800">{{ $statistics['total_participants'] }}</p>
+                <p class="text-2xl font-bold" style="color: {{ $primaryColor }}">{{ $statistics['total_participants'] }}</p>
             </div>
-            <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div class="p-4 rounded-lg border" style="background-color: {{ $primaryColor }}08; border-color: {{ $primaryColor }}30">
                 <p class="text-sm text-gray-500">Rata-rata Benar</p>
                 <p class="text-2xl font-bold text-primary">{{ round($statistics['avg_correct']) }}</p>
             </div>
-            <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div class="p-4 rounded-lg border" style="background-color: {{ $primaryColor }}08; border-color: {{ $primaryColor }}30">
                 <p class="text-sm text-gray-500">Rata-rata Akurasi</p>
                 <p class="text-2xl font-bold text-primary">{{ round($statistics['avg_accuracy'], 1) }}%</p>
             </div>
-            <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div class="p-4 rounded-lg border" style="background-color: {{ $primaryColor }}08; border-color: {{ $primaryColor }}30">
                 <p class="text-sm text-gray-500">Stabilitas Tinggi</p>
                 <p class="text-2xl font-bold text-green-600">{{ $statistics['high_count'] }}</p>
             </div>
-            <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div class="p-4 rounded-lg border" style="background-color: {{ $primaryColor }}08; border-color: {{ $primaryColor }}30">
                 <p class="text-sm text-gray-500">Stabilitas Rendah</p>
                 <p class="text-2xl font-bold text-red-600">{{ $statistics['low_count'] }}</p>
             </div>
         </div>
 
         <!-- Distribution Chart -->
-        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="rounded-lg p-4 mb-6" style="background-color: {{ $primaryColor }}08">
             <h4 class="font-medium text-gray-700 mb-3">Distribusi Hasil</h4>
             <div class="flex items-center gap-4">
                 <div class="flex items-center gap-2">
@@ -87,11 +91,11 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3">
                             @if($index == 0)
-                            <span class="flex items-center justify-center w-8 h-8 bg-yellow-500 text-white rounded-full font-bold">1</span>
+                            <span class="flex items-center justify-center w-8 h-8 text-white rounded-full font-bold" style="background-color: {{ $primaryColor }}">1</span>
                             @elseif($index == 1)
-                            <span class="flex items-center justify-center w-8 h-8 bg-gray-400 text-white rounded-full font-bold">2</span>
+                            <span class="flex items-center justify-center w-8 h-8 text-white rounded-full font-bold" style="background-color: {{ $primaryColor }}">2</span>
                             @elseif($index == 2)
-                            <span class="flex items-center justify-center w-8 h-8 bg-orange-500 text-white rounded-full font-bold">3</span>
+                            <span class="flex items-center justify-center w-8 h-8 text-white rounded-full font-bold" style="background-color: {{ $primaryColor }}">3</span>
                             @else
                             <span class="flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-600 rounded-full">{{ $index + 1 }}</span>
                             @endif
@@ -107,14 +111,14 @@
                             </div>
                         </td>
                         <td class="px-4 py-3 text-center font-bold text-lg text-primary">{{ $result->total_correct }}</td>
-                        <td class="px-4 py-3 text-center text-red-600">{{ $result->total_wrong }}</td>
+                        <td class="px-4 py-3 text-center text-gray-600">{{ $result->total_wrong }}</td>
                         <td class="px-4 py-3 text-center">
-                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                            <span class="px-2 py-1 rounded text-xs" style="background-color: {{ $primaryColor }}15; color: {{ $primaryColor }}">
                                 {{ round($result->speed_score) }}
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center">
-                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                            <span class="px-2 py-1 rounded text-xs" style="background-color: {{ $primaryColor }}15; color: {{ $primaryColor }}">
                                 {{ round($result->accuracy_score, 1) }}%
                             </span>
                         </td>

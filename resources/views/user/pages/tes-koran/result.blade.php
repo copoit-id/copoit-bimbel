@@ -12,10 +12,20 @@ $resultIcon = match ($result->final_result) {
     'sedang' => 'ri-emotion-normal-line',
     default => 'ri-emotion-unhappy-line',
 };
+$resultBadgeClass = match ($result->final_result) {
+    'tinggi' => 'bg-green-500',
+    'sedang' => 'bg-yellow-500',
+    default => 'bg-red-500',
+};
 $stabilityIcon = match ($result->stability_status) {
     'meningkat' => 'ri-arrow-up-line',
     'menurun' => 'ri-arrow-down-line',
     default => 'ri-subtract-line',
+};
+$stabilityClass = match ($result->stability_status) {
+    'meningkat' => 'text-green-600',
+    'menurun' => 'text-red-600',
+    default => 'text-yellow-600',
 };
 @endphp
 
@@ -38,7 +48,7 @@ $stabilityIcon = match ($result->stability_status) {
             <p class="text-gray-500 text-sm">{{ $result->finished_at ? $result->finished_at->format('d M Y, H:i') : 'Baru saja' }}</p>
         </div>
         <div>
-            <span class="px-4 py-2 text-white rounded-full font-bold" style="background-color: {{ $primaryColor }}">
+            <span class="px-4 py-2 {{ $resultBadgeClass }} text-white rounded-full font-bold">
                 <i class="{{ $resultIcon }} mr-1"></i>{{ strtoupper($result->final_result) }}
             </span>
         </div>
@@ -69,19 +79,19 @@ $stabilityIcon = match ($result->stability_status) {
         <h4 class="font-medium text-gray-700 mb-3">Status Stabilitas</h4>
         <div class="flex items-center gap-4">
             @if($result->stability_status == 'meningkat')
-            <span class="flex items-center gap-2" style="color: {{ $primaryColor }}">
+            <span class="flex items-center gap-2 {{ $stabilityClass }}">
                 <i class="{{ $stabilityIcon }} text-2xl"></i>
                 <span class="font-bold">MENINGKAT</span>
             </span>
             <span class="text-sm text-gray-600">Grafik menunjukkan peningkatan - motivasi dan ketahanan tinggi</span>
             @elseif($result->stability_status == 'menurun')
-            <span class="flex items-center gap-2" style="color: {{ $primaryColor }}">
+            <span class="flex items-center gap-2 {{ $stabilityClass }}">
                 <i class="{{ $stabilityIcon }} text-2xl"></i>
                 <span class="font-bold">MENURUN</span>
             </span>
             <span class="text-sm text-gray-600">Grafik menurun - menunjukkan kelelahan atau penurunan motivasi</span>
             @else
-            <span class="flex items-center gap-2" style="color: {{ $primaryColor }}">
+            <span class="flex items-center gap-2 {{ $stabilityClass }}">
                 <i class="{{ $stabilityIcon }} text-2xl"></i>
                 <span class="font-bold">DATAR</span>
             </span>
@@ -115,11 +125,11 @@ $stabilityIcon = match ($result->stability_status) {
             <div>
                 <strong>Kecepatan:</strong>
                 @if($result->speed_score >= 70)
-                <span style="color: {{ $primaryColor }}">Tinggi - Anda mampu bekerja dengan cepat</span>
+                <span class="text-green-600">Tinggi - Anda mampu bekerja dengan cepat</span>
                 @elseif($result->speed_score >= 40)
-                <span style="color: {{ $primaryColor }}">Sedang - Kecepatan Anda cukup baik</span>
+                <span class="text-yellow-600">Sedang - Kecepatan Anda cukup baik</span>
                 @else
-                <span style="color: {{ $primaryColor }}">Rendah - Perlu meningkatkan kecepatan kerja</span>
+                <span class="text-red-600">Rendah - Perlu meningkatkan kecepatan kerja</span>
                 @endif
             </div>
         </div>
@@ -128,11 +138,11 @@ $stabilityIcon = match ($result->stability_status) {
             <div>
                 <strong>Akurasi:</strong>
                 @if($result->accuracy_score >= 85)
-                <span style="color: {{ $primaryColor }}">Sangat Baik - Ketelitian sangat tinggi</span>
+                <span class="text-green-600">Sangat Baik - Ketelitian sangat tinggi</span>
                 @elseif($result->accuracy_score >= 70)
-                <span style="color: {{ $primaryColor }}">Baik - Ketelitian cukup baik</span>
+                <span class="text-green-600">Baik - Ketelitian cukup baik</span>
                 @else
-                <span style="color: {{ $primaryColor }}">Perlu peningkatan - Perbanyak latihan ketelitian</span>
+                <span class="text-yellow-600">Perlu peningkatan - Perbanyak latihan ketelitian</span>
                 @endif
             </div>
         </div>
@@ -141,11 +151,11 @@ $stabilityIcon = match ($result->stability_status) {
             <div>
                 <strong>Stabilitas:</strong>
                 @if($result->stability_status == 'meningkat')
-                <span style="color: {{ $primaryColor }}">Baik - Anda mampu mempertahankan performa hingga akhir</span>
+                <span class="text-green-600">Baik - Anda mampu mempertahankan performa hingga akhir</span>
                 @elseif($result->stability_status == 'datar')
-                <span style="color: {{ $primaryColor }}">Baik - Konsistensi Anda sangat baik</span>
+                <span class="text-green-600">Baik - Konsistensi Anda sangat baik</span>
                 @else
-                <span style="color: {{ $primaryColor }}">Perlu perhatian - Coba bangun stamina konsentrasi</span>
+                <span class="text-yellow-600">Perlu perhatian - Coba bangun stamina konsentrasi</span>
                 @endif
             </div>
         </div>
