@@ -312,6 +312,13 @@
                             </div>
                         </div>
 
+                        <button type="submit"
+                            form="finishForm"
+                            onclick="return confirm('Apakah Anda yakin ingin mengakhiri ujian ini? Jawaban yang sudah terisi akan disubmit.')"
+                            class="w-full mb-6 rounded-lg border border-primary bg-white px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white">
+                            <i class="ri-check-line mr-2"></i>Akhiri Ujian
+                        </button>
+
                         <!-- Legend -->
                         <div class="text-sm">
                             <h4 class="font-semibold text-gray-800 mb-3">Keterangan</h4>
@@ -683,6 +690,26 @@
                 showSaveIndicator(true, 'Tersimpan');
             }
 
+            function capturePendingTextAnswers() {
+                document.querySelectorAll('.short-answer-input').forEach(input => {
+                    const wrapper = input.closest('.question-wrapper');
+                    if (!wrapper) return;
+
+                    const value = input.value;
+                    if (value.trim() === '') return;
+
+                    if (input.debounce) {
+                        clearTimeout(input.debounce);
+                        input.debounce = null;
+                    }
+
+                    setAnswer(wrapper.dataset.questionId, {
+                        type: wrapper.dataset.questionType,
+                        answer_text: value
+                    });
+                });
+            }
+
             function updateSidebarIcon(qid) {
                 const item = document.querySelector(`.question-nav-item[data-question-id="${qid}"]`);
                 if (!item) return;
@@ -893,6 +920,7 @@
             const finishButton = document.querySelector('#finishForm button[type="submit"]');
             if (finishButton) {
                 finishButton.parentElement.addEventListener('submit', function() {
+                    capturePendingTextAnswers();
                     const unsynced = Object.values(answerCache).filter(a => !a.synced);
                     document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
                 });

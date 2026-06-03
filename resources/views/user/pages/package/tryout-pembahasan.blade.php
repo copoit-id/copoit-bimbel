@@ -1,4 +1,4 @@
-@extends('user.layout.user')
+@extends('user.layout.new-user')
 @section('title', 'Pembahasan Tryout')
 @section('content')
 <div class="package-bimbel flex flex-col gap-4">
@@ -770,7 +770,7 @@
 
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
     console.log('Pembahasan loaded');
 
@@ -889,7 +889,7 @@
         card.dataset.pending = 'false';
     }
 </script>
-@endsection
+@endpush
 
 @section('styles')
 <style>
