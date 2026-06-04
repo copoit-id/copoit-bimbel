@@ -54,9 +54,14 @@ class PackageController extends Controller
 
             $allowVideoThumbnail = config('client.branding.allow_video_thumbnail', false);
 
+            $packageTypes = ['bimbel', 'tryout', 'sertifikasi'];
+            if (auth()->user()?->hasPermission('tes_koran', 'view')) {
+                $packageTypes[] = 'tes_koran';
+            }
+
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'type_package' => 'required|in:bimbel,tryout,sertifikasi,tes_koran',
+                'type_package' => 'required|in:' . implode(',', $packageTypes),
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
@@ -127,9 +132,14 @@ class PackageController extends Controller
 
             $package = Package::findOrFail($id);
 
+            $packageTypes = ['bimbel', 'tryout', 'sertifikasi'];
+            if (auth()->user()?->hasPermission('tes_koran', 'view')) {
+                $packageTypes[] = 'tes_koran';
+            }
+
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'type_package' => 'required|in:bimbel,tryout,sertifikasi,tes_koran',
+                'type_package' => 'required|in:' . implode(',', $packageTypes),
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'description' => 'nullable|string',
@@ -317,6 +327,8 @@ class PackageController extends Controller
 
     public function indexTesKoran($package_id)
     {
+        abort_unless(auth()->user()?->hasPermission('tes_koran', 'view'), 403);
+
         try {
             $package = Package::where('package_id', $package_id)->firstOrFail();
 
@@ -336,6 +348,8 @@ class PackageController extends Controller
 
     public function toggleTesKoran(Request $request, $package_id, $tes_koran_id)
     {
+        abort_unless(auth()->user()?->hasPermission('tes_koran', 'update'), 403);
+
         try {
             $package = Package::where('package_id', $package_id)->firstOrFail();
             $tesKoran = TesKoran::findOrFail($tes_koran_id);

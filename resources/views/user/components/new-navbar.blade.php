@@ -2,6 +2,7 @@
 $user = auth()->user();
 $currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 
 function isActive($route, $current) {
     return str_starts_with($current, $route);
@@ -127,11 +128,13 @@ function isActive($route, $current) {
                     <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
                 </a>
 
+                @if($tesKoranEnabled)
                 {{-- Tes Koran - Accessible by Guest & User --}}
                 <a href="{{ route('user.tes-koran.index') }}"
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tes-koran', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-file-edit-line mr-1.5 {{ isActive('user.tes-koran', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tes Koran
                 </a>
+                @endif
                 
                 {{-- Paket (untuk semua user - berbayar & gratis) --}}
                 <a href="{{ route('user.package.index') }}" 
@@ -161,9 +164,11 @@ function isActive($route, $current) {
                         <a href="{{ route('user.package.my') }}?tab=tryouts" class="dropdown-item">
                             <i class="ri-file-list-3-line"></i>Tryout Saya
                         </a>
+                        @if($tesKoranEnabled)
                         <a href="{{ route('user.package.my') }}?tab=tes-koran" class="dropdown-item">
                             <i class="ri-file-edit-line"></i>Tes Koran Saya
                         </a>
+                        @endif
                     </div>
                 </div>
                 @endif
@@ -240,10 +245,12 @@ function isActive($route, $current) {
             <span class="text-xs mt-0.5">Tryout</span>
         </a>
 
+        @if($tesKoranEnabled)
         <a href="{{ route('user.tes-koran.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.tes-koran', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.tes-koran', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-file-edit-line text-xl"></i>
             <span class="text-xs mt-0.5">Koran</span>
         </a>
+        @endif
         
         <a href="{{ route('user.package.index') }}" class="flex flex-col items-center p-2 {{ $currentRoute === 'user.package.index' ? '' : 'text-gray-400' }}" style="{{ $currentRoute === 'user.package.index' ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-store-3-line text-xl"></i>

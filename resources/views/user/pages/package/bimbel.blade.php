@@ -1,6 +1,9 @@
 @extends('user.layout.user')
 @section('title', 'Paket Pembelian')
 @section('content')
+@php
+    $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
+@endphp
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border mt-6">
     <x-page-desc
         :title="__('Bimbel - :name', ['name' => $package->name])"
@@ -67,7 +70,7 @@
     </div>
 </div>
 
-@if(isset($tesKorans) && $tesKorans->count() > 0)
+@if($tesKoranEnabled && isset($tesKorans) && $tesKorans->count() > 0)
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border mt-6">
     <x-page-desc
         :title="__('Tes Koran')"

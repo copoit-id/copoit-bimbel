@@ -14,6 +14,8 @@ class TesKoranController extends Controller
 {
     public function index()
     {
+        $this->abortIfFeatureDisabled();
+
         $user = Auth::user();
 
         $tesKorans = TesKoran::with('packages')
@@ -34,6 +36,8 @@ class TesKoranController extends Controller
 
     public function show(TesKoran $tesKoran)
     {
+        $this->abortIfFeatureDisabled();
+
         $package = $tesKoran->accessiblePackageForUser(Auth::id());
 
         if (!$tesKoran->canUserAccess(Auth::id())) {
@@ -65,6 +69,8 @@ class TesKoranController extends Controller
 
     public function start(Request $request, TesKoran $tesKoran)
     {
+        $this->abortIfFeatureDisabled();
+
         if (!$tesKoran->canUserAccess(Auth::id())) {
             return response()->json(['error' => 'Akses ditolak'], 403);
         }
@@ -118,6 +124,8 @@ class TesKoranController extends Controller
 
     public function result(TesKoran $tesKoran, TesKoranResult $result)
     {
+        $this->abortIfFeatureDisabled();
+
         if ($result->user_id !== Auth::id()) {
             abort(403);
         }
@@ -203,11 +211,18 @@ class TesKoranController extends Controller
 
     public function history()
     {
+        $this->abortIfFeatureDisabled();
+
         $results = TesKoranResult::where('user_id', Auth::id())
             ->with('tesKoran.packages')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
         return view('user.pages.tes-koran.history', compact('results'));
+    }
+
+    private function abortIfFeatureDisabled(): void
+    {
+        abort_unless(config('client.branding.tes_koran_enabled', true), 404);
     }
 }

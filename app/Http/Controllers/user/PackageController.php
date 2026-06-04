@@ -435,7 +435,10 @@ class PackageController extends Controller
                 ->with('error', 'Silakan login terlebih dahulu untuk mengakses kelas.');
         }
         
-        $package = Package::with('tesKorans')->findOrFail($id_package);
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $package = $tesKoranEnabled
+            ? Package::with('tesKorans')->findOrFail($id_package)
+            : Package::findOrFail($id_package);
 
         // Check if user has access - perbaiki query akses
         $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -457,10 +460,12 @@ class PackageController extends Controller
             $query->where('package_id', $id_package);
         })->orderBy('schedule_time', 'desc')->get();
 
-        $tesKorans = $package->tesKorans()
-            ->where('is_active', true)
-            ->where('is_displayed', true)
-            ->get();
+        $tesKorans = $tesKoranEnabled
+            ? $package->tesKorans()
+                ->where('is_active', true)
+                ->where('is_displayed', true)
+                ->get()
+            : collect();
 
         ActivityLogger::log('class_list_opened', 'success', Auth::user(), [
             'package_id' => $id_package,
@@ -1867,13 +1872,18 @@ class PackageController extends Controller
         
         $user = Auth::user();
         
+        $packageRelations = ['package.materials', 'package.tryouts'];
+        if (config('client.branding.tes_koran_enabled', true)) {
+            $packageRelations[] = 'package.tesKorans';
+        }
+
         $activePackages = UserPackageAcces::where('user_id', $user->id)
             ->where('status', 'active')
             ->where(function ($query) {
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>', Carbon::now());
             })
-            ->with('package')
+            ->with($packageRelations)
             ->get();
         
         return view('user.pages.package.new-my-packages', compact('activePackages'));
@@ -1891,7 +1901,12 @@ class PackageController extends Controller
         }
         
         $user = Auth::user();
-        $package = Package::with(['materials', 'tryouts', 'tesKorans'])->findOrFail($packageId);
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $relations = $tesKoranEnabled
+            ? ['materials', 'tryouts', 'tesKorans']
+            : ['materials', 'tryouts'];
+
+        $package = Package::with($relations)->findOrFail($packageId);
         
         // Check access
         $hasAccess = UserPackageAcces::where('user_id', $user->id)
@@ -1976,32 +1991,34 @@ class PackageController extends Controller
             $orderCounter++;
         }
 
-        foreach ($package->tesKorans as $tesKoran) {
-            $attempt = TesKoranResult::where('user_id', $user->id)
-                ->where('tes_koran_id', $tesKoran->id)
-                ->where('status', 'completed')
-                ->first();
-            $isCompleted = $attempt !== null;
+        if ($tesKoranEnabled) {
+            foreach ($package->tesKorans as $tesKoran) {
+                $attempt = TesKoranResult::where('user_id', $user->id)
+                    ->where('tes_koran_id', $tesKoran->id)
+                    ->where('status', 'completed')
+                    ->first();
+                $isCompleted = $attempt !== null;
 
-            if ($isCompleted) {
-                $completedCount++;
+                if ($isCompleted) {
+                    $completedCount++;
+                }
+
+                $roadmapItems->push([
+                    'order' => $orderCounter,
+                    'type' => 'tes_koran',
+                    'title' => $tesKoran->name,
+                    'subtitle' => 'Tes Koran',
+                    'icon' => 'ri-file-edit-line',
+                    'route' => route('user.tes-koran.show', $tesKoran),
+                    'is_completed' => $isCompleted,
+                    'is_in_progress' => false,
+                    'progress_percent' => 0,
+                    'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
+                    'is_left' => $orderCounter % 2 === 1,
+                ]);
+
+                $orderCounter++;
             }
-
-            $roadmapItems->push([
-                'order' => $orderCounter,
-                'type' => 'tes_koran',
-                'title' => $tesKoran->name,
-                'subtitle' => 'Tes Koran',
-                'icon' => 'ri-file-edit-line',
-                'route' => route('user.tes-koran.show', $tesKoran),
-                'is_completed' => $isCompleted,
-                'is_in_progress' => false,
-                'progress_percent' => 0,
-                'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
-                'is_left' => $orderCounter % 2 === 1,
-            ]);
-
-            $orderCounter++;
         }
         
         $totalItems = $roadmapItems->count();
@@ -2068,7 +2085,12 @@ class PackageController extends Controller
      */
     public function detail($package_id)
     {
-        $package = Package::with(['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans'])
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $relations = $tesKoranEnabled
+            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans']
+            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes'];
+
+        $package = Package::with($relations)
             ->where('status', 'active')
             ->findOrFail($package_id);
         

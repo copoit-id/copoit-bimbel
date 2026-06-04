@@ -1,6 +1,9 @@
 @extends('admin.layout.admin')
 
 @section('content')
+@php
+    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+@endphp
 <div class="space-y-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
@@ -140,10 +143,12 @@
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Kelas
                 </a>
+                @if($canManageTesKoran)
                 <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tes Koran
                 </a>
+                @endif
                 @elseif ($package->type_package == 'tryout')
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
@@ -154,7 +159,7 @@
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Sertifikasi
                 </a>
-                @elseif ($package->type_package == 'tes_koran')
+                @elseif ($package->type_package == 'tes_koran' && $canManageTesKoran)
                 <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tes Koran

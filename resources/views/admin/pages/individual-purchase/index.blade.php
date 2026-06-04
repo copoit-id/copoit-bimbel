@@ -3,6 +3,9 @@
 @section('title', 'Pembelian Individual')
 
 @section('content')
+@php
+    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+@endphp
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
@@ -12,7 +15,7 @@
     </x-breadcrumb>
 </div>
 <x-page-desc title="Pembelian Individual"
-    description="Kelola pembelian materi, tryout, dan tes koran secara terpisah (tanpa paket)"></x-page-desc>
+    description="{{ $canManageTesKoran ? 'Kelola pembelian materi, tryout, dan tes koran secara terpisah (tanpa paket)' : 'Kelola pembelian materi dan tryout secara terpisah (tanpa paket)' }}"></x-page-desc>
 
 <!-- Type Tabs -->
 <div class="flex gap-2 mt-6">
@@ -24,10 +27,12 @@
        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'tryout' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
     </a>
+    @if($canManageTesKoran)
     <a href="{{ route('admin.individual-purchase.index', ['type' => 'tes_koran', 'status' => $status]) }}"
        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'tes_koran' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
         <i class="ri-file-edit-line mr-1"></i>Tes Koran
     </a>
+    @endif
 </div>
 
 <!-- Summary Cards -->

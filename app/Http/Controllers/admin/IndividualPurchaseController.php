@@ -22,6 +22,10 @@ class IndividualPurchaseController extends Controller
     public function index(Request $request)
     {
         $type = $request->get('type', 'material');
+        if ($type === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false)) {
+            $type = 'material';
+        }
+
         $status = $request->get('status', 'pending'); // 'pending', 'approved', 'rejected', 'all'
 
         $purchasableType = match ($type) {

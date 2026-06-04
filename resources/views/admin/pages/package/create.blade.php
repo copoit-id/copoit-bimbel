@@ -7,6 +7,9 @@
 @endphp
 
 @section('content')
+@php
+    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+@endphp
 <div class="space-y-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
@@ -113,9 +116,11 @@
                                 <option value="sertifikasi" {{ (isset($package) && $package->type_package ===
                                     'sertifikasi') || old('type_package') === 'sertifikasi' ? 'selected' : ''
                                     }}>Sertifikasi</option>
+                                @if($canManageTesKoran || (isset($package) && $package->type_package === 'tes_koran'))
                                 <option value="tes_koran" {{ (isset($package) && $package->type_package ===
                                     'tes_koran') || old('type_package') === 'tes_koran' ? 'selected' : ''
                                     }}>Tes Koran</option>
+                                @endif
                             </select>
                         </div>
                     </div>

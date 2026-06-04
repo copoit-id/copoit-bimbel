@@ -22,6 +22,11 @@ class AksesController extends Controller
     public function index(Request $request)
     {
         $tab = $request->get('tab', 'packages');
+        $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
+
+        if ($tab === 'tes_koran' && !$canManageTesKoran) {
+            $tab = 'packages';
+        }
         
         // Get items based on tab
         $items = match($tab) {
@@ -60,14 +65,17 @@ class AksesController extends Controller
     {
         $type = $request->get('type', 'package');
         $itemId = $request->get('item_id');
+        $normalizedType = rtrim($type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+
+        abort_if(
+            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
+            403
+        );
         
         if (!$itemId) {
             return redirect()->route('admin.akses.index');
         }
-        
-        // Normalize type (remove trailing 's' if present)
-        $normalizedType = rtrim($type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
         
         // Get item details
         $item = match($normalizedType) {
@@ -77,10 +85,6 @@ class AksesController extends Controller
             'tes_koran' => TesKoran::findOrFail($itemId),
             default => abort(404),
         };
-        
-        // Normalize type for queries
-        $normalizedType = rtrim($type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
         
         // Get users with access
         $usersWithAccess = match($normalizedType) {
@@ -146,6 +150,11 @@ class AksesController extends Controller
         // Normalize type
         $normalizedType = rtrim($type, 's');
         if ($normalizedType === 'live') $normalizedType = 'live_session';
+
+        abort_if(
+            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'update') ?? false),
+            403
+        );
         
         // Check if already has access
         $hasAccess = match($normalizedType) {
@@ -194,6 +203,11 @@ class AksesController extends Controller
         // Normalize type
         $normalizedType = rtrim($type, 's');
         if ($normalizedType === 'live') $normalizedType = 'live_session';
+
+        abort_if(
+            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'delete') ?? false),
+            403
+        );
         
         match($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->delete(),

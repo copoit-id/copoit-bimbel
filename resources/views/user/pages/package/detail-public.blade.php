@@ -5,6 +5,7 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 $isGuest = !Auth::check();
 @endphp
 
@@ -85,12 +86,14 @@ $isGuest = !Auth::check();
                         </div>
                         <span>{{ $package->tryouts->count() }} Tryout</span>
                     </div>
+                    @if($tesKoranEnabled)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-file-edit-line" style="color: {{ $primaryColor }}"></i>
                         </div>
                         <span>{{ $package->tesKorans->count() }} Tes Koran</span>
                     </div>
+                    @endif
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-group-line" style="color: {{ $primaryColor }}"></i>
@@ -260,7 +263,7 @@ $isGuest = !Auth::check();
         </div>
         @endif
 
-        @if($package->tesKorans->count() > 0)
+        @if($tesKoranEnabled && $package->tesKorans->count() > 0)
         <div class="bg-white rounded-2xl p-6 border border-gray-100">
             <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <i class="ri-file-edit-line" style="color: {{ $primaryColor }}"></i>

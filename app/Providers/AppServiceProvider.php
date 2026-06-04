@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\ClientProfile;
+use App\Models\Role;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -56,6 +57,7 @@ class AppServiceProvider extends ServiceProvider
             'smtp_email' => null,
             'smtp_app_password' => null,
             'smtp_notification_email' => null,
+            'tes_koran_enabled' => true,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -92,6 +94,14 @@ class AppServiceProvider extends ServiceProvider
             $defaults['smtp_notification_email'] = $clientProfile->smtp_notification_email ?? $defaults['smtp_notification_email'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
+        }
+
+        if (
+            Schema::hasTable('roles')
+            && Schema::hasTable('permissions')
+            && Schema::hasTable('permission_role')
+        ) {
+            $defaults['tes_koran_enabled'] = Role::adminCanViewFeature('tes_koran');
         }
 
         $logoUrl = $this->makeBrandAssetUrl($defaults['logo'], $defaultAsset);

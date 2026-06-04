@@ -1,6 +1,9 @@
 @extends('admin.layout.admin')
 @section('title', 'Akses User')
 @section('content')
+@php
+    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+@endphp
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
@@ -9,7 +12,7 @@
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="Kelola Akses User - Paket, Materi, Tryout & Tes Koran"></x-page-desc>
+<x-page-desc title="{{ $canManageTesKoran ? 'Kelola Akses User - Paket, Materi, Tryout & Tes Koran' : 'Kelola Akses User - Paket, Materi & Tryout' }}"></x-page-desc>
 
 <!-- Tabs Navigation -->
 <div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex flex-wrap gap-1">
@@ -48,6 +51,7 @@
             {{ $tab === 'tryouts' ? $items->count() : '' }}
         </span>
     </a>
+    @if($canManageTesKoran)
     <a href="{{ route('admin.akses.index', ['tab' => 'tes_koran']) }}"
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tes_koran' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-edit-line mr-1"></i>Tes Koran
@@ -55,6 +59,7 @@
             {{ $tab === 'tes_koran' ? $items->count() : '' }}
         </span>
     </a>
+    @endif
 </div>
 
 <!-- Pending Requests Alert (Only for packages tab) -->

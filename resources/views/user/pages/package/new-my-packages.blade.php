@@ -5,8 +5,13 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 $user = auth()->user();
 $currentTab = request('tab', 'packages');
+
+if (!$tesKoranEnabled && $currentTab === 'tes-koran') {
+    $currentTab = 'packages';
+}
 
 // Get user's accessible data for each tab
 $accessiblePackageIds = $user->userPackageAccess()
@@ -41,7 +46,7 @@ $myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessi
 }])
 ->get();
 
-$myTesKorans = \App\Models\TesKoran::where(function($q) use ($accessiblePackageIds, $user) {
+$myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use ($accessiblePackageIds, $user) {
     $q->whereHas('packages', function($packageQuery) use ($accessiblePackageIds) {
         $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
     })
@@ -53,7 +58,7 @@ $myTesKorans = \App\Models\TesKoran::where(function($q) use ($accessiblePackageI
 ->with(['results' => function($q) use ($user) {
     $q->where('user_id', $user->id);
 }])
-->get();
+->get() : collect();
 @endphp
 
 <style>
@@ -93,10 +98,12 @@ $myTesKorans = \App\Models\TesKoran::where(function($q) use ($accessiblePackageI
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tryouts' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
     </a>
+    @if($tesKoranEnabled)
     <a href="{{ route('user.package.my') }}?tab=tes-koran"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tes-koran' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-edit-line mr-1"></i>Tes Koran
     </a>
+    @endif
 </div>
 
 {{-- ==================== TAB: PACKAGES ==================== --}}
@@ -111,7 +118,7 @@ $myTesKorans = \App\Models\TesKoran::where(function($q) use ($accessiblePackageI
         $package->loadCount(['materials', 'tryouts']);
         $materials = $package->materials;
         $tryouts = $package->tryouts;
-        $tesKorans = $package->tesKorans;
+        $tesKorans = $tesKoranEnabled ? $package->tesKorans : collect();
         $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
         
         // Calculate actual progress
@@ -408,7 +415,7 @@ $myTesKorans = \App\Models\TesKoran::where(function($q) use ($accessiblePackageI
     @endif
 
 {{-- ==================== TAB: TES KORAN ==================== --}}
-@elseif($currentTab === 'tes-koran')
+@elseif($tesKoranEnabled && $currentTab === 'tes-koran')
     @if($myTesKorans->count() > 0)
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach($myTesKorans as $tesKoran)
