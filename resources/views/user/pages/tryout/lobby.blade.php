@@ -539,6 +539,10 @@
                 event.preventDefault();
                 if (!frameShell || !tryoutFrame || examStarted || examStartInProgress) return;
 
+                const cleanTryoutUrl = startButton.href;
+                const iframeTryoutUrl = new URL(cleanTryoutUrl, window.location.origin);
+                iframeTryoutUrl.searchParams.set('lobby_proctoring', '1');
+
                 examStartInProgress = true;
                 startButton.classList.add('pointer-events-none', 'opacity-50');
                 startButton.textContent = 'Menyiapkan Tryout...';
@@ -560,7 +564,6 @@
 
                 examStarted = true;
                 frameShell.classList.remove('hidden');
-                window.history.replaceState(window.history.state, '', startButton.href);
                 tryoutFrame.addEventListener('load', function() {
                     if (isFrameOnResultPage()) {
                         promoteFrameToTop();
@@ -574,7 +577,7 @@
 
                     startFrameMonitoring();
                 });
-                tryoutFrame.src = startButton.href;
+                tryoutFrame.src = iframeTryoutUrl.toString();
             }
 
             if ((proctoringSettings.webcam || proctoringSettings.screen) && !navigator.mediaDevices) {

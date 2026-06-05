@@ -422,9 +422,13 @@
         </div>
     </div>
 
+    @php
+        $isLobbyProctoringFrame = request()->boolean('lobby_proctoring');
+    @endphp
+
     @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
     <div id="proctoringPermissionModal"
-        class="fixed inset-0 flex items-center justify-center bg-gray-950/85 px-4 backdrop-blur-sm"
+        class="fixed inset-0 {{ $isLobbyProctoringFrame ? 'hidden' : 'flex' }} items-center justify-center bg-gray-950/85 px-4 backdrop-blur-sm"
         style="z-index: 2147483646;">
         <div class="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
             <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
@@ -810,6 +814,9 @@
                 const button = document.getElementById('startProctoringBtn');
                 const modal = document.getElementById('proctoringPermissionModal');
                 if (!button || !modal) return;
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
 
                 button.addEventListener('click', async function() {
                     button.disabled = true;
