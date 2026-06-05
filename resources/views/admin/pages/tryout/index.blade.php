@@ -196,11 +196,6 @@
                         class="flex-1 flex justify-center border border-gray-300 text-gray-500 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors">
                         <i class="ri-eye-line"></i>
                     </a>
-                    <a href="{{ route('admin.tryout.proctoring-snapshots', $tryout->tryout_id) }}"
-                        class="flex-1 flex justify-center border border-gray-300 text-gray-500 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
-                        title="Snapshot proctoring">
-                        <i class="ri-camera-line"></i>
-                    </a>
                 </div>
             </div>
         </div>

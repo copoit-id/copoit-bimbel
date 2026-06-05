@@ -4,13 +4,20 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h2 class="text-2xl font-bold">Snapshot Proctoring</h2>
+            <x-breadcrumb>
+                <x-slot name="items">
+                    <x-breadcrumb-item href="{{ route('admin.laporan.index') }}" title="Laporan Tryout" />
+                    <x-breadcrumb-item href="{{ route('admin.laporan.show', $tryout->tryout_id) }}" title="Detail Laporan" />
+                    <x-breadcrumb-item href="" title="Snapshot Proctoring" />
+                </x-slot>
+            </x-breadcrumb>
+            <h2 class="mt-4 text-2xl font-bold">Snapshot Proctoring</h2>
             <p class="text-gray-500">{{ $tryout->name }}</p>
         </div>
-        <a href="{{ route('admin.tryout.index') }}"
+        <a href="{{ route('admin.laporan.show', $tryout->tryout_id) }}"
             class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-500 px-4 py-2 text-white hover:bg-gray-600">
             <i class="ri-arrow-left-line"></i>
-            Kembali
+            Kembali ke Laporan
         </a>
     </div>
 
@@ -48,7 +55,7 @@
                 <p class="text-xs text-gray-500">
                     {{ $snapshot->captured_at?->timezone('Asia/Jakarta')->format('d M Y H:i:s') ?? '-' }}
                 </p>
-                <form method="POST" action="{{ route('admin.tryout.proctoring-snapshots.destroy', [$tryout, $snapshot]) }}"
+                <form method="POST" action="{{ route('admin.laporan.proctoring-snapshots.destroy', [$tryout, $snapshot]) }}"
                     onsubmit="return confirm('Hapus snapshot ini?')">
                     @csrf
                     @method('DELETE')

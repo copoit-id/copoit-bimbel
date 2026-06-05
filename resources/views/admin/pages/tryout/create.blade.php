@@ -157,7 +157,6 @@
                         </div>
                     </div>
                 </div>
-                </div>
 
                 <!-- Schedule -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -221,58 +220,10 @@
                     </div>
                 </div>
 
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <div class="mb-4">
-                        <h3 class="font-semibold text-gray-900">Keamanan Ujian</h3>
-                        <p class="text-sm text-gray-500">Atur fitur pengawasan yang aktif saat peserta mengerjakan tryout.</p>
-                    </div>
-                    @php
-                        $hasOldInput = session()->hasOldInput();
-                        $securityOptions = [
-                            'enable_anti_copy' => [
-                                'label' => 'Anti Copy Soal',
-                                'description' => 'Blok seleksi teks, klik kanan, dan shortcut copy/cut di halaman ujian.',
-                                'default' => true,
-                            ],
-                            'enable_tab_switch_detection' => [
-                                'label' => 'Deteksi Pindah Tab',
-                                'description' => 'Tampilkan alert dan hitung pelanggaran saat peserta keluar dari tab/window ujian.',
-                                'default' => true,
-                            ],
-                            'enable_webcam_check' => [
-                                'label' => 'Webcam Check',
-                                'description' => 'Wajibkan kamera aktif dan simpan snapshot kecil setiap 10 menit.',
-                                'default' => false,
-                            ],
-                            'enable_screen_check' => [
-                                'label' => 'Screen Check',
-                                'description' => 'Wajibkan screen sharing aktif dan simpan snapshot kecil setiap 10 menit.',
-                                'default' => false,
-                            ],
-                        ];
-                    @endphp
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        @foreach($securityOptions as $field => $option)
-                            @php
-                                $isChecked = $hasOldInput
-                                    ? (bool) old($field)
-                                    : (isset($tryout) ? (bool) $tryout->{$field} : $option['default']);
-                            @endphp
-                            <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
-                                <input type="checkbox" name="{{ $field }}" value="1" {{ $isChecked ? 'checked' : '' }}
-                                    class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
-                                <span>
-                                    <span class="block text-sm font-semibold text-gray-800">{{ $option['label'] }}</span>
-                                    <span class="mt-1 block text-xs leading-relaxed text-gray-500">{{ $option['description'] }}</span>
-                                </span>
-                            </label>
-                        @endforeach
-                    </div>
-                </div>
-
                 <!-- Options -->
                 <div class="space-y-4">
                     @php
+                        $hasOldInput = session()->hasOldInput();
                         $isActiveChecked = $hasOldInput
                             ? (bool) old('is_active')
                             : (isset($tryout) ? (bool) $tryout->is_active : true);
@@ -879,6 +830,54 @@
                                 </select>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-900">Keamanan Ujian</h3>
+                        <p class="text-sm text-gray-500">Atur fitur pengawasan yang aktif saat peserta mengerjakan tryout.</p>
+                    </div>
+                    @php
+                        $securityOptions = [
+                            'enable_anti_copy' => [
+                                'label' => 'Anti Copy Soal',
+                                'description' => 'Blok seleksi teks, klik kanan, dan shortcut copy/cut di halaman ujian.',
+                                'default' => true,
+                            ],
+                            'enable_tab_switch_detection' => [
+                                'label' => 'Deteksi Pindah Tab',
+                                'description' => 'Tampilkan alert dan hitung pelanggaran saat peserta keluar dari tab/window ujian.',
+                                'default' => true,
+                            ],
+                            'enable_webcam_check' => [
+                                'label' => 'Webcam Check',
+                                'description' => 'Wajibkan kamera aktif dan simpan snapshot kecil setiap 10 menit.',
+                                'default' => false,
+                            ],
+                            'enable_screen_check' => [
+                                'label' => 'Screen Check',
+                                'description' => 'Wajibkan screen sharing aktif dan simpan snapshot kecil setiap 10 menit.',
+                                'default' => false,
+                            ],
+                        ];
+                    @endphp
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        @foreach($securityOptions as $field => $option)
+                            @php
+                                $isChecked = $hasOldInput
+                                    ? (bool) old($field)
+                                    : (isset($tryout) ? (bool) $tryout->{$field} : $option['default']);
+                            @endphp
+                            <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
+                                <input type="checkbox" name="{{ $field }}" value="1" {{ $isChecked ? 'checked' : '' }}
+                                    class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                                <span>
+                                    <span class="block text-sm font-semibold text-gray-800">{{ $option['label'] }}</span>
+                                    <span class="mt-1 block text-xs leading-relaxed text-gray-500">{{ $option['description'] }}</span>
+                                </span>
+                            </label>
+                        @endforeach
                     </div>
                 </div>
             </div>

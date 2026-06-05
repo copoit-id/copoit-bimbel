@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ProctoringSnapshot;
 use App\Models\Question;
 use App\Models\Tryout;
 use App\Models\TryoutUserTimeAdjustment;
@@ -10,6 +11,7 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -355,6 +357,33 @@ class LaporanController extends Controller
             'subtests',
             'answerDetails'
         ));
+    }
+
+    public function proctoringSnapshots(Tryout $tryout)
+    {
+        $snapshots = ProctoringSnapshot::with(['user'])
+            ->where('tryout_id', $tryout->tryout_id)
+            ->latest('captured_at')
+            ->paginate(24);
+
+        $summary = ProctoringSnapshot::where('tryout_id', $tryout->tryout_id)
+            ->selectRaw('type, count(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        return view('admin.pages.laporan.proctoring-snapshots', compact('tryout', 'snapshots', 'summary'));
+    }
+
+    public function destroyProctoringSnapshot(Tryout $tryout, ProctoringSnapshot $snapshot)
+    {
+        if ((int) $snapshot->tryout_id !== (int) $tryout->tryout_id) {
+            abort(404);
+        }
+
+        Storage::disk('public')->delete($snapshot->file_path);
+        $snapshot->delete();
+
+        return back()->with('success', 'Snapshot berhasil dihapus.');
     }
 
     public function publicLiveScore(Request $request, $tryoutId)

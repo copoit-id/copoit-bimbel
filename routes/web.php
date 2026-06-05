@@ -391,8 +391,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
 
     Route::resource('tryout', AdminTryoutController::class);
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
-    Route::get('tryout/{tryout}/proctoring-snapshots', [AdminTryoutController::class, 'proctoringSnapshots'])->name('tryout.proctoring-snapshots');
-    Route::delete('tryout/{tryout}/proctoring-snapshots/{snapshot}', [AdminTryoutController::class, 'destroyProctoringSnapshot'])->name('tryout.proctoring-snapshots.destroy');
     Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
     Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
 
@@ -481,6 +479,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/', [LaporanController::class, 'index'])->name('index');
         Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
         Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
+        Route::get('/{tryout}/proctoring-snapshots', [LaporanController::class, 'proctoringSnapshots'])->name('proctoring-snapshots');
+        Route::delete('/{tryout}/proctoring-snapshots/{snapshot}', [LaporanController::class, 'destroyProctoringSnapshot'])->name('proctoring-snapshots.destroy');
         Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
         Route::post('/{tryout}/attempt/{token}/reset', [LaporanController::class, 'resetAttempt'])->name('reset-attempt');
         Route::post('/{tryout}/user/{user}/add-time', [LaporanController::class, 'addTime'])->name('add-time');
