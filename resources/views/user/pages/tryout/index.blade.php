@@ -432,12 +432,12 @@
             </div>
             <h3 class="mb-2 text-lg font-bold text-gray-900">Aktifkan Pengawasan Ujian</h3>
             <p class="text-sm leading-relaxed text-gray-600">
-                Ujian ini membutuhkan {{ $tryout->enable_webcam_check ? 'kamera' : '' }}{{ $tryout->enable_webcam_check && $tryout->enable_screen_check ? ' dan ' : '' }}{{ $tryout->enable_screen_check ? 'screen sharing' : '' }} aktif. Sistem hanya menyimpan snapshot kecil setiap 10 menit, bukan rekaman penuh.
+                Ujian ini membutuhkan {{ $tryout->enable_webcam_check ? 'kamera' : '' }}{{ $tryout->enable_webcam_check && $tryout->enable_screen_check ? ' dan ' : '' }}{{ $tryout->enable_screen_check ? 'screen sharing' : '' }} aktif sebelum pengerjaan dilanjutkan.
             </p>
             <p id="proctoringPermissionError" class="mt-3 hidden rounded-lg bg-red/5 px-3 py-2 text-sm font-semibold text-red"></p>
             <button type="button" id="startProctoringBtn"
                 class="mt-5 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
-                Aktifkan dan Mulai
+                Aktifkan Pengawasan
             </button>
         </div>
     </div>
@@ -531,6 +531,8 @@
             let lastTabSwitchTrackedAt = 0;
             let tabSwitchInFlight = false;
             let isLeavingTryout = false;
+            const proctoringStreams = {};
+            const proctoringTimers = {};
 
             // Sync server answers into local cache if not present or older
             Object.values(allServerAnswers).forEach(ans => {
@@ -667,6 +669,52 @@
                 error.classList.remove('hidden');
             }
 
+            function clearProctoringError() {
+                const error = document.getElementById('proctoringPermissionError');
+                if (!error) return;
+                error.textContent = '';
+                error.classList.add('hidden');
+            }
+
+            function isStreamActive(stream) {
+                return stream && stream.getVideoTracks().some(track => track.readyState === 'live');
+            }
+
+            function getProctoringModal() {
+                return document.getElementById('proctoringPermissionModal');
+            }
+
+            function showProctoringModal(message) {
+                const modal = getProctoringModal();
+                const button = document.getElementById('startProctoringBtn');
+                if (!modal) return;
+
+                if (message) {
+                    showProctoringError(message);
+                }
+
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Aktifkan Pengawasan';
+                }
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function hideProctoringModal() {
+                const modal = getProctoringModal();
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            function clearProctoringTimer(type) {
+                if (!proctoringTimers[type]) return;
+                clearInterval(proctoringTimers[type]);
+                delete proctoringTimers[type];
+            }
+
             async function startMediaStream(type) {
                 if (type === 'webcam') {
                     return navigator.mediaDevices.getUserMedia({
@@ -682,7 +730,7 @@
             }
 
             async function captureSnapshot(type, video) {
-                if (!video || video.readyState < 2) return;
+                if (!isStreamActive(proctoringStreams[type]) || !video || video.readyState < 2) return;
 
                 const canvas = document.createElement('canvas');
                 canvas.width = 480;
@@ -710,30 +758,50 @@
                 const video = document.getElementById(type === 'webcam' ? 'webcamPreview' : 'screenPreview');
                 if (!video) return;
 
+                if (isStreamActive(proctoringStreams[type])) {
+                    return;
+                }
+
+                if (proctoringStreams[type]) {
+                    proctoringStreams[type].getTracks().forEach(track => track.stop());
+                }
+
+                proctoringStreams[type] = stream;
                 video.srcObject = stream;
                 await video.play();
 
                 stream.getVideoTracks().forEach(track => {
                     track.addEventListener('ended', function() {
-                        showTabSwitchAlert();
-                        const message = document.getElementById('tabSwitchAlertMessage');
-                        if (message) {
-                            message.textContent = type === 'webcam'
-                                ? 'Kamera terhenti. Aktifkan kembali pengawasan untuk melanjutkan ujian.'
-                                : 'Screen sharing terhenti. Aktifkan kembali pengawasan untuk melanjutkan ujian.';
-                        }
+                        clearProctoringTimer(type);
+                        delete proctoringStreams[type];
+                        showProctoringModal(type === 'webcam'
+                            ? 'Kamera terhenti. Aktifkan kembali pengawasan untuk melanjutkan ujian.'
+                            : 'Screen sharing terhenti. Aktifkan kembali pengawasan untuk melanjutkan ujian.');
                     });
                 });
 
                 setTimeout(() => captureSnapshot(type, video).catch(() => {}), 1500);
-                setInterval(() => captureSnapshot(type, video).catch(() => {}), proctoringSettings.snapshotIntervalMs);
+                clearProctoringTimer(type);
+                proctoringTimers[type] = setInterval(() => {
+                    captureSnapshot(type, video).catch(() => {});
+                }, proctoringSettings.snapshotIntervalMs);
             }
 
             async function setupProctoringMedia() {
                 if (!proctoringSettings.webcam && !proctoringSettings.screen) return;
 
+                if (window.self !== window.top) {
+                    hideProctoringModal();
+                    return;
+                }
+
                 if (!navigator.mediaDevices || (!navigator.mediaDevices.getUserMedia && proctoringSettings.webcam)) {
                     showProctoringError('Browser tidak mendukung akses kamera.');
+                    return;
+                }
+
+                if (proctoringSettings.screen && !navigator.mediaDevices.getDisplayMedia) {
+                    showProctoringError('Browser tidak mendukung screen sharing.');
                     return;
                 }
 
@@ -744,25 +812,34 @@
                 button.addEventListener('click', async function() {
                     button.disabled = true;
                     button.textContent = 'Meminta izin...';
+                    clearProctoringError();
 
                     try {
-                        if (proctoringSettings.webcam) {
+                        if (proctoringSettings.webcam && !isStreamActive(proctoringStreams.webcam)) {
                             const webcamStream = await startMediaStream('webcam');
                             await attachProctoringStream('webcam', webcamStream);
                         }
 
-                        if (proctoringSettings.screen) {
+                        if (proctoringSettings.screen && !isStreamActive(proctoringStreams.screen)) {
                             const screenStream = await startMediaStream('screen');
                             await attachProctoringStream('screen', screenStream);
                         }
 
-                        modal.classList.add('hidden');
-                        modal.classList.remove('flex');
+                        hideProctoringModal();
                     } catch (e) {
                         button.disabled = false;
-                        button.textContent = 'Aktifkan dan Mulai';
+                        button.textContent = 'Aktifkan Pengawasan';
                         showProctoringError('Izin kamera atau screen sharing wajib diberikan untuk melanjutkan ujian.');
                     }
+                });
+
+                window.addEventListener('beforeunload', function() {
+                    Object.values(proctoringStreams).forEach(stream => {
+                        if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                        }
+                    });
+                    Object.keys(proctoringTimers).forEach(clearProctoringTimer);
                 });
             }
 

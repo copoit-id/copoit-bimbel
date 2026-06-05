@@ -103,17 +103,473 @@
                     </span>
                 </div>
 
+                @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
+                    <div class="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-left">
+                        <div class="mb-3">
+                            <h2 class="text-base font-semibold text-gray-900">Pengecekan Perangkat</h2>
+                            <p class="text-sm text-gray-600">Selesaikan pengecekan yang diperlukan sebelum mulai tryout.</p>
+                        </div>
+
+                        <div class="space-y-3">
+                            @if($tryout->enable_webcam_check)
+                                <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                                    <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <i id="webcamCheckIcon" class="ri-checkbox-blank-circle-line text-lg text-gray-400"></i>
+                                        Kamera
+                                    </span>
+                                    <button type="button" id="checkWebcamBtn"
+                                        class="rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5">
+                                        Aktifkan Kamera
+                                    </button>
+                                </div>
+                            @endif
+
+                            @if($tryout->enable_screen_check)
+                                <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                                    <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <i id="screenCheckIcon" class="ri-checkbox-blank-circle-line text-lg text-gray-400"></i>
+                                        Share Screen
+                                    </span>
+                                    <button type="button" id="checkScreenBtn"
+                                        class="rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5">
+                                        Aktifkan Screen
+                                    </button>
+                                </div>
+                            @endif
+                        </div>
+
+                        <p id="proctoringLobbyError" class="mt-3 hidden rounded-lg bg-red/5 px-3 py-2 text-sm font-semibold text-red"></p>
+                    </div>
+                @endif
+
                 <a href="{{ route('user.tryout.index', ['id_package' => $package ? $package->package_id : 'free', 'id_tryout' => $tryout->tryout_id, 'number' => 1]) }}"
-                    class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl">
+                    id="startTryoutBtn"
+                    class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl {{ ($tryout->enable_webcam_check || $tryout->enable_screen_check) ? 'pointer-events-none opacity-50' : '' }}"
+                    aria-disabled="{{ ($tryout->enable_webcam_check || $tryout->enable_screen_check) ? 'true' : 'false' }}">
                     Mulai Tryout
                 </a>
+
+                @if($tryout->enable_webcam_check)
+                    <video id="lobbyWebcamPreview" class="hidden" autoplay muted playsinline></video>
+                @endif
+                @if($tryout->enable_screen_check)
+                    <video id="lobbyScreenPreview" class="hidden" autoplay muted playsinline></video>
+                @endif
             </div>
         </div>
     </div>
+
+    @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
+        <div id="tryoutFrameShell" class="fixed inset-0 z-[2147483000] hidden bg-white">
+            <iframe id="tryoutFrame" title="Tryout" class="h-full w-full border-0" allow="camera; display-capture; fullscreen"></iframe>
+        </div>
+
+        <div id="proctoringResumeOverlay"
+            class="fixed inset-0 z-[2147483647] hidden items-center justify-center bg-gray-950/85 px-4 backdrop-blur-sm">
+            <div class="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                    <i class="ri-shield-check-line text-3xl text-primary"></i>
+                </div>
+                <h3 class="mb-2 text-lg font-bold text-gray-900">Pengawasan Terhenti</h3>
+                <p id="proctoringResumeMessage" class="text-sm leading-relaxed text-gray-600">
+                    Aktifkan kembali pengawasan untuk melanjutkan tryout.
+                </p>
+                <button type="button" id="resumeProctoringBtn"
+                    class="mt-5 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
+                    Aktifkan Kembali
+                </button>
+            </div>
+        </div>
+    @endif
 @endsection
 @section('scripts')
     <script>
-        console.log('Tryout lobby loaded');
+        document.addEventListener('DOMContentLoaded', function() {
+            const proctoringSettings = {
+                webcam: @json((bool) $tryout->enable_webcam_check),
+                screen: @json((bool) $tryout->enable_screen_check),
+            };
+            const csrfToken = @json(csrf_token());
+            const snapshotUrl = @json(route('user.tryout.proctoring-snapshot', [
+                $package ? $package->package_id : 'free',
+                $tryout->tryout_id
+            ]));
+            const checkState = {
+                webcam: !proctoringSettings.webcam,
+                screen: !proctoringSettings.screen,
+            };
+            const mediaStreams = {};
+            const snapshotTimers = {};
+            let examStarted = false;
+            let attemptToken = null;
+            let suppressTrackEnded = false;
+            const storageKey = 'tryout_proctoring_checked_{{ $tryout->tryout_id }}';
+            const startButton = document.getElementById('startTryoutBtn');
+            const errorBox = document.getElementById('proctoringLobbyError');
+            const frameShell = document.getElementById('tryoutFrameShell');
+            const tryoutFrame = document.getElementById('tryoutFrame');
+            const resumeOverlay = document.getElementById('proctoringResumeOverlay');
+            const resumeMessage = document.getElementById('proctoringResumeMessage');
+            const resumeButton = document.getElementById('resumeProctoringBtn');
+
+            function showError(message) {
+                if (!errorBox) return;
+                errorBox.textContent = message;
+                errorBox.classList.remove('hidden');
+            }
+
+            function clearError() {
+                if (!errorBox) return;
+                errorBox.textContent = '';
+                errorBox.classList.add('hidden');
+            }
+
+            function isStreamActive(stream) {
+                return stream && stream.getVideoTracks().some(track => track.readyState === 'live');
+            }
+
+            function getRequiredTypeLabel(type) {
+                return type === 'webcam' ? 'Kamera' : 'Share Screen';
+            }
+
+            function setChecked(type) {
+                suppressTrackEnded = false;
+                checkState[type] = true;
+                const icon = document.getElementById(type === 'webcam' ? 'webcamCheckIcon' : 'screenCheckIcon');
+                const button = document.getElementById(type === 'webcam' ? 'checkWebcamBtn' : 'checkScreenBtn');
+
+                if (icon) {
+                    icon.className = 'ri-checkbox-circle-fill text-lg text-green';
+                }
+
+                if (button) {
+                    button.textContent = 'Aktif';
+                    button.disabled = true;
+                    button.classList.add('border-gray-200', 'bg-gray-100', 'text-gray-500');
+                    button.classList.remove('border-primary', 'text-primary', 'hover:bg-primary/5');
+                }
+
+                updateStartButton();
+            }
+
+            function updateStartButton() {
+                const ready = checkState.webcam && checkState.screen;
+                if (!startButton) return;
+
+                startButton.classList.toggle('pointer-events-none', !ready);
+                startButton.classList.toggle('opacity-50', !ready);
+                startButton.setAttribute('aria-disabled', ready ? 'false' : 'true');
+
+                if (ready) {
+                    sessionStorage.setItem(storageKey, JSON.stringify({
+                        webcam: checkState.webcam,
+                        screen: checkState.screen,
+                        checkedAt: Date.now(),
+                    }));
+                }
+            }
+
+            function markInactive(type) {
+                checkState[type] = false;
+                const icon = document.getElementById(type === 'webcam' ? 'webcamCheckIcon' : 'screenCheckIcon');
+                const button = document.getElementById(type === 'webcam' ? 'checkWebcamBtn' : 'checkScreenBtn');
+
+                if (icon) {
+                    icon.className = 'ri-checkbox-blank-circle-line text-lg text-gray-400';
+                }
+
+                if (button) {
+                    button.textContent = type === 'webcam' ? 'Aktifkan Kamera' : 'Aktifkan Screen';
+                    button.disabled = false;
+                    button.classList.remove('border-gray-200', 'bg-gray-100', 'text-gray-500');
+                    button.classList.add('border-primary', 'text-primary', 'hover:bg-primary/5');
+                }
+
+                updateStartButton();
+            }
+
+            function showResumeOverlay(type) {
+                if (!examStarted || !resumeOverlay) return;
+
+                if (resumeMessage) {
+                    resumeMessage.textContent = `${getRequiredTypeLabel(type)} terhenti. Aktifkan kembali pengawasan untuk melanjutkan tryout.`;
+                }
+
+                resumeOverlay.dataset.type = type;
+                resumeOverlay.classList.remove('hidden');
+                resumeOverlay.classList.add('flex');
+            }
+
+            function hideResumeOverlay() {
+                if (!resumeOverlay) return;
+                resumeOverlay.classList.add('hidden');
+                resumeOverlay.classList.remove('flex');
+                delete resumeOverlay.dataset.type;
+            }
+
+            function clearSnapshotTimer(type) {
+                if (!snapshotTimers[type]) return;
+                clearInterval(snapshotTimers[type]);
+                delete snapshotTimers[type];
+            }
+
+            function attachEndedHandler(type, stream) {
+                stream.getVideoTracks().forEach(track => {
+                    track.addEventListener('ended', function() {
+                        if (suppressTrackEnded) return;
+                        clearSnapshotTimer(type);
+                        delete mediaStreams[type];
+                        markInactive(type);
+                        showResumeOverlay(type);
+                    });
+                });
+            }
+
+            async function attachPreview(type, stream) {
+                const preview = document.getElementById(type === 'webcam' ? 'lobbyWebcamPreview' : 'lobbyScreenPreview');
+                if (!preview) return;
+                preview.srcObject = stream;
+                await preview.play().catch(() => {});
+            }
+
+            async function activateStream(type) {
+                if (isStreamActive(mediaStreams[type])) {
+                    setChecked(type);
+                    return mediaStreams[type];
+                }
+
+                const stream = type === 'webcam'
+                    ? await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' },
+                        audio: false,
+                    })
+                    : await navigator.mediaDevices.getDisplayMedia({
+                        video: { width: { ideal: 960 }, height: { ideal: 540 } },
+                        audio: false,
+                    });
+
+                mediaStreams[type] = stream;
+                attachEndedHandler(type, stream);
+                await attachPreview(type, stream);
+                setChecked(type);
+                return stream;
+            }
+
+            async function ensureRequiredStreamsActive() {
+                clearError();
+
+                if (proctoringSettings.webcam && !isStreamActive(mediaStreams.webcam)) {
+                    await activateStream('webcam');
+                }
+
+                if (proctoringSettings.screen && !isStreamActive(mediaStreams.screen)) {
+                    await activateStream('screen');
+                }
+
+                return (!proctoringSettings.webcam || isStreamActive(mediaStreams.webcam))
+                    && (!proctoringSettings.screen || isStreamActive(mediaStreams.screen));
+            }
+
+            async function checkWebcam() {
+                clearError();
+                const button = document.getElementById('checkWebcamBtn');
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Mengaktifkan...';
+                }
+
+                try {
+                    await activateStream('webcam');
+                } catch (e) {
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = 'Aktifkan Kamera';
+                    }
+                    showError('Kamera wajib diizinkan sebelum mulai tryout.');
+                }
+            }
+
+            async function checkScreen() {
+                clearError();
+                const button = document.getElementById('checkScreenBtn');
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Mengaktifkan...';
+                }
+
+                try {
+                    await activateStream('screen');
+                } catch (e) {
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = 'Aktifkan Screen';
+                    }
+                    showError('Screen sharing wajib diizinkan sebelum mulai tryout.');
+                }
+            }
+
+            function getAttemptTokenFromFrame() {
+                try {
+                    const documentInFrame = tryoutFrame?.contentDocument;
+                    const input = documentInFrame?.querySelector('input[name="attempt_token"]');
+                    return input?.value || null;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function isFrameOnResultPage() {
+                try {
+                    return tryoutFrame?.contentWindow?.location?.pathname?.includes('/hasil') || false;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            async function captureSnapshot(type) {
+                const stream = mediaStreams[type];
+                if (!attemptToken || !isStreamActive(stream)) return;
+
+                const video = document.getElementById(type === 'webcam' ? 'lobbyWebcamPreview' : 'lobbyScreenPreview');
+                if (!video || video.readyState < 2) return;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 480;
+                canvas.height = 270;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const image = canvas.toDataURL('image/jpeg', 0.42);
+
+                await fetch(snapshotUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({
+                        attempt_token: attemptToken,
+                        type,
+                        image,
+                    }),
+                });
+            }
+
+            function startSnapshotTimer(type) {
+                if (!isStreamActive(mediaStreams[type]) || snapshotTimers[type]) return;
+
+                setTimeout(() => {
+                    captureSnapshot(type).catch(() => {});
+                }, 1500);
+
+                snapshotTimers[type] = setInterval(() => {
+                    captureSnapshot(type).catch(() => {});
+                }, 600000);
+            }
+
+            function stopAllMonitoring() {
+                suppressTrackEnded = true;
+                examStarted = false;
+                hideResumeOverlay();
+                Object.keys(snapshotTimers).forEach(clearSnapshotTimer);
+                Object.values(mediaStreams).forEach(stream => {
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                });
+                Object.keys(mediaStreams).forEach(type => delete mediaStreams[type]);
+            }
+
+            function startFrameMonitoring() {
+                let retries = 0;
+                const tokenReader = setInterval(() => {
+                    if (isFrameOnResultPage()) {
+                        clearInterval(tokenReader);
+                        stopAllMonitoring();
+                        return;
+                    }
+
+                    attemptToken = getAttemptTokenFromFrame();
+                    if (attemptToken) {
+                        clearInterval(tokenReader);
+                        if (proctoringSettings.webcam) startSnapshotTimer('webcam');
+                        if (proctoringSettings.screen) startSnapshotTimer('screen');
+                    }
+
+                    retries += 1;
+                    if (retries > 40) {
+                        clearInterval(tokenReader);
+                    }
+                }, 500);
+            }
+
+            async function startTryoutInFrame(event) {
+                if (!proctoringSettings.webcam && !proctoringSettings.screen) return;
+
+                event.preventDefault();
+                if (!frameShell || !tryoutFrame || examStarted) return;
+
+                startButton.classList.add('pointer-events-none', 'opacity-50');
+                startButton.textContent = 'Menyiapkan Tryout...';
+
+                try {
+                    const ready = await ensureRequiredStreamsActive();
+                    if (!ready) {
+                        showError('Kamera dan screen sharing wajib aktif sebelum mulai tryout.');
+                        return;
+                    }
+                } catch (e) {
+                    showError('Kamera dan screen sharing wajib aktif sebelum mulai tryout.');
+                    return;
+                } finally {
+                    startButton.textContent = 'Mulai Tryout';
+                    updateStartButton();
+                }
+
+                examStarted = true;
+                frameShell.classList.remove('hidden');
+                tryoutFrame.src = startButton.href;
+                tryoutFrame.addEventListener('load', function() {
+                    if (isFrameOnResultPage()) {
+                        stopAllMonitoring();
+                        return;
+                    }
+                    startFrameMonitoring();
+                });
+            }
+
+            if ((proctoringSettings.webcam || proctoringSettings.screen) && !navigator.mediaDevices) {
+                showError('Browser tidak mendukung pengecekan perangkat.');
+            }
+
+            if (proctoringSettings.screen && navigator.mediaDevices && !navigator.mediaDevices.getDisplayMedia) {
+                showError('Browser tidak mendukung screen sharing.');
+            }
+
+            document.getElementById('checkWebcamBtn')?.addEventListener('click', checkWebcam);
+            document.getElementById('checkScreenBtn')?.addEventListener('click', checkScreen);
+            startButton?.addEventListener('click', startTryoutInFrame);
+            resumeButton?.addEventListener('click', async function() {
+                const type = resumeOverlay?.dataset.type;
+                if (!type) return;
+
+                resumeButton.disabled = true;
+                resumeButton.textContent = 'Mengaktifkan...';
+
+                try {
+                    await activateStream(type);
+                    startSnapshotTimer(type);
+                    hideResumeOverlay();
+                } catch (e) {
+                    showError(`${getRequiredTypeLabel(type)} wajib aktif untuk melanjutkan tryout.`);
+                } finally {
+                    resumeButton.disabled = false;
+                    resumeButton.textContent = 'Aktifkan Kembali';
+                }
+            });
+            window.addEventListener('beforeunload', stopAllMonitoring);
+            updateStartButton();
+        });
     </script>
 @endsection
 @section('styles')

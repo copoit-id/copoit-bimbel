@@ -480,6 +480,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
         Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
         Route::get('/{tryout}/proctoring-snapshots', [LaporanController::class, 'proctoringSnapshots'])->name('proctoring-snapshots');
+        Route::delete('/{tryout}/proctoring-snapshots', [LaporanController::class, 'destroyAllProctoringSnapshots'])->name('proctoring-snapshots.destroy-all');
         Route::delete('/{tryout}/proctoring-snapshots/{snapshot}', [LaporanController::class, 'destroyProctoringSnapshot'])->name('proctoring-snapshots.destroy');
         Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
         Route::post('/{tryout}/attempt/{token}/reset', [LaporanController::class, 'resetAttempt'])->name('reset-attempt');

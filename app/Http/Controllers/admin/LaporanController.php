@@ -10,6 +10,7 @@ use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -361,17 +362,55 @@ class LaporanController extends Controller
 
     public function proctoringSnapshots(Tryout $tryout)
     {
-        $snapshots = ProctoringSnapshot::with(['user'])
+        $search = trim((string) request('search', ''));
+        $allSnapshots = ProctoringSnapshot::with(['user'])
             ->where('tryout_id', $tryout->tryout_id)
-            ->latest('captured_at')
-            ->paginate(24);
+            ->when($search !== '', function ($query) use ($search) {
+                $query->whereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('attempt_token')
+            ->orderBy('captured_at')
+            ->get();
+
+        $attemptTokens = $allSnapshots->pluck('attempt_token')->filter()->unique()->values();
+        $tabSwitchCounts = UserAnswer::where('tryout_id', $tryout->tryout_id)
+            ->whereIn('attempt_token', $attemptTokens)
+            ->selectRaw('attempt_token, COALESCE(SUM(tab_switch_count), 0) as total')
+            ->groupBy('attempt_token')
+            ->pluck('total', 'attempt_token');
+
+        $allSnapshotAttempts = $this->groupProctoringSnapshotAttempts($allSnapshots, $tabSwitchCounts);
+        $totalTabSwitchCount = $allSnapshotAttempts->sum('tab_switch_count');
+        $snapshotAttempts = $this->paginateProctoringSnapshotAttempts($allSnapshotAttempts, request()->integer('page', 1));
 
         $summary = ProctoringSnapshot::where('tryout_id', $tryout->tryout_id)
             ->selectRaw('type, count(*) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
 
-        return view('admin.pages.laporan.proctoring-snapshots', compact('tryout', 'snapshots', 'summary'));
+        return view('admin.pages.laporan.proctoring-snapshots', compact(
+            'tryout',
+            'snapshotAttempts',
+            'summary',
+            'search',
+            'totalTabSwitchCount'
+        ));
+    }
+
+    public function destroyAllProctoringSnapshots(Tryout $tryout)
+    {
+        $snapshots = ProctoringSnapshot::where('tryout_id', $tryout->tryout_id)->get();
+
+        foreach ($snapshots as $snapshot) {
+            Storage::disk('public')->delete($snapshot->file_path);
+        }
+
+        ProctoringSnapshot::where('tryout_id', $tryout->tryout_id)->delete();
+
+        return back()->with('success', 'Semua snapshot proctoring berhasil dihapus.');
     }
 
     public function destroyProctoringSnapshot(Tryout $tryout, ProctoringSnapshot $snapshot)
@@ -384,6 +423,96 @@ class LaporanController extends Controller
         $snapshot->delete();
 
         return back()->with('success', 'Snapshot berhasil dihapus.');
+    }
+
+    private function groupProctoringSnapshotAttempts($snapshots, $tabSwitchCounts)
+    {
+        return $snapshots
+            ->groupBy('attempt_token')
+            ->map(function ($attemptSnapshots, $attemptToken) use ($tabSwitchCounts) {
+                $captures = $this->groupProctoringSnapshots($attemptSnapshots);
+                $typeCounts = $attemptSnapshots->countBy('type');
+
+                return [
+                    'attempt_token' => $attemptToken,
+                    'user' => $attemptSnapshots->first()?->user,
+                    'first_captured_at' => $attemptSnapshots->min('captured_at'),
+                    'latest_captured_at' => $attemptSnapshots->max('captured_at'),
+                    'snapshot_count' => $attemptSnapshots->count(),
+                    'webcam_count' => (int) ($typeCounts['webcam'] ?? 0),
+                    'screen_count' => (int) ($typeCounts['screen'] ?? 0),
+                    'total_size' => $attemptSnapshots->sum('file_size'),
+                    'tab_switch_count' => (int) ($tabSwitchCounts[$attemptToken] ?? 0),
+                    'captures' => $captures,
+                ];
+            })
+            ->sortByDesc('latest_captured_at')
+            ->values();
+    }
+
+    private function groupProctoringSnapshots($snapshots)
+    {
+        $groups = collect();
+
+        $currentGroup = null;
+
+        foreach ($snapshots as $snapshot) {
+            $snapshotTime = $snapshot->captured_at;
+            $shouldStartNewGroup = !$currentGroup
+                || isset($currentGroup['snapshots'][$snapshot->type])
+                || (
+                    $snapshotTime
+                    && $currentGroup['captured_at']
+                    && abs($snapshotTime->diffInSeconds($currentGroup['captured_at'], false)) > 120
+                );
+
+            if ($shouldStartNewGroup) {
+                if ($currentGroup) {
+                    $groups->push($currentGroup);
+                }
+
+                $currentGroup = [
+                    'captured_at' => $snapshotTime,
+                    'snapshots' => [],
+                    'total_size' => 0,
+                ];
+            }
+
+            $currentGroup['snapshots'][$snapshot->type] = $snapshot;
+            $currentGroup['total_size'] += (int) $snapshot->file_size;
+
+            if (
+                !$currentGroup['captured_at']
+                || ($snapshotTime && $snapshotTime->lt($currentGroup['captured_at']))
+            ) {
+                $currentGroup['captured_at'] = $snapshotTime;
+            }
+        }
+
+        if ($currentGroup) {
+            $groups->push($currentGroup);
+        }
+
+        return $groups
+            ->sortByDesc('captured_at')
+            ->values();
+    }
+
+    private function paginateProctoringSnapshotAttempts($attempts, int $page): LengthAwarePaginator
+    {
+        $perPage = 10;
+        $page = max(1, $page);
+
+        return new LengthAwarePaginator(
+            $attempts->forPage($page, $perPage)->values(),
+            $attempts->count(),
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
     }
 
     public function publicLiveScore(Request $request, $tryoutId)
