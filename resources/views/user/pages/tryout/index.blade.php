@@ -1,7 +1,8 @@
 @extends('user.layout.tryout')
 @section('title', 'Tryout - Soal ' . $number)
 @section('content')
-    <div class="min-h-screen bg-gray-50 pt-16">
+    <div id="tryoutPage" class="min-h-screen select-none bg-gray-50 pt-16"
+        oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false">
         <div class="max-w-7xl mx-auto py-2 sm:px-4 sm:py-6">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <!-- Question Section -->
@@ -599,6 +600,27 @@
             }
 
             setupTabSwitchGuard();
+
+            function setupCopyGuard() {
+                const tryoutPage = document.getElementById('tryoutPage');
+                if (!tryoutPage) return;
+
+                ['copy', 'cut', 'contextmenu', 'dragstart'].forEach(eventName => {
+                    tryoutPage.addEventListener(eventName, function(event) {
+                        event.preventDefault();
+                    });
+                });
+
+                tryoutPage.addEventListener('keydown', function(event) {
+                    const key = event.key.toLowerCase();
+                    const isCopyShortcut = (event.ctrlKey || event.metaKey) && ['a', 'c', 'x'].includes(key);
+                    if (isCopyShortcut) {
+                        event.preventDefault();
+                    }
+                });
+            }
+
+            setupCopyGuard();
 
             // --- NAVIGATION CORE ---
 
