@@ -725,6 +725,8 @@
 
                 return navigator.mediaDevices.getDisplayMedia({
                     video: { width: { ideal: 960 }, height: { ideal: 540 } },
+                    selfBrowserSurface: 'exclude',
+                    monitorTypeSurfaces: 'include',
                     audio: false
                 });
             }

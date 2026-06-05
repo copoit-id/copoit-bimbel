@@ -150,10 +150,10 @@
                 </a>
 
                 @if($tryout->enable_webcam_check)
-                    <video id="lobbyWebcamPreview" class="hidden" autoplay muted playsinline></video>
+                    <video id="lobbyWebcamPreview" class="pointer-events-none fixed bottom-0 right-0 h-px w-px opacity-0" autoplay muted playsinline></video>
                 @endif
                 @if($tryout->enable_screen_check)
-                    <video id="lobbyScreenPreview" class="hidden" autoplay muted playsinline></video>
+                    <video id="lobbyScreenPreview" class="pointer-events-none fixed bottom-0 right-0 h-px w-px opacity-0" autoplay muted playsinline></video>
                 @endif
             </div>
         </div>
@@ -201,6 +201,7 @@
             const mediaStreams = {};
             const snapshotTimers = {};
             let examStarted = false;
+            let examStartInProgress = false;
             let attemptToken = null;
             let suppressTrackEnded = false;
             const storageKey = 'tryout_proctoring_checked_{{ $tryout->tryout_id }}';
@@ -345,6 +346,8 @@
                     })
                     : await navigator.mediaDevices.getDisplayMedia({
                         video: { width: { ideal: 960 }, height: { ideal: 540 } },
+                        selfBrowserSurface: 'exclude',
+                        monitorTypeSurfaces: 'include',
                         audio: false,
                     });
 
@@ -355,15 +358,15 @@
                 return stream;
             }
 
-            async function ensureRequiredStreamsActive() {
+            function ensureRequiredStreamsActive() {
                 clearError();
 
                 if (proctoringSettings.webcam && !isStreamActive(mediaStreams.webcam)) {
-                    await activateStream('webcam');
+                    markInactive('webcam');
                 }
 
                 if (proctoringSettings.screen && !isStreamActive(mediaStreams.screen)) {
-                    await activateStream('screen');
+                    markInactive('screen');
                 }
 
                 return (!proctoringSettings.webcam || isStreamActive(mediaStreams.webcam))
@@ -426,6 +429,33 @@
                 }
             }
 
+            function getFrameLocation() {
+                try {
+                    const location = tryoutFrame?.contentWindow?.location;
+                    if (!location || location.href === 'about:blank') return null;
+
+                    return {
+                        href: location.href,
+                        pathname: location.pathname,
+                    };
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function isFrameOnTryoutPage() {
+                const location = getFrameLocation();
+                return location ? /\/tryout\/[^/]+$/.test(location.pathname) : false;
+            }
+
+            function promoteFrameToTop() {
+                const location = getFrameLocation();
+                if (!location) return;
+
+                stopAllMonitoring();
+                window.location.replace(location.href);
+            }
+
             async function captureSnapshot(type) {
                 const stream = mediaStreams[type];
                 if (!attemptToken || !isStreamActive(stream)) return;
@@ -485,7 +515,7 @@
                 const tokenReader = setInterval(() => {
                     if (isFrameOnResultPage()) {
                         clearInterval(tokenReader);
-                        stopAllMonitoring();
+                        promoteFrameToTop();
                         return;
                     }
 
@@ -507,35 +537,44 @@
                 if (!proctoringSettings.webcam && !proctoringSettings.screen) return;
 
                 event.preventDefault();
-                if (!frameShell || !tryoutFrame || examStarted) return;
+                if (!frameShell || !tryoutFrame || examStarted || examStartInProgress) return;
 
+                examStartInProgress = true;
                 startButton.classList.add('pointer-events-none', 'opacity-50');
                 startButton.textContent = 'Menyiapkan Tryout...';
 
                 try {
-                    const ready = await ensureRequiredStreamsActive();
+                    const ready = ensureRequiredStreamsActive();
                     if (!ready) {
-                        showError('Kamera dan screen sharing wajib aktif sebelum mulai tryout.');
+                        showError('Kamera dan screen sharing perlu aktif ulang sebelum mulai tryout.');
                         return;
                     }
                 } catch (e) {
-                    showError('Kamera dan screen sharing wajib aktif sebelum mulai tryout.');
+                    showError('Kamera dan screen sharing perlu aktif ulang sebelum mulai tryout.');
                     return;
                 } finally {
+                    examStartInProgress = false;
                     startButton.textContent = 'Mulai Tryout';
                     updateStartButton();
                 }
 
                 examStarted = true;
                 frameShell.classList.remove('hidden');
-                tryoutFrame.src = startButton.href;
+                window.history.replaceState(window.history.state, '', startButton.href);
                 tryoutFrame.addEventListener('load', function() {
                     if (isFrameOnResultPage()) {
-                        stopAllMonitoring();
+                        promoteFrameToTop();
                         return;
                     }
+
+                    if (!isFrameOnTryoutPage()) {
+                        promoteFrameToTop();
+                        return;
+                    }
+
                     startFrameMonitoring();
                 });
+                tryoutFrame.src = startButton.href;
             }
 
             if ((proctoringSettings.webcam || proctoringSettings.screen) && !navigator.mediaDevices) {
