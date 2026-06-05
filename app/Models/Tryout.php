@@ -29,6 +29,10 @@ class Tryout extends Model
         'assessment_type' => 'string',
         'answer_persistence_mode' => 'string',
         'subtest_display_mode' => 'string',
+        'enable_anti_copy' => 'boolean',
+        'enable_tab_switch_detection' => 'boolean',
+        'enable_webcam_check' => 'boolean',
+        'enable_screen_check' => 'boolean',
         'price' => 'decimal:0',
     ];
 
@@ -92,6 +96,11 @@ class Tryout extends Model
     public function feedbackSubmissions()
     {
         return $this->hasMany(FeedbackSubmission::class, 'tryout_id', 'tryout_id');
+    }
+
+    public function proctoringSnapshots()
+    {
+        return $this->hasMany(ProctoringSnapshot::class, 'tryout_id', 'tryout_id');
     }
 
     /**

@@ -427,6 +427,10 @@ class PackageController extends Controller
             'is_certification' => 'boolean',
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
+            'enable_anti_copy' => 'boolean',
+            'enable_tab_switch_detection' => 'boolean',
+            'enable_webcam_check' => 'boolean',
+            'enable_screen_check' => 'boolean',
             'order' => 'nullable|integer|min:0'
         ]);
 
@@ -441,7 +445,11 @@ class PackageController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'is_active' => $request->has('is_active'),
-            'is_toefl' => $request->has('is_toefl')
+            'is_toefl' => $request->has('is_toefl'),
+            'enable_anti_copy' => $request->boolean('enable_anti_copy'),
+            'enable_tab_switch_detection' => $request->boolean('enable_tab_switch_detection'),
+            'enable_webcam_check' => $request->boolean('enable_webcam_check'),
+            'enable_screen_check' => $request->boolean('enable_screen_check'),
         ]);
 
         if ($tryout && $tryout->type_tryout == 'skd_full') {

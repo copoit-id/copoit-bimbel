@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Package;
+use App\Models\ProctoringSnapshot;
 use App\Models\Question;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
@@ -11,6 +12,7 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -114,6 +116,10 @@ class TryoutController extends Controller
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
+                'enable_anti_copy' => $request->boolean('enable_anti_copy'),
+                'enable_tab_switch_detection' => $request->boolean('enable_tab_switch_detection'),
+                'enable_webcam_check' => $request->boolean('enable_webcam_check'),
+                'enable_screen_check' => $request->boolean('enable_screen_check'),
                 'is_certification' => $request->has('is_certification'),
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
@@ -186,6 +192,10 @@ class TryoutController extends Controller
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
+                'enable_anti_copy' => $request->boolean('enable_anti_copy'),
+                'enable_tab_switch_detection' => $request->boolean('enable_tab_switch_detection'),
+                'enable_webcam_check' => $request->boolean('enable_webcam_check'),
+                'enable_screen_check' => $request->boolean('enable_screen_check'),
                 'is_certification' => $request->has('is_certification'),
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
@@ -288,6 +298,33 @@ class TryoutController extends Controller
                 ->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
         }
+    }
+
+    public function proctoringSnapshots(Tryout $tryout)
+    {
+        $snapshots = ProctoringSnapshot::with(['user'])
+            ->where('tryout_id', $tryout->tryout_id)
+            ->latest('captured_at')
+            ->paginate(24);
+
+        $summary = ProctoringSnapshot::where('tryout_id', $tryout->tryout_id)
+            ->selectRaw('type, count(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        return view('admin.pages.tryout.proctoring-snapshots', compact('tryout', 'snapshots', 'summary'));
+    }
+
+    public function destroyProctoringSnapshot(Tryout $tryout, ProctoringSnapshot $snapshot)
+    {
+        if ((int) $snapshot->tryout_id !== (int) $tryout->tryout_id) {
+            abort(404);
+        }
+
+        Storage::disk('public')->delete($snapshot->file_path);
+        $snapshot->delete();
+
+        return back()->with('success', 'Snapshot berhasil dihapus.');
     }
 
     private function createTryoutDetails($tryout, $request)
@@ -608,6 +645,10 @@ class TryoutController extends Controller
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
+            'enable_anti_copy' => 'boolean',
+            'enable_tab_switch_detection' => 'boolean',
+            'enable_webcam_check' => 'boolean',
+            'enable_screen_check' => 'boolean',
             'price' => 'nullable|numeric|min:0',
         ];
 

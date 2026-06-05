@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessEssayCorrection;
 use App\Models\EssayCorrectionJob;
 use App\Models\Package;
+use App\Models\ProctoringSnapshot;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\Question;
@@ -1538,6 +1539,14 @@ class TryoutController extends Controller
 
     public function trackTabSwitch(Request $request, $id_package, $id_tryout)
     {
+        $tryout = Tryout::findOrFail($id_tryout);
+        if (!$tryout->enable_tab_switch_detection) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Deteksi pindah tab tidak aktif.',
+            ]);
+        }
+
         $validated = $request->validate([
             'attempt_token' => 'required|string',
             'question_id' => 'nullable|integer|exists:questions,question_id',
@@ -1579,6 +1588,85 @@ class TryoutController extends Controller
             'success' => true,
             'message' => 'Pelanggaran tab tercatat.',
             'count' => $userAnswer->tab_switch_count,
+        ]);
+    }
+
+    public function storeProctoringSnapshot(Request $request, $id_package, $id_tryout)
+    {
+        $tryout = Tryout::findOrFail($id_tryout);
+
+        $validated = $request->validate([
+            'attempt_token' => 'required|string',
+            'type' => 'required|in:webcam,screen',
+            'image' => 'required|string',
+        ]);
+
+        if (
+            ($validated['type'] === 'webcam' && !$tryout->enable_webcam_check)
+            || ($validated['type'] === 'screen' && !$tryout->enable_screen_check)
+        ) {
+            return response()->json([
+                'success' => true,
+                'stored' => false,
+                'message' => 'Snapshot tidak aktif untuk tryout ini.',
+            ]);
+        }
+
+        if (!preg_match('/^data:image\/(jpeg|webp);base64,([A-Za-z0-9+\/=]+)$/', $validated['image'], $matches)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format snapshot tidak valid.',
+            ], 422);
+        }
+
+        $extension = $matches[1] === 'webp' ? 'webp' : 'jpg';
+        $binary = base64_decode($matches[2], true);
+        if ($binary === false || strlen($binary) > 180 * 1024) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ukuran snapshot terlalu besar.',
+            ], 422);
+        }
+
+        $userAnswer = UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $validated['attempt_token'])
+            ->where('status', 'in_progress')
+            ->first();
+
+        if (!$userAnswer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session tryout tidak ditemukan.',
+            ], 404);
+        }
+
+        $path = sprintf(
+            'proctoring/%s/%s/%s_%s.%s',
+            $id_tryout,
+            $validated['attempt_token'],
+            $validated['type'],
+            now('Asia/Jakarta')->format('Ymd_His'),
+            $extension
+        );
+
+        Storage::disk('public')->put($path, $binary);
+
+        ProctoringSnapshot::create([
+            'user_id' => Auth::id(),
+            'tryout_id' => $id_tryout,
+            'user_answer_id' => $userAnswer->user_answer_id,
+            'attempt_token' => $validated['attempt_token'],
+            'type' => $validated['type'],
+            'file_path' => $path,
+            'mime_type' => 'image/' . ($extension === 'jpg' ? 'jpeg' : 'webp'),
+            'file_size' => strlen($binary),
+            'captured_at' => now('Asia/Jakarta'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'stored' => true,
         ]);
     }
 

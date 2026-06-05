@@ -1,8 +1,8 @@
 @extends('user.layout.tryout')
 @section('title', 'Tryout - Soal ' . $number)
 @section('content')
-    <div id="tryoutPage" class="min-h-screen select-none bg-gray-50 pt-16"
-        oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false">
+    <div id="tryoutPage" class="min-h-screen bg-gray-50 pt-16 {{ $tryout->enable_anti_copy ? 'select-none' : '' }}"
+        @if($tryout->enable_anti_copy) oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false" @endif>
         <div class="max-w-7xl mx-auto py-2 sm:px-4 sm:py-6">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <!-- Question Section -->
@@ -422,6 +422,29 @@
         </div>
     </div>
 
+    @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
+    <div id="proctoringPermissionModal"
+        class="fixed inset-0 flex items-center justify-center bg-gray-950/85 px-4 backdrop-blur-sm"
+        style="z-index: 2147483646;">
+        <div class="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                <i class="ri-shield-check-line text-3xl text-primary"></i>
+            </div>
+            <h3 class="mb-2 text-lg font-bold text-gray-900">Aktifkan Pengawasan Ujian</h3>
+            <p class="text-sm leading-relaxed text-gray-600">
+                Ujian ini membutuhkan {{ $tryout->enable_webcam_check ? 'kamera' : '' }}{{ $tryout->enable_webcam_check && $tryout->enable_screen_check ? ' dan ' : '' }}{{ $tryout->enable_screen_check ? 'screen sharing' : '' }} aktif. Sistem hanya menyimpan snapshot kecil setiap 10 menit, bukan rekaman penuh.
+            </p>
+            <p id="proctoringPermissionError" class="mt-3 hidden rounded-lg bg-red/5 px-3 py-2 text-sm font-semibold text-red"></p>
+            <button type="button" id="startProctoringBtn"
+                class="mt-5 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
+                Aktifkan dan Mulai
+            </button>
+        </div>
+    </div>
+    <video id="webcamPreview" class="hidden" autoplay muted playsinline></video>
+    <video id="screenPreview" class="hidden" autoplay muted playsinline></video>
+    @endif
+
     @php
         $subtestRangesForJs = collect($subtestInfo ?? [])
             ->map(function ($subtest) {
@@ -475,6 +498,14 @@
             }
             return $data;
         });
+
+        $proctoringSettingsForJs = [
+            'antiCopy' => (bool) $tryout->enable_anti_copy,
+            'tabSwitch' => (bool) $tryout->enable_tab_switch_detection,
+            'webcam' => (bool) $tryout->enable_webcam_check,
+            'screen' => (bool) $tryout->enable_screen_check,
+            'snapshotIntervalMs' => 600000,
+        ];
     @endphp
 
     <script>
@@ -490,6 +521,9 @@
             const allServerAnswers = @json($allAnswerDetailsForJs);
             const trackTabSwitchUrl =
                 '{{ route('user.tryout.track-tab-switch', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}';
+            const proctoringSnapshotUrl =
+                '{{ route('user.tryout.proctoring-snapshot', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}';
+            const proctoringSettings = {{ \Illuminate\Support\Js::from($proctoringSettingsForJs) }};
             const baseUrlTemplate =
                 '{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, ':num']) }}';
 
@@ -540,7 +574,7 @@
             }
 
             async function trackTabSwitch(reason) {
-                if (isLeavingTryout) {
+                if (!proctoringSettings.tabSwitch || isLeavingTryout) {
                     return;
                 }
 
@@ -599,7 +633,9 @@
                 });
             }
 
-            setupTabSwitchGuard();
+            if (proctoringSettings.tabSwitch) {
+                setupTabSwitchGuard();
+            }
 
             function setupCopyGuard() {
                 const tryoutPage = document.getElementById('tryoutPage');
@@ -620,7 +656,117 @@
                 });
             }
 
-            setupCopyGuard();
+            if (proctoringSettings.antiCopy) {
+                setupCopyGuard();
+            }
+
+            function showProctoringError(message) {
+                const error = document.getElementById('proctoringPermissionError');
+                if (!error) return;
+                error.textContent = message;
+                error.classList.remove('hidden');
+            }
+
+            async function startMediaStream(type) {
+                if (type === 'webcam') {
+                    return navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' },
+                        audio: false
+                    });
+                }
+
+                return navigator.mediaDevices.getDisplayMedia({
+                    video: { width: { ideal: 960 }, height: { ideal: 540 } },
+                    audio: false
+                });
+            }
+
+            async function captureSnapshot(type, video) {
+                if (!video || video.readyState < 2) return;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 480;
+                canvas.height = 270;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const image = canvas.toDataURL('image/jpeg', 0.42);
+
+                await fetch(proctoringSnapshotUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({
+                        attempt_token: attemptToken,
+                        type: type,
+                        image: image
+                    })
+                });
+            }
+
+            async function attachProctoringStream(type, stream) {
+                const video = document.getElementById(type === 'webcam' ? 'webcamPreview' : 'screenPreview');
+                if (!video) return;
+
+                video.srcObject = stream;
+                await video.play();
+
+                stream.getVideoTracks().forEach(track => {
+                    track.addEventListener('ended', function() {
+                        showTabSwitchAlert();
+                        const message = document.getElementById('tabSwitchAlertMessage');
+                        if (message) {
+                            message.textContent = type === 'webcam'
+                                ? 'Kamera terhenti. Aktifkan kembali pengawasan untuk melanjutkan ujian.'
+                                : 'Screen sharing terhenti. Aktifkan kembali pengawasan untuk melanjutkan ujian.';
+                        }
+                    });
+                });
+
+                setTimeout(() => captureSnapshot(type, video).catch(() => {}), 1500);
+                setInterval(() => captureSnapshot(type, video).catch(() => {}), proctoringSettings.snapshotIntervalMs);
+            }
+
+            async function setupProctoringMedia() {
+                if (!proctoringSettings.webcam && !proctoringSettings.screen) return;
+
+                if (!navigator.mediaDevices || (!navigator.mediaDevices.getUserMedia && proctoringSettings.webcam)) {
+                    showProctoringError('Browser tidak mendukung akses kamera.');
+                    return;
+                }
+
+                const button = document.getElementById('startProctoringBtn');
+                const modal = document.getElementById('proctoringPermissionModal');
+                if (!button || !modal) return;
+
+                button.addEventListener('click', async function() {
+                    button.disabled = true;
+                    button.textContent = 'Meminta izin...';
+
+                    try {
+                        if (proctoringSettings.webcam) {
+                            const webcamStream = await startMediaStream('webcam');
+                            await attachProctoringStream('webcam', webcamStream);
+                        }
+
+                        if (proctoringSettings.screen) {
+                            const screenStream = await startMediaStream('screen');
+                            await attachProctoringStream('screen', screenStream);
+                        }
+
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    } catch (e) {
+                        button.disabled = false;
+                        button.textContent = 'Aktifkan dan Mulai';
+                        showProctoringError('Izin kamera atau screen sharing wajib diberikan untuk melanjutkan ujian.');
+                    }
+                });
+            }
+
+            setupProctoringMedia();
 
             // --- NAVIGATION CORE ---
 

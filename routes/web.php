@@ -182,6 +182,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::post('/{id_package}/{id_tryout}/tryout/{number}/save', [TryoutController::class, 'saveAnswer'])->name('user.tryout.save');
         Route::post('/{id_package}/{id_tryout}/subtest/flush', [TryoutController::class, 'flushSubtestAnswers'])->name('user.tryout.subtest.flush');
         Route::post('/{id_package}/{id_tryout}/track-tab-switch', [TryoutController::class, 'trackTabSwitch'])->name('user.tryout.track-tab-switch');
+        Route::post('/{id_package}/{id_tryout}/proctoring-snapshot', [TryoutController::class, 'storeProctoringSnapshot'])->name('user.tryout.proctoring-snapshot');
         Route::post('/{id_package}/{id_tryout}/flag', [TryoutController::class, 'toggleFlag'])->name('user.tryout.flag');
         Route::post('/{id_package}/{id_tryout}/finish', [TryoutController::class, 'finishTryout'])->name('user.tryout.finish');
         Route::get('/{id_package}/{id_tryout}/hasil', [TryoutController::class, 'indexResult'])->name('user.tryout.result');
@@ -390,6 +391,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
 
     Route::resource('tryout', AdminTryoutController::class);
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
+    Route::get('tryout/{tryout}/proctoring-snapshots', [AdminTryoutController::class, 'proctoringSnapshots'])->name('tryout.proctoring-snapshots');
+    Route::delete('tryout/{tryout}/proctoring-snapshots/{snapshot}', [AdminTryoutController::class, 'destroyProctoringSnapshot'])->name('tryout.proctoring-snapshots.destroy');
     Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
     Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
 
