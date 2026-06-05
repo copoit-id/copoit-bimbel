@@ -181,6 +181,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/{id_tryout}/tryout/{number}', [TryoutController::class, 'indexTryout'])->name('user.tryout.index');
         Route::post('/{id_package}/{id_tryout}/tryout/{number}/save', [TryoutController::class, 'saveAnswer'])->name('user.tryout.save');
         Route::post('/{id_package}/{id_tryout}/subtest/flush', [TryoutController::class, 'flushSubtestAnswers'])->name('user.tryout.subtest.flush');
+        Route::post('/{id_package}/{id_tryout}/track-tab-switch', [TryoutController::class, 'trackTabSwitch'])->name('user.tryout.track-tab-switch');
         Route::post('/{id_package}/{id_tryout}/flag', [TryoutController::class, 'toggleFlag'])->name('user.tryout.flag');
         Route::post('/{id_package}/{id_tryout}/finish', [TryoutController::class, 'finishTryout'])->name('user.tryout.finish');
         Route::get('/{id_package}/{id_tryout}/hasil', [TryoutController::class, 'indexResult'])->name('user.tryout.result');

@@ -25,6 +25,7 @@ class UserAnswer extends Model
         'utbk_total_score',
         'correct_answers',
         'total_questions',
+        'tab_switch_count',
         'status'
     ];
 
@@ -33,7 +34,8 @@ class UserAnswer extends Model
         'finished_at' => 'datetime:Y-m-d H:i:s',
         'subtest_submitted_at' => 'datetime:Y-m-d H:i:s',
         'score' => 'decimal:2',
-        'utbk_total_score' => 'decimal:2'
+        'utbk_total_score' => 'decimal:2',
+        'tab_switch_count' => 'integer',
     ];
 
     // Pastikan timezone Jakarta untuk semua datetime

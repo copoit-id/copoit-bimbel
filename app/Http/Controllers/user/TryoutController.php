@@ -1536,6 +1536,52 @@ class TryoutController extends Controller
         }
     }
 
+    public function trackTabSwitch(Request $request, $id_package, $id_tryout)
+    {
+        $validated = $request->validate([
+            'attempt_token' => 'required|string',
+            'question_id' => 'nullable|integer|exists:questions,question_id',
+        ]);
+
+        $query = UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $validated['attempt_token'])
+            ->where('status', 'in_progress');
+
+        if (!empty($validated['question_id'])) {
+            $question = Question::find($validated['question_id']);
+            if ($question) {
+                $query->where('tryout_detail_id', $question->tryout_detail_id);
+            }
+        }
+
+        $userAnswer = $query->first();
+
+        if (!$userAnswer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session tryout tidak ditemukan.',
+            ], 404);
+        }
+
+        $userAnswer->increment('tab_switch_count');
+        $userAnswer->refresh();
+
+        ActivityLogger::log('tryout_tab_switch_detected', 'warning', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempt_token' => $validated['attempt_token'],
+            'question_id' => $validated['question_id'] ?? null,
+            'tab_switch_count' => $userAnswer->tab_switch_count,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pelanggaran tab tercatat.',
+            'count' => $userAnswer->tab_switch_count,
+        ]);
+    }
+
 
     /**
      * Determine if answer is correct based on subtest type and rules

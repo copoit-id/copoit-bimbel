@@ -401,6 +401,26 @@
         </div>
     </div>
 
+    <div id="tabSwitchAlert" class="fixed inset-0 hidden items-center justify-center bg-gray-950/80 px-4 backdrop-blur-sm"
+        style="z-index: 2147483647;">
+        <div class="w-full max-w-md rounded-xl border border-red/20 bg-white p-6 text-center shadow-2xl">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red/10">
+                <i class="ri-error-warning-line text-3xl text-red"></i>
+            </div>
+            <h3 class="mb-2 text-lg font-bold text-gray-900">Terdeteksi Membuka Tab Lain</h3>
+            <p id="tabSwitchAlertMessage" class="text-sm leading-relaxed text-gray-600">
+                Tetap berada di halaman tryout selama ujian berlangsung. Pelanggaran ini sudah tercatat.
+            </p>
+            <p id="tabSwitchAlertCount" class="mb-5 mt-3 hidden rounded-lg bg-red/5 px-3 py-2 text-sm font-semibold text-red">
+                Total pelanggaran: 0
+            </p>
+            <button type="button" id="tabSwitchAlertClose"
+                class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
+                Saya Mengerti
+            </button>
+        </div>
+    </div>
+
     @php
         $subtestRangesForJs = collect($subtestInfo ?? [])
             ->map(function ($subtest) {
@@ -467,10 +487,15 @@
             const answerPersistenceMode = @json($tryout->answer_persistence_mode ?? 'client_side');
             const subtestRanges = @json($subtestRangesForJs);
             const allServerAnswers = @json($allAnswerDetailsForJs);
+            const trackTabSwitchUrl =
+                '{{ route('user.tryout.track-tab-switch', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}';
             const baseUrlTemplate =
                 '{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, ':num']) }}';
 
             let answerCache = loadAnswers();
+            let lastTabSwitchTrackedAt = 0;
+            let tabSwitchInFlight = false;
+            let isLeavingTryout = false;
 
             // Sync server answers into local cache if not present or older
             Object.values(allServerAnswers).forEach(ans => {
@@ -483,6 +508,97 @@
                 }
             });
             persistAnswers();
+
+            function showTabSwitchAlert(count) {
+                const modal = document.getElementById('tabSwitchAlert');
+                const message = document.getElementById('tabSwitchAlertMessage');
+                const countMessage = document.getElementById('tabSwitchAlertCount');
+                if (!modal) return;
+
+                if (message) {
+                    message.textContent =
+                        'Tetap berada di halaman tryout selama ujian berlangsung. Pelanggaran ini sudah tercatat.';
+                }
+
+                if (countMessage) {
+                    if (count) {
+                        countMessage.textContent = `Total pelanggaran: ${count}`;
+                        countMessage.classList.remove('hidden');
+                    } else {
+                        countMessage.classList.add('hidden');
+                    }
+                }
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function getCurrentQuestionId() {
+                const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
+                return wrapper ? wrapper.dataset.questionId : null;
+            }
+
+            async function trackTabSwitch(reason) {
+                if (isLeavingTryout) {
+                    return;
+                }
+
+                const now = Date.now();
+                if (tabSwitchInFlight || now - lastTabSwitchTrackedAt < 3000) {
+                    return;
+                }
+
+                lastTabSwitchTrackedAt = now;
+                tabSwitchInFlight = true;
+
+                try {
+                    const response = await fetch(trackTabSwitchUrl, {
+                        method: 'POST',
+                        keepalive: true,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            attempt_token: attemptToken,
+                            question_id: getCurrentQuestionId(),
+                            reason: reason
+                        })
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+                    showTabSwitchAlert(data.count);
+                } catch (e) {
+                    showTabSwitchAlert();
+                } finally {
+                    tabSwitchInFlight = false;
+                }
+            }
+
+            function setupTabSwitchGuard() {
+                const closeAlert = document.getElementById('tabSwitchAlertClose');
+                if (closeAlert) {
+                    closeAlert.addEventListener('click', function() {
+                        const modal = document.getElementById('tabSwitchAlert');
+                        if (!modal) return;
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    });
+                }
+
+                document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'hidden') {
+                        trackTabSwitch('visibility_hidden');
+                    }
+                });
+
+                window.addEventListener('blur', function() {
+                    trackTabSwitch('window_blur');
+                });
+            }
+
+            setupTabSwitchGuard();
 
             // --- NAVIGATION CORE ---
 
@@ -920,6 +1036,7 @@
             const finishButton = document.querySelector('#finishForm button[type="submit"]');
             if (finishButton) {
                 finishButton.parentElement.addEventListener('submit', function() {
+                    isLeavingTryout = true;
                     capturePendingTextAnswers();
                     const unsynced = Object.values(answerCache).filter(a => !a.synced);
                     document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
