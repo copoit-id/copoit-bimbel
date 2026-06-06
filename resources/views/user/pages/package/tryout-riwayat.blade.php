@@ -5,6 +5,7 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
 @endphp
 
 <div class="mb-6 rounded-2xl border border-gray-100 bg-white p-5">
@@ -18,7 +19,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <p class="text-gray-500 text-sm">{{ $tryout->name }}</p>
             </div>
         </div>
-        <a href="{{ route('user.tryout.lobby', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}"
+        <a href="{{ route('user.tryout.lobby', ['id_package' => $packageRouteId, 'id_tryout' => $tryout->tryout_id]) }}"
            class="inline-flex items-center justify-center px-4 py-2 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
            style="background-color: {{ $primaryColor }}">
             <i class="ri-play-circle-line mr-2"></i>Kerjakan Lagi
