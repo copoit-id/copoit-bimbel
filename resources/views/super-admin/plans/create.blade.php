@@ -100,11 +100,14 @@
                             <span class="ml-2 text-sm text-gray-700">Trial</span>
                         </label>
                         {{-- Trial Duration - muncul saat trial dicentang --}}
-                        <div id="trial_duration_wrapper" class="{{ old('is_trial') ? '' : 'hidden' }}">
+                        @php
+                            $isTrialChecked = (bool) old('is_trial');
+                        @endphp
+                        <div id="trial_duration_wrapper" class="{{ $isTrialChecked ? '' : 'hidden' }}">
                             <input type="number" name="trial_duration_days" 
                                 value="{{ old('trial_duration_days', 14) }}" 
                                 class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-24"
-                                placeholder="Hari" min="1">
+                                placeholder="Hari" min="1" {{ $isTrialChecked ? '' : 'disabled' }}>
                             <span class="text-xs text-gray-500 ml-1">hari</span>
                         </div>
                     </div>
@@ -179,15 +182,21 @@
     document.addEventListener('DOMContentLoaded', function() {
         const isTrialCheckbox = document.getElementById('is_trial');
         const trialDurationWrapper = document.getElementById('trial_duration_wrapper');
+        const trialDurationInput = trialDurationWrapper ? trialDurationWrapper.querySelector('input[name="trial_duration_days"]') : null;
         
         if (isTrialCheckbox && trialDurationWrapper) {
-            isTrialCheckbox.addEventListener('change', function() {
-                if (this.checked) {
+            function syncTrialDuration() {
+                if (isTrialCheckbox.checked) {
                     trialDurationWrapper.classList.remove('hidden');
+                    if (trialDurationInput) trialDurationInput.disabled = false;
                 } else {
                     trialDurationWrapper.classList.add('hidden');
+                    if (trialDurationInput) trialDurationInput.disabled = true;
                 }
-            });
+            }
+
+            isTrialCheckbox.addEventListener('change', syncTrialDuration);
+            syncTrialDuration();
         }
     });
 </script>
