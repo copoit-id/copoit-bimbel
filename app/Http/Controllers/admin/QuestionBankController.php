@@ -520,8 +520,12 @@ class QuestionBankController extends Controller
 
                     $options = [];
                     foreach (range('A', 'E') as $letter) {
-                        $option = is_array($optionsInput[$letter] ?? null) ? $optionsInput[$letter] : [];
-                        $optionText = trim((string) ($option['text'] ?? ''));
+                        $optionValue = $optionsInput[$letter] ?? null;
+                        $option = is_array($optionValue) ? $optionValue : [];
+                        $optionText = is_array($optionValue)
+                            ? trim((string) ($option['text'] ?? ''))
+                            : trim((string) $optionValue);
+
                         if ($optionText === '') {
                             continue;
                         }
