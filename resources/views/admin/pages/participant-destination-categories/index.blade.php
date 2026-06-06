@@ -15,8 +15,8 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
     <div class="bg-white border border-border rounded-lg p-6 h-fit">
-        <h2 class="text-lg font-semibold text-gray-900">Tambah Kategori</h2>
-        <p class="text-sm text-gray-500 mt-1">Kosongkan parent untuk kategori utama seperti STAN, AKMIL, AKPOL.</p>
+        <h2 class="text-lg font-semibold text-gray-900">Tambah Instansi</h2>
+        <p class="text-sm text-gray-500 mt-1">Tambahkan kategori utama seperti STAN, AKMIL, AKPOL.</p>
 
         <form action="{{ route('admin.participant-destination-categories.store') }}" method="POST" class="mt-5 space-y-4">
             @csrf
@@ -26,22 +26,6 @@
                     class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="Contoh: STAN">
                 @error('name')
-                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
-                <select name="parent_id"
-                    class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Kategori utama</option>
-                    @foreach($parentOptions as $parent)
-                        <option value="{{ $parent->id }}" @selected(old('parent_id') == $parent->id)>
-                            Subkategori dari {{ $parent->name }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('parent_id')
                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
@@ -58,7 +42,7 @@
             </label>
 
             <button type="submit" class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-                Simpan Kategori
+                Simpan Instansi
             </button>
         </form>
     </div>
@@ -95,4 +79,55 @@
         </div>
     </div>
 </div>
+
+<div id="destinationSubcategoryModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div class="flex justify-between items-center p-5 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Tambah Sub Category</h3>
+                <p class="text-sm text-gray-500">Parent: <span id="destinationSubcategoryParentName" class="font-medium text-gray-700"></span></p>
+            </div>
+            <button type="button" onclick="closeDestinationSubcategoryModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('admin.participant-destination-categories.store') }}" method="POST" class="p-5 space-y-4">
+            @csrf
+            <input type="hidden" name="parent_id" id="destinationSubcategoryParentId">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Sub Category <span class="text-red-500">*</span></label>
+                <input type="text" name="name" required
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="Contoh: Manajemen Keuangan Negara">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Urutan</label>
+                <input type="number" name="sort_order" value="0" min="0"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" name="is_active" value="1" class="rounded text-primary focus:ring-primary" checked>
+                Aktif
+            </label>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeDestinationSubcategoryModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Simpan Sub Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
+
+@section('scripts')
+<script>
+    function openDestinationSubcategoryModal(parentId, parentName) {
+        document.getElementById('destinationSubcategoryParentId').value = parentId;
+        document.getElementById('destinationSubcategoryParentName').textContent = parentName;
+        document.getElementById('destinationSubcategoryModal').classList.remove('hidden');
+    }
+
+    function closeDestinationSubcategoryModal() {
+        document.getElementById('destinationSubcategoryModal').classList.add('hidden');
+    }
+</script>
 @endsection

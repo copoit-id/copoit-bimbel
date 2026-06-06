@@ -6,6 +6,38 @@
             name_link="Kembali ke Tryout">
         </x-page-desc>
 
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-4 mb-5">
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
+                    class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
+                    Semua Peserta
+                    <span class="ml-1 text-xs opacity-80">({{ $allRankings->count() }})</span>
+                </a>
+                @if($profileNeedsCompletion)
+                    <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id, 'tab' => 'profile']) }}"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
+                        Ranking Sesuai Profil
+                    </a>
+                @else
+                    <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id, 'tab' => 'profile']) }}"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'profile' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
+                        Sesuai Profil Saya
+                        <span class="ml-1 text-xs opacity-80">({{ $profileRankings->count() }})</span>
+                    </a>
+                @endif
+            </div>
+
+            @if($activeRankingTab === 'profile' && $profileDestinationLabel)
+                <div class="text-sm text-gray-500">
+                    Filter: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
+                </div>
+            @elseif($profileNeedsCompletion)
+                <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Lengkapi instansi/prodi tujuan di profil untuk membuka ranking sesuai profil.
+                </div>
+            @endif
+        </div>
+
         <!-- Statistics Cards -->
         @if($rankings->count() > 0)
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 mt-4">

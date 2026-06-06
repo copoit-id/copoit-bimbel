@@ -1462,13 +1462,47 @@ class PackageController extends Controller
 
         $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
 
-        // Get leaderboard for this tryout - ambil hasil terbaik per user
-        $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
-            ->where('status', 'completed')
-            ->with(['user', 'tryoutDetail'])
-            ->get()
-            ->groupBy('user_id')
-            ->map(function ($userAnswers) use ($tryout) {
+        $currentUser = Auth::user();
+        $currentUser->loadMissing([
+            'participantDestinationCategory.parent',
+            'participantDestinationCategory.activeChildren',
+        ]);
+        $activeRankingTab = request('tab', 'all') === 'profile' ? 'profile' : 'all';
+        $profileCategory = $currentUser->participantDestinationCategory;
+        $profileNeedsCompletion = !$profileCategory
+            || (!$profileCategory->parent_id && $profileCategory->activeChildren()->exists());
+
+        if ($activeRankingTab === 'profile' && $profileNeedsCompletion) {
+            return redirect()->route('user.profile.index')
+                ->with('error', 'Lengkapi instansi/prodi tujuan di profil terlebih dahulu untuk melihat ranking berdasarkan profil.');
+        }
+
+        $profileDestinationIds = [];
+        $profileDestinationLabel = null;
+        if ($profileCategory) {
+            $profileDestinationLabel = $profileCategory->display_name;
+            $profileDestinationIds = $profileCategory->parent_id
+                ? [$profileCategory->id]
+                : $profileCategory->activeChildren
+                    ->pluck('id')
+                    ->prepend($profileCategory->id)
+                    ->unique()
+                    ->values()
+                    ->all();
+        }
+
+        $buildRankings = function (array $destinationIds = []) use ($id_tryout, $tryout) {
+            return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
+                ->where('status', 'completed')
+                ->when(!empty($destinationIds), function ($query) use ($destinationIds) {
+                    $query->whereHas('user', function ($userQuery) use ($destinationIds) {
+                        $userQuery->whereIn('participant_destination_category_id', $destinationIds);
+                    });
+                })
+                ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
+                ->get()
+                ->groupBy('user_id')
+                ->map(function ($userAnswers) use ($tryout) {
                 $usesUtbkIrt = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
 
                 if ($usesUtbkIrt) {
@@ -1563,11 +1597,27 @@ class PackageController extends Controller
 
                 return $bestAttempt;
             })
-            ->filter() // Remove null values
-            ->sortByDesc('raw_score')
-            ->values();
+                ->filter() // Remove null values
+                ->sortByDesc('raw_score')
+                ->values();
+        };
 
-        return view('user.pages.package.tryout-rank', compact('package', 'tryout', 'rankings'));
+        $allRankings = $buildRankings();
+        $profileRankings = ($profileCategory && !$profileNeedsCompletion)
+            ? $buildRankings($profileDestinationIds)
+            : collect();
+        $rankings = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+
+        return view('user.pages.package.tryout-rank', compact(
+            'package',
+            'tryout',
+            'rankings',
+            'allRankings',
+            'profileRankings',
+            'activeRankingTab',
+            'profileDestinationLabel',
+            'profileNeedsCompletion'
+        ));
     }
 
     public function pembahasanTryout($id_package, $id_tryout, $token)

@@ -88,31 +88,51 @@
                     </div>
 
                     <div>
+                        @php
+                            $selectedDestinationId = (int) old('participant_destination_category_id');
+                            $selectedDestination = $destinationCategories
+                                ->flatMap(fn($category) => collect([$category])->merge($category->activeChildren))
+                                ->firstWhere('id', $selectedDestinationId);
+                            $selectedInstitutionId = $selectedDestination?->parent_id ?: ($selectedDestination?->id ?? null);
+                            $selectedProgramId = $selectedDestination?->parent_id ? $selectedDestination?->id : null;
+                            $selectedInstitution = $selectedInstitutionId
+                                ? $destinationCategories->firstWhere('id', $selectedInstitutionId)
+                                : null;
+                            $selectedInstitutionHasPrograms = $selectedInstitutionId
+                                ? $selectedInstitution?->activeChildren->isNotEmpty()
+                                : false;
+                        @endphp
                         <label for="participant_destination_category_id" class="block text-sm font-medium text-gray-700">
                             Instansi/Prodi Tujuan
                         </label>
-                        <select id="participant_destination_category_id" name="participant_destination_category_id"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary">
-                            <option value="">Belum memilih</option>
-                            @foreach($destinationCategories as $category)
-                                @if($category->activeChildren->isEmpty())
-                                    <option value="{{ $category->id }}" @selected(old('participant_destination_category_id') == $category->id)>
+                        <input type="hidden" id="participant_destination_category_id" name="participant_destination_category_id"
+                            value="{{ $selectedDestinationId ?: '' }}">
+                        <div class="grid grid-cols-1 gap-3">
+                            <select id="destination_institution"
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary">
+                                <option value="">Pilih instansi</option>
+                                @foreach($destinationCategories as $category)
+                                    <option value="{{ $category->id }}" @selected((int) $selectedInstitutionId === (int) $category->id)>
                                         {{ $category->name }}
                                     </option>
-                                @else
-                                    <optgroup label="{{ $category->name }}">
-                                        <option value="{{ $category->id }}" @selected(old('participant_destination_category_id') == $category->id)>
-                                            Semua {{ $category->name }}
-                                        </option>
-                                        @foreach($category->activeChildren as $child)
-                                            <option value="{{ $child->id }}" @selected(old('participant_destination_category_id') == $child->id)>
-                                                {{ $child->name }}
-                                            </option>
-                                        @endforeach
-                                    </optgroup>
-                                @endif
-                            @endforeach
-                        </select>
+                                @endforeach
+                            </select>
+                            <select id="destination_program"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                {{ $selectedInstitutionHasPrograms ? '' : 'disabled' }}>
+                                <option value="">{{ $selectedInstitutionId ? 'Tidak ada prodi/sub' : 'Pilih instansi dulu' }}</option>
+                                @foreach(($selectedInstitution?->activeChildren ?? collect()) as $child)
+                                    <option value="{{ $child->id }}" @selected((int) $selectedProgramId === (int) $child->id)>
+                                        {{ $child->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @if($destinationCategories->isEmpty())
+                            <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Hubungi admin.</p>
+                        @else
+                            <p class="text-xs text-gray-500 mt-1">Pilih instansi dulu, lalu pilih prodi/sub jika tersedia.</p>
+                        @endif
                     </div>
 
                     <div>
@@ -165,6 +185,61 @@
 </body>
 
 </html>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const institution = document.getElementById('destination_institution');
+        const program = document.getElementById('destination_program');
+        const hidden = document.getElementById('participant_destination_category_id');
+        const selectedProgramId = @json((string) ($selectedProgramId ?? ''));
+        const programsByInstitution = @json($destinationCategories->mapWithKeys(fn($category) => [
+            (string) $category->id => $category->activeChildren
+                ->map(fn($child) => ['id' => (string) $child->id, 'name' => $child->name])
+                ->values()
+                ->all(),
+        ]));
+
+        const renderProgramOptions = (institutionId) => {
+            const programs = programsByInstitution[institutionId] || [];
+            const placeholderText = !institutionId
+                ? 'Pilih instansi dulu'
+                : (programs.length > 0 ? 'Pilih prodi/sub' : 'Tidak ada prodi/sub');
+
+            program.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = placeholderText;
+            program.appendChild(placeholder);
+
+            programs.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.name;
+                if (item.id === selectedProgramId) {
+                    option.selected = true;
+                }
+                program.appendChild(option);
+            });
+
+            program.disabled = !institutionId || programs.length === 0;
+        };
+
+        const syncDestination = () => {
+            if (!institution || !program || !hidden) return;
+            const institutionId = institution.value;
+
+            hidden.value = (!program.disabled && program.value) ? program.value : (institutionId || '');
+        };
+
+        institution?.addEventListener('change', () => {
+            renderProgramOptions(institution.value);
+            syncDestination();
+        });
+        program?.addEventListener('change', syncDestination);
+        renderProgramOptions(institution?.value || '');
+        syncDestination();
+    });
+</script>
 
 @if($recaptcha_enabled)
 <script>

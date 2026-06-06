@@ -66,46 +66,59 @@
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
         <div class="flex flex-col gap-4 mb-4">
-            <form method="GET" action="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
-                class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Kategori Tujuan</label>
-                    <select name="destination_category_id" id="destination-category-filter"
-                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Semua Kategori</option>
-                        @foreach($destinationCategories as $category)
-                            <option value="{{ $category->id }}" @selected((int) ($destinationFilter['category_id'] ?? 0) === (int) $category->id)>
-                                {{ $category->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Subkategori</label>
-                    <select name="destination_subcategory_id" id="destination-subcategory-filter"
-                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Semua Subkategori</option>
-                        @foreach($destinationCategories as $category)
-                            @foreach($category->activeChildren as $child)
-                                <option value="{{ $child->id }}" data-parent="{{ $category->id }}"
-                                    @selected((int) ($destinationFilter['subcategory_id'] ?? 0) === (int) $child->id)>
-                                    {{ $child->name }}
-                                </option>
-                            @endforeach
-                        @endforeach
-                    </select>
-                </div>
-                <div class="md:col-span-2 flex items-end gap-2">
-                    <button type="submit"
-                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-                        Terapkan Filter
-                    </button>
-                    <a href="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
-                        class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">
-                        Reset
+            @if($destinationCategories->isEmpty())
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                    <div>
+                        <p class="font-semibold text-amber-800">Kategori tujuan peserta belum dibuat.</p>
+                        <p class="text-sm text-amber-700">Filter leaderboard memakai master Kategori Tujuan, bukan kategori materi.</p>
+                    </div>
+                    <a href="{{ route('admin.participant-destination-categories.index') }}"
+                        class="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-semibold">
+                        Kelola Kategori Tujuan
                     </a>
                 </div>
-            </form>
+            @else
+                <form method="GET" action="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
+                    class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Kategori Tujuan</label>
+                        <select name="destination_category_id" id="destination-category-filter"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="">Semua Kategori</option>
+                            @foreach($destinationCategories as $category)
+                                <option value="{{ $category->id }}" @selected((int) ($destinationFilter['category_id'] ?? 0) === (int) $category->id)>
+                                    {{ $category->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Subkategori</label>
+                        <select name="destination_subcategory_id" id="destination-subcategory-filter"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="">Semua Subkategori</option>
+                            @foreach($destinationCategories as $category)
+                                @foreach($category->activeChildren as $child)
+                                    <option value="{{ $child->id }}" data-parent="{{ $category->id }}"
+                                        @selected((int) ($destinationFilter['subcategory_id'] ?? 0) === (int) $child->id)>
+                                        {{ $child->name }}
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="md:col-span-2 flex items-end gap-2">
+                        <button type="submit"
+                            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+                            Terapkan Filter
+                        </button>
+                        <a href="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
+                            class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            @endif
 
             <div class="flex items-center gap-2">
                 <div class="relative">

@@ -10,10 +10,20 @@
 
         <div class="md:col-span-4">
             <label class="block text-xs font-medium text-gray-500 mb-1">
-                {{ $isChild ? 'Subkategori' : 'Kategori' }}
+                {{ $isChild ? 'Sub Category' : 'Instansi' }}
             </label>
-            <input type="text" name="name" value="{{ old('name', $category->name) }}" required
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+            <div class="{{ $isChild ? 'flex items-center gap-2' : '' }}">
+                @if($isChild)
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <i class="ri-corner-down-right-line text-sm"></i>
+                    </span>
+                @endif
+                <input type="text" name="name" value="{{ old('name', $category->name) }}" required
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+            </div>
+            @if($isChild && $category->parent)
+                <p class="text-xs text-gray-500 mt-1 ml-10">Sub dari {{ $category->parent->name }}</p>
+            @endif
         </div>
 
         <div class="md:col-span-3">
@@ -44,6 +54,13 @@
         </label>
 
         <div class="md:col-span-2 flex items-center gap-2">
+            @if(!$isChild)
+                <button type="button"
+                    onclick="openDestinationSubcategoryModal({{ $category->id }}, @js($category->name))"
+                    class="px-3 py-2 border border-primary/30 text-primary rounded-lg hover:bg-primary hover:text-white text-sm whitespace-nowrap">
+                    Tambah Sub Category
+                </button>
+            @endif
             <button type="submit"
                 class="flex-1 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm">
                 Simpan
