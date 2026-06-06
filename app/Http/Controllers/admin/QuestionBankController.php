@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -115,6 +116,16 @@ class QuestionBankController extends Controller
 
     public function show(QuestionBank $questionBank, Request $request)
     {
+        $pptImportPreview = null;
+        $pptPreviewToken = session('ppt_import_preview_token') ?: $request->query('ppt_preview_token');
+        if ($pptPreviewToken && is_string($pptPreviewToken) && preg_match('/^[A-Za-z0-9]{40}$/', $pptPreviewToken)) {
+            $previewPath = "question-bank/ppt-previews/{$pptPreviewToken}.json";
+            if (Storage::exists($previewPath)) {
+                $pptImportPreview = json_decode(Storage::get($previewPath), true);
+                Storage::delete($previewPath);
+            }
+        }
+
         $importTarget = $request->integer('import_for');
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
@@ -158,6 +169,7 @@ class QuestionBankController extends Controller
             'questionType' => $questionType,
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,
+            'pptImportPreview' => $pptImportPreview,
         ]);
     }
 
@@ -436,15 +448,17 @@ class QuestionBankController extends Controller
                 return back()->with('error', $message);
             }
 
+            $previewToken = $this->storePptPreviewPayload([
+                'groups' => $groups,
+                'errors' => $allErrors,
+                'total_files' => count($groups),
+            ]);
+
             return redirect()
                 ->route('admin.question-bank.show', [
                     'questionBank' => $questionBank->id,
                     'import_for' => $request->integer('import_for') ?: null,
-                ])
-                ->with('ppt_import_preview', [
-                    'groups' => $groups,
-                    'errors' => $allErrors,
-                    'total_files' => count($groups),
+                    'ppt_preview_token' => $previewToken,
                 ]);
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal membaca PPT: ' . $e->getMessage());
@@ -569,6 +583,17 @@ class QuestionBankController extends Controller
                 'import_for' => $request->integer('import_for') ?: null,
             ])
             ->with($importedCount > 0 ? 'success' : 'error', $message);
+    }
+
+    private function storePptPreviewPayload(array $payload): string
+    {
+        $token = Str::random(40);
+        $directory = 'question-bank/ppt-previews';
+
+        Storage::makeDirectory($directory);
+        Storage::put("{$directory}/{$token}.json", json_encode($payload, JSON_UNESCAPED_UNICODE));
+
+        return $token;
     }
 
     public function createQuestionForm(Request $request, QuestionBank $questionBank)
