@@ -649,18 +649,25 @@
 
                 return `
                     <div class="ppt-question-item rounded-xl border border-gray-200 bg-white p-4 shadow-sm" data-index="${index}" data-slide="${escapeHtml(question.slide || '')}" data-number="${escapeHtml(question.number || '')}">
-                        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
+                        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0">
                                 <p class="text-xs uppercase tracking-wide text-gray-400">Slide ${escapeHtml(question.slide || '-')}</p>
                                 <h4 class="font-semibold text-gray-900">Soal ${escapeHtml(question.number || index + 1)}</h4>
                             </div>
-                            <label class="text-sm font-medium text-gray-700">
-                                Jawaban benar
-                                <select data-correct-answer
-                                    class="ml-2 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                    ${optionChoices}
-                                </select>
-                            </label>
+                            <div class="flex flex-wrap items-center justify-end gap-2">
+                                <label class="text-sm font-medium text-gray-700">
+                                    Jawaban benar
+                                    <select data-correct-answer
+                                        class="ml-2 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                        ${optionChoices}
+                                    </select>
+                                </label>
+                                <button type="button" data-remove-ppt-question
+                                    class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
+                                    <i class="ri-delete-bin-line"></i>
+                                    Hapus
+                                </button>
+                            </div>
                         </div>
                         ${questionErrors}
                         <div class="mt-3">
@@ -826,6 +833,15 @@
             return pptPreviewGroups;
         };
 
+        const removePptQuestion = (button) => {
+            const item = button.closest('.ppt-question-item');
+            if (!item) return;
+
+            item.remove();
+            persistActivePptGroup();
+            renderPptGroupNav();
+        };
+
         openSubBtn?.addEventListener('click', () => toggleModal(subBankModal, true));
         closeSubButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(subBankModal, false)));
         subBankModal?.addEventListener('click', (event) => {
@@ -869,6 +885,12 @@
                 if (item) {
                     applyScoresToQuestion(item);
                 }
+            }
+        });
+        pptPreviewList?.addEventListener('click', (event) => {
+            const removeButton = event.target.closest('[data-remove-ppt-question]');
+            if (removeButton) {
+                removePptQuestion(removeButton);
             }
         });
 
