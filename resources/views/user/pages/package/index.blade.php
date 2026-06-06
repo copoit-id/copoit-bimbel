@@ -125,9 +125,13 @@ if ($activeTab == 'berbayar') {
             @endif
 
             <!-- Features -->
-            @if($package->features)
+            @php
+                $features = json_decode($package->features ?? '[]', true);
+                $features = is_array($features) ? array_filter($features) : [];
+            @endphp
+            @if(!empty($features))
             <div class="space-y-1.5 mb-4">
-                @foreach (json_decode($package->features) as $feature)
+                @foreach ($features as $feature)
                 <div class="flex items-center text-sm text-gray-600">
                     <i class="ri-checkbox-circle-fill mr-2" style="color: {{ $primaryColor }}"></i>
                     <span>{{ $feature }}</span>

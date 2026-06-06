@@ -81,9 +81,13 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
             <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
 
             <!-- Features -->
-            @if($package->features)
+            @php
+                $features = json_decode($package->features ?? '[]', true);
+                $features = is_array($features) ? array_filter($features) : [];
+            @endphp
+            @if(!empty($features))
             <div class="space-y-1.5 mb-4">
-                @foreach (json_decode($package->features) as $feature)
+                @foreach ($features as $feature)
                 <div class="flex items-center text-sm text-gray-600">
                     <i class="ri-checkbox-circle-fill mr-2 text-green"></i>
                     <span>{{ $feature }}</span>
