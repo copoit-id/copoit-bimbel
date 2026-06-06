@@ -580,6 +580,30 @@
             return Math.max(0, Math.min(999, score));
         };
 
+        const pptSummernoteToolbar = '[["font",["bold","underline","clear"]],["para",["ul","ol","paragraph"]],["insert",["link","picture"]],["view",["codeview"]]]';
+
+        const normalizeEditorValue = (value) => {
+            const html = String(value ?? '').trim();
+            return ['<p><br></p>', '<p></p>', '<br>'].includes(html) ? '' : html;
+        };
+
+        const getRichEditorValue = (element) => {
+            if (!element) {
+                return '';
+            }
+
+            const $ = window.jQuery || window.$;
+            if ($ && typeof $.fn?.summernote === 'function' && $(element).data('summernoteInitialized')) {
+                return normalizeEditorValue($(element).summernote('code'));
+            }
+
+            return normalizeEditorValue(element.value);
+        };
+
+        const initPptPreviewEditors = () => {
+            window.initSummernoteFields?.();
+        };
+
         const normalizePptPreviewGroups = (preview) => {
             return Array.isArray(preview.groups)
                 ? preview.groups
@@ -644,8 +668,8 @@
                     return `
                         <div class="grid gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 md:grid-cols-[40px_minmax(0,1fr)_110px] md:items-start">
                             <div class="font-semibold text-gray-700">${letter}</div>
-                            <textarea data-option-text="${letter}" rows="2"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(text)}</textarea>
+                            <textarea data-option-text="${letter}" rows="2" data-summernote data-height="140" data-toolbar='${pptSummernoteToolbar}'
+                                class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(text)}</textarea>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-500">Skor</label>
                                 <input type="number" data-option-weight="${letter}" step="0.01" min="0" max="999" inputmode="decimal"
@@ -688,14 +712,14 @@
                         ${questionErrors}
                         <div class="mt-3">
                             <label class="mb-1 block text-sm font-medium text-gray-700">Teks Soal</label>
-                            <textarea data-question-text rows="4"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.question_text || '')}</textarea>
+                            <textarea data-question-text rows="4" data-summernote data-height="220" data-toolbar='${pptSummernoteToolbar}'
+                                class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.question_text || '')}</textarea>
                         </div>
                         <div class="mt-3 space-y-2">${optionRows}</div>
                         <div class="mt-3">
                             <label class="mb-1 block text-sm font-medium text-gray-700">Pembahasan</label>
-                            <textarea data-explanation rows="3"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.explanation || '')}</textarea>
+                            <textarea data-explanation rows="3" data-summernote data-height="180" data-toolbar='${pptSummernoteToolbar}'
+                                class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.explanation || '')}</textarea>
                         </div>
                     </div>
                 `;
@@ -724,6 +748,8 @@
                     <div class="space-y-4">${questionsHtml}</div>
                 </section>
             `;
+
+            initPptPreviewEditors();
         };
 
         const renderPptPreview = (preview) => {
@@ -807,7 +833,7 @@
                         if (!textInput) return;
                         const weightInput = item.querySelector(`[data-option-weight="${letter}"]`);
                         options[letter] = {
-                            text: textInput.value.trim(),
+                            text: getRichEditorValue(textInput),
                             weight: parseScoreInput(weightInput?.value, 0),
                         };
                     });
@@ -815,8 +841,8 @@
                     return {
                         slide: item.dataset.slide || null,
                         number: item.dataset.number || null,
-                        question_text: item.querySelector('[data-question-text]')?.value.trim() || '',
-                        explanation: item.querySelector('[data-explanation]')?.value.trim() || '',
+                        question_text: getRichEditorValue(item.querySelector('[data-question-text]')),
+                        explanation: getRichEditorValue(item.querySelector('[data-explanation]')),
                         correct_answer: item.querySelector('[data-correct-answer]')?.value || '',
                         options,
                     };

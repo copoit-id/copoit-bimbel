@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use ZipArchive;
@@ -158,12 +157,8 @@ class QuestionPptImportService
                 continue;
             }
 
-            $path = 'question-bank/ppt-assets/' . now()->format('Ymd') . '/' . Str::uuid() . '.' . $extension;
-            Storage::disk('public')->put($path, $data);
-
             $images[] = [
-                'url' => Storage::disk('public')->url($path),
-                'path' => $path,
+                'url' => 'data:' . $imageInfo['mime'] . ';base64,' . base64_encode($data),
                 'width' => $width,
                 'height' => $height,
             ];
