@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use ZipArchive;
@@ -24,8 +25,8 @@ class QuestionPptImportService
         $questions = [];
         $errors = [];
 
-        foreach ($slides as $slideNumber => $text) {
-            $parsed = $this->parseSlide($text, $slideNumber);
+        foreach ($slides as $slideNumber => $slide) {
+            $parsed = $this->parseSlide($slide['text'], $slideNumber, $slide['images']);
 
             if (!$parsed) {
                 continue;
@@ -60,6 +61,17 @@ class QuestionPptImportService
 
         ksort($slideNames);
 
+        $slideMediaTargets = [];
+        $mediaUsageCounts = [];
+        foreach ($slideNames as $slideNumber => $name) {
+            $targets = $this->extractSlideMediaTargets($zip, $name);
+            $slideMediaTargets[$slideNumber] = $targets;
+
+            foreach ($targets as $target) {
+                $mediaUsageCounts[$target] = ($mediaUsageCounts[$target] ?? 0) + 1;
+            }
+        }
+
         $slides = [];
         foreach ($slideNames as $slideNumber => $name) {
             $xml = $zip->getFromName($name);
@@ -67,10 +79,97 @@ class QuestionPptImportService
                 continue;
             }
 
-            $slides[$slideNumber] = $this->extractTextFromSlideXml($xml);
+            $slides[$slideNumber] = [
+                'text' => $this->extractTextFromSlideXml($xml),
+                'images' => $this->extractSlideImages(
+                    $zip,
+                    $slideMediaTargets[$slideNumber] ?? [],
+                    $mediaUsageCounts
+                ),
+            ];
         }
 
         return $slides;
+    }
+
+    private function extractSlideMediaTargets(ZipArchive $zip, string $slideName): array
+    {
+        $relsName = dirname($slideName) . '/_rels/' . basename($slideName) . '.rels';
+        $relsXml = $zip->getFromName($relsName);
+        if (!$relsXml) {
+            return [];
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        $rels = simplexml_load_string($relsXml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if ($rels === false) {
+            return [];
+        }
+
+        $targets = [];
+        foreach ($rels->Relationship ?? [] as $relationship) {
+            $target = (string) $relationship['Target'];
+            if (!str_contains($target, 'media/')) {
+                continue;
+            }
+
+            $targets[] = $this->normalizeZipPath(dirname($slideName) . '/' . $target);
+        }
+
+        return array_values(array_unique($targets));
+    }
+
+    private function extractSlideImages(ZipArchive $zip, array $targets, array $mediaUsageCounts): array
+    {
+        $images = [];
+
+        foreach ($targets as $target) {
+            if (($mediaUsageCounts[$target] ?? 0) > 3) {
+                continue;
+            }
+
+            $data = $zip->getFromName($target);
+            if (!$data) {
+                continue;
+            }
+
+            $imageInfo = @getimagesizefromstring($data);
+            if (!is_array($imageInfo)) {
+                continue;
+            }
+
+            [$width, $height] = $imageInfo;
+            if ($width < 80 || $height < 80) {
+                continue;
+            }
+
+            $extension = match ($imageInfo['mime'] ?? '') {
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+                'image/webp' => 'webp',
+                default => null,
+            };
+
+            if (!$extension) {
+                continue;
+            }
+
+            $path = 'question-bank/ppt-assets/' . now()->format('Ymd') . '/' . Str::uuid() . '.' . $extension;
+            Storage::disk('public')->put($path, $data);
+
+            $images[] = [
+                'url' => Storage::disk('public')->url($path),
+                'path' => $path,
+                'width' => $width,
+                'height' => $height,
+            ];
+        }
+
+        return $images;
     }
 
     private function extractTextFromSlideXml(string $xml): string
@@ -131,7 +230,7 @@ class QuestionPptImportService
         return implode("\n", $lines);
     }
 
-    private function parseSlide(string $text, int $slideNumber): ?array
+    private function parseSlide(string $text, int $slideNumber, array $images = []): ?array
     {
         $lines = collect(preg_split('/\R/u', $text) ?: [])
             ->map(fn ($line) => $this->normalizeLine($line))
@@ -223,11 +322,19 @@ class QuestionPptImportService
         $errors = [];
 
         if ($questionText === '' && $questionNumber) {
-            $questionText = "Soal nomor {$questionNumber} (lihat slide PPT).";
+            $questionText = "Soal nomor {$questionNumber} (lihat gambar).";
+        }
+
+        if (!empty($images)) {
+            $questionText = $this->appendImagesToHtml($questionText, $images);
         }
 
         if ($questionText === '') {
             $errors[] = 'Teks soal tidak terbaca.';
+        }
+
+        if (count($options) < 2 && $answer && !empty($images)) {
+            $options = collect(range('A', 'E'))->mapWithKeys(fn ($letter) => [$letter => "Pilihan {$letter}"])->all();
         }
 
         if (count($options) < 2) {
@@ -249,6 +356,7 @@ class QuestionPptImportService
             'correct_answer' => $answer,
             'explanation' => $explanation,
             'default_weight' => 1,
+            'images' => $images,
             'errors' => $errors,
         ];
     }
@@ -285,6 +393,43 @@ class QuestionPptImportService
     private function stripExplanationPrefix(string $line): string
     {
         return trim(preg_replace('/^(pembahasan|penjelasan)\s*:?\s*/iu', '', $line) ?? $line);
+    }
+
+    private function appendImagesToHtml(string $text, array $images): string
+    {
+        $html = trim($text);
+
+        foreach ($images as $index => $image) {
+            $url = e($image['url'] ?? '');
+            if ($url === '') {
+                continue;
+            }
+
+            $alt = e('Gambar soal ' . ($index + 1));
+            $html .= "\n<p><img src=\"{$url}\" alt=\"{$alt}\" style=\"max-width:100%;height:auto;\"></p>";
+        }
+
+        return trim($html);
+    }
+
+    private function normalizeZipPath(string $path): string
+    {
+        $segments = [];
+
+        foreach (explode('/', str_replace('\\', '/', $path)) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                array_pop($segments);
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        return implode('/', $segments);
     }
 
     private function parseAnswerLine(string $line): array
