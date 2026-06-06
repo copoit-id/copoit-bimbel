@@ -367,7 +367,21 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         $isInProgress = $userAnswers->where('status', 'in_progress')->count() > 0;
         $totalQuestions = $tryout->getTotalQuestionsAttribute();
         $totalDuration = $tryout->getTotalDurationAttribute();
-        $packageId = $tryout->packages->first()?->package_id ?? 'free';
+        $packageId = $tryout->packages->first()?->package_id;
+        if (!$packageId) {
+            $packageId = \DB::table('detail_packages')
+                ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
+                ->where('detail_packages.detailable_type', \App\Models\Tryout::class)
+                ->where('detail_packages.detailable_id', $tryout->tryout_id)
+                ->where('user_package_access.user_id', $user->id)
+                ->where('user_package_access.status', 'active')
+                ->where(function ($q) {
+                    $q->whereNull('user_package_access.end_date')
+                        ->orWhere('user_package_access.end_date', '>', now());
+                })
+                ->value('detail_packages.package_id');
+        }
+        $packageId = $packageId ?: 'free';
         @endphp
         <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
             <div class="flex items-start justify-between mb-4">
