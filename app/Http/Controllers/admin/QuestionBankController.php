@@ -13,7 +13,11 @@ use App\Services\PlanQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class QuestionBankController extends Controller
 {
@@ -152,6 +156,241 @@ class QuestionBankController extends Controller
             'questionType' => $questionType,
             'questionTypeOptions' => $questionTypeOptions,
         ]);
+    }
+
+    public function downloadImportTemplate(QuestionBank $questionBank)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $headers = [
+            'A1' => 'question_text',
+            'B1' => 'question_type',
+            'C1' => 'option_a_text',
+            'D1' => 'option_a_correct',
+            'E1' => 'option_a_weight',
+            'F1' => 'option_b_text',
+            'G1' => 'option_b_correct',
+            'H1' => 'option_b_weight',
+            'I1' => 'option_c_text',
+            'J1' => 'option_c_correct',
+            'K1' => 'option_c_weight',
+            'L1' => 'option_d_text',
+            'M1' => 'option_d_correct',
+            'N1' => 'option_d_weight',
+            'O1' => 'option_e_text',
+            'P1' => 'option_e_correct',
+            'Q1' => 'option_e_weight',
+            'R1' => 'explanation',
+        ];
+
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+            $sheet->getStyle($cell)->getFont()->setBold(true);
+        }
+
+        $instructions = [
+            'A2' => 'Tulis pertanyaan di sini',
+            'B2' => 'multiple_choice / essay',
+            'C2' => 'Teks pilihan A',
+            'D2' => '1 (jika benar) / 0 (jika salah)',
+            'E2' => 'Bobot nilai (1-5 untuk TKP)',
+            'F2' => 'Teks pilihan B',
+            'G2' => '1 (jika benar) / 0 (jika salah)',
+            'H2' => 'Bobot nilai (1-5 untuk TKP)',
+            'I2' => 'Teks pilihan C',
+            'J2' => '1 (jika benar) / 0 (jika salah)',
+            'K2' => 'Bobot nilai (1-5 untuk TKP)',
+            'L2' => 'Teks pilihan D',
+            'M2' => '1 (jika benar) / 0 (jika salah)',
+            'N2' => 'Bobot nilai (1-5 untuk TKP)',
+            'O2' => 'Teks pilihan E',
+            'P2' => '1 (jika benar) / 0 (jika salah)',
+            'Q2' => 'Bobot nilai (1-5 untuk TKP)',
+            'R2' => 'Penjelasan jawaban (opsional)',
+        ];
+
+        foreach ($instructions as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+            $sheet->getStyle($cell)->getFont()->setItalic(true);
+            $sheet->getStyle($cell)->getFill()->getStartColor()->setARGB('FFE6E6E6');
+        }
+
+        $sampleData = [
+            'A3' => 'Siapa presiden pertama Indonesia?',
+            'B3' => 'multiple_choice',
+            'C3' => 'Ir. Soekarno',
+            'D3' => '1',
+            'E3' => '5',
+            'F3' => 'Mohammad Hatta',
+            'G3' => '0',
+            'H3' => '1',
+            'I3' => 'Soeharto',
+            'J3' => '0',
+            'K3' => '1',
+            'L3' => 'B.J. Habibie',
+            'M3' => '0',
+            'N3' => '1',
+            'O3' => 'Megawati',
+            'P3' => '0',
+            'Q3' => '1',
+            'R3' => 'Ir. Soekarno adalah presiden pertama Republik Indonesia yang memproklamasikan kemerdekaan pada 17 Agustus 1945',
+        ];
+
+        foreach ($sampleData as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+        }
+
+        foreach (range('A', 'R') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $notesSheet = $spreadsheet->createSheet();
+        $notesSheet->setTitle('Petunjuk');
+
+        $notes = [
+            'A1' => 'PETUNJUK PENGGUNAAN TEMPLATE IMPORT SOAL',
+            'A3' => '1. question_text: Tulis soal lengkap dengan konteks',
+            'A4' => '2. question_type: Pilih "multiple_choice" atau "essay"',
+            'A5' => '3. option_x_text: Isi dengan teks pilihan jawaban',
+            'A6' => '4. option_x_correct: Isi dengan 1 jika benar, 0 jika salah',
+            'A7' => '5. option_x_weight: Untuk TKP isi bobot 1-5, untuk lainnya isi 1',
+            'A8' => '6. explanation: Isi dengan penjelasan jawaban (opsional)',
+            'A10' => 'CATATAN PENTING:',
+            'A11' => '- Pastikan hanya ada 1 jawaban benar per soal (kecuali TKP)',
+            'A12' => '- Untuk TKP, semua pilihan bisa memiliki bobot berbeda',
+            'A13' => '- Jangan ubah format header (baris 1)',
+            'A14' => '- Hapus baris instruksi (baris 2) sebelum import',
+            'A15' => '- Maksimal 100 soal per file',
+        ];
+
+        foreach ($notes as $cell => $value) {
+            $notesSheet->setCellValue($cell, $value);
+            if ($cell === 'A1' || $cell === 'A10') {
+                $notesSheet->getStyle($cell)->getFont()->setBold(true)->setSize(14);
+            }
+        }
+
+        $notesSheet->getColumnDimension('A')->setWidth(80);
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'template_bank_soal_' . str($questionBank->name)->slug('_') . '_' . date('Y-m-d') . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'bank_soal_template_');
+
+        (new Xlsx($spreadsheet))->save($tempFile);
+
+        return Response::download($tempFile, $filename)->deleteFileAfterSend(true);
+    }
+
+    public function importQuestions(Request $request, QuestionBank $questionBank)
+    {
+        $request->validate([
+            'excel_file' => ['required', 'file', 'mimes:xlsx,xls', 'max:2048'],
+            'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
+        ]);
+
+        try {
+            $spreadsheet = IOFactory::load($request->file('excel_file')->getPathname());
+            $data = $spreadsheet->getActiveSheet()->toArray();
+
+            array_shift($data);
+
+            $rowOffset = 2;
+            if (isset($data[0][0]) && str_contains((string) $data[0][0], 'Tulis pertanyaan')) {
+                array_shift($data);
+                $rowOffset = 3;
+            }
+
+            $importedCount = 0;
+            $processedCount = 0;
+            $errors = [];
+
+            foreach ($data as $index => $row) {
+                $rowNumber = $index + $rowOffset;
+                $questionText = trim((string) ($row[0] ?? ''));
+
+                if ($questionText === '') {
+                    continue;
+                }
+
+                $processedCount++;
+                if ($processedCount > 100) {
+                    $errors[] = 'Maksimal 100 soal per file. Baris setelah 100 soal dilewati.';
+                    break;
+                }
+
+                $questionType = strtolower(trim((string) ($row[1] ?? '')));
+                if (!in_array($questionType, ['multiple_choice', 'essay'], true)) {
+                    $errors[] = "Baris {$rowNumber}: Tipe soal harus multiple_choice atau essay";
+                    continue;
+                }
+
+                try {
+                    DB::transaction(function () use ($questionBank, $questionText, $questionType, $row, &$importedCount, $rowNumber, &$errors) {
+                        $options = $this->buildBankImportOptions($row);
+
+                        if ($questionType === 'multiple_choice') {
+                            if (count($options) < 2) {
+                                $errors[] = "Baris {$rowNumber}: Minimal isi 2 pilihan jawaban";
+                                return;
+                            }
+
+                            if (!collect($options)->contains('is_correct', true)) {
+                                $errors[] = "Baris {$rowNumber}: Harus ada minimal 1 jawaban benar";
+                                return;
+                            }
+                        }
+
+                        $maxWeight = collect($options)->max('weight');
+                        $hasCustomScores = collect($options)->contains(fn ($option) => (float) $option['weight'] > 1);
+
+                        $bankQuestion = QuestionBankQuestion::create([
+                            'question_bank_id' => $questionBank->id,
+                            'question_type' => $questionType,
+                            'question_text' => $questionText,
+                            'explanation' => filled($row[17] ?? null) ? trim((string) $row[17]) : null,
+                            'default_weight' => $maxWeight ?: 1,
+                            'custom_score' => $hasCustomScores ? 'yes' : 'no',
+                            'metadata' => null,
+                            'created_by' => Auth::id(),
+                        ]);
+
+                        if ($questionType === 'multiple_choice') {
+                            foreach ($options as $index => $option) {
+                                QuestionBankQuestionOption::create([
+                                    'question_bank_question_id' => $bankQuestion->id,
+                                    'option_text' => $option['text'],
+                                    'weight' => $option['weight'],
+                                    'is_correct' => $option['is_correct'],
+                                    'position' => $index + 1,
+                                ]);
+                            }
+                        }
+
+                        $importedCount++;
+                    });
+                } catch (\Exception $e) {
+                    $errors[] = "Baris {$rowNumber}: " . $e->getMessage();
+                }
+            }
+
+            $message = "Berhasil import {$importedCount} soal ke {$questionBank->name}";
+            if (!empty($errors)) {
+                $message .= '. Error: ' . implode(', ', array_slice($errors, 0, 3));
+                if (count($errors) > 3) {
+                    $message .= ' dan ' . (count($errors) - 3) . ' error lainnya';
+                }
+            }
+
+            return redirect()
+                ->route('admin.question-bank.show', [
+                    'questionBank' => $questionBank->id,
+                    'import_for' => $request->integer('import_for') ?: null,
+                ])
+                ->with($importedCount > 0 ? 'success' : 'error', $message);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal import file: ' . $e->getMessage());
+        }
     }
 
     public function createQuestionForm(Request $request, QuestionBank $questionBank)
@@ -734,6 +973,30 @@ class QuestionBankController extends Controller
                 ],
             ],
         ];
+    }
+
+    private function buildBankImportOptions(array $row): array
+    {
+        $options = [];
+
+        for ($i = 0; $i < 5; $i++) {
+            $optionTextIndex = 2 + ($i * 3);
+            $optionCorrectIndex = 3 + ($i * 3);
+            $optionWeightIndex = 4 + ($i * 3);
+            $optionText = trim((string) ($row[$optionTextIndex] ?? ''));
+
+            if ($optionText === '') {
+                continue;
+            }
+
+            $options[] = [
+                'text' => $optionText,
+                'is_correct' => (int) ($row[$optionCorrectIndex] ?? 0) === 1,
+                'weight' => is_numeric($row[$optionWeightIndex] ?? null) ? (float) $row[$optionWeightIndex] : 1,
+            ];
+        }
+
+        return $options;
     }
 
     private function prepareOptions(Request $request, string $type): array

@@ -18,6 +18,11 @@
                 <p class="text-gray-500">{{ $bank->description ?: 'Belum ada deskripsi.' }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                <button type="button" id="openImportQuestions"
+                    class="inline-flex items-center gap-2 rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">
+                    <i class="ri-file-excel-2-line"></i>
+                    Import Excel
+                </button>
                 <button id="openCreateSubBank"
                     class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
                     <i class="ri-folder-add-line"></i>
@@ -261,6 +266,58 @@
     </div>
 </div>
 
+<!-- Import Questions Modal -->
+<div id="importQuestionsModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-xl font-semibold text-gray-900">Import Soal dari Excel</h3>
+            <button type="button" data-close-import-questions class="text-gray-400 hover:text-gray-600">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('admin.question-bank.questions.import', $bank->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @csrf
+            @if($importTarget)
+            <input type="hidden" name="import_for" value="{{ $importTarget }}">
+            @endif
+            <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                Import akan ditambahkan ke <span class="font-semibold">{{ $bank->name }}</span>.
+            </div>
+            <div>
+                <label for="excel_file" class="mb-2 block text-sm font-medium text-gray-700">File Excel</label>
+                <input type="file" id="excel_file" name="excel_file" accept=".xlsx,.xls" required
+                    class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                <p class="mt-1 text-xs text-gray-500">Format: .xlsx atau .xls, maksimal 2MB.</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <h4 class="mb-2 text-sm font-semibold text-gray-800">Petunjuk</h4>
+                <ul class="space-y-1 text-sm text-gray-600">
+                    <li>Download template Excel terlebih dahulu.</li>
+                    <li>Format kolom sama persis dengan manajemen soal.</li>
+                    <li>Hapus baris instruksi sebelum import.</li>
+                    <li>Maksimal 100 soal per file.</li>
+                </ul>
+            </div>
+            <div class="flex flex-col gap-2 sm:flex-row">
+                <a href="{{ route('admin.question-bank.questions.import-template', $bank->id) }}"
+                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                    <i class="ri-download-line"></i>
+                    Template
+                </a>
+                <button type="button" data-close-import-questions
+                    class="inline-flex flex-1 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                    Batal
+                </button>
+                <button type="submit"
+                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                    Import
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Edit Bank Modal -->
 <div id="editBankModal"
     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
@@ -337,6 +394,9 @@
         const subBankModal = document.getElementById('createSubBankModal');
         const openSubBtn = document.getElementById('openCreateSubBank');
         const closeSubButtons = document.querySelectorAll('[data-close-sub-bank]');
+        const importQuestionsModal = document.getElementById('importQuestionsModal');
+        const openImportQuestionsBtn = document.getElementById('openImportQuestions');
+        const closeImportQuestionsButtons = document.querySelectorAll('[data-close-import-questions]');
 
         const toggleModal = (modal, show) => {
             if (!modal) return;
@@ -355,6 +415,12 @@
         closeSubButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(subBankModal, false)));
         subBankModal?.addEventListener('click', (event) => {
             if (event.target === subBankModal) toggleModal(subBankModal, false);
+        });
+
+        openImportQuestionsBtn?.addEventListener('click', () => toggleModal(importQuestionsModal, true));
+        closeImportQuestionsButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(importQuestionsModal, false)));
+        importQuestionsModal?.addEventListener('click', (event) => {
+            if (event.target === importQuestionsModal) toggleModal(importQuestionsModal, false);
         });
 
         const bulkCloneBtn = document.getElementById('bulkCloneBtn');

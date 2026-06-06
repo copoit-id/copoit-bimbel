@@ -372,6 +372,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         // Specific routes first (questions create/edit/update/delete)
         Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
+        Route::get('/{questionBank}/questions/import-template', [QuestionBankController::class, 'downloadImportTemplate'])->name('questions.import-template');
+        Route::post('/{questionBank}/questions/import', [QuestionBankController::class, 'importQuestions'])->name('questions.import');
         Route::get('/questions/{question}/edit', [QuestionBankController::class, 'editQuestionForm'])->name('questions.edit');
         Route::put('/questions/{question}', [QuestionBankController::class, 'updateQuestion'])->name('questions.update');
         Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');
