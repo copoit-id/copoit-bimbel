@@ -28,18 +28,20 @@ class TemporaryUtbkHistorySeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function () {
-            $this->cleanupExistingData();
-
             $user = $this->resolveUser();
             $package = $this->createPackage();
             $tryout = $this->createTryout();
 
-            DetailPackage::create([
-                'package_id' => $package->package_id,
-                'detailable_type' => Tryout::class,
-                'detailable_id' => $tryout->tryout_id,
-                'order' => 1,
-            ]);
+            $this->resetTryoutContent($tryout);
+
+            DetailPackage::updateOrCreate(
+                [
+                    'package_id' => $package->package_id,
+                    'detailable_type' => Tryout::class,
+                    'detailable_id' => $tryout->tryout_id,
+                ],
+                ['order' => 1]
+            );
 
             $this->grantPackageAccess($user, $package);
 
@@ -52,10 +54,10 @@ class TemporaryUtbkHistorySeeder extends Seeder
         });
     }
 
-    private function cleanupExistingData(): void
+    private function resetTryoutContent(Tryout $tryout): void
     {
-        Tryout::where('name', self::TRYOUT_NAME)->get()->each->delete();
-        Package::where('name', self::PACKAGE_NAME)->get()->each->delete();
+        UserAnswer::where('tryout_id', $tryout->tryout_id)->delete();
+        $tryout->tryoutDetails()->delete();
     }
 
     private function resolveUser(): User
@@ -75,15 +77,17 @@ class TemporaryUtbkHistorySeeder extends Seeder
 
     private function createPackage(): Package
     {
-        return Package::create([
-            'name' => self::PACKAGE_NAME,
-            'price' => 0,
-            'type_package' => 'tryout',
-            'type_price' => 'paid',
-            'status' => 'active',
-            'description' => 'Seeder sementara untuk menampilkan history UTBK dengan nilai variatif.',
-            'features' => "Tryout UTBK\nHistory nilai 650, 730, 810, 875, 690",
-        ]);
+        return Package::updateOrCreate(
+            ['name' => self::PACKAGE_NAME],
+            [
+                'price' => 0,
+                'type_package' => 'tryout',
+                'type_price' => 'paid',
+                'status' => 'active',
+                'description' => 'Seeder sementara untuk menampilkan history UTBK dengan nilai variatif.',
+                'features' => "Tryout UTBK\nHistory nilai 650, 730, 810, 875, 690",
+            ]
+        );
     }
 
     private function createTryout(): Tryout
@@ -123,7 +127,10 @@ class TemporaryUtbkHistorySeeder extends Seeder
             }
         }
 
-        return Tryout::create($data);
+        return Tryout::updateOrCreate(
+            ['name' => self::TRYOUT_NAME],
+            $data
+        );
     }
 
     /**

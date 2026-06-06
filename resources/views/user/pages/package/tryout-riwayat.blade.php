@@ -101,20 +101,24 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
-                <a href="{{ route('user.package.tryout.pembahasan', [$package->package_id ?? 0, $tryout->tryout_id, $attempt['attempt_token']]) }}"
+                @if($package)
+                <a href="{{ route('user.package.tryout.pembahasan', [$packageRouteId, $tryout->tryout_id, $attempt['attempt_token']]) }}"
                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-book-open-line mr-1.5"></i>Pembahasan
                 </a>
-                <a href="{{ route('user.tryout.result', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}?attempt={{ $attempt['attempt_token'] }}"
+                @endif
+                <a href="{{ route('user.tryout.result', ['id_package' => $packageRouteId, 'id_tryout' => $tryout->tryout_id]) }}?attempt={{ $attempt['attempt_token'] }}"
                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border hover:bg-gray-50 transition-colors"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-eye-line mr-1.5"></i>Detail
                 </a>
-                <a href="{{ route('user.package.tryout.ranking', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}"
+                @if($package)
+                <a href="{{ route('user.package.tryout.ranking', ['id_package' => $packageRouteId, 'id_tryout' => $tryout->tryout_id]) }}"
                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
                     <i class="ri-trophy-line mr-1.5"></i>Rank
                 </a>
+                @endif
             </div>
         </div>
     </div>
@@ -127,7 +131,7 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
     </div>
     <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada riwayat</h3>
     <p class="text-gray-400 text-sm mb-4">Kamu belum mengerjakan tryout ini.</p>
-    <a href="{{ route('user.tryout.lobby', ['id_package' => $package->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" 
+    <a href="{{ route('user.tryout.lobby', ['id_package' => $packageRouteId, 'id_tryout' => $tryout->tryout_id]) }}" 
        class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" 
        style="background-color: {{ $primaryColor }}">
         <i class="ri-play-circle-line mr-2"></i>Kerjakan Tryout

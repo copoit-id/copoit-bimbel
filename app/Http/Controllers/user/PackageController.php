@@ -1467,24 +1467,46 @@ class PackageController extends Controller
 
     public function rankingTryout($id_package, $id_tryout)
     {
-        $package = Package::findOrFail($id_package);
-
-        // Check access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
-
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
-        }
-
         $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $package = null;
+        $packageRouteId = $id_package;
+
+        if ($id_package === 'free') {
+            $hasAccess = UserTryoutAccess::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', Carbon::now());
+                })
+                ->exists();
+
+            $hasCompletedAttempt = \App\Models\UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('status', 'completed')
+                ->exists();
+
+            if (!$hasAccess && !$hasCompletedAttempt) {
+                return redirect()->route('user.package.my', ['tab' => 'tryouts'])
+                    ->with('error', 'Anda tidak memiliki akses ke tryout ini');
+            }
+        } else {
+            $package = Package::findOrFail($id_package);
+
+            // Check access - perbaiki query akses
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+        }
 
         $currentUser = Auth::user();
         $currentUser->loadMissing([
@@ -1536,9 +1558,14 @@ class PackageController extends Controller
                         $representative = $attempt->first();
                         $score = (float) ($representative->utbk_total_score ?? 0);
                         $attempt->loadMissing('tryoutDetail');
+                        $subtestScores = [];
                         $allPassed = $attempt->every(function ($ua) {
                             return $this->isUtbkSubtestPassed($ua->tryoutDetail, (float) ($ua->score ?? 0));
                         });
+
+                        foreach ($attempt as $userAnswer) {
+                            $subtestScores[$userAnswer->tryout_detail_id] = (float) ($userAnswer->score ?? 0);
+                        }
 
                         return [
                             'user' => $representative->user,
@@ -1550,6 +1577,7 @@ class PackageController extends Controller
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $allPassed,
+                            'subtest_scores' => $subtestScores,
                         ];
                     })->filter()->sortByDesc('raw_score')->values()->first();
 
@@ -1640,7 +1668,8 @@ class PackageController extends Controller
             'profileRankings',
             'activeRankingTab',
             'profileDestinationLabel',
-            'profileNeedsCompletion'
+            'profileNeedsCompletion',
+            'packageRouteId'
         ));
     }
 
