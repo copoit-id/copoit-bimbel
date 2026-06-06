@@ -868,6 +868,7 @@ class TryoutController extends Controller
             'tryout_id' => $id_tryout,
             'attempts' => $attempts,
         ]);
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
         return view('user.pages.tryout.lobby', compact(
             'package',
@@ -875,7 +876,8 @@ class TryoutController extends Controller
             'attempts',
             'tryoutDetails',
             'totalDuration',
-            'totalQuestions'
+            'totalQuestions',
+            'effectiveProctoringSettings'
         ));
     }
 
@@ -1140,6 +1142,7 @@ class TryoutController extends Controller
             'question_number' => $number,
             'attempt_token' => $attemptToken,
         ]);
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
         return view('user.pages.tryout.index', compact(
             'package',
@@ -1165,8 +1168,21 @@ class TryoutController extends Controller
             'remainingSeconds',
             'subtestRemainingSeconds',
             'attemptToken',
-            'extraMinutes'
+            'extraMinutes',
+            'effectiveProctoringSettings'
         ));
+    }
+
+    private function effectiveProctoringSettings(Tryout $tryout): array
+    {
+        $globalSettings = PlanQuotaService::getDefaultProctoringSettings();
+
+        return [
+            'enable_anti_copy' => (bool) $tryout->enable_anti_copy && (bool) ($globalSettings['enable_anti_copy'] ?? true),
+            'enable_tab_switch_detection' => (bool) $tryout->enable_tab_switch_detection && (bool) ($globalSettings['enable_tab_switch_detection'] ?? true),
+            'enable_webcam_check' => (bool) $tryout->enable_webcam_check && (bool) ($globalSettings['enable_webcam_check'] ?? false),
+            'enable_screen_check' => (bool) $tryout->enable_screen_check && (bool) ($globalSettings['enable_screen_check'] ?? false),
+        ];
     }
 
 
@@ -1540,7 +1556,9 @@ class TryoutController extends Controller
     public function trackTabSwitch(Request $request, $id_package, $id_tryout)
     {
         $tryout = Tryout::findOrFail($id_tryout);
-        if (!$tryout->enable_tab_switch_detection) {
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
+
+        if (!$effectiveProctoringSettings['enable_tab_switch_detection']) {
             return response()->json([
                 'success' => true,
                 'message' => 'Deteksi pindah tab tidak aktif.',
@@ -1594,6 +1612,7 @@ class TryoutController extends Controller
     public function storeProctoringSnapshot(Request $request, $id_package, $id_tryout)
     {
         $tryout = Tryout::findOrFail($id_tryout);
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
         $validated = $request->validate([
             'attempt_token' => 'required|string',
@@ -1602,8 +1621,8 @@ class TryoutController extends Controller
         ]);
 
         if (
-            ($validated['type'] === 'webcam' && !$tryout->enable_webcam_check)
-            || ($validated['type'] === 'screen' && !$tryout->enable_screen_check)
+            ($validated['type'] === 'webcam' && !$effectiveProctoringSettings['enable_webcam_check'])
+            || ($validated['type'] === 'screen' && !$effectiveProctoringSettings['enable_screen_check'])
         ) {
             return response()->json([
                 'success' => true,

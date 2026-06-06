@@ -1,8 +1,8 @@
 @extends('user.layout.tryout')
 @section('title', 'Tryout - Soal ' . $number)
 @section('content')
-    <div id="tryoutPage" class="min-h-screen bg-gray-50 pt-16 {{ $tryout->enable_anti_copy ? 'select-none' : '' }}"
-        @if($tryout->enable_anti_copy) oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false" @endif>
+    <div id="tryoutPage" class="min-h-screen bg-gray-50 pt-16 {{ $effectiveProctoringSettings['enable_anti_copy'] ? 'select-none' : '' }}"
+        @if($effectiveProctoringSettings['enable_anti_copy']) oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false" @endif>
         <div class="max-w-7xl mx-auto py-2 sm:px-4 sm:py-6">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <!-- Question Section -->
@@ -426,7 +426,7 @@
         $isLobbyProctoringFrame = request()->boolean('lobby_proctoring');
     @endphp
 
-    @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
+    @if($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check'])
     <div id="proctoringPermissionModal"
         class="fixed inset-0 {{ $isLobbyProctoringFrame ? 'hidden' : 'flex' }} items-center justify-center bg-gray-950/85 px-4 backdrop-blur-sm"
         style="z-index: 2147483646;">
@@ -436,7 +436,7 @@
             </div>
             <h3 class="mb-2 text-lg font-bold text-gray-900">Aktifkan Pengawasan Ujian</h3>
             <p class="text-sm leading-relaxed text-gray-600">
-                Ujian ini membutuhkan {{ $tryout->enable_webcam_check ? 'kamera' : '' }}{{ $tryout->enable_webcam_check && $tryout->enable_screen_check ? ' dan ' : '' }}{{ $tryout->enable_screen_check ? 'screen sharing' : '' }} aktif sebelum pengerjaan dilanjutkan.
+                Ujian ini membutuhkan {{ $effectiveProctoringSettings['enable_webcam_check'] ? 'kamera' : '' }}{{ $effectiveProctoringSettings['enable_webcam_check'] && $effectiveProctoringSettings['enable_screen_check'] ? ' dan ' : '' }}{{ $effectiveProctoringSettings['enable_screen_check'] ? 'screen sharing' : '' }} aktif sebelum pengerjaan dilanjutkan.
             </p>
             <p id="proctoringPermissionError" class="mt-3 hidden rounded-lg bg-red/5 px-3 py-2 text-sm font-semibold text-red"></p>
             <button type="button" id="startProctoringBtn"
@@ -504,10 +504,10 @@
         });
 
         $proctoringSettingsForJs = [
-            'antiCopy' => (bool) $tryout->enable_anti_copy,
-            'tabSwitch' => (bool) $tryout->enable_tab_switch_detection,
-            'webcam' => (bool) $tryout->enable_webcam_check,
-            'screen' => (bool) $tryout->enable_screen_check,
+            'antiCopy' => (bool) $effectiveProctoringSettings['enable_anti_copy'],
+            'tabSwitch' => (bool) $effectiveProctoringSettings['enable_tab_switch_detection'],
+            'webcam' => (bool) $effectiveProctoringSettings['enable_webcam_check'],
+            'screen' => (bool) $effectiveProctoringSettings['enable_screen_check'],
             'snapshotIntervalMs' => 600000,
         ];
     @endphp

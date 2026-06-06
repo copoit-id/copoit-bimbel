@@ -103,7 +103,7 @@
                     </span>
                 </div>
 
-                @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
+                @if($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check'])
                     <div class="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-left">
                         <div class="mb-3">
                             <h2 class="text-base font-semibold text-gray-900">Pengecekan Perangkat</h2>
@@ -111,7 +111,7 @@
                         </div>
 
                         <div class="space-y-3">
-                            @if($tryout->enable_webcam_check)
+                            @if($effectiveProctoringSettings['enable_webcam_check'])
                                 <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
                                     <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                                         <i id="webcamCheckIcon" class="ri-checkbox-blank-circle-line text-lg text-gray-400"></i>
@@ -124,7 +124,7 @@
                                 </div>
                             @endif
 
-                            @if($tryout->enable_screen_check)
+                            @if($effectiveProctoringSettings['enable_screen_check'])
                                 <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
                                     <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                                         <i id="screenCheckIcon" class="ri-checkbox-blank-circle-line text-lg text-gray-400"></i>
@@ -144,22 +144,22 @@
 
                 <a href="{{ route('user.tryout.index', ['id_package' => $package ? $package->package_id : 'free', 'id_tryout' => $tryout->tryout_id, 'number' => 1]) }}"
                     id="startTryoutBtn"
-                    class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl {{ ($tryout->enable_webcam_check || $tryout->enable_screen_check) ? 'pointer-events-none opacity-50' : '' }}"
-                    aria-disabled="{{ ($tryout->enable_webcam_check || $tryout->enable_screen_check) ? 'true' : 'false' }}">
+                    class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl {{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'pointer-events-none opacity-50' : '' }}"
+                    aria-disabled="{{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'true' : 'false' }}">
                     Mulai Tryout
                 </a>
 
-                @if($tryout->enable_webcam_check)
+                @if($effectiveProctoringSettings['enable_webcam_check'])
                     <video id="lobbyWebcamPreview" class="pointer-events-none fixed bottom-0 right-0 h-px w-px opacity-0" autoplay muted playsinline></video>
                 @endif
-                @if($tryout->enable_screen_check)
+                @if($effectiveProctoringSettings['enable_screen_check'])
                     <video id="lobbyScreenPreview" class="pointer-events-none fixed bottom-0 right-0 h-px w-px opacity-0" autoplay muted playsinline></video>
                 @endif
             </div>
         </div>
     </div>
 
-    @if($tryout->enable_webcam_check || $tryout->enable_screen_check)
+    @if($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check'])
         <div id="tryoutFrameShell" class="fixed inset-0 z-[2147483000] hidden bg-white">
             <iframe id="tryoutFrame" title="Tryout" class="h-full w-full border-0" allow="camera; display-capture; fullscreen"></iframe>
         </div>
@@ -186,8 +186,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const proctoringSettings = {
-                webcam: @json((bool) $tryout->enable_webcam_check),
-                screen: @json((bool) $tryout->enable_screen_check),
+                webcam: @json((bool) $effectiveProctoringSettings['enable_webcam_check']),
+                screen: @json((bool) $effectiveProctoringSettings['enable_screen_check']),
             };
             const csrfToken = @json(csrf_token());
             const snapshotUrl = @json(route('user.tryout.proctoring-snapshot', [
