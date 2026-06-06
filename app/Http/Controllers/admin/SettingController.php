@@ -120,30 +120,33 @@ class SettingController extends Controller
             unset($validated['smtp_app_password']);
         }
 
-        $xenditSecret = trim((string) ($validated['xendit_secret_key'] ?? ''));
-        $xenditWebhook = trim((string) ($validated['xendit_webhook_token'] ?? ''));
-        $midtransServer = trim((string) ($validated['midtrans_server_key'] ?? ''));
-        $midtransClient = trim((string) ($validated['midtrans_client_key'] ?? ''));
-
-        if ($xenditSecret === '') {
-            unset($validated['xendit_secret_key']);
-        }
-        if ($xenditWebhook === '') {
-            unset($validated['xendit_webhook_token']);
-        }
-        if ($midtransServer === '') {
-            unset($validated['midtrans_server_key']);
-        }
-        if ($midtransClient === '') {
-            unset($validated['midtrans_client_key']);
-        }
-
         $sensitiveKeys = [
             'xendit_secret_key',
             'xendit_webhook_token',
             'midtrans_server_key',
             'midtrans_client_key',
         ];
+
+        foreach ($sensitiveKeys as $key) {
+            $newValue = trim((string) ($validated[$key] ?? ''));
+            if ($newValue === '') {
+                unset($validated[$key]);
+                continue;
+            }
+
+            try {
+                $existingValue = (string) ($profile->{$key} ?? '');
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $existingValue = '';
+            }
+
+            if ($existingValue !== '' && hash_equals($existingValue, $newValue)) {
+                unset($validated[$key]);
+            } else {
+                $validated[$key] = $newValue;
+            }
+        }
+
         $sensitiveChanged = false;
         foreach ($sensitiveKeys as $key) {
             if (array_key_exists($key, $validated)) {
@@ -163,7 +166,12 @@ class SettingController extends Controller
             if (!$user || !Hash::check((string) $request->input('admin_password'), $user->password)) {
                 return back()
                     ->withErrors(['admin_password' => 'Password admin tidak valid.'])
-                    ->withInput($request->except(['admin_password', 'smtp_app_password']));
+                    ->withInput($request->except([
+                        'admin_password',
+                        'smtp_app_password',
+                        ...$sensitiveKeys,
+                    ]))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
             }
         }
 

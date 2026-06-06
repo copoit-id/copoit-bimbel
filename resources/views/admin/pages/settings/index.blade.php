@@ -49,10 +49,10 @@
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
 
-        @if ($errors->has('general'))
+        @if ($errors->any())
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
-            <p class="font-semibold">Terjadi kesalahan</p>
-            <p>{{ $errors->first('general') }}</p>
+            <p class="font-semibold">Pengaturan belum tersimpan</p>
+            <p>{{ $errors->first('general') ?: 'Periksa kembali bagian yang ditandai merah, lalu simpan ulang.' }}</p>
         </div>
         @endif
 
@@ -340,11 +340,13 @@
                         <div class="flex items-center gap-2">
                             <input type="password" name="xendit_secret_key"
                                 class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                                value="{{ old('xendit_secret_key', $profile->xendit_secret_key ?? '') }}"
                                 placeholder="Kosongkan jika tidak diubah" data-secret-field="xendit_secret_key">
                             <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
                                 data-secret-toggle="xendit_secret_key">Show</button>
                         </div>
+                        @if (!empty($profile?->getRawOriginal('xendit_secret_key')))
+                        <p class="text-xs text-gray-500 mt-1">Secret key sudah tersimpan.</p>
+                        @endif
                         @error('xendit_secret_key')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
@@ -354,11 +356,13 @@
                         <div class="flex items-center gap-2">
                             <input type="password" name="xendit_webhook_token"
                                 class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                                value="{{ old('xendit_webhook_token', $profile->xendit_webhook_token ?? '') }}"
                                 placeholder="Kosongkan jika tidak diubah" data-secret-field="xendit_webhook_token">
                             <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
                                 data-secret-toggle="xendit_webhook_token">Show</button>
                         </div>
+                        @if (!empty($profile?->getRawOriginal('xendit_webhook_token')))
+                        <p class="text-xs text-gray-500 mt-1">Webhook token sudah tersimpan.</p>
+                        @endif
                         @error('xendit_webhook_token')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
@@ -370,11 +374,13 @@
                         <div class="flex items-center gap-2">
                             <input type="password" name="midtrans_server_key"
                                 class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                                value="{{ old('midtrans_server_key', $profile->midtrans_server_key ?? '') }}"
                                 placeholder="Kosongkan jika tidak diubah" data-secret-field="midtrans_server_key">
                             <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
                                 data-secret-toggle="midtrans_server_key">Show</button>
                         </div>
+                        @if (!empty($profile?->getRawOriginal('midtrans_server_key')))
+                        <p class="text-xs text-gray-500 mt-1">Server key sudah tersimpan.</p>
+                        @endif
                         @error('midtrans_server_key')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
@@ -384,11 +390,13 @@
                         <div class="flex items-center gap-2">
                             <input type="password" name="midtrans_client_key"
                                 class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                                value="{{ old('midtrans_client_key', $profile->midtrans_client_key ?? '') }}"
                                 placeholder="Kosongkan jika tidak diubah" data-secret-field="midtrans_client_key">
                             <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
                                 data-secret-toggle="midtrans_client_key">Show</button>
                         </div>
+                        @if (!empty($profile?->getRawOriginal('midtrans_client_key')))
+                        <p class="text-xs text-gray-500 mt-1">Client key sudah tersimpan.</p>
+                        @endif
                         @error('midtrans_client_key')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
