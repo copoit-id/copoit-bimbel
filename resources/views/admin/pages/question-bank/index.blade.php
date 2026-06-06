@@ -108,6 +108,9 @@
         @else
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($rootBanks as $bank)
+            @php
+                $bankQuestionCount = $recursiveQuestionCounts[$bank->id] ?? $bank->questions_count;
+            @endphp
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="flex-1 min-w-0">
@@ -116,7 +119,7 @@
                         <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ Str::limit($bank->description, 80) }}</p>
                     </div>
                     <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary flex-shrink-0">
-                        {{ $bank->questions_count }} Soal
+                        {{ number_format($bankQuestionCount) }} Soal
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-2 text-xs text-gray-500 mb-auto">
@@ -128,7 +131,7 @@
                         class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
                         <i class="ri-edit-line mr-1"></i>Edit
                     </button>
-                    <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bank->questions_count + $bank->children->sum('questions_count') }})"
+                    <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
                         class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
                         <i class="ri-delete-bin-line mr-1"></i>Hapus
                     </button>

@@ -66,7 +66,7 @@
         </div>
         <div class="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4">
             <p class="text-sm text-primary">Soal Tersimpan</p>
-            <p class="text-3xl font-semibold text-primary mt-1">{{ number_format($questions->total()) }}</p>
+            <p class="text-3xl font-semibold text-primary mt-1">{{ number_format($bankTotalQuestions ?? $questions->total()) }}</p>
         </div>
         <div class="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4">
             <p class="text-sm text-primary">Terakhir Diperbarui</p>
@@ -85,6 +85,9 @@
         @else
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             @foreach ($bank->children as $child)
+            @php
+                $childQuestionCount = $recursiveQuestionCounts[$child->id] ?? $child->questions_count;
+            @endphp
             <div class="rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="flex-1 min-w-0">
@@ -94,7 +97,7 @@
                         <p class="text-xs text-gray-400 mt-2">Dibuat: {{ optional($child->created_at)->format('d M Y') }}</p>
                     </div>
                     <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary flex-shrink-0">
-                        {{ $child->questions_count }} Soal
+                        {{ number_format($childQuestionCount) }} Soal
                     </span>
                 </div>
                 <div class="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
@@ -102,7 +105,7 @@
                         class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
                         <i class="ri-edit-line mr-1"></i>Edit
                     </button>
-                    <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $child->questions_count }})"
+                    <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $childQuestionCount }})"
                         class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
                         <i class="ri-delete-bin-line mr-1"></i>Hapus
                     </button>
@@ -356,12 +359,12 @@
                     <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
                         <div>
                             <label for="pptGlobalCorrectScore" class="mb-1 block text-xs font-semibold text-gray-600">Skor jawaban benar</label>
-                            <input type="number" id="pptGlobalCorrectScore" step="0.1" min="0" max="999" value="1"
+                            <input type="number" id="pptGlobalCorrectScore" step="0.01" min="0" max="999" inputmode="decimal" value="1"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                         </div>
                         <div>
                             <label for="pptGlobalWrongScore" class="mb-1 block text-xs font-semibold text-gray-600">Skor jawaban salah</label>
-                            <input type="number" id="pptGlobalWrongScore" step="0.1" min="0" max="999" value="0"
+                            <input type="number" id="pptGlobalWrongScore" step="0.01" min="0" max="999" inputmode="decimal" value="0"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                         </div>
                         <button type="button" id="applyPptGlobalScores"
@@ -566,6 +569,17 @@
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
 
+        const parseScoreInput = (value, fallback = 0) => {
+            const normalized = String(value ?? '').replace(',', '.').trim();
+            const score = Number.parseFloat(normalized);
+
+            if (Number.isNaN(score)) {
+                return fallback;
+            }
+
+            return Math.max(0, Math.min(999, score));
+        };
+
         const normalizePptPreviewGroups = (preview) => {
             return Array.isArray(preview.groups)
                 ? preview.groups
@@ -623,8 +637,9 @@
                 const optionRows = ['A', 'B', 'C', 'D', 'E'].map(letter => {
                     const text = typeof options[letter] === 'object' ? (options[letter]?.text || '') : (options[letter] || '');
                     if (!text) return '';
-                    const parsedWeight = typeof options[letter] === 'object' ? Number.parseFloat(options[letter]?.weight) : Number.NaN;
-                    const defaultWeight = Number.isNaN(parsedWeight) ? (letter === correctAnswer ? 1 : 0) : parsedWeight;
+                    const defaultWeight = typeof options[letter] === 'object'
+                        ? parseScoreInput(options[letter]?.weight, letter === correctAnswer ? 1 : 0)
+                        : (letter === correctAnswer ? 1 : 0);
 
                     return `
                         <div class="grid gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 md:grid-cols-[40px_minmax(0,1fr)_110px] md:items-start">
@@ -633,7 +648,7 @@
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(text)}</textarea>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-500">Skor</label>
-                                <input type="number" data-option-weight="${letter}" step="0.1" min="0" max="999"
+                                <input type="number" data-option-weight="${letter}" step="0.01" min="0" max="999" inputmode="decimal"
                                     value="${defaultWeight}"
                                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                             </div>
@@ -732,12 +747,7 @@
         };
 
         const getGlobalScoreValue = (input, fallback) => {
-            const value = Number.parseFloat(input?.value ?? '');
-            if (Number.isNaN(value)) {
-                return fallback;
-            }
-
-            return Math.max(0, Math.min(999, value));
+            return parseScoreInput(input?.value, fallback);
         };
 
         const applyScoresToQuestion = (item) => {
@@ -798,7 +808,7 @@
                         const weightInput = item.querySelector(`[data-option-weight="${letter}"]`);
                         options[letter] = {
                             text: textInput.value.trim(),
-                            weight: Number.parseFloat(weightInput?.value || '0') || 0,
+                            weight: parseScoreInput(weightInput?.value, 0),
                         };
                     });
 

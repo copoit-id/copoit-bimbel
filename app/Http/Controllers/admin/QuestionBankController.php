@@ -39,6 +39,9 @@ class QuestionBankController extends Controller
             ->whereNull('parent_id')
             ->orderBy('created_at', $bankSortDirection)
             ->get();
+        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts(
+            QuestionBank::withCount('questions')->get(['id', 'parent_id'])
+        );
 
         $stats = [
             'total_banks' => QuestionBank::count(),
@@ -54,7 +57,8 @@ class QuestionBankController extends Controller
             'bankOptions',
             'tryoutDetail',
             'importTarget',
-            'bankSort'
+            'bankSort',
+            'recursiveQuestionCounts'
         ));
     }
 
@@ -137,6 +141,10 @@ class QuestionBankController extends Controller
         $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
             $query->withCount('questions')->orderBy('created_at', $questionSortDirection);
         }]);
+        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts(
+            QuestionBank::withCount('questions')->get(['id', 'parent_id'])
+        );
+        $bankTotalQuestions = $recursiveQuestionCounts[$questionBank->id] ?? 0;
 
         $questionTypeOptions = $questionBank->questions()
             ->select('question_type')
@@ -170,6 +178,8 @@ class QuestionBankController extends Controller
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,
             'pptImportPreview' => $pptImportPreview,
+            'recursiveQuestionCounts' => $recursiveQuestionCounts,
+            'bankTotalQuestions' => $bankTotalQuestions,
         ]);
     }
 
@@ -516,11 +526,14 @@ class QuestionBankController extends Controller
                             continue;
                         }
 
-                        $weight = (float) ($option['weight'] ?? ($letter === $correctAnswer ? 1 : 0));
+                        $weight = $this->normalizeImportScore(
+                            $option['weight'] ?? null,
+                            $letter === $correctAnswer ? 1 : 0
+                        );
                         $options[] = [
                             'letter' => $letter,
                             'text' => $optionText,
-                            'weight' => max(0, min(999, $weight)),
+                            'weight' => $weight,
                             'is_correct' => $letter === $correctAnswer,
                         ];
                     }
@@ -971,6 +984,49 @@ class QuestionBankController extends Controller
                 'path' => implode(' > ', $segments),
             ];
         })->sortBy('path')->values();
+    }
+
+    private function buildRecursiveQuestionCounts($banks): array
+    {
+        $childrenByParent = $banks->groupBy('parent_id');
+        $directCounts = $banks->mapWithKeys(function ($bank) {
+            return [$bank->id => (int) $bank->questions_count];
+        })->all();
+        $totals = [];
+
+        $visit = function ($bankId) use (&$visit, &$totals, $childrenByParent, $directCounts) {
+            if (array_key_exists($bankId, $totals)) {
+                return $totals[$bankId];
+            }
+
+            $total = $directCounts[$bankId] ?? 0;
+            foreach ($childrenByParent->get($bankId, collect()) as $child) {
+                $total += $visit($child->id);
+            }
+
+            $totals[$bankId] = $total;
+
+            return $total;
+        };
+
+        foreach ($banks as $bank) {
+            $visit($bank->id);
+        }
+
+        return $totals;
+    }
+
+    private function normalizeImportScore($value, float $fallback = 0): float
+    {
+        if (is_string($value)) {
+            $value = str_replace(',', '.', trim($value));
+        }
+
+        if (!is_numeric($value)) {
+            return $fallback;
+        }
+
+        return max(0, min(999, (float) $value));
     }
 
     private function validateMultipleChoice(Request $request, bool $isMultipleAnswer = false): void
