@@ -42,6 +42,7 @@
     <div class="header">
         <div class="title">Leaderboard - {{ $tryout->name }}</div>
         <div class="meta">Paket: {{ $package->name }}</div>
+        <div class="meta">Filter tujuan: {{ $destinationFilter['label'] ?? 'Semua kategori tujuan' }}</div>
         <div class="meta">Tanggal export: {{ now()->format('d M Y H:i') }}</div>
     </div>
 
@@ -51,6 +52,7 @@
                 <th class="text-center">Peringkat</th>
                 <th>Peserta</th>
                 <th>Email</th>
+                <th>Kategori Tujuan</th>
                 <th class="text-center">Skor</th>
                 <th class="text-center">Skor Maks</th>
                 <th class="text-center">Status</th>
@@ -75,6 +77,7 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
+                    <td>{{ $ranking->user?->participantDestinationCategory?->display_name ?? '-' }}</td>
                     <td class="text-center">{{ $score }}</td>
                     <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
                     <td class="text-center">{{ $status }}</td>
@@ -87,7 +90,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
+                    <td colspan="9" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
                 </tr>
             @endforelse
         </tbody>

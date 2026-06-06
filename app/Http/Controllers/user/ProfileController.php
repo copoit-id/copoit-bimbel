@@ -8,13 +8,23 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use App\Services\ActivityLogger;
+use App\Models\ParticipantDestinationCategory;
+use App\Rules\SafeName;
 
 class ProfileController extends Controller
 {
     public function index()
     {
         $user = Auth::user();
-        return view('user.pages.profile.index', compact('user'));
+        $destinationCategories = ParticipantDestinationCategory::query()
+            ->root()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return view('user.pages.profile.index', compact('user', 'destinationCategories'));
     }
 
     public function update(Request $request)
@@ -22,15 +32,17 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         $request->validate([
-            'username' => 'required|string|max:255|unique:users,username,' . $user->id,
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'name' => ['required', 'string', 'max:255', new SafeName()],
+            'phone' => ['nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
             'date_of_birth' => 'nullable|date|before:today',
+            'participant_destination_category_id' => ['nullable', 'exists:participant_destination_categories,id'],
         ]);
 
         $user->update([
-            'username' => $request->username,
-            'email' => $request->email,
+            'name' => $request->name,
+            'phone' => $request->phone,
             'date_of_birth' => $request->date_of_birth,
+            'participant_destination_category_id' => $request->input('participant_destination_category_id'),
         ]);
 
         ActivityLogger::log('profile_updated', 'success', $user, [], $request);

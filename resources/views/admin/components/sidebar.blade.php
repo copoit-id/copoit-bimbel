@@ -30,7 +30,9 @@
         || request()->routeIs('admin.material-category.*')
         || request()->routeIs('admin.question-bank.*');
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
-    $isUserActive = request()->routeIs('admin.user.*') || request()->routeIs('admin.akses.*');
+    $isUserActive = request()->routeIs('admin.user.*')
+        || request()->routeIs('admin.akses.*')
+        || request()->routeIs('admin.participant-destination-categories.*');
     $isReportActive = request()->routeIs('admin.leaderboard.*')
         || request()->routeIs('admin.laporan.*')
         || request()->routeIs('admin.essay-review.*')
@@ -158,6 +160,13 @@
                                 class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <i class="ri-user-shared-line text-[20px] {{ request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
                                 <span class="ms-3">Login As User</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.participant-destination-categories.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.participant-destination-categories.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i class="ri-map-pin-line text-[20px] {{ request()->routeIs('admin.participant-destination-categories.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Kategori Tujuan</span>
                             </a>
                         </li>
                         @endif

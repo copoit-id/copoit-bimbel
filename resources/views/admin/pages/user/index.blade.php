@@ -132,6 +132,7 @@
                             </th>
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
+                            <th scope="col" class="px-6 py-3">Tujuan</th>
                             <th scope="col" class="px-6 py-3">Role</th>
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
@@ -159,6 +160,11 @@
                             </td>
                             <td class="px-6 py-4">
                                 <span class="text-gray-700">{{ $user->username }}</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-gray-700">
+                                    {{ $user->participantDestinationCategory?->display_name ?? '-' }}
+                                </span>
                             </td>
                             <td class="px-6 py-4">
                                 @php
@@ -227,7 +233,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>

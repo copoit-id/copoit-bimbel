@@ -17,6 +17,7 @@ use App\Http\Controllers\admin\IndividualPurchaseController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
+use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
 use App\Http\Controllers\admin\ProfileController;
 use App\Http\Controllers\admin\QuestionController;
@@ -435,6 +436,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
     Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
     Route::resource('user', UserController::class);
+    Route::resource('participant-destination-categories', ParticipantDestinationCategoryController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);
     Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
     Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
 

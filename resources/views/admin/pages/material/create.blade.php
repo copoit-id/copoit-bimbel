@@ -98,7 +98,16 @@
                         <select name="category_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                             <option value="">(Tidak ada)</option>
                             @foreach($categories as $category)
-                            <option value="{{ $category->category_id }}" {{ old('category_id') == $category->category_id ? 'selected' : '' }}>{{ $category->name }}</option>
+                                @if($category->activeChildren->isEmpty())
+                                <option value="{{ $category->category_id }}" {{ old('category_id') == $category->category_id ? 'selected' : '' }}>{{ $category->name }}</option>
+                                @else
+                                <optgroup label="{{ $category->name }}">
+                                    <option value="{{ $category->category_id }}" {{ old('category_id') == $category->category_id ? 'selected' : '' }}>Semua {{ $category->name }}</option>
+                                    @foreach($category->activeChildren as $child)
+                                    <option value="{{ $child->category_id }}" {{ old('category_id') == $child->category_id ? 'selected' : '' }}>{{ $child->name }}</option>
+                                    @endforeach
+                                </optgroup>
+                                @endif
                             @endforeach
                         </select>
                     </div>

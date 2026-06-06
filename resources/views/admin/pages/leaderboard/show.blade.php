@@ -10,12 +10,12 @@
             </x-slot>
         </x-breadcrumb>
         <div class="flex gap-2">
-            <a href="{{ route('admin.leaderboard.export-excel', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            <a href="{{ route('admin.leaderboard.export-excel', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id] + request()->only(['destination_category_id', 'destination_subcategory_id'])) }}"
                 class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
                 <i class="ri-file-excel-line"></i>
                 Export Excel
             </a>
-            <a href="{{ route('admin.leaderboard.export-pdf', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
+            <a href="{{ route('admin.leaderboard.export-pdf', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id] + request()->only(['destination_category_id', 'destination_subcategory_id'])) }}"
                 class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
                 <i class="ri-file-pdf-line"></i>
                 Export PDF
@@ -65,7 +65,48 @@
     </div>
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex flex-col gap-4 mb-4">
+            <form method="GET" action="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
+                class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Kategori Tujuan</label>
+                    <select name="destination_category_id" id="destination-category-filter"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="">Semua Kategori</option>
+                        @foreach($destinationCategories as $category)
+                            <option value="{{ $category->id }}" @selected((int) ($destinationFilter['category_id'] ?? 0) === (int) $category->id)>
+                                {{ $category->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Subkategori</label>
+                    <select name="destination_subcategory_id" id="destination-subcategory-filter"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="">Semua Subkategori</option>
+                        @foreach($destinationCategories as $category)
+                            @foreach($category->activeChildren as $child)
+                                <option value="{{ $child->id }}" data-parent="{{ $category->id }}"
+                                    @selected((int) ($destinationFilter['subcategory_id'] ?? 0) === (int) $child->id)>
+                                    {{ $child->name }}
+                                </option>
+                            @endforeach
+                        @endforeach
+                    </select>
+                </div>
+                <div class="md:col-span-2 flex items-end gap-2">
+                    <button type="submit"
+                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+                        Terapkan Filter
+                    </button>
+                    <a href="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
+                        class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">
+                        Reset
+                    </a>
+                </div>
+            </form>
+
             <div class="flex items-center gap-2">
                 <div class="relative">
                     <input type="text" placeholder="Cari peserta..."
@@ -180,6 +221,9 @@
                                     <div>
                                         <p class="font-medium">{{ $ranking->user->name ?? 'Unknown User' }}</p>
                                         <p class="text-md text-gray-500">{{ $ranking->user->email ?? 'No Email' }}</p>
+                                        <p class="text-xs text-gray-400">
+                                            {{ $ranking->user?->participantDestinationCategory?->display_name ?? 'Tujuan belum dipilih' }}
+                                        </p>
                                     </div>
                                 </div>
                             </td>
@@ -248,7 +292,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <td colspan="{{ $hasMultipleSubtests ? 6 + $tryout->tryoutDetails->count() : 6 }}"
+                                class="px-6 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
                                     <p>Belum ada peserta yang menyelesaikan tryout ini</p>
@@ -283,6 +328,29 @@
 
 @section('scripts')
     <script>
-        console.log('Leaderboard detail scripts loaded');
+        document.addEventListener('DOMContentLoaded', () => {
+            const categorySelect = document.getElementById('destination-category-filter');
+            const subcategorySelect = document.getElementById('destination-subcategory-filter');
+            const subcategoryOptions = Array.from(subcategorySelect?.querySelectorAll('option[data-parent]') || []);
+
+            const syncSubcategories = () => {
+                if (!categorySelect || !subcategorySelect) return;
+
+                const selectedCategory = categorySelect.value;
+                subcategoryOptions.forEach((option) => {
+                    const isVisible = selectedCategory && option.dataset.parent === selectedCategory;
+                    option.hidden = !isVisible;
+                    option.disabled = !isVisible;
+                });
+
+                const selectedOption = subcategorySelect.selectedOptions[0];
+                if (selectedOption?.dataset.parent && selectedOption.dataset.parent !== selectedCategory) {
+                    subcategorySelect.value = '';
+                }
+            };
+
+            categorySelect?.addEventListener('change', syncSubcategories);
+            syncSubcategories();
+        });
     </script>
 @endsection

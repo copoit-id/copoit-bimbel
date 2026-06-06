@@ -102,8 +102,23 @@ class Material extends Model
      */
     public function scopeByCategory($query, $categoryId)
     {
-        return $query->whereHas('categories', function ($q) use ($categoryId) {
-            $q->where('material_categories.category_id', $categoryId);
+        $categoryIds = [(int) $categoryId];
+        $category = MaterialCategory::query()
+            ->with('activeChildren')
+            ->find($categoryId);
+
+        if ($category) {
+            $categoryIds = $category->activeChildren
+                ->pluck('category_id')
+                ->prepend($category->category_id)
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        return $query->whereHas('categories', function ($q) use ($categoryIds) {
+            $q->whereIn('material_categories.category_id', $categoryIds);
         });
     }
 

@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
@@ -125,6 +126,11 @@ class User extends Authenticatable
     public function materialProgressLogs()
     {
         return $this->hasMany(MaterialProgressLog::class, 'user_id');
+    }
+
+    public function participantDestinationCategory(): BelongsTo
+    {
+        return $this->belongsTo(ParticipantDestinationCategory::class, 'participant_destination_category_id');
     }
 
     // Helper methods

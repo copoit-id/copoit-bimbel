@@ -80,6 +80,35 @@
                             :options="['aktif' => 'Aktif', 'nonaktif' => 'Tidak Aktif']"
                             :value="old('status', $user->status ?? 'aktif')" required />
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Instansi/Prodi Tujuan</label>
+                        <select name="participant_destination_category_id"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="">Belum memilih</option>
+                            @foreach($destinationCategories as $category)
+                                @if($category->activeChildren->isEmpty())
+                                    <option value="{{ $category->id }}" @selected(old('participant_destination_category_id', $user->participant_destination_category_id ?? null) == $category->id)>
+                                        {{ $category->name }}
+                                    </option>
+                                @else
+                                    <optgroup label="{{ $category->name }}">
+                                        <option value="{{ $category->id }}" @selected(old('participant_destination_category_id', $user->participant_destination_category_id ?? null) == $category->id)>
+                                            Semua {{ $category->name }}
+                                        </option>
+                                        @foreach($category->activeChildren as $child)
+                                            <option value="{{ $child->id }}" @selected(old('participant_destination_category_id', $user->participant_destination_category_id ?? null) == $child->id)>
+                                                {{ $child->name }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                            @endforeach
+                        </select>
+                        @error('participant_destination_category_id')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
                 </div>
             </div>
 

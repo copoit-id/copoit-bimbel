@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Package;
+use App\Models\ParticipantDestinationCategory;
 use App\Models\Question;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
@@ -79,6 +80,8 @@ class LeaderboardController extends Controller
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
+        $destinationCategories = $this->getDestinationCategories();
+        $destinationFilter = $this->resolveDestinationFilter(request(), $destinationCategories);
 
         // Get tryout details
         $tryoutDetail = $tryout->tryoutDetails()->first();
@@ -88,22 +91,18 @@ class LeaderboardController extends Controller
         }
 
         // Get leaderboard data - real participants
-        $rankingRows = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+        $rankingRows = $this->buildLeaderboardRows(
+            $this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get()
+        );
         $rankings = $this->paginateLeaderboardRows($rankingRows);
 
         // Calculate statistics
-        $totalParticipants = UserAnswer::where('tryout_id', $tryout_id)
-            ->where('status', 'completed')
-            ->distinct('user_id')
-            ->count();
+        $totalParticipants = $rankingRows->count();
 
         $averageScore = $rankingRows->avg('raw_score');
         $highestScore = $rankingRows->max('raw_score');
 
-        $passedCount = UserAnswer::where('tryout_id', $tryout_id)
-            ->where('status', 'completed')
-            ->where('is_passed', true)
-            ->count();
+        $passedCount = $rankingRows->where('is_passed', true)->count();
 
         $passRate = $totalParticipants > 0 ? ($passedCount / $totalParticipants) * 100 : 0;
 
@@ -121,17 +120,21 @@ class LeaderboardController extends Controller
             'tryout',
             'tryoutDetail',
             'rankings',
-            'statistics'
+            'statistics',
+            'destinationCategories',
+            'destinationFilter'
         ));
     }
 
-    public function exportExcel($package_id, $tryout_id)
+    public function exportExcel(Request $request, $package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
+        $destinationCategories = $this->getDestinationCategories();
+        $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
         $rankings = $this->sortLeaderboardRows(
-            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get())
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get())
         );
 
         $spreadsheet = new Spreadsheet();
@@ -141,6 +144,7 @@ class LeaderboardController extends Controller
             'Peringkat',
             'Nama Peserta',
             'Email',
+            'Kategori Tujuan',
             'Skor',
             'Skor Maks',
             'Status',
@@ -150,7 +154,7 @@ class LeaderboardController extends Controller
         ];
 
         $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
 
         $row = 2;
         foreach ($rankings as $index => $ranking) {
@@ -165,6 +169,7 @@ class LeaderboardController extends Controller
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
+                $ranking->user?->participantDestinationCategory?->display_name ?? '-',
                 $score,
                 $maxScore,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
@@ -176,7 +181,7 @@ class LeaderboardController extends Controller
             $row++;
         }
 
-        foreach (range('A', 'I') as $column) {
+        foreach (range('A', 'J') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -196,19 +201,22 @@ class LeaderboardController extends Controller
         ]);
     }
 
-    public function exportPdf($package_id, $tryout_id)
+    public function exportPdf(Request $request, $package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
+        $destinationCategories = $this->getDestinationCategories();
+        $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
         $rankings = $this->sortLeaderboardRows(
-            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get())
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get())
         );
 
         $html = view('admin.pages.leaderboard.export-pdf', [
             'package' => $package,
             'tryout' => $tryout,
             'rankings' => $rankings,
+            'destinationFilter' => $destinationFilter,
         ])->render();
 
         $options = new Options();
@@ -260,12 +268,17 @@ class LeaderboardController extends Controller
         }
     }
 
-    private function getLeaderboardRankings($tryoutId)
+    private function getLeaderboardRankings($tryoutId, array $destinationCategoryIds = [])
     {
         return UserAnswer::where('tryout_id', $tryoutId)
             ->where('status', 'completed')
             ->whereNotNull('score')
-            ->with(['user', 'tryoutDetail'])
+            ->when(!empty($destinationCategoryIds), function ($query) use ($destinationCategoryIds) {
+                $query->whereHas('user', function ($userQuery) use ($destinationCategoryIds) {
+                    $userQuery->whereIn('participant_destination_category_id', $destinationCategoryIds);
+                });
+            })
+            ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
             ->orderBy('score', 'desc')
             ->orderBy('finished_at', 'asc');
     }
@@ -274,6 +287,61 @@ class LeaderboardController extends Controller
     {
         $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryoutId)->get());
         return $this->paginateLeaderboardRows($rankings, $perPage);
+    }
+
+    private function getDestinationCategories()
+    {
+        return ParticipantDestinationCategory::query()
+            ->root()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function resolveDestinationFilter(Request $request, $destinationCategories): array
+    {
+        $categoryId = $request->integer('destination_category_id') ?: null;
+        $subcategoryId = $request->integer('destination_subcategory_id') ?: null;
+        $selectedCategory = $categoryId
+            ? $destinationCategories->firstWhere('id', $categoryId)
+            : null;
+
+        if (!$selectedCategory) {
+            return [
+                'category_id' => null,
+                'subcategory_id' => null,
+                'ids' => [],
+                'label' => 'Semua kategori tujuan',
+            ];
+        }
+
+        $selectedSubcategory = $subcategoryId
+            ? $selectedCategory->activeChildren->firstWhere('id', $subcategoryId)
+            : null;
+
+        if ($selectedSubcategory) {
+            return [
+                'category_id' => $selectedCategory->id,
+                'subcategory_id' => $selectedSubcategory->id,
+                'ids' => [$selectedSubcategory->id],
+                'label' => $selectedCategory->name . ' - ' . $selectedSubcategory->name,
+            ];
+        }
+
+        $ids = $selectedCategory->activeChildren->pluck('id')
+            ->prepend($selectedCategory->id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'category_id' => $selectedCategory->id,
+            'subcategory_id' => null,
+            'ids' => $ids,
+            'label' => $selectedCategory->name,
+        ];
     }
 
     private function paginateLeaderboardRows(Collection $rankings, int $perPage = 15)

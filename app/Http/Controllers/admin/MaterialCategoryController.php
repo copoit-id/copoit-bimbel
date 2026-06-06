@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\MaterialCategory;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MaterialCategoryController extends Controller
 {
@@ -13,8 +14,18 @@ class MaterialCategoryController extends Controller
      */
     public function index()
     {
-        $categories = MaterialCategory::ordered()->get();
-        return view('admin.pages.material-category.index', compact('categories'));
+        $categories = MaterialCategory::query()
+            ->root()
+            ->with(['children' => fn($query) => $query->withCount('materials')])
+            ->withCount('materials')
+            ->ordered()
+            ->get();
+        $parentOptions = MaterialCategory::query()
+            ->root()
+            ->ordered()
+            ->get();
+
+        return view('admin.pages.material-category.index', compact('categories', 'parentOptions'));
     }
 
     /**
@@ -27,11 +38,16 @@ class MaterialCategoryController extends Controller
             'description' => 'nullable|string',
             'icon' => 'nullable|string|max:50',
             'order_number' => 'nullable|integer|min:0',
+            'parent_id' => [
+                'nullable',
+                Rule::exists('material_categories', 'category_id')->whereNull('parent_id'),
+            ],
         ], [
             'name.required' => 'Nama kategori wajib diisi.',
             'name.max' => 'Nama kategori maksimal 255 karakter.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
+            'parent_id.exists' => 'Parent kategori tidak valid.',
         ]);
 
         // Set default order_number if not provided
@@ -56,12 +72,29 @@ class MaterialCategoryController extends Controller
             'icon' => 'nullable|string|max:50',
             'order_number' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
+            'parent_id' => [
+                'nullable',
+                Rule::exists('material_categories', 'category_id')->whereNull('parent_id'),
+            ],
         ], [
             'name.required' => 'Nama kategori wajib diisi.',
             'name.max' => 'Nama kategori maksimal 255 karakter.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
+            'parent_id.exists' => 'Parent kategori tidak valid.',
         ]);
+
+        if ((int) ($validated['parent_id'] ?? 0) === (int) $category->category_id) {
+            return redirect()->route('admin.material.material-category.index')
+                ->withErrors(['parent_id' => 'Kategori tidak bisa menjadi subkategori dirinya sendiri.'])
+                ->withInput();
+        }
+
+        if ($category->children()->exists() && !empty($validated['parent_id'])) {
+            return redirect()->route('admin.material.material-category.index')
+                ->withErrors(['parent_id' => 'Kategori yang sudah memiliki subkategori tidak bisa dijadikan subkategori.'])
+                ->withInput();
+        }
 
         $validated['is_active'] = $request->boolean('is_active', true);
 
@@ -76,8 +109,15 @@ class MaterialCategoryController extends Controller
      */
     public function destroy(MaterialCategory $category)
     {
-        // Check if category has materials
-        if ($category->materials()->count() > 0) {
+        // Check if category or its children have materials
+        $childIds = $category->children()->pluck('category_id');
+        $hasMaterials = $category->materials()->exists()
+            || MaterialCategory::query()
+                ->whereIn('category_id', $childIds)
+                ->whereHas('materials')
+                ->exists();
+
+        if ($hasMaterials) {
             return redirect()->route('admin.material.material-category.index')
                 ->with('error', 'Kategori tidak dapat dihapus karena masih memiliki materi.');
         }

@@ -15,18 +15,6 @@
         </button>
     </div>
 
-    @if(session('success'))
-    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-        {{ session('success') }}
-    </div>
-    @endif
-
-    @if(session('error'))
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-        {{ session('error') }}
-    </div>
-    @endif
-
     <!-- Categories Table -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <table class="w-full">
@@ -64,7 +52,13 @@
                         @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onclick="openEditModal({{ $category->category_id }}, '{{ $category->name }}', '{{ $category->description }}', '{{ $category->icon }}', {{ $category->order_number }}, {{ $category->is_active ? 'true' : 'false' }})" class="text-blue-600 hover:text-blue-900 mr-3">
+                        <button onclick="openSubcategoryModal({{ $category->category_id }}, @js($category->name))"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary hover:text-white transition mr-3 text-xs font-semibold"
+                            title="Tambah Sub Category">
+                            <i class="ri-add-line"></i>
+                            Tambah Sub Category
+                        </button>
+                        <button onclick="openEditModal({{ $category->category_id }}, @js($category->name), @js($category->description), @js($category->icon), {{ $category->order_number }}, {{ $category->is_active ? 'true' : 'false' }}, {{ $category->parent_id ?? 'null' }})" class="text-blue-600 hover:text-blue-900 mr-3" title="Edit">
                             <i class="ri-edit-line text-lg"></i>
                         </button>
                         <form action="{{ route('admin.material.material-category.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori ini?')">
@@ -76,6 +70,49 @@
                         </form>
                     </td>
                 </tr>
+                @foreach($category->children as $child)
+                <tr class="hover:bg-gray-50 bg-gray-50/60">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $index + 1 }}.{{ $loop->iteration }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-2 pl-7">
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <i class="ri-corner-down-right-line text-sm"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ $child->name }}</div>
+                                <div class="text-xs text-gray-500">Sub dari {{ $category->name }} · Order: {{ $child->order_number }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{{ $child->description ?? '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        @if($child->icon)
+                        <i class="{{ $child->icon }} text-lg text-primary"></i>
+                        @else
+                        <span class="text-gray-400">-</span>
+                        @endif
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        @if($child->is_active)
+                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>
+                        @else
+                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Nonaktif</span>
+                        @endif
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="openEditModal({{ $child->category_id }}, @js($child->name), @js($child->description), @js($child->icon), {{ $child->order_number }}, {{ $child->is_active ? 'true' : 'false' }}, {{ $child->parent_id ?? 'null' }})" class="text-blue-600 hover:text-blue-900 mr-3">
+                            <i class="ri-edit-line text-lg"></i>
+                        </button>
+                        <form action="{{ route('admin.material.material-category.destroy', $child) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus subkategori ini?')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-900">
+                                <i class="ri-delete-bin-line text-lg"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                @endforeach
                 @empty
                 <tr>
                     <td colspan="6" class="px-6 py-8 text-center text-gray-500">
@@ -145,6 +182,15 @@
                     <input type="text" name="name" id="editName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
+                    <select name="parent_id" id="editParent" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">Kategori utama</option>
+                        @foreach($parentOptions as $parent)
+                        <option value="{{ $parent->category_id }}">Subkategori dari {{ $parent->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
                     <textarea name="description" id="editDescription" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
                 </div>
@@ -170,6 +216,48 @@
         </form>
     </div>
 </div>
+
+<!-- Create Subcategory Modal -->
+<div id="subcategoryModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
+        <div class="flex justify-between items-center p-5 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Tambah Subkategori</h3>
+                <p class="text-sm text-gray-500">Parent: <span id="subcategoryParentName" class="font-medium text-gray-700"></span></p>
+            </div>
+            <button onclick="closeModal('subcategoryModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('admin.material.material-category.store') }}" method="POST" class="p-4">
+            @csrf
+            <input type="hidden" name="parent_id" id="subcategoryParentId">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Subkategori <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+                    <textarea name="description" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Icon (Remix Icon)</label>
+                    <input type="text" name="icon" placeholder="ri-book-line" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                    <p class="text-xs text-gray-500 mt-1">Opsional. Jika kosong, bisa mengikuti konteks kategori utama.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Urut</label>
+                    <input type="number" name="order_number" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="closeModal('subcategoryModal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">Simpan Subkategori</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -182,7 +270,13 @@
         document.getElementById(modalId).classList.add('hidden');
     }
 
-    function openEditModal(id, name, description, icon, orderNumber, isActive) {
+    function openSubcategoryModal(parentId, parentName) {
+        document.getElementById('subcategoryParentId').value = parentId;
+        document.getElementById('subcategoryParentName').textContent = parentName;
+        openModal('subcategoryModal');
+    }
+
+    function openEditModal(id, name, description, icon, orderNumber, isActive, parentId) {
         const form = document.getElementById('editForm');
         form.action = `{{ route('admin.material.material-category.index') }}/${id}`;
         
@@ -191,6 +285,7 @@
         document.getElementById('editIcon').value = icon || '';
         document.getElementById('editOrder').value = orderNumber;
         document.getElementById('editIsActive').checked = isActive;
+        document.getElementById('editParent').value = parentId || '';
         
         openModal('editModal');
     }

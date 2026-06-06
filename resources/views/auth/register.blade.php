@@ -88,6 +88,34 @@
                     </div>
 
                     <div>
+                        <label for="participant_destination_category_id" class="block text-sm font-medium text-gray-700">
+                            Instansi/Prodi Tujuan
+                        </label>
+                        <select id="participant_destination_category_id" name="participant_destination_category_id"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary">
+                            <option value="">Belum memilih</option>
+                            @foreach($destinationCategories as $category)
+                                @if($category->activeChildren->isEmpty())
+                                    <option value="{{ $category->id }}" @selected(old('participant_destination_category_id') == $category->id)>
+                                        {{ $category->name }}
+                                    </option>
+                                @else
+                                    <optgroup label="{{ $category->name }}">
+                                        <option value="{{ $category->id }}" @selected(old('participant_destination_category_id') == $category->id)>
+                                            Semua {{ $category->name }}
+                                        </option>
+                                        @foreach($category->activeChildren as $child)
+                                            <option value="{{ $child->id }}" @selected(old('participant_destination_category_id') == $child->id)>
+                                                {{ $child->name }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
                         <label for="password" class="block text-sm font-medium text-gray-700">
                             Password
                         </label>

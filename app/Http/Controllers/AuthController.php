@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\ParticipantDestinationCategory;
 use App\Rules\RecaptchaRule;
 use App\Rules\SafeName;
 use App\Services\RecaptchaService;
@@ -152,7 +153,8 @@ class AuthController extends Controller
     {
         return view('auth.register', [
             'recaptcha_site_key' => $this->recaptchaService->getSiteKey(),
-            'recaptcha_enabled' => $this->recaptchaService->isEnabled()
+            'recaptcha_enabled' => $this->recaptchaService->isEnabled(),
+            'destinationCategories' => $this->getDestinationCategories(),
         ]);
     }
 
@@ -164,6 +166,10 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'date_of_birth' => 'required|date|before:today',
             'phone' => ['required', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'participant_destination_category_id' => [
+                'nullable',
+                'exists:participant_destination_categories,id',
+            ],
         ];
 
         // Add reCAPTCHA validation if enabled
@@ -195,6 +201,7 @@ class AuthController extends Controller
                 'password' => Hash::make($validatedData['password']),
                 'date_of_birth' => $validatedData['date_of_birth'],
                 'phone' => $validatedData['phone'],
+                'participant_destination_category_id' => $validatedData['participant_destination_category_id'] ?? null,
                 'role' => 'user',
             ]);
 
@@ -245,6 +252,17 @@ class AuthController extends Controller
         }
 
         return true;
+    }
+
+    private function getDestinationCategories()
+    {
+        return ParticipantDestinationCategory::query()
+            ->root()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 
     public function logout(Request $request): RedirectResponse

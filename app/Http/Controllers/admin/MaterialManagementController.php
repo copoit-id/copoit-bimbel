@@ -34,7 +34,11 @@ class MaterialManagementController extends Controller
      */
     public function create()
     {
-        $categories = MaterialCategory::active()->ordered()->get();
+        $categories = MaterialCategory::active()
+            ->root()
+            ->with('activeChildren')
+            ->ordered()
+            ->get();
         return view('admin.pages.material.create', compact('categories'));
     }
 
@@ -116,7 +120,11 @@ class MaterialManagementController extends Controller
      */
     public function edit(Material $material)
     {
-        $categories = MaterialCategory::active()->ordered()->get();
+        $categories = MaterialCategory::active()
+            ->root()
+            ->with('activeChildren')
+            ->ordered()
+            ->get();
         $selectedCategory = $material->categories->first()?->category_id;
 
         return view('admin.pages.material.edit', compact('material', 'categories', 'selectedCategory'));

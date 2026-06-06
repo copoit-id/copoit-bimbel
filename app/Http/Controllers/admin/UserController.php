@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Models\ParticipantDestinationCategory;
 use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class UserController extends Controller
     public function index()
     {
         $users = User::query()
+            ->with('participantDestinationCategory.parent')
             ->where('role', '!=', 'super_admin')
             ->orderByDesc('created_at')
             ->paginate(10);
@@ -46,9 +48,11 @@ class UserController extends Controller
         }
 
         $roleOptions = $this->getRoleOptions();
+        $destinationCategories = $this->getDestinationCategories();
         return view('admin.pages.user.create', [
             'user' => null,
             'roleOptions' => $roleOptions,
+            'destinationCategories' => $destinationCategories,
         ]);
     }
 
@@ -69,7 +73,8 @@ class UserController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
-            'role' => ['required', Rule::in($roleSlugs)]
+            'role' => ['required', Rule::in($roleSlugs)],
+            'participant_destination_category_id' => ['nullable', 'exists:participant_destination_categories,id'],
         ]);
 
         $user = User::create([
@@ -78,7 +83,8 @@ class UserController extends Controller
             'username' => $validated['username'],
             'password' => Hash::make($validated['password']),
             'status' => $validated['status'] ?? 'aktif',
-            'role' => $validated['role']
+            'role' => $validated['role'],
+            'participant_destination_category_id' => $validated['participant_destination_category_id'] ?? null,
         ]);
         $role = \App\Models\Role::where('slug', $user->role)->first();
         if ($role) {
@@ -98,9 +104,11 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
         $roleOptions = $this->getRoleOptions();
+        $destinationCategories = $this->getDestinationCategories();
         return view('admin.pages.user.create', [
             'user' => $user,
             'roleOptions' => $roleOptions,
+            'destinationCategories' => $destinationCategories,
         ]);
     }
 
@@ -115,6 +123,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+            'participant_destination_category_id' => ['nullable', 'exists:participant_destination_categories,id'],
         ]);
 
         $user = User::findOrFail($id);
@@ -125,6 +134,7 @@ class UserController extends Controller
             'username' => $validated['username'],
             'status' => $validated['status'],
             'role' => $validated['role'],
+            'participant_destination_category_id' => $validated['participant_destination_category_id'] ?? null,
         ]);
 
         if (!empty($validated['password'])) {
@@ -148,6 +158,17 @@ class UserController extends Controller
             ->orderBy('name')
             ->pluck('name', 'slug')
             ->toArray();
+    }
+
+    private function getDestinationCategories()
+    {
+        return ParticipantDestinationCategory::query()
+            ->root()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 
     public function bulkDestroy(Request $request)

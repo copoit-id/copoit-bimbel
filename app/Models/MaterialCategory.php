@@ -4,7 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MaterialCategory extends Model
 {
@@ -31,6 +33,21 @@ class MaterialCategory extends Model
         )->withTimestamps();
     }
 
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id', 'category_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id', 'category_id')->ordered();
+    }
+
+    public function activeChildren(): HasMany
+    {
+        return $this->children()->active();
+    }
+
     /**
      * Scope: Active categories
      */
@@ -39,11 +56,23 @@ class MaterialCategory extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeRoot($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
     /**
      * Scope: Ordered
      */
     public function scopeOrdered($query)
     {
         return $query->orderBy('order_number', 'asc');
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->parent
+            ? $this->parent->name . ' - ' . $this->name
+            : $this->name;
     }
 }
