@@ -347,24 +347,29 @@
                         'enable_anti_copy' => [
                             'label' => 'Anti Copy Soal',
                             'description' => 'Blok seleksi teks, klik kanan, dan shortcut copy/cut di halaman ujian.',
-                            'default' => true,
+                            'default' => $securityDefaults['enable_anti_copy'] ?? true,
+                            'available' => $securityDefaults['enable_anti_copy'] ?? true,
                         ],
                         'enable_tab_switch_detection' => [
                             'label' => 'Deteksi Pindah Tab',
                             'description' => 'Tampilkan alert dan hitung pelanggaran saat peserta keluar dari tab/window ujian.',
-                            'default' => true,
+                            'default' => $securityDefaults['enable_tab_switch_detection'] ?? true,
+                            'available' => $securityDefaults['enable_tab_switch_detection'] ?? true,
                         ],
                         'enable_webcam_check' => [
                             'label' => 'Webcam Check',
                             'description' => 'Wajibkan kamera aktif dan simpan snapshot kecil setiap 10 menit.',
-                            'default' => false,
+                            'default' => $securityDefaults['enable_webcam_check'] ?? false,
+                            'available' => $securityDefaults['enable_webcam_check'] ?? false,
                         ],
                         'enable_screen_check' => [
                             'label' => 'Screen Check',
                             'description' => 'Wajibkan screen sharing aktif dan simpan snapshot kecil setiap 10 menit.',
-                            'default' => false,
+                            'default' => $securityDefaults['enable_screen_check'] ?? false,
+                            'available' => $securityDefaults['enable_screen_check'] ?? false,
                         ],
                     ];
+                    $securityOptions = array_filter($securityOptions, fn ($option) => $option['available']);
                 @endphp
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     @foreach($securityOptions as $field => $option)
@@ -372,6 +377,7 @@
                             $isChecked = session()->hasOldInput() ? (bool) old($field) : $option['default'];
                         @endphp
                         <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
+                            <input type="hidden" name="{{ $field }}" value="0">
                             <input type="checkbox" name="{{ $field }}" value="1" {{ $isChecked ? 'checked' : '' }}
                                 class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
                             <span>

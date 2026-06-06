@@ -4,6 +4,7 @@ namespace App\Http\Controllers\superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Services\PlanQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -39,6 +40,11 @@ class PlanController extends Controller
             'is_trial' => 'boolean',
             'is_default' => 'boolean',
             'trial_duration_days' => 'nullable|integer|min:1',
+            'proctoring_defaults' => 'nullable|array',
+            'proctoring_defaults.enable_anti_copy' => 'boolean',
+            'proctoring_defaults.enable_tab_switch_detection' => 'boolean',
+            'proctoring_defaults.enable_webcam_check' => 'boolean',
+            'proctoring_defaults.enable_screen_check' => 'boolean',
         ];
         
         // Validasi kondisional manual
@@ -66,6 +72,10 @@ class PlanController extends Controller
         $validated['is_default'] = $request->boolean('is_default');
         $validated['is_active'] = true;
         $validated['slug'] = $slug;
+        $validated['features_json'] = [
+            'proctoring_defaults' => $this->proctoringDefaultsFromRequest($request),
+        ];
+        unset($validated['proctoring_defaults']);
 
         // If this is set as default, remove default from others
         if ($validated['is_default']) {
@@ -98,6 +108,11 @@ class PlanController extends Controller
             'is_default' => 'boolean',
             'trial_duration_days' => 'nullable|integer|min:1',
             'is_active' => 'boolean',
+            'proctoring_defaults' => 'nullable|array',
+            'proctoring_defaults.enable_anti_copy' => 'boolean',
+            'proctoring_defaults.enable_tab_switch_detection' => 'boolean',
+            'proctoring_defaults.enable_webcam_check' => 'boolean',
+            'proctoring_defaults.enable_screen_check' => 'boolean',
         ];
         
         // Validasi kondisional manual
@@ -115,6 +130,10 @@ class PlanController extends Controller
         $validated['is_trial'] = $isTrial;
         $validated['is_default'] = $request->boolean('is_default');
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['features_json'] = array_merge($plan->features_json ?? [], [
+            'proctoring_defaults' => $this->proctoringDefaultsFromRequest($request),
+        ]);
+        unset($validated['proctoring_defaults']);
 
         // If this is set as default, remove default from others
         if ($validated['is_default']) {
@@ -144,5 +163,27 @@ class PlanController extends Controller
 
         return redirect()->route('super-admin.plans.index')
             ->with('success', 'Plan berhasil dihapus.');
+    }
+
+    private function proctoringDefaultsFromRequest(Request $request): array
+    {
+        return [
+            'enable_anti_copy' => $request->boolean(
+                'proctoring_defaults.enable_anti_copy',
+                PlanQuotaService::DEFAULT_PROCTORING_SETTINGS['enable_anti_copy']
+            ),
+            'enable_tab_switch_detection' => $request->boolean(
+                'proctoring_defaults.enable_tab_switch_detection',
+                PlanQuotaService::DEFAULT_PROCTORING_SETTINGS['enable_tab_switch_detection']
+            ),
+            'enable_webcam_check' => $request->boolean(
+                'proctoring_defaults.enable_webcam_check',
+                PlanQuotaService::DEFAULT_PROCTORING_SETTINGS['enable_webcam_check']
+            ),
+            'enable_screen_check' => $request->boolean(
+                'proctoring_defaults.enable_screen_check',
+                PlanQuotaService::DEFAULT_PROCTORING_SETTINGS['enable_screen_check']
+            ),
+        ];
     }
 }

@@ -119,6 +119,53 @@
                 </div>
             </div>
 
+            @php
+                $proctoringDefaults = old('proctoring_defaults', [
+                    'enable_anti_copy' => true,
+                    'enable_tab_switch_detection' => true,
+                    'enable_webcam_check' => false,
+                    'enable_screen_check' => false,
+                ]);
+                $proctoringOptions = [
+                    'enable_anti_copy' => [
+                        'label' => 'Anti Copy Soal',
+                        'description' => 'Default aktif untuk blok copy/cut/klik kanan di halaman ujian.',
+                    ],
+                    'enable_tab_switch_detection' => [
+                        'label' => 'Deteksi Pindah Tab',
+                        'description' => 'Default aktif untuk alert dan hitung pelanggaran pindah tab.',
+                    ],
+                    'enable_webcam_check' => [
+                        'label' => 'Webcam Check',
+                        'description' => 'Default mati. Jika aktif, admin tryout akan otomatis mencentang kamera.',
+                    ],
+                    'enable_screen_check' => [
+                        'label' => 'Screen Check',
+                        'description' => 'Default mati. Jika aktif, admin tryout akan otomatis mencentang screen sharing.',
+                    ],
+                ];
+            @endphp
+            <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div class="mb-4">
+                    <h3 class="font-semibold text-gray-900">Fitur Keamanan Ujian</h3>
+                    <p class="text-sm text-gray-500">Checklist ini menentukan fitur yang tersedia di form tryout admin.</p>
+                </div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    @foreach($proctoringOptions as $field => $option)
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
+                            <input type="hidden" name="proctoring_defaults[{{ $field }}]" value="0">
+                            <input type="checkbox" name="proctoring_defaults[{{ $field }}]" value="1"
+                                {{ !empty($proctoringDefaults[$field]) ? 'checked' : '' }}
+                                class="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">{{ $option['label'] }}</span>
+                                <span class="mt-1 block text-xs leading-relaxed text-gray-500">{{ $option['description'] }}</span>
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <a href="{{ route('super-admin.plans.index') }}" 
                     class="px-5 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">Batal</a>

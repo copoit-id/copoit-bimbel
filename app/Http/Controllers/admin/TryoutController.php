@@ -9,6 +9,7 @@ use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
+use App\Services\PlanQuotaService;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -96,14 +97,16 @@ class TryoutController extends Controller
         $allowUtbkTypes = $this->allowUtbkControls();
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
+        $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'securityDefaults'));
     }
 
     public function store(Request $request)
     {
         $request->validate($this->tryoutValidationRules());
         $isIrtEnabled = $this->shouldEnableIrt($request);
+        $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
         try {
             $tryout = Tryout::create([
@@ -114,10 +117,10 @@ class TryoutController extends Controller
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
-                'enable_anti_copy' => $request->boolean('enable_anti_copy'),
-                'enable_tab_switch_detection' => $request->boolean('enable_tab_switch_detection'),
-                'enable_webcam_check' => $request->boolean('enable_webcam_check'),
-                'enable_screen_check' => $request->boolean('enable_screen_check'),
+                'enable_anti_copy' => $securitySettings['enable_anti_copy'],
+                'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+                'enable_webcam_check' => $securitySettings['enable_webcam_check'],
+                'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
@@ -149,8 +152,9 @@ class TryoutController extends Controller
             $allowUtbkTypes = $this->allowUtbkControls($tryout->type_tryout);
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
+            $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -180,6 +184,7 @@ class TryoutController extends Controller
                 ];
             });
             $originalTypes = $tryout->tryoutDetails->pluck('type_subtest')->sort()->values();
+            $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
             // Update master tryout fields
             $tryout->update([
@@ -190,10 +195,10 @@ class TryoutController extends Controller
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
-                'enable_anti_copy' => $request->boolean('enable_anti_copy'),
-                'enable_tab_switch_detection' => $request->boolean('enable_tab_switch_detection'),
-                'enable_webcam_check' => $request->boolean('enable_webcam_check'),
-                'enable_screen_check' => $request->boolean('enable_screen_check'),
+                'enable_anti_copy' => $securitySettings['enable_anti_copy'],
+                'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+                'enable_webcam_check' => $securitySettings['enable_webcam_check'],
+                'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,

@@ -10,6 +10,13 @@ use App\Models\Plan;
 
 class PlanQuotaService
 {
+    public const DEFAULT_PROCTORING_SETTINGS = [
+        'enable_anti_copy' => true,
+        'enable_tab_switch_detection' => true,
+        'enable_webcam_check' => false,
+        'enable_screen_check' => false,
+    ];
+
     /**
      * Get active subscription for this project (single client)
      */
@@ -25,6 +32,31 @@ class PlanQuotaService
     {
         $subscription = self::getCurrentSubscription();
         return $subscription?->plan;
+    }
+
+    public static function getDefaultProctoringSettings(): array
+    {
+        $features = self::getCurrentPlan()?->features_json ?? [];
+        $settings = $features['proctoring_defaults'] ?? [];
+
+        return array_merge(
+            self::DEFAULT_PROCTORING_SETTINGS,
+            array_intersect_key(array_map('boolval', (array) $settings), self::DEFAULT_PROCTORING_SETTINGS)
+        );
+    }
+
+    public static function proctoringSettingsFromRequest($request): array
+    {
+        $availableSettings = self::getDefaultProctoringSettings();
+        $resolvedSettings = [];
+
+        foreach ($availableSettings as $field => $isAvailable) {
+            $resolvedSettings[$field] = $isAvailable
+                ? $request->boolean($field, self::DEFAULT_PROCTORING_SETTINGS[$field])
+                : false;
+        }
+
+        return $resolvedSettings;
     }
 
     /**

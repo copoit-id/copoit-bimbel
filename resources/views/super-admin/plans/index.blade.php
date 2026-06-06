@@ -84,6 +84,27 @@
                                 <span class="font-medium ml-1">{{ $plan->essay_ai_limit_text }}</span>
                             </div>
                         </div>
+                        @php
+                            $proctoringDefaults = array_merge([
+                                'enable_anti_copy' => true,
+                                'enable_tab_switch_detection' => true,
+                                'enable_webcam_check' => false,
+                                'enable_screen_check' => false,
+                            ], $plan->features_json['proctoring_defaults'] ?? []);
+                            $securityLabels = [
+                                'enable_anti_copy' => 'Anti Copy',
+                                'enable_tab_switch_detection' => 'Pindah Tab',
+                                'enable_webcam_check' => 'Webcam',
+                                'enable_screen_check' => 'Screen',
+                            ];
+                        @endphp
+                        <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                            @foreach($securityLabels as $field => $label)
+                                <span class="rounded-full px-2 py-1 {{ !empty($proctoringDefaults[$field]) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                                    {{ $label }}: {{ !empty($proctoringDefaults[$field]) ? 'Aktif' : 'Mati' }}
+                                </span>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             @empty

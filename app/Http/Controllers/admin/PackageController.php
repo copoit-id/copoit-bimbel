@@ -402,7 +402,9 @@ class PackageController extends Controller
     {
         try {
             $package = Package::where('package_id', $packageId)->firstOrFail();
-            return view('admin.pages.package.tryout.create', compact('package'));
+            $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
+
+            return view('admin.pages.package.tryout.create', compact('package', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
@@ -433,6 +435,7 @@ class PackageController extends Controller
             'enable_screen_check' => 'boolean',
             'order' => 'nullable|integer|min:0'
         ]);
+        $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
         // Buat tryout baru
         $tryout = Tryout::create([
@@ -446,10 +449,10 @@ class PackageController extends Controller
             'end_date' => $request->end_date,
             'is_active' => $request->has('is_active'),
             'is_toefl' => $request->has('is_toefl'),
-            'enable_anti_copy' => $request->boolean('enable_anti_copy'),
-            'enable_tab_switch_detection' => $request->boolean('enable_tab_switch_detection'),
-            'enable_webcam_check' => $request->boolean('enable_webcam_check'),
-            'enable_screen_check' => $request->boolean('enable_screen_check'),
+            'enable_anti_copy' => $securitySettings['enable_anti_copy'],
+            'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+            'enable_webcam_check' => $securitySettings['enable_webcam_check'],
+            'enable_screen_check' => $securitySettings['enable_screen_check'],
         ]);
 
         if ($tryout && $tryout->type_tryout == 'skd_full') {
