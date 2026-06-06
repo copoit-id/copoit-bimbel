@@ -2,7 +2,7 @@
 @section('title', 'Detail Bank Soal')
 @section('content')
 @php
-    $pptImportPreview = session('ppt_import_preview');
+    $pptImportPreview = $pptImportPreview ?? session('ppt_import_preview');
     $pptBankOptions = ($bankOptions ?? collect())->map(fn ($option) => [
         'id' => $option->id,
         'name' => $option->name,
