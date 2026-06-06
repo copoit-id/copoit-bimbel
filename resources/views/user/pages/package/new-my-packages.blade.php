@@ -37,13 +37,28 @@ $myMaterials = \App\Models\Material::whereIn('material_id', $accessibleMaterialI
 $videoMaterials = $myMaterials->where('type', 'video');
 $documentMaterials = $myMaterials->where('type', 'document');
 
-// Get tryouts via packages
-$myTryouts = \App\Models\Tryout::whereHas('packages', function($q) use ($accessiblePackageIds) {
-    $q->whereIn('packages.package_id', $accessiblePackageIds);
+// Get tryouts via active packages and direct tryout access.
+$directTryoutIds = \App\Models\UserTryoutAccess::where('user_id', $user->id)
+    ->where(function ($q) {
+        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+    })
+    ->pluck('tryout_id')
+    ->toArray();
+
+$myTryouts = \App\Models\Tryout::where(function($q) use ($accessiblePackageIds, $directTryoutIds) {
+    $q->whereHas('packages', function($packageQuery) use ($accessiblePackageIds) {
+        $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+    })
+    ->orWhereIn('tryout_id', $directTryoutIds);
 })
-->with(['userAnswers' => function($q) use ($user) {
-    $q->where('user_id', $user->id);
-}])
+->with([
+    'packages' => function($q) use ($accessiblePackageIds) {
+        $q->whereIn('packages.package_id', $accessiblePackageIds);
+    },
+    'userAnswers' => function($q) use ($user) {
+        $q->where('user_id', $user->id);
+    },
+])
 ->get();
 
 $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use ($accessiblePackageIds, $user) {
@@ -352,7 +367,7 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         $isInProgress = $userAnswers->where('status', 'in_progress')->count() > 0;
         $totalQuestions = $tryout->getTotalQuestionsAttribute();
         $totalDuration = $tryout->getTotalDurationAttribute();
-        $packageId = $tryout->packages->first()?->package_id ?? 0;
+        $packageId = $tryout->packages->first()?->package_id ?? 'free';
         @endphp
         <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
             <div class="flex items-start justify-between mb-4">

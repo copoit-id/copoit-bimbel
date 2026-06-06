@@ -16,6 +16,7 @@ use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
+use App\Models\UserTryoutAccess;
 use App\Models\QuestionOption;
 use App\Services\PlanQuotaService;
 use Carbon\Carbon;
@@ -812,13 +813,18 @@ class TryoutController extends Controller
         }
         
         if ($id_package === 'free') {
-            // Free tryout access dengan timezone Jakarta
+            // Free route also handles direct tryout access granted by admin.
             $now = Carbon::now('Asia/Jakarta');
-            $tryout = Tryout::where('tryout_id', $id_tryout)
-                ->where('is_active', true)
-                ->where('start_date', '<=', $now)
-                ->where('end_date', '>=', $now)
-                ->firstOrFail();
+            $hasDirectAccess = $this->hasDirectTryoutAccess((int) $id_tryout, Auth::id());
+            $tryoutQuery = Tryout::where('tryout_id', $id_tryout)
+                ->where('is_active', true);
+
+            if (!$hasDirectAccess) {
+                $tryoutQuery->where('start_date', '<=', $now)
+                    ->where('end_date', '>=', $now);
+            }
+
+            $tryout = $tryoutQuery->firstOrFail();
             $package = null;
         } else {
             $package = Package::findOrFail($id_package);
@@ -893,11 +899,16 @@ class TryoutController extends Controller
 
         // Handle free tryouts or package tryouts
         if ($id_package === 'free') {
-            $tryout = Tryout::where('tryout_id', $id_tryout)
-                ->where('is_active', true)
-                ->where('start_date', '<=', $now)
-                ->where('end_date', '>=', $now)
-                ->firstOrFail();
+            $hasDirectAccess = $this->hasDirectTryoutAccess((int) $id_tryout, Auth::id());
+            $tryoutQuery = Tryout::where('tryout_id', $id_tryout)
+                ->where('is_active', true);
+
+            if (!$hasDirectAccess) {
+                $tryoutQuery->where('start_date', '<=', $now)
+                    ->where('end_date', '>=', $now);
+            }
+
+            $tryout = $tryoutQuery->firstOrFail();
             $package = null;
         } else {
             $package = Package::findOrFail($id_package);
@@ -2048,6 +2059,17 @@ class TryoutController extends Controller
         return (int) (TryoutUserTimeAdjustment::where('tryout_id', $tryoutId)
             ->where('user_id', $userId)
             ->value('extra_minutes') ?? 0);
+    }
+
+    private function hasDirectTryoutAccess(int $tryoutId, int $userId): bool
+    {
+        return UserTryoutAccess::where('tryout_id', $tryoutId)
+            ->where('user_id', $userId)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->exists();
     }
 
     public function indexResult($id_package, $id_tryout)

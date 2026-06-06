@@ -154,8 +154,8 @@ class Tryout extends Model
         $hasDirectAccess = $this->userAccess()
             ->where('user_id', $userId)
             ->where(function ($q) {
-                $q->where('status', 'completed')
-                  ->orWhere('status', 'in_progress');
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
             })
             ->exists();
 
