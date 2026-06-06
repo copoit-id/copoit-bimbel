@@ -3,10 +3,11 @@
 @section('content')
 @php
     $pptImportPreview = $pptImportPreview ?? session('ppt_import_preview');
-    $pptBankOptions = ($bankOptions ?? collect())->map(fn ($option) => [
-        'id' => $option->id,
-        'name' => $option->name,
-        'is_current' => $option->id === $bank->id,
+    $pptBankOptions = collect($bankOptions ?? [])->map(fn ($option) => [
+        'id' => is_array($option) ? $option['id'] : $option->id,
+        'name' => is_array($option) ? $option['name'] : $option->name,
+        'path' => is_array($option) ? ($option['path'] ?? $option['name']) : ($option->path ?? $option->name),
+        'is_current' => (is_array($option) ? $option['id'] : $option->id) === $bank->id,
     ])->values();
 @endphp
 <div class="space-y-6">
@@ -579,7 +580,7 @@
 
         const bankOptionChoices = (selectedId) => pptBankOptions.map(option => {
             const suffix = Number(option.id) === Number(currentBankId) ? ' (sub sekarang)' : '';
-            return `<option value="${option.id}" ${Number(option.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(option.name + suffix)}</option>`;
+            return `<option value="${option.id}" ${Number(option.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml((option.path || option.name) + suffix)}</option>`;
         }).join('');
 
         const renderPptGroupNav = () => {
@@ -663,9 +664,9 @@
                                     </select>
                                 </label>
                                 <button type="button" data-remove-ppt-question
-                                    class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
+                                    class="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700">
                                     <i class="ri-delete-bin-line"></i>
-                                    Hapus
+                                    Hapus Soal
                                 </button>
                             </div>
                         </div>

@@ -157,7 +157,7 @@ class QuestionBankController extends Controller
             ->paginate(15);
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
-        $bankOptions = QuestionBank::orderBy('name')->get(['id', 'name', 'parent_id']);
+        $bankOptions = $this->buildBankOptions();
 
         return view('admin.pages.question-bank.show', [
             'bank' => $questionBank,
@@ -946,6 +946,31 @@ class QuestionBankController extends Controller
         }
 
         return array_reverse($breadcrumbs);
+    }
+
+    private function buildBankOptions()
+    {
+        $banks = QuestionBank::orderBy('name')->get(['id', 'name', 'parent_id']);
+        $banksById = $banks->keyBy('id');
+
+        return $banks->map(function ($bank) use ($banksById) {
+            $segments = [$bank->name];
+            $current = $bank;
+            $guard = 0;
+
+            while ($current->parent_id && $banksById->has($current->parent_id) && $guard < 20) {
+                $current = $banksById->get($current->parent_id);
+                array_unshift($segments, $current->name);
+                $guard++;
+            }
+
+            return [
+                'id' => $bank->id,
+                'name' => $bank->name,
+                'parent_id' => $bank->parent_id,
+                'path' => implode(' > ', $segments),
+            ];
+        })->sortBy('path')->values();
     }
 
     private function validateMultipleChoice(Request $request, bool $isMultipleAnswer = false): void
