@@ -372,6 +372,7 @@
                 </div>
             </div>
 
+            <div id="pptPreviewGroupNav" class="shrink-0 overflow-x-auto border-b border-gray-100 px-4 py-3 sm:px-6"></div>
             <div id="pptPreviewList" class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6"></div>
 
             <div class="shrink-0 flex flex-col gap-2 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -530,6 +531,7 @@
         const pptPreviewModal = document.getElementById('pptPreviewModal');
         const closePptPreviewButtons = document.querySelectorAll('[data-close-ppt-preview]');
         const pptPreviewForm = document.getElementById('pptPreviewForm');
+        const pptPreviewGroupNav = document.getElementById('pptPreviewGroupNav');
         const pptPreviewList = document.getElementById('pptPreviewList');
         const pptPreviewSummary = document.getElementById('pptPreviewSummary');
         const pptPreviewWarnings = document.getElementById('pptPreviewWarnings');
@@ -540,6 +542,8 @@
         const pptImportPreview = @json($pptImportPreview);
         const pptBankOptions = @json($pptBankOptions);
         const currentBankId = @json($bank->id);
+        let pptPreviewGroups = [];
+        let activePptGroupIndex = 0;
 
         const toggleModal = (modal, show) => {
             if (!modal) return;
@@ -561,12 +565,8 @@
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
 
-        const renderPptPreview = (preview) => {
-            if (!preview || !pptPreviewList || !pptPreviewSummary) {
-                return;
-            }
-
-            const groups = Array.isArray(preview.groups)
+        const normalizePptPreviewGroups = (preview) => {
+            return Array.isArray(preview.groups)
                 ? preview.groups
                 : [{
                     file_name: preview.file_name || 'PPT',
@@ -575,32 +575,55 @@
                     errors: Array.isArray(preview.errors) ? preview.errors : [],
                     total_slides: preview.total_slides || 0,
                 }];
-            const errors = Array.isArray(preview.errors) ? preview.errors : [];
-            const totalQuestions = groups.reduce((total, group) => total + (Array.isArray(group.questions) ? group.questions.length : 0), 0);
-            pptPreviewSummary.textContent = `${totalQuestions} soal terbaca dari ${groups.length} file PPT.`;
+        };
 
-            if (errors.length > 0 && pptPreviewWarnings) {
-                pptPreviewWarnings.classList.remove('hidden');
-                pptPreviewWarnings.innerHTML = `<p class="font-semibold">Catatan parser:</p><ul class="mt-1 list-disc pl-5">${errors.slice(0, 6).map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul>`;
+        const bankOptionChoices = (selectedId) => pptBankOptions.map(option => {
+            const suffix = Number(option.id) === Number(currentBankId) ? ' (sub sekarang)' : '';
+            return `<option value="${option.id}" ${Number(option.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(option.name + suffix)}</option>`;
+        }).join('');
+
+        const renderPptGroupNav = () => {
+            if (!pptPreviewGroupNav) return;
+
+            pptPreviewGroupNav.innerHTML = `
+                <div class="flex min-w-max gap-2">
+                    ${pptPreviewGroups.map((group, index) => {
+                        const questions = Array.isArray(group.questions) ? group.questions : [];
+                        const isActive = index === activePptGroupIndex;
+
+                        return `
+                            <button type="button" data-ppt-group-tab="${index}"
+                                class="rounded-lg border px-3 py-2 text-left text-xs font-semibold transition ${isActive ? 'border-primary bg-primary text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-primary hover:text-primary'}">
+                                <span class="block max-w-[180px] truncate">${escapeHtml(group.file_name || `File ${index + 1}`)}</span>
+                                <span class="font-normal opacity-80">${questions.length} soal</span>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        };
+
+        const renderPptActiveGroup = () => {
+            if (!pptPreviewList) return;
+
+            const group = pptPreviewGroups[activePptGroupIndex];
+            if (!group) {
+                pptPreviewList.innerHTML = '';
+                return;
             }
 
-            const bankOptionChoices = (selectedId) => pptBankOptions.map(option => {
-                const suffix = Number(option.id) === Number(currentBankId) ? ' (sub sekarang)' : '';
-                return `<option value="${option.id}" ${Number(option.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(option.name + suffix)}</option>`;
-            }).join('');
-
-            pptPreviewList.innerHTML = groups.map((group, groupIndex) => {
-                const questions = Array.isArray(group.questions) ? group.questions : [];
-                const groupErrors = Array.isArray(group.errors) ? group.errors : [];
-                const targetBankId = group.target_bank_id || currentBankId;
-                const fileName = group.file_name || `File ${groupIndex + 1}`;
-                const questionsHtml = questions.map((question, index) => {
+            const questions = Array.isArray(group.questions) ? group.questions : [];
+            const groupErrors = Array.isArray(group.errors) ? group.errors : [];
+            const targetBankId = group.target_bank_id || currentBankId;
+            const fileName = group.file_name || `File ${activePptGroupIndex + 1}`;
+            const questionsHtml = questions.map((question, index) => {
                 const options = question.options || {};
                 const correctAnswer = question.correct_answer || 'A';
                 const optionRows = ['A', 'B', 'C', 'D', 'E'].map(letter => {
                     const text = typeof options[letter] === 'object' ? (options[letter]?.text || '') : (options[letter] || '');
                     if (!text) return '';
-                    const defaultWeight = letter === correctAnswer ? 1 : 0;
+                    const parsedWeight = typeof options[letter] === 'object' ? Number.parseFloat(options[letter]?.weight) : Number.NaN;
+                    const defaultWeight = Number.isNaN(parsedWeight) ? (letter === correctAnswer ? 1 : 0) : parsedWeight;
 
                     return `
                         <div class="grid gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 md:grid-cols-[40px_minmax(0,1fr)_110px] md:items-start">
@@ -653,32 +676,51 @@
                         </div>
                     </div>
                 `;
-                }).join('');
-                const groupErrorHtml = groupErrors.length > 0
-                    ? `<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${groupErrors.slice(0, 4).map(error => escapeHtml(error)).join('<br>')}</div>`
-                    : '';
-
-                return `
-                    <section class="ppt-file-group rounded-2xl border border-gray-200 bg-gray-50 p-4" data-group-index="${groupIndex}" data-file-name="${escapeHtml(fileName)}">
-                        <div class="mb-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
-                            <div class="min-w-0">
-                                <p class="text-xs uppercase tracking-wide text-gray-400">File PPT</p>
-                                <h4 class="truncate text-base font-semibold text-gray-900">${escapeHtml(fileName)}</h4>
-                                <p class="text-xs text-gray-500">${questions.length} soal terbaca dari ${escapeHtml(group.total_slides || 0)} slide</p>
-                            </div>
-                            <label class="text-sm font-medium text-gray-700">
-                                Simpan ke sub/bank
-                                <select data-group-target-bank
-                                    class="mt-1 block w-full min-w-[240px] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 md:mt-0">
-                                    ${bankOptionChoices(targetBankId)}
-                                </select>
-                            </label>
-                        </div>
-                        ${groupErrorHtml}
-                        <div class="space-y-4">${questionsHtml}</div>
-                    </section>
-                `;
             }).join('');
+            const groupErrorHtml = groupErrors.length > 0
+                ? `<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${groupErrors.slice(0, 4).map(error => escapeHtml(error)).join('<br>')}</div>`
+                : '';
+
+            pptPreviewList.innerHTML = `
+                <section class="ppt-file-group rounded-2xl border border-gray-200 bg-gray-50 p-4" data-group-index="${activePptGroupIndex}" data-file-name="${escapeHtml(fileName)}">
+                    <div class="mb-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
+                        <div class="min-w-0">
+                            <p class="text-xs uppercase tracking-wide text-gray-400">File PPT</p>
+                            <h4 class="truncate text-base font-semibold text-gray-900">${escapeHtml(fileName)}</h4>
+                            <p class="text-xs text-gray-500">${questions.length} soal terbaca dari ${escapeHtml(group.total_slides || 0)} slide</p>
+                        </div>
+                        <label class="text-sm font-medium text-gray-700">
+                            Simpan ke sub/bank
+                            <select data-group-target-bank
+                                class="mt-1 block w-full min-w-[240px] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 md:mt-0">
+                                ${bankOptionChoices(targetBankId)}
+                            </select>
+                        </label>
+                    </div>
+                    ${groupErrorHtml}
+                    <div class="space-y-4">${questionsHtml}</div>
+                </section>
+            `;
+        };
+
+        const renderPptPreview = (preview) => {
+            if (!preview || !pptPreviewList || !pptPreviewSummary) {
+                return;
+            }
+
+            pptPreviewGroups = normalizePptPreviewGroups(preview);
+            activePptGroupIndex = 0;
+            const errors = Array.isArray(preview.errors) ? preview.errors : [];
+            const totalQuestions = pptPreviewGroups.reduce((total, group) => total + (Array.isArray(group.questions) ? group.questions.length : 0), 0);
+            pptPreviewSummary.textContent = `${totalQuestions} soal terbaca dari ${pptPreviewGroups.length} file PPT. Pilih tab file untuk mengecek detail.`;
+
+            if (errors.length > 0 && pptPreviewWarnings) {
+                pptPreviewWarnings.classList.remove('hidden');
+                pptPreviewWarnings.innerHTML = `<p class="font-semibold">Catatan parser:</p><ul class="mt-1 list-disc pl-5">${errors.slice(0, 6).map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul>`;
+            }
+
+            renderPptGroupNav();
+            renderPptActiveGroup();
         };
 
         const getGlobalScoreValue = (input, fallback) => {
@@ -703,12 +745,44 @@
         };
 
         const applyScoresToAllQuestions = () => {
+            persistActivePptGroup();
+            const correctScore = getGlobalScoreValue(pptGlobalCorrectScore, 1);
+            const wrongScore = getGlobalScoreValue(pptGlobalWrongScore, 0);
+
+            pptPreviewGroups = pptPreviewGroups.map(group => ({
+                ...group,
+                questions: (Array.isArray(group.questions) ? group.questions : []).map(question => {
+                    const correctAnswer = question.correct_answer || 'A';
+                    const options = {};
+
+                    ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
+                        const current = question.options?.[letter];
+                        if (!current) return;
+                        const text = typeof current === 'object' ? (current.text || '') : current;
+                        options[letter] = {
+                            text,
+                            weight: letter === correctAnswer ? correctScore : wrongScore,
+                        };
+                    });
+
+                    return {
+                        ...question,
+                        options,
+                    };
+                }),
+            }));
+
+            renderPptActiveGroup();
             document.querySelectorAll('.ppt-question-item').forEach(applyScoresToQuestion);
         };
 
-        const collectPptPreview = () => {
-            return Array.from(document.querySelectorAll('.ppt-file-group')).map(group => {
-                const questions = Array.from(group.querySelectorAll('.ppt-question-item')).map(item => {
+        const collectActivePptGroup = () => {
+            const group = document.querySelector('.ppt-file-group');
+            if (!group) {
+                return null;
+            }
+
+            const questions = Array.from(group.querySelectorAll('.ppt-question-item')).map(item => {
                     const options = {};
                     ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
                         const textInput = item.querySelector(`[data-option-text="${letter}"]`);
@@ -730,12 +804,26 @@
                     };
                 });
 
-                return {
-                    file_name: group.dataset.fileName || '',
-                    target_bank_id: group.querySelector('[data-group-target-bank]')?.value || currentBankId,
-                    questions,
+            return {
+                file_name: group.dataset.fileName || '',
+                target_bank_id: group.querySelector('[data-group-target-bank]')?.value || currentBankId,
+                questions,
+            };
+        };
+
+        const persistActivePptGroup = () => {
+            const activeGroup = collectActivePptGroup();
+            if (activeGroup) {
+                pptPreviewGroups[activePptGroupIndex] = {
+                    ...(pptPreviewGroups[activePptGroupIndex] || {}),
+                    ...activeGroup,
                 };
-            });
+            }
+        };
+
+        const collectPptPreview = () => {
+            persistActivePptGroup();
+            return pptPreviewGroups;
         };
 
         openSubBtn?.addEventListener('click', () => toggleModal(subBankModal, true));
@@ -759,6 +847,15 @@
         closePptPreviewButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(pptPreviewModal, false)));
         pptPreviewModal?.addEventListener('click', (event) => {
             if (event.target === pptPreviewModal) toggleModal(pptPreviewModal, false);
+        });
+        pptPreviewGroupNav?.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-ppt-group-tab]');
+            if (!button) return;
+
+            persistActivePptGroup();
+            activePptGroupIndex = Number.parseInt(button.dataset.pptGroupTab || '0', 10);
+            renderPptGroupNav();
+            renderPptActiveGroup();
         });
         pptPreviewForm?.addEventListener('submit', () => {
             if (pptGroupsJson) {
