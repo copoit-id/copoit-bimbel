@@ -146,6 +146,7 @@ class QuestionBankController extends Controller
             ->paginate(15);
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
+        $bankOptions = QuestionBank::orderBy('name')->get(['id', 'name', 'parent_id']);
 
         return view('admin.pages.question-bank.show', [
             'bank' => $questionBank,
@@ -156,6 +157,7 @@ class QuestionBankController extends Controller
             'questionSort' => $questionSort,
             'questionType' => $questionType,
             'questionTypeOptions' => $questionTypeOptions,
+            'bankOptions' => $bankOptions,
         ]);
     }
 
@@ -397,16 +399,41 @@ class QuestionBankController extends Controller
     public function previewPptQuestions(Request $request, QuestionBank $questionBank, QuestionPptImportService $pptImportService)
     {
         $request->validate([
-            'ppt_file' => ['required', 'file', 'mimes:pptx', 'max:10240'],
+            'ppt_files' => ['required', 'array', 'min:1', 'max:10'],
+            'ppt_files.*' => ['required', 'file', 'mimes:pptx', 'max:10240'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
         ]);
 
         try {
-            $result = $pptImportService->parse($request->file('ppt_file'));
-            $questions = $result['questions'];
+            $groups = [];
+            $allErrors = [];
 
-            if (empty($questions)) {
-                return back()->with('error', 'Tidak ada soal yang terbaca dari PPT. Pastikan file berisi teks, bukan gambar/scan.');
+            foreach ($request->file('ppt_files', []) as $file) {
+                $result = $pptImportService->parse($file);
+                $questions = $result['questions'];
+                $fileName = $file->getClientOriginalName();
+
+                if (empty($questions)) {
+                    $allErrors[] = "{$fileName}: tidak ada soal yang terbaca.";
+                    continue;
+                }
+
+                $groups[] = [
+                    'file_name' => $fileName,
+                    'target_bank_id' => $questionBank->id,
+                    'questions' => $questions,
+                    'errors' => $result['errors'],
+                    'total_slides' => $result['total_slides'],
+                ];
+            }
+
+            if (empty($groups)) {
+                $message = 'Tidak ada soal yang terbaca dari PPT. Pastikan file berisi teks, bukan gambar/scan.';
+                if (!empty($allErrors)) {
+                    $message .= ' ' . implode(' ', array_slice($allErrors, 0, 3));
+                }
+
+                return back()->with('error', $message);
             }
 
             return redirect()
@@ -415,10 +442,9 @@ class QuestionBankController extends Controller
                     'import_for' => $request->integer('import_for') ?: null,
                 ])
                 ->with('ppt_import_preview', [
-                    'questions' => $questions,
-                    'errors' => $result['errors'],
-                    'total_slides' => $result['total_slides'],
-                    'file_name' => $request->file('ppt_file')->getClientOriginalName(),
+                    'groups' => $groups,
+                    'errors' => $allErrors,
+                    'total_files' => count($groups),
                 ]);
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal membaca PPT: ' . $e->getMessage());
@@ -428,87 +454,104 @@ class QuestionBankController extends Controller
     public function storePptQuestions(Request $request, QuestionBank $questionBank)
     {
         $validated = $request->validate([
-            'questions_json' => ['required', 'string'],
+            'groups_json' => ['required', 'string'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
         ]);
 
-        $questions = json_decode($validated['questions_json'], true);
-        if (!is_array($questions)) {
+        $groups = json_decode($validated['groups_json'], true);
+        if (!is_array($groups)) {
             return back()->with('error', 'Data preview PPT tidak valid. Silakan upload ulang file PPT.');
         }
 
         $importedCount = 0;
         $errors = [];
+        $targetBankIds = collect($groups)
+            ->pluck('target_bank_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $targetBanks = QuestionBank::whereIn('id', $targetBankIds)
+            ->get()
+            ->keyBy('id');
 
-        DB::transaction(function () use ($questionBank, $questions, &$importedCount, &$errors) {
-            foreach (array_slice($questions, 0, 100) as $index => $question) {
-                $rowNumber = $index + 1;
-                $questionText = trim((string) ($question['question_text'] ?? ''));
-                $explanation = trim((string) ($question['explanation'] ?? ''));
-                $correctAnswer = strtoupper(trim((string) ($question['correct_answer'] ?? '')));
-                $optionsInput = is_array($question['options'] ?? null) ? $question['options'] : [];
+        DB::transaction(function () use ($questionBank, $groups, $targetBanks, &$importedCount, &$errors) {
+            foreach ($groups as $groupIndex => $group) {
+                $fileName = trim((string) ($group['file_name'] ?? 'File ' . ($groupIndex + 1)));
+                $targetBankId = (int) ($group['target_bank_id'] ?? $questionBank->id);
+                $targetBank = $targetBanks->get($targetBankId) ?? $questionBank;
+                $questions = is_array($group['questions'] ?? null) ? $group['questions'] : [];
 
-                if ($questionText === '') {
-                    $errors[] = "Soal {$rowNumber}: Teks soal wajib diisi.";
-                    continue;
-                }
+                foreach (array_slice($questions, 0, 100) as $index => $question) {
+                    $rowNumber = $index + 1;
+                    $questionText = trim((string) ($question['question_text'] ?? ''));
+                    $explanation = trim((string) ($question['explanation'] ?? ''));
+                    $correctAnswer = strtoupper(trim((string) ($question['correct_answer'] ?? '')));
+                    $optionsInput = is_array($question['options'] ?? null) ? $question['options'] : [];
 
-                $options = [];
-                foreach (range('A', 'E') as $letter) {
-                    $option = is_array($optionsInput[$letter] ?? null) ? $optionsInput[$letter] : [];
-                    $optionText = trim((string) ($option['text'] ?? ''));
-                    if ($optionText === '') {
+                    if ($questionText === '') {
+                        $errors[] = "{$fileName} soal {$rowNumber}: Teks soal wajib diisi.";
                         continue;
                     }
 
-                    $weight = (float) ($option['weight'] ?? ($letter === $correctAnswer ? 1 : 0));
-                    $options[] = [
-                        'letter' => $letter,
-                        'text' => $optionText,
-                        'weight' => max(0, min(999, $weight)),
-                        'is_correct' => $letter === $correctAnswer,
-                    ];
-                }
+                    $options = [];
+                    foreach (range('A', 'E') as $letter) {
+                        $option = is_array($optionsInput[$letter] ?? null) ? $optionsInput[$letter] : [];
+                        $optionText = trim((string) ($option['text'] ?? ''));
+                        if ($optionText === '') {
+                            continue;
+                        }
 
-                if (count($options) < 2) {
-                    $errors[] = "Soal {$rowNumber}: Minimal isi 2 pilihan jawaban.";
-                    continue;
-                }
+                        $weight = (float) ($option['weight'] ?? ($letter === $correctAnswer ? 1 : 0));
+                        $options[] = [
+                            'letter' => $letter,
+                            'text' => $optionText,
+                            'weight' => max(0, min(999, $weight)),
+                            'is_correct' => $letter === $correctAnswer,
+                        ];
+                    }
 
-                if (!$correctAnswer || !collect($options)->contains('letter', $correctAnswer)) {
-                    $errors[] = "Soal {$rowNumber}: Jawaban benar wajib dipilih dan harus sesuai opsi.";
-                    continue;
-                }
+                    if (count($options) < 2) {
+                        $errors[] = "{$fileName} soal {$rowNumber}: Minimal isi 2 pilihan jawaban.";
+                        continue;
+                    }
 
-                $maxWeight = collect($options)->max('weight') ?: 1;
-                $hasCustomScores = collect($options)->contains(fn ($option) => (float) $option['weight'] > 1);
+                    if (!$correctAnswer || !collect($options)->contains('letter', $correctAnswer)) {
+                        $errors[] = "{$fileName} soal {$rowNumber}: Jawaban benar wajib dipilih dan harus sesuai opsi.";
+                        continue;
+                    }
 
-                $bankQuestion = QuestionBankQuestion::create([
-                    'question_bank_id' => $questionBank->id,
-                    'question_type' => 'multiple_choice',
-                    'question_text' => $questionText,
-                    'explanation' => $explanation !== '' ? $explanation : null,
-                    'default_weight' => $maxWeight,
-                    'custom_score' => $hasCustomScores ? 'yes' : 'no',
-                    'metadata' => [
-                        'source' => 'ppt_import',
-                        'slide' => $question['slide'] ?? null,
-                        'number' => $question['number'] ?? null,
-                    ],
-                    'created_by' => Auth::id(),
-                ]);
+                    $maxWeight = collect($options)->max('weight') ?: 1;
+                    $hasCustomScores = collect($options)->contains(fn ($option) => (float) $option['weight'] > 1);
 
-                foreach ($options as $position => $option) {
-                    QuestionBankQuestionOption::create([
-                        'question_bank_question_id' => $bankQuestion->id,
-                        'option_text' => $option['text'],
-                        'weight' => $option['weight'],
-                        'is_correct' => $option['is_correct'],
-                        'position' => $position + 1,
+                    $bankQuestion = QuestionBankQuestion::create([
+                        'question_bank_id' => $targetBank->id,
+                        'question_type' => 'multiple_choice',
+                        'question_text' => $questionText,
+                        'explanation' => $explanation !== '' ? $explanation : null,
+                        'default_weight' => $maxWeight,
+                        'custom_score' => $hasCustomScores ? 'yes' : 'no',
+                        'metadata' => [
+                            'source' => 'ppt_import',
+                            'source_file' => $fileName,
+                            'slide' => $question['slide'] ?? null,
+                            'number' => $question['number'] ?? null,
+                        ],
+                        'created_by' => Auth::id(),
                     ]);
-                }
 
-                $importedCount++;
+                    foreach ($options as $position => $option) {
+                        QuestionBankQuestionOption::create([
+                            'question_bank_question_id' => $bankQuestion->id,
+                            'option_text' => $option['text'],
+                            'weight' => $option['weight'],
+                            'is_correct' => $option['is_correct'],
+                            'position' => $position + 1,
+                        ]);
+                    }
+
+                    $importedCount++;
+                }
             }
         });
 
