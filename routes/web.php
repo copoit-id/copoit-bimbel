@@ -49,6 +49,22 @@ Route::get('/phpinfo', function () {
     phpinfo();
 });
 
+Route::get('/_debug-upload', function () {
+    return [
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'max_file_uploads' => ini_get('max_file_uploads'),
+        'max_execution_time' => ini_get('max_execution_time'),
+        'max_input_time' => ini_get('max_input_time'),
+        'memory_limit' => ini_get('memory_limit'),
+        'storage_writable' => is_writable(storage_path('app')),
+        'preview_dir_exists' => is_dir(storage_path('app/question-bank/ppt-previews')),
+        'preview_dir_writable' => is_dir(storage_path('app/question-bank/ppt-previews'))
+            ? is_writable(storage_path('app/question-bank/ppt-previews'))
+            : null,
+    ];
+});
+
 Route::get('/test-css', function () {
     return view('test-css');
 });
