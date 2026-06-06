@@ -1,6 +1,9 @@
 @extends('admin.layout.admin')
 @section('title', 'Detail Bank Soal')
 @section('content')
+@php
+    $pptImportPreview = session('ppt_import_preview');
+@endphp
 <div class="space-y-6">
     <div class="flex flex-col gap-2">
         <div class="flex items-center gap-2 text-sm text-gray-500">
@@ -22,6 +25,11 @@
                     class="inline-flex items-center gap-2 rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">
                     <i class="ri-file-excel-2-line"></i>
                     Import Excel
+                </button>
+                <button type="button" id="openImportPpt"
+                    class="inline-flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50">
+                    <i class="ri-slideshow-3-line"></i>
+                    Import PPT
                 </button>
                 <button id="openCreateSubBank"
                     class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
@@ -266,6 +274,120 @@
     </div>
 </div>
 
+<!-- Import PPT Upload Modal -->
+<div id="importPptModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-xl font-semibold text-gray-900">Import Soal dari PPT</h3>
+            <button type="button" data-close-import-ppt class="text-gray-400 hover:text-gray-600">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('admin.question-bank.questions.import-ppt.preview', $bank->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @csrf
+            @if($importTarget)
+            <input type="hidden" name="import_for" value="{{ $importTarget }}">
+            @endif
+            <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                PPT akan diparse dulu dan ditampilkan sebagai preview. Data belum masuk database sebelum tombol <span class="font-semibold">Simpan ke Bank Soal</span> ditekan.
+            </div>
+            <div>
+                <label for="ppt_file" class="mb-2 block text-sm font-medium text-gray-700">File PPTX</label>
+                <input type="file" id="ppt_file" name="ppt_file" accept=".pptx" required
+                    class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                <p class="mt-1 text-xs text-gray-500">Format: .pptx, maksimal 10MB. Gunakan teks asli, bukan slide hasil scan/gambar.</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <h4 class="mb-2 text-sm font-semibold text-gray-800">Format yang didukung</h4>
+                <ul class="space-y-1 text-sm text-gray-600">
+                    <li>SOAL NOMOR 1</li>
+                    <li>A. Opsi A sampai E. Opsi E</li>
+                    <li>Jawaban: A</li>
+                    <li>Pembahasan atau penjelasan ditaruh setelah baris jawaban.</li>
+                </ul>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" data-close-import-ppt
+                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                    Batal
+                </button>
+                <button type="submit"
+                    class="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600">
+                    Preview
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Import PPT Preview Modal -->
+<div id="pptPreviewModal"
+    class="fixed inset-0 z-50 hidden items-start justify-center overflow-hidden bg-black/40 px-3 py-4 transition sm:px-4">
+    <div class="flex h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="shrink-0 flex items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 sm:px-6">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Preview Import PPT</h3>
+                <p class="text-sm text-gray-500">
+                    Cek hasil parsing dan atur skor opsi sebelum menyimpan ke bank soal.
+                </p>
+            </div>
+            <button type="button" data-close-ppt-preview class="text-gray-400 hover:text-gray-600">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <form id="pptPreviewForm" action="{{ route('admin.question-bank.questions.import-ppt.store', $bank->id) }}" method="POST" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+            @csrf
+            @if($importTarget)
+            <input type="hidden" name="import_for" value="{{ $importTarget }}">
+            @endif
+            <input type="hidden" name="questions_json" id="pptQuestionsJson">
+
+            <div class="shrink-0 border-b border-gray-100 px-4 py-4 sm:px-6">
+                <div id="pptPreviewSummary" class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800"></div>
+                <div id="pptPreviewWarnings" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
+                <div class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                        <div>
+                            <label for="pptGlobalCorrectScore" class="mb-1 block text-xs font-semibold text-gray-600">Skor jawaban benar</label>
+                            <input type="number" id="pptGlobalCorrectScore" step="0.1" min="0" max="999" value="1"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                        </div>
+                        <div>
+                            <label for="pptGlobalWrongScore" class="mb-1 block text-xs font-semibold text-gray-600">Skor jawaban salah</label>
+                            <input type="number" id="pptGlobalWrongScore" step="0.1" min="0" max="999" value="0"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                        </div>
+                        <button type="button" id="applyPptGlobalScores"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900">
+                            <i class="ri-magic-line"></i>
+                            Apply ke Semua
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pptPreviewList" class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6"></div>
+
+            <div class="shrink-0 flex flex-col gap-2 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <p class="text-xs text-gray-500">
+                    Perubahan skor di modal ini belum masuk DB sampai disimpan. Opsi benar otomatis mengikuti dropdown jawaban benar.
+                </p>
+                <div class="flex justify-end gap-2">
+                    <button type="button" data-close-ppt-preview
+                        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        Batal
+                    </button>
+                    <button type="submit"
+                        class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                        Simpan ke Bank Soal
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Import Questions Modal -->
 <div id="importQuestionsModal"
     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-6 transition">
@@ -397,6 +519,20 @@
         const importQuestionsModal = document.getElementById('importQuestionsModal');
         const openImportQuestionsBtn = document.getElementById('openImportQuestions');
         const closeImportQuestionsButtons = document.querySelectorAll('[data-close-import-questions]');
+        const importPptModal = document.getElementById('importPptModal');
+        const openImportPptBtn = document.getElementById('openImportPpt');
+        const closeImportPptButtons = document.querySelectorAll('[data-close-import-ppt]');
+        const pptPreviewModal = document.getElementById('pptPreviewModal');
+        const closePptPreviewButtons = document.querySelectorAll('[data-close-ppt-preview]');
+        const pptPreviewForm = document.getElementById('pptPreviewForm');
+        const pptPreviewList = document.getElementById('pptPreviewList');
+        const pptPreviewSummary = document.getElementById('pptPreviewSummary');
+        const pptPreviewWarnings = document.getElementById('pptPreviewWarnings');
+        const pptQuestionsJson = document.getElementById('pptQuestionsJson');
+        const pptGlobalCorrectScore = document.getElementById('pptGlobalCorrectScore');
+        const pptGlobalWrongScore = document.getElementById('pptGlobalWrongScore');
+        const applyPptGlobalScores = document.getElementById('applyPptGlobalScores');
+        const pptImportPreview = @json($pptImportPreview);
 
         const toggleModal = (modal, show) => {
             if (!modal) return;
@@ -411,6 +547,138 @@
             }
         };
 
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const renderPptPreview = (preview) => {
+            if (!preview || !pptPreviewList || !pptPreviewSummary) {
+                return;
+            }
+
+            const questions = Array.isArray(preview.questions) ? preview.questions : [];
+            const errors = Array.isArray(preview.errors) ? preview.errors : [];
+            pptPreviewSummary.textContent = `${questions.length} soal terbaca dari ${preview.file_name || 'PPT'} (${preview.total_slides || 0} slide).`;
+
+            if (errors.length > 0 && pptPreviewWarnings) {
+                pptPreviewWarnings.classList.remove('hidden');
+                pptPreviewWarnings.innerHTML = `<p class="font-semibold">Catatan parser:</p><ul class="mt-1 list-disc pl-5">${errors.slice(0, 6).map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul>`;
+            }
+
+            pptPreviewList.innerHTML = questions.map((question, index) => {
+                const options = question.options || {};
+                const correctAnswer = question.correct_answer || 'A';
+                const optionRows = ['A', 'B', 'C', 'D', 'E'].map(letter => {
+                    const text = typeof options[letter] === 'object' ? (options[letter]?.text || '') : (options[letter] || '');
+                    if (!text) return '';
+                    const defaultWeight = letter === correctAnswer ? 1 : 0;
+
+                    return `
+                        <div class="grid gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 md:grid-cols-[40px_minmax(0,1fr)_110px] md:items-start">
+                            <div class="font-semibold text-gray-700">${letter}</div>
+                            <textarea data-option-text="${letter}" rows="2"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(text)}</textarea>
+                            <div>
+                                <label class="mb-1 block text-xs font-medium text-gray-500">Skor</label>
+                                <input type="number" data-option-weight="${letter}" step="0.1" min="0" max="999"
+                                    value="${defaultWeight}"
+                                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                const optionChoices = ['A', 'B', 'C', 'D', 'E']
+                    .filter(letter => options[letter])
+                    .map(letter => `<option value="${letter}" ${letter === correctAnswer ? 'selected' : ''}>${letter}</option>`)
+                    .join('');
+                const questionErrors = Array.isArray(question.errors) && question.errors.length > 0
+                    ? `<div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${question.errors.map(error => escapeHtml(error)).join('<br>')}</div>`
+                    : '';
+
+                return `
+                    <div class="ppt-question-item rounded-xl border border-gray-200 bg-white p-4 shadow-sm" data-index="${index}" data-slide="${escapeHtml(question.slide || '')}" data-number="${escapeHtml(question.number || '')}">
+                        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-400">Slide ${escapeHtml(question.slide || '-')}</p>
+                                <h4 class="font-semibold text-gray-900">Soal ${escapeHtml(question.number || index + 1)}</h4>
+                            </div>
+                            <label class="text-sm font-medium text-gray-700">
+                                Jawaban benar
+                                <select data-correct-answer
+                                    class="ml-2 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                    ${optionChoices}
+                                </select>
+                            </label>
+                        </div>
+                        ${questionErrors}
+                        <div class="mt-3">
+                            <label class="mb-1 block text-sm font-medium text-gray-700">Teks Soal</label>
+                            <textarea data-question-text rows="4"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.question_text || '')}</textarea>
+                        </div>
+                        <div class="mt-3 space-y-2">${optionRows}</div>
+                        <div class="mt-3">
+                            <label class="mb-1 block text-sm font-medium text-gray-700">Pembahasan</label>
+                            <textarea data-explanation rows="3"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.explanation || '')}</textarea>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        const getGlobalScoreValue = (input, fallback) => {
+            const value = Number.parseFloat(input?.value ?? '');
+            if (Number.isNaN(value)) {
+                return fallback;
+            }
+
+            return Math.max(0, Math.min(999, value));
+        };
+
+        const applyScoresToQuestion = (item) => {
+            const correctAnswer = item.querySelector('[data-correct-answer]')?.value || '';
+            const correctScore = getGlobalScoreValue(pptGlobalCorrectScore, 1);
+            const wrongScore = getGlobalScoreValue(pptGlobalWrongScore, 0);
+
+            ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
+                const weightInput = item.querySelector(`[data-option-weight="${letter}"]`);
+                if (!weightInput) return;
+                weightInput.value = letter === correctAnswer ? correctScore : wrongScore;
+            });
+        };
+
+        const applyScoresToAllQuestions = () => {
+            document.querySelectorAll('.ppt-question-item').forEach(applyScoresToQuestion);
+        };
+
+        const collectPptPreview = () => {
+            return Array.from(document.querySelectorAll('.ppt-question-item')).map(item => {
+                const options = {};
+                ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
+                    const textInput = item.querySelector(`[data-option-text="${letter}"]`);
+                    if (!textInput) return;
+                    const weightInput = item.querySelector(`[data-option-weight="${letter}"]`);
+                    options[letter] = {
+                        text: textInput.value.trim(),
+                        weight: Number.parseFloat(weightInput?.value || '0') || 0,
+                    };
+                });
+
+                return {
+                    slide: item.dataset.slide || null,
+                    number: item.dataset.number || null,
+                    question_text: item.querySelector('[data-question-text]')?.value.trim() || '',
+                    explanation: item.querySelector('[data-explanation]')?.value.trim() || '',
+                    correct_answer: item.querySelector('[data-correct-answer]')?.value || '',
+                    options,
+                };
+            });
+        };
+
         openSubBtn?.addEventListener('click', () => toggleModal(subBankModal, true));
         closeSubButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(subBankModal, false)));
         subBankModal?.addEventListener('click', (event) => {
@@ -422,6 +690,37 @@
         importQuestionsModal?.addEventListener('click', (event) => {
             if (event.target === importQuestionsModal) toggleModal(importQuestionsModal, false);
         });
+
+        openImportPptBtn?.addEventListener('click', () => toggleModal(importPptModal, true));
+        closeImportPptButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(importPptModal, false)));
+        importPptModal?.addEventListener('click', (event) => {
+            if (event.target === importPptModal) toggleModal(importPptModal, false);
+        });
+
+        closePptPreviewButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(pptPreviewModal, false)));
+        pptPreviewModal?.addEventListener('click', (event) => {
+            if (event.target === pptPreviewModal) toggleModal(pptPreviewModal, false);
+        });
+        pptPreviewForm?.addEventListener('submit', () => {
+            if (pptQuestionsJson) {
+                pptQuestionsJson.value = JSON.stringify(collectPptPreview());
+            }
+        });
+        applyPptGlobalScores?.addEventListener('click', applyScoresToAllQuestions);
+        pptPreviewList?.addEventListener('change', (event) => {
+            if (event.target?.matches('[data-correct-answer]')) {
+                const item = event.target.closest('.ppt-question-item');
+                if (item) {
+                    applyScoresToQuestion(item);
+                }
+            }
+        });
+
+        if (pptImportPreview) {
+            renderPptPreview(pptImportPreview);
+            applyScoresToAllQuestions();
+            toggleModal(pptPreviewModal, true);
+        }
 
         const bulkCloneBtn = document.getElementById('bulkCloneBtn');
         const bulkCloneForm = document.getElementById('bulkCloneForm');

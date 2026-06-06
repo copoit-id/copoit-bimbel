@@ -374,6 +374,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
         Route::get('/{questionBank}/questions/import-template', [QuestionBankController::class, 'downloadImportTemplate'])->name('questions.import-template');
         Route::post('/{questionBank}/questions/import', [QuestionBankController::class, 'importQuestions'])->name('questions.import');
+        Route::post('/{questionBank}/questions/import-ppt/preview', [QuestionBankController::class, 'previewPptQuestions'])->name('questions.import-ppt.preview');
+        Route::post('/{questionBank}/questions/import-ppt/store', [QuestionBankController::class, 'storePptQuestions'])->name('questions.import-ppt.store');
         Route::get('/questions/{question}/edit', [QuestionBankController::class, 'editQuestionForm'])->name('questions.edit');
         Route::put('/questions/{question}', [QuestionBankController::class, 'updateQuestion'])->name('questions.update');
         Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');

@@ -10,6 +10,7 @@ use App\Models\QuestionBankQuestionOption;
 use App\Models\QuestionOption;
 use App\Models\TryoutDetail;
 use App\Services\PlanQuotaService;
+use App\Services\QuestionPptImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -391,6 +392,140 @@ class QuestionBankController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal import file: ' . $e->getMessage());
         }
+    }
+
+    public function previewPptQuestions(Request $request, QuestionBank $questionBank, QuestionPptImportService $pptImportService)
+    {
+        $request->validate([
+            'ppt_file' => ['required', 'file', 'mimes:pptx', 'max:10240'],
+            'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
+        ]);
+
+        try {
+            $result = $pptImportService->parse($request->file('ppt_file'));
+            $questions = $result['questions'];
+
+            if (empty($questions)) {
+                return back()->with('error', 'Tidak ada soal yang terbaca dari PPT. Pastikan file berisi teks, bukan gambar/scan.');
+            }
+
+            return redirect()
+                ->route('admin.question-bank.show', [
+                    'questionBank' => $questionBank->id,
+                    'import_for' => $request->integer('import_for') ?: null,
+                ])
+                ->with('ppt_import_preview', [
+                    'questions' => $questions,
+                    'errors' => $result['errors'],
+                    'total_slides' => $result['total_slides'],
+                    'file_name' => $request->file('ppt_file')->getClientOriginalName(),
+                ]);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal membaca PPT: ' . $e->getMessage());
+        }
+    }
+
+    public function storePptQuestions(Request $request, QuestionBank $questionBank)
+    {
+        $validated = $request->validate([
+            'questions_json' => ['required', 'string'],
+            'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
+        ]);
+
+        $questions = json_decode($validated['questions_json'], true);
+        if (!is_array($questions)) {
+            return back()->with('error', 'Data preview PPT tidak valid. Silakan upload ulang file PPT.');
+        }
+
+        $importedCount = 0;
+        $errors = [];
+
+        DB::transaction(function () use ($questionBank, $questions, &$importedCount, &$errors) {
+            foreach (array_slice($questions, 0, 100) as $index => $question) {
+                $rowNumber = $index + 1;
+                $questionText = trim((string) ($question['question_text'] ?? ''));
+                $explanation = trim((string) ($question['explanation'] ?? ''));
+                $correctAnswer = strtoupper(trim((string) ($question['correct_answer'] ?? '')));
+                $optionsInput = is_array($question['options'] ?? null) ? $question['options'] : [];
+
+                if ($questionText === '') {
+                    $errors[] = "Soal {$rowNumber}: Teks soal wajib diisi.";
+                    continue;
+                }
+
+                $options = [];
+                foreach (range('A', 'E') as $letter) {
+                    $option = is_array($optionsInput[$letter] ?? null) ? $optionsInput[$letter] : [];
+                    $optionText = trim((string) ($option['text'] ?? ''));
+                    if ($optionText === '') {
+                        continue;
+                    }
+
+                    $weight = (float) ($option['weight'] ?? ($letter === $correctAnswer ? 1 : 0));
+                    $options[] = [
+                        'letter' => $letter,
+                        'text' => $optionText,
+                        'weight' => max(0, min(999, $weight)),
+                        'is_correct' => $letter === $correctAnswer,
+                    ];
+                }
+
+                if (count($options) < 2) {
+                    $errors[] = "Soal {$rowNumber}: Minimal isi 2 pilihan jawaban.";
+                    continue;
+                }
+
+                if (!$correctAnswer || !collect($options)->contains('letter', $correctAnswer)) {
+                    $errors[] = "Soal {$rowNumber}: Jawaban benar wajib dipilih dan harus sesuai opsi.";
+                    continue;
+                }
+
+                $maxWeight = collect($options)->max('weight') ?: 1;
+                $hasCustomScores = collect($options)->contains(fn ($option) => (float) $option['weight'] > 1);
+
+                $bankQuestion = QuestionBankQuestion::create([
+                    'question_bank_id' => $questionBank->id,
+                    'question_type' => 'multiple_choice',
+                    'question_text' => $questionText,
+                    'explanation' => $explanation !== '' ? $explanation : null,
+                    'default_weight' => $maxWeight,
+                    'custom_score' => $hasCustomScores ? 'yes' : 'no',
+                    'metadata' => [
+                        'source' => 'ppt_import',
+                        'slide' => $question['slide'] ?? null,
+                        'number' => $question['number'] ?? null,
+                    ],
+                    'created_by' => Auth::id(),
+                ]);
+
+                foreach ($options as $position => $option) {
+                    QuestionBankQuestionOption::create([
+                        'question_bank_question_id' => $bankQuestion->id,
+                        'option_text' => $option['text'],
+                        'weight' => $option['weight'],
+                        'is_correct' => $option['is_correct'],
+                        'position' => $position + 1,
+                    ]);
+                }
+
+                $importedCount++;
+            }
+        });
+
+        $message = "Berhasil import {$importedCount} soal dari PPT ke {$questionBank->name}.";
+        if (!empty($errors)) {
+            $message .= ' Catatan: ' . implode(', ', array_slice($errors, 0, 3));
+            if (count($errors) > 3) {
+                $message .= ' dan ' . (count($errors) - 3) . ' catatan lainnya';
+            }
+        }
+
+        return redirect()
+            ->route('admin.question-bank.show', [
+                'questionBank' => $questionBank->id,
+                'import_for' => $request->integer('import_for') ?: null,
+            ])
+            ->with($importedCount > 0 ? 'success' : 'error', $message);
     }
 
     public function createQuestionForm(Request $request, QuestionBank $questionBank)
