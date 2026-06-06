@@ -163,11 +163,13 @@
                                     <i class="ri-eye-line text-sm"></i>
                                     Preview
                                 </a>
-                                <a href="{{ route('admin.laporan.proctoring-snapshots', $tryout->tryout_id) }}"
-                                    class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
-                                    <i class="ri-camera-line text-sm"></i>
-                                    Snapshot
-                                </a>
+                                @if($tryout->has_snapshot_proctoring)
+                                    <a href="{{ route('admin.laporan.proctoring-snapshots', $tryout->tryout_id) }}"
+                                        class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
+                                        <i class="ri-camera-line text-sm"></i>
+                                        Snapshot
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     </td>

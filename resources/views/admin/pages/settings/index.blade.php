@@ -345,7 +345,10 @@
                                 data-secret-toggle="xendit_secret_key">Show</button>
                         </div>
                         @if (!empty($profile?->getRawOriginal('xendit_secret_key')))
-                        <p class="text-xs text-gray-500 mt-1">Secret key sudah tersimpan.</p>
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            Secret key sudah tersimpan.
+                        </p>
                         @endif
                         @error('xendit_secret_key')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
@@ -361,7 +364,10 @@
                                 data-secret-toggle="xendit_webhook_token">Show</button>
                         </div>
                         @if (!empty($profile?->getRawOriginal('xendit_webhook_token')))
-                        <p class="text-xs text-gray-500 mt-1">Webhook token sudah tersimpan.</p>
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            Webhook token sudah tersimpan.
+                        </p>
                         @endif
                         @error('xendit_webhook_token')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
@@ -379,7 +385,10 @@
                                 data-secret-toggle="midtrans_server_key">Show</button>
                         </div>
                         @if (!empty($profile?->getRawOriginal('midtrans_server_key')))
-                        <p class="text-xs text-gray-500 mt-1">Server key sudah tersimpan.</p>
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            Server key sudah tersimpan.
+                        </p>
                         @endif
                         @error('midtrans_server_key')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
@@ -395,7 +404,10 @@
                                 data-secret-toggle="midtrans_client_key">Show</button>
                         </div>
                         @if (!empty($profile?->getRawOriginal('midtrans_client_key')))
-                        <p class="text-xs text-gray-500 mt-1">Client key sudah tersimpan.</p>
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            Client key sudah tersimpan.
+                        </p>
                         @endif
                         @error('midtrans_client_key')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
@@ -437,6 +449,12 @@
                     <input type="password" name="smtp_app_password"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
                         placeholder="Kosongkan jika tidak diubah">
+                    @if (!empty($profile?->getRawOriginal('smtp_app_password')))
+                    <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                        <i class="ri-checkbox-circle-line"></i>
+                        Sandi aplikasi sudah tersimpan.
+                    </p>
+                    @endif
                     @error('smtp_app_password')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror

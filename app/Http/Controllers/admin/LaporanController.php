@@ -9,6 +9,7 @@ use App\Models\Tryout;
 use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
+use App\Services\PlanQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -228,6 +229,7 @@ class LaporanController extends Controller
         $publicLiveScoreUrl = URL::signedRoute('laporan.live-score.public', [
             'tryout' => $tryout->tryout_id,
         ]);
+        $hasSnapshotProctoring = $this->hasSnapshotProctoring($tryout);
 
         return view('admin.pages.laporan.show', compact(
             'tryout',
@@ -235,7 +237,8 @@ class LaporanController extends Controller
             'participants',
             'leaderboardPackageId',
             'liveScore',
-            'publicLiveScoreUrl'
+            'publicLiveScoreUrl',
+            'hasSnapshotProctoring'
         ));
     }
 
@@ -595,7 +598,9 @@ class LaporanController extends Controller
 
     private function hydrateTryoutReport($tryouts): void
     {
-        $tryouts->transform(function (Tryout $tryout) {
+        $globalProctoringSettings = PlanQuotaService::getDefaultProctoringSettings();
+
+        $tryouts->transform(function (Tryout $tryout) use ($globalProctoringSettings) {
             $tryout->avg_score = round(
                 $tryout->userAnswers()->where('status', 'completed')->avg('score') ?? 0,
                 1
@@ -607,9 +612,18 @@ class LaporanController extends Controller
             $tryout->total_duration = $tryout->tryoutDetails->sum('duration');
             $tryout->leaderboard_package_id = optional($tryout->packages->first())->package_id
                 ?? optional($tryout->directPackage)->package_id;
+            $tryout->has_snapshot_proctoring = $this->hasSnapshotProctoring($tryout, $globalProctoringSettings);
 
             return $tryout;
         });
+    }
+
+    private function hasSnapshotProctoring(Tryout $tryout, ?array $globalProctoringSettings = null): bool
+    {
+        $globalProctoringSettings ??= PlanQuotaService::getDefaultProctoringSettings();
+
+        return ((bool) $tryout->enable_webcam_check && (bool) ($globalProctoringSettings['enable_webcam_check'] ?? false))
+            || ((bool) $tryout->enable_screen_check && (bool) ($globalProctoringSettings['enable_screen_check'] ?? false));
     }
 
     private function calculateTotalScore(UserAnswer $userAnswer, ?string $type_subtest): float

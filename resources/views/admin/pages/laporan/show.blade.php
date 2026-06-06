@@ -26,11 +26,13 @@
                 <i class="ri-eye-line"></i>
                 Preview Tryout
             </a>
-            <a href="{{ route('admin.laporan.proctoring-snapshots', $tryout->tryout_id) }}"
-                class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition text-sm">
-                <i class="ri-camera-line"></i>
-                Snapshot
-            </a>
+            @if($hasSnapshotProctoring)
+                <a href="{{ route('admin.laporan.proctoring-snapshots', $tryout->tryout_id) }}"
+                    class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition text-sm">
+                    <i class="ri-camera-line"></i>
+                    Snapshot
+                </a>
+            @endif
             <button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm">
                 <i class="ri-download-line"></i>
                 Download Laporan
