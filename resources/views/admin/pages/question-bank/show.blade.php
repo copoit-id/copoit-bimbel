@@ -604,6 +604,57 @@
             window.initSummernoteFields?.();
         };
 
+        const destroyPptPreviewEditors = () => {
+            const $ = window.jQuery || window.$;
+            if (!$ || typeof $.fn?.summernote !== 'function' || !pptPreviewList) {
+                return;
+            }
+
+            $(pptPreviewList).find('[data-summernote]').each(function () {
+                const $target = $(this);
+                if ($target.data('summernoteInitialized')) {
+                    $target.summernote('destroy');
+                    $target.removeData('summernoteInitialized');
+                }
+            });
+        };
+
+        const pptOptionLetters = ['A', 'B', 'C', 'D', 'E'];
+
+        const buildPptOptionRow = (letter, text = '', weight = 0) => `
+            <div class="ppt-option-row grid gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 md:grid-cols-[40px_minmax(0,1fr)_110px] md:items-start" data-option-row="${letter}">
+                <div class="font-semibold text-gray-700">${letter}</div>
+                <textarea data-option-text="${letter}" rows="2" data-summernote data-height="140" data-toolbar='${pptSummernoteToolbar}'
+                    class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(text)}</textarea>
+                <div>
+                    <label class="mb-1 block text-xs font-medium text-gray-500">Skor</label>
+                    <input type="number" data-option-weight="${letter}" step="0.01" min="0" max="999" inputmode="decimal"
+                        value="${weight}"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                </div>
+            </div>
+        `;
+
+        const updatePptQuestionOptionControls = (item) => {
+            const select = item.querySelector('[data-correct-answer]');
+            if (!select) return;
+
+            const previousValue = select.value;
+            const availableLetters = pptOptionLetters.filter(letter => item.querySelector(`[data-option-text="${letter}"]`));
+            select.innerHTML = availableLetters.map(letter => `<option value="${letter}" ${letter === previousValue ? 'selected' : ''}>${letter}</option>`).join('');
+
+            if (!availableLetters.includes(previousValue) && availableLetters.length > 0) {
+                select.value = availableLetters[0];
+            }
+
+            const addButton = item.querySelector('[data-add-ppt-option]');
+            if (addButton) {
+                addButton.disabled = availableLetters.length >= pptOptionLetters.length;
+                addButton.classList.toggle('opacity-50', addButton.disabled);
+                addButton.classList.toggle('cursor-not-allowed', addButton.disabled);
+            }
+        };
+
         const normalizePptPreviewGroups = (preview) => {
             return Array.isArray(preview.groups)
                 ? preview.groups
@@ -644,6 +695,7 @@
 
         const renderPptActiveGroup = () => {
             if (!pptPreviewList) return;
+            destroyPptPreviewEditors();
 
             const group = pptPreviewGroups[activePptGroupIndex];
             if (!group) {
@@ -659,28 +711,17 @@
                 const options = question.options || {};
                 const correctAnswer = question.correct_answer || 'A';
                 const optionRows = ['A', 'B', 'C', 'D', 'E'].map(letter => {
+                    if (!Object.prototype.hasOwnProperty.call(options, letter)) return '';
+
                     const text = typeof options[letter] === 'object' ? (options[letter]?.text || '') : (options[letter] || '');
-                    if (!text) return '';
                     const defaultWeight = typeof options[letter] === 'object'
                         ? parseScoreInput(options[letter]?.weight, letter === correctAnswer ? 1 : 0)
                         : (letter === correctAnswer ? 1 : 0);
 
-                    return `
-                        <div class="grid gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 md:grid-cols-[40px_minmax(0,1fr)_110px] md:items-start">
-                            <div class="font-semibold text-gray-700">${letter}</div>
-                            <textarea data-option-text="${letter}" rows="2" data-summernote data-height="140" data-toolbar='${pptSummernoteToolbar}'
-                                class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(text)}</textarea>
-                            <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-500">Skor</label>
-                                <input type="number" data-option-weight="${letter}" step="0.01" min="0" max="999" inputmode="decimal"
-                                    value="${defaultWeight}"
-                                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                            </div>
-                        </div>
-                    `;
+                    return buildPptOptionRow(letter, text, defaultWeight);
                 }).join('');
                 const optionChoices = ['A', 'B', 'C', 'D', 'E']
-                    .filter(letter => options[letter])
+                    .filter(letter => Object.prototype.hasOwnProperty.call(options, letter))
                     .map(letter => `<option value="${letter}" ${letter === correctAnswer ? 'selected' : ''}>${letter}</option>`)
                     .join('');
                 const questionErrors = Array.isArray(question.errors) && question.errors.length > 0
@@ -715,7 +756,12 @@
                             <textarea data-question-text rows="4" data-summernote data-height="220" data-toolbar='${pptSummernoteToolbar}'
                                 class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.question_text || '')}</textarea>
                         </div>
-                        <div class="mt-3 space-y-2">${optionRows}</div>
+                        <div class="mt-3 space-y-2" data-options-list>${optionRows}</div>
+                        <button type="button" data-add-ppt-option
+                            class="mt-3 inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">
+                            <i class="ri-add-line"></i>
+                            Tambah Opsi
+                        </button>
                         <div class="mt-3">
                             <label class="mb-1 block text-sm font-medium text-gray-700">Pembahasan</label>
                             <textarea data-explanation rows="3" data-summernote data-height="180" data-toolbar='${pptSummernoteToolbar}'
@@ -750,6 +796,7 @@
             `;
 
             initPptPreviewEditors();
+            document.querySelectorAll('.ppt-question-item').forEach(updatePptQuestionOptionControls);
         };
 
         const renderPptPreview = (preview) => {
@@ -879,6 +926,31 @@
             renderPptGroupNav();
         };
 
+        const addPptOption = (button) => {
+            const item = button.closest('.ppt-question-item');
+            const optionsList = item?.querySelector('[data-options-list]');
+            if (!item || !optionsList) return;
+
+            const existingLetters = pptOptionLetters.filter(letter => item.querySelector(`[data-option-text="${letter}"]`));
+            const nextLetter = pptOptionLetters.find(letter => !existingLetters.includes(letter));
+            if (!nextLetter) {
+                updatePptQuestionOptionControls(item);
+                return;
+            }
+
+            const correctAnswer = item.querySelector('[data-correct-answer]')?.value || '';
+            const wrongScore = getGlobalScoreValue(pptGlobalWrongScore, 0);
+            const correctScore = getGlobalScoreValue(pptGlobalCorrectScore, 1);
+            optionsList.insertAdjacentHTML(
+                'beforeend',
+                buildPptOptionRow(nextLetter, '', nextLetter === correctAnswer ? correctScore : wrongScore)
+            );
+
+            initPptPreviewEditors();
+            updatePptQuestionOptionControls(item);
+            persistActivePptGroup();
+        };
+
         openSubBtn?.addEventListener('click', () => toggleModal(subBankModal, true));
         closeSubButtons.forEach(btn => btn.addEventListener('click', () => toggleModal(subBankModal, false)));
         subBankModal?.addEventListener('click', (event) => {
@@ -928,6 +1000,12 @@
             const removeButton = event.target.closest('[data-remove-ppt-question]');
             if (removeButton) {
                 removePptQuestion(removeButton);
+                return;
+            }
+
+            const addOptionButton = event.target.closest('[data-add-ppt-option]');
+            if (addOptionButton) {
+                addPptOption(addOptionButton);
             }
         });
 
