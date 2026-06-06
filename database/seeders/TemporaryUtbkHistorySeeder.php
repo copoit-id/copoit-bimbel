@@ -131,7 +131,7 @@ class TemporaryUtbkHistorySeeder extends Seeder
      */
     private function createUtbkDetails(Tryout $tryout)
     {
-        $subtests = [
+        $utbkSubtests = [
             'utbk_penalaran_umum' => ['duration' => 30, 'passing_score' => 500],
             'utbk_pengetahuan_umum' => ['duration' => 25, 'passing_score' => 500],
             'utbk_pengetahuan_kuantitatif' => ['duration' => 25, 'passing_score' => 500],
@@ -140,6 +140,23 @@ class TemporaryUtbkHistorySeeder extends Seeder
             'utbk_literasi_bahasa_inggris' => ['duration' => 30, 'passing_score' => 500],
             'utbk_penalaran_matematika' => ['duration' => 30, 'passing_score' => 500],
         ];
+
+        $legacyCompatibleSubtests = [
+            'general' => ['duration' => 30, 'passing_score' => 500],
+            'tiu' => ['duration' => 25, 'passing_score' => 500],
+            'twk' => ['duration' => 25, 'passing_score' => 500],
+            'tkp' => ['duration' => 25, 'passing_score' => 500],
+            'reading' => ['duration' => 30, 'passing_score' => 500],
+            'writing' => ['duration' => 30, 'passing_score' => 500],
+            'listening' => ['duration' => 30, 'passing_score' => 500],
+        ];
+
+        $allowedTypes = $this->allowedEnumValues('tryout_details', 'type_subtest');
+        $subtests = collect($utbkSubtests)
+            ->keys()
+            ->every(fn (string $type) => in_array($type, $allowedTypes, true))
+            ? $utbkSubtests
+            : $legacyCompatibleSubtests;
 
         return collect($subtests)->map(function (array $config, string $type) use ($tryout) {
             $data = [
@@ -155,6 +172,26 @@ class TemporaryUtbkHistorySeeder extends Seeder
 
             return TryoutDetail::create($data);
         })->values();
+    }
+
+    private function allowedEnumValues(string $table, string $column): array
+    {
+        $database = DB::getDatabaseName();
+        $columnType = DB::table('information_schema.COLUMNS')
+            ->where('TABLE_SCHEMA', $database)
+            ->where('TABLE_NAME', $table)
+            ->where('COLUMN_NAME', $column)
+            ->value('COLUMN_TYPE');
+
+        if (!is_string($columnType) || !str_starts_with($columnType, 'enum(')) {
+            return [];
+        }
+
+        preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $columnType, $matches);
+
+        return collect($matches[1] ?? [])
+            ->map(fn (string $value) => stripcslashes($value))
+            ->all();
     }
 
     private function createQuestions($details): array
