@@ -295,6 +295,35 @@ class LaporanController extends Controller
 
     public function attemptDetail($tryoutId, $attemptToken)
     {
+        return view('admin.pages.laporan.answer', $this->buildAttemptDetailData($tryoutId, $attemptToken));
+    }
+
+    public function attemptDetailPdf($tryoutId, $attemptToken)
+    {
+        $data = $this->buildAttemptDetailData($tryoutId, $attemptToken);
+
+        $html = view('admin.pages.laporan.answer-pdf', $data)->render();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $safeUserName = preg_replace('/[^A-Za-z0-9_-]+/', '-', strtolower($data['user']->name));
+        $filename = 'detail-jawaban-' . trim($safeUserName, '-') . '-' . Carbon::now()->format('Ymd_His') . '.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function buildAttemptDetailData($tryoutId, $attemptToken): array
+    {
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
 
         $attemptAnswers = UserAnswer::with([
@@ -346,14 +375,14 @@ class LaporanController extends Controller
 
         $answerDetails = $answerDetails->sortBy('subtest_name');
 
-        return view('admin.pages.laporan.answer', compact(
+        return compact(
             'tryout',
             'user',
             'attemptToken',
             'overallStats',
             'subtests',
             'answerDetails'
-        ));
+        );
     }
 
     public function publicLiveScore(Request $request, $tryoutId)

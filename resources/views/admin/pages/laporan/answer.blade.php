@@ -11,14 +11,11 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button class="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">
-            <i class="ri-printer-line"></i>
-            Cetak
-        </button>
-        <button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+        <a href="{{ route('admin.laporan.attempt-download', [$tryout->tryout_id, $attemptToken]) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
             <i class="ri-download-2-line"></i>
             Unduh PDF
-        </button>
+        </a>
     </div>
 </div>
 <x-page-desc title="Jawaban Peserta - {{ $user->name }}"></x-page-desc>

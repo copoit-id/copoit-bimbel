@@ -349,6 +349,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
         Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
         Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
+        Route::get('/{tryout}/attempt/{token}/download', [LaporanController::class, 'attemptDetailPdf'])->name('attempt-download');
         Route::post('/{tryout}/attempt/{token}/reset', [LaporanController::class, 'resetAttempt'])->name('reset-attempt');
         Route::post('/{tryout}/user/{user}/add-time', [LaporanController::class, 'addTime'])->name('add-time');
         Route::post('/{tryout}/user/{user}/reset', [LaporanController::class, 'resetUserAttempt'])->name('reset-user');
