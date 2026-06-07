@@ -403,6 +403,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::prefix('materi')->name('material.')->group(function () {
         Route::get('/', [MaterialManagementController::class, 'index'])->name('index');
         Route::get('/create', [MaterialManagementController::class, 'create'])->name('create');
+        Route::post('/drive-title', [MaterialManagementController::class, 'driveTitle'])->name('drive-title');
         Route::post('/', [MaterialManagementController::class, 'store'])->name('store');
         Route::get('/{material}/edit', [MaterialManagementController::class, 'edit'])->name('edit');
         Route::put('/{material}', [MaterialManagementController::class, 'update'])->name('update');

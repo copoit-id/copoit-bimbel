@@ -7,7 +7,9 @@ use App\Models\Material;
 use App\Models\MaterialCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MaterialManagementController extends Controller
 {
@@ -40,6 +42,31 @@ class MaterialManagementController extends Controller
             ->ordered()
             ->get();
         return view('admin.pages.material.create', compact('categories'));
+    }
+
+    public function driveTitle(Request $request)
+    {
+        $validated = $request->validate([
+            'url' => ['required', 'url', 'max:2048'],
+        ]);
+
+        $url = $validated['url'];
+        if (!$this->isGoogleDriveUrl($url)) {
+            return response()->json([
+                'message' => 'Link harus berasal dari Google Drive atau Google Docs.',
+            ], 422);
+        }
+
+        $title = $this->fetchGoogleFileTitle($url);
+        if (!$title) {
+            return response()->json([
+                'message' => 'Judul file Drive tidak bisa dibaca. Pastikan link bisa diakses.',
+            ], 422);
+        }
+
+        return response()->json([
+            'title' => $title,
+        ]);
     }
 
     /**
@@ -235,5 +262,74 @@ class MaterialManagementController extends Controller
 
         return redirect()->route('admin.material.index')
             ->with('success', "Materi berhasil {$status}.");
+    }
+
+    private function isGoogleDriveUrl(string $url): bool
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+
+        return $host === 'drive.google.com'
+            || $host === 'docs.google.com'
+            || str_ends_with($host, '.drive.google.com')
+            || str_ends_with($host, '.docs.google.com');
+    }
+
+    private function fetchGoogleFileTitle(string $url): ?string
+    {
+        try {
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (compatible; BimbelHub/1.0)',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                ])
+                ->get($url);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (!$response->ok()) {
+            return null;
+        }
+
+        return $this->extractTitleFromGoogleHtml($response->body());
+    }
+
+    private function extractTitleFromGoogleHtml(string $html): ?string
+    {
+        $patterns = [
+            '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/iu',
+            '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/iu',
+            '/<meta[^>]+name=["\']title["\'][^>]+content=["\']([^"\']+)["\']/iu',
+            '/<title[^>]*>(.*?)<\/title>/isu',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (!preg_match($pattern, $html, $matches)) {
+                continue;
+            }
+
+            $title = $this->cleanGoogleFileTitle($matches[1] ?? '');
+            if ($title) {
+                return $title;
+            }
+        }
+
+        return null;
+    }
+
+    private function cleanGoogleFileTitle(string $title): ?string
+    {
+        $title = html_entity_decode(strip_tags($title), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $title = preg_replace('/\s+/u', ' ', $title) ?? $title;
+        $title = trim($title);
+        $title = preg_replace('/\s*-\s*Google\s+(Drive|Docs|Sheets|Slides)\s*$/iu', '', $title) ?? $title;
+        $title = preg_replace('/\.(pdf|pptx?|docx?|xlsx?|mp4|mov|mkv|zip|rar)\s*$/iu', '', $title) ?? $title;
+        $title = trim($title);
+
+        if ($title === '' || in_array(Str::lower($title), ['google drive', 'sign in - google accounts'], true)) {
+            return null;
+        }
+
+        return Str::limit($title, 255, '');
     }
 }

@@ -32,7 +32,7 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Judul Materi <span class="text-red-500">*</span></label>
-                        <input type="text" name="title" value="{{ old('title', $material->title) }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <input type="text" name="title" id="materialTitle" value="{{ old('title', $material->title) }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
 
                     <div>
@@ -48,6 +48,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">URL Konten <span class="text-red-500">*</span></label>
                         <input type="url" name="content_url" id="contentUrl" value="{{ old('content_url', $material->content_url) }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="https://...">
                         <p class="text-xs text-gray-500 mt-1" id="urlHint">Masukkan URL video (YouTube, Vimeo, dll)</p>
+                        <p class="text-xs mt-1 hidden" id="driveTitleStatus"></p>
                     </div>
 
                     <div>
@@ -171,6 +172,92 @@
     
     // Initialize on load
     updatePlaceholder();
+
+    const materialTitleInput = document.getElementById('materialTitle');
+    const contentUrlInput = document.getElementById('contentUrl');
+    const driveTitleStatus = document.getElementById('driveTitleStatus');
+    let materialTitleTouched = Boolean(materialTitleInput?.value.trim());
+    let driveTitleTimer = null;
+    let driveTitleRequestId = 0;
+
+    const isGoogleDriveUrl = (value) => {
+        try {
+            const url = new URL(value);
+            return ['drive.google.com', 'docs.google.com'].includes(url.hostname) ||
+                url.hostname.endsWith('.drive.google.com') ||
+                url.hostname.endsWith('.docs.google.com');
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const setDriveTitleStatus = (message, type = 'muted') => {
+        if (!driveTitleStatus) return;
+        driveTitleStatus.textContent = message;
+        driveTitleStatus.classList.toggle('hidden', !message);
+        driveTitleStatus.className = `text-xs mt-1 ${message ? '' : 'hidden'} ${type === 'error' ? 'text-amber-600' : 'text-gray-500'}`;
+    };
+
+    const shouldAutoFillTitle = () => {
+        return materialTitleInput &&
+            (!materialTitleTouched || materialTitleInput.dataset.autofilled === 'true' || materialTitleInput.value.trim() === '');
+    };
+
+    const fetchDriveTitle = async () => {
+        const url = contentUrlInput?.value.trim() || '';
+        if (!url || !isGoogleDriveUrl(url) || !shouldAutoFillTitle()) {
+            setDriveTitleStatus('');
+            return;
+        }
+
+        const requestId = ++driveTitleRequestId;
+        setDriveTitleStatus('Membaca judul dari Google Drive...');
+
+        try {
+            const response = await fetch('{{ route('admin.material.drive-title') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({ url }),
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (requestId !== driveTitleRequestId || !shouldAutoFillTitle()) {
+                return;
+            }
+
+            if (response.ok && data.title) {
+                materialTitleInput.value = data.title;
+                materialTitleInput.dataset.autofilled = 'true';
+                materialTitleTouched = false;
+                setDriveTitleStatus('Judul otomatis diisi dari Google Drive.');
+            } else {
+                setDriveTitleStatus(data.message || 'Judul file Drive tidak bisa dibaca.', 'error');
+            }
+        } catch (error) {
+            if (requestId === driveTitleRequestId) {
+                setDriveTitleStatus('Gagal membaca judul file Drive.', 'error');
+            }
+        }
+    };
+
+    materialTitleInput?.addEventListener('input', () => {
+        materialTitleTouched = materialTitleInput.value.trim() !== '';
+        materialTitleInput.dataset.autofilled = 'false';
+    });
+
+    contentUrlInput?.addEventListener('input', () => {
+        clearTimeout(driveTitleTimer);
+        driveTitleTimer = setTimeout(fetchDriveTitle, 500);
+    });
+
+    contentUrlInput?.addEventListener('paste', () => {
+        clearTimeout(driveTitleTimer);
+        driveTitleTimer = setTimeout(fetchDriveTitle, 150);
+    });
 
     // Thumbnail preview for new upload
     const thumbnailInput = document.getElementById('thumbnailInput');
