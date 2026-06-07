@@ -324,8 +324,8 @@ class TryoutController extends Controller
                 $this->createSubtest($tryout->tryout_id, 'general', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
 
-            case 'tba':
-                $this->createSubtest($tryout->tryout_id, 'tba', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
+            case 'tpa':
+                $this->createSubtest($tryout->tryout_id, 'tpa', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
 
             case 'tbi':
@@ -469,8 +469,8 @@ class TryoutController extends Controller
             case 'general':
                 $this->updateOrCreateSubtest($tryout, 'general', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
-            case 'tba':
-                $this->updateOrCreateSubtest($tryout, 'tba', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
+            case 'tpa':
+                $this->updateOrCreateSubtest($tryout, 'tpa', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
             case 'tbi':
                 $this->updateOrCreateSubtest($tryout, 'tbi', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
@@ -553,7 +553,7 @@ class TryoutController extends Controller
             'word'              => 'Microsoft Word',
             'excel'             => 'Microsoft Excel',
             'ppt'               => 'Microsoft PowerPoint',
-            'tba'               => 'TBA',
+            'tpa'               => 'TPA',
             'tbi'               => 'TBI',
             'penalaran_umum'    => 'Penalaran Umum',
             'pengetahuan_umum'  => 'Pengetahuan & Pemahaman Umum',
@@ -594,7 +594,7 @@ class TryoutController extends Controller
             'excel',
             'ppt',
             'computer',
-            'tba',
+            'tpa',
             'tbi',
         ];
 

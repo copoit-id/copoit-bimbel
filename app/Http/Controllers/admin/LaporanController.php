@@ -384,7 +384,7 @@ class LaporanController extends Controller
             'word' => 'Microsoft Word',
             'excel' => 'Microsoft Excel',
             'ppt' => 'Microsoft PowerPoint',
-            'tba' => 'TBA',
+            'tpa' => 'TPA',
             'tbi' => 'TBI',
         ][$type] ?? ucfirst(str_replace('_', ' ', $type));
     }

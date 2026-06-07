@@ -106,8 +106,8 @@
                                 PPT)</option>
                             <option value="general" {{ (isset($tryout) && $tryout->type_tryout === 'general') ||
                                 old('type_tryout') === 'general' ? 'selected' : '' }}>General</option>
-                            <option value="tba" {{ (isset($tryout) && $tryout->type_tryout === 'tba') ||
-                                old('type_tryout') === 'tba' ? 'selected' : '' }}>TBA</option>
+                            <option value="tpa" {{ (isset($tryout) && $tryout->type_tryout === 'tpa') ||
+                                old('type_tryout') === 'tpa' ? 'selected' : '' }}>TPA</option>
                             <option value="tbi" {{ (isset($tryout) && $tryout->type_tryout === 'tbi') ||
                                 old('type_tryout') === 'tbi' ? 'selected' : '' }}>TBI</option>
                         </select>
@@ -868,7 +868,7 @@
       'management': 'general_config',
       'interview': 'general_config',
       'general': 'general_config',
-      'tba': 'general_config',
+      'tpa': 'general_config',
       'tbi': 'general_config'
     };
     Object.keys(utbkSingleTypeMap).forEach(type => {
@@ -882,7 +882,7 @@
       if (generalTitle) {
         const labels = {
           general: 'Konfigurasi General',
-          tba: 'Konfigurasi TBA',
+          tpa: 'Konfigurasi TPA',
           tbi: 'Konfigurasi TBI',
         };
         generalTitle.textContent = labels[selectedType] || 'Konfigurasi Tryout';
