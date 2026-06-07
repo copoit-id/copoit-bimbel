@@ -29,6 +29,8 @@ return new class extends Migration
                 'word',
                 'excel',
                 'ppt',
+                'tba',
+                'tbi',
             ]);
             $table->integer('duration')->default(60);
             $table->decimal('passing_score', 5, 2)->default(60.00);

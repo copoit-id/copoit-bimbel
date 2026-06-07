@@ -61,6 +61,8 @@
                         <option value="skd_full" {{ old('type_tryout')=='skd_full' ? 'selected' : '' }}>SKD Full (TWK +
                             TIU + TKP)</option>
                         <option value="general" {{ old('type_tryout')=='general' ? 'selected' : '' }}>General</option>
+                        <option value="tba" {{ old('type_tryout')=='tba' ? 'selected' : '' }}>TBA</option>
+                        <option value="tbi" {{ old('type_tryout')=='tbi' ? 'selected' : '' }}>TBI</option>
                         <option value="certification" {{ old('type_tryout')=='certification' ? 'selected' : '' }}>
                             Certification</option>
                     </select>
@@ -222,7 +224,7 @@
 
                         <!-- General Section -->
                         <div class="general-duration hidden">
-                            <h4 class="text-md font-medium text-gray-800 mb-3">General Test</h4>
+                            <h4 id="general-duration-title" class="text-md font-medium text-gray-800 mb-3">General Test</h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label for="duration_general" class="block text-sm font-medium text-gray-700 mb-2">
@@ -424,6 +426,9 @@
                     showDurationField('tkp-duration', 'duration_tkp', 45, 'passing_score_tkp', 65);
                     break;
                 case 'general':
+                case 'tba':
+                case 'tbi':
+                    updateGeneralDurationTitle(selectedType);
                     showDurationField('general-duration', 'duration_general', 60, 'passing_score_general', 65);
                     break;
                 case 'certification':
@@ -456,6 +461,19 @@
                     passingScoreInput.value = defaultPassingScore;
                 }
             }
+        }
+
+        function updateGeneralDurationTitle(selectedType) {
+            const title = document.getElementById('general-duration-title');
+            if (!title) return;
+
+            const labels = {
+                general: 'General Test',
+                tba: 'TBA',
+                tbi: 'TBI',
+            };
+
+            title.textContent = labels[selectedType] || 'General Test';
         }
 
         function calculateTotalDuration() {

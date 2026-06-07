@@ -27,6 +27,8 @@ return new class extends Migration
                 'word',
                 'excel',
                 'ppt',
+                'tba',
+                'tbi',
                 'penalaran_umum',
                 'pengetahuan_umum',
                 'pengetahuan_kuantitatif',
@@ -59,7 +61,9 @@ return new class extends Migration
                 'interview',
                 'word',
                 'excel',
-                'ppt'
+                'ppt',
+                'tba',
+                'tbi'
             ) NOT NULL
         ");
     }

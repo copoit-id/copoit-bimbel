@@ -1013,6 +1013,10 @@ class TryoutController extends Controller
                 return 'Microsoft Excel';
             case 'ppt':
                 return 'Microsoft PowerPoint';
+            case 'tba':
+                return 'TBA';
+            case 'tbi':
+                return 'TBI';
             case 'penalaran_umum':
                 return 'Penalaran Umum';
             case 'pengetahuan_umum':

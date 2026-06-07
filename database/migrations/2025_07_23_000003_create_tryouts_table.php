@@ -37,6 +37,8 @@ return new class extends Migration
                 'excel',
                 'ppt',
                 'computer',
+                'tba',
+                'tbi',
                 'utbk_full',
                 'utbk_section',
                 'utbk_penalaran_umum',

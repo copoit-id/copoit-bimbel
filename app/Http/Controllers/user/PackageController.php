@@ -1917,6 +1917,10 @@ class PackageController extends Controller
                 return 'Microsoft Excel';
             case 'ppt':
                 return 'Microsoft PowerPoint';
+            case 'tba':
+                return 'TBA';
+            case 'tbi':
+                return 'TBI';
             default:
                 return ucfirst($type);
         }

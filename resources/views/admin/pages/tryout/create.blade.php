@@ -106,6 +106,10 @@
                                 PPT)</option>
                             <option value="general" {{ (isset($tryout) && $tryout->type_tryout === 'general') ||
                                 old('type_tryout') === 'general' ? 'selected' : '' }}>General</option>
+                            <option value="tba" {{ (isset($tryout) && $tryout->type_tryout === 'tba') ||
+                                old('type_tryout') === 'tba' ? 'selected' : '' }}>TBA</option>
+                            <option value="tbi" {{ (isset($tryout) && $tryout->type_tryout === 'tbi') ||
+                                old('type_tryout') === 'tbi' ? 'selected' : '' }}>TBI</option>
                         </select>
                     </div>
 
@@ -777,7 +781,7 @@
 
                     <!-- General Config (for other single tests) -->
                     <div id="general_config" class="config-section hidden space-y-4">
-                        <h4 class="font-medium text-gray-800">Konfigurasi Tryout</h4>
+                        <h4 id="general_config_title" class="font-medium text-gray-800">Konfigurasi Tryout</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Durasi (menit)</label>
@@ -863,7 +867,9 @@
       'social culture': 'general_config',
       'management': 'general_config',
       'interview': 'general_config',
-      'general': 'general_config'
+      'general': 'general_config',
+      'tba': 'general_config',
+      'tbi': 'general_config'
     };
     Object.keys(utbkSingleTypeMap).forEach(type => {
       configSectionMap[type] = 'utbk_single_config';
@@ -872,6 +878,15 @@
     function showConfigSection() {
       const selectedType = String(typeSelect.value || '').trim();
       const targetId = configSectionMap[selectedType];
+      const generalTitle = root.querySelector('#general_config_title');
+      if (generalTitle) {
+        const labels = {
+          general: 'Konfigurasi General',
+          tba: 'Konfigurasi TBA',
+          tbi: 'Konfigurasi TBI',
+        };
+        generalTitle.textContent = labels[selectedType] || 'Konfigurasi Tryout';
+      }
 
       configSections.forEach(section => {
         section.classList.add('hidden');
