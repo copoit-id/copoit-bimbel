@@ -197,8 +197,15 @@
                     class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                     <option value="">Pilih bank tujuan</option>
                     @foreach($bankOptions as $bankOption)
-                    <option value="{{ $bankOption->id }}" @disabled((int) $bankOption->id === (int) $bank->id)>
-                        {{ $bankOption->path ?? $bankOption->name }}{{ (int) $bankOption->id === (int) $bank->id ? ' (saat ini)' : '' }}
+                    @php
+                        $bankOptionId = is_array($bankOption) ? ($bankOption['id'] ?? null) : $bankOption->id;
+                        $bankOptionName = is_array($bankOption)
+                            ? ($bankOption['path'] ?? $bankOption['name'] ?? '-')
+                            : ($bankOption->path ?? $bankOption->name ?? '-');
+                        $isCurrentBankOption = (int) $bankOptionId === (int) $bank->id;
+                    @endphp
+                    <option value="{{ $bankOptionId }}" @disabled($isCurrentBankOption)>
+                        {{ $bankOptionName }}{{ $isCurrentBankOption ? ' (saat ini)' : '' }}
                     </option>
                     @endforeach
                 </select>
