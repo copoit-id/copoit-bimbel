@@ -241,12 +241,42 @@ class QuestionPptImportService
         $questionLines = [];
         $optionLines = [];
         $answer = null;
+        $adminRanking = null;
         $explanationLines = [];
         $currentOption = null;
         $answerFound = false;
         $waitingAnswerLetter = false;
+        $waitingAdminRanking = false;
 
         foreach ($lines as $line) {
+            if ($waitingAdminRanking) {
+                $ranking = $this->parseAdminRankingLine($line);
+                if ($ranking) {
+                    $adminRanking = $ranking;
+                    $answer = $answer ?: $ranking[0];
+                    $answerFound = true;
+                    $waitingAdminRanking = false;
+                    $currentOption = null;
+                    continue;
+                }
+
+                $waitingAdminRanking = false;
+            }
+
+            $adminLine = $this->parseAdminLine($line);
+            if ($adminLine['is_admin']) {
+                if (!empty($adminLine['ranking'])) {
+                    $adminRanking = $adminLine['ranking'];
+                    $answer = $answer ?: $adminLine['ranking'][0];
+                    $answerFound = true;
+                } else {
+                    $waitingAdminRanking = true;
+                }
+
+                $currentOption = null;
+                continue;
+            }
+
             if (preg_match('/^soal\s+(?:nomor\s+)?(\d+)/iu', $line, $matches)) {
                 $questionNumber = (int) $matches[1];
                 continue;
@@ -309,7 +339,13 @@ class QuestionPptImportService
                 continue;
             }
 
-            $options[$letter] = $this->normalizeParagraph(implode(' ', $optionLines[$letter]));
+            $optionText = $this->normalizeParagraph(implode(' ', $optionLines[$letter]));
+            $options[$letter] = $adminRanking
+                ? [
+                    'text' => $optionText,
+                    'weight' => $this->scoreForAdminRanking($letter, $adminRanking),
+                ]
+                : $optionText;
         }
 
         $questionText = $this->normalizeParagraph(implode(' ', $questionLines));
@@ -352,6 +388,7 @@ class QuestionPptImportService
             'explanation' => $explanation,
             'default_weight' => 1,
             'images' => $images,
+            'admin_ranking' => $adminRanking,
             'errors' => $errors,
         ];
     }
@@ -402,6 +439,43 @@ class QuestionPptImportService
     private function stripExplanationPrefix(string $line): string
     {
         return trim(preg_replace('/^(pembahasan|penjelasan)\s*:?\s*/iu', '', $line) ?? $line);
+    }
+
+    private function parseAdminLine(string $line): array
+    {
+        if (!preg_match('/^menurut\s+admin\b\s*:?\s*(.*)$/iu', $line, $matches)) {
+            return [
+                'is_admin' => false,
+                'ranking' => null,
+            ];
+        }
+
+        return [
+            'is_admin' => true,
+            'ranking' => $this->parseAdminRankingLine($matches[1] ?? ''),
+        ];
+    }
+
+    private function parseAdminRankingLine(string $line): ?array
+    {
+        preg_match_all('/\b([A-E])\b/iu', $line, $matches);
+        $letters = collect($matches[1] ?? [])
+            ->map(fn ($letter) => strtoupper($letter))
+            ->unique()
+            ->values()
+            ->all();
+
+        return count($letters) >= 2 ? $letters : null;
+    }
+
+    private function scoreForAdminRanking(string $letter, array $ranking): int
+    {
+        $position = array_search(strtoupper($letter), $ranking, true);
+        if ($position === false) {
+            return 0;
+        }
+
+        return max(1, count($ranking) - $position);
     }
 
     private function appendImagesToHtml(string $text, array $images): string

@@ -1208,7 +1208,6 @@
 
         if (pptImportPreview) {
             renderPptPreview(pptImportPreview);
-            applyScoresToAllQuestions();
             toggleModal(pptPreviewModal, true);
         }
 
