@@ -227,7 +227,7 @@
                         {{ $paymentMode === 'gateway' ? 'checked' : '' }}>
                     <div>
                         <p class="font-semibold text-gray-900">Otomatis (Payment Gateway)</p>
-                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke Xendit/Midtrans.</p>
+                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke Xendit/Midtrans/iPaymu.</p>
                     </div>
                 </label>
                 <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">

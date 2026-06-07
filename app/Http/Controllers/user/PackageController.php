@@ -165,6 +165,10 @@ class PackageController extends Controller
     {
         $gateway = strtolower((string) config('services.payment_gateway', 'xendit'));
 
+        if ($gateway === 'ipaymu') {
+            return $this->createIpaymuPayment($package);
+        }
+
         if ($gateway === 'midtrans') {
             return $this->createMidtransPayment($package);
         }
@@ -334,6 +338,134 @@ class PackageController extends Controller
                 'message' => 'Error koneksi ke Midtrans: ' . $e->getMessage(),
             ];
         }
+    }
+
+    private function createIpaymuPayment(Package $package)
+    {
+        $apiKey = config('services.ipaymu.api_key');
+        $va = config('services.ipaymu.va');
+
+        if (!$apiKey || !$va) {
+            return [
+                'success' => false,
+                'message' => 'iPaymu API key atau VA tidak dikonfigurasi',
+            ];
+        }
+
+        $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
+        $paymentUrl = $this->ipaymuUrl('payment');
+
+        $payload = [
+            'account' => $va,
+            'product' => [Str::limit($package->name, 100, '')],
+            'qty' => [1],
+            'price' => [(int) round($package->price)],
+            'description' => ['Pembelian ' . $package->name],
+            'notifyUrl' => route('webhook.ipaymu'),
+            'returnUrl' => route('user.package.payment.success'),
+            'cancelUrl' => route('user.package.payment.failed'),
+            'name' => Auth::user()->name,
+            'email' => Auth::user()->email,
+            'phone' => $this->ipaymuBuyerPhone(),
+            'buyerName' => Auth::user()->name,
+            'buyerEmail' => Auth::user()->email,
+            'buyerPhone' => $this->ipaymuBuyerPhone(),
+            'referenceId' => $transactionId,
+            'expired' => 24,
+            'expiredType' => 'hours',
+        ];
+
+        try {
+            $response = $this->sendIpaymuRequest($paymentUrl, $payload);
+            $data = $response->json();
+
+            if ($response->successful() && (int) ($data['Status'] ?? 0) === 200) {
+                $paymentData = $data['Data'] ?? [];
+                $redirectUrl = $paymentData['Url'] ?? $paymentData['url'] ?? null;
+
+                if (!$redirectUrl) {
+                    return [
+                        'success' => false,
+                        'message' => 'iPaymu tidak mengembalikan URL pembayaran',
+                    ];
+                }
+
+                Payment::create([
+                    'transaction_id' => $transactionId,
+                    'user_id' => Auth::id(),
+                    'package_id' => $package->package_id,
+                    'amount' => $package->price,
+                    'admin_fee' => 0,
+                    'total_amount' => $package->price,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_method' => 'ipaymu',
+                    'payment_details' => json_encode([
+                        'session_id' => $paymentData['SessionId'] ?? $paymentData['sessionId'] ?? null,
+                        'redirect_url' => $redirectUrl,
+                        'reference_id' => $transactionId,
+                    ]),
+                ]);
+
+                return [
+                    'success' => true,
+                    'redirect_url' => $redirectUrl,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => $data['Message'] ?? 'Gagal membuat pembayaran iPaymu',
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error koneksi ke iPaymu: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    private function ipaymuUrl(string $type): string
+    {
+        $configuredUrl = config("services.ipaymu.{$type}_url");
+
+        if ($configuredUrl) {
+            return $configuredUrl;
+        }
+
+        $baseUrl = config('services.ipaymu.is_production')
+            ? 'https://my.ipaymu.com/api/v2'
+            : 'https://sandbox.ipaymu.com/api/v2';
+
+        return match ($type) {
+            'check_transaction' => $baseUrl . '/transaction',
+            default => $baseUrl . '/payment',
+        };
+    }
+
+    private function sendIpaymuRequest(string $url, array $payload)
+    {
+        $apiKey = (string) config('services.ipaymu.api_key');
+        $va = (string) config('services.ipaymu.va');
+        $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        $requestBodyHash = strtolower(hash('sha256', $body));
+        $stringToSign = 'POST:' . $va . ':' . $requestBodyHash . ':' . $apiKey;
+        $signature = hash_hmac('sha256', $stringToSign, $apiKey);
+
+        return Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+            'va' => $va,
+            'signature' => $signature,
+            'timestamp' => now()->format('YmdHis'),
+        ])->withBody($body, 'application/json')->post($url);
+    }
+
+    private function ipaymuBuyerPhone(): string
+    {
+        $phone = Auth::user()->phone ?? Auth::user()->no_hp ?? Auth::user()->whatsapp ?? null;
+        $phone = preg_replace('/\D+/', '', (string) $phone);
+
+        return $phone ?: '080000000000';
     }
 
     private function grantFreeAccess(int $packageId): void
@@ -1075,6 +1207,70 @@ class PackageController extends Controller
         return response()->json(['message' => 'OK']);
     }
 
+    public function ipaymuWebhook(Request $request)
+    {
+        $referenceId = (string) (
+            $request->input('referenceId')
+            ?? $request->input('reference_id')
+            ?? $request->input('reference')
+            ?? ''
+        );
+
+        $sessionId = (string) (
+            $request->input('sid')
+            ?? $request->input('sessionId')
+            ?? $request->input('SessionId')
+            ?? $request->input('trx_id')
+            ?? $request->input('transaction_id')
+            ?? ''
+        );
+
+        $payment = null;
+
+        if ($referenceId) {
+            $payment = Payment::where('transaction_id', $referenceId)->first();
+        }
+
+        if (!$payment && $sessionId) {
+            $payment = Payment::where('payment_method', 'ipaymu')
+                ->where('payment_details->session_id', $sessionId)
+                ->first();
+        }
+
+        if (!$payment) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+
+        $status = strtolower((string) (
+            $request->input('status')
+            ?? $request->input('Status')
+            ?? $request->input('status_code')
+            ?? $request->input('statusCode')
+            ?? ''
+        ));
+
+        if (in_array($status, ['berhasil', 'success', 'paid', '1', '200'])) {
+            $payment->update([
+                'status' => Payment::STATUS_SUCCESS,
+                'paid_at' => Carbon::now(),
+            ]);
+
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu - 1 year access');
+        } elseif (in_array($status, ['pending', '0'])) {
+            $payment->update(['status' => Payment::STATUS_PENDING]);
+        } elseif (in_array($status, ['expired', 'expire'])) {
+            $payment->update(['status' => Payment::STATUS_EXPIRED]);
+        } elseif (in_array($status, ['failed', 'failure', 'cancel', 'cancelled', 'canceled', 'gagal', '-1'])) {
+            $payment->update(['status' => Payment::STATUS_FAILED]);
+        }
+
+        $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+        $paymentDetails['webhook_payload'] = $request->all();
+        $payment->update(['payment_details' => json_encode($paymentDetails)]);
+
+        return response()->json(['message' => 'OK']);
+    }
+
     private function ensureUserPackageAccess(Payment $payment, string $notes): void
     {
         $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
@@ -1115,6 +1311,35 @@ class PackageController extends Controller
         }
 
         $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+
+        if ($payment->payment_method === 'ipaymu') {
+            $transactionId = $paymentDetails['session_id'] ?? $payment->transaction_id;
+
+            if (!$transactionId) {
+                return response()->json(['error' => 'No iPaymu transaction ID found']);
+            }
+
+            try {
+                if (!config('services.ipaymu.api_key') || !config('services.ipaymu.va')) {
+                    return response()->json(['error' => 'iPaymu API key or VA is not configured']);
+                }
+
+                $response = $this->sendIpaymuRequest($this->ipaymuUrl('check_transaction'), [
+                    'transactionId' => $transactionId,
+                ]);
+
+                if ($response->successful()) {
+                    return response()->json([
+                        'payment_status' => $payment->status,
+                        'ipaymu_data' => $response->json(),
+                    ]);
+                }
+
+                return response()->json(['error' => 'Failed to fetch from iPaymu']);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()]);
+            }
+        }
 
         if ($payment->payment_method === 'midtrans') {
             $orderId = $payment->transaction_id;

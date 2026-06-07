@@ -51,6 +51,14 @@ return [
         'status_url' => env('MIDTRANS_STATUS_URL', 'https://api.sandbox.midtrans.com/v2'),
     ],
 
+    'ipaymu' => [
+        'api_key' => env('IPAYMU_API_KEY'),
+        'va' => env('IPAYMU_VA'),
+        'is_production' => env('IPAYMU_IS_PRODUCTION', false),
+        'payment_url' => env('IPAYMU_PAYMENT_URL'),
+        'check_transaction_url' => env('IPAYMU_CHECK_TRANSACTION_URL'),
+    ],
+
     'recaptcha' => [
         'enabled' => env('RECAPTCHA_ENABLED', false),
         'site_key' => env('RECAPTCHA_SITE_KEY'),
