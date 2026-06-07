@@ -42,7 +42,7 @@
     <div class="header">
         <div class="title">Leaderboard - {{ $tryout->name }}</div>
         <div class="meta">Paket: {{ $package->name }}</div>
-        <div class="meta">Filter tujuan: {{ $destinationFilter['label'] ?? 'Semua kategori tujuan' }}</div>
+        <div class="meta">Filter tujuan: {{ $destinationFilter['label'] ?? 'Semua tujuan / instansi' }}</div>
         <div class="meta">Tanggal export: {{ now()->format('d M Y H:i') }}</div>
     </div>
 
@@ -52,7 +52,7 @@
                 <th class="text-center">Peringkat</th>
                 <th>Peserta</th>
                 <th>Email</th>
-                <th>Kategori Tujuan</th>
+                <th>Tujuan / Instansi</th>
                 <th class="text-center">Skor</th>
                 <th class="text-center">Skor Maks</th>
                 <th class="text-center">Status</th>

@@ -7,11 +7,11 @@
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Kategori Materi</h1>
-            <p class="text-gray-600">Kelola kategori untuk mengelompokkan materi pembelajaran</p>
+            <p class="text-gray-600">Kelola kategori utama dan kategori materi untuk materi pembelajaran</p>
         </div>
         <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2">
             <i class="ri-add-line"></i>
-            Tambah Kategori
+            Tambah Kategori Utama
         </button>
     </div>
 
@@ -54,14 +54,14 @@
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button onclick="openSubcategoryModal({{ $category->category_id }}, @js($category->name))"
                             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary hover:text-white transition mr-3 text-xs font-semibold"
-                            title="Tambah Sub Category">
+                            title="Tambah Kategori Materi">
                             <i class="ri-add-line"></i>
-                            Tambah Sub Category
+                            Tambah Kategori Materi
                         </button>
                         <button onclick="openEditModal({{ $category->category_id }}, @js($category->name), @js($category->description), @js($category->icon), {{ $category->order_number }}, {{ $category->is_active ? 'true' : 'false' }}, {{ $category->parent_id ?? 'null' }})" class="text-blue-600 hover:text-blue-900 mr-3" title="Edit">
                             <i class="ri-edit-line text-lg"></i>
                         </button>
-                        <form action="{{ route('admin.material.material-category.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori ini?')">
+                        <form action="{{ route('admin.material.material-category.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori utama ini?')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="text-red-600 hover:text-red-900">
@@ -80,7 +80,7 @@
                             </span>
                             <div>
                                 <div class="text-sm font-medium text-gray-900">{{ $child->name }}</div>
-                                <div class="text-xs text-gray-500">Sub dari {{ $category->name }} · Order: {{ $child->order_number }}</div>
+                                <div class="text-xs text-gray-500">Kategori Materi dari {{ $category->name }} · Order: {{ $child->order_number }}</div>
                             </div>
                         </div>
                     </td>
@@ -103,7 +103,7 @@
                         <button onclick="openEditModal({{ $child->category_id }}, @js($child->name), @js($child->description), @js($child->icon), {{ $child->order_number }}, {{ $child->is_active ? 'true' : 'false' }}, {{ $child->parent_id ?? 'null' }})" class="text-blue-600 hover:text-blue-900 mr-3">
                             <i class="ri-edit-line text-lg"></i>
                         </button>
-                        <form action="{{ route('admin.material.material-category.destroy', $child) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus subkategori ini?')">
+                        <form action="{{ route('admin.material.material-category.destroy', $child) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori materi ini?')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="text-red-600 hover:text-red-900">
@@ -117,7 +117,7 @@
                 <tr>
                     <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                         <i class="ri-folder-5-line text-4xl mb-2"></i>
-                        <p>Belum ada kategori materi</p>
+                        <p>Belum ada kategori utama</p>
                     </td>
                 </tr>
                 @endforelse
@@ -130,7 +130,7 @@
 <div id="createModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
         <div class="flex justify-between items-center p-5 border-b border-gray-100">
-            <h3 class="text-lg font-semibold text-gray-800">Tambah Kategori</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Tambah Kategori Utama</h3>
             <button onclick="closeModal('createModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
                 <i class="ri-close-line text-xl"></i>
             </button>
@@ -139,7 +139,7 @@
             @csrf
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Kategori <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Kategori Utama <span class="text-red-500">*</span></label>
                     <input type="text" name="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
                 <div>
@@ -182,11 +182,11 @@
                     <input type="text" name="name" id="editName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kategori Utama</label>
                     <select name="parent_id" id="editParent" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">Kategori utama</option>
                         @foreach($parentOptions as $parent)
-                        <option value="{{ $parent->category_id }}">Subkategori dari {{ $parent->name }}</option>
+                        <option value="{{ $parent->category_id }}">Kategori materi dari {{ $parent->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -222,8 +222,8 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
         <div class="flex justify-between items-center p-5 border-b border-gray-100">
             <div>
-                <h3 class="text-lg font-semibold text-gray-800">Tambah Subkategori</h3>
-                <p class="text-sm text-gray-500">Parent: <span id="subcategoryParentName" class="font-medium text-gray-700"></span></p>
+                <h3 class="text-lg font-semibold text-gray-800">Tambah Kategori Materi</h3>
+                <p class="text-sm text-gray-500">Kategori Utama: <span id="subcategoryParentName" class="font-medium text-gray-700"></span></p>
             </div>
             <button onclick="closeModal('subcategoryModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
                 <i class="ri-close-line text-xl"></i>
@@ -234,7 +234,7 @@
             <input type="hidden" name="parent_id" id="subcategoryParentId">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Subkategori <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Kategori Materi <span class="text-red-500">*</span></label>
                     <input type="text" name="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
                 <div>
@@ -253,7 +253,7 @@
             </div>
             <div class="flex justify-end gap-2 mt-6">
                 <button type="button" onclick="closeModal('subcategoryModal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">Simpan Subkategori</button>
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">Simpan Kategori Materi</button>
             </div>
         </form>
     </div>

@@ -101,7 +101,7 @@ class MaterialManagementController extends Controller
             'duration_minutes.min' => 'Durasi minimal 1 menit.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
-            'category_id.exists' => 'Kategori tidak valid.',
+            'category_id.exists' => 'Kategori materi tidak valid.',
             'price.numeric' => 'Harga harus berupa angka.',
             'price.min' => 'Harga minimal 0.',
         ]);
@@ -152,9 +152,18 @@ class MaterialManagementController extends Controller
             ->with('activeChildren')
             ->ordered()
             ->get();
-        $selectedCategory = $material->categories->first()?->category_id;
+        $selectedCategoryId = old('category_id', $material->categories->first()?->category_id);
+        $selectedCategory = $selectedCategoryId
+            ? MaterialCategory::with('parent')->find($selectedCategoryId)
+            : null;
+        $selectedGoalCategoryId = $selectedCategory?->parent_id ?? $selectedCategory?->category_id;
 
-        return view('admin.pages.material.edit', compact('material', 'categories', 'selectedCategory'));
+        return view('admin.pages.material.edit', compact(
+            'material',
+            'categories',
+            'selectedCategoryId',
+            'selectedGoalCategoryId'
+        ));
     }
 
     /**
@@ -190,7 +199,7 @@ class MaterialManagementController extends Controller
             'duration_minutes.min' => 'Durasi minimal 1 menit.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
-            'category_id.exists' => 'Kategori tidak valid.',
+            'category_id.exists' => 'Kategori materi tidak valid.',
             'price.numeric' => 'Harga harus berupa angka.',
             'price.min' => 'Harga minimal 0.',
         ]);

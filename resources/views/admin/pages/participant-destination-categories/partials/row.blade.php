@@ -10,7 +10,7 @@
 
         <div class="md:col-span-4">
             <label class="block text-xs font-medium text-gray-500 mb-1">
-                {{ $isChild ? 'Sub Category' : 'Instansi' }}
+                {{ $isChild ? 'Sub Tujuan' : 'Instansi' }}
             </label>
             <div class="{{ $isChild ? 'flex items-center gap-2' : '' }}">
                 @if($isChild)
@@ -30,7 +30,7 @@
             <label class="block text-xs font-medium text-gray-500 mb-1">Parent</label>
             <select name="parent_id"
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                <option value="">Kategori utama</option>
+                <option value="">Instansi utama</option>
                 @foreach($parentOptions as $parent)
                     @if($parent->id !== $category->id)
                         <option value="{{ $parent->id }}" @selected((int) old('parent_id', $category->parent_id) === (int) $parent->id)>
@@ -58,7 +58,7 @@
                 <button type="button"
                     onclick="openDestinationSubcategoryModal({{ $category->id }}, @js($category->name))"
                     class="px-3 py-2 border border-primary/30 text-primary rounded-lg hover:bg-primary hover:text-white text-sm whitespace-nowrap">
-                    Tambah Sub Category
+                    Tambah Sub Tujuan
                 </button>
             @endif
             <button type="submit"
@@ -70,7 +70,7 @@
 
     <form action="{{ route('admin.participant-destination-categories.destroy', $category) }}" method="POST"
         class="mt-3 flex items-center justify-between gap-3"
-        onsubmit="return confirm('Hapus kategori tujuan ini? Peserta yang memakai kategori ini akan dikosongkan.');">
+        onsubmit="return confirm('Hapus tujuan / instansi ini? Peserta yang memakai tujuan ini akan dikosongkan.');">
         @csrf
         @method('DELETE')
         <p class="text-xs text-gray-500">

@@ -22,17 +22,19 @@
 
         return in_array($feature . '.view', $permissionSlugs, true);
     };
+    $isMaterialManagementActive = request()->routeIs('admin.material.index')
+        || request()->routeIs('admin.material.create')
+        || request()->routeIs('admin.material.edit');
+    $isCategoryActive = request()->routeIs('admin.material.material-category.*')
+        || request()->routeIs('admin.participant-destination-categories.*');
     $isMasterActive = request()->routeIs('admin.package.*')
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
-        || request()->routeIs('admin.material.*')
-        || request()->routeIs('admin.material-category.*')
-        || request()->routeIs('admin.question-bank.*');
+        || $isMaterialManagementActive;
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
     $isUserActive = request()->routeIs('admin.user.*')
-        || request()->routeIs('admin.akses.*')
-        || request()->routeIs('admin.participant-destination-categories.*');
+        || request()->routeIs('admin.akses.*');
     $isReportActive = request()->routeIs('admin.leaderboard.*')
         || request()->routeIs('admin.laporan.*')
         || request()->routeIs('admin.essay-review.*')
@@ -97,27 +99,49 @@
                         @endif
                         <li>
                             <a href="{{ route('admin.material.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.index') || request()->routeIs('admin.material.create') || request()->routeIs('admin.material.edit') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                class="flex items-center py-2 px-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <i
-                                    class="ri-book-open-line text-[20px] {{ request()->routeIs('admin.material.index') || request()->routeIs('admin.material.create') || request()->routeIs('admin.material.edit') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                    class="ri-book-open-line text-[20px] {{ $isMaterialManagementActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                                 <span class="ms-3">Manajemen Materi</span>
                             </a>
                         </li>
+                    </ul>
+                </details>
+            </li>
+            @if($canFeatureView('question_bank'))
+            <li>
+                <a href="{{ route('admin.question-bank.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i
+                        class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Bank Soal</span>
+                </a>
+            </li>
+            @endif
+            <li>
+                <details id="menu-category" class="group" {{ $isCategoryActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isCategoryActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
+                        <span class="flex items-center">
+                            <i class="ri-folder-settings-line text-[20px] {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">Kategori</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    </summary>
+                    <ul class="mt-1 ms-2 space-y-1">
                         <li>
                             <a href="{{ route('admin.material.material-category.index') }}"
                                 class="flex items-center py-2 px-4 {{ request()->routeIs('admin.material.material-category.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <i
-                                    class="ri-folder-line text-[20px] {{ request()->routeIs('admin.material.material-category.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                                <span class="ms-3">Kategori</span>
+                                    class="ri-bookmark-3-line text-[20px] {{ request()->routeIs('admin.material.material-category.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Kategori Materi</span>
                             </a>
                         </li>
-                        @if($canFeatureView('question_bank'))
+                        @if($canFeatureView('user'))
                         <li>
-                            <a href="{{ route('admin.question-bank.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <i
-                                    class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                                <span class="ms-3">Bank Soal</span>
+                            <a href="{{ route('admin.participant-destination-categories.index') }}"
+                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.participant-destination-categories.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <i class="ri-building-2-line text-[20px] {{ request()->routeIs('admin.participant-destination-categories.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                                <span class="ms-3">Tujuan / Instansi</span>
                             </a>
                         </li>
                         @endif
@@ -160,13 +184,6 @@
                                 class="flex items-center py-2 px-4 {{ request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <i class="ri-user-shared-line text-[20px] {{ request()->routeIs('admin.user.login-as-page') ? $iconActiveClass : $iconInactiveClass }}"></i>
                                 <span class="ms-3">Login As User</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('admin.participant-destination-categories.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.participant-destination-categories.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <i class="ri-map-pin-line text-[20px] {{ request()->routeIs('admin.participant-destination-categories.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                                <span class="ms-3">Kategori Tujuan</span>
                             </a>
                         </li>
                         @endif

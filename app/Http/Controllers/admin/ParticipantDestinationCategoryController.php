@@ -39,7 +39,9 @@ class ParticipantDestinationCategoryController extends Controller
 
         return redirect()
             ->route('admin.participant-destination-categories.index')
-            ->with('success', 'Kategori tujuan peserta berhasil ditambahkan.');
+            ->with('success', !empty($validated['parent_id'])
+                ? 'Sub tujuan berhasil ditambahkan.'
+                : 'Instansi tujuan berhasil ditambahkan.');
     }
 
     public function update(Request $request, ParticipantDestinationCategory $participantDestinationCategory)
@@ -48,13 +50,13 @@ class ParticipantDestinationCategoryController extends Controller
 
         if ((int) ($validated['parent_id'] ?? 0) === (int) $participantDestinationCategory->id) {
             return back()
-                ->withErrors(['parent_id' => 'Kategori tidak bisa menjadi subkategori dirinya sendiri.'])
+                ->withErrors(['parent_id' => 'Tujuan tidak bisa menjadi sub tujuan dirinya sendiri.'])
                 ->withInput();
         }
 
         if ($participantDestinationCategory->children()->exists() && !empty($validated['parent_id'])) {
             return back()
-                ->withErrors(['parent_id' => 'Kategori yang sudah memiliki subkategori tidak bisa dijadikan subkategori.'])
+                ->withErrors(['parent_id' => 'Instansi yang sudah memiliki sub tujuan tidak bisa dijadikan sub tujuan.'])
                 ->withInput();
         }
 
@@ -69,7 +71,9 @@ class ParticipantDestinationCategoryController extends Controller
 
         return redirect()
             ->route('admin.participant-destination-categories.index')
-            ->with('success', 'Kategori tujuan peserta berhasil diperbarui.');
+            ->with('success', !empty($validated['parent_id'])
+                ? 'Sub tujuan berhasil diperbarui.'
+                : 'Instansi tujuan berhasil diperbarui.');
     }
 
     public function destroy(ParticipantDestinationCategory $participantDestinationCategory)
@@ -78,7 +82,7 @@ class ParticipantDestinationCategoryController extends Controller
 
         return redirect()
             ->route('admin.participant-destination-categories.index')
-            ->with('success', 'Kategori tujuan peserta berhasil dihapus.');
+            ->with('success', 'Tujuan / instansi berhasil dihapus.');
     }
 
     private function validateCategory(Request $request, ?ParticipantDestinationCategory $category = null): array

@@ -121,7 +121,7 @@
                             </select>
                         </div>
                         @if($destinationCategories->isEmpty())
-                        <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Tambahkan di menu Kategori Tujuan.</p>
+                        <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Tambahkan di menu Kategori > Tujuan / Instansi.</p>
                         @else
                         <p class="text-xs text-gray-500 mt-1">Pilih instansi dulu, lalu pilih prodi/sub jika tersedia.</p>
                         @endif

@@ -47,7 +47,7 @@ class MaterialCategoryController extends Controller
             'name.max' => 'Nama kategori maksimal 255 karakter.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
-            'parent_id.exists' => 'Parent kategori tidak valid.',
+            'parent_id.exists' => 'Kategori utama tidak valid.',
         ]);
 
         // Set default order_number if not provided
@@ -58,7 +58,9 @@ class MaterialCategoryController extends Controller
         MaterialCategory::create($validated);
 
         return redirect()->route('admin.material.material-category.index')
-            ->with('success', 'Kategori materi berhasil ditambahkan.');
+            ->with('success', !empty($validated['parent_id'])
+                ? 'Kategori materi berhasil ditambahkan.'
+                : 'Kategori utama berhasil ditambahkan.');
     }
 
     /**
@@ -81,18 +83,18 @@ class MaterialCategoryController extends Controller
             'name.max' => 'Nama kategori maksimal 255 karakter.',
             'order_number.integer' => 'Nomor urut harus berupa angka.',
             'order_number.min' => 'Nomor urut minimal 0.',
-            'parent_id.exists' => 'Parent kategori tidak valid.',
+            'parent_id.exists' => 'Kategori utama tidak valid.',
         ]);
 
         if ((int) ($validated['parent_id'] ?? 0) === (int) $category->category_id) {
             return redirect()->route('admin.material.material-category.index')
-                ->withErrors(['parent_id' => 'Kategori tidak bisa menjadi subkategori dirinya sendiri.'])
+                ->withErrors(['parent_id' => 'Kategori tidak bisa menjadi kategori materi dirinya sendiri.'])
                 ->withInput();
         }
 
         if ($category->children()->exists() && !empty($validated['parent_id'])) {
             return redirect()->route('admin.material.material-category.index')
-                ->withErrors(['parent_id' => 'Kategori yang sudah memiliki subkategori tidak bisa dijadikan subkategori.'])
+                ->withErrors(['parent_id' => 'Kategori utama yang sudah memiliki kategori materi tidak bisa dijadikan kategori materi.'])
                 ->withInput();
         }
 
@@ -101,7 +103,9 @@ class MaterialCategoryController extends Controller
         $category->update($validated);
 
         return redirect()->route('admin.material.material-category.index')
-            ->with('success', 'Kategori materi berhasil diperbarui.');
+            ->with('success', !empty($validated['parent_id'])
+                ? 'Kategori materi berhasil diperbarui.'
+                : 'Kategori utama berhasil diperbarui.');
     }
 
     /**
@@ -125,6 +129,6 @@ class MaterialCategoryController extends Controller
         $category->delete();
 
         return redirect()->route('admin.material.material-category.index')
-            ->with('success', 'Kategori materi berhasil dihapus.');
+            ->with('success', 'Kategori berhasil dihapus.');
     }
 }

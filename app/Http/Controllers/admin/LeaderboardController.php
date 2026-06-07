@@ -144,7 +144,7 @@ class LeaderboardController extends Controller
             'Peringkat',
             'Nama Peserta',
             'Email',
-            'Kategori Tujuan',
+            'Tujuan / Instansi',
             'Skor',
             'Skor Maks',
             'Status',
@@ -313,7 +313,7 @@ class LeaderboardController extends Controller
                 'category_id' => null,
                 'subcategory_id' => null,
                 'ids' => [],
-                'label' => 'Semua kategori tujuan',
+                'label' => 'Semua tujuan / instansi',
             ];
         }
 

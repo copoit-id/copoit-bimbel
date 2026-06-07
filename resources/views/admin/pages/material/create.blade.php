@@ -3,6 +3,20 @@
 @section('title', 'Tambah Materi')
 
 @section('content')
+@php
+    $materialCategoryTree = $categories->map(function ($category) {
+        return [
+            'id' => $category->category_id,
+            'name' => $category->name,
+            'children' => $category->activeChildren->map(function ($child) {
+                return [
+                    'id' => $child->category_id,
+                    'name' => $child->name,
+                ];
+            })->values(),
+        ];
+    })->values();
+@endphp
 <div class="container mx-auto px-4">
     <div class="mb-6">
         <a href="{{ route('admin.material.index') }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 mb-2">
@@ -94,23 +108,23 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                        <select name="category_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            <option value="">(Tidak ada)</option>
-                            @foreach($categories as $category)
-                                @if($category->activeChildren->isEmpty())
-                                <option value="{{ $category->category_id }}" {{ old('category_id') == $category->category_id ? 'selected' : '' }}>{{ $category->name }}</option>
-                                @else
-                                <optgroup label="{{ $category->name }}">
-                                    <option value="{{ $category->category_id }}" {{ old('category_id') == $category->category_id ? 'selected' : '' }}>Semua {{ $category->name }}</option>
-                                    @foreach($category->activeChildren as $child)
-                                    <option value="{{ $child->category_id }}" {{ old('category_id') == $child->category_id ? 'selected' : '' }}>{{ $child->name }}</option>
-                                    @endforeach
-                                </optgroup>
-                                @endif
-                            @endforeach
-                        </select>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Kategori Utama</label>
+                            <select id="goalCategoryId" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">Pilih kategori utama</option>
+                                @foreach($categories as $category)
+                                <option value="{{ $category->category_id }}">{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Kategori Materi</label>
+                            <select name="category_id" id="materialCategoryId" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" disabled>
+                                <option value="">Pilih kategori utama terlebih dahulu</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1" id="materialCategoryHint">Opsi kategori materi mengikuti kategori utama yang dipilih.</p>
+                        </div>
                     </div>
 
                     <div>
@@ -157,6 +171,79 @@
     
     // Initialize on load
     updatePlaceholder();
+
+    const materialCategoryTree = @json($materialCategoryTree);
+    const selectedMaterialCategoryId = Number(@json((int) old('category_id', 0)));
+    const goalCategorySelect = document.getElementById('goalCategoryId');
+    const materialCategorySelect = document.getElementById('materialCategoryId');
+    const materialCategoryHint = document.getElementById('materialCategoryHint');
+
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const findGoalCategoryId = (categoryId) => {
+        if (!categoryId) return '';
+
+        for (const goal of materialCategoryTree) {
+            if (Number(goal.id) === Number(categoryId)) {
+                return goal.id;
+            }
+
+            if ((goal.children || []).some(child => Number(child.id) === Number(categoryId))) {
+                return goal.id;
+            }
+        }
+
+        return '';
+    };
+
+    const renderMaterialCategoryOptions = (goalId, selectedId = '') => {
+        if (!goalCategorySelect || !materialCategorySelect) return;
+
+        const goal = materialCategoryTree.find(item => Number(item.id) === Number(goalId));
+        materialCategorySelect.innerHTML = '';
+
+        if (!goal) {
+            materialCategorySelect.disabled = true;
+            materialCategorySelect.innerHTML = '<option value="">Pilih kategori utama terlebih dahulu</option>';
+            if (materialCategoryHint) {
+                materialCategoryHint.textContent = 'Opsi kategori materi mengikuti kategori utama yang dipilih.';
+            }
+            return;
+        }
+
+        materialCategorySelect.disabled = false;
+        const options = [
+            { id: goal.id, name: `Semua ${goal.name}` },
+            ...(goal.children || []),
+        ];
+
+        materialCategorySelect.innerHTML = options
+            .map(option => `<option value="${option.id}" ${Number(option.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(option.name)}</option>`)
+            .join('');
+
+        if (materialCategoryHint) {
+            materialCategoryHint.textContent = (goal.children || []).length > 0
+                ? 'Pilih kategori materi untuk kategori utama ini.'
+                : 'Kategori utama ini belum punya kategori materi khusus. Materi akan disimpan ke kategori utama ini.';
+        }
+    };
+
+    if (goalCategorySelect && materialCategorySelect) {
+        const initialGoalCategoryId = findGoalCategoryId(selectedMaterialCategoryId);
+        if (initialGoalCategoryId) {
+            goalCategorySelect.value = initialGoalCategoryId;
+            renderMaterialCategoryOptions(initialGoalCategoryId, selectedMaterialCategoryId);
+        }
+
+        goalCategorySelect.addEventListener('change', () => {
+            renderMaterialCategoryOptions(goalCategorySelect.value, goalCategorySelect.value);
+        });
+    }
 
     const materialTitleInput = document.getElementById('materialTitle');
     const contentUrlInput = document.getElementById('contentUrl');
