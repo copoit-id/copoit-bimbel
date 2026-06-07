@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\Package;
 use Carbon\Carbon;
+use RuntimeException;
 
 class Payment extends Model
 {
@@ -18,6 +19,8 @@ class Payment extends Model
 
     protected $casts = [
         'amount' => 'decimal:0',
+        'unique_code' => 'integer',
+        'unique_code_date' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'paid_at' => 'datetime',
@@ -31,6 +34,55 @@ class Payment extends Model
     public function package()
     {
         return $this->belongsTo(Package::class, 'package_id', 'package_id');
+    }
+
+    public function getFormattedAmountAttribute(): string
+    {
+        return 'Rp ' . number_format((float) $this->total_amount, 0, ',', '.');
+    }
+
+    public static function generateManualUniqueCode(array $reservedCodes = []): int
+    {
+        $usedCodes = self::query()
+            ->where('payment_method', 'manual')
+            ->where('status', self::STATUS_PENDING)
+            ->whereDate('unique_code_date', now()->toDateString())
+            ->whereNotNull('unique_code')
+            ->pluck('unique_code')
+            ->map(fn ($code) => (int) $code)
+            ->all();
+
+        $blockedCodes = array_unique(array_merge($usedCodes, array_map('intval', $reservedCodes)));
+
+        if (count($blockedCodes) >= 999) {
+            throw new RuntimeException('Kode unik pembayaran manual hari ini sudah habis.');
+        }
+
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $code = random_int(1, 999);
+
+            if (!in_array($code, $blockedCodes, true)) {
+                return $code;
+            }
+        }
+
+        for ($code = 1; $code <= 999; $code++) {
+            if (!in_array($code, $blockedCodes, true)) {
+                return $code;
+            }
+        }
+
+        throw new RuntimeException('Kode unik pembayaran manual hari ini sudah habis.');
+    }
+
+    public static function isManualUniqueCodeAvailable(int $code): bool
+    {
+        return !self::query()
+            ->where('payment_method', 'manual')
+            ->where('status', self::STATUS_PENDING)
+            ->whereDate('unique_code_date', now()->toDateString())
+            ->where('unique_code', $code)
+            ->exists();
     }
 
     // Status constants

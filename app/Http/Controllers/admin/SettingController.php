@@ -30,6 +30,7 @@ class SettingController extends Controller
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'payment_unique_code_enabled' => true,
             'payment_gateway' => 'xendit',
             'payment_gateway_mode' => 'sandbox',
             'xendit_secret_key' => null,
@@ -65,6 +66,7 @@ class SettingController extends Controller
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string', 'max:255'],
+            'payment_unique_code_enabled' => ['nullable', 'boolean'],
             'payment_gateway' => ['nullable', 'in:xendit,midtrans'],
             'payment_gateway_mode' => ['nullable', 'in:sandbox,production'],
             'xendit_secret_key' => ['nullable', 'string', 'max:255'],
@@ -222,6 +224,7 @@ class SettingController extends Controller
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['enable_utbk_types'] = false;
         $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
+        $validated['payment_unique_code_enabled'] = $request->boolean('payment_unique_code_enabled');
         $validated['payment_gateway'] = $validated['payment_gateway']
             ?? ($profile->payment_gateway ?? 'xendit');
         $validated['payment_gateway_mode'] = $validated['payment_gateway_mode']

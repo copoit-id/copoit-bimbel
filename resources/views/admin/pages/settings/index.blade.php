@@ -31,7 +31,8 @@
     'payment_bank_name',
     'payment_account_number',
     'payment_account_holder',
-    'payment_bank_note'
+    'payment_bank_note',
+    'payment_unique_code_enabled'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'payment';
     } elseif (collect($settingErrorKeys)->intersect([
@@ -229,6 +230,10 @@
             $paymentMode = old('payment_mode', $profile->payment_mode ?? ($branding['payment_mode'] ?? 'gateway'));
             $paymentGateway = old('payment_gateway', $profile->payment_gateway ?? ($branding['payment_gateway'] ?? 'xendit'));
             $paymentGatewayMode = old('payment_gateway_mode', $profile->payment_gateway_mode ?? ($branding['payment_gateway_mode'] ?? 'sandbox'));
+            $paymentUniqueCodeEnabled = old(
+                'payment_unique_code_enabled',
+                (int) ($profile->payment_unique_code_enabled ?? ($branding['payment_unique_code_enabled'] ?? true))
+            );
             @endphp
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
@@ -251,6 +256,16 @@
             @error('payment_mode')
             <p class="text-xs text-red-500">{{ $message }}</p>
             @enderror
+            <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                <input type="hidden" name="payment_unique_code_enabled" value="0">
+                <input type="checkbox" name="payment_unique_code_enabled" value="1"
+                    class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                    {{ (int) $paymentUniqueCodeEnabled === 1 ? 'checked' : '' }}>
+                <div>
+                    <p class="font-semibold text-gray-900">Aktifkan kode unik manual</p>
+                    <p class="text-xs text-gray-500">Jika aktif, tagihan manual ditambah 3 digit unik agar admin lebih mudah mencocokkan transfer.</p>
+                </div>
+            </label>
             <div id="payment-manual-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div>
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Nama Bank</label>

@@ -52,8 +52,27 @@ class PackageController extends Controller
                 ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         }
+
+        $manualPaymentUniqueCodes = [];
+        $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
+        $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
+
+        if (Auth::check() && $tab === 'paid' && $paymentMode === 'manual' && $paymentUniqueCodeEnabled) {
+            $reservedCodes = [];
+
+            foreach ($packages as $package) {
+                $uniqueCode = Payment::generateManualUniqueCode($reservedCodes);
+                $reservedCodes[] = $uniqueCode;
+                $manualPaymentUniqueCodes[$package->package_id] = $uniqueCode;
+            }
+        }
         
-        return view('user.pages.package.new-index', compact('packages', 'tab', 'userOwnedPackageIds'));
+        return view('user.pages.package.new-index', compact(
+            'packages',
+            'tab',
+            'userOwnedPackageIds',
+            'manualPaymentUniqueCodes'
+        ));
     }
 
     public function buyPackage(Request $request, $package_id)
@@ -119,16 +138,36 @@ class PackageController extends Controller
 
                     $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
                     if ($paymentMode === 'manual') {
-                        $validated = $request->validate([
+                        $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
+                        $rules = [
                             'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
-                        ], [
+                        ];
+
+                        if ($paymentUniqueCodeEnabled) {
+                            $rules['payment_unique_code'] = 'required|integer|min:1|max:999';
+                        }
+
+                        $validated = $request->validate($rules, [
                             'payment_proof.required' => 'Bukti pembayaran wajib diunggah.',
                             'payment_proof.mimes' => 'Format bukti harus berupa JPG, PNG, atau PDF.',
                             'payment_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                            'payment_unique_code.required' => 'Kode unik pembayaran tidak valid. Silakan buka ulang modal pembayaran.',
                         ]);
+
+                        $uniqueCode = $paymentUniqueCodeEnabled
+                            ? (int) $validated['payment_unique_code']
+                            : 0;
+
+                        if ($paymentUniqueCodeEnabled && !Payment::isManualUniqueCodeAvailable($uniqueCode)) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Kode unik pembayaran sudah dipakai. Silakan buka ulang modal pembayaran.'
+                            ], 409);
+                        }
 
                         $proofPath = $validated['payment_proof']->store('payment-proofs', 'public');
                         $transactionId = 'MANUAL-' . $package->package_id . '-' . Auth::id() . '-' . time();
+                        $totalAmount = (int) $package->price + $uniqueCode;
 
                         Payment::create([
                             'transaction_id' => $transactionId,
@@ -136,12 +175,16 @@ class PackageController extends Controller
                             'package_id' => $package->package_id,
                             'amount' => $package->price,
                             'admin_fee' => 0,
-                            'total_amount' => $package->price,
+                            'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
+                            'unique_code_date' => $paymentUniqueCodeEnabled ? now()->toDateString() : null,
+                            'total_amount' => $totalAmount,
                             'status' => Payment::STATUS_PENDING,
                             'payment_method' => 'manual',
                             'payment_details' => json_encode([
                                 'proof_path' => $proofPath,
                                 'proof_name' => $validated['payment_proof']->getClientOriginalName(),
+                                'base_amount' => (int) $package->price,
+                                'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
                             ]),
                         ]);
 

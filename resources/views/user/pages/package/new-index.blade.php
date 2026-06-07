@@ -9,6 +9,7 @@ $paymentMode = $clientBranding['payment_mode'] ?? 'gateway';
 $bankName = $clientBranding['payment_bank_name'] ?? '';
 $accountNumber = $clientBranding['payment_account_number'] ?? '';
 $accountHolder = $clientBranding['payment_account_holder'] ?? '';
+$paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled'] ?? true);
 @endphp
 
 <!-- Header -->
@@ -122,7 +123,7 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                     @else
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
                         @csrf
-                        <button type="button" onclick="handleBuy({{ $package->package_id }}, {{ $package->price }}, '{{ $package->name }}')"
+                        <button type="button" onclick="handleBuy({{ $package->package_id }}, {{ $package->price }}, @js($package->name))"
                                 class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-shopping-cart-line mr-1"></i>Beli
@@ -187,7 +188,15 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                         <span class="font-semibold text-gray-800">{{ $accountHolder ?: '-' }}</span>
                     </div>
                     <div class="flex justify-between border-t pt-2 mt-2">
-                        <span class="text-gray-500">Jumlah</span>
+                        <span class="text-gray-500">Harga Paket</span>
+                        <span class="font-semibold text-gray-800" id="baseAmountDisplay">Rp 0</span>
+                    </div>
+                    <div class="flex justify-between {{ $paymentUniqueCodeEnabled ? '' : 'hidden' }}" id="uniqueCodeRow">
+                        <span class="text-gray-500">Kode Unik</span>
+                        <span class="font-semibold text-gray-800" id="uniqueCodeDisplay">000</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2">
+                        <span class="text-gray-500">Total Bayar</span>
                         <span class="font-bold text-lg" style="color: {{ $primaryColor }}" id="paymentAmountDisplay">Rp 0</span>
                     </div>
                 </div>
@@ -195,6 +204,7 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
 
             <form id="paymentForm" method="POST" enctype="multipart/form-data">
                 @csrf
+                <input type="hidden" name="payment_unique_code" id="paymentUniqueCode" value="">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Transfer <span class="text-red-500">*</span></label>
@@ -257,6 +267,8 @@ $paymentModeConfig = $clientBranding['payment_mode'] ?? 'gateway';
 @push('scripts')
 <script>
 const PAYMENT_MODE = '{{ $paymentModeConfig }}';
+const PAYMENT_UNIQUE_CODE_ENABLED = @json($paymentUniqueCodeEnabled);
+const MANUAL_PAYMENT_UNIQUE_CODES = @json($manualPaymentUniqueCodes ?? []);
 let selectedPackageId = null;
 let selectedPrice = 0;
 let selectedPackageName = '';
@@ -267,7 +279,13 @@ function handleBuy(packageId, price, packageName) {
     selectedPackageName = packageName;
 
     if (PAYMENT_MODE === 'manual') {
-        document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(price);
+        const uniqueCode = PAYMENT_UNIQUE_CODE_ENABLED ? Number(MANUAL_PAYMENT_UNIQUE_CODES[packageId] || 0) : 0;
+        const totalAmount = Number(price) + uniqueCode;
+
+        document.getElementById('baseAmountDisplay').textContent = 'Rp ' + formatNumber(price);
+        document.getElementById('uniqueCodeDisplay').textContent = String(uniqueCode).padStart(3, '0');
+        document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED ? uniqueCode : '';
+        document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(totalAmount);
         document.getElementById('paymentError').classList.add('hidden');
         document.getElementById('paymentProof').value = '';
         document.getElementById('proofPreview').classList.add('hidden');

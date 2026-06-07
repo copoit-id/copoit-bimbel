@@ -90,6 +90,12 @@
                 <span class="text-gray-600">Biaya Admin:</span>
                 <span class="font-medium">Rp {{ number_format($payment->admin_fee, 0, ',', '.') }}</span>
             </div>
+            @if($payment->unique_code)
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Kode Unik:</span>
+                <span class="font-medium">Rp {{ number_format($payment->unique_code, 0, ',', '.') }}</span>
+            </div>
+            @endif
             <div class="flex justify-between py-3 border-t-2 border-gray-200">
                 <span class="text-lg font-semibold text-gray-800">Total Bayar:</span>
                 <span class="text-lg font-bold text-primary">Rp {{ number_format($payment->total_amount, 0, ',', '.')

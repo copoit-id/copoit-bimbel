@@ -45,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
             'payment_account_number' => null,
             'payment_account_holder' => null,
             'payment_bank_note' => null,
+            'payment_unique_code_enabled' => true,
             'payment_gateway' => 'xendit',
             'payment_gateway_mode' => 'sandbox',
             'xendit_secret_key' => null,
@@ -80,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['payment_account_number'] = $clientProfile->payment_account_number ?? $defaults['payment_account_number'];
             $defaults['payment_account_holder'] = $clientProfile->payment_account_holder ?? $defaults['payment_account_holder'];
             $defaults['payment_bank_note'] = $clientProfile->payment_bank_note ?? $defaults['payment_bank_note'];
+            $defaults['payment_unique_code_enabled'] = (bool) ($clientProfile->payment_unique_code_enabled ?? $defaults['payment_unique_code_enabled']);
             $defaults['payment_gateway'] = $clientProfile->payment_gateway ?: $defaults['payment_gateway'];
             $defaults['payment_gateway_mode'] = $clientProfile->payment_gateway_mode ?: $defaults['payment_gateway_mode'];
             $defaults['xendit_secret_key'] = $clientProfile->xendit_secret_key ?? $defaults['xendit_secret_key'];
