@@ -945,6 +945,53 @@ class QuestionBankController extends Controller
             ->with('success', 'Soal dari bank berhasil ditambahkan.');
     }
 
+    public function bulkMoveQuestions(Request $request)
+    {
+        $validated = $request->validate([
+            'question_ids' => ['required', 'array', 'min:1'],
+            'question_ids.*' => ['exists:question_bank_questions,id'],
+            'target_question_bank_id' => ['required', 'exists:question_banks,id'],
+        ], [], [
+            'question_ids' => 'Daftar soal',
+            'target_question_bank_id' => 'Bank tujuan',
+        ]);
+
+        $questions = QuestionBankQuestion::query()
+            ->whereIn('id', $validated['question_ids'])
+            ->get(['id', 'question_bank_id']);
+
+        if ($questions->isEmpty()) {
+            return back()->with('error', 'Tidak ada soal yang dipilih.');
+        }
+
+        $targetBankId = (int) $validated['target_question_bank_id'];
+        if ($questions->every(fn($question) => (int) $question->question_bank_id === $targetBankId)) {
+            return back()->with('error', 'Pilih bank tujuan yang berbeda.');
+        }
+
+        QuestionBankQuestion::query()
+            ->whereIn('id', $questions->pluck('id'))
+            ->update(['question_bank_id' => $targetBankId]);
+
+        return back()->with('success', $questions->count() . ' soal berhasil dipindahkan.');
+    }
+
+    public function bulkDestroyQuestions(Request $request)
+    {
+        $validated = $request->validate([
+            'question_ids' => ['required', 'array', 'min:1'],
+            'question_ids.*' => ['exists:question_bank_questions,id'],
+        ], [], [
+            'question_ids' => 'Daftar soal',
+        ]);
+
+        $deleted = QuestionBankQuestion::query()
+            ->whereIn('id', $validated['question_ids'])
+            ->delete();
+
+        return back()->with('success', $deleted . ' soal berhasil dihapus dari bank.');
+    }
+
     public function destroyQuestion(QuestionBankQuestion $question)
     {
         $question->delete();

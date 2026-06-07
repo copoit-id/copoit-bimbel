@@ -188,27 +188,52 @@
                 </div>
             </div>
         </div>
-        @if ($tryoutDetail)
         <div class="mb-4 flex flex-wrap items-center gap-3">
+            <span id="bulkSelectionCount" class="text-sm text-gray-500">0 dipilih</span>
+            <form id="bulkMoveForm" action="{{ route('admin.question-bank.questions.bulk-move') }}" method="POST"
+                class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                @csrf
+                <select name="target_question_bank_id" id="bulkMoveTarget"
+                    class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                    <option value="">Pilih bank tujuan</option>
+                    @foreach($bankOptions as $bankOption)
+                    <option value="{{ $bankOption->id }}" @disabled((int) $bankOption->id === (int) $bank->id)>
+                        {{ $bankOption->path ?? $bankOption->name }}{{ (int) $bankOption->id === (int) $bank->id ? ' (saat ini)' : '' }}
+                    </option>
+                    @endforeach
+                </select>
+                <button type="submit" id="bulkMoveBtn"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400">
+                    <i class="ri-folder-transfer-line"></i>
+                    Pindahkan Terpilih
+                </button>
+            </form>
+            <form id="bulkDeleteForm" action="{{ route('admin.question-bank.questions.bulk-delete') }}" method="POST">
+                @csrf
+                @method('DELETE')
+                <button type="submit" id="bulkDeleteBtn"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400">
+                    <i class="ri-delete-bin-line"></i>
+                    Hapus Terpilih
+                </button>
+            </form>
+            @if ($tryoutDetail)
             <button type="button" id="bulkCloneBtn"
                 class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-gray-300">
                 <i class="ri-download-line"></i>
                 Gunakan Terpilih
             </button>
-            <span id="bulkSelectionCount" class="text-sm text-gray-500">0 dipilih</span>
+            <form id="bulkCloneForm" action="{{ route('admin.question-bank.questions.bulk-clone') }}" method="POST" class="hidden">
+                @csrf
+                <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
+            </form>
+            @endif
         </div>
-        <form id="bulkCloneForm" action="{{ route('admin.question-bank.questions.bulk-clone') }}" method="POST" class="hidden">
-            @csrf
-            <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
-        </form>
-        @endif
-        @if ($tryoutDetail)
         <div class="mb-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
             <input type="checkbox" id="selectAllQuestions"
                 class="rounded border-gray-300 text-primary focus:ring-primary">
             <label for="selectAllQuestions" class="text-sm font-medium text-gray-700">Pilih semua soal di halaman ini</label>
         </div>
-        @endif
 
         <div class="space-y-4" id="question-card-list">
             @forelse ($questions as $question)
@@ -249,12 +274,10 @@
                 data-type="{{ strtolower($question->question_type) }}">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="flex min-w-0 flex-1 gap-3">
-                        @if ($tryoutDetail)
                         <div class="pt-1">
                             <input type="checkbox" class="bank-question-checkbox rounded border-gray-300 text-primary focus:ring-primary"
                                 value="{{ $question->id }}">
                         </div>
-                        @endif
                         <div class="min-w-0 flex-1">
                             <div class="mb-3 flex flex-wrap items-center gap-2">
                                 <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -1166,6 +1189,11 @@
 
         const bulkCloneBtn = document.getElementById('bulkCloneBtn');
         const bulkCloneForm = document.getElementById('bulkCloneForm');
+        const bulkMoveForm = document.getElementById('bulkMoveForm');
+        const bulkMoveBtn = document.getElementById('bulkMoveBtn');
+        const bulkMoveTarget = document.getElementById('bulkMoveTarget');
+        const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
         const selectAll = document.getElementById('selectAllQuestions');
         const checkboxes = document.querySelectorAll('.bank-question-checkbox');
         const bulkSelectionCount = document.getElementById('bulkSelectionCount');
@@ -1174,17 +1202,45 @@
         const questionCount = document.getElementById('question-count');
         const noQuestionResults = document.getElementById('no-question-results');
 
-        const updateBulkState = () => {
-            if (!bulkCloneBtn || !bulkSelectionCount) {
-                return;
+        const selectedQuestionIds = () => Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+        const fillSelectedQuestionInputs = (form) => {
+            if (!form) {
+                return 0;
             }
-            const checked = Array.from(checkboxes).filter(cb => cb.checked);
-            bulkCloneBtn.disabled = checked.length === 0;
-            bulkSelectionCount.textContent = `${checked.length} dipilih`;
+
+            form.querySelectorAll('input[name="question_ids[]"]').forEach(input => input.remove());
+            selectedQuestionIds().forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'question_ids[]';
+                input.value = id;
+                form.appendChild(input);
+            });
+
+            return form.querySelectorAll('input[name="question_ids[]"]').length;
+        };
+
+        const updateBulkState = () => {
+            const checkedCount = selectedQuestionIds().length;
+            if (bulkCloneBtn) {
+                bulkCloneBtn.disabled = checkedCount === 0;
+            }
+            if (bulkMoveBtn) {
+                bulkMoveBtn.disabled = checkedCount === 0 || !bulkMoveTarget?.value;
+            }
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.disabled = checkedCount === 0;
+            }
+            if (bulkSelectionCount) {
+                bulkSelectionCount.textContent = `${checkedCount} dipilih`;
+            }
 
             if (selectAll) {
-                selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
-                selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+                selectAll.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
             }
         };
 
@@ -1218,25 +1274,32 @@
         };
 
         questionSearch?.addEventListener('input', filterQuestions);
+        bulkMoveTarget?.addEventListener('change', updateBulkState);
 
         bulkCloneBtn?.addEventListener('click', () => {
             if (!bulkCloneForm) {
                 return;
             }
 
-            bulkCloneForm.querySelectorAll('input[name="question_ids[]"]').forEach(input => input.remove());
-            Array.from(checkboxes)
-                .filter(cb => cb.checked)
-                .forEach(cb => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'question_ids[]';
-                    input.value = cb.value;
-                    bulkCloneForm.appendChild(input);
-                });
-
-            if (bulkCloneForm.querySelectorAll('input[name="question_ids[]"]').length > 0) {
+            if (fillSelectedQuestionInputs(bulkCloneForm) > 0) {
                 bulkCloneForm.submit();
+            }
+        });
+
+        bulkMoveForm?.addEventListener('submit', (event) => {
+            if (!bulkMoveTarget?.value || fillSelectedQuestionInputs(bulkMoveForm) === 0) {
+                event.preventDefault();
+            }
+        });
+
+        bulkDeleteForm?.addEventListener('submit', (event) => {
+            if (fillSelectedQuestionInputs(bulkDeleteForm) === 0) {
+                event.preventDefault();
+                return;
+            }
+
+            if (!window.confirm('Hapus semua soal yang dipilih dari bank ini?')) {
+                event.preventDefault();
             }
         });
 

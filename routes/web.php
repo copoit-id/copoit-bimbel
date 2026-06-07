@@ -377,10 +377,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/{questionBank}/questions/import-ppt/preview', [QuestionBankController::class, 'previewPptQuestions'])->name('questions.import-ppt.preview');
         Route::post('/{questionBank}/questions/import-ppt/store', [QuestionBankController::class, 'storePptQuestions'])->name('questions.import-ppt.store');
         Route::get('/questions/{question}/edit', [QuestionBankController::class, 'editQuestionForm'])->name('questions.edit');
+        Route::post('/questions/bulk-clone', [QuestionBankController::class, 'bulkCloneToTryout'])->name('questions.bulk-clone');
+        Route::post('/questions/bulk-move', [QuestionBankController::class, 'bulkMoveQuestions'])->name('questions.bulk-move');
+        Route::delete('/questions/bulk-delete', [QuestionBankController::class, 'bulkDestroyQuestions'])->name('questions.bulk-delete');
         Route::put('/questions/{question}', [QuestionBankController::class, 'updateQuestion'])->name('questions.update');
         Route::delete('/questions/{question}', [QuestionBankController::class, 'destroyQuestion'])->name('questions.destroy');
         Route::post('/questions/{question}/clone', [QuestionBankController::class, 'cloneToTryout'])->name('questions.clone');
-        Route::post('/questions/bulk-clone', [QuestionBankController::class, 'bulkCloneToTryout'])->name('questions.bulk-clone');
 
         // CRUD bank soal (show, update, delete)
         Route::get('/{questionBank}', [QuestionBankController::class, 'show'])->name('show');
