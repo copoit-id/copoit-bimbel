@@ -284,6 +284,9 @@
                     'multiple_true_false' => $formatScore($mtfScoreCorrect) . ' poin',
                     default => $formatScore($defaultWeight) . ' poin',
                 };
+                $explanationHtml = (filled($question->explanation) && $question->explanation === strip_tags($question->explanation))
+                    ? nl2br(e($question->explanation))
+                    : $question->explanation;
                 $plainQuestionText = trim(strip_tags($question->question_text));
                 $searchText = strtolower(trim(strip_tags(
                     $question->question_text . ' ' .
@@ -429,7 +432,7 @@
                             @if(filled($question->explanation))
                             <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
                                 <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Pembahasan</p>
-                                <div class="question-rich-text question-bank-preview-content text-gray-800 leading-relaxed overflow-x-auto">{!! $question->explanation !!}</div>
+                                <div class="question-rich-text question-bank-preview-content text-gray-800 leading-relaxed overflow-x-auto">{!! $explanationHtml !!}</div>
                             </div>
                             @endif
                         </div>

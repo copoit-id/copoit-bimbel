@@ -313,7 +313,7 @@ class QuestionPptImportService
         }
 
         $questionText = $this->normalizeParagraph(implode(' ', $questionLines));
-        $explanation = $this->normalizeParagraph(implode("\n", array_filter($explanationLines)));
+        $explanation = $this->normalizeExplanationHtml(implode("\n", array_filter($explanationLines)));
         $errors = [];
 
         if ($questionText === '' && $questionNumber) {
@@ -383,6 +383,20 @@ class QuestionPptImportService
             ->toString();
 
         return $text;
+    }
+
+    private function normalizeExplanationHtml(string $text): string
+    {
+        $text = $this->normalizeParagraph($text);
+        if ($text === '') {
+            return '';
+        }
+
+        return collect(preg_split('/\R/u', $text) ?: [])
+            ->map(fn ($line) => trim($line))
+            ->filter()
+            ->map(fn ($line) => '<p>' . e($line) . '</p>')
+            ->implode('');
     }
 
     private function stripExplanationPrefix(string $line): string
