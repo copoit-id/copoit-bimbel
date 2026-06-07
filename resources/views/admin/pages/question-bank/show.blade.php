@@ -201,13 +201,14 @@
                 </div>
             </div>
         </div>
-        <div class="mb-4 flex flex-wrap items-center gap-3">
-            <span id="bulkSelectionCount" class="text-sm text-gray-500">0 dipilih</span>
+        <div id="bulkActionBar" class="mb-4 hidden flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <span id="bulkSelectionCount" class="text-sm font-medium text-gray-700">0 dipilih</span>
+            <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
             <form id="bulkMoveForm" action="{{ route('admin.question-bank.questions.bulk-move') }}" method="POST"
                 class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 @csrf
                 <select name="target_question_bank_id" id="bulkMoveTarget"
-                    class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                    class="min-w-[220px] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                     <option value="">Pilih bank tujuan</option>
                     @foreach($bankOptions as $bankOption)
                     @php
@@ -239,7 +240,7 @@
             </form>
             @if ($tryoutDetail)
             <button type="button" id="bulkCloneBtn"
-                class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-gray-300">
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-gray-300">
                 <i class="ri-download-line"></i>
                 Gunakan Terpilih
             </button>
@@ -248,6 +249,7 @@
                 <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
             </form>
             @endif
+            </div>
         </div>
         <div class="mb-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
             <input type="checkbox" id="selectAllQuestions"
@@ -1209,6 +1211,7 @@
 
         const bulkCloneBtn = document.getElementById('bulkCloneBtn');
         const bulkCloneForm = document.getElementById('bulkCloneForm');
+        const bulkActionBar = document.getElementById('bulkActionBar');
         const bulkMoveForm = document.getElementById('bulkMoveForm');
         const bulkMoveBtn = document.getElementById('bulkMoveBtn');
         const bulkMoveTarget = document.getElementById('bulkMoveTarget');
@@ -1251,6 +1254,10 @@
 
         const updateBulkState = () => {
             const checkedCount = selectedQuestionIds().length;
+            if (bulkActionBar) {
+                bulkActionBar.classList.toggle('hidden', checkedCount === 0);
+                bulkActionBar.classList.toggle('flex', checkedCount > 0);
+            }
             if (bulkCloneBtn) {
                 bulkCloneBtn.disabled = checkedCount === 0;
             }
