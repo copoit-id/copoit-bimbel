@@ -10,6 +10,38 @@
         'is_current' => (is_array($option) ? $option['id'] : $option->id) === $bank->id,
     ])->values();
 @endphp
+<style>
+    .question-bank-preview-content img,
+    .question-rich-text img,
+    .option-inline-text img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 0.5rem;
+    }
+
+    .question-bank-preview-content table,
+    .question-rich-text table,
+    .option-inline-text table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .question-bank-preview-content table td,
+    .question-bank-preview-content table th,
+    .question-rich-text table td,
+    .question-rich-text table th,
+    .option-inline-text table td,
+    .option-inline-text table th {
+        border: 1px solid #e5e7eb;
+        padding: 0.5rem;
+    }
+
+    .option-inline-text p,
+    .option-inline-text div {
+        display: inline;
+        margin: 0;
+    }
+</style>
 <div class="space-y-6">
     <div class="flex flex-col gap-2">
         <div class="flex items-center gap-2 text-sm text-gray-500">
@@ -88,7 +120,7 @@
             @php
                 $childQuestionCount = $recursiveQuestionCounts[$child->id] ?? $child->questions_count;
             @endphp
-            <div class="rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
+            <div class="rounded-xl border border-gray-200 p-4 flex flex-col">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="flex-1 min-w-0">
                         <p class="text-xs uppercase tracking-wide text-gray-400">Sub Bank</p>
@@ -170,109 +202,226 @@
             <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
         </form>
         @endif
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm text-gray-600">
-                <thead class="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
-                    <tr>
+        @if ($tryoutDetail)
+        <div class="mb-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <input type="checkbox" id="selectAllQuestions"
+                class="rounded border-gray-300 text-primary focus:ring-primary">
+            <label for="selectAllQuestions" class="text-sm font-medium text-gray-700">Pilih semua soal di halaman ini</label>
+        </div>
+        @endif
+
+        <div class="space-y-4" id="question-card-list">
+            @forelse ($questions as $question)
+            @php
+                $defaultWeight = (float) ($question->default_weight ?? 0);
+                $metadata = is_array($question->metadata) ? $question->metadata : [];
+                $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
+                $matchingPairs = is_array($metadata['matching_pairs'] ?? null) ? $metadata['matching_pairs'] : [];
+                $shortAnswerMeta = is_array($metadata['short_answer'] ?? null) ? $metadata['short_answer'] : [];
+                $audioMeta = is_array($metadata['audio'] ?? null) ? $metadata['audio'] : [];
+                $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                    ? $multipleAnswerMeta['scoring_mode']
+                    : 'fullscore';
+                $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? $defaultWeight);
+                $multipleAnswerCorrectCount = max(1, $question->options->where('is_correct', true)->count());
+                $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
+                    ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
+                    : $multipleAnswerTotalScore;
+                $mtfScoreCorrect = (float) ($mtfMeta['score_correct'] ?? $defaultWeight);
+                $formatScore = fn($score) => rtrim(rtrim(number_format((float) $score, 2, '.', ''), '0'), '.');
+                $scoreLabel = match ($question->question_type) {
+                    'multiple_answer' => $multipleAnswerScoringMode === 'partial'
+                        ? 'Per benar: ' . $formatScore($multipleAnswerPerCorrectScore)
+                        : 'Benar semua: ' . $formatScore($multipleAnswerTotalScore),
+                    'multiple_true_false' => $formatScore($mtfScoreCorrect) . ' poin',
+                    default => $formatScore($defaultWeight) . ' poin',
+                };
+                $plainQuestionText = trim(strip_tags($question->question_text));
+                $searchText = strtolower(trim(strip_tags(
+                    $question->question_text . ' ' .
+                    $question->explanation . ' ' .
+                    $question->options->pluck('option_text')->implode(' ')
+                )));
+            @endphp
+            <article class="bank-question-row rounded-2xl border border-gray-200 bg-white p-5"
+                data-question="{{ $searchText }}"
+                data-type="{{ strtolower($question->question_type) }}">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div class="flex min-w-0 flex-1 gap-3">
                         @if ($tryoutDetail)
-                        <th class="px-4 py-3 text-left">
-                            <input type="checkbox" id="selectAllQuestions"
-                                class="rounded border-gray-300 text-primary focus:ring-primary">
-                        </th>
-                        @endif
-                        <th class="px-4 py-3 text-left">Soal</th>
-                        <th class="px-4 py-3 text-left">Tipe</th>
-                        <th class="px-4 py-3 text-left">Bobot</th>
-                        <th class="px-4 py-3 text-left">Dibuat</th>
-                        <th class="px-4 py-3 text-left">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 bg-white" id="question-table-body">
-                    @forelse ($questions as $question)
-                    <tr class="bank-question-row"
-                        data-question="{{ strtolower(strip_tags($question->question_text)) }}"
-                        data-type="{{ strtolower($question->question_type) }}">
-                        @if ($tryoutDetail)
-                        <td class="px-4 py-3">
-                            <input type="checkbox" class="bank-question-checkbox"
+                        <div class="pt-1">
+                            <input type="checkbox" class="bank-question-checkbox rounded border-gray-300 text-primary focus:ring-primary"
                                 value="{{ $question->id }}">
-                        </td>
+                        </div>
                         @endif
-                        <td class="px-4 py-3">
-                            <div class="font-semibold text-gray-900">{!! \Illuminate\Support\Str::limit(strip_tags($question->question_text), 80) !!}</div>
-                            <div class="text-xs text-gray-500">{{ $question->options->count() }} opsi jawaban</div>
-                        </td>
-                        <td class="px-4 py-3 capitalize">{{ str_replace('_', ' ', $question->question_type) }}</td>
-                        <td class="px-4 py-3">
-                            @php
-                                $defaultWeight = (float) ($question->default_weight ?? 0);
-                                $metadata = is_array($question->metadata) ? $question->metadata : [];
-                                $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
-                                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
-                                $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
-                                    ? $multipleAnswerMeta['scoring_mode']
-                                    : 'fullscore';
-                                $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? $defaultWeight);
-                                $multipleAnswerCorrectCount = max(1, $question->options->where('is_correct', true)->count());
-                                $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
-                                    ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
-                                    : $multipleAnswerTotalScore;
-                                $mtfScoreCorrect = (float) ($mtfMeta['score_correct'] ?? $defaultWeight);
-                            @endphp
-                            @if(($question->question_type ?? '') === 'multiple_answer')
-                                @if($multipleAnswerScoringMode === 'partial')
-                                    Per benar:
-                                    {{ rtrim(rtrim(number_format($multipleAnswerPerCorrectScore, 2, '.', ''), '0'), '.') }}
-                                @else
-                                    Benar semua :
-                                    {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }}
+                        <div class="min-w-0 flex-1">
+                            <div class="mb-3 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                                    {{ ucwords(str_replace('_', ' ', $question->question_type)) }}
+                                </span>
+                                <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                                    Bobot: {{ $scoreLabel }}
+                                </span>
+                                <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                    {{ optional($question->created_at)->format('d M Y H:i') }}
+                                </span>
+                                @if($question->sound)
+                                <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                    <i class="ri-volume-up-line"></i> Audio
+                                </span>
                                 @endif
-                            @elseif(($question->question_type ?? '') === 'multiple_true_false')
-                                {{ rtrim(rtrim(number_format($mtfScoreCorrect, 2, '.', ''), '0'), '.') }} poin
-                            @else
-                                {{ $defaultWeight }} poin
-                            @endif
-                        </td>
-                        <td class="px-4 py-3">{{ optional($question->created_at)->format('d M Y H:i') }}</td>
-                        <td class="px-4 py-3">
-                            <div class="flex flex-wrap gap-2">
-                                <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
-                                    class="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100">
-                                    <i class="ri-edit-line"></i> Edit
-                                </a>
-                                @if ($tryoutDetail)
-                                <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}"
-                                    method="POST">
-                                    @csrf
-                                    <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
-                                    <button type="submit"
-                                        class="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90">
-                                        <i class="ri-download-line"></i> Gunakan
-                                    </button>
-                                </form>
-                                @endif
-                                <form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}"
-                                    method="POST">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="button"
-                                        onclick="openConfirmModal('confirmDelete', '{{ route('admin.question-bank.questions.destroy', $question->id) }}', 'DELETE', 'Hapus soal dari bank ini?')"
-                                        class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100">
-                                        <i class="ri-delete-bin-line"></i> Hapus
-                                    </button>
-                                </form>
                             </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="{{ $tryoutDetail ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-500">
-                            Belum ada soal tersimpan pada bank ini.
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+
+                            <div class="question-rich-text question-bank-preview-content text-gray-700 leading-relaxed overflow-x-auto">
+                                {!! $question->question_text !!}
+                            </div>
+
+                            @if($question->sound)
+                            <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <audio controls class="w-full">
+                                    <source src="{{ Storage::url($question->sound) }}">
+                                </audio>
+                            </div>
+                            @endif
+
+                            @if(in_array($question->question_type, ['multiple_choice', 'multiple_answer', 'true_false'], true))
+                            <div class="mt-4 space-y-2">
+                                @forelse($question->options as $optionIndex => $option)
+                                @php
+                                    $optionLabel = chr(65 + $optionIndex);
+                                    $optionScore = $formatScore($option->weight ?? 0);
+                                @endphp
+                                <div class="flex items-start gap-3 rounded-xl border {{ $option->is_correct ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50' }} p-4">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full {{ $option->is_correct ? 'bg-green-600 text-white' : 'bg-white text-gray-700 border border-gray-200' }} text-sm font-semibold">
+                                        {{ $optionLabel }}.
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="option-inline-text question-bank-preview-content text-gray-700">{!! $option->option_text !!}</div>
+                                        <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                            @if($option->is_correct)
+                                            <span class="font-semibold text-green-700">Jawaban benar</span>
+                                            @endif
+                                            <span class="text-gray-500">Skor: {{ $optionScore }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                @empty
+                                <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
+                                    Belum ada opsi jawaban.
+                                </div>
+                                @endforelse
+                            </div>
+                            @elseif($question->question_type === 'multiple_true_false')
+                            @php
+                                $statements = is_array($mtfMeta['statements'] ?? null) ? $mtfMeta['statements'] : [];
+                                $trueLabel = $mtfMeta['true_label'] ?? 'Benar';
+                                $falseLabel = $mtfMeta['false_label'] ?? 'Salah';
+                            @endphp
+                            <div class="mt-4 overflow-hidden rounded-xl border border-gray-200">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                                        <tr>
+                                            <th class="px-4 py-3">Pernyataan</th>
+                                            <th class="w-32 px-4 py-3 text-center">Kunci</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @forelse($statements as $statement)
+                                        <tr>
+                                            <td class="question-rich-text question-bank-preview-content px-4 py-3 text-gray-800">{!! $statement['text'] ?? '' !!}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                                    {{ ($statement['correct'] ?? 'true') === 'true' ? $trueLabel : $falseLabel }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="2" class="px-4 py-3 text-center text-gray-500">Belum ada pernyataan.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                            @elseif($question->question_type === 'matching')
+                            <div class="mt-4 grid gap-2 md:grid-cols-2">
+                                @forelse($matchingPairs as $pair)
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Pasangan</p>
+                                    <div class="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                                        <div class="question-rich-text question-bank-preview-content rounded-lg bg-white px-3 py-2 text-sm text-gray-800">{!! $pair['left'] ?? '' !!}</div>
+                                        <i class="ri-arrow-right-line hidden text-gray-400 sm:block"></i>
+                                        <div class="question-rich-text question-bank-preview-content rounded-lg bg-white px-3 py-2 text-sm text-gray-800">{!! $pair['right'] ?? '' !!}</div>
+                                    </div>
+                                </div>
+                                @empty
+                                <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
+                                    Belum ada pasangan jawaban.
+                                </div>
+                                @endforelse
+                            </div>
+                            @elseif(in_array($question->question_type, ['short_answer', 'essay'], true))
+                            @php
+                                $expectedAnswers = is_array($shortAnswerMeta['expected_answers'] ?? null) ? $shortAnswerMeta['expected_answers'] : [];
+                            @endphp
+                            @if(!empty($expectedAnswers))
+                            <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Jawaban referensi</p>
+                                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                                    @foreach($expectedAnswers as $answer)
+                                    <li>{{ $answer }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                            @endif
+                            @elseif($question->question_type === 'audio' && !empty($audioMeta))
+                            <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                                Durasi maks: {{ $audioMeta['max_duration'] ?? '-' }} detik · Ukuran maks: {{ $audioMeta['max_size'] ?? '-' }} MB
+                            </div>
+                            @endif
+
+                            @if(filled($question->explanation))
+                            <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Pembahasan</p>
+                                <div class="question-rich-text question-bank-preview-content text-gray-800 leading-relaxed overflow-x-auto">{!! $question->explanation !!}</div>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="flex w-full shrink-0 flex-col gap-2 sm:w-40">
+                        <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
+                            class="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">
+                            <i class="ri-edit-line"></i> Edit
+                        </a>
+                        @if ($tryoutDetail)
+                        <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}" method="POST" class="w-full">
+                            @csrf
+                            <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
+                            <button type="submit"
+                                class="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90">
+                                <i class="ri-download-line"></i> Gunakan
+                            </button>
+                        </form>
+                        @endif
+                        <form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}" method="POST" class="w-full">
+                            @csrf
+                            @method('DELETE')
+                            <button type="button"
+                                onclick="openConfirmModal('confirmDelete', '{{ route('admin.question-bank.questions.destroy', $question->id) }}', 'DELETE', 'Hapus soal dari bank ini?')"
+                                class="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
+                                <i class="ri-delete-bin-line"></i> Hapus
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </article>
+            @empty
+            <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                Belum ada soal tersimpan pada bank ini.
+            </div>
+            @endforelse
         </div>
         <div id="no-question-results" class="hidden text-center py-10 text-gray-500">
             Tidak ada soal ditemukan.

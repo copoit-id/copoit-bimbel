@@ -111,7 +111,7 @@
             @php
                 $bankQuestionCount = $recursiveQuestionCounts[$bank->id] ?? $bank->questions_count;
             @endphp
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col">
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 flex flex-col">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="flex-1 min-w-0">
                         <p class="text-xs uppercase tracking-wide text-gray-400">Bank Soal</p>
