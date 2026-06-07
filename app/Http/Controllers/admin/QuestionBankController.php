@@ -137,6 +137,9 @@ class QuestionBankController extends Controller
         $questionSort = $request->input('sort', 'newest');
         $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
         $questionType = $request->input('question_type', 'all');
+        $perPage = in_array($request->integer('per_page'), [5, 10, 15, 25], true)
+            ? $request->integer('per_page')
+            : 5;
 
         $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
             $query->withCount('questions')->orderBy('created_at', $questionSortDirection);
@@ -162,7 +165,7 @@ class QuestionBankController extends Controller
 
         $questions = $questionsQuery
             ->orderBy('created_at', $questionSortDirection)
-            ->paginate(15);
+            ->paginate($perPage);
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
         $bankOptions = $this->buildBankOptions();
@@ -175,6 +178,7 @@ class QuestionBankController extends Controller
             'importTarget' => $importTarget,
             'questionSort' => $questionSort,
             'questionType' => $questionType,
+            'perPage' => $perPage,
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,
             'pptImportPreview' => $pptImportPreview,

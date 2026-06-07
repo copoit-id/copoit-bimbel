@@ -41,6 +41,11 @@
         display: inline;
         margin: 0;
     }
+
+    .bank-question-row {
+        content-visibility: auto;
+        contain-intrinsic-size: 420px;
+    }
 </style>
 <div class="space-y-6">
     <div class="flex flex-col gap-2">
@@ -174,6 +179,14 @@
                         @foreach($questionTypeOptions as $typeOption)
                         <option value="{{ $typeOption }}" @selected(($questionType ?? 'all') === $typeOption)>
                             {{ ucwords(str_replace('_', ' ', $typeOption)) }}
+                        </option>
+                        @endforeach
+                    </select>
+                    <select name="per_page" onchange="this.form.submit()"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                        @foreach([5, 10, 15, 25] as $pageSize)
+                        <option value="{{ $pageSize }}" @selected((int) ($perPage ?? 5) === $pageSize)>
+                            {{ $pageSize }} soal
                         </option>
                         @endforeach
                     </select>
@@ -1208,6 +1221,12 @@
         const questionRows = document.querySelectorAll('.bank-question-row');
         const questionCount = document.getElementById('question-count');
         const noQuestionResults = document.getElementById('no-question-results');
+
+        document.querySelectorAll('.question-bank-preview-content img, .question-rich-text img, .option-inline-text img')
+            .forEach((image) => {
+                image.loading = 'lazy';
+                image.decoding = 'async';
+            });
 
         const selectedQuestionIds = () => Array.from(checkboxes)
             .filter(cb => cb.checked)
