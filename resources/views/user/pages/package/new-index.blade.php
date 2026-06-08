@@ -11,9 +11,23 @@ $accountNumber = $clientBranding['payment_account_number'] ?? '';
 $accountHolder = $clientBranding['payment_account_holder'] ?? '';
 $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled'] ?? true);
 $publicDiscounts = $publicDiscounts ?? collect();
+$discountsJson = $publicDiscounts->map(function($d) {
+    return [
+        'id' => $d->id,
+        'code' => $d->code,
+        'discount_type' => $d->discount_type,
+        'discount_value' => (float)$d->discount_value,
+        'max_discount_amount' => $d->max_discount_amount ? (float)$d->max_discount_amount : null,
+        'min_purchase_amount' => (float)$d->min_purchase_amount,
+        'formatted_value' => $d->formatted_value,
+        'description' => $d->description,
+        'ends_at' => $d->ends_at ? $d->ends_at->toIso8601String() : null,
+    ];
+})->values()->toArray();
 @endphp
 
 <!-- Header -->
+<div x-data="packageManager()" id="package-container" class="w-full">
 <div class="flex items-center gap-4 mb-6">
     <a href="{{ route('user.dashboard.index') }}" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
         <i class="ri-arrow-left-line text-xl text-gray-600"></i>
@@ -39,13 +53,111 @@ $publicDiscounts = $publicDiscounts ?? collect();
 </div>
 
 @if($tab === 'paid' && $publicDiscounts->isNotEmpty())
-<div class="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
-    <div class="flex flex-wrap items-center gap-2">
-        <span class="text-sm font-semibold text-gray-700">Promo tersedia:</span>
+<div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+            <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i class="ri-coupon-2-line text-xl"></i>
+            </span>
+            <div>
+                <h4 class="font-bold text-gray-850 text-sm md:text-base leading-tight">Promo & Voucher Tersedia</h4>
+                <p class="text-xs text-gray-400 mt-0.5">Pilih voucher untuk mendapatkan diskon langsung!</p>
+            </div>
+        </div>
+        <!-- Active promo indicator -->
+        <template x-if="activeDiscountCode">
+            <button @click="selectDiscount(null)" class="text-xs font-semibold text-red-500 hover:text-red-650 transition-colors flex items-center gap-1">
+                <i class="ri-close-circle-line"></i> Batalkan Promo
+            </button>
+        </template>
+    </div>
+    
+    <!-- Voucher list grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach($publicDiscounts as $discount)
-        <span class="px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-100 text-xs font-semibold">
-            {{ $discount->code }} - {{ $discount->formatted_value }}
-        </span>
+        @php
+            $isPercent = $discount->discount_type === 'percent';
+            $valStr = $isPercent ? rtrim(rtrim(number_format((float) $discount->discount_value, 2, ',', '.'), '0'), ',') . '%' : 'Rp ' . number_format((float) $discount->discount_value, 0, ',', '.');
+        @endphp
+        <div 
+            class="relative flex rounded-xl border overflow-hidden transition-all duration-300 group cursor-pointer"
+            :class="isActive('{{ $discount->code }}') 
+                ? 'border-emerald-500 bg-emerald-50/10 shadow-md shadow-emerald-50' 
+                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'"
+            @click="selectDiscount('{{ $discount->code }}')"
+        >
+            <!-- Left Ticket Part (Discount Value Indicator) -->
+            <div class="w-1/3 p-4 flex flex-col justify-center items-center text-center relative text-white transition-colors duration-300 shrink-0"
+                 :class="isActive('{{ $discount->code }}') ? 'bg-emerald-500' : 'bg-gray-800 group-hover:bg-gray-900'">
+                
+                <!-- Ticket Notch Left (Semi-circles on edges) -->
+                <div class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border rounded-full transition-colors duration-300"
+                     :class="isActive('{{ $discount->code }}') ? 'border-r-emerald-500' : 'border-r-gray-200'"></div>
+                
+                <!-- Inner dotted line separator between parts -->
+                <div class="absolute right-0 top-0 bottom-0 border-r border-dashed border-white/30"></div>
+                
+                <span class="text-[9px] font-bold uppercase tracking-wider opacity-80">DISKON</span>
+                <span class="text-base md:text-lg font-extrabold tracking-tight mt-0.5">{{ $valStr }}</span>
+            </div>
+            
+            <!-- Right Ticket Part (Details & Action) -->
+            <div class="flex-1 p-3.5 flex flex-col justify-between relative bg-white overflow-hidden">
+                <!-- Ticket Notch Right -->
+                <div class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-gray-250 rounded-full transition-colors duration-300"
+                     :class="isActive('{{ $discount->code }}') ? 'border-l-emerald-500 bg-white' : 'bg-white'"></div>
+                
+                <div>
+                    <!-- Promo Code Badge -->
+                    <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span class="px-2 py-0.5 bg-gray-55 rounded text-[10px] font-bold text-gray-700 font-mono tracking-wider uppercase border border-gray-200 transition-colors duration-300"
+                              :class="isActive('{{ $discount->code }}') ? 'bg-emerald-100 border-emerald-200 text-emerald-800' : ''">
+                            {{ $discount->code }}
+                        </span>
+                        @if($discount->min_purchase_amount > 0)
+                        <span class="text-[9px] font-semibold text-gray-400">
+                            Min. Rp {{ number_format($discount->min_purchase_amount, 0, ',', '.') }}
+                        </span>
+                        @endif
+                    </div>
+                    
+                    <!-- Description -->
+                    <p class="text-xs text-gray-600 font-medium line-clamp-1 mb-1 leading-snug">
+                        {{ $discount->description ?: 'Potongan harga untuk pembelian paket.' }}
+                    </p>
+                </div>
+                
+                <!-- Bottom Info / Apply button -->
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-100">
+                    <span class="text-[9px] flex items-center gap-1 transition-colors duration-300"
+                          :class="getCountdownColor('{{ $discount->ends_at ? $discount->ends_at->toIso8601String() : '' }}')">
+                        <i class="ri-time-line"></i>
+                        <span x-text="getCountdown('{{ $discount->ends_at ? $discount->ends_at->toIso8601String() : '' }}') || 'Promo Terbatas'">
+                            @if($discount->ends_at)
+                                S/d {{ $discount->ends_at->format('d M Y') }}
+                            @else
+                                Promo Terbatas
+                            @endif
+                        </span>
+                    </span>
+                    
+                    <!-- Gunakan Button -->
+                    <button 
+                        type="button"
+                        class="text-[11px] font-bold px-2.5 py-0.5 rounded-lg transition-all duration-300 flex items-center gap-1"
+                        :class="isActive('{{ $discount->code }}') 
+                            ? 'bg-emerald-100 text-emerald-700' 
+                            : 'bg-primary/10 text-primary hover:bg-primary/20'"
+                        :style="!isActive('{{ $discount->code }}') ? 'color: ' + '{{ $primaryColor }}' + '; background-color: ' + '{{ $primaryColor }}' + '15' : ''"
+                    >
+                        <span x-text="isActive('{{ $discount->code }}') ? 'Aktif' : 'Gunakan'">Gunakan</span>
+                        <template x-if="isActive('{{ $discount->code }}')">
+                            <i class="ri-checkbox-circle-fill text-emerald-600 text-xs"></i>
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </div>
         @endforeach
     </div>
 </div>
@@ -78,8 +190,19 @@ $publicDiscounts = $publicDiscounts ?? collect();
             @endif
 
             @if($tab === 'paid')
-            <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold" style="background-color: {{ $primaryColor }}; color: white;">
-                Rp {{ number_format($package->price, 0, ',', '.') }}
+            <div class="absolute top-3 right-3 flex flex-col items-end gap-1">
+                <!-- Crossed out original price -->
+                <div x-show="isDiscountActiveFor({{ $package->package_id }}, {{ $package->price }})" 
+                     class="bg-gray-900/60 backdrop-blur-sm text-gray-205 text-[10px] line-through px-2 py-0.5 rounded-full font-medium"
+                     style="display: none;">
+                    Rp {{ number_format($package->price, 0, ',', '.') }}
+                </div>
+                <!-- Active price -->
+                <div class="px-3 py-1 rounded-full text-xs font-bold transition-all duration-300"
+                     :class="isDiscountActiveFor({{ $package->package_id }}, {{ $package->price }}) ? 'bg-emerald-500 text-white' : ''"
+                     :style="!isDiscountActiveFor({{ $package->package_id }}, {{ $package->price }}) ? 'background-color: {{ $primaryColor }}; color: white;' : ''">
+                    <span x-text="getDisplayPrice({{ $package->package_id }}, {{ $package->price }})">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
+                </div>
             </div>
             @else
             <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
@@ -163,6 +286,7 @@ $publicDiscounts = $publicDiscounts ?? collect();
         <p class="text-gray-400 text-sm">Paket {{ $tab === 'paid' ? 'berbayar' : 'gratis' }} akan segera tersedia.</p>
     </div>
     @endforelse
+</div>
 </div>
 
 <!-- Loading Modal -->
@@ -306,11 +430,167 @@ let selectedDiscountCode = '';
 let selectedDiscountAmount = 0;
 let selectedPayableAmount = 0;
 
+// Initialize Alpine.js packageManager component
+document.addEventListener('alpine:init', () => {
+    Alpine.data('packageManager', () => ({
+        discounts: @js($discountsJson ?? []),
+        activeDiscountCode: null,
+        now: Date.now(),
+        
+        init() {
+            const stored = sessionStorage.getItem('activeDiscountCode');
+            if (stored) {
+                const found = this.discounts.find(d => d.code === stored);
+                if (found) {
+                    this.activeDiscountCode = stored;
+                }
+            }
+            
+            // Start real-time countdown timer tick
+            setInterval(() => {
+                this.now = Date.now();
+                
+                // Auto-cancel active discount if it expires
+                if (this.activeDiscountCode) {
+                    const discount = this.discounts.find(d => d.code === this.activeDiscountCode);
+                    if (discount) {
+                        let endTime;
+                        if (discount.ends_at) {
+                            endTime = new Date(discount.ends_at).getTime();
+                        } else {
+                            const now = new Date();
+                            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                            endTime = endOfDay.getTime();
+                        }
+                        if (endTime - this.now <= 0) {
+                            this.activeDiscountCode = null;
+                            sessionStorage.removeItem('activeDiscountCode');
+                        }
+                    }
+                }
+            }, 1000);
+        },
+
+        selectDiscount(code) {
+            if (this.activeDiscountCode === code) {
+                this.activeDiscountCode = null;
+                sessionStorage.removeItem('activeDiscountCode');
+            } else {
+                this.activeDiscountCode = code;
+                sessionStorage.setItem('activeDiscountCode', code);
+            }
+        },
+
+        isActive(code) {
+            return this.activeDiscountCode === code;
+        },
+
+        isDiscountActiveFor(packageId, price) {
+            if (!this.activeDiscountCode) return false;
+            const discount = this.discounts.find(d => d.code === this.activeDiscountCode);
+            if (!discount) return false;
+            return price >= discount.min_purchase_amount;
+        },
+
+        getDisplayPrice(packageId, price) {
+            if (!this.activeDiscountCode) {
+                return 'Rp ' + this.formatNumber(price);
+            }
+            const discount = this.discounts.find(d => d.code === this.activeDiscountCode);
+            if (!discount || price < discount.min_purchase_amount) {
+                return 'Rp ' + this.formatNumber(price);
+            }
+            const discountAmount = this.calculateDiscount(price, discount);
+            const finalPrice = price - discountAmount;
+            return 'Rp ' + this.formatNumber(finalPrice);
+        },
+
+        calculateDiscount(price, discount) {
+            if (price <= 0) return 0;
+            if (price < discount.min_purchase_amount) return 0;
+            
+            let amount = 0;
+            if (discount.discount_type === 'fixed') {
+                amount = Math.min(price, discount.discount_value);
+            } else {
+                amount = Math.floor(price * (discount.discount_value / 100));
+                if (discount.max_discount_amount !== null && discount.max_discount_amount !== undefined) {
+                    amount = Math.min(amount, discount.max_discount_amount);
+                }
+            }
+            return Math.min(price, Math.max(0, amount));
+        },
+
+        getCountdown(endsAtStr) {
+            let endTime;
+            if (endsAtStr) {
+                endTime = new Date(endsAtStr).getTime();
+            } else {
+                // Countdown to end of today (23:59:59 today)
+                const now = new Date();
+                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                endTime = endOfDay.getTime();
+            }
+            
+            const diff = endTime - this.now;
+            if (diff <= 0) return 'Expired';
+            
+            const secs = Math.floor(diff / 1000) % 60;
+            const mins = Math.floor(diff / (1000 * 60)) % 60;
+            const hours = Math.floor(diff / (1000 * 60 * 60)) % 24;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            let parts = [];
+            if (days > 0) parts.push(days + 'd');
+            parts.push(String(hours).padStart(2, '0') + 'j');
+            parts.push(String(mins).padStart(2, '0') + 'm');
+            parts.push(String(secs).padStart(2, '0') + 's');
+            
+            return 'Sisa ' + parts.join(' ');
+        },
+
+        getCountdownColor(endsAtStr) {
+            let endTime;
+            if (endsAtStr) {
+                endTime = new Date(endsAtStr).getTime();
+            } else {
+                // Countdown to end of today
+                const now = new Date();
+                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                endTime = endOfDay.getTime();
+            }
+            const diff = endTime - this.now;
+            if (diff <= 0) return 'text-red-500 font-semibold';
+            if (diff < 1000 * 60 * 60 * 24) return 'text-amber-600 font-semibold animate-pulse';
+            return 'text-gray-400';
+        },
+
+        formatNumber(num) {
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+    }));
+});
+
+function getActivePromoCode() {
+    const el = document.getElementById('package-container');
+    if (el && window.Alpine) {
+        try {
+            return Alpine.$data(el).activeDiscountCode || '';
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    return '';
+}
+
 function handleBuy(packageId, price, packageName) {
     selectedPackageId = packageId;
     selectedPrice = price;
     selectedPackageName = packageName;
-    selectedDiscountCode = '';
+    
+    // Auto-inject selected promo code from Alpine component if any
+    const activeCode = getActivePromoCode();
+    selectedDiscountCode = activeCode || '';
     selectedDiscountAmount = 0;
     selectedPayableAmount = Number(price);
 
@@ -324,10 +604,10 @@ function handleBuy(packageId, price, packageName) {
         document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED);
         document.getElementById('uniqueCodeDisplay').textContent = String(uniqueCode).padStart(3, '0');
         document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED ? uniqueCode : '';
-        document.getElementById('paymentDiscountCode').value = '';
+        document.getElementById('paymentDiscountCode').value = selectedDiscountCode;
         document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(totalAmount);
         document.getElementById('paymentError').classList.add('hidden');
-        document.getElementById('discountCodeInput').value = '';
+        document.getElementById('discountCodeInput').value = selectedDiscountCode;
         document.getElementById('discountInfo').classList.add('hidden');
         document.getElementById('paymentProof').value = '';
         document.getElementById('paymentProof').required = true;
@@ -336,11 +616,22 @@ function handleBuy(packageId, price, packageName) {
         document.getElementById('proofPreview').classList.add('hidden');
         document.getElementById('paymentModal').classList.remove('hidden');
         document.getElementById('paymentModal').classList.add('flex');
-        checkAutomaticReferralDiscount();
+        
+        if (selectedDiscountCode) {
+            applyDiscountCode();
+        } else {
+            checkAutomaticReferralDiscount();
+        }
     } else {
         // Gateway mode - always use AJAX to handle redirect_url from gateway
         const form = document.querySelector(`form[data-package-id="${packageId}"]`);
-        const discountCode = window.prompt('Masukkan kode diskon jika ada. Kosongkan jika tidak ada.', '') || '';
+        
+        // If a promo code is already selected on the page, use it directly. Otherwise, ask user.
+        let discountCode = selectedDiscountCode;
+        if (!discountCode) {
+            discountCode = window.prompt('Masukkan kode diskon jika ada. Kosongkan jika tidak ada.', '') || '';
+        }
+        
         const submitBtn = form.querySelector('button');
         const originalText = submitBtn.innerHTML;
         const formData = new FormData(form);
