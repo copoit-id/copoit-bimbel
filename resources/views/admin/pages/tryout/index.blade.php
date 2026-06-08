@@ -31,6 +31,8 @@
                         <option value="TIU">TIU</option>
                         <option value="TWK">TWK</option>
                         <option value="TKP">TKP</option>
+                        <option value="TPA">TPA</option>
+                        <option value="TBI">TBI</option>
                         <option value="SKD_FULL">SKD Full</option>
                         <option value="GENERAL">General</option>
                         <option value="CERTIFICATION">Certification</option>

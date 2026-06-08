@@ -58,6 +58,8 @@
                             Kebangsaan)</option>
                         <option value="tkp" {{ old('type_tryout')=='tkp' ? 'selected' : '' }}>TKP (Tes Karakteristik
                             Pribadi)</option>
+                        <option value="tpa" {{ old('type_tryout')=='tpa' ? 'selected' : '' }}>TPA</option>
+                        <option value="tbi" {{ old('type_tryout')=='tbi' ? 'selected' : '' }}>TBI</option>
                         <option value="skd_full" {{ old('type_tryout')=='skd_full' ? 'selected' : '' }}>SKD Full (TWK +
                             TIU + TKP)</option>
                         <option value="general" {{ old('type_tryout')=='general' ? 'selected' : '' }}>General</option>
@@ -476,6 +478,8 @@
                     showDurationField('tkp-duration', 'duration_tkp', 45, 'passing_score_tkp', 65);
                     break;
                 case 'general':
+                case 'tpa':
+                case 'tbi':
                     showDurationField('general-duration', 'duration_general', 60, 'passing_score_general', 65);
                     break;
                 case 'certification':

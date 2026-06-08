@@ -415,7 +415,7 @@ class PackageController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'required|string',
-            'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,certification',
+            'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,tpa,tbi,certification',
             'duration_total' => 'required|integer|min:1',
             'passing_score_total' => 'required|numeric|min:0|max:100',
             'passing_type_twk' => 'nullable|in:score,percentage',
@@ -528,10 +528,10 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_tkp,
                 'passing_type' => $request->input('passing_type_tkp', 'score'),
             ]);
-        } else if ($tryout && $tryout->type_tryout == 'general') {
+        } else if ($tryout && in_array($tryout->type_tryout, ['general', 'tpa', 'tbi'], true)) {
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
-                'type_subtest' => 'general',
+                'type_subtest' => $tryout->type_tryout,
                 'duration' => $request->duration_general,
                 'passing_score' => $request->passing_score_general,
                 'passing_type' => $request->input('passing_type_general', 'score'),

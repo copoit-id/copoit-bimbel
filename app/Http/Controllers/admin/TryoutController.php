@@ -343,6 +343,14 @@ class TryoutController extends Controller
                 $this->createSubtest($tryout->tryout_id, 'general', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
 
+            case 'tpa':
+                $this->createSubtest($tryout->tryout_id, 'tpa', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
+                break;
+
+            case 'tbi':
+                $this->createSubtest($tryout->tryout_id, 'tbi', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
+                break;
+
             case 'listening':
                 $this->createSubtest($tryout->tryout_id, 'listening', $request->duration_general ?? 45, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
@@ -480,6 +488,12 @@ class TryoutController extends Controller
             case 'general':
                 $this->updateOrCreateSubtest($tryout, 'general', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
                 break;
+            case 'tpa':
+                $this->updateOrCreateSubtest($tryout, 'tpa', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
+                break;
+            case 'tbi':
+                $this->updateOrCreateSubtest($tryout, 'tbi', $request->duration_general ?? 60, $request->passing_score_general ?? 60, $request->input('passing_type_general', 'score'));
+                break;
             case 'word':
                 $this->updateOrCreateSubtest($tryout, 'word', $request->duration_word ?? $request->duration_general ?? 30, $request->passing_score_word ?? $request->passing_score_general ?? 70, $request->input('passing_type_word', $request->input('passing_type_general', 'score')));
                 break;
@@ -549,6 +563,8 @@ class TryoutController extends Controller
             'twk'               => 'Tes Wawasan Kebangsaan',
             'tiu'               => 'Tes Intelegensi Umum',
             'tkp'               => 'Tes Karakteristik Pribadi',
+            'tpa'               => 'TPA',
+            'tbi'               => 'TBI',
             'writing'           => 'Writing Test',
             'reading'           => 'Reading Comprehension',
             'listening'         => 'Listening Test',
@@ -584,6 +600,8 @@ class TryoutController extends Controller
             'tkp',
             'skd_full',
             'general',
+            'tpa',
+            'tbi',
             'certification',
             'listening',
             'reading',

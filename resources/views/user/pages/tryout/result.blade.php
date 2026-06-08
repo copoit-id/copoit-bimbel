@@ -239,7 +239,7 @@
                     
                     @php
                         $shortLabels = [
-                            'general' => 'G', 'listening' => 'L', 'reading' => 'R', 'writing' => 'W',
+                            'general' => 'G', 'tpa' => 'TPA', 'tbi' => 'TBI', 'listening' => 'L', 'reading' => 'R', 'writing' => 'W',
                             'twk' => 'TWK', 'tiu' => 'TIU', 'tkp' => 'TKP',
                             'penalaran_umum' => 'PU', 'pengetahuan_umum' => 'PPU', 
                             'pengetahuan_kuantitatif' => 'PK', 'pemahaman_bacaan_menulis' => 'PBM',

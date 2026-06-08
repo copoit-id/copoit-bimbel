@@ -77,6 +77,10 @@
                                 old('type_tryout') === 'tiu' ? 'selected' : '' }}>TIU</option>
                             <option value="tkp" {{ (isset($tryout) && $tryout->type_tryout === 'tkp') ||
                                 old('type_tryout') === 'tkp' ? 'selected' : '' }}>TKP</option>
+                            <option value="tpa" {{ (isset($tryout) && $tryout->type_tryout === 'tpa') ||
+                                old('type_tryout') === 'tpa' ? 'selected' : '' }}>TPA</option>
+                            <option value="tbi" {{ (isset($tryout) && $tryout->type_tryout === 'tbi') ||
+                                old('type_tryout') === 'tbi' ? 'selected' : '' }}>TBI</option>
                             <option value="certification" {{ (isset($tryout) && $tryout->type_tryout ===
                                 'certification') || old('type_tryout') === 'certification' ? 'selected' : ''
                                 }}>Certification Full (TOEFL ITP)</option>

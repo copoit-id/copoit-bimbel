@@ -1206,6 +1206,10 @@ class TryoutController extends Controller
                 return 'Tes Intelegensi Umum';
             case 'tkp':
                 return 'Tes Karakteristik Pribadi';
+            case 'tpa':
+                return 'TPA';
+            case 'tbi':
+                return 'TBI';
             case 'writing':
                 return 'Writing Test';
             case 'reading':
@@ -1260,6 +1264,8 @@ class TryoutController extends Controller
             'twk' => 'TWK',
             'tiu' => 'TIU',
             'tkp' => 'TKP',
+            'tpa' => 'TPA',
+            'tbi' => 'TBI',
             'writing' => 'WT',
             'reading' => 'RD',
             'listening' => 'LS',
