@@ -10,6 +10,7 @@ $bankName = $clientBranding['payment_bank_name'] ?? '';
 $accountNumber = $clientBranding['payment_account_number'] ?? '';
 $accountHolder = $clientBranding['payment_account_holder'] ?? '';
 $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled'] ?? true);
+$publicDiscounts = $publicDiscounts ?? collect();
 @endphp
 
 <!-- Header -->
@@ -36,6 +37,19 @@ $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled
         <i class="ri-gift-line mr-2"></i>Gratis
     </a>
 </div>
+
+@if($tab === 'paid' && $publicDiscounts->isNotEmpty())
+<div class="bg-white rounded-2xl p-4 mb-6 border border-gray-100">
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm font-semibold text-gray-700">Promo tersedia:</span>
+        @foreach($publicDiscounts as $discount)
+        <span class="px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-100 text-xs font-semibold">
+            {{ $discount->code }} - {{ $discount->formatted_value }}
+        </span>
+        @endforeach
+    </div>
+</div>
+@endif
 
 <!-- Packages Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -171,6 +185,17 @@ $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled
         <div class="p-5">
             <div id="paymentError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
 
+            <div class="mb-5">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kode Diskon</label>
+                <div class="flex gap-2">
+                    <input type="text" id="discountCodeInput" class="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 uppercase focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Opsional">
+                    <button type="button" onclick="applyDiscountCode()" class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">
+                        Terapkan
+                    </button>
+                </div>
+                <p id="discountInfo" class="hidden text-sm mt-2"></p>
+            </div>
+
             <!-- Bank Transfer Info -->
             <div class="bg-gray-50 rounded-xl p-4 mb-5">
                 <p class="text-sm font-medium text-gray-600 mb-3">Silakan transfer ke rekening berikut:</p>
@@ -191,6 +216,10 @@ $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled
                         <span class="text-gray-500">Harga Paket</span>
                         <span class="font-semibold text-gray-800" id="baseAmountDisplay">Rp 0</span>
                     </div>
+                    <div class="flex justify-between hidden" id="discountRow">
+                        <span class="text-gray-500">Diskon</span>
+                        <span class="font-semibold text-green-600" id="discountAmountDisplay">- Rp 0</span>
+                    </div>
                     <div class="flex justify-between {{ $paymentUniqueCodeEnabled ? '' : 'hidden' }}" id="uniqueCodeRow">
                         <span class="text-gray-500">Kode Unik</span>
                         <span class="font-semibold text-gray-800" id="uniqueCodeDisplay">000</span>
@@ -205,8 +234,9 @@ $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled
             <form id="paymentForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="payment_unique_code" id="paymentUniqueCode" value="">
+                <input type="hidden" name="discount_code" id="paymentDiscountCode" value="">
                 <div class="space-y-4">
-                    <div>
+                    <div id="paymentProofSection">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Transfer <span class="text-red-500">*</span></label>
                         <input type="file" name="payment_proof" id="paymentProof" accept="image/*,.pdf" required
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
@@ -272,30 +302,52 @@ const MANUAL_PAYMENT_UNIQUE_CODES = @json($manualPaymentUniqueCodes ?? []);
 let selectedPackageId = null;
 let selectedPrice = 0;
 let selectedPackageName = '';
+let selectedDiscountCode = '';
+let selectedDiscountAmount = 0;
+let selectedPayableAmount = 0;
 
 function handleBuy(packageId, price, packageName) {
     selectedPackageId = packageId;
     selectedPrice = price;
     selectedPackageName = packageName;
+    selectedDiscountCode = '';
+    selectedDiscountAmount = 0;
+    selectedPayableAmount = Number(price);
 
     if (PAYMENT_MODE === 'manual') {
         const uniqueCode = PAYMENT_UNIQUE_CODE_ENABLED ? Number(MANUAL_PAYMENT_UNIQUE_CODES[packageId] || 0) : 0;
-        const totalAmount = Number(price) + uniqueCode;
+        const totalAmount = selectedPayableAmount + uniqueCode;
 
         document.getElementById('baseAmountDisplay').textContent = 'Rp ' + formatNumber(price);
+        document.getElementById('discountRow').classList.add('hidden');
+        document.getElementById('discountAmountDisplay').textContent = '- Rp 0';
+        document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED);
         document.getElementById('uniqueCodeDisplay').textContent = String(uniqueCode).padStart(3, '0');
         document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED ? uniqueCode : '';
+        document.getElementById('paymentDiscountCode').value = '';
         document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(totalAmount);
         document.getElementById('paymentError').classList.add('hidden');
+        document.getElementById('discountCodeInput').value = '';
+        document.getElementById('discountInfo').classList.add('hidden');
         document.getElementById('paymentProof').value = '';
+        document.getElementById('paymentProof').required = true;
+        document.getElementById('paymentProofSection').classList.remove('hidden');
+        document.getElementById('submitPaymentBtn').textContent = 'Kirim Bukti Bayar';
         document.getElementById('proofPreview').classList.add('hidden');
         document.getElementById('paymentModal').classList.remove('hidden');
         document.getElementById('paymentModal').classList.add('flex');
     } else {
         // Gateway mode - always use AJAX to handle redirect_url from gateway
         const form = document.querySelector(`form[data-package-id="${packageId}"]`);
+        const discountCode = window.prompt('Masukkan kode diskon jika ada. Kosongkan jika tidak ada.', '') || '';
         const submitBtn = form.querySelector('button');
         const originalText = submitBtn.innerHTML;
+        const formData = new FormData(form);
+
+        if (discountCode.trim() !== '') {
+            formData.set('discount_code', discountCode.trim().toUpperCase());
+        }
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Memproses...';
 
@@ -306,7 +358,7 @@ function handleBuy(packageId, price, packageName) {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             },
-            body: new FormData(form)
+            body: formData
         })
         .then(r => r.json())
         .then(data => {
@@ -324,6 +376,78 @@ function handleBuy(packageId, price, packageName) {
             alert('Terjadi kesalahan. Silakan coba lagi.');
         });
     }
+}
+
+function applyDiscountCode() {
+    const input = document.getElementById('discountCodeInput');
+    const info = document.getElementById('discountInfo');
+    const code = (input.value || '').trim().toUpperCase();
+    const uniqueCode = PAYMENT_UNIQUE_CODE_ENABLED ? Number(MANUAL_PAYMENT_UNIQUE_CODES[selectedPackageId] || 0) : 0;
+
+    if (!code) {
+        selectedDiscountCode = '';
+        selectedDiscountAmount = 0;
+        selectedPayableAmount = Number(selectedPrice);
+        document.getElementById('paymentDiscountCode').value = '';
+        document.getElementById('discountRow').classList.add('hidden');
+        document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED);
+        document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED ? uniqueCode : '';
+        document.getElementById('paymentProof').required = true;
+        document.getElementById('paymentProofSection').classList.remove('hidden');
+        document.getElementById('submitPaymentBtn').textContent = 'Kirim Bukti Bayar';
+        document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPayableAmount + uniqueCode);
+        info.className = 'hidden text-sm mt-2';
+        return;
+    }
+
+    info.textContent = 'Mengecek kode diskon...';
+    info.className = 'text-sm mt-2 text-gray-500';
+
+    const formData = new FormData();
+    formData.append('discount_code', code);
+
+    fetch('/user/paket-pembelian/' + selectedPackageId + '/discount/preview', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
+        },
+        body: formData,
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+            selectedDiscountCode = '';
+            selectedDiscountAmount = 0;
+            selectedPayableAmount = Number(selectedPrice);
+            document.getElementById('paymentDiscountCode').value = '';
+            document.getElementById('discountRow').classList.add('hidden');
+            document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPayableAmount + uniqueCode);
+            info.textContent = data.message || 'Kode diskon tidak valid.';
+            info.className = 'text-sm mt-2 text-red-600';
+            return;
+        }
+
+        selectedDiscountCode = data.code || code;
+        selectedDiscountAmount = Number(data.discount_amount || 0);
+        selectedPayableAmount = Number(data.payable_amount || selectedPrice);
+        document.getElementById('paymentDiscountCode').value = selectedDiscountCode;
+        document.getElementById('discountAmountDisplay').textContent = '- Rp ' + formatNumber(selectedDiscountAmount);
+        document.getElementById('discountRow').classList.remove('hidden');
+        const effectiveUniqueCode = selectedPayableAmount > 0 ? uniqueCode : 0;
+        document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED || selectedPayableAmount <= 0);
+        document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED && selectedPayableAmount > 0 ? uniqueCode : '';
+        document.getElementById('paymentProof').required = selectedPayableAmount > 0;
+        document.getElementById('paymentProofSection').classList.toggle('hidden', selectedPayableAmount <= 0);
+        document.getElementById('submitPaymentBtn').textContent = selectedPayableAmount <= 0 ? 'Aktifkan Paket' : 'Kirim Bukti Bayar';
+        document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPayableAmount + effectiveUniqueCode);
+        info.textContent = 'Kode diskon berhasil diterapkan.';
+        info.className = 'text-sm mt-2 text-green-600';
+    })
+    .catch(() => {
+        info.textContent = 'Gagal mengecek kode diskon. Silakan coba lagi.';
+        info.className = 'text-sm mt-2 text-red-600';
+    });
 }
 
 function closePaymentModal() {
@@ -352,6 +476,15 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
 
     const formData = new FormData(this);
+    const typedDiscount = (document.getElementById('discountCodeInput')?.value || '').trim();
+    const appliedDiscount = (document.getElementById('paymentDiscountCode')?.value || '').trim();
+    if (typedDiscount && !appliedDiscount) {
+        const errorEl = document.getElementById('paymentError');
+        errorEl.textContent = 'Klik Terapkan dulu untuk memakai kode diskon.';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
     const submitBtn = document.getElementById('submitPaymentBtn');
     const originalText = submitBtn.innerHTML;
 

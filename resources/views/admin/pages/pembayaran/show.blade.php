@@ -84,8 +84,14 @@
             </div>
             <div class="flex justify-between py-2 border-b border-gray-100">
                 <span class="text-gray-600">Harga Paket:</span>
-                <span class="font-medium">Rp {{ number_format($payment->amount, 0, ',', '.') }}</span>
+                <span class="font-medium">Rp {{ number_format($payment->original_amount ?? $payment->amount, 0, ',', '.') }}</span>
             </div>
+            @if(($payment->discount_amount ?? 0) > 0)
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Diskon{{ $payment->discount_code ? ' (' . $payment->discount_code . ')' : '' }}:</span>
+                <span class="font-medium text-green-600">- Rp {{ number_format($payment->discount_amount, 0, ',', '.') }}</span>
+            </div>
+            @endif
             <div class="flex justify-between py-2 border-b border-gray-100">
                 <span class="text-gray-600">Biaya Admin:</span>
                 <span class="font-medium">Rp {{ number_format($payment->admin_fee, 0, ',', '.') }}</span>

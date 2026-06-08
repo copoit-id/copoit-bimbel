@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\Package;
+use App\Models\Discount;
 use Carbon\Carbon;
 use RuntimeException;
 
@@ -19,6 +20,8 @@ class Payment extends Model
 
     protected $casts = [
         'amount' => 'decimal:0',
+        'original_amount' => 'decimal:0',
+        'discount_amount' => 'decimal:0',
         'unique_code' => 'integer',
         'unique_code_date' => 'date',
         'created_at' => 'datetime',
@@ -34,6 +37,11 @@ class Payment extends Model
     public function package()
     {
         return $this->belongsTo(Package::class, 'package_id', 'package_id');
+    }
+
+    public function discount()
+    {
+        return $this->belongsTo(Discount::class);
     }
 
     public function getFormattedAmountAttribute(): string

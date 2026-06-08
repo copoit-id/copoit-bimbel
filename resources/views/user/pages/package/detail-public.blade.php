@@ -7,6 +7,7 @@
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 $isGuest = !Auth::check();
+$publicDiscounts = $publicDiscounts ?? collect();
 @endphp
 
 <!-- Header -->
@@ -134,8 +135,22 @@ $isGuest = !Auth::check();
                         <i class="ri-gift-line mr-2"></i>Ajukan Akses Gratis
                     </a>
                     @else
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form">
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form space-y-3">
                         @csrf
+                        <div>
+                            <input type="text" name="discount_code"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl uppercase focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Kode diskon (opsional)">
+                            @if($publicDiscounts->isNotEmpty())
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                @foreach($publicDiscounts as $discount)
+                                <span class="px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-100 text-[11px] font-semibold">
+                                    {{ $discount->code }} - {{ $discount->formatted_value }}
+                                </span>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
                         <button type="submit" 
                                 class="w-full px-6 py-3 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">

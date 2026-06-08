@@ -6,6 +6,7 @@ use App\Http\Controllers\admin\CertificateController;
 use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\admin\DiscussionController;
+use App\Http\Controllers\admin\DiscountController;
 use App\Http\Controllers\admin\EssayReviewController;
 use App\Http\Controllers\admin\ExpenseController;
 use App\Http\Controllers\admin\FaqController;
@@ -155,6 +156,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('paket-pembelian')->group(function () {
         Route::post('/{package_id}/buy', [PackageController::class, 'buyPackage'])->name('user.package.buy');
+        Route::post('/{package_id}/discount/preview', [PackageController::class, 'previewDiscount'])->name('user.package.discount.preview');
         Route::get('/payment/success', [PackageController::class, 'paymentSuccess'])->name('user.package.payment.success');
         Route::get('/payment/failed', [PackageController::class, 'paymentFailed'])->name('user.package.payment.failed');
         Route::get('/riwayat-pembelian', [PackageController::class, 'riwayatPembelian'])->name('user.package.riwayatPembelian');
@@ -327,6 +329,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('/paket/{package_id}/edit', [AdminPackageController::class, 'edit'])->name('package.edit');
     Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
     Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
+    Route::resource('diskon', DiscountController::class)
+        ->except(['show'])
+        ->names('discounts')
+        ->parameters(['diskon' => 'discount']);
 
     // Package Tryout Management
     Route::get('/paket/{package_id}/tryout', [AdminPackageController::class, 'indexTryout'])->name('package.tryout.index');

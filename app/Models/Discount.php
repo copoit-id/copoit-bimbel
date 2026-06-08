@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+
+class Discount extends Model
+{
+    protected $guarded = [];
+
+    protected $casts = [
+        'discount_value' => 'decimal:0',
+        'max_discount_amount' => 'decimal:0',
+        'min_purchase_amount' => 'decimal:0',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'is_active' => 'boolean',
+        'is_public' => 'boolean',
+    ];
+
+    public static function normalizeCode(?string $code): ?string
+    {
+        $code = strtoupper(trim((string) $code));
+
+        return $code !== '' ? $code : null;
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function scopeAvailable(Builder $query): Builder
+    {
+        $now = Carbon::now();
+
+        return $query->where('is_active', true)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function ($query) use ($now) {
+                $query->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
+            });
+    }
+
+    public function scopePublicAvailable(Builder $query): Builder
+    {
+        return $query->available()->where('is_public', true);
+    }
+
+    public function calculateDiscountAmount(int $amount): int
+    {
+        if ($amount <= 0) {
+            return 0;
+        }
+
+        if ($this->discount_type === 'fixed') {
+            return min($amount, (int) $this->discount_value);
+        }
+
+        $discount = (int) floor($amount * ((float) $this->discount_value / 100));
+
+        if ($this->max_discount_amount !== null) {
+            $discount = min($discount, (int) $this->max_discount_amount);
+        }
+
+        return min($amount, max(0, $discount));
+    }
+
+    public function validationErrorFor(int $amount, int $userId): ?string
+    {
+        $now = Carbon::now();
+
+        if (!$this->is_active) {
+            return 'Kode diskon tidak aktif.';
+        }
+
+        if ($this->starts_at && $this->starts_at->gt($now)) {
+            return 'Kode diskon belum bisa digunakan.';
+        }
+
+        if ($this->ends_at && $this->ends_at->lt($now)) {
+            return 'Kode diskon sudah kedaluwarsa.';
+        }
+
+        if ($amount < (int) $this->min_purchase_amount) {
+            return 'Minimal pembelian untuk kode diskon ini belum terpenuhi.';
+        }
+
+        $usedStatuses = [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS];
+        $totalUsed = $this->payments()->whereIn('status', $usedStatuses)->count();
+
+        if ($this->usage_limit !== null && $totalUsed >= (int) $this->usage_limit) {
+            return 'Kuota kode diskon sudah habis.';
+        }
+
+        if ($this->per_user_limit !== null) {
+            $userUsed = $this->payments()
+                ->where('user_id', $userId)
+                ->whereIn('status', $usedStatuses)
+                ->count();
+
+            if ($userUsed >= (int) $this->per_user_limit) {
+                return 'Kode diskon sudah mencapai batas pemakaian akun ini.';
+            }
+        }
+
+        return null;
+    }
+
+    public function getFormattedValueAttribute(): string
+    {
+        if ($this->discount_type === 'fixed') {
+            return 'Rp ' . number_format((float) $this->discount_value, 0, ',', '.');
+        }
+
+        return rtrim(rtrim(number_format((float) $this->discount_value, 2, ',', '.'), '0'), ',') . '%';
+    }
+}

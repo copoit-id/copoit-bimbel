@@ -5,6 +5,7 @@ namespace App\Http\Controllers\user;
 use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\Payment;
+use App\Models\Discount;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
 use App\Models\MaterialProgressLog;
@@ -66,12 +67,19 @@ class PackageController extends Controller
                 $manualPaymentUniqueCodes[$package->package_id] = $uniqueCode;
             }
         }
+
+        $publicDiscounts = Discount::query()
+            ->publicAvailable()
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
         
         return view('user.pages.package.new-index', compact(
             'packages',
             'tab',
             'userOwnedPackageIds',
-            'manualPaymentUniqueCodes'
+            'manualPaymentUniqueCodes',
+            'publicDiscounts'
         ));
     }
 
@@ -136,6 +144,51 @@ class PackageController extends Controller
                         ], 400);
                     }
 
+                    $discountData = $this->resolveDiscount($request, $package);
+                    if ($discountData['error']) {
+                        if ($request->expectsJson()) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => $discountData['error'],
+                            ], 422);
+                        }
+
+                        return redirect()->back()->with('error', $discountData['error']);
+                    }
+
+                    $payableAmount = $discountData['payable_amount'];
+                    if ($payableAmount <= 0) {
+                        $payment = Payment::create([
+                            'transaction_id' => 'DISC-' . $package->package_id . '-' . Auth::id() . '-' . time(),
+                            'user_id' => Auth::id(),
+                            'package_id' => $package->package_id,
+                            'discount_id' => $discountData['discount']?->id,
+                            'discount_code' => $discountData['discount']?->code,
+                            'original_amount' => (int) $package->price,
+                            'discount_amount' => $discountData['discount_amount'],
+                            'amount' => 0,
+                            'admin_fee' => 0,
+                            'total_amount' => 0,
+                            'status' => Payment::STATUS_SUCCESS,
+                            'payment_method' => 'discount',
+                            'paid_at' => Carbon::now(),
+                            'payment_details' => json_encode([
+                                'base_amount' => (int) $package->price,
+                                'discount_code' => $discountData['discount']?->code,
+                                'discount_amount' => $discountData['discount_amount'],
+                            ]),
+                        ]);
+
+                        $this->recordDiscountUsage($discountData['discount']);
+                        $this->ensureUserPackageAccess($payment, 'Access activated by full discount');
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Kode diskon berhasil digunakan. Paket sudah aktif.',
+                            'redirect_url' => route('user.package.my'),
+                        ]);
+                    }
+
                     $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
                     if ($paymentMode === 'manual') {
                         $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
@@ -167,13 +220,17 @@ class PackageController extends Controller
 
                         $proofPath = $validated['payment_proof']->store('payment-proofs', 'public');
                         $transactionId = 'MANUAL-' . $package->package_id . '-' . Auth::id() . '-' . time();
-                        $totalAmount = (int) $package->price + $uniqueCode;
+                        $totalAmount = $payableAmount + $uniqueCode;
 
                         Payment::create([
                             'transaction_id' => $transactionId,
                             'user_id' => Auth::id(),
                             'package_id' => $package->package_id,
-                            'amount' => $package->price,
+                            'discount_id' => $discountData['discount']?->id,
+                            'discount_code' => $discountData['discount']?->code,
+                            'original_amount' => (int) $package->price,
+                            'discount_amount' => $discountData['discount_amount'],
+                            'amount' => $payableAmount,
                             'admin_fee' => 0,
                             'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
                             'unique_code_date' => $paymentUniqueCodeEnabled ? now()->toDateString() : null,
@@ -184,9 +241,14 @@ class PackageController extends Controller
                                 'proof_path' => $proofPath,
                                 'proof_name' => $validated['payment_proof']->getClientOriginalName(),
                                 'base_amount' => (int) $package->price,
+                                'discount_code' => $discountData['discount']?->code,
+                                'discount_amount' => $discountData['discount_amount'],
+                                'payable_amount' => $payableAmount,
                                 'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
                             ]),
                         ]);
+
+                        $this->recordDiscountUsage($discountData['discount']);
 
                         return response()->json([
                             'success' => true,
@@ -194,7 +256,7 @@ class PackageController extends Controller
                         ]);
                     }
 
-                    $paymentResponse = $this->createPayment($package);
+                    $paymentResponse = $this->createPayment($package, $discountData);
 
                     if ($paymentResponse['success']) {
                         // For AJAX requests, return JSON; for native form submit, redirect directly
@@ -223,18 +285,99 @@ class PackageController extends Controller
         }
     }
 
-    private function createPayment(Package $package)
+    public function previewDiscount(Request $request, $package_id)
+    {
+        $package = Package::where('status', 'active')->findOrFail($package_id);
+
+        if ($package->type_price !== 'paid' || $package->price <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Diskon hanya berlaku untuk paket berbayar.',
+            ], 422);
+        }
+
+        $discountData = $this->resolveDiscount($request, $package);
+        if ($discountData['error']) {
+            return response()->json([
+                'success' => false,
+                'message' => $discountData['error'],
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'code' => $discountData['discount']?->code,
+            'original_amount' => (int) $package->price,
+            'discount_amount' => $discountData['discount_amount'],
+            'payable_amount' => $discountData['payable_amount'],
+        ]);
+    }
+
+    private function createPayment(Package $package, array $discountData)
     {
         $gateway = strtolower((string) config('services.payment_gateway', 'xendit'));
 
         if ($gateway === 'midtrans') {
-            return $this->createMidtransPayment($package);
+            return $this->createMidtransPayment($package, $discountData);
         }
 
-        return $this->createXenditPayment($package);
+        return $this->createXenditPayment($package, $discountData);
     }
 
-    private function createXenditPayment(Package $package)
+    private function resolveDiscount(Request $request, Package $package): array
+    {
+        $amount = (int) $package->price;
+        $code = Discount::normalizeCode($request->input('discount_code'));
+
+        if (!$code) {
+            return [
+                'discount' => null,
+                'discount_amount' => 0,
+                'payable_amount' => $amount,
+                'error' => null,
+            ];
+        }
+
+        $discount = Discount::query()->where('code', $code)->first();
+        if (!$discount) {
+            return [
+                'discount' => null,
+                'discount_amount' => 0,
+                'payable_amount' => $amount,
+                'error' => 'Kode diskon tidak ditemukan.',
+            ];
+        }
+
+        $error = $discount->validationErrorFor($amount, Auth::id());
+        if ($error) {
+            return [
+                'discount' => $discount,
+                'discount_amount' => 0,
+                'payable_amount' => $amount,
+                'error' => $error,
+            ];
+        }
+
+        $discountAmount = $discount->calculateDiscountAmount($amount);
+
+        return [
+            'discount' => $discount,
+            'discount_amount' => $discountAmount,
+            'payable_amount' => max(0, $amount - $discountAmount),
+            'error' => null,
+        ];
+    }
+
+    private function recordDiscountUsage(?Discount $discount): void
+    {
+        if (!$discount) {
+            return;
+        }
+
+        $discount->increment('used_count');
+    }
+
+    private function createXenditPayment(Package $package, array $discountData)
     {
         $secretKey = config('services.xendit.secret_key');
 
@@ -254,7 +397,7 @@ class PackageController extends Controller
                 'Content-Type' => 'application/json',
             ])->post($baseUrl . '/v2/invoices', [
                         'external_id' => $transactionId,
-                        'amount' => $package->price,
+                        'amount' => $discountData['payable_amount'],
                         'description' => 'Pembelian ' . $package->name,
                         'invoice_duration' => 86400, // 24 hours
                         'customer' => [
@@ -278,17 +421,26 @@ class PackageController extends Controller
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
-                    'amount' => $package->price,
+                    'discount_id' => $discountData['discount']?->id,
+                    'discount_code' => $discountData['discount']?->code,
+                    'original_amount' => (int) $package->price,
+                    'discount_amount' => $discountData['discount_amount'],
+                    'amount' => $discountData['payable_amount'],
                     'admin_fee' => 0,
-                    'total_amount' => $package->price,
+                    'total_amount' => $discountData['payable_amount'],
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'xendit',
                     'payment_details' => json_encode([
                         'invoice_id' => $invoiceData['id'],
                         'invoice_url' => $invoiceData['invoice_url'],
-                        'external_id' => $transactionId
+                        'external_id' => $transactionId,
+                        'base_amount' => (int) $package->price,
+                        'discount_code' => $discountData['discount']?->code,
+                        'discount_amount' => $discountData['discount_amount'],
                     ]),
                 ]);
+
+                $this->recordDiscountUsage($discountData['discount']);
 
                 return [
                     'success' => true,
@@ -313,7 +465,7 @@ class PackageController extends Controller
         }
     }
 
-    private function createMidtransPayment(Package $package)
+    private function createMidtransPayment(Package $package, array $discountData)
     {
         $serverKey = config('services.midtrans.server_key');
         $snapUrl = config('services.midtrans.snap_url', 'https://app.sandbox.midtrans.com/snap/v1/transactions');
@@ -335,12 +487,12 @@ class PackageController extends Controller
             ])->post($snapUrl, [
                         'transaction_details' => [
                             'order_id' => $transactionId,
-                            'gross_amount' => (int) round($package->price),
+                            'gross_amount' => (int) round($discountData['payable_amount']),
                         ],
                         'item_details' => [
                             [
                                 'id' => (string) $package->package_id,
-                                'price' => (int) round($package->price),
+                                'price' => (int) round($discountData['payable_amount']),
                                 'quantity' => 1,
                                 'name' => Str::limit($package->name, 50, ''),
                             ],
@@ -363,17 +515,26 @@ class PackageController extends Controller
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
-                    'amount' => $package->price,
+                    'discount_id' => $discountData['discount']?->id,
+                    'discount_code' => $discountData['discount']?->code,
+                    'original_amount' => (int) $package->price,
+                    'discount_amount' => $discountData['discount_amount'],
+                    'amount' => $discountData['payable_amount'],
                     'admin_fee' => 0,
-                    'total_amount' => $package->price,
+                    'total_amount' => $discountData['payable_amount'],
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'midtrans',
                     'payment_details' => json_encode([
                         'snap_token' => $data['token'] ?? null,
                         'redirect_url' => $data['redirect_url'] ?? null,
                         'external_id' => $transactionId,
+                        'base_amount' => (int) $package->price,
+                        'discount_code' => $discountData['discount']?->code,
+                        'discount_amount' => $discountData['discount_amount'],
                     ]),
                 ]);
+
+                $this->recordDiscountUsage($discountData['discount']);
 
                 return [
                     'success' => true,
@@ -1207,7 +1368,7 @@ class PackageController extends Controller
                         'start_date' => Carbon::now(),
                         'end_date' => Carbon::now()->addYear(),
                         'status' => 'active',
-                        'payment_amount' => $payment->amount,
+                        'payment_amount' => $payment->total_amount,
                         'payment_status' => 'paid',
                         'notes' => 'Auto-activated for development testing',
                         'created_by' => $payment->user_id
@@ -1328,7 +1489,7 @@ class PackageController extends Controller
             'start_date' => Carbon::now(),
             'end_date' => Carbon::now()->addYear(),
             'status' => 'active',
-            'payment_amount' => $payment->amount,
+            'payment_amount' => $payment->total_amount,
             'payment_status' => 'paid',
             'notes' => $notes,
             'created_by' => $payment->user_id
@@ -2276,6 +2437,12 @@ class PackageController extends Controller
             }
         }
 
+        $publicDiscounts = Discount::query()
+            ->publicAvailable()
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
         return view('user.pages.package.detail-public', compact(
             'package',
             'hasAccess',
@@ -2283,7 +2450,8 @@ class PackageController extends Controller
             'totalVideos',
             'totalDocuments',
             'totalLiveSessions',
-            'totalMaterials'
+            'totalMaterials',
+            'publicDiscounts'
         ));
     }
 }
