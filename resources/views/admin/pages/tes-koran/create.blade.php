@@ -24,7 +24,7 @@
         </div>
         @endif
 
-        <form action="{{ route('admin.tes-koran.store') }}" method="POST">
+        <form action="{{ route('admin.tes-koran.store') }}" method="POST" novalidate>
             @csrf
 
             <div class="space-y-4">
@@ -125,7 +125,7 @@
                         <div class="space-y-3">
                             <div>
                                 <label class="flex items-center">
-                                    <input type="checkbox" name="is_for_sale" value="1" {{ old('is_for_sale') ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale') ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
                                     <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
                                 </label>
                                 <p class="text-xs text-gray-500 ml-6">Centang agar tes koran ini bisa dibeli secara individual.</p>
@@ -170,3 +170,27 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const priceInput = document.getElementById('price');
+    const saleCheckbox = document.getElementById('is_for_sale');
+
+    function syncPriceInput() {
+        if (!priceInput || !saleCheckbox) return;
+
+        if (saleCheckbox.checked) {
+            priceInput.disabled = false;
+            return;
+        }
+
+        priceInput.value = 0;
+        priceInput.disabled = true;
+    }
+
+    saleCheckbox?.addEventListener('change', syncPriceInput);
+    syncPriceInput();
+});
+</script>
+@endpush

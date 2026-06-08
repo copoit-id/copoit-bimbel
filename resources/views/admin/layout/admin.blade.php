@@ -235,31 +235,19 @@
     })();
     </script>
 
-    {{-- Fix sidebar navigation issues --}}
+    {{-- Keep sidebar links as normal anchors; only clean stale Alpine bindings on details. --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Stop Alpine.js from interfering with details elements
             const detailsElements = document.querySelectorAll('#logo-sidebar details');
             detailsElements.forEach(function(details) {
-                // Remove any Alpine.js bindings
                 details.removeAttribute('x-data');
                 details.removeAttribute('x-bind');
                 details.removeAttribute('x-on:click');
             });
-            
-            // Ensure all sidebar links work properly - direct navigation
-            const sidebarLinks = document.querySelectorAll('#logo-sidebar a');
-            sidebarLinks.forEach(function(link) {
-                // Remove any existing listeners by cloning
-                const newLink = link.cloneNode(true);
-                link.parentNode.replaceChild(newLink, link);
-            });
         });
         
-        // Handle page cache issues
         window.addEventListener('pageshow', function(event) {
             if (event.persisted) {
-                // Page was loaded from bfcache (back button), reload to ensure fresh state
                 window.location.reload();
             }
         });

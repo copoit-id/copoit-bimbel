@@ -240,15 +240,18 @@ $effectiveDirection = $tesKoran->test_type === 'kraepelin' ? 'bottom_to_top' : '
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    let timeLeft = Math.floor({{ $timeLeft }});
     const columnDurationSeconds = {{ $tesKoran->column_duration_seconds ?? 60 }};
     const columnsCount = {{ $tesKoran->columns_count }};
     const rowsCount = {{ $tesKoran->rows_count }};
     const totalDurationSeconds = columnDurationSeconds * columnsCount;
-    const elapsedSeconds = Math.max(0, totalDurationSeconds - timeLeft);
-    let currentColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
-    let currentColumnRemaining = columnDurationSeconds - (elapsedSeconds % columnDurationSeconds);
-    if (timeLeft <= 0) currentColumnRemaining = 0;
+    const columnsHash = '{{ md5($columnsJson) }}';
+    const progressKey = 'tes_koran_progress:{{ auth()->id() }}:{{ $tesKoran->id }}';
+    const currentColumnKey = 'tes_koran_current_column:{{ auth()->id() }}:{{ $tesKoran->id }}';
+    const storageKey = `tes_koran_answers:{{ auth()->id() }}:{{ $tesKoran->id }}:${columnsHash}`;
+    const initialProgress = resolveProgress();
+    let timeLeft = initialProgress.timeLeft;
+    let currentColumn = initialProgress.currentColumn;
+    let currentColumnRemaining = initialProgress.currentColumnRemaining;
     const currentColumnLabel = document.getElementById('currentColumnLabel');
     const changeColumnModal = document.getElementById('changeColumnModal');
     const changeColumnTitle = document.getElementById('changeColumnTitle');
@@ -261,11 +264,165 @@ document.addEventListener('DOMContentLoaded', function() {
     let columnTimeout = null;
     const transitionInstruction = '{{ $tesKoran->test_type === 'pauli' ? 'GARIS!' : 'PINDAH!' }}';
     const disallowedInputPattern = /[^0-9]/g;
-    const storageKey = 'tes_koran_answers:{{ auth()->id() }}:{{ $tesKoran->id }}:{{ md5($columnsJson) }}';
 
     restoreAnswersFromLocal();
     startColumnFlow();
     updateCount();
+
+    window.addEventListener('beforeunload', function() {
+        if (!isSubmitting) {
+            saveProgressToLocal(currentColumn, getActiveColumnRemainingSeconds());
+            saveAnswersToLocal();
+        }
+    });
+
+    function resolveProgress() {
+        const serverTimeLeft = Math.max(0, Math.floor({{ $timeLeft }}));
+        const now = Date.now();
+
+        try {
+            const storedColumnProgress = JSON.parse(localStorage.getItem(currentColumnKey) || 'null');
+            const simpleProgress = resolveStoredColumnProgress(storedColumnProgress, now);
+
+            if (simpleProgress) {
+                return simpleProgress;
+            }
+
+            const storedProgress = JSON.parse(localStorage.getItem(progressKey) || 'null');
+
+            if (storedProgress?.expiresAt) {
+                const localTimeLeft = Math.max(0, Math.floor((storedProgress.expiresAt - now) / 1000));
+
+                if (localTimeLeft <= totalDurationSeconds) {
+                    const elapsedSeconds = Math.max(0, totalDurationSeconds - Math.min(serverTimeLeft, localTimeLeft));
+                    const timeBasedColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
+                    const storedColumn = Number.isInteger(storedProgress.currentColumn)
+                        ? Math.min(columnsCount - 1, Math.max(0, storedProgress.currentColumn))
+                        : 0;
+                    const resolvedColumn = Math.max(timeBasedColumn, storedColumn);
+                    const storedColumnEndsAt = Number.isFinite(storedProgress.columnEndsAt) ? storedProgress.columnEndsAt : null;
+                    const columnRemaining = storedColumnEndsAt && resolvedColumn === storedColumn
+                        ? Math.max(0, Math.floor((storedColumnEndsAt - now) / 1000))
+                        : Math.max(0, columnDurationSeconds - (elapsedSeconds % columnDurationSeconds));
+
+                    if (storedProgress.columnsHash !== columnsHash) {
+                        localStorage.setItem(progressKey, JSON.stringify({
+                            ...storedProgress,
+                            columnsHash,
+                            currentColumn: resolvedColumn,
+                        }));
+                    }
+
+                    return {
+                        timeLeft: Math.min(serverTimeLeft, localTimeLeft),
+                        currentColumn: resolvedColumn,
+                        currentColumnRemaining: Math.min(columnDurationSeconds, columnRemaining),
+                    };
+                }
+            }
+
+            const elapsedSeconds = Math.max(0, totalDurationSeconds - serverTimeLeft);
+            const currentColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
+            const currentColumnRemaining = serverTimeLeft <= 0 ? 0 : columnDurationSeconds - (elapsedSeconds % columnDurationSeconds);
+
+            localStorage.setItem(progressKey, JSON.stringify({
+                columnsHash,
+                startedAt: now,
+                expiresAt: now + (serverTimeLeft * 1000),
+                currentColumn,
+                columnEndsAt: now + (currentColumnRemaining * 1000),
+            }));
+
+            return { timeLeft: serverTimeLeft, currentColumn, currentColumnRemaining };
+        } catch (error) {
+            console.warn('Gagal membaca progres waktu lokal.', error);
+        }
+
+        const elapsedSeconds = Math.max(0, totalDurationSeconds - serverTimeLeft);
+        const currentColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
+        const currentColumnRemaining = serverTimeLeft <= 0 ? 0 : columnDurationSeconds - (elapsedSeconds % columnDurationSeconds);
+
+        return { timeLeft: serverTimeLeft, currentColumn, currentColumnRemaining };
+    }
+
+    function resolveStoredColumnProgress(storedColumnProgress, now) {
+        if (!storedColumnProgress || !Number.isInteger(storedColumnProgress.currentColumn)) {
+            return null;
+        }
+
+        let resolvedColumn = Math.min(columnsCount - 1, Math.max(0, storedColumnProgress.currentColumn));
+        let columnEndsAt = Number.isFinite(storedColumnProgress.columnEndsAt) ? storedColumnProgress.columnEndsAt : null;
+
+        if (!columnEndsAt) {
+            return {
+                currentColumn: resolvedColumn,
+                currentColumnRemaining: columnDurationSeconds,
+                timeLeft: ((columnsCount - resolvedColumn - 1) * columnDurationSeconds) + columnDurationSeconds,
+            };
+        }
+
+        if (columnEndsAt <= now && resolvedColumn < columnsCount - 1) {
+            const overdueSeconds = Math.floor((now - columnEndsAt) / 1000);
+            const passedColumns = Math.floor(overdueSeconds / columnDurationSeconds) + 1;
+            resolvedColumn = Math.min(columnsCount - 1, resolvedColumn + passedColumns);
+            const overflowSeconds = overdueSeconds % columnDurationSeconds;
+            columnEndsAt = now + ((columnDurationSeconds - overflowSeconds) * 1000);
+        }
+
+        const currentColumnRemaining = Math.max(0, Math.min(
+            columnDurationSeconds,
+            Math.ceil((columnEndsAt - now) / 1000)
+        ));
+
+        return {
+            currentColumn: resolvedColumn,
+            currentColumnRemaining,
+            timeLeft: ((columnsCount - resolvedColumn - 1) * columnDurationSeconds) + currentColumnRemaining,
+        };
+    }
+
+    function saveProgressToLocal(columnIndex, remainingSeconds = columnDurationSeconds) {
+        try {
+            const existingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+            const now = Date.now();
+            const normalizedRemainingSeconds = Math.max(0, Math.min(columnDurationSeconds, remainingSeconds));
+            const columnEndsAt = now + (normalizedRemainingSeconds * 1000);
+            const expiresAt = existingProgress.expiresAt && existingProgress.expiresAt > now
+                ? existingProgress.expiresAt
+                : now + (Math.max(0, totalDurationSeconds - (columnIndex * columnDurationSeconds)) * 1000);
+
+            localStorage.setItem(currentColumnKey, JSON.stringify({
+                currentColumn: columnIndex,
+                columnEndsAt,
+                updatedAt: now,
+            }));
+
+            localStorage.setItem(progressKey, JSON.stringify({
+                ...existingProgress,
+                columnsHash,
+                startedAt: existingProgress.startedAt ?? now,
+                expiresAt,
+                currentColumn: columnIndex,
+                columnEndsAt,
+            }));
+        } catch (error) {
+            console.warn('Gagal menyimpan progres waktu lokal.', error);
+        }
+    }
+
+    function getActiveColumnRemainingSeconds() {
+        try {
+            const storedColumnProgress = JSON.parse(localStorage.getItem(currentColumnKey) || 'null');
+
+            if (storedColumnProgress?.currentColumn === currentColumn && Number.isFinite(storedColumnProgress.columnEndsAt)) {
+                return Math.max(0, Math.ceil((storedColumnProgress.columnEndsAt - Date.now()) / 1000));
+            }
+        } catch (error) {
+            console.warn('Gagal membaca sisa waktu kolom lokal.', error);
+        }
+
+        return currentColumnRemaining;
+    }
 
     // Count answered
     function updateCount() {
@@ -280,6 +437,7 @@ document.addEventListener('DOMContentLoaded', function() {
     inputs.forEach(input => {
         input.addEventListener('input', function(e) {
             this.value = this.value.replace(disallowedInputPattern, '').slice(-1);
+            saveProgressToLocal(currentColumn, getActiveColumnRemainingSeconds());
             saveAnswersToLocal();
             updateCount();
 
@@ -373,6 +531,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function clearStoredAnswers() {
         try {
             localStorage.removeItem(storageKey);
+            localStorage.removeItem(progressKey);
+            localStorage.removeItem(currentColumnKey);
         } catch (error) {
             console.warn('Gagal menghapus jawaban lokal.', error);
         }
@@ -424,6 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function activateColumn(columnIndex) {
         currentColumnLabel.textContent = `Kolom ${columnIndex + 1}`;
+        saveProgressToLocal(columnIndex, currentColumnRemaining);
 
         // Update progress bar
         const progressPercentage = (columnIndex / columnsCount) * 100;
@@ -481,6 +642,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         currentColumn++;
+        currentColumnRemaining = columnDurationSeconds;
         activateColumn(currentColumn);
         showChangeColumnModal(`Lanjut ke kolom ${currentColumn + 1}`);
 
