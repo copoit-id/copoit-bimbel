@@ -7,6 +7,7 @@
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $columnScores = $result->column_scores ?? [];
 $maxColumnScore = max(array_merge($columnScores, [1]));
+$hasColumnProgress = collect($columnScores)->contains(fn($score) => (int) $score > 0);
 $resultIcon = match ($result->final_result) {
     'tinggi' => 'ri-emotion-happy-line',
     'sedang' => 'ri-emotion-normal-line',
@@ -103,15 +104,36 @@ $stabilityClass = match ($result->stability_status) {
     <!-- Column Chart -->
     @if(count($columnScores) > 0)
     <div class="bg-gray-50 rounded-xl p-4">
-        <h4 class="font-medium text-gray-700 mb-3">Grafik Per Kolom</h4>
-        <div class="flex items-end gap-1 h-32">
+        <div class="flex items-center justify-between gap-4 mb-3">
+            <div>
+                <h4 class="font-medium text-gray-700">Grafik Per Kolom</h4>
+                <p class="text-xs text-gray-500">Menampilkan jumlah jawaban benar di setiap kolom.</p>
+            </div>
+            @unless($hasColumnProgress)
+            <span class="px-3 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-medium">
+                Semua kolom 0
+            </span>
+            @endunless
+        </div>
+
+        <div class="flex items-end gap-1 h-40 border-b border-gray-200 pb-2">
             @foreach($columnScores as $index => $score)
             <div class="flex-1 flex flex-col items-center">
-                <div class="w-full bg-primary rounded-t" style="height: {{ max(10, ($score / $maxColumnScore) * 100) }}%"></div>
-                <span class="text-xs text-gray-400 mt-1">{{ $index + 1 }}</span>
+                <span class="text-[10px] text-gray-500 mb-1">{{ (int) $score }}</span>
+                <div
+                    class="w-full min-h-[6px] rounded-t"
+                    style="height: {{ $score > 0 ? max(12, ($score / $maxColumnScore) * 100) : 6 }}%; background-color: {{ $score > 0 ? $primaryColor : '#d1d5db' }};">
+                </div>
+                <span class="text-[10px] text-gray-400 mt-1">{{ $index + 1 }}</span>
             </div>
             @endforeach
         </div>
+
+        @unless($hasColumnProgress)
+        <p class="mt-3 text-xs text-gray-500">
+            Grafik tidak rusak, tetapi hasil ini belum memiliki jawaban benar pada tiap kolom.
+        </p>
+        @endunless
     </div>
     @endif
 </div>
