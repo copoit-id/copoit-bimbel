@@ -261,8 +261,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let columnTimeout = null;
     const transitionInstruction = '{{ $tesKoran->test_type === 'pauli' ? 'GARIS!' : 'PINDAH!' }}';
     const disallowedInputPattern = /[^0-9]/g;
+    const storageKey = 'tes_koran_answers:{{ auth()->id() }}:{{ $tesKoran->id }}:{{ md5($columnsJson) }}';
 
+    restoreAnswersFromLocal();
     startColumnFlow();
+    updateCount();
 
     // Count answered
     function updateCount() {
@@ -277,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
     inputs.forEach(input => {
         input.addEventListener('input', function(e) {
             this.value = this.value.replace(disallowedInputPattern, '').slice(-1);
+            saveAnswersToLocal();
             updateCount();
 
             if (this.value.length === 1) {
@@ -324,6 +328,55 @@ document.addEventListener('DOMContentLoaded', function() {
             if (numTile2) numTile2.classList.remove('num-highlight');
         });
     });
+
+    function collectAnswers() {
+        const answers = {};
+
+        inputs.forEach(input => {
+            const row = parseInt(input.dataset.row);
+            const col = input.dataset.col;
+            const answerIndex = row - 1;
+
+            if (!answers[col]) answers[col] = {};
+            answers[col][answerIndex] = input.value || null;
+        });
+
+        return answers;
+    }
+
+    function saveAnswersToLocal() {
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(collectAnswers()));
+        } catch (error) {
+            console.warn('Gagal menyimpan jawaban lokal.', error);
+        }
+    }
+
+    function restoreAnswersFromLocal() {
+        try {
+            const savedAnswers = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+            inputs.forEach(input => {
+                const col = input.dataset.col;
+                const answerIndex = parseInt(input.dataset.row) - 1;
+                const savedAnswer = savedAnswers?.[col]?.[answerIndex];
+
+                if (savedAnswer !== null && savedAnswer !== undefined && savedAnswer !== '') {
+                    input.value = String(savedAnswer).replace(disallowedInputPattern, '').slice(-1);
+                }
+            });
+        } catch (error) {
+            console.warn('Gagal memulihkan jawaban lokal.', error);
+        }
+    }
+
+    function clearStoredAnswers() {
+        try {
+            localStorage.removeItem(storageKey);
+        } catch (error) {
+            console.warn('Gagal menghapus jawaban lokal.', error);
+        }
+    }
 
     function moveToNextInput(input) {
         const columnInputs = getColumnInputs(parseInt(input.dataset.col));
@@ -487,16 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitStatus.classList.remove('hidden');
         submitStatus.classList.add('flex');
 
-        // Collect answers
-        const answers = {};
-        inputs.forEach(input => {
-            const row = parseInt(input.dataset.row);
-            const col = input.dataset.col;
-            const answerIndex = row - 1;
-
-            if (!answers[col]) answers[col] = {};
-            answers[col][answerIndex] = input.value || null;
-        });
+        const answers = collectAnswers();
 
         try {
             const response = await fetch(form.action, {
@@ -518,6 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(data.error || 'Gagal menyimpan jawaban.');
             }
 
+            clearStoredAnswers();
             window.location.href = data.redirect;
         } catch (error) {
             alert(error.message);
