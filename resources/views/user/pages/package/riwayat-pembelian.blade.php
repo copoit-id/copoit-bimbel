@@ -49,7 +49,15 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     @if($payment->status == 'success') bg-green-100 text-green-700
                     @elseif($payment->status == 'pending') bg-yellow-100 text-yellow-700
                     @else bg-red-100 text-red-700 @endif">
-                    {{ ucfirst($payment->status) }}
+                    @if($payment->status == 'pending')
+                        @if($payment->payment_method == 'manual')
+                            On Review
+                        @else
+                            Pending
+                        @endif
+                    @else
+                        {{ ucfirst($payment->status) }}
+                    @endif
                 </span>
             </div>
         </div>
