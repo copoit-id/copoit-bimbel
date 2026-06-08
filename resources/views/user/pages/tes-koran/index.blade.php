@@ -51,7 +51,11 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             </div>
             <div class="flex items-center text-sm text-gray-500">
                 <i class="ri-time-line mr-2 text-gray-400"></i>
-                <span>{{ $tesKoran->duration_minutes }} Menit</span>
+                <span>{{ $tesKoran->column_duration_seconds ?? 60 }} Detik/Kolom</span>
+            </div>
+            <div class="flex items-center text-sm text-gray-500">
+                <i class="ri-calculator-line mr-2 text-gray-400"></i>
+                <span>{{ $tesKoran->operationLabel() }}</span>
             </div>
             <div class="flex items-center text-sm text-gray-500">
                 <i class="ri-layout-column-line mr-2 text-gray-400"></i>

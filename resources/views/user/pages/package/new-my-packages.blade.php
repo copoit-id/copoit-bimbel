@@ -476,7 +476,7 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
                 </div>
                 <div class="flex items-center text-sm text-gray-500">
                     <i class="ri-time-line mr-2 text-gray-400"></i>
-                    <span>{{ $tesKoran->duration_minutes }} Menit</span>
+                    <span>{{ $tesKoran->column_duration_seconds ?? 60 }} Detik/Kolom</span>
                 </div>
                 @if($latestResult)
                 <div class="flex items-center text-sm text-gray-500">

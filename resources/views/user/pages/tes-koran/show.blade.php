@@ -5,6 +5,7 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$effectiveDirection = $tesKoran->test_type === 'kraepelin' ? 'bottom_to_top' : 'top_to_bottom';
 @endphp
 
 <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -15,26 +16,27 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <h2 class="font-bold text-gray-800">{{ $tesKoran->name }}</h2>
                 <p class="text-sm text-gray-500">
                     {{ $tesKoran->test_type == 'pauli' ? 'Pauli' : 'Kraepelin' }} -
-                    {{ $tesKoran->direction == 'top_to_bottom' ? 'Atas ke Bawah' : 'Bawah ke Atas' }}
+                    {{ $effectiveDirection == 'top_to_bottom' ? 'Atas ke Bawah' : 'Bawah ke Atas' }}
                 </p>
             </div>
             <div class="text-right">
-                <div id="timer" class="text-2xl font-bold text-primary">{{ floor($timeLeft / 60) }}:{{ str_pad($timeLeft % 60, 2, '0', STR_PAD_LEFT) }}</div>
-                <p class="text-xs text-gray-400">Sisa Waktu</p>
+                <div id="currentColumnLabel" class="text-lg font-bold text-primary">Kolom 1</div>
+                <p class="text-xs text-gray-400">Kolom aktif</p>
             </div>
         </div>
     </div>
 
     <!-- Instructions -->
-    <div class="p-4 bg-blue-50 border-b">
+    <div id="instructionPanel" class="p-4 bg-blue-50 border-b">
         <div class="flex items-start gap-3">
             <i class="ri-information-line text-blue-500 text-xl mt-0.5"></i>
             <div class="text-sm text-blue-700">
                 <p class="font-medium mb-1">Petunjuk:</p>
                 <ul class="space-y-1">
-                    <li>• Jumlahkan angka berurutan ({{ $tesKoran->direction == 'top_to_bottom' ? 'dari atas ke bawah' : 'dari bawah ke atas' }})</li>
-                    <li>• Jika hasil > 9, tulis hanya digit terakhir (contoh: 14 → 4)</li>
-                    <li>• Ketik jawaban di kolom yang tersedia</li>
+                    <li>• Kerjakan operasi {{ strtolower($tesKoran->operationLabel()) }} secara berurutan ({{ $effectiveDirection == 'top_to_bottom' ? 'dari atas ke bawah' : 'dari bawah ke atas' }})</li>
+                    <li>• Tulis hanya digit satuan dari hasil hitung</li>
+                    <li>• Timer tidak ditampilkan. Saat waktu kolom habis, sistem otomatis memberi instruksi pindah kolom</li>
+                    <li>• Kolom sebelumnya akan terkunci setelah waktunya habis</li>
                     <li>• Tekan Enter atau Tab untuk next</li>
                 </ul>
             </div>
@@ -55,7 +57,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                                 No
                             </th>
                             @for($c = 0; $c < $tesKoran->columns_count; $c++)
-                            <th class="w-12 h-8 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-600">
+                            <th data-col-header="{{ $c }}" class="w-12 h-8 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-600">
                                 {{ $c + 1 }}
                             </th>
                             @endfor
@@ -69,20 +71,20 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                             </td>
                             @for($c = 0; $c < $tesKoran->columns_count; $c++)
                             @if($r == 0)
-                            <td class="w-12 h-10 border border-gray-300 bg-gray-50 text-center font-bold text-lg text-gray-700">
+                            <td data-col-cell="{{ $c }}" class="w-12 h-10 border border-gray-300 bg-gray-50 text-center font-bold text-lg text-gray-700">
                                 {{ $columns[$c][$r] }}
                             </td>
                             @else
-                            <td class="w-12 h-10 border border-gray-300 text-center align-middle">
+                            <td data-col-cell="{{ $c }}" class="w-12 h-10 border border-gray-300 text-center align-middle">
                                 <div class="flex flex-col items-center">
                                     <span class="text-lg font-bold text-gray-500">{{ $columns[$c][$r] }}</span>
                                     <input type="text"
-                                           maxlength="1"
+                                           maxlength="{{ $tesKoran->answerMaxLength() }}"
                                            pattern="[0-9]"
                                            inputmode="numeric"
                                            data-row="{{ $r }}"
                                            data-col="{{ $c }}"
-                                           class="w-8 h-6 text-center text-sm font-bold border border-gray-300 rounded focus:border-primary focus:ring-1 focus:ring-primary/20 mt-1"
+                                           class="w-12 h-6 text-center text-sm font-bold border border-gray-300 rounded focus:border-primary focus:ring-1 focus:ring-primary/20 mt-1 disabled:bg-gray-100 disabled:text-gray-400"
                                            autocomplete="off">
                                 </div>
                             </td>
@@ -98,13 +100,18 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <div class="text-sm text-gray-500">
                     <span id="answeredCount">0</span> jawaban terisi
                 </div>
-                <button type="submit" id="submitBtn"
-                        class="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-                        style="background-color: {{ $primaryColor }}">
-                    <i class="ri-check-line mr-2"></i>Submit Jawaban
-                </button>
+                <div id="submitStatus" class="hidden text-sm font-medium text-gray-500">
+                    <i class="ri-loader-4-line animate-spin mr-2"></i>Memproses jawaban...
+                </div>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="changeColumnModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/40 px-4">
+    <div class="w-full max-w-xs rounded-2xl bg-white p-8 text-center shadow-2xl">
+        <div id="changeColumnTitle" class="text-4xl font-black tracking-wide text-primary"></div>
+        <div id="changeColumnText" class="mt-3 text-sm font-medium text-gray-600"></div>
     </div>
 </div>
 
@@ -114,25 +121,28 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let timeLeft = Math.floor({{ $timeLeft }});
-    const timerEl = document.getElementById('timer');
+    const columnDurationSeconds = {{ $tesKoran->column_duration_seconds ?? 60 }};
+    const columnsCount = {{ $tesKoran->columns_count }};
+    const rowsCount = {{ $tesKoran->rows_count }};
+    const totalDurationSeconds = columnDurationSeconds * columnsCount;
+    const elapsedSeconds = Math.max(0, totalDurationSeconds - timeLeft);
+    let currentColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
+    let currentColumnRemaining = columnDurationSeconds - (elapsedSeconds % columnDurationSeconds);
+    if (timeLeft <= 0) currentColumnRemaining = 0;
+    const currentColumnLabel = document.getElementById('currentColumnLabel');
+    const changeColumnModal = document.getElementById('changeColumnModal');
+    const changeColumnTitle = document.getElementById('changeColumnTitle');
+    const changeColumnText = document.getElementById('changeColumnText');
     const answeredCountEl = document.getElementById('answeredCount');
     const inputs = document.querySelectorAll('input[data-row][data-col]');
     const form = document.getElementById('tesKoranForm');
-    const submitBtn = document.getElementById('submitBtn');
+    const submitStatus = document.getElementById('submitStatus');
     let isSubmitting = false;
+    let columnTimeout = null;
+    const transitionInstruction = '{{ $tesKoran->test_type === 'pauli' ? 'GARIS!' : 'PINDAH!' }}';
+    const disallowedInputPattern = /[^0-9]/g;
 
-    // Timer
-    const timerInterval = setInterval(() => {
-        timeLeft--;
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            submitForm();
-        }
-    }, 1000);
+    startColumnFlow();
 
     // Count answered
     function updateCount() {
@@ -146,68 +156,130 @@ document.addEventListener('DOMContentLoaded', function() {
     // Input handling
     inputs.forEach(input => {
         input.addEventListener('input', function(e) {
-            // Only allow numbers
-            this.value = this.value.replace(/[^0-9]/g, '');
-
-            // Auto move to next input
-            if (this.value.length === 1) {
-                const row = parseInt(this.dataset.row);
-                const col = parseInt(this.dataset.col);
-                const nextInput = getNextInput(row, col);
-
-                if (nextInput) {
-                    nextInput.focus();
-                }
-            }
-
+            this.value = this.value.replace(disallowedInputPattern, '').slice(-1);
             updateCount();
+
+            if (this.value.length === 1) {
+                moveToNextInput(this);
+            }
+        });
+
+        input.addEventListener('keyup', function(e) {
+            if (/^[0-9]$/.test(e.key) && this.value.length === 1) {
+                moveToNextInput(this);
+            }
         });
 
         input.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === 'Tab') {
                 e.preventDefault();
-                const row = parseInt(this.dataset.row);
-                const col = parseInt(this.dataset.col);
-
-                const nextInput = getNextInput(row, col);
-                if (nextInput) nextInput.focus();
+                moveToNextInput(this);
             }
         });
     });
 
-    function getNextInput(row, col) {
-        const direction = '{{ $tesKoran->direction }}';
+    function moveToNextInput(input) {
+        const columnInputs = getColumnInputs(parseInt(input.dataset.col));
+        const currentIndex = columnInputs.indexOf(input);
+        const nextInput = columnInputs[currentIndex + 1] ?? null;
 
-        if (direction === 'bottom_to_top') {
-            if (row > 1) {
-                return document.querySelector(`input[data-row="${row - 1}"][data-col="${col}"]`);
-            }
+        if (nextInput) {
+            focusInput(nextInput);
+        }
+    }
 
-            if (col < {{ $tesKoran->columns_count - 1 }}) {
-                return document.querySelector(`input[data-row="{{ $tesKoran->rows_count - 1 }}"][data-col="${col + 1}"]`);
-            }
+    function getColumnInputs(columnIndex) {
+        const direction = '{{ $effectiveDirection }}';
+        const columnInputs = Array.from(document.querySelectorAll(`input[data-col="${columnIndex}"]:not(:disabled)`));
 
-            return null;
+        return columnInputs.sort((first, second) => {
+            const firstRow = parseInt(first.dataset.row);
+            const secondRow = parseInt(second.dataset.row);
+
+            return direction === 'bottom_to_top' ? secondRow - firstRow : firstRow - secondRow;
+        });
+    }
+
+    function startColumnFlow() {
+        activateColumn(currentColumn);
+
+        if (currentColumnRemaining <= 0) {
+            advanceColumn();
+            return;
         }
 
-        if (row < {{ $tesKoran->rows_count - 1 }}) {
-            return document.querySelector(`input[data-row="${row + 1}"][data-col="${col}"]`);
+        columnTimeout = setTimeout(advanceColumn, currentColumnRemaining * 1000);
+    }
+
+    function activateColumn(columnIndex) {
+        currentColumnLabel.textContent = `Kolom ${columnIndex + 1}`;
+
+        inputs.forEach(input => {
+            const inputColumn = parseInt(input.dataset.col);
+            input.disabled = inputColumn !== columnIndex;
+        });
+
+        document.querySelectorAll('[data-col-header], [data-col-cell]').forEach(cell => {
+            const cellColumn = parseInt(cell.dataset.colHeader ?? cell.dataset.colCell);
+            cell.classList.toggle('bg-emerald-50', cellColumn === columnIndex);
+            cell.classList.toggle('bg-gray-100', cellColumn < columnIndex);
+            cell.classList.toggle('opacity-60', cellColumn < columnIndex);
+        });
+
+        focusFirstInput(columnIndex);
+    }
+
+    function advanceColumn() {
+        if (isSubmitting) return;
+
+        if (currentColumn >= columnsCount - 1) {
+            showChangeColumnModal('Tes selesai. Jawaban sedang diproses.');
+            setTimeout(submitForm, 900);
+            return;
         }
 
-        if (col < {{ $tesKoran->columns_count - 1 }}) {
-            return document.querySelector(`input[data-row="1"][data-col="${col + 1}"]`);
-        }
+        const previousColumn = currentColumn;
+        currentColumn++;
+        activateColumn(currentColumn);
+        showChangeColumnModal(`Lanjut ke kolom ${currentColumn + 1}`);
 
-        return null;
+        clearTimeout(columnTimeout);
+        columnTimeout = setTimeout(advanceColumn, columnDurationSeconds * 1000);
+    }
+
+    function focusFirstInput(columnIndex) {
+        const firstInput = getColumnInputs(columnIndex)[0] ?? null;
+        if (firstInput) focusInput(firstInput);
+    }
+
+    function showChangeColumnModal(message) {
+        changeColumnTitle.textContent = transitionInstruction;
+        changeColumnText.textContent = message;
+        changeColumnModal.classList.remove('hidden');
+        changeColumnModal.classList.add('flex');
+
+        setTimeout(() => {
+            changeColumnModal.classList.add('hidden');
+            changeColumnModal.classList.remove('flex');
+            focusFirstInput(currentColumn);
+        }, 750);
+    }
+
+    function focusInput(input) {
+        requestAnimationFrame(() => {
+            input.focus();
+            input.select();
+        });
     }
 
     // Submit form
     async function submitForm() {
         if (isSubmitting) return;
         isSubmitting = true;
+        clearTimeout(columnTimeout);
 
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i>Memproses...';
+        inputs.forEach(input => input.disabled = true);
+        submitStatus.classList.remove('hidden');
 
         // Collect answers
         const answers = {};
@@ -243,21 +315,16 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = data.redirect;
         } catch (error) {
             alert(error.message);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="ri-check-line mr-2"></i>Submit Jawaban';
+            submitStatus.classList.add('hidden');
             isSubmitting = false;
+            activateColumn(currentColumn);
         }
     }
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        submitForm();
     });
 
-    const firstInput = document.querySelector(
-        '{{ $tesKoran->direction === 'bottom_to_top' ? 'input[data-row="' . ($tesKoran->rows_count - 1) . '"][data-col="0"]' : 'input[data-row="1"][data-col="0"]' }}'
-    );
-    if (firstInput) firstInput.focus();
 });
 </script>
 @endpush

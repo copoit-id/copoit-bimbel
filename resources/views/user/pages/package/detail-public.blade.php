@@ -281,7 +281,7 @@ $isGuest = !Auth::check();
                         <h4 class="font-medium text-gray-800">{{ $tesKoran->name }}</h4>
                         <div class="flex items-center gap-4 mt-1 text-sm text-gray-500">
                             <span><i class="ri-file-list-line mr-1"></i>{{ ucfirst($tesKoran->test_type) }}</span>
-                            <span><i class="ri-time-line mr-1"></i>{{ $tesKoran->duration_minutes }} Menit</span>
+                            <span><i class="ri-time-line mr-1"></i>{{ $tesKoran->column_duration_seconds ?? 60 }} Detik/Kolom</span>
                         </div>
                     </div>
                     @auth

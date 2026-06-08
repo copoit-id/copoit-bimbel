@@ -53,7 +53,7 @@ class TesKoranController extends Controller
             $attempt = [
                 'columns' => $tesKoran->generateColumns($tesKoran->columns_count),
                 'started_at' => now()->toIso8601String(),
-                'expires_at' => now()->addMinutes($tesKoran->duration_minutes)->toIso8601String(),
+                'expires_at' => now()->addSeconds($tesKoran->column_duration_seconds * $tesKoran->columns_count)->toIso8601String(),
             ];
 
             session([$sessionKey => $attempt]);
@@ -163,10 +163,10 @@ class TesKoranController extends Controller
                     continue;
                 }
 
-                $expected = $column[$i] + $column[$i + 1];
-                $lastDigit = $expected > 9 ? (int) substr((string) $expected, -1) : $expected;
+                $expected = $tesKoran->calculateExpectedAnswer($column[$i], $column[$i + 1]);
+                $normalizedAnswer = $tesKoran->normalizeAnswer($userAnswer);
 
-                if ((int) $userAnswer === $lastDigit) {
+                if ($normalizedAnswer === $expected) {
                     $totalCorrect++;
                     $colCorrect++;
                 } else {

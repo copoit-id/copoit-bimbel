@@ -19,12 +19,18 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-xl font-bold text-gray-800">Hasil Tes: {{ $tesKoran->name }}</h2>
-                <p class="text-gray-500">{{ $tesKoran->test_type == 'pauli' ? 'Pauli' : 'Kraepelin' }} - {{ $tesKoran->columns_count }} kolom × {{ $tesKoran->rows_count }} baris</p>
+                <p class="text-gray-500">{{ $tesKoran->test_type == 'pauli' ? 'Pauli' : 'Kraepelin' }} - {{ $tesKoran->operationLabel() }} - {{ $tesKoran->columns_count }} kolom × {{ $tesKoran->rows_count }} baris</p>
             </div>
-            <a href="{{ route('admin.tes-koran.edit', $tesKoran) }}"
-               class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                <i class="ri-arrow-left-line mr-1"></i>Kembali
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('admin.tes-koran.results.export', $tesKoran) }}"
+                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="ri-download-line mr-1"></i>Download Excel
+                </a>
+                <a href="{{ route('admin.tes-koran.edit', $tesKoran) }}"
+                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="ri-arrow-left-line mr-1"></i>Kembali
+                </a>
+            </div>
         </div>
 
         <!-- Statistics Cards -->

@@ -95,7 +95,7 @@
                         <p class="text-xs text-gray-500">Kolom: {{ $tesKoran->columns_count }} | Baris: {{ $tesKoran->rows_count }}</p>
                     </td>
                     <td class="px-6 py-4 text-center">{{ ucfirst($tesKoran->test_type) }}</td>
-                    <td class="px-6 py-4 text-center">{{ $tesKoran->duration_minutes }} menit</td>
+                    <td class="px-6 py-4 text-center">{{ $tesKoran->column_duration_seconds ?? 60 }} detik/kolom</td>
                     <td class="px-6 py-4">
                         <div class="flex justify-center">
                             <a href="{{ route('user.tes-koran.show', $tesKoran) }}"

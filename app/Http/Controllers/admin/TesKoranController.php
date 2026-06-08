@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\TesKoran;
 use App\Models\TesKoranResult;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TesKoranController extends Controller
 {
@@ -25,21 +28,13 @@ class TesKoranController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'test_type' => 'required|in:pauli,kraepelin',
-            'direction' => 'required|in:top_to_bottom,bottom_to_top',
-            'duration_minutes' => 'required|integer|min:1|max:180',
-            'columns_count' => 'required|integer|min:5|max:50',
-            'rows_count' => 'required|integer|min:5|max:20',
-            'price' => 'nullable|integer|min:0',
-            'is_for_sale' => 'boolean',
-            'is_displayed' => 'boolean',
-        ]);
+        $validated = $this->validatedData($request);
 
         $validated['price'] = (int) ($validated['price'] ?? 0);
         $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
         $validated['is_displayed'] = $request->boolean('is_displayed', true);
+        $validated['direction'] = $this->directionForTestType($validated['test_type']);
+        $validated['duration_minutes'] = $this->totalDurationMinutes($validated);
 
         TesKoran::create($validated);
 
@@ -54,23 +49,14 @@ class TesKoranController extends Controller
 
     public function update(Request $request, TesKoran $tesKoran)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'test_type' => 'required|in:pauli,kraepelin',
-            'direction' => 'required|in:top_to_bottom,bottom_to_top',
-            'duration_minutes' => 'required|integer|min:1|max:180',
-            'columns_count' => 'required|integer|min:5|max:50',
-            'rows_count' => 'required|integer|min:5|max:20',
-            'price' => 'nullable|integer|min:0',
-            'is_for_sale' => 'boolean',
-            'is_displayed' => 'boolean',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $this->validatedData($request);
 
         $validated['price'] = (int) ($validated['price'] ?? 0);
         $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
         $validated['is_displayed'] = $request->boolean('is_displayed');
         $validated['is_active'] = $request->boolean('is_active');
+        $validated['direction'] = $this->directionForTestType($validated['test_type']);
+        $validated['duration_minutes'] = $this->totalDurationMinutes($validated);
 
         $tesKoran->update($validated);
 
@@ -118,5 +104,82 @@ class TesKoranController extends Controller
         $columns = $tesKoran->generateColumns($tesKoran->columns_count);
 
         return view('admin.pages.tes-koran.preview', compact('tesKoran', 'columns'));
+    }
+
+    public function export(TesKoran $tesKoran): StreamedResponse
+    {
+        $results = TesKoranResult::where('tes_koran_id', $tesKoran->id)
+            ->with('user')
+            ->orderBy('total_correct', 'desc')
+            ->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Hasil Tes Koran');
+
+        $sheet->fromArray([
+            'Rank',
+            'Nama',
+            'Email',
+            'Benar',
+            'Salah',
+            'Kosong',
+            'Kecepatan',
+            'Akurasi',
+            'Stabilitas',
+            'Hasil',
+            'Selesai',
+        ], null, 'A1');
+
+        foreach ($results as $index => $result) {
+            $sheet->fromArray([
+                $index + 1,
+                $result->user->name ?? 'Unknown',
+                $result->user->email ?? '',
+                $result->total_correct,
+                $result->total_wrong,
+                $result->total_skipped,
+                round($result->speed_score, 2),
+                round($result->accuracy_score, 2) . '%',
+                ucfirst((string) $result->stability_status),
+                ucfirst((string) $result->final_result),
+                $result->finished_at?->format('d/m/Y H:i') ?? '-',
+            ], null, 'A' . ($index + 2));
+        }
+
+        $filename = 'hasil-tes-koran-' . $tesKoran->id . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    private function validatedData(Request $request): array
+    {
+        return $request->validate([
+            'name' => 'required|string|max:255',
+            'test_type' => 'required|in:pauli,kraepelin',
+            'number_type' => 'required|in:satuan,puluhan,ratusan',
+            'operation_type' => 'required|in:addition,subtraction,division',
+            'column_duration_seconds' => 'required|integer|min:10|max:3600',
+            'columns_count' => 'required|integer|min:5|max:50',
+            'rows_count' => 'required|integer|min:5|max:20',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'boolean',
+            'is_displayed' => 'boolean',
+            'is_active' => 'boolean',
+        ]);
+    }
+
+    private function totalDurationMinutes(array $validated): int
+    {
+        return (int) ceil(($validated['column_duration_seconds'] * $validated['columns_count']) / 60);
+    }
+
+    private function directionForTestType(string $testType): string
+    {
+        return $testType === 'kraepelin' ? 'bottom_to_top' : 'top_to_bottom';
     }
 }

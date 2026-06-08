@@ -59,7 +59,7 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        {{ $tesKoran->duration_minutes }} menit
+                        {{ $tesKoran->column_duration_seconds ?? 60 }} detik/kolom
                     </td>
                     <td class="px-6 py-4 text-center">
                         @if($tesKoran->is_active)

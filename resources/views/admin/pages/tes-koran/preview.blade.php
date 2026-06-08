@@ -24,8 +24,8 @@
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div class="grid grid-cols-4 gap-4 text-sm">
                 <div>
-                    <span class="text-gray-500">Durasi:</span>
-                    <span class="font-medium ml-1">{{ $tesKoran->duration_minutes }} menit</span>
+                    <span class="text-gray-500">Durasi/Kolom:</span>
+                    <span class="font-medium ml-1">{{ $tesKoran->column_duration_seconds ?? 60 }} detik</span>
                 </div>
                 <div>
                     <span class="text-gray-500">Kolom:</span>
@@ -36,8 +36,8 @@
                     <span class="font-medium ml-1">{{ $tesKoran->rows_count }}</span>
                 </div>
                 <div>
-                    <span class="text-gray-500">Arah:</span>
-                    <span class="font-medium ml-1">{{ $tesKoran->direction == 'top_to_bottom' ? 'Atas ke Bawah' : 'Bawah ke Atas' }}</span>
+                    <span class="text-gray-500">Operasi:</span>
+                    <span class="font-medium ml-1">{{ $tesKoran->operationLabel() }}</span>
                 </div>
             </div>
         </div>
@@ -78,10 +78,10 @@
         <div class="mt-6 p-4 bg-gray-50 rounded-lg">
             <h4 class="font-medium text-gray-700 mb-2">Petunjuk:</h4>
             <ul class="text-sm text-gray-600 space-y-1">
-                <li>1. Peserta menjumlahkan angka berurutan (misal: 3 + 5 = 8)</li>
-                <li>2. Jika hasil penjumlahan lebih dari 9, hanya tulis digit terakhir (14 → 4)</li>
-                <li>3. Arah: <strong>{{ $tesKoran->direction == 'top_to_bottom' ? 'Dari atas ke bawah (Pauli)' : 'Dari bawah ke atas (Kraepelin)' }}</strong></li>
-                <li>4. Jika听见 perintah "garis", buat garis dan lanjut ke kolom berikutnya</li>
+                <li>1. Peserta mengerjakan angka berurutan dengan operasi <strong>{{ strtolower($tesKoran->operationLabel()) }}</strong>.</li>
+                <li>2. Arah: <strong>{{ $tesKoran->direction == 'top_to_bottom' ? 'Dari atas ke bawah' : 'Dari bawah ke atas' }}</strong></li>
+                <li>3. Setiap kolom dikerjakan selama <strong>{{ $tesKoran->column_duration_seconds ?? 60 }} detik</strong>.</li>
+                <li>4. Saat waktu kolom habis, sistem memberi instruksi pindah dan mengunci kolom sebelumnya.</li>
             </ul>
         </div>
     </div>

@@ -38,49 +38,59 @@
                            placeholder="Contoh: Tes Pauli - Batch 1">
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="test_type" class="block text-sm font-medium text-gray-700 mb-1">
+                        Jenis Tes <span class="text-red-500">*</span>
+                    </label>
+                    <select id="test_type" name="test_type" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="pauli" {{ old('test_type') == 'pauli' ? 'selected' : '' }}>
+                            Pauli (otomatis atas ke bawah)
+                        </option>
+                        <option value="kraepelin" {{ old('test_type') == 'kraepelin' ? 'selected' : '' }}>
+                            Kraepelin (otomatis bawah ke atas)
+                        </option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Arah pengerjaan otomatis mengikuti jenis tes.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label for="test_type" class="block text-sm font-medium text-gray-700 mb-1">
-                            Jenis Tes <span class="text-red-500">*</span>
+                        <label for="number_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Jenis Angka <span class="text-red-500">*</span>
                         </label>
-                        <select id="test_type" name="test_type" required
+                        <select id="number_type" name="number_type" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="pauli" {{ old('test_type') == 'pauli' ? 'selected' : '' }}>
-                                Pauli (atas ke bawah)
-                            </option>
-                            <option value="kraepelin" {{ old('test_type') == 'kraepelin' ? 'selected' : '' }}>
-                                Kraepelin (bawah ke atas)
-                            </option>
+                            <option value="satuan" {{ old('number_type', 'satuan') == 'satuan' ? 'selected' : '' }}>Satuan</option>
+                            <option value="puluhan" {{ old('number_type') == 'puluhan' ? 'selected' : '' }}>Puluhan</option>
+                            <option value="ratusan" {{ old('number_type') == 'ratusan' ? 'selected' : '' }}>Ratusan</option>
                         </select>
                     </div>
 
                     <div>
-                        <label for="direction" class="block text-sm font-medium text-gray-700 mb-1">
-                            Arah Pengerjaan <span class="text-red-500">*</span>
+                        <label for="operation_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Operasi Hitung <span class="text-red-500">*</span>
                         </label>
-                        <select id="direction" name="direction" required
+                        <select id="operation_type" name="operation_type" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="top_to_bottom" {{ old('direction') == 'top_to_bottom' ? 'selected' : '' }}>
-                                Atas ke Bawah
-                            </option>
-                            <option value="bottom_to_top" {{ old('direction') == 'bottom_to_top' ? 'selected' : '' }}>
-                                Bawah ke Atas
-                            </option>
+                            <option value="addition" {{ old('operation_type', 'addition') == 'addition' ? 'selected' : '' }}>Penjumlahan</option>
+                            <option value="subtraction" {{ old('operation_type') == 'subtraction' ? 'selected' : '' }}>Pengurangan</option>
+                            <option value="division" {{ old('operation_type') == 'division' ? 'selected' : '' }}>Pembagian</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label for="column_duration_seconds" class="block text-sm font-medium text-gray-700 mb-1">
+                            Durasi per Kolom (Detik) <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" id="column_duration_seconds" name="column_duration_seconds" required min="10" max="3600"
+                               value="{{ old('column_duration_seconds', 60) }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <p class="text-xs text-gray-400 mt-1">Waktu tidak tampil ke peserta.</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label for="duration_minutes" class="block text-sm font-medium text-gray-700 mb-1">
-                            Durasi (Menit) <span class="text-red-500">*</span>
-                        </label>
-                        <input type="number" id="duration_minutes" name="duration_minutes" required min="1" max="180"
-                               value="{{ old('duration_minutes', 60) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <p class="text-xs text-gray-400 mt-1">Default: 60 menit</p>
-                    </div>
-
+                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="columns_count" class="block text-sm font-medium text-gray-700 mb-1">
                             Jumlah Kolom <span class="text-red-500">*</span>
@@ -136,9 +146,10 @@
                         <i class="ri-information-line mr-2"></i>Info Konfigurasi
                     </h4>
                     <ul class="text-sm text-blue-700 space-y-1">
-                        <li>• <strong>Pauli:</strong> Peserta menjumlahkan dari atas ke bawah</li>
-                        <li>• <strong>Kraepelin:</strong> Peserta menjumlahkan dari bawah ke atas</li>
-                        <li>• Angka hasil penjumlahan > 9, hanya ambil digit terakhir</li>
+                        <li>• <strong>Pauli:</strong> Peserta mengerjakan dari atas ke bawah</li>
+                        <li>• <strong>Kraepelin:</strong> Peserta mengerjakan dari bawah ke atas</li>
+                        <li>• Setiap kolom punya durasi yang sama dan peserta otomatis pindah kolom saat waktu habis</li>
+                        <li>• Timer tidak ditampilkan ke peserta, hanya instruksi pindah kolom</li>
                         <li>• Setiap jawaban benar = 1 poin</li>
                         <li>• Stabilitas diukur dari konsistensi per kolom</li>
                     </ul>

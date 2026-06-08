@@ -482,6 +482,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::delete('/{tesKoran}', [AdminTesKoranController::class, 'destroy'])->name('destroy');
         Route::post('/{tesKoran}/toggle', [AdminTesKoranController::class, 'toggle'])->name('toggle');
         Route::get('/{tesKoran}/hasil', [AdminTesKoranController::class, 'results'])->name('results');
+        Route::get('/{tesKoran}/hasil/export', [AdminTesKoranController::class, 'export'])->name('results.export');
         Route::get('/{tesKoran}/preview', [AdminTesKoranController::class, 'preview'])->name('preview');
     });
 

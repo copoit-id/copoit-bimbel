@@ -44,48 +44,59 @@
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="test_type" class="block text-sm font-medium text-gray-700 mb-1">
+                        Jenis Tes <span class="text-red-500">*</span>
+                    </label>
+                    <select id="test_type" name="test_type" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="pauli" {{ $tesKoran->test_type == 'pauli' ? 'selected' : '' }}>
+                            Pauli (otomatis atas ke bawah)
+                        </option>
+                        <option value="kraepelin" {{ $tesKoran->test_type == 'kraepelin' ? 'selected' : '' }}>
+                            Kraepelin (otomatis bawah ke atas)
+                        </option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Arah pengerjaan otomatis mengikuti jenis tes.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label for="test_type" class="block text-sm font-medium text-gray-700 mb-1">
-                            Jenis Tes <span class="text-red-500">*</span>
+                        <label for="number_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Jenis Angka
                         </label>
-                        <select id="test_type" name="test_type" required
+                        <select id="number_type" name="number_type" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="pauli" {{ $tesKoran->test_type == 'pauli' ? 'selected' : '' }}>
-                                Pauli (atas ke bawah)
-                            </option>
-                            <option value="kraepelin" {{ $tesKoran->test_type == 'kraepelin' ? 'selected' : '' }}>
-                                Kraepelin (bawah ke atas)
-                            </option>
+                            <option value="satuan" {{ old('number_type', $tesKoran->number_type ?? 'satuan') == 'satuan' ? 'selected' : '' }}>Satuan</option>
+                            <option value="puluhan" {{ old('number_type', $tesKoran->number_type ?? 'satuan') == 'puluhan' ? 'selected' : '' }}>Puluhan</option>
+                            <option value="ratusan" {{ old('number_type', $tesKoran->number_type ?? 'satuan') == 'ratusan' ? 'selected' : '' }}>Ratusan</option>
                         </select>
                     </div>
 
                     <div>
-                        <label for="direction" class="block text-sm font-medium text-gray-700 mb-1">
-                            Arah Pengerjaan <span class="text-red-500">*</span>
+                        <label for="operation_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Operasi Hitung
                         </label>
-                        <select id="direction" name="direction" required
+                        <select id="operation_type" name="operation_type" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="top_to_bottom" {{ $tesKoran->direction == 'top_to_bottom' ? 'selected' : '' }}>
-                                Atas ke Bawah
-                            </option>
-                            <option value="bottom_to_top" {{ $tesKoran->direction == 'bottom_to_top' ? 'selected' : '' }}>
-                                Bawah ke Atas
-                            </option>
+                            <option value="addition" {{ old('operation_type', $tesKoran->operation_type ?? 'addition') == 'addition' ? 'selected' : '' }}>Penjumlahan</option>
+                            <option value="subtraction" {{ old('operation_type', $tesKoran->operation_type ?? 'addition') == 'subtraction' ? 'selected' : '' }}>Pengurangan</option>
+                            <option value="division" {{ old('operation_type', $tesKoran->operation_type ?? 'addition') == 'division' ? 'selected' : '' }}>Pembagian</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label for="column_duration_seconds" class="block text-sm font-medium text-gray-700 mb-1">
+                            Durasi per Kolom (Detik)
+                        </label>
+                        <input type="number" id="column_duration_seconds" name="column_duration_seconds" required min="10" max="3600"
+                               value="{{ old('column_duration_seconds', $tesKoran->column_duration_seconds ?? 60) }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <p class="text-xs text-gray-400 mt-1">Waktu tidak tampil ke peserta.</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label for="duration_minutes" class="block text-sm font-medium text-gray-700 mb-1">
-                            Durasi (Menit)
-                        </label>
-                        <input type="number" id="duration_minutes" name="duration_minutes" required min="1" max="180"
-                               value="{{ old('duration_minutes', $tesKoran->duration_minutes) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    </div>
-
+                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="columns_count" class="block text-sm font-medium text-gray-700 mb-1">
                             Jumlah Kolom

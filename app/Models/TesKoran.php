@@ -13,6 +13,9 @@ class TesKoran extends Model
         'name',
         'test_type',
         'direction',
+        'number_type',
+        'operation_type',
+        'column_duration_seconds',
         'duration_minutes',
         'columns_count',
         'rows_count',
@@ -26,6 +29,7 @@ class TesKoran extends Model
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
         'is_displayed' => 'boolean',
+        'column_duration_seconds' => 'integer',
         'duration_minutes' => 'integer',
         'columns_count' => 'integer',
         'rows_count' => 'integer',
@@ -58,11 +62,67 @@ class TesKoran extends Model
         for ($i = 0; $i < $count; $i++) {
             $column = [];
             for ($j = 0; $j < $this->rows_count; $j++) {
-                $column[] = rand(1, 9);
+                $column[] = rand(...$this->numberRange());
             }
             $columns[] = $column;
         }
         return $columns;
+    }
+
+    public function numberRange(): array
+    {
+        return match ($this->number_type) {
+            'puluhan' => [10, 99],
+            'ratusan' => [100, 999],
+            default => [1, 9],
+        };
+    }
+
+    public function operationLabel(): string
+    {
+        return match ($this->operation_type) {
+            'subtraction' => 'Pengurangan',
+            'division' => 'Pembagian',
+            default => 'Penjumlahan',
+        };
+    }
+
+    public function calculateExpectedAnswer(int|float $firstNumber, int|float $secondNumber): string
+    {
+        $result = match ($this->operation_type) {
+            'subtraction' => abs($firstNumber - $secondNumber),
+            'division' => $this->calculateDivisionResult($firstNumber, $secondNumber),
+            default => $firstNumber + $secondNumber,
+        };
+
+        return $this->lastDigit($result);
+    }
+
+    public function answerMaxLength(): int
+    {
+        return 1;
+    }
+
+    public function normalizeAnswer(int|float|string $answer): string
+    {
+        return $this->lastDigit($answer);
+    }
+
+    private function calculateDivisionResult(int|float $firstNumber, int|float $secondNumber): float|int
+    {
+        $dividend = max($firstNumber, $secondNumber);
+        $divisor = max(1, min($firstNumber, $secondNumber));
+
+        return $dividend / $divisor;
+    }
+
+    private function lastDigit(int|float|string $value): string
+    {
+        $numericValue = is_numeric($value)
+            ? (int) abs(floor((float) $value))
+            : (int) preg_replace('/\D/', '', (string) $value);
+
+        return (string) ($numericValue % 10);
     }
 
     public static function calculateResult(array $answers, array $correctColumns): array
