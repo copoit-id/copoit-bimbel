@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\AffiliateCommission;
 use App\Models\AffiliateSetting;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,10 @@ class AffiliateController extends Controller
         $commissions = AffiliateCommission::with(['affiliateUser', 'referredUser', 'package', 'payment'])
             ->latest()
             ->paginate(15);
+        $referrals = User::with('referredBy:id,name,email,affiliate_code')
+            ->whereNotNull('referred_by_user_id')
+            ->latest('referred_at')
+            ->paginate(15, ['id', 'name', 'email', 'referred_by_user_id', 'referred_at'], 'referrals_page');
 
         $summary = [
             'pending' => AffiliateCommission::where('status', AffiliateCommission::STATUS_PENDING)->sum('commission_amount'),
@@ -25,7 +30,7 @@ class AffiliateController extends Controller
             'total' => AffiliateCommission::sum('commission_amount'),
         ];
 
-        return view('admin.pages.affiliate.index', compact('setting', 'commissions', 'summary'));
+        return view('admin.pages.affiliate.index', compact('setting', 'commissions', 'referrals', 'summary'));
     }
 
     public function updateSettings(Request $request)

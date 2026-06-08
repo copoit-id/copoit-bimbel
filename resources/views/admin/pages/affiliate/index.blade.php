@@ -81,6 +81,49 @@
 </form>
 
 <div class="bg-white p-6 rounded-lg border border-border mt-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Peserta dari Affiliate</h3>
+    <div class="relative overflow-x-auto">
+        <table class="w-full text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3">Peserta Diundang</th>
+                    <th class="px-6 py-3">Diundang Oleh</th>
+                    <th class="px-6 py-3">Kode Affiliate</th>
+                    <th class="px-6 py-3">Tanggal Daftar</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($referrals as $referral)
+                <tr class="bg-white border-b border-dashed border-gray-200">
+                    <td class="px-6 py-4">
+                        <p class="font-semibold text-gray-900">{{ $referral->name }}</p>
+                        <p class="text-sm text-gray-500">{{ $referral->email }}</p>
+                    </td>
+                    <td class="px-6 py-4">
+                        <p class="font-semibold text-gray-900">{{ $referral->referredBy->name ?? '-' }}</p>
+                        <p class="text-sm text-gray-500">{{ $referral->referredBy->email ?? '-' }}</p>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold">
+                            {{ $referral->referredBy->affiliate_code ?? '-' }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        {{ $referral->referred_at ? \Carbon\Carbon::parse($referral->referred_at)->format('d M Y H:i') : '-' }}
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="4" class="px-6 py-10 text-center text-gray-500">Belum ada peserta yang daftar dari affiliate.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-4">{{ $referrals->links() }}</div>
+</div>
+
+<div class="bg-white p-6 rounded-lg border border-border mt-6">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">Daftar Komisi</h3>
     <div class="relative overflow-x-auto">
         <table class="w-full text-left text-gray-500">

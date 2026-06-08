@@ -11,6 +11,7 @@ $accountNumber = $clientBranding['payment_account_number'] ?? '';
 $accountHolder = $clientBranding['payment_account_holder'] ?? '';
 $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled'] ?? true);
 $publicDiscounts = $publicDiscounts ?? collect();
+$affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
 $discountsJson = $publicDiscounts->map(function($d) {
     return [
         'id' => $d->id,
@@ -52,7 +53,7 @@ $discountsJson = $publicDiscounts->map(function($d) {
     </a>
 </div>
 
-@if($tab === 'paid' && $publicDiscounts->isNotEmpty())
+@if($tab === 'paid' && ($affiliateDiscountPreview || $publicDiscounts->isNotEmpty()))
 <div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100 shadow-sm">
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2.5">
@@ -74,6 +75,41 @@ $discountsJson = $publicDiscounts->map(function($d) {
     
     <!-- Voucher list grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @if($affiliateDiscountPreview)
+        <div class="relative flex rounded-xl border border-emerald-500 overflow-hidden bg-emerald-50/10 shadow-md shadow-emerald-50">
+            <div class="w-1/3 p-4 flex flex-col justify-center items-center text-center relative text-white bg-emerald-500 shrink-0">
+                <div class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-r-emerald-500 rounded-full"></div>
+                <div class="absolute right-0 top-0 bottom-0 border-r border-dashed border-white/30"></div>
+                <span class="text-[9px] font-bold uppercase tracking-wider opacity-80">AFFILIATE</span>
+                <span class="text-base md:text-lg font-extrabold tracking-tight mt-0.5">{{ $affiliateDiscountPreview['label'] }}</span>
+            </div>
+            <div class="flex-1 p-3.5 flex flex-col justify-between relative bg-white overflow-hidden">
+                <div class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-l-emerald-500 rounded-full"></div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono tracking-wider uppercase border bg-emerald-100 border-emerald-200 text-emerald-800">
+                            {{ $affiliateDiscountPreview['code'] }}
+                        </span>
+                        <span class="text-[9px] font-semibold text-emerald-600">Otomatis</span>
+                    </div>
+                    <p class="text-xs text-gray-600 font-medium line-clamp-2 mb-1 leading-snug">
+                        Diskon khusus karena kamu daftar dari link affiliate. Otomatis dipakai saat checkout paket pertama jika tidak memakai voucher lain.
+                    </p>
+                </div>
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-100">
+                    <span class="text-[9px] flex items-center gap-1 text-emerald-600">
+                        <i class="ri-checkbox-circle-fill"></i>
+                        Siap dipakai
+                    </span>
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                        Aktif
+                        <i class="ri-checkbox-circle-fill text-emerald-600 text-xs"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        @endif
+
         @foreach($publicDiscounts as $discount)
         @php
             $isPercent = $discount->discount_type === 'percent';
@@ -289,6 +325,30 @@ $discountsJson = $publicDiscounts->map(function($d) {
 </div>
 </div>
 
+<!-- Custom Prompt Modal -->
+<div id="customPromptModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all duration-200 scale-95 opacity-0" id="customPromptContainer">
+        <div class="p-5 border-b border-gray-150 flex items-center justify-between">
+            <h3 class="font-bold text-gray-800 text-base">Kode Diskon</h3>
+            <button onclick="closeCustomPrompt()" class="text-gray-400 hover:text-gray-650 p-1 rounded-lg hover:bg-gray-100 transition-all">
+                <i class="ri-close-line text-lg"></i>
+            </button>
+        </div>
+        <div class="p-5">
+            <p class="text-xs text-gray-500 mb-3.5 leading-relaxed">Masukkan kode diskon jika ada untuk mendapatkan potongan harga. Kosongkan jika tidak ada.</p>
+            <input type="text" id="customPromptInput" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 uppercase focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm" placeholder="Contoh: PROMO10">
+            <div class="flex gap-2.5 mt-5">
+                <button type="button" onclick="submitCustomPrompt(true)" class="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-605 hover:bg-gray-50 font-bold text-xs transition-colors uppercase tracking-wider">
+                    Lewati
+                </button>
+                <button type="button" onclick="submitCustomPrompt(false)" class="flex-1 py-2.5 rounded-xl text-white font-bold text-xs transition-colors uppercase tracking-wider" style="background-color: {{ $primaryColor }}">
+                    Gunakan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Loading Modal -->
 <div id="loadingModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center backdrop-blur-sm">
     <div class="bg-white px-6 py-5 rounded-2xl shadow-xl flex items-center gap-3">
@@ -429,6 +489,117 @@ let selectedPackageName = '';
 let selectedDiscountCode = '';
 let selectedDiscountAmount = 0;
 let selectedPayableAmount = 0;
+
+// Reusable Toast Notification System
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 max-w-sm w-full';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = 'transform translate-y-4 opacity-0 transition-all duration-300 ease-out flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl border text-sm font-medium text-white';
+    
+    let icon = 'ri-information-line';
+    if (type === 'success') {
+        toast.className += ' bg-emerald-600 border-emerald-500';
+        icon = 'ri-checkbox-circle-line';
+    } else if (type === 'error') {
+        toast.className += ' bg-red-600 border-red-500';
+        icon = 'ri-close-circle-line';
+    } else if (type === 'warning') {
+        toast.className += ' bg-amber-500 border-amber-400';
+        icon = 'ri-alert-line';
+    } else {
+        toast.className += ' bg-gray-800 border-gray-700';
+    }
+    
+    toast.innerHTML = `
+        <i class="${icon} text-lg shrink-0"></i>
+        <span class="flex-1">${message}</span>
+        <button type="button" onclick="this.parentElement.remove()" class="text-white/70 hover:text-white transition-colors">
+            <i class="ri-close-line text-base"></i>
+        </button>
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+    }, 10);
+    
+    setTimeout(() => {
+        toast.classList.add('translate-y-4', 'opacity-0');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 4000);
+}
+
+// Reusable Custom Prompt Modal System
+let customPromptResolve = null;
+
+function showCustomPrompt() {
+    return new Promise((resolve) => {
+        customPromptResolve = resolve;
+        const modal = document.getElementById('customPromptModal');
+        const container = document.getElementById('customPromptContainer');
+        const input = document.getElementById('customPromptInput');
+        
+        input.value = '';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        setTimeout(() => {
+            container.classList.remove('scale-95', 'opacity-0');
+            input.focus();
+        }, 10);
+    });
+}
+
+function closeCustomPrompt() {
+    const modal = document.getElementById('customPromptModal');
+    const container = document.getElementById('customPromptContainer');
+    
+    container.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }, 200);
+    
+    if (customPromptResolve) {
+        customPromptResolve(null); // Resolve with null to signal cancellation
+        customPromptResolve = null;
+    }
+}
+
+function submitCustomPrompt(skip = false) {
+    const modal = document.getElementById('customPromptModal');
+    const container = document.getElementById('customPromptContainer');
+    const input = document.getElementById('customPromptInput');
+    
+    container.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }, 200);
+    
+    if (customPromptResolve) {
+        const value = skip ? '' : input.value.trim();
+        customPromptResolve(value);
+        customPromptResolve = null;
+    }
+}
+
+// Close prompt modal on backdrop click
+document.getElementById('customPromptModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeCustomPrompt();
+    }
+});
 
 // Initialize Alpine.js packageManager component
 document.addEventListener('alpine:init', () => {
@@ -583,7 +754,7 @@ function getActivePromoCode() {
     return '';
 }
 
-function handleBuy(packageId, price, packageName) {
+async function handleBuy(packageId, price, packageName) {
     selectedPackageId = packageId;
     selectedPrice = price;
     selectedPackageName = packageName;
@@ -629,7 +800,8 @@ function handleBuy(packageId, price, packageName) {
         // If a promo code is already selected on the page, use it directly. Otherwise, ask user.
         let discountCode = selectedDiscountCode;
         if (!discountCode) {
-            discountCode = window.prompt('Masukkan kode diskon jika ada. Kosongkan jika tidak ada.', '') || '';
+            discountCode = await showCustomPrompt();
+            if (discountCode === null) return; // User closed the prompt modal, cancel purchase flow
         }
         
         const submitBtn = form.querySelector('button');
@@ -659,13 +831,13 @@ function handleBuy(packageId, price, packageName) {
             if (data.success && data.redirect_url) {
                 window.location.href = data.redirect_url;
             } else {
-                alert(data.message || 'Gagal membuat pembayaran. Coba lagi nanti.');
+                showToast(data.message || 'Gagal membuat pembayaran. Coba lagi nanti.', 'error');
             }
         })
         .catch(() => {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
-            alert('Terjadi kesalahan. Silakan coba lagi.');
+            showToast('Terjadi kesalahan. Silakan coba lagi.', 'error');
         });
     }
 }
@@ -827,8 +999,10 @@ document.getElementById('paymentForm')?.addEventListener('submit', function(e) {
     .then(data => {
         if (data.success) {
             closePaymentModal();
-            alert(data.message || 'Bukti pembayaran berhasil dikirim!');
-            window.location.href = '{{ route("user.package.riwayatPembelian") }}';
+            showToast(data.message || 'Bukti pembayaran berhasil dikirim!', 'success');
+            setTimeout(() => {
+                window.location.href = '{{ route("user.package.riwayatPembelian") }}';
+            }, 1500);
         } else {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
@@ -872,17 +1046,20 @@ $(document).ready(function() {
             success: function(response) {
                 $('#loadingModal').addClass('hidden').removeClass('flex');
                 if (response.success) {
-                    window.location.href = response.redirect_url || '{{ route("user.package.my") }}';
+                    showToast(response.message || 'Paket berhasil diklaim!', 'success');
+                    setTimeout(() => {
+                        window.location.href = response.redirect_url || '{{ route("user.package.my") }}';
+                    }, 1500);
                 } else {
                     btn.prop('disabled', false).html(originalText);
-                    alert(response.message || 'Terjadi kesalahan');
+                    showToast(response.message || 'Terjadi kesalahan', 'error');
                 }
             },
             error: function(xhr) {
                 $('#loadingModal').addClass('hidden').removeClass('flex');
                 btn.prop('disabled', false).html(originalText);
                 const msg = xhr.responseJSON?.message || 'Terjadi kesalahan. Silakan coba lagi.';
-                alert(msg);
+                showToast(msg, 'error');
             }
         });
     });

@@ -8,6 +8,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 $isGuest = !Auth::check();
 $publicDiscounts = $publicDiscounts ?? collect();
+$affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
 @endphp
 
 <!-- Header -->
@@ -137,6 +138,25 @@ $publicDiscounts = $publicDiscounts ?? collect();
                     @else
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form space-y-3">
                         @csrf
+                        @if($affiliateDiscountPreview)
+                        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-left">
+                            <div class="flex items-start gap-3">
+                                <i class="ri-share-forward-line text-xl text-emerald-600 mt-0.5"></i>
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-wide text-emerald-600">Diskon Special Affiliate</p>
+                                    <p class="font-semibold text-gray-800">Diskon {{ $affiliateDiscountPreview['label'] }} otomatis aktif</p>
+                                    @if($affiliateDiscountPreview['amount'])
+                                    <p class="text-sm text-gray-600 mt-1">
+                                        Potongan Rp {{ number_format((float) $affiliateDiscountPreview['amount'], 0, ',', '.') }},
+                                        bayar Rp {{ number_format((float) $affiliateDiscountPreview['payable_amount'], 0, ',', '.') }}.
+                                    </p>
+                                    @else
+                                    <p class="text-sm text-gray-600 mt-1">Akan otomatis dipakai saat checkout paket pertama.</p>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                         <div>
                             <input type="text" name="discount_code"
                                 class="w-full px-4 py-2.5 border border-gray-300 rounded-xl uppercase focus:outline-none focus:ring-2 focus:ring-primary"

@@ -19,7 +19,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     <label class="block text-sm font-medium text-gray-700 mb-2">Link Undangan</label>
     <div class="flex flex-col md:flex-row gap-3">
         <input id="referralLink" type="text" readonly value="{{ $referralLink }}" class="flex-1 px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
-        <button type="button" onclick="copyReferralLink()" class="px-5 py-3 rounded-xl text-white font-medium" style="background-color: {{ $primaryColor }}">
+        <button type="button" onclick="copyReferralLink(this)" class="px-5 py-3 rounded-xl text-white font-medium transition-all duration-300" style="background-color: {{ $primaryColor }}">
             <i class="ri-file-copy-line mr-1"></i>Salin
         </button>
     </div>
@@ -74,7 +74,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <div class="p-3 bg-gray-50 rounded-xl">
                 <p class="font-semibold text-gray-800">{{ $referral->name }}</p>
                 <p class="text-sm text-gray-500">{{ $referral->email }}</p>
-                <p class="text-xs text-gray-400 mt-1">{{ $referral->referred_at ? $referral->referred_at->format('d M Y H:i') : '-' }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ $referral->referred_at ? \Carbon\Carbon::parse($referral->referred_at)->format('d M Y H:i') : '-' }}</p>
             </div>
             @empty
             <p class="text-center text-gray-500 py-8">Belum ada referral.</p>
@@ -85,11 +85,31 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 
 @push('scripts')
 <script>
-function copyReferralLink() {
+function copyReferralLink(button) {
     const input = document.getElementById('referralLink');
     input.select();
     input.setSelectionRange(0, 99999);
-    navigator.clipboard?.writeText(input.value);
+    
+    try {
+        navigator.clipboard?.writeText(input.value);
+    } catch (err) {
+        console.error('Failed to copy: ', err);
+    }
+    
+    if (button) {
+        const originalHTML = button.innerHTML;
+        const originalBg = button.style.backgroundColor;
+        
+        button.innerHTML = '<i class="ri-checkbox-circle-line mr-1"></i>Tersalin!';
+        button.style.backgroundColor = '#10b981'; // Green color for success state
+        button.disabled = true;
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.style.backgroundColor = originalBg;
+            button.disabled = false;
+        }, 2000);
+    }
 }
 </script>
 @endpush

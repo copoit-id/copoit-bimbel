@@ -75,13 +75,17 @@ class PackageController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
+        $affiliateDiscountPreview = $tab === 'paid'
+            ? $this->affiliateDiscountPreview()
+            : null;
         
         return view('user.pages.package.new-index', compact(
             'packages',
             'tab',
             'userOwnedPackageIds',
             'manualPaymentUniqueCodes',
-            'publicDiscounts'
+            'publicDiscounts',
+            'affiliateDiscountPreview'
         ));
     }
 
@@ -392,6 +396,44 @@ class PackageController extends Controller
             'discount_amount' => $discountAmount,
             'payable_amount' => max(0, $amount - $discountAmount),
             'error' => null,
+        ];
+    }
+
+    private function affiliateDiscountPreview(?int $amount = null): ?array
+    {
+        if (!Auth::check()) {
+            return null;
+        }
+
+        $user = Auth::user();
+        if (!$user?->referred_by_user_id) {
+            return null;
+        }
+
+        $hasPackagePayment = Payment::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS])
+            ->exists();
+
+        if ($hasPackagePayment) {
+            return null;
+        }
+
+        $setting = AffiliateSetting::current();
+        if (!$setting->is_active || !$setting->invitee_discount_enabled || (float) $setting->invitee_discount_value <= 0) {
+            return null;
+        }
+
+        $discountLabel = $setting->invitee_discount_type === 'fixed'
+            ? 'Rp ' . number_format((float) $setting->invitee_discount_value, 0, ',', '.')
+            : rtrim(rtrim(number_format((float) $setting->invitee_discount_value, 2, ',', '.'), '0'), ',') . '%';
+
+        return [
+            'code' => 'REFERRAL',
+            'label' => $discountLabel,
+            'amount' => $amount !== null ? $setting->calculateInviteeDiscount($amount) : null,
+            'payable_amount' => $amount !== null ? max(0, $amount - $setting->calculateInviteeDiscount($amount)) : null,
+            'max_discount_amount' => $setting->invitee_max_discount_amount,
         ];
     }
 
@@ -2475,6 +2517,9 @@ class PackageController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
+        $affiliateDiscountPreview = $package->type_price === 'paid'
+            ? $this->affiliateDiscountPreview((int) $package->price)
+            : null;
 
         return view('user.pages.package.detail-public', compact(
             'package',
@@ -2484,7 +2529,8 @@ class PackageController extends Controller
             'totalDocuments',
             'totalLiveSessions',
             'totalMaterials',
-            'publicDiscounts'
+            'publicDiscounts',
+            'affiliateDiscountPreview'
         ));
     }
 }
