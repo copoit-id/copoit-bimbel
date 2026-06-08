@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Discount;
+use App\Models\AffiliateSetting;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
 use App\Models\MaterialProgressLog;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
+use App\Services\AffiliateService;
 
 class PackageController extends Controller
 {
@@ -163,7 +165,7 @@ class PackageController extends Controller
                             'user_id' => Auth::id(),
                             'package_id' => $package->package_id,
                             'discount_id' => $discountData['discount']?->id,
-                            'discount_code' => $discountData['discount']?->code,
+                            'discount_code' => $discountData['discount_code'],
                             'original_amount' => (int) $package->price,
                             'discount_amount' => $discountData['discount_amount'],
                             'amount' => 0,
@@ -174,7 +176,7 @@ class PackageController extends Controller
                             'paid_at' => Carbon::now(),
                             'payment_details' => json_encode([
                                 'base_amount' => (int) $package->price,
-                                'discount_code' => $discountData['discount']?->code,
+                                'discount_code' => $discountData['discount_code'],
                                 'discount_amount' => $discountData['discount_amount'],
                             ]),
                         ]);
@@ -227,7 +229,7 @@ class PackageController extends Controller
                             'user_id' => Auth::id(),
                             'package_id' => $package->package_id,
                             'discount_id' => $discountData['discount']?->id,
-                            'discount_code' => $discountData['discount']?->code,
+                            'discount_code' => $discountData['discount_code'],
                             'original_amount' => (int) $package->price,
                             'discount_amount' => $discountData['discount_amount'],
                             'amount' => $payableAmount,
@@ -241,7 +243,7 @@ class PackageController extends Controller
                                 'proof_path' => $proofPath,
                                 'proof_name' => $validated['payment_proof']->getClientOriginalName(),
                                 'base_amount' => (int) $package->price,
-                                'discount_code' => $discountData['discount']?->code,
+                                'discount_code' => $discountData['discount_code'],
                                 'discount_amount' => $discountData['discount_amount'],
                                 'payable_amount' => $payableAmount,
                                 'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
@@ -306,7 +308,7 @@ class PackageController extends Controller
 
         return response()->json([
             'success' => true,
-            'code' => $discountData['discount']?->code,
+            'code' => $discountData['discount_code'],
             'original_amount' => (int) $package->price,
             'discount_amount' => $discountData['discount_amount'],
             'payable_amount' => $discountData['payable_amount'],
@@ -330,8 +332,30 @@ class PackageController extends Controller
         $code = Discount::normalizeCode($request->input('discount_code'));
 
         if (!$code) {
+            $user = Auth::user();
+            $setting = AffiliateSetting::current();
+            $hasPackagePayment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS])
+                ->exists();
+
+            if ($user?->referred_by_user_id && !$hasPackagePayment && $setting->invitee_discount_enabled) {
+                $affiliateDiscountAmount = $setting->calculateInviteeDiscount($amount);
+
+                if ($affiliateDiscountAmount > 0) {
+                    return [
+                        'discount' => null,
+                        'discount_code' => 'REFERRAL',
+                        'discount_amount' => $affiliateDiscountAmount,
+                        'payable_amount' => max(0, $amount - $affiliateDiscountAmount),
+                        'error' => null,
+                    ];
+                }
+            }
+
             return [
                 'discount' => null,
+                'discount_code' => null,
                 'discount_amount' => 0,
                 'payable_amount' => $amount,
                 'error' => null,
@@ -342,6 +366,7 @@ class PackageController extends Controller
         if (!$discount) {
             return [
                 'discount' => null,
+                'discount_code' => null,
                 'discount_amount' => 0,
                 'payable_amount' => $amount,
                 'error' => 'Kode diskon tidak ditemukan.',
@@ -352,6 +377,7 @@ class PackageController extends Controller
         if ($error) {
             return [
                 'discount' => $discount,
+                'discount_code' => null,
                 'discount_amount' => 0,
                 'payable_amount' => $amount,
                 'error' => $error,
@@ -362,6 +388,7 @@ class PackageController extends Controller
 
         return [
             'discount' => $discount,
+            'discount_code' => $discount->code,
             'discount_amount' => $discountAmount,
             'payable_amount' => max(0, $amount - $discountAmount),
             'error' => null,
@@ -422,7 +449,7 @@ class PackageController extends Controller
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
                     'discount_id' => $discountData['discount']?->id,
-                    'discount_code' => $discountData['discount']?->code,
+                    'discount_code' => $discountData['discount_code'],
                     'original_amount' => (int) $package->price,
                     'discount_amount' => $discountData['discount_amount'],
                     'amount' => $discountData['payable_amount'],
@@ -435,7 +462,7 @@ class PackageController extends Controller
                         'invoice_url' => $invoiceData['invoice_url'],
                         'external_id' => $transactionId,
                         'base_amount' => (int) $package->price,
-                        'discount_code' => $discountData['discount']?->code,
+                        'discount_code' => $discountData['discount_code'],
                         'discount_amount' => $discountData['discount_amount'],
                     ]),
                 ]);
@@ -516,7 +543,7 @@ class PackageController extends Controller
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
                     'discount_id' => $discountData['discount']?->id,
-                    'discount_code' => $discountData['discount']?->code,
+                    'discount_code' => $discountData['discount_code'],
                     'original_amount' => (int) $package->price,
                     'discount_amount' => $discountData['discount_amount'],
                     'amount' => $discountData['payable_amount'],
@@ -529,7 +556,7 @@ class PackageController extends Controller
                         'redirect_url' => $data['redirect_url'] ?? null,
                         'external_id' => $transactionId,
                         'base_amount' => (int) $package->price,
-                        'discount_code' => $discountData['discount']?->code,
+                        'discount_code' => $discountData['discount_code'],
                         'discount_amount' => $discountData['discount_amount'],
                     ]),
                 ]);
@@ -1374,6 +1401,8 @@ class PackageController extends Controller
                         'created_by' => $payment->user_id
                     ]);
                 }
+
+                app(AffiliateService::class)->recordCommission($payment);
             }
         } catch (\Exception $e) {
         }
@@ -1479,21 +1508,21 @@ class PackageController extends Controller
             ->where('end_date', '>', Carbon::now())
             ->first();
 
-        if ($existingAccess) {
-            return;
+        if (!$existingAccess) {
+            UserPackageAcces::create([
+                'user_id' => $payment->user_id,
+                'package_id' => $payment->package_id,
+                'start_date' => Carbon::now(),
+                'end_date' => Carbon::now()->addYear(),
+                'status' => 'active',
+                'payment_amount' => $payment->total_amount,
+                'payment_status' => 'paid',
+                'notes' => $notes,
+                'created_by' => $payment->user_id
+            ]);
         }
 
-        UserPackageAcces::create([
-            'user_id' => $payment->user_id,
-            'package_id' => $payment->package_id,
-            'start_date' => Carbon::now(),
-            'end_date' => Carbon::now()->addYear(),
-            'status' => 'active',
-            'payment_amount' => $payment->total_amount,
-            'payment_status' => 'paid',
-            'notes' => $notes,
-            'created_by' => $payment->user_id
-        ]);
+        app(AffiliateService::class)->recordCommission($payment);
     }
 
     // Add method to manually check payment status (for testing)
@@ -1642,11 +1671,13 @@ class PackageController extends Controller
                     'start_date' => Carbon::now(),
                     'end_date' => Carbon::now()->addYear(),
                     'status' => 'active',
-                    'payment_amount' => $payment->amount,
+                    'payment_amount' => $payment->total_amount,
                     'payment_status' => 'paid',
                     'notes' => 'Manually activated by admin: ' . Auth::user()->name,
                     'created_by' => Auth::id()
                 ]);
+
+                app(AffiliateService::class)->recordCommission($payment);
 
                 return response()->json([
                     'success' => true,
@@ -1654,13 +1685,15 @@ class PackageController extends Controller
                     'payment_id' => $payment->payment_id,
                     'access_id' => $userAccess->user_package_access_id
                 ]);
-            } else {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment activated, user already had access',
-                    'existing_access_id' => $existingAccess->user_package_access_id
-                ]);
             }
+
+            app(AffiliateService::class)->recordCommission($payment);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment activated, user already had access',
+                'existing_access_id' => $existingAccess->user_package_access_id
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to activate payment',

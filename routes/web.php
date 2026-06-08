@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\admin\AksesController;
+use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
 use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\CertificateController;
 use App\Http\Controllers\admin\ClassController;
@@ -32,6 +33,7 @@ use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\user\CertificateValidationController;
+use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
 use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
@@ -168,6 +170,8 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
     });
 
+    Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');
+
     Route::prefix('event')->group(function () {
         Route::get('/', [EventController::class, 'index'])->name('user.event.index');
         Route::post('/{package_id}/join', [EventController::class, 'joinEvent'])->name('user.event.join');
@@ -303,6 +307,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/pengeluaran/tambah', [ExpenseController::class, 'create'])->name('expenses.create');
         Route::post('/pengeluaran', [ExpenseController::class, 'store'])->name('expenses.store');
         Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+    });
+
+    Route::prefix('affiliate')->name('affiliate.')->group(function () {
+        Route::get('/', [AdminAffiliateController::class, 'index'])->name('index');
+        Route::put('/settings', [AdminAffiliateController::class, 'updateSettings'])->name('settings.update');
+        Route::post('/commissions/{commission}/approve', [AdminAffiliateController::class, 'approve'])->name('commissions.approve');
+        Route::post('/commissions/{commission}/pay', [AdminAffiliateController::class, 'markPaid'])->name('commissions.pay');
+        Route::post('/commissions/{commission}/cancel', [AdminAffiliateController::class, 'cancel'])->name('commissions.cancel');
     });
 
     // Profile routes

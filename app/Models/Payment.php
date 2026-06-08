@@ -44,6 +44,11 @@ class Payment extends Model
         return $this->belongsTo(Discount::class);
     }
 
+    public function affiliateCommission()
+    {
+        return $this->hasOne(AffiliateCommission::class, 'payment_id', 'payment_id');
+    }
+
     public function getFormattedAmountAttribute(): string
     {
         return 'Rp ' . number_format((float) $this->total_amount, 0, ',', '.');

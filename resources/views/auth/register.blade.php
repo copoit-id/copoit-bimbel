@@ -48,6 +48,12 @@
 
             <form class="mt-8 space-y-6" action="{{ route('register.store') }}" method="POST" id="registerForm">
                 @csrf
+                <input type="hidden" name="affiliate_ref_code" value="{{ old('affiliate_ref_code', $affiliateRefCode ?? '') }}">
+                @if(!empty($affiliateRefCode))
+                <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                    Kamu mendaftar melalui kode referral <span class="font-semibold">{{ $affiliateRefCode }}</span>.
+                </div>
+                @endif
                 <div class="space-y-4">
                     <div>
                         <label for="name" class="block text-sm font-medium text-gray-700">

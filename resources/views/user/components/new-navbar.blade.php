@@ -203,6 +203,9 @@ function isActive($route, $current) {
                         <a href="{{ route('user.package.riwayatPembelian') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-history-line mr-2"></i>Riwayat
                         </a>
+                        <a href="{{ route('user.affiliate.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="ri-share-forward-line mr-2"></i>Affiliate
+                        </a>
                         <form action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 mt-1 pt-1">
                             @csrf
                             <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">

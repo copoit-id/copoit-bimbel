@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AffiliateService;
 use App\Models\ParticipantDestinationCategory;
 use App\Rules\RecaptchaRule;
 use App\Rules\SafeName;
@@ -149,16 +150,22 @@ class AuthController extends Controller
         ])->withInput($request->except('password'));
     }
 
-    public function showRegister()
+    public function showRegister(Request $request, AffiliateService $affiliateService)
     {
+        $affiliateRefCode = strtoupper(trim((string) $request->query('ref', session('affiliate_ref_code', ''))));
+        if ($affiliateRefCode !== '' && $affiliateService->referrerFromCode($affiliateRefCode)) {
+            session(['affiliate_ref_code' => $affiliateRefCode]);
+        }
+
         return view('auth.register', [
             'recaptcha_site_key' => $this->recaptchaService->getSiteKey(),
             'recaptcha_enabled' => $this->recaptchaService->isEnabled(),
             'destinationCategories' => $this->getDestinationCategories(),
+            'affiliateRefCode' => session('affiliate_ref_code'),
         ]);
     }
 
-    public function register(Request $request)
+    public function register(Request $request, AffiliateService $affiliateService)
     {
         $rules = [
             'name' => ['required', 'string', 'max:255', new SafeName()],
@@ -170,6 +177,7 @@ class AuthController extends Controller
                 'nullable',
                 'exists:participant_destination_categories,id',
             ],
+            'affiliate_ref_code' => ['nullable', 'string', 'max:32'],
         ];
 
         // Add reCAPTCHA validation if enabled
@@ -192,6 +200,7 @@ class AuthController extends Controller
         }
 
         $brandName = $this->getBrandName();
+        $referrer = $affiliateService->referrerFromCode($validatedData['affiliate_ref_code'] ?? session('affiliate_ref_code'));
 
         try {
             $user = User::create([
@@ -202,8 +211,13 @@ class AuthController extends Controller
                 'date_of_birth' => $validatedData['date_of_birth'],
                 'phone' => $validatedData['phone'],
                 'participant_destination_category_id' => $validatedData['participant_destination_category_id'] ?? null,
+                'referred_by_user_id' => $referrer?->id,
+                'referred_at' => $referrer ? now() : null,
                 'role' => 'user',
             ]);
+
+            $affiliateService->ensureCode($user);
+            session()->forget('affiliate_ref_code');
 
             $this->sendNewRegistrationNotification($user);
 

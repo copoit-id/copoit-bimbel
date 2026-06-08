@@ -110,6 +110,13 @@
                     <span class="ms-3">Bantuan</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('user.affiliate.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.affiliate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-share-forward-line text-[20px] {{ request()->routeIs('user.affiliate.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Affiliate</span>
+                </a>
+            </li>
             @if($clientBranding['certificate_management_enabled'] ?? true)
             <li>
                 <a href="{{ route('user.certificate.validation') }}"

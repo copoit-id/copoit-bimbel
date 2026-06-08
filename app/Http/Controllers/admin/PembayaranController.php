@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Services\AffiliateService;
 
 class PembayaranController extends Controller
 {
@@ -149,12 +150,14 @@ class PembayaranController extends Controller
                     'start_date' => Carbon::now(),
                     'end_date' => Carbon::now()->addYear(),
                     'status' => 'active',
-                    'payment_amount' => $payment->amount,
+                    'payment_amount' => $payment->total_amount,
                     'payment_status' => 'paid',
                     'notes' => 'Manually confirmed by admin: ' . Auth::user()->name,
                     'created_by' => Auth::user()->id
                 ]);
             }
+
+            app(AffiliateService::class)->recordCommission($payment);
 
             return redirect()->route('admin.pembayaran.show', $id)
                 ->with('success', 'Pembayaran berhasil dikonfirmasi dan akses user telah diaktifkan');

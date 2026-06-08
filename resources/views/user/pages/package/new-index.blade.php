@@ -336,6 +336,7 @@ function handleBuy(packageId, price, packageName) {
         document.getElementById('proofPreview').classList.add('hidden');
         document.getElementById('paymentModal').classList.remove('hidden');
         document.getElementById('paymentModal').classList.add('flex');
+        checkAutomaticReferralDiscount();
     } else {
         // Gateway mode - always use AJAX to handle redirect_url from gateway
         const form = document.querySelector(`form[data-package-id="${packageId}"]`);
@@ -376,6 +377,50 @@ function handleBuy(packageId, price, packageName) {
             alert('Terjadi kesalahan. Silakan coba lagi.');
         });
     }
+}
+
+function updateDiscountDisplay(code, discountAmount, payableAmount) {
+    const uniqueCode = PAYMENT_UNIQUE_CODE_ENABLED ? Number(MANUAL_PAYMENT_UNIQUE_CODES[selectedPackageId] || 0) : 0;
+
+    selectedDiscountCode = code || '';
+    selectedDiscountAmount = Number(discountAmount || 0);
+    selectedPayableAmount = Number(payableAmount || selectedPrice);
+    document.getElementById('paymentDiscountCode').value = selectedDiscountCode === 'REFERRAL' ? '' : selectedDiscountCode;
+    document.getElementById('discountAmountDisplay').textContent = '- Rp ' + formatNumber(selectedDiscountAmount);
+    document.getElementById('discountRow').classList.toggle('hidden', selectedDiscountAmount <= 0);
+
+    const effectiveUniqueCode = selectedPayableAmount > 0 ? uniqueCode : 0;
+    document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED || selectedPayableAmount <= 0);
+    document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED && selectedPayableAmount > 0 ? uniqueCode : '';
+    document.getElementById('paymentProof').required = selectedPayableAmount > 0;
+    document.getElementById('paymentProofSection').classList.toggle('hidden', selectedPayableAmount <= 0);
+    document.getElementById('submitPaymentBtn').textContent = selectedPayableAmount <= 0 ? 'Aktifkan Paket' : 'Kirim Bukti Bayar';
+    document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPayableAmount + effectiveUniqueCode);
+}
+
+function checkAutomaticReferralDiscount() {
+    const formData = new FormData();
+
+    fetch('/user/paket-pembelian/' + selectedPackageId + '/discount/preview', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
+        },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success || !data.code || Number(data.discount_amount || 0) <= 0) {
+            return;
+        }
+
+        updateDiscountDisplay(data.code, data.discount_amount, data.payable_amount);
+        const info = document.getElementById('discountInfo');
+        info.textContent = 'Diskon referral otomatis diterapkan.';
+        info.className = 'text-sm mt-2 text-green-600';
+    })
+    .catch(() => {});
 }
 
 function applyDiscountCode() {
@@ -428,19 +473,7 @@ function applyDiscountCode() {
             return;
         }
 
-        selectedDiscountCode = data.code || code;
-        selectedDiscountAmount = Number(data.discount_amount || 0);
-        selectedPayableAmount = Number(data.payable_amount || selectedPrice);
-        document.getElementById('paymentDiscountCode').value = selectedDiscountCode;
-        document.getElementById('discountAmountDisplay').textContent = '- Rp ' + formatNumber(selectedDiscountAmount);
-        document.getElementById('discountRow').classList.remove('hidden');
-        const effectiveUniqueCode = selectedPayableAmount > 0 ? uniqueCode : 0;
-        document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED || selectedPayableAmount <= 0);
-        document.getElementById('paymentUniqueCode').value = PAYMENT_UNIQUE_CODE_ENABLED && selectedPayableAmount > 0 ? uniqueCode : '';
-        document.getElementById('paymentProof').required = selectedPayableAmount > 0;
-        document.getElementById('paymentProofSection').classList.toggle('hidden', selectedPayableAmount <= 0);
-        document.getElementById('submitPaymentBtn').textContent = selectedPayableAmount <= 0 ? 'Aktifkan Paket' : 'Kirim Bukti Bayar';
-        document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPayableAmount + effectiveUniqueCode);
+        updateDiscountDisplay(data.code || code, data.discount_amount, data.payable_amount);
         info.textContent = 'Kode diskon berhasil diterapkan.';
         info.className = 'text-sm mt-2 text-green-600';
     })

@@ -28,7 +28,6 @@
     $isCategoryActive = request()->routeIs('admin.material.material-category.*')
         || request()->routeIs('admin.participant-destination-categories.*');
     $isMasterActive = request()->routeIs('admin.package.*')
-        || request()->routeIs('admin.discounts.*')
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
@@ -76,16 +75,6 @@
                                 <i
                                     class="ri-store-3-line text-[20px] {{ request()->routeIs('admin.package.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
                                 <span class="ms-3">Manajemen Paket</span>
-                            </a>
-                        </li>
-                        @endif
-                        @if($canAccessAdminPanel)
-                        <li>
-                            <a href="{{ route('admin.discounts.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.discounts.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <i
-                                    class="ri-coupon-3-line text-[20px] {{ request()->routeIs('admin.discounts.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                                <span class="ms-3">Diskon</span>
                             </a>
                         </li>
                         @endif
@@ -305,6 +294,22 @@
                     </ul>
                 </details>
             </li>
+            @if($canAccessAdminPanel)
+            <li>
+                <a href="{{ route('admin.affiliate.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.affiliate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-share-forward-line text-[20px] {{ request()->routeIs('admin.affiliate.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Affiliate</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.discounts.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('admin.discounts.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-coupon-3-line text-[20px] {{ request()->routeIs('admin.discounts.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Diskon</span>
+                </a>
+            </li>
+            @endif
             @if($canFeatureView('faq'))
             <li>
                 <a href="{{ route('admin.faq.index') }}"
