@@ -103,10 +103,10 @@ $stabilityClass = match ($result->stability_status) {
 
     <!-- Column Chart -->
     @if(count($columnScores) > 0)
-    <div class="bg-gray-50 rounded-xl p-4">
-        <div class="flex items-center justify-between gap-4 mb-3">
+    <div class="bg-white border border-gray-100 rounded-2xl p-6 mb-6">
+        <div class="flex items-center justify-between gap-4 mb-6">
             <div>
-                <h4 class="font-medium text-gray-700">Grafik Per Kolom</h4>
+                <h4 class="text-lg font-bold text-gray-800">Jawaban Benar per Kolom (Maks: {{ $tesKoran->rows_count - 1 }})</h4>
                 <p class="text-xs text-gray-500">Menampilkan jumlah jawaban benar di setiap kolom.</p>
             </div>
             @unless($hasColumnProgress)
@@ -116,17 +116,10 @@ $stabilityClass = match ($result->stability_status) {
             @endunless
         </div>
 
-        <div class="flex items-end gap-1 h-40 border-b border-gray-200 pb-2">
-            @foreach($columnScores as $index => $score)
-            <div class="flex-1 flex flex-col items-center">
-                <span class="text-[10px] text-gray-500 mb-1">{{ (int) $score }}</span>
-                <div
-                    class="w-full min-h-[6px] rounded-t"
-                    style="height: {{ $score > 0 ? max(12, ($score / $maxColumnScore) * 100) : 6 }}%; background-color: {{ $score > 0 ? $primaryColor : '#d1d5db' }};">
-                </div>
-                <span class="text-[10px] text-gray-400 mt-1">{{ $index + 1 }}</span>
+        <div class="relative w-full overflow-x-auto pb-2">
+            <div class="h-64" style="min-width: {{ max(500, count($columnScores) * 25) }}px; width: 100%;">
+                <canvas id="columnScoresChart"></canvas>
             </div>
-            @endforeach
         </div>
 
         @unless($hasColumnProgress)
@@ -197,3 +190,127 @@ $stabilityClass = match ($result->stability_status) {
     </a>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('columnScoresChart');
+        if (!ctx) return;
+
+        const columnScores = @json($columnScores);
+        const maxScore = {{ $tesKoran->rows_count - 1 }};
+        const primaryColor = '{{ $primaryColor }}';
+
+        // Helper function to convert Hex to RGBA
+        function hexToRgba(hex, alpha) {
+            let c;
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+                c = hex.substring(1).split('');
+                if(c.length === 3){
+                    c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+                }
+                c = '0x' + c.join('');
+                return 'rgba(' + [(c>>16)&255, (c>>8)&255, c&255].join(',') + ',' + alpha + ')';
+            }
+            return hex;
+        }
+
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        gradient.addColorStop(0, hexToRgba(primaryColor, 0.25));
+        gradient.addColorStop(1, hexToRgba(primaryColor, 0.0));
+
+        const labels = Array.from({length: columnScores.length}, (_, i) => i + 1);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Jawaban Benar',
+                    data: columnScores,
+                    borderColor: '#1f2937', // dark color for line as in screenshot
+                    borderWidth: 2,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.35, // smooth curved line
+                    pointBackgroundColor: '#d1fae5', // light green point fill
+                    pointBorderColor: '#1f2937', // dark border for points
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointHoverBackgroundColor: primaryColor,
+                    pointHoverBorderColor: '#1f2937',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            title: function(context) {
+                                return 'Kolom ' + context[0].label;
+                            },
+                            label: function(context) {
+                                return 'Jawaban Benar: ' + context.raw;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: true,
+                            color: '#e5e7eb',
+                            drawTicks: false
+                        },
+                        ticks: {
+                            color: '#6b7280',
+                            font: {
+                                size: 10,
+                                weight: '500'
+                            },
+                            padding: 8
+                        },
+                        border: {
+                            color: '#e5e7eb'
+                        }
+                    },
+                    y: {
+                        min: 0,
+                        suggestedMax: Math.max(5, Math.max(...columnScores, 0) + 1),
+                        grid: {
+                            display: true,
+                            color: '#e5e7eb',
+                            drawTicks: false
+                        },
+                        ticks: {
+                            stepSize: 1,
+                            color: '#6b7280',
+                            font: {
+                                size: 10,
+                                weight: '500'
+                            },
+                            padding: 8
+                        },
+                        border: {
+                            color: '#e5e7eb'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+@endpush
