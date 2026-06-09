@@ -56,6 +56,19 @@ Route::get('/test-css', function () {
     return view('test-css');
 });
 
+Route::get('/test-email-reset', function () {
+    $user = \App\Models\User::first() ?? new \App\Models\User([
+        'name' => 'John Doe',
+        'email' => 'johndoe@example.com',
+    ]);
+    $resetUrl = url('/reset-password/mock-token-123456');
+    return view('emails.reset-password', [
+        'user' => $user,
+        'resetUrl' => $resetUrl,
+    ]);
+});
+
+
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');
     Artisan::call('storage:link');
