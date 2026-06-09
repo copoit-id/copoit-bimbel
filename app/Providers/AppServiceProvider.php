@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\ClientProfile;
 use App\Models\Role;
+use App\Services\PlanQuotaService;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -106,6 +107,11 @@ class AppServiceProvider extends ServiceProvider
             && Schema::hasTable('permission_role')
         ) {
             $defaults['tes_koran_enabled'] = Role::adminCanViewFeature('tes_koran');
+        }
+
+        if (Schema::hasTable('client_plan_subscriptions') && Schema::hasTable('plans')) {
+            $planFeatures = PlanQuotaService::getDefaultPlanFeatures();
+            $defaults['affiliate_menu_enabled'] = $planFeatures['affiliate_enabled'] ?? false;
         }
 
         $logoUrl = $this->makeBrandAssetUrl($defaults['logo'], $defaultAsset);

@@ -133,6 +133,31 @@
             </div>
 
             @php
+                $savedPlanFeatures = $plan->features_json['plan_features'] ?? [];
+                $planFeatures = old('plan_features', array_merge([
+                    'affiliate_enabled' => false,
+                ], $savedPlanFeatures));
+            @endphp
+            <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div class="mb-4">
+                    <h3 class="font-semibold text-gray-900">Fitur Plan</h3>
+                    <p class="text-sm text-gray-500">Checklist ini menentukan menu/fitur yang tersedia untuk admin dan user.</p>
+                </div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
+                        <input type="hidden" name="plan_features[affiliate_enabled]" value="0">
+                        <input type="checkbox" name="plan_features[affiliate_enabled]" value="1"
+                            {{ !empty($planFeatures['affiliate_enabled']) ? 'checked' : '' }}
+                            class="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                        <span>
+                            <span class="block text-sm font-semibold text-gray-800">Affiliate</span>
+                            <span class="mt-1 block text-xs leading-relaxed text-gray-500">Tampilkan menu Affiliate dan aktifkan preview diskon referral.</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            @php
                 $savedProctoringDefaults = $plan->features_json['proctoring_defaults'] ?? [];
                 $proctoringDefaults = old('proctoring_defaults', array_merge([
                     'enable_anti_copy' => true,

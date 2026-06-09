@@ -17,6 +17,10 @@ class PlanQuotaService
         'enable_screen_check' => false,
     ];
 
+    public const DEFAULT_PLAN_FEATURES = [
+        'affiliate_enabled' => false,
+    ];
+
     /**
      * Get active subscription for this project (single client)
      */
@@ -42,6 +46,17 @@ class PlanQuotaService
         return array_merge(
             self::DEFAULT_PROCTORING_SETTINGS,
             array_intersect_key(array_map('boolval', (array) $settings), self::DEFAULT_PROCTORING_SETTINGS)
+        );
+    }
+
+    public static function getDefaultPlanFeatures(): array
+    {
+        $features = self::getCurrentPlan()?->features_json ?? [];
+        $settings = $features['plan_features'] ?? [];
+
+        return array_merge(
+            self::DEFAULT_PLAN_FEATURES,
+            array_intersect_key(array_map('boolval', (array) $settings), self::DEFAULT_PLAN_FEATURES)
         );
     }
 

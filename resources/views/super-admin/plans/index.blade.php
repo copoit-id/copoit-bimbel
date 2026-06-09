@@ -85,6 +85,9 @@
                             </div>
                         </div>
                         @php
+                            $planFeatures = array_merge([
+                                'affiliate_enabled' => false,
+                            ], $plan->features_json['plan_features'] ?? []);
                             $proctoringDefaults = array_merge([
                                 'enable_anti_copy' => true,
                                 'enable_tab_switch_detection' => true,
@@ -99,6 +102,9 @@
                             ];
                         @endphp
                         <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                            <span class="rounded-full px-2 py-1 {{ !empty($planFeatures['affiliate_enabled']) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                                Affiliate: {{ !empty($planFeatures['affiliate_enabled']) ? 'Aktif' : 'Mati' }}
+                            </span>
                             @foreach($securityLabels as $field => $label)
                                 <span class="rounded-full px-2 py-1 {{ !empty($proctoringDefaults[$field]) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
                                     {{ $label }}: {{ !empty($proctoringDefaults[$field]) ? 'Aktif' : 'Mati' }}

@@ -40,6 +40,8 @@ class PlanController extends Controller
             'is_trial' => 'boolean',
             'is_default' => 'boolean',
             'trial_duration_days' => 'nullable|integer|min:1',
+            'plan_features' => 'nullable|array',
+            'plan_features.affiliate_enabled' => 'boolean',
             'proctoring_defaults' => 'nullable|array',
             'proctoring_defaults.enable_anti_copy' => 'boolean',
             'proctoring_defaults.enable_tab_switch_detection' => 'boolean',
@@ -73,8 +75,10 @@ class PlanController extends Controller
         $validated['is_active'] = true;
         $validated['slug'] = $slug;
         $validated['features_json'] = [
+            'plan_features' => $this->planFeaturesFromRequest($request),
             'proctoring_defaults' => $this->proctoringDefaultsFromRequest($request),
         ];
+        unset($validated['plan_features']);
         unset($validated['proctoring_defaults']);
 
         // If this is set as default, remove default from others
@@ -108,6 +112,8 @@ class PlanController extends Controller
             'is_default' => 'boolean',
             'trial_duration_days' => 'nullable|integer|min:1',
             'is_active' => 'boolean',
+            'plan_features' => 'nullable|array',
+            'plan_features.affiliate_enabled' => 'boolean',
             'proctoring_defaults' => 'nullable|array',
             'proctoring_defaults.enable_anti_copy' => 'boolean',
             'proctoring_defaults.enable_tab_switch_detection' => 'boolean',
@@ -131,8 +137,10 @@ class PlanController extends Controller
         $validated['is_default'] = $request->boolean('is_default');
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['features_json'] = array_merge($plan->features_json ?? [], [
+            'plan_features' => $this->planFeaturesFromRequest($request),
             'proctoring_defaults' => $this->proctoringDefaultsFromRequest($request),
         ]);
+        unset($validated['plan_features']);
         unset($validated['proctoring_defaults']);
 
         // If this is set as default, remove default from others
@@ -183,6 +191,16 @@ class PlanController extends Controller
             'enable_screen_check' => $request->boolean(
                 'proctoring_defaults.enable_screen_check',
                 PlanQuotaService::DEFAULT_PROCTORING_SETTINGS['enable_screen_check']
+            ),
+        ];
+    }
+
+    private function planFeaturesFromRequest(Request $request): array
+    {
+        return [
+            'affiliate_enabled' => $request->boolean(
+                'plan_features.affiliate_enabled',
+                PlanQuotaService::DEFAULT_PLAN_FEATURES['affiliate_enabled']
             ),
         ];
     }
