@@ -144,10 +144,16 @@ class AppServiceProvider extends ServiceProvider
     private function applyDynamicMailConfiguration(array $branding): void
     {
         $smtpHost = $branding['smtp_host'] ?: 'smtp.gmail.com';
-        $smtpPort = $branding['smtp_port'] ?: 587;
+        $smtpPort = (int) ($branding['smtp_port'] ?: 587);
         $smtpEmail = $branding['smtp_email'] ?? null;
         $smtpPassword = $branding['smtp_app_password'] ?? null;
         $smtpEncryption = $branding['smtp_encryption'] ?: 'tls';
+
+        if (in_array($smtpHost, ['127.0.0.1', 'localhost'], true) && $smtpPort === 2525) {
+            $smtpHost = 'smtp.gmail.com';
+            $smtpPort = 587;
+            $smtpEncryption = 'tls';
+        }
 
         if (!$smtpHost || !$smtpPort || !$smtpEmail || !$smtpPassword) {
             return;
@@ -159,7 +165,7 @@ class AppServiceProvider extends ServiceProvider
             'mail.mailers.smtp.port' => (int) $smtpPort,
             'mail.mailers.smtp.username' => $smtpEmail,
             'mail.mailers.smtp.password' => $smtpPassword,
-            'mail.mailers.smtp.scheme' => $smtpEncryption ?: null,
+            'mail.mailers.smtp.scheme' => null,
             'mail.mailers.smtp.encryption' => $smtpEncryption ?: null,
             'mail.from.address' => $smtpEmail,
             'mail.from.name' => $branding['name'] ?? config('app.name'),

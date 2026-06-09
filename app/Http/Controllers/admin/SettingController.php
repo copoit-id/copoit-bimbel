@@ -135,8 +135,14 @@ class SettingController extends Controller
         }
 
         $smtpHost = $profile->smtp_host ?: 'smtp.gmail.com';
-        $smtpPort = $profile->smtp_port ?: 587;
+        $smtpPort = (int) ($profile->smtp_port ?: 587);
         $smtpEncryption = $profile->smtp_encryption ?: 'tls';
+
+        if (in_array($smtpHost, ['127.0.0.1', 'localhost'], true) && $smtpPort === 2525) {
+            $smtpHost = 'smtp.gmail.com';
+            $smtpPort = 587;
+            $smtpEncryption = 'tls';
+        }
         $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
 
         $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));

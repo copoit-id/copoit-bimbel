@@ -342,6 +342,7 @@ class AuthController extends Controller
                 'smtp_host' => config('mail.mailers.smtp.host'),
                 'smtp_port' => config('mail.mailers.smtp.port'),
                 'smtp_scheme' => config('mail.mailers.smtp.scheme'),
+                'smtp_encryption' => config('mail.mailers.smtp.encryption'),
                 'from' => config('mail.from.address'),
                 'error' => $e->getMessage(),
             ]);
