@@ -52,6 +52,8 @@ class AppServiceProvider extends ServiceProvider
             'xendit_webhook_token' => null,
             'midtrans_server_key' => null,
             'midtrans_client_key' => null,
+            'discount_menu_enabled' => (bool) config('settings.discount_menu_enabled', true),
+            'affiliate_menu_enabled' => (bool) config('settings.affiliate_menu_enabled', false),
             'smtp_host' => null,
             'smtp_port' => null,
             'smtp_encryption' => null,

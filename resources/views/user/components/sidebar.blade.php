@@ -13,6 +13,8 @@
     $dropdownLinkInactive = $sidebarPrimary ? 'text-white/80 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100';
     $emptyTextClass = $sidebarPrimary ? 'text-white/70' : 'text-gray-500';
     $secondaryColor = $clientBranding['secondary_color'] ?? '#F3F3F3';
+    $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
+        && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
     if ($sidebarPrimary) {
         $emptyCtaClasses = 'block w-full py-2 px-3 text-xs text-center text-primary rounded-lg hover:opacity-90 transition-colors duration-200';
         $emptyCtaStyle = "background-color: {$secondaryColor}; border: none;";
@@ -110,6 +112,7 @@
                     <span class="ms-3">Bantuan</span>
                 </a>
             </li>
+            @if($canShowAffiliateMenu)
             <li>
                 <a href="{{ route('user.affiliate.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.affiliate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -117,6 +120,7 @@
                     <span class="ms-3">Affiliate</span>
                 </a>
             </li>
+            @endif
             @if($clientBranding['certificate_management_enabled'] ?? true)
             <li>
                 <a href="{{ route('user.certificate.validation') }}"

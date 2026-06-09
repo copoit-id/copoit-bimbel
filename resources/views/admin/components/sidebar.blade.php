@@ -11,6 +11,7 @@
     $isSuperAdmin = $authUser?->isSuperAdmin() ?? false;
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
     $permissionSlugs = $authUser?->getEffectivePermissionSlugs() ?? [];
+    $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
     $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs): bool {
         if ($isSuperAdmin) {
             return true;
@@ -22,11 +23,19 @@
 
         return in_array($feature . '.view', $permissionSlugs, true);
     };
+    $canShowDestinationCategories = $canFeatureView('user')
+        && $adminRouteExists('admin.participant-destination-categories.index');
+    $canShowDiscountMenu = ($clientBranding['discount_menu_enabled'] ?? true)
+        && $canAccessAdminPanel
+        && $adminRouteExists('admin.discounts.index');
+    $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
+        && $canAccessAdminPanel
+        && $adminRouteExists('admin.affiliate.index');
     $isMaterialManagementActive = request()->routeIs('admin.material.index')
         || request()->routeIs('admin.material.create')
         || request()->routeIs('admin.material.edit');
     $isCategoryActive = request()->routeIs('admin.material.material-category.*')
-        || request()->routeIs('admin.participant-destination-categories.*');
+        || ($canShowDestinationCategories && request()->routeIs('admin.participant-destination-categories.*'));
     $isMasterActive = request()->routeIs('admin.package.*')
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
@@ -146,7 +155,7 @@
                                 <span class="ms-3">Kategori Materi</span>
                             </a>
                         </li>
-                        @if($canFeatureView('user'))
+                        @if($canShowDestinationCategories)
                         <li>
                             <a href="{{ route('admin.participant-destination-categories.index') }}"
                                 class="flex items-center py-2 px-4 {{ request()->routeIs('admin.participant-destination-categories.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -294,7 +303,7 @@
                     </ul>
                 </details>
             </li>
-            @if($canAccessAdminPanel)
+            @if($canShowAffiliateMenu)
             <li>
                 <a href="{{ route('admin.affiliate.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.affiliate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -302,6 +311,8 @@
                     <span class="ms-3">Affiliate</span>
                 </a>
             </li>
+            @endif
+            @if($canShowDiscountMenu)
             <li>
                 <a href="{{ route('admin.discounts.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.discounts.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">

@@ -401,6 +401,10 @@ class PackageController extends Controller
 
     private function affiliateDiscountPreview(?int $amount = null): ?array
     {
+        if (!config('client.branding.affiliate_menu_enabled', false)) {
+            return null;
+        }
+
         if (!Auth::check()) {
             return null;
         }

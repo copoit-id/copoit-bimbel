@@ -72,10 +72,12 @@
                         <p class="font-semibold text-amber-800">Tujuan / instansi peserta belum dibuat.</p>
                         <p class="text-sm text-amber-700">Filter leaderboard memakai master Tujuan / Instansi, bukan kategori materi.</p>
                     </div>
-                    <a href="{{ route('admin.participant-destination-categories.index') }}"
-                        class="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-semibold">
-                        Kelola Tujuan / Instansi
-                    </a>
+                    @if(\Illuminate\Support\Facades\Route::has('admin.participant-destination-categories.index'))
+                        <a href="{{ route('admin.participant-destination-categories.index') }}"
+                            class="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-semibold">
+                            Kelola Tujuan / Instansi
+                        </a>
+                    @endif
                 </div>
             @else
                 <form method="GET" action="{{ route('admin.leaderboard.show', [$package->package_id, $tryout->tryout_id]) }}"
