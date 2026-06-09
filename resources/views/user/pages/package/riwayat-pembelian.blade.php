@@ -59,6 +59,12 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                         {{ ucfirst($payment->status) }}
                     @endif
                 </span>
+                @if($payment->status === 'pending' && $payment->payment_method === 'interactive_qris')
+                    <a href="{{ route('user.package.payment.qris.show', $payment->transaction_id) }}"
+                        class="mt-2 inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                        Lihat QRIS
+                    </a>
+                @endif
             </div>
         </div>
         @endforeach

@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'payment_gateway' => env('PAYMENT_GATEWAY', 'xendit'),
+    'payment_gateway' => env('PAYMENT_GATEWAY', config('payment_gateways.default', 'xendit')),
 
     /*
     |--------------------------------------------------------------------------
@@ -49,6 +49,13 @@ return [
         'is_production' => env('MIDTRANS_IS_PRODUCTION', false),
         'snap_url' => env('MIDTRANS_SNAP_URL', 'https://app.sandbox.midtrans.com/snap/v1/transactions'),
         'status_url' => env('MIDTRANS_STATUS_URL', 'https://api.sandbox.midtrans.com/v2'),
+    ],
+
+    'interactive_qris' => [
+        'api_key' => env('INTERACTIVE_QRIS_API_KEY'),
+        'mid' => env('INTERACTIVE_QRIS_MID'),
+        'use_tip' => env('INTERACTIVE_QRIS_USE_TIP', false),
+        'base_url' => env('INTERACTIVE_QRIS_BASE_URL', 'https://qris.interactive.co.id/restapi/qris'),
     ],
 
     'recaptcha' => [

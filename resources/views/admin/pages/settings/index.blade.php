@@ -230,6 +230,7 @@
             $paymentMode = old('payment_mode', $profile->payment_mode ?? ($branding['payment_mode'] ?? 'gateway'));
             $paymentGateway = old('payment_gateway', $profile->payment_gateway ?? ($branding['payment_gateway'] ?? 'xendit'));
             $paymentGatewayMode = old('payment_gateway_mode', $profile->payment_gateway_mode ?? ($branding['payment_gateway_mode'] ?? 'sandbox'));
+            $paymentGateways = $paymentGateways ?? config('payment_gateways.gateways', []);
             $paymentUniqueCodeEnabled = old(
                 'payment_unique_code_enabled',
                 (int) ($profile->payment_unique_code_enabled ?? ($branding['payment_unique_code_enabled'] ?? true))
@@ -313,8 +314,11 @@
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Gateway</label>
                     <select name="payment_gateway"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
-                        <option value="xendit" {{ $paymentGateway === 'xendit' ? 'selected' : '' }}>Xendit</option>
-                        <option value="midtrans" {{ $paymentGateway === 'midtrans' ? 'selected' : '' }}>Midtrans</option>
+                        @foreach($paymentGateways as $gatewayKey => $gatewayMeta)
+                            <option value="{{ $gatewayKey }}" {{ $paymentGateway === $gatewayKey ? 'selected' : '' }}>
+                                {{ $gatewayMeta['label'] ?? ucfirst(str_replace('_', ' ', $gatewayKey)) }}
+                            </option>
+                        @endforeach
                     </select>
                     @error('payment_gateway')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
@@ -346,8 +350,12 @@
                             <p class="text-xs uppercase text-gray-500">Midtrans Status URL</p>
                             <p id="midtrans-status-url">https://api.sandbox.midtrans.com/v2</p>
                         </div>
+                        <div>
+                            <p class="text-xs uppercase text-gray-500">InterActive QRIS Base URL</p>
+                            <p id="interactive-qris-base-url">https://qris.interactive.co.id/restapi/qris</p>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis berdasarkan mode. Tidak dapat diubah manual.</p>
+                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis. InterActive QRIS saat ini adalah API live/production.</p>
                 </div>
                 <div data-gateway-fields="xendit" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                     <div>
@@ -428,6 +436,47 @@
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
+                </div>
+                <div data-gateway-fields="interactive_qris" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">InterActive QRIS API Key</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="interactive_qris_api_key"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="interactive_qris_api_key">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="interactive_qris_api_key">Show</button>
+                        </div>
+                        @if (!empty($profile?->getRawOriginal('interactive_qris_api_key')))
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            API key sudah tersimpan.
+                        </p>
+                        @endif
+                        @error('interactive_qris_api_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">mID Merchant</label>
+                        <input type="text" name="interactive_qris_mid"
+                            value="{{ old('interactive_qris_mid', $profile->interactive_qris_mid ?? ($branding['interactive_qris_mid'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: 123456">
+                        @error('interactive_qris_mid')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <label class="md:col-span-2 flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="hidden" name="interactive_qris_use_tip" value="0">
+                        <input type="checkbox" name="interactive_qris_use_tip" value="1"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            {{ old('interactive_qris_use_tip', $profile->interactive_qris_use_tip ?? ($branding['interactive_qris_use_tip'] ?? false)) ? 'checked' : '' }}>
+                        <div>
+                            <p class="font-semibold text-gray-900">Izinkan tip QRIS</p>
+                            <p class="text-xs text-gray-500">Dikirim sebagai parameter <code>useTip=yes</code>. Default mati agar nominal checkout tetap pasti.</p>
+                        </div>
+                    </label>
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Password Admin</label>
@@ -557,18 +606,21 @@
         const xenditBaseUrlEl = document.getElementById('xendit-base-url');
         const midtransSnapUrlEl = document.getElementById('midtrans-snap-url');
         const midtransStatusUrlEl = document.getElementById('midtrans-status-url');
+        const interactiveQrisBaseUrlEl = document.getElementById('interactive-qris-base-url');
         const gatewayBlocks = document.querySelectorAll('[data-gateway-fields]');
 
         const gatewayEndpoints = {
             sandbox: {
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.sandbox.midtrans.com/snap/v1/transactions',
-                midtransStatus: 'https://api.sandbox.midtrans.com/v2'
+                midtransStatus: 'https://api.sandbox.midtrans.com/v2',
+                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris'
             },
             production: {
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
-                midtransStatus: 'https://api.midtrans.com/v2'
+                midtransStatus: 'https://api.midtrans.com/v2',
+                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris'
             }
         };
 
@@ -602,6 +654,7 @@
             if (xenditBaseUrlEl) xenditBaseUrlEl.textContent = endpoints.xenditBase;
             if (midtransSnapUrlEl) midtransSnapUrlEl.textContent = endpoints.midtransSnap;
             if (midtransStatusUrlEl) midtransStatusUrlEl.textContent = endpoints.midtransStatus;
+            if (interactiveQrisBaseUrlEl) interactiveQrisBaseUrlEl.textContent = endpoints.interactiveQrisBase;
         };
 
         paymentModeInputs.forEach((input) => input.addEventListener('change', togglePaymentFields));

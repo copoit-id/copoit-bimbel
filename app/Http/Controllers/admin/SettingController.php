@@ -15,6 +15,7 @@ class SettingController extends Controller
     public function index()
     {
         $profile = ClientProfile::query()->first();
+        $paymentGateways = config('payment_gateways.gateways', []);
 
         $branding = config('client.branding', [
             'name' => config('app.name'),
@@ -37,6 +38,9 @@ class SettingController extends Controller
             'xendit_webhook_token' => null,
             'midtrans_server_key' => null,
             'midtrans_client_key' => null,
+            'interactive_qris_api_key' => null,
+            'interactive_qris_mid' => null,
+            'interactive_qris_use_tip' => false,
             'smtp_host' => null,
             'smtp_port' => null,
             'smtp_encryption' => null,
@@ -48,12 +52,18 @@ class SettingController extends Controller
         return view('admin.pages.settings.index', [
             'profile' => $profile,
             'branding' => $branding,
+            'paymentGateways' => $paymentGateways,
         ]);
     }
 
     public function update(Request $request)
     {
         $profile = ClientProfile::query()->first() ?? new ClientProfile();
+        $paymentGatewayKeys = array_keys(config('payment_gateways.gateways', [
+            'xendit' => [],
+            'midtrans' => [],
+            'interactive_qris' => [],
+        ]));
 
         $rules = [
             'nama_bimbel' => ['required', 'string', 'max:255'],
@@ -67,12 +77,15 @@ class SettingController extends Controller
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string', 'max:255'],
             'payment_unique_code_enabled' => ['nullable', 'boolean'],
-            'payment_gateway' => ['nullable', 'in:xendit,midtrans'],
+            'payment_gateway' => ['nullable', 'in:' . implode(',', $paymentGatewayKeys)],
             'payment_gateway_mode' => ['nullable', 'in:sandbox,production'],
             'xendit_secret_key' => ['nullable', 'string', 'max:255'],
             'xendit_webhook_token' => ['nullable', 'string', 'max:255'],
             'midtrans_server_key' => ['nullable', 'string', 'max:255'],
             'midtrans_client_key' => ['nullable', 'string', 'max:255'],
+            'interactive_qris_api_key' => ['nullable', 'string', 'max:500'],
+            'interactive_qris_mid' => ['nullable', 'string', 'max:100'],
+            'interactive_qris_use_tip' => ['nullable', 'boolean'],
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
@@ -84,7 +97,7 @@ class SettingController extends Controller
             $rules['payment_account_holder'] = ['required', 'string', 'max:255'];
         }
         if ($request->input('payment_mode') === 'gateway') {
-            $rules['payment_gateway'] = ['required', 'in:xendit,midtrans'];
+            $rules['payment_gateway'] = ['required', 'in:' . implode(',', $paymentGatewayKeys)];
             $rules['payment_gateway_mode'] = ['required', 'in:sandbox,production'];
         }
 
@@ -95,6 +108,31 @@ class SettingController extends Controller
             'payment_account_number.required' => 'Nomor rekening wajib diisi untuk pembayaran manual.',
             'payment_account_holder.required' => 'Nama pemilik rekening wajib diisi untuk pembayaran manual.',
         ]);
+
+        if (
+            ($validated['payment_mode'] ?? null) === 'gateway'
+            && ($validated['payment_gateway'] ?? null) === 'interactive_qris'
+        ) {
+            try {
+                $existingQrisApiKey = (string) ($profile->interactive_qris_api_key ?? '');
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $existingQrisApiKey = '';
+            }
+
+            if (trim((string) ($validated['interactive_qris_mid'] ?? '')) === '') {
+                return back()
+                    ->withErrors(['interactive_qris_mid' => 'mID InterActive QRIS wajib diisi.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password', 'interactive_qris_api_key']))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
+            }
+
+            if ($existingQrisApiKey === '' && trim((string) ($validated['interactive_qris_api_key'] ?? '')) === '') {
+                return back()
+                    ->withErrors(['interactive_qris_api_key' => 'API key InterActive QRIS wajib diisi.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password', 'interactive_qris_api_key']))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
+            }
+        }
 
         $smtpHost = $profile->smtp_host ?: config('mail.mailers.smtp.host', 'smtp.gmail.com');
         $smtpPort = $profile->smtp_port ?: (int) config('mail.mailers.smtp.port', 587);
@@ -127,6 +165,7 @@ class SettingController extends Controller
             'xendit_webhook_token',
             'midtrans_server_key',
             'midtrans_client_key',
+            'interactive_qris_api_key',
         ];
 
         foreach ($sensitiveKeys as $key) {
@@ -229,6 +268,7 @@ class SettingController extends Controller
             ?? ($profile->payment_gateway ?? 'xendit');
         $validated['payment_gateway_mode'] = $validated['payment_gateway_mode']
             ?? ($profile->payment_gateway_mode ?? 'sandbox');
+        $validated['interactive_qris_use_tip'] = $request->boolean('interactive_qris_use_tip');
         if (array_key_exists('smtp_notification_email', $validated) && $validated['smtp_notification_email'] === null) {
             // User sengaja mengosongkan field ini
             $validated['smtp_notification_email'] = null;

@@ -53,6 +53,9 @@ class AppServiceProvider extends ServiceProvider
             'xendit_webhook_token' => null,
             'midtrans_server_key' => null,
             'midtrans_client_key' => null,
+            'interactive_qris_api_key' => null,
+            'interactive_qris_mid' => null,
+            'interactive_qris_use_tip' => false,
             'discount_menu_enabled' => (bool) config('settings.discount_menu_enabled', true),
             'affiliate_menu_enabled' => (bool) config('settings.affiliate_menu_enabled', false),
             'smtp_host' => null,
@@ -91,6 +94,9 @@ class AppServiceProvider extends ServiceProvider
             $defaults['xendit_webhook_token'] = $clientProfile->xendit_webhook_token ?? $defaults['xendit_webhook_token'];
             $defaults['midtrans_server_key'] = $clientProfile->midtrans_server_key ?? $defaults['midtrans_server_key'];
             $defaults['midtrans_client_key'] = $clientProfile->midtrans_client_key ?? $defaults['midtrans_client_key'];
+            $defaults['interactive_qris_api_key'] = $clientProfile->interactive_qris_api_key ?? $defaults['interactive_qris_api_key'];
+            $defaults['interactive_qris_mid'] = $clientProfile->interactive_qris_mid ?? $defaults['interactive_qris_mid'];
+            $defaults['interactive_qris_use_tip'] = (bool) ($clientProfile->interactive_qris_use_tip ?? $defaults['interactive_qris_use_tip']);
             $defaults['smtp_host'] = $clientProfile->smtp_host ?? $defaults['smtp_host'];
             $defaults['smtp_port'] = $clientProfile->smtp_port ?? $defaults['smtp_port'];
             $defaults['smtp_encryption'] = $clientProfile->smtp_encryption ?? $defaults['smtp_encryption'];
@@ -161,7 +167,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function applyDynamicPaymentConfiguration(array $branding): void
     {
-        $gateway = $branding['payment_gateway'] ?: env('PAYMENT_GATEWAY', 'xendit');
+        $gateway = $branding['payment_gateway'] ?: config('payment_gateways.default', 'xendit');
         $mode = $branding['payment_gateway_mode'] ?: (env('MIDTRANS_IS_PRODUCTION') ? 'production' : 'sandbox');
         $mode = $mode === 'production' ? 'production' : 'sandbox';
 
@@ -185,6 +191,10 @@ class AppServiceProvider extends ServiceProvider
             'services.midtrans.is_production' => $mode === 'production',
             'services.midtrans.snap_url' => $midtransSnapUrl,
             'services.midtrans.status_url' => $midtransStatusUrl,
+            'services.interactive_qris.api_key' => $branding['interactive_qris_api_key'] ?: env('INTERACTIVE_QRIS_API_KEY'),
+            'services.interactive_qris.mid' => $branding['interactive_qris_mid'] ?: env('INTERACTIVE_QRIS_MID'),
+            'services.interactive_qris.use_tip' => (bool) ($branding['interactive_qris_use_tip'] ?? env('INTERACTIVE_QRIS_USE_TIP', false)),
+            'services.interactive_qris.base_url' => config('payment_gateways.gateways.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'),
         ]);
     }
 

@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
 use App\Services\AffiliateService;
+use App\Services\Payments\InteractiveQrisGateway;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class PackageController extends Controller
 {
@@ -325,6 +327,17 @@ class PackageController extends Controller
 
         if ($gateway === 'midtrans') {
             return $this->createMidtransPayment($package, $discountData);
+        }
+
+        $handler = config("payment_gateways.gateways.{$gateway}.handler");
+        if ($handler && method_exists($handler, 'createPackagePayment')) {
+            $paymentResponse = app($handler)->createPackagePayment($package, $discountData);
+
+            if ($paymentResponse['success'] ?? false) {
+                $this->recordDiscountUsage($discountData['discount']);
+            }
+
+            return $paymentResponse;
         }
 
         return $this->createXenditPayment($package, $discountData);
@@ -703,6 +716,65 @@ class PackageController extends Controller
             ->get();
 
         return view('user.pages.package.riwayat-pembelian-aktif', compact('activePackages'));
+    }
+
+    public function showQrisPayment(string $transactionId, InteractiveQrisGateway $gateway)
+    {
+        $payment = Payment::with('package')
+            ->where('transaction_id', $transactionId)
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'interactive_qris')
+            ->firstOrFail();
+
+        $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+        $qrisContent = $paymentDetails['qris_content'] ?? null;
+
+        if (!$qrisContent) {
+            return redirect()
+                ->route('user.package.riwayatPembelian')
+                ->with('error', 'Konten QRIS tidak ditemukan.');
+        }
+
+        if ($payment->status === Payment::STATUS_PENDING && $gateway->isExpired($payment)) {
+            $payment->update(['status' => Payment::STATUS_EXPIRED]);
+            $payment->refresh();
+        }
+
+        $qrisImage = base64_encode(QrCode::format('png')->size(280)->margin(1)->generate($qrisContent));
+
+        return view('user.pages.package.payment-qris', compact('payment', 'paymentDetails', 'qrisImage'));
+    }
+
+    public function checkQrisPayment(string $transactionId, InteractiveQrisGateway $gateway)
+    {
+        $payment = Payment::with('package')
+            ->where('transaction_id', $transactionId)
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'interactive_qris')
+            ->firstOrFail();
+
+        if ($payment->status === Payment::STATUS_SUCCESS) {
+            return response()->json([
+                'success' => true,
+                'paid' => true,
+                'message' => 'Pembayaran sudah dikonfirmasi.',
+                'redirect_url' => route('user.package.my'),
+            ]);
+        }
+
+        $result = $gateway->checkPayment($payment);
+        $payment->refresh();
+
+        if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS - 1 year access');
+
+            return response()->json([
+                ...$result,
+                'redirect_url' => route('user.package.my'),
+            ]);
+        }
+
+        return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
     }
 
     public function indexBimbel($id_package)
@@ -1586,6 +1658,24 @@ class PackageController extends Controller
         }
 
         $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+
+        if ($payment->payment_method === 'interactive_qris') {
+            try {
+                $result = app(InteractiveQrisGateway::class)->checkPayment($payment);
+                $payment->refresh();
+
+                if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS - admin check');
+                }
+
+                return response()->json([
+                    'payment_status' => $payment->status,
+                    'interactive_qris_result' => $result,
+                ]);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()]);
+            }
+        }
 
         if ($payment->payment_method === 'midtrans') {
             $orderId = $payment->transaction_id;

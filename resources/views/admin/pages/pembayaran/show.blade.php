@@ -216,6 +216,15 @@
                     @if(isset($paymentDetails['invoice_id']))
                     <p>Invoice ID: {{ $paymentDetails['invoice_id'] }}</p>
                     @endif
+                    @if(isset($paymentDetails['qris_invoiceid']))
+                    <p>QRIS Invoice ID: {{ $paymentDetails['qris_invoiceid'] }}</p>
+                    @endif
+                    @if(isset($paymentDetails['qris_nmid']))
+                    <p>QRIS NMID: {{ $paymentDetails['qris_nmid'] }}</p>
+                    @endif
+                    @if(isset($paymentDetails['expires_at']))
+                    <p>Expired: {{ \Carbon\Carbon::parse($paymentDetails['expires_at'])->format('d M Y, H:i') }} WIB</p>
+                    @endif
                     @if(isset($paymentDetails['external_id']))
                     <p>External ID: {{ $paymentDetails['external_id'] }}</p>
                     @endif

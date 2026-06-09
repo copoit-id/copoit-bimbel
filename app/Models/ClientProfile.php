@@ -31,6 +31,9 @@ class ClientProfile extends Model
         'xendit_webhook_token',
         'midtrans_server_key',
         'midtrans_client_key',
+        'interactive_qris_api_key',
+        'interactive_qris_mid',
+        'interactive_qris_use_tip',
         'smtp_host',
         'smtp_port',
         'smtp_encryption',
@@ -51,5 +54,7 @@ class ClientProfile extends Model
         'xendit_webhook_token' => 'encrypted',
         'midtrans_server_key' => 'encrypted',
         'midtrans_client_key' => 'encrypted',
+        'interactive_qris_api_key' => 'encrypted',
+        'interactive_qris_use_tip' => 'boolean',
     ];
 }
