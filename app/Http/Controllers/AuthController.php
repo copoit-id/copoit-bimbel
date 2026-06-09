@@ -336,6 +336,16 @@ class AuthController extends Controller
 
             return redirect()->back()->with('success', 'Link reset password telah dikirim ke email Anda');
         } catch (\Exception $e) {
+            Log::warning('Failed to send password reset email.', [
+                'email' => $user->email,
+                'mailer' => config('mail.default'),
+                'smtp_host' => config('mail.mailers.smtp.host'),
+                'smtp_port' => config('mail.mailers.smtp.port'),
+                'smtp_scheme' => config('mail.mailers.smtp.scheme'),
+                'from' => config('mail.from.address'),
+                'error' => $e->getMessage(),
+            ]);
+
             ActivityLogger::log('reset_requested', 'failed', $user, [
                 'error' => $e->getMessage(),
             ], $request);

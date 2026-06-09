@@ -134,9 +134,9 @@ class SettingController extends Controller
             }
         }
 
-        $smtpHost = $profile->smtp_host ?: config('mail.mailers.smtp.host', 'smtp.gmail.com');
-        $smtpPort = $profile->smtp_port ?: (int) config('mail.mailers.smtp.port', 587);
-        $smtpEncryption = $profile->smtp_encryption ?: (config('mail.mailers.smtp.scheme') ?? 'tls');
+        $smtpHost = $profile->smtp_host ?: 'smtp.gmail.com';
+        $smtpPort = $profile->smtp_port ?: 587;
+        $smtpEncryption = $profile->smtp_encryption ?: 'tls';
         $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
 
         $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));
