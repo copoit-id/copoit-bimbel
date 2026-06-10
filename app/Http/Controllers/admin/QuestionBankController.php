@@ -137,6 +137,7 @@ class QuestionBankController extends Controller
         $questionSort = $request->input('sort', 'newest');
         $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
         $questionType = $request->input('question_type', 'all');
+        $questionSearch = trim((string) $request->input('search', ''));
         $perPage = in_array($request->integer('per_page'), [5, 10, 15, 25], true)
             ? $request->integer('per_page')
             : 5;
@@ -163,6 +164,17 @@ class QuestionBankController extends Controller
             $questionsQuery->where('question_type', $questionType);
         }
 
+        if ($questionSearch !== '') {
+            $questionsQuery->where(function ($query) use ($questionSearch) {
+                $query->where('question_text', 'like', "%{$questionSearch}%")
+                    ->orWhere('explanation', 'like', "%{$questionSearch}%")
+                    ->orWhere('question_type', 'like', "%{$questionSearch}%")
+                    ->orWhereHas('options', function ($optionQuery) use ($questionSearch) {
+                        $optionQuery->where('option_text', 'like', "%{$questionSearch}%");
+                    });
+            });
+        }
+
         $questions = $questionsQuery
             ->orderBy('created_at', $questionSortDirection)
             ->paginate($perPage);
@@ -178,6 +190,7 @@ class QuestionBankController extends Controller
             'importTarget' => $importTarget,
             'questionSort' => $questionSort,
             'questionType' => $questionType,
+            'questionSearch' => $questionSearch,
             'perPage' => $perPage,
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,

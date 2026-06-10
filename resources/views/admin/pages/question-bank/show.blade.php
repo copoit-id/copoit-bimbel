@@ -164,10 +164,15 @@
                 <p class="text-sm text-gray-500">Soal yang disimpan dalam bank ini.</p>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                <form method="GET" action="{{ route('admin.question-bank.show', $bank->id) }}" class="flex flex-col sm:flex-row sm:items-center gap-2">
-                    @if($importTarget)
+                <form id="question-filter-form" method="GET" action="{{ route('admin.question-bank.show', $bank->id) }}" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                    @if(request()->has('import_for'))
                     <input type="hidden" name="import_for" value="{{ $importTarget }}">
                     @endif
+                    <div class="relative">
+                        <input type="text" id="question-search" name="search" value="{{ $questionSearch ?? '' }}" placeholder="Cari soal..."
+                            class="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-64">
+                        <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
+                    </div>
                     <select name="sort" onchange="this.form.submit()"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                         <option value="newest" @selected(($questionSort ?? 'newest') === 'newest')>Terbaru</option>
@@ -190,14 +195,25 @@
                         </option>
                         @endforeach
                     </select>
+                    @if(($questionSearch ?? '') !== '')
+                    <a href="{{ route('admin.question-bank.show', array_filter([
+                        'questionBank' => $bank->id,
+                        'import_for' => request()->has('import_for') ? $importTarget : null,
+                        'sort' => $questionSort ?? 'newest',
+                        'question_type' => $questionType ?? 'all',
+                        'per_page' => $perPage ?? 5,
+                    ], fn($value) => $value !== null)) }}"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                        Reset
+                    </a>
+                    @endif
                 </form>
-                <div class="relative">
-                    <input type="text" id="question-search" placeholder="Cari soal..."
-                        class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
-                </div>
                 <div id="question-count" class="text-sm text-gray-500">
-                    Menampilkan: <span class="font-medium text-gray-700">{{ $questions->count() }}</span>
+                    Menampilkan:
+                    <span class="font-medium text-gray-700">{{ $questions->count() }}</span>
+                    dari
+                    <span class="font-medium text-gray-700">{{ $questions->total() }}</span>
+                    soal
                 </div>
             </div>
         </div>
@@ -467,12 +483,13 @@
             </article>
             @empty
             <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-500">
+                @if(($questionSearch ?? '') !== '')
+                Tidak ada soal ditemukan untuk pencarian "{{ $questionSearch }}" pada bank ini.
+                @else
                 Belum ada soal tersimpan pada bank ini.
+                @endif
             </div>
             @endforelse
-        </div>
-        <div id="no-question-results" class="hidden text-center py-10 text-gray-500">
-            Tidak ada soal ditemukan.
         </div>
         <div class="mt-4">
             {{ $questions->withQueryString()->links() }}
@@ -1222,10 +1239,8 @@
         const selectAll = document.getElementById('selectAllQuestions');
         const checkboxes = document.querySelectorAll('.bank-question-checkbox');
         const bulkSelectionCount = document.getElementById('bulkSelectionCount');
+        const questionFilterForm = document.getElementById('question-filter-form');
         const questionSearch = document.getElementById('question-search');
-        const questionRows = document.querySelectorAll('.bank-question-row');
-        const questionCount = document.getElementById('question-count');
-        const noQuestionResults = document.getElementById('no-question-results');
 
         document.querySelectorAll('.question-bank-preview-content img, .question-rich-text img, .option-inline-text img')
             .forEach((image) => {
@@ -1288,27 +1303,14 @@
 
         checkboxes.forEach(cb => cb.addEventListener('change', updateBulkState));
 
-        const filterQuestions = () => {
-            if (!questionSearch || !questionCount) {
-                return;
-            }
-            const query = questionSearch.value.toLowerCase().trim();
-            let visible = 0;
-            questionRows.forEach(row => {
-                const text = row.dataset.question || '';
-                const type = row.dataset.type || '';
-                const match = !query || text.includes(query) || type.includes(query);
-                row.classList.toggle('hidden', !match);
-                if (match) visible++;
-            });
+        let questionSearchTimer;
+        questionSearch?.addEventListener('input', () => {
+            window.clearTimeout(questionSearchTimer);
+            questionSearchTimer = window.setTimeout(() => {
+                questionFilterForm?.submit();
+            }, 500);
+        });
 
-            questionCount.innerHTML = `Menampilkan: <span class="font-medium text-gray-700">${visible}</span>`;
-            if (noQuestionResults) {
-                noQuestionResults.classList.toggle('hidden', visible > 0);
-            }
-        };
-
-        questionSearch?.addEventListener('input', filterQuestions);
         bulkMoveTarget?.addEventListener('change', updateBulkState);
 
         bulkCloneBtn?.addEventListener('click', () => {
@@ -1339,7 +1341,6 @@
         });
 
         updateBulkState();
-        filterQuestions();
 
         // Edit Bank modal
         const editModal = document.getElementById('editBankModal');
