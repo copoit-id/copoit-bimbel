@@ -85,7 +85,7 @@
                 });
 
                 const commonConfig = {
-                    plugins: 'basicstyles,toolbar,wysiwygarea,elementspath,mathjax,sourcearea,clipboard,undo,format,list,indent,blockquote,table,horizontalrule,link',
+                    plugins: 'basicstyles,toolbar,wysiwygarea,elementspath,mathjax,sourcearea,clipboard,undo,format,list,indent,blockquote,table,horizontalrule,link,image',
                     extraPlugins: 'mathjax',
                     mathJaxLib: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-AMS_HTML',
                     mathJaxClass: 'math-tex',
@@ -105,7 +105,7 @@
                         { name: 'math', items: ['Mathjax'] },
                         { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
                         { name: 'paragraph', items: ['NumberedList', 'BulletedList'] },
-                        { name: 'insert', items: ['Table', 'Link'] },
+                        { name: 'insert', items: ['Table', 'Link', 'Image'] },
                         { name: 'tools', items: ['Source'] }
                     ]
                 };
@@ -116,6 +116,7 @@
                     toolbar: [
                         { name: 'math', items: ['Mathjax'] },
                         { name: 'basicstyles', items: ['Bold', 'Italic'] },
+                        { name: 'insert', items: ['Image'] },
                         { name: 'tools', items: ['Source'] }
                     ]
                 };

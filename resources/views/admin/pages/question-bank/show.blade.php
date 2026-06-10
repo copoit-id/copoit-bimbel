@@ -961,7 +961,7 @@
                         </button>
                         <div class="mt-3">
                             <label class="mb-1 block text-sm font-medium text-gray-700">Pembahasan</label>
-                            <textarea data-explanation rows="3" data-summernote data-height="180" data-toolbar='${pptSummernoteToolbar}'
+                            <textarea data-explanation rows="4" data-summernote data-height="220" data-toolbar='${pptSummernoteToolbar}'
                                 class="summernote-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">${escapeHtml(question.explanation || '')}</textarea>
                         </div>
                     </div>

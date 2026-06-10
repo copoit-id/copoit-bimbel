@@ -74,7 +74,7 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pembahasan / Catatan</label>
-                    <textarea name="explanation" rows="3" data-summernote data-height="220"
+                    <textarea name="explanation" rows="4" data-summernote data-height="260"
                         class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Opsional, isi jika ingin menambahkan pembahasan.">{{ old('explanation') }}</textarea>
                 </div>
