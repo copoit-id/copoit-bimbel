@@ -92,9 +92,13 @@ class PackageController extends Controller
                 $validated['price'] = 0;
             }
 
-            $validated['features'] = isset($validated['features']) && is_array($validated['features'])
-                ? json_encode($validated['features'])
-                : null;
+            $features = collect($validated['features'] ?? [])
+                ->map(fn ($feature) => trim((string) $feature))
+                ->filter()
+                ->values()
+                ->all();
+
+            $validated['features'] = !empty($features) ? json_encode($features) : null;
 
             $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
                 ? $validated['conditional_requirement']
@@ -170,9 +174,13 @@ class PackageController extends Controller
                 $validated['price'] = 0;
             }
 
-            $validated['features'] = isset($validated['features']) && is_array($validated['features'])
-                ? json_encode($validated['features'])
-                : null;
+            $features = collect($validated['features'] ?? [])
+                ->map(fn ($feature) => trim((string) $feature))
+                ->filter()
+                ->values()
+                ->all();
+
+            $validated['features'] = !empty($features) ? json_encode($features) : null;
 
             $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
                 ? $validated['conditional_requirement']

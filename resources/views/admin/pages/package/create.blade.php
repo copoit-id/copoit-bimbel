@@ -4,6 +4,21 @@
     $allowVideoThumbnail = $clientBranding['allow_video_thumbnail'] ?? false;
     $videoExtensions = ['mp4', 'webm', 'mov', 'm4v'];
     $selectedPriceType = old('type_price', $package->type_price ?? 'paid');
+    $oldFeatures = old('features');
+    $selectedFeatures = is_array($oldFeatures) ? $oldFeatures : [''];
+
+    if (!is_array($oldFeatures) && isset($package) && $package->features) {
+        $decodedFeatures = json_decode($package->features, true);
+        $selectedFeatures = is_array($decodedFeatures)
+            ? $decodedFeatures
+            : preg_split('/\r\n|\r|\n/', $package->features);
+    }
+
+    $selectedFeatures = array_values(array_filter(array_map(
+        fn ($feature) => trim((string) $feature),
+        $selectedFeatures
+    )));
+    $selectedFeatures = !empty($selectedFeatures) ? $selectedFeatures : [''];
 @endphp
 
 @section('content')
@@ -176,9 +191,7 @@
                         @enderror
                     </div>
 
-                    <div x-data="{
-                        features: {{ isset($package) && $package->features ? json_encode(json_decode($package->features)) : (old('features') ? json_encode(old('features')) : "
-                        ['']") }} }" class="space-y-2">
+                    <div x-data="{ features: @js($selectedFeatures) }" class="space-y-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Fitur Paket</label>
                         <template x-for="(feature, index) in features" :key="index">
                             <div class="flex gap-2">

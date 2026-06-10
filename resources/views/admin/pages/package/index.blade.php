@@ -117,15 +117,28 @@
                 <p class="text-xs text-gray-500 mt-1">Syarat: {{ Str::limit($package->conditional_requirement, 80) }}</p>
                 @endif
 
+                @php
+                    $features = [];
+
+                    if ($package->features) {
+                        $decodedFeatures = json_decode($package->features, true);
+                        $features = is_array($decodedFeatures)
+                            ? $decodedFeatures
+                            : preg_split('/\r\n|\r|\n/', $package->features);
+                        $features = array_values(array_filter(array_map(
+                            fn ($feature) => trim((string) $feature),
+                            $features
+                        )));
+                    }
+                @endphp
+
                 <div class="flex flex-col mt-4 gap-2 font-light">
-                    @if($package->features)
-                    @foreach (json_decode($package->features) as $feature)
+                    @foreach ($features as $feature)
                     <span class="text-sm">
                         <i class="ri-checkbox-circle-fill text-green"></i>
                         {{ $feature }}
                     </span>
                     @endforeach
-                    @endif
                 </div>
             </div>
 
