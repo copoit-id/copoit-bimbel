@@ -526,7 +526,7 @@
             const trackTabSwitchUrl =
                 '{{ route('user.tryout.track-tab-switch', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}';
             const proctoringSnapshotUrl =
-                '{{ route('user.tryout.proctoring-snapshot', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}';
+                '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/proctoring-snapshot') }}';
             const proctoringSettings = {{ \Illuminate\Support\Js::from($proctoringSettingsForJs) }};
             const baseUrlTemplate =
                 '{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, ':num']) }}';

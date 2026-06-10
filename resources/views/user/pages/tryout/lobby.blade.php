@@ -190,10 +190,7 @@
                 screen: @json((bool) $effectiveProctoringSettings['enable_screen_check']),
             };
             const csrfToken = @json(csrf_token());
-            const snapshotUrl = @json(route('user.tryout.proctoring-snapshot', [
-                $package ? $package->package_id : 'free',
-                $tryout->tryout_id
-            ]));
+            const snapshotUrl = @json(url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/proctoring-snapshot'));
             const checkState = {
                 webcam: !proctoringSettings.webcam,
                 screen: !proctoringSettings.screen,
