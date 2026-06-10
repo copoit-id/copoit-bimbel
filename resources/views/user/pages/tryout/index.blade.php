@@ -246,7 +246,7 @@
                                 </button>
 
                                 <form
-                                    action="{{ route('user.tryout.finish', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"
+                                    action="{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/finish') }}"
                                     method="POST" class="hidden" id="finishForm">
                                     @csrf
                                     <input type="hidden" name="answers_payload" id="answersPayloadInput">
@@ -524,12 +524,12 @@
             const subtestRanges = @json($subtestRangesForJs);
             const allServerAnswers = @json($allAnswerDetailsForJs);
             const trackTabSwitchUrl =
-                '{{ route('user.tryout.track-tab-switch', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}';
+                '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/track-tab-switch') }}';
             const proctoringSnapshotUrl =
                 '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/proctoring-snapshot') }}';
             const proctoringSettings = {{ \Illuminate\Support\Js::from($proctoringSettingsForJs) }};
             const baseUrlTemplate =
-                '{{ route('user.tryout.index', [$package ? $package->package_id : 'free', $tryout->tryout_id, ':num']) }}';
+                '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/tryout/:num') }}';
 
             let answerCache = loadAnswers();
             let lastTabSwitchTrackedAt = 0;
@@ -1263,7 +1263,7 @@
                     .question_id) && !a.synced);
 
                 const response = await fetch(
-                    '{{ route('user.tryout.subtest.flush', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}', {
+                    '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/subtest/flush') }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1314,7 +1314,7 @@
                 const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
                 const qid = wrapper.dataset.questionId;
 
-                fetch('{{ route('user.tryout.flag', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}', {
+                fetch('{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/flag') }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1369,7 +1369,7 @@
 
                 audio.onplay = function() {
                     const markUrl =
-                        '{{ route('user.tryout.markPlayed', [$package ? $package->package_id : 'free', $tryout->tryout_id, ':qid']) }}'
+                        '{{ url('/user/tryout/listening/mark-played/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/:qid') }}'
                         .replace(':qid', qid);
                     fetch(markUrl, {
                         method: 'POST',

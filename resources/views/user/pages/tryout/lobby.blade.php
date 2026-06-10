@@ -142,7 +142,7 @@
                     </div>
                 @endif
 
-                <a href="{{ route('user.tryout.index', ['id_package' => $package ? $package->package_id : 'free', 'id_tryout' => $tryout->tryout_id, 'number' => 1]) }}"
+                <a href="{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/tryout/1') }}"
                     id="startTryoutBtn"
                     class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl {{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'pointer-events-none opacity-50' : '' }}"
                     aria-disabled="{{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'true' : 'false' }}">
