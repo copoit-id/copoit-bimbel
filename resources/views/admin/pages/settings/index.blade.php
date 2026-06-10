@@ -298,12 +298,12 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
-                <div>
+                <div class="md:col-span-2">
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Catatan (Opsional)</label>
-                    <input type="text" name="payment_bank_note"
-                        value="{{ old('payment_bank_note', $profile->payment_bank_note ?? ($branding['payment_bank_note'] ?? '')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Kirim bukti max 1x24 jam">
+                    <textarea name="payment_bank_note" rows="5" data-summernote data-height="240"
+                        class="summernote-field w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kirim bukti max 1x24 jam atau upload gambar QRIS">{{ old('payment_bank_note', $profile->payment_bank_note ?? ($branding['payment_bank_note'] ?? '')) }}</textarea>
+                    <p class="text-xs text-gray-500 mt-1">Bisa isi instruksi pembayaran, link, atau gambar QRIS.</p>
                     @error('payment_bank_note')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror

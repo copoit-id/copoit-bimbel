@@ -75,7 +75,7 @@ class SettingController extends Controller
             'payment_bank_name' => ['nullable', 'string', 'max:255'],
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
-            'payment_bank_note' => ['nullable', 'string', 'max:255'],
+            'payment_bank_note' => ['nullable', 'string'],
             'payment_unique_code_enabled' => ['nullable', 'boolean'],
             'payment_gateway' => ['nullable', 'in:' . implode(',', $paymentGatewayKeys)],
             'payment_gateway_mode' => ['nullable', 'in:sandbox,production'],

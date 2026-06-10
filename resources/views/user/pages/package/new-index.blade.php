@@ -9,6 +9,7 @@ $paymentMode = $clientBranding['payment_mode'] ?? 'gateway';
 $bankName = $clientBranding['payment_bank_name'] ?? '';
 $accountNumber = $clientBranding['payment_account_number'] ?? '';
 $accountHolder = $clientBranding['payment_account_holder'] ?? '';
+$paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
 $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled'] ?? true);
 $publicDiscounts = $publicDiscounts ?? collect();
 $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
@@ -396,7 +397,7 @@ $discountsJson = $publicDiscounts->map(function($d) {
                         <span class="text-gray-500">Atas Nama</span>
                         <span class="font-semibold text-gray-800">{{ $accountHolder ?: '-' }}</span>
                     </div>
-                    <div class="flex justify-between border-t pt-2 mt-2">
+                    <div class="flex justify-between border-t border-dashed border-gray-200/80 pt-2 mt-2">
                         <span class="text-gray-500">Harga Paket</span>
                         <span class="font-semibold text-gray-800" id="baseAmountDisplay">Rp 0</span>
                     </div>
@@ -408,10 +409,17 @@ $discountsJson = $publicDiscounts->map(function($d) {
                         <span class="text-gray-500">Kode Unik</span>
                         <span class="font-semibold text-gray-800" id="uniqueCodeDisplay">000</span>
                     </div>
-                    <div class="flex justify-between border-t pt-2 mt-2">
+                    <div class="flex justify-between border-t border-dashed border-gray-200/80 pt-2 mt-2">
                         <span class="text-gray-500">Total Bayar</span>
                         <span class="font-bold text-lg" style="color: {{ $primaryColor }}" id="paymentAmountDisplay">Rp 0</span>
                     </div>
+                    @if(!empty($paymentBankNote))
+                    <div class="border-t border-dashed border-gray-200/80 pt-3 mt-3">
+                        <div class="prose prose-sm max-w-none text-gray-600">
+                            {!! $paymentBankNote !!}
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
 

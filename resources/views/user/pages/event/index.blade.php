@@ -215,7 +215,9 @@
                                     <p class="text-gray-500">Info rekening belum diatur.</p>
                                 @endif
                                 @if(!empty($clientBranding['payment_bank_note']))
-                                    <p class="text-xs text-gray-500 mt-1">{{ $clientBranding['payment_bank_note'] }}</p>
+                                    <div class="prose prose-sm max-w-none text-gray-500 mt-2">
+                                        {!! $clientBranding['payment_bank_note'] !!}
+                                    </div>
                                 @endif
                             </div>
                         </div>

@@ -10,6 +10,7 @@ $paymentMode = $clientBranding['payment_mode'] ?? 'gateway';
 $bankName = $clientBranding['payment_bank_name'] ?? '';
 $accountNumber = $clientBranding['payment_account_number'] ?? '';
 $accountHolder = $clientBranding['payment_account_holder'] ?? '';
+$paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
 @endphp
 
 <style>
@@ -195,6 +196,13 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
                         <span class="text-gray-500">Atas Nama</span>
                         <span class="font-semibold text-gray-800">{{ $accountHolder ?: '-' }}</span>
                     </div>
+                    @if(!empty($paymentBankNote))
+                    <div class="border-t pt-3 mt-3">
+                        <div class="prose prose-sm max-w-none text-gray-600">
+                            {!! $paymentBankNote !!}
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
 
