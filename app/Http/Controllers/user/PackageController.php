@@ -11,6 +11,7 @@ use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
 use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
+use App\Models\Tryout;
 use App\Models\UserAnswer;
 use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
@@ -48,12 +49,14 @@ class PackageController extends Controller
             // Free packages (gratis)
             $packages = Package::where('status', 'active')
                 ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
+                ->with(['directTryouts:tryout_id,package_id', 'detailPackages'])
                 ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         } else {
             // Paid packages (berbayar)
             $packages = Package::where('status', 'active')
                 ->where('type_price', 'paid')
+                ->with(['directTryouts:tryout_id,package_id', 'detailPackages'])
                 ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         }
@@ -77,9 +80,17 @@ class PackageController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
+        $automaticDiscounts = $tab === 'paid'
+            ? Discount::query()
+                ->automaticAvailable()
+                ->with('tryout:tryout_id,name')
+                ->orderBy('created_at', 'desc')
+                ->get()
+            : collect();
+        $packageAutomaticDiscounts = $this->automaticDiscountsForPackages($packages, $automaticDiscounts);
         $affiliateDiscountPreview = $tab === 'paid'
             ? $this->affiliateDiscountPreview()
-            : null;
+            : [];
         
         return view('user.pages.package.new-index', compact(
             'packages',
@@ -87,6 +98,7 @@ class PackageController extends Controller
             'userOwnedPackageIds',
             'manualPaymentUniqueCodes',
             'publicDiscounts',
+            'packageAutomaticDiscounts',
             'affiliateDiscountPreview'
         ));
     }
@@ -192,7 +204,7 @@ class PackageController extends Controller
 
                         return response()->json([
                             'success' => true,
-                            'message' => 'Kode diskon berhasil digunakan. Paket sudah aktif.',
+                            'message' => ($discountData['source'] === 'voucher' ? 'Kode diskon berhasil digunakan.' : 'Diskon berhasil diterapkan.') . ' Paket sudah aktif.',
                             'redirect_url' => route('user.package.my'),
                         ]);
                     }
@@ -315,6 +327,8 @@ class PackageController extends Controller
         return response()->json([
             'success' => true,
             'code' => $discountData['discount_code'],
+            'source' => $discountData['source'],
+            'label' => $discountData['label'],
             'original_amount' => (int) $package->price,
             'discount_amount' => $discountData['discount_amount'],
             'payable_amount' => $discountData['payable_amount'],
@@ -349,6 +363,8 @@ class PackageController extends Controller
         $code = Discount::normalizeCode($request->input('discount_code'));
 
         if (!$code) {
+            $automaticDiscount = $this->automaticDiscountForPackage($package);
+            $automaticDiscountAmount = $automaticDiscount?->calculateDiscountAmount($amount) ?? 0;
             $user = Auth::user();
             $setting = AffiliateSetting::current();
             $hasPackagePayment = Payment::query()
@@ -356,18 +372,33 @@ class PackageController extends Controller
                 ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS])
                 ->exists();
 
+            $affiliateDiscountAmount = 0;
             if ($user?->referred_by_user_id && !$hasPackagePayment && $setting->invitee_discount_enabled) {
                 $affiliateDiscountAmount = $setting->calculateInviteeDiscount($amount);
+            }
 
-                if ($affiliateDiscountAmount > 0) {
-                    return [
-                        'discount' => null,
-                        'discount_code' => 'REFERRAL',
-                        'discount_amount' => $affiliateDiscountAmount,
-                        'payable_amount' => max(0, $amount - $affiliateDiscountAmount),
-                        'error' => null,
-                    ];
-                }
+            if ($automaticDiscount && $automaticDiscountAmount >= $affiliateDiscountAmount && $automaticDiscountAmount > 0) {
+                return [
+                    'discount' => $automaticDiscount,
+                    'discount_code' => null,
+                    'discount_amount' => $automaticDiscountAmount,
+                    'payable_amount' => max(0, $amount - $automaticDiscountAmount),
+                    'source' => 'automatic',
+                    'label' => $automaticDiscount->name ?: 'Diskon otomatis',
+                    'error' => null,
+                ];
+            }
+
+            if ($affiliateDiscountAmount > 0) {
+                return [
+                    'discount' => null,
+                    'discount_code' => 'REFERRAL',
+                    'discount_amount' => $affiliateDiscountAmount,
+                    'payable_amount' => max(0, $amount - $affiliateDiscountAmount),
+                    'source' => 'referral',
+                    'label' => 'Diskon referral',
+                    'error' => null,
+                ];
             }
 
             return [
@@ -375,17 +406,21 @@ class PackageController extends Controller
                 'discount_code' => null,
                 'discount_amount' => 0,
                 'payable_amount' => $amount,
+                'source' => null,
+                'label' => null,
                 'error' => null,
             ];
         }
 
-        $discount = Discount::query()->where('code', $code)->first();
+        $discount = Discount::query()->voucher()->where('code', $code)->first();
         if (!$discount) {
             return [
                 'discount' => null,
                 'discount_code' => null,
                 'discount_amount' => 0,
                 'payable_amount' => $amount,
+                'source' => null,
+                'label' => null,
                 'error' => 'Kode diskon tidak ditemukan.',
             ];
         }
@@ -397,6 +432,8 @@ class PackageController extends Controller
                 'discount_code' => null,
                 'discount_amount' => 0,
                 'payable_amount' => $amount,
+                'source' => null,
+                'label' => null,
                 'error' => $error,
             ];
         }
@@ -408,8 +445,102 @@ class PackageController extends Controller
             'discount_code' => $discount->code,
             'discount_amount' => $discountAmount,
             'payable_amount' => max(0, $amount - $discountAmount),
+            'source' => 'voucher',
+            'label' => $discount->name ?: $discount->code,
             'error' => null,
         ];
+    }
+
+    private function automaticDiscountForPackage(Package $package): ?Discount
+    {
+        $tryoutIds = $this->packageTryoutIds($package);
+
+        if (empty($tryoutIds)) {
+            return null;
+        }
+
+        $discounts = Discount::query()
+            ->automaticAvailable()
+            ->whereIn('tryout_id', $tryoutIds)
+            ->with('tryout:tryout_id,name')
+            ->get();
+
+        return $this->bestAutomaticDiscount($package, $discounts);
+    }
+
+    private function automaticDiscountsForPackages($packages, $automaticDiscounts): array
+    {
+        $result = [];
+
+        foreach ($packages as $package) {
+            $discount = $this->bestAutomaticDiscount(
+                $package,
+                $automaticDiscounts->whereIn('tryout_id', $this->packageTryoutIds($package))->values()
+            );
+
+            if (!$discount) {
+                continue;
+            }
+
+            $discountAmount = $discount->calculateDiscountAmount((int) $package->price);
+            if ($discountAmount <= 0) {
+                continue;
+            }
+
+            $result[$package->package_id] = [
+                'id' => $discount->id,
+                'name' => $discount->name ?: 'Diskon otomatis',
+                'description' => $discount->description,
+                'tryout_title' => $discount->tryout?->name,
+                'formatted_value' => $discount->formatted_value,
+                'discount_type' => $discount->discount_type,
+                'discount_value' => (float) $discount->discount_value,
+                'max_discount_amount' => $discount->max_discount_amount !== null ? (float) $discount->max_discount_amount : null,
+                'discount_amount' => $discountAmount,
+                'final_price' => max(0, (int) $package->price - $discountAmount),
+                'ends_at' => $discount->ends_at ? $discount->ends_at->toIso8601String() : null,
+            ];
+        }
+
+        return $result;
+    }
+
+    private function bestAutomaticDiscount(Package $package, $discounts): ?Discount
+    {
+        $amount = (int) $package->price;
+        $userId = (int) (Auth::id() ?? 0);
+
+        return $discounts
+            ->filter(fn (Discount $discount) => $discount->validationErrorFor($amount, $userId) === null)
+            ->sortByDesc(fn (Discount $discount) => $discount->calculateDiscountAmount($amount))
+            ->first();
+    }
+
+    private function packageTryoutIds(Package $package): array
+    {
+        $tryoutIds = collect();
+
+        if ($package->relationLoaded('directTryouts')) {
+            $tryoutIds = $tryoutIds->merge($package->directTryouts->pluck('tryout_id'));
+        } else {
+            $tryoutIds = $tryoutIds->merge($package->directTryouts()->pluck('tryout_id'));
+        }
+
+        if ($package->relationLoaded('detailPackages')) {
+            $tryoutIds = $tryoutIds->merge(
+                $package->detailPackages
+                    ->where('detailable_type', Tryout::class)
+                    ->pluck('detailable_id')
+            );
+        } else {
+            $tryoutIds = $tryoutIds->merge(
+                $package->detailPackages()
+                    ->where('detailable_type', Tryout::class)
+                    ->pluck('detailable_id')
+            );
+        }
+
+        return $tryoutIds->map(fn ($id) => (int) $id)->filter()->unique()->values()->all();
     }
 
     private function affiliateDiscountPreview(?int $amount = null): ?array
@@ -2563,8 +2694,8 @@ class PackageController extends Controller
     {
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         $relations = $tesKoranEnabled
-            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans']
-            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes'];
+            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans', 'directTryouts', 'detailPackages']
+            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'directTryouts', 'detailPackages'];
 
         $package = Package::with($relations)
             ->where('status', 'active')
@@ -2611,6 +2742,14 @@ class PackageController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
+        $packageAutomaticDiscounts = $package->type_price === 'paid'
+            ? $this->automaticDiscountsForPackages(collect([$package]), Discount::query()
+                ->automaticAvailable()
+                ->with('tryout:tryout_id,name')
+                ->orderBy('created_at', 'desc')
+                ->get())
+            : null;
+        $packageAutomaticDiscount = $packageAutomaticDiscounts[$package->package_id] ?? null;
         $affiliateDiscountPreview = $package->type_price === 'paid'
             ? $this->affiliateDiscountPreview((int) $package->price)
             : null;
@@ -2624,6 +2763,7 @@ class PackageController extends Controller
             'totalLiveSessions',
             'totalMaterials',
             'publicDiscounts',
+            'packageAutomaticDiscount',
             'affiliateDiscountPreview'
         ));
     }

@@ -4,10 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 class Discount extends Model
 {
+    public const TYPE_VOUCHER = 'voucher';
+    public const TYPE_PACKAGE_TRYOUT = 'package_tryout';
+
     protected $guarded = [];
 
     protected $casts = [
@@ -27,9 +32,14 @@ class Discount extends Model
         return $code !== '' ? $code : null;
     }
 
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function tryout(): BelongsTo
+    {
+        return $this->belongsTo(Tryout::class, 'tryout_id', 'tryout_id');
     }
 
     public function scopeAvailable(Builder $query): Builder
@@ -47,7 +57,25 @@ class Discount extends Model
 
     public function scopePublicAvailable(Builder $query): Builder
     {
-        return $query->available()->where('is_public', true);
+        return $query->available()
+            ->where('application_type', self::TYPE_VOUCHER)
+            ->where('is_public', true);
+    }
+
+    public function scopeVoucher(Builder $query): Builder
+    {
+        return $query->where('application_type', self::TYPE_VOUCHER);
+    }
+
+    public function scopeAutomaticTryout(Builder $query): Builder
+    {
+        return $query->where('application_type', self::TYPE_PACKAGE_TRYOUT)
+            ->whereNotNull('tryout_id');
+    }
+
+    public function scopeAutomaticAvailable(Builder $query): Builder
+    {
+        return $query->automaticTryout()->available();
     }
 
     public function calculateDiscountAmount(int $amount): int
@@ -90,10 +118,13 @@ class Discount extends Model
         }
 
         $usedStatuses = [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS];
-        $totalUsed = $this->payments()->whereIn('status', $usedStatuses)->count();
 
-        if ($this->usage_limit !== null && $totalUsed >= (int) $this->usage_limit) {
-            return 'Kuota kode diskon sudah habis.';
+        if ($this->usage_limit !== null) {
+            $totalUsed = $this->payments()->whereIn('status', $usedStatuses)->count();
+
+            if ($totalUsed >= (int) $this->usage_limit) {
+                return 'Kuota kode diskon sudah habis.';
+            }
         }
 
         if ($this->per_user_limit !== null) {

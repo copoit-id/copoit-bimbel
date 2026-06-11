@@ -8,6 +8,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 $isGuest = !Auth::check();
 $publicDiscounts = $publicDiscounts ?? collect();
+$packageAutomaticDiscount = $packageAutomaticDiscount ?? null;
 $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
 @endphp
 
@@ -49,8 +50,24 @@ $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
             <i class="ri-gift-line mr-1"></i>GRATIS
         </div>
         @else
-        <div class="absolute top-4 right-4 z-20 px-4 py-2 rounded-full text-sm font-bold text-white" style="background-color: {{ $primaryColor }}">
-            Rp {{ number_format($package->price, 0, ',', '.') }}
+        <div class="absolute top-4 right-4 z-20 flex flex-col items-end gap-1">
+            @if($packageAutomaticDiscount)
+            <div class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-900/60 text-gray-200 line-through">
+                Rp {{ number_format($package->price, 0, ',', '.') }}
+            </div>
+            <div class="px-4 py-2 rounded-full text-sm font-bold bg-emerald-500 text-white">
+                Rp {{ number_format($packageAutomaticDiscount['final_price'], 0, ',', '.') }}
+            </div>
+            @if($packageAutomaticDiscount['ends_at'])
+            <div class="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                S/d {{ \Carbon\Carbon::parse($packageAutomaticDiscount['ends_at'])->format('d M Y H:i') }}
+            </div>
+            @endif
+            @else
+            <div class="px-4 py-2 rounded-full text-sm font-bold text-white" style="background-color: {{ $primaryColor }}">
+                Rp {{ number_format($package->price, 0, ',', '.') }}
+            </div>
+            @endif
         </div>
         @endif
     </div>
@@ -138,6 +155,26 @@ $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
                     @else
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form space-y-3">
                         @csrf
+                        @if($packageAutomaticDiscount)
+                        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-left">
+                            <div class="flex items-start gap-3">
+                                <i class="ri-price-tag-3-line text-xl text-emerald-600 mt-0.5"></i>
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-wide text-emerald-600">Diskon Berjalan</p>
+                                    <p class="font-semibold text-gray-800">{{ $packageAutomaticDiscount['name'] }} - {{ $packageAutomaticDiscount['formatted_value'] }}</p>
+                                    <p class="text-sm text-gray-600 mt-1">
+                                        Potongan Rp {{ number_format((float) $packageAutomaticDiscount['discount_amount'], 0, ',', '.') }},
+                                        bayar Rp {{ number_format((float) $packageAutomaticDiscount['final_price'], 0, ',', '.') }}.
+                                    </p>
+                                    @if($packageAutomaticDiscount['ends_at'])
+                                    <p class="text-xs text-emerald-700 mt-1">
+                                        Berlaku sampai {{ \Carbon\Carbon::parse($packageAutomaticDiscount['ends_at'])->format('d M Y H:i') }}.
+                                    </p>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                         @if($affiliateDiscountPreview)
                         <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-left">
                             <div class="flex items-start gap-3">

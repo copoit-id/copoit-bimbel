@@ -12,6 +12,7 @@ $accountHolder = $clientBranding['payment_account_holder'] ?? '';
 $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
 $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled'] ?? true);
 $publicDiscounts = $publicDiscounts ?? collect();
+$packageAutomaticDiscounts = $packageAutomaticDiscounts ?? [];
 $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
 $discountsJson = $publicDiscounts->map(function($d) {
     return [
@@ -26,6 +27,9 @@ $discountsJson = $publicDiscounts->map(function($d) {
         'ends_at' => $d->ends_at ? $d->ends_at->toIso8601String() : null,
     ];
 })->values()->toArray();
+$automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(function($discount, $packageId) {
+    return [(string) $packageId => $discount];
+})->toArray();
 @endphp
 
 <!-- Header -->
@@ -229,17 +233,23 @@ $discountsJson = $publicDiscounts->map(function($d) {
             @if($tab === 'paid')
             <div class="absolute top-3 right-3 flex flex-col items-end gap-1">
                 <!-- Crossed out original price -->
-                <div x-show="isDiscountActiveFor({{ $package->package_id }}, {{ $package->price }})" 
+                <div x-show="hasAnyDiscountFor({{ $package->package_id }}, {{ $package->price }})" 
                      class="bg-gray-900/60 backdrop-blur-sm text-gray-205 text-[10px] line-through px-2 py-0.5 rounded-full font-medium"
                      style="display: none;">
                     Rp {{ number_format($package->price, 0, ',', '.') }}
                 </div>
                 <!-- Active price -->
                 <div class="px-3 py-1 rounded-full text-xs font-bold transition-all duration-300"
-                     :class="isDiscountActiveFor({{ $package->package_id }}, {{ $package->price }}) ? 'bg-emerald-500 text-white' : ''"
-                     :style="!isDiscountActiveFor({{ $package->package_id }}, {{ $package->price }}) ? 'background-color: {{ $primaryColor }}; color: white;' : ''">
+                     :class="hasAnyDiscountFor({{ $package->package_id }}, {{ $package->price }}) ? 'bg-emerald-500 text-white' : ''"
+                     :style="!hasAnyDiscountFor({{ $package->package_id }}, {{ $package->price }}) ? 'background-color: {{ $primaryColor }}; color: white;' : ''">
                     <span x-text="getDisplayPrice({{ $package->package_id }}, {{ $package->price }})">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
                 </div>
+                <template x-if="getAutomaticDiscount({{ $package->package_id }}) && !activeDiscountCode">
+                    <div class="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-emerald-100 flex items-center gap-1">
+                        <i class="ri-time-line"></i>
+                        <span x-text="getCountdown(getAutomaticDiscount({{ $package->package_id }}).ends_at)"></span>
+                    </div>
+                </template>
             </div>
             @else
             <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
@@ -613,6 +623,7 @@ document.getElementById('customPromptModal')?.addEventListener('click', function
 document.addEventListener('alpine:init', () => {
     Alpine.data('packageManager', () => ({
         discounts: @js($discountsJson ?? []),
+        automaticDiscounts: @js($automaticDiscountsJson ?? []),
         activeDiscountCode: null,
         now: Date.now(),
         
@@ -671,8 +682,25 @@ document.addEventListener('alpine:init', () => {
             return price >= discount.min_purchase_amount;
         },
 
+        getAutomaticDiscount(packageId) {
+            return this.automaticDiscounts[String(packageId)] || null;
+        },
+
+        isAutomaticDiscountActiveFor(packageId) {
+            const discount = this.getAutomaticDiscount(packageId);
+            return Boolean(discount && Number(discount.discount_amount || 0) > 0);
+        },
+
+        hasAnyDiscountFor(packageId, price) {
+            return this.isDiscountActiveFor(packageId, price) || (!this.activeDiscountCode && this.isAutomaticDiscountActiveFor(packageId));
+        },
+
         getDisplayPrice(packageId, price) {
             if (!this.activeDiscountCode) {
+                const automaticDiscount = this.getAutomaticDiscount(packageId);
+                if (automaticDiscount && Number(automaticDiscount.final_price) < Number(price)) {
+                    return 'Rp ' + this.formatNumber(Number(automaticDiscount.final_price));
+                }
                 return 'Rp ' + this.formatNumber(price);
             }
             const discount = this.discounts.find(d => d.code === this.activeDiscountCode);
@@ -762,6 +790,18 @@ function getActivePromoCode() {
     return '';
 }
 
+function hasAutomaticDiscountFor(packageId) {
+    const el = document.getElementById('package-container');
+    if (el && window.Alpine) {
+        try {
+            return Boolean(Alpine.$data(el).getAutomaticDiscount(packageId));
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    return false;
+}
+
 async function handleBuy(packageId, price, packageName) {
     selectedPackageId = packageId;
     selectedPrice = price;
@@ -807,7 +847,7 @@ async function handleBuy(packageId, price, packageName) {
         
         // If a promo code is already selected on the page, use it directly. Otherwise, ask user.
         let discountCode = selectedDiscountCode;
-        if (!discountCode) {
+        if (!discountCode && !hasAutomaticDiscountFor(packageId)) {
             discountCode = await showCustomPrompt();
             if (discountCode === null) return; // User closed the prompt modal, cancel purchase flow
         }
@@ -882,13 +922,13 @@ function checkAutomaticReferralDiscount() {
     })
     .then(r => r.json())
     .then(data => {
-        if (!data.success || !data.code || Number(data.discount_amount || 0) <= 0) {
+        if (!data.success || Number(data.discount_amount || 0) <= 0) {
             return;
         }
 
         updateDiscountDisplay(data.code, data.discount_amount, data.payable_amount);
         const info = document.getElementById('discountInfo');
-        info.textContent = 'Diskon referral otomatis diterapkan.';
+        info.textContent = data.source === 'automatic' ? 'Diskon otomatis diterapkan.' : 'Diskon referral otomatis diterapkan.';
         info.className = 'text-sm mt-2 text-green-600';
     })
     .catch(() => {});
@@ -913,6 +953,7 @@ function applyDiscountCode() {
         document.getElementById('submitPaymentBtn').textContent = 'Kirim Bukti Bayar';
         document.getElementById('paymentAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPayableAmount + uniqueCode);
         info.className = 'hidden text-sm mt-2';
+        checkAutomaticReferralDiscount();
         return;
     }
 
