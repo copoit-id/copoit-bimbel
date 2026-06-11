@@ -8,6 +8,8 @@ use App\Models\TesKoran;
 use App\Models\Tryout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class IndividualPurchaseController extends Controller
 {
@@ -114,7 +116,7 @@ class IndividualPurchaseController extends Controller
             $proofPath = $request->file('payment_proof')->store('payment-proofs/individual', 'public');
             $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
 
-            IndividualPurchase::create([
+            $purchase = IndividualPurchase::create([
                 'user_id' => $userId,
                 'purchasable_type' => $purchasableType,
                 'purchasable_id' => $id,
@@ -129,6 +131,8 @@ class IndividualPurchaseController extends Controller
                     'proof_name' => $request->file('payment_proof')->getClientOriginalName(),
                 ]),
             ]);
+
+            $this->sendPurchaseNotificationToAdmin($purchase);
 
             return response()->json([
                 'success' => true,
@@ -170,7 +174,7 @@ class IndividualPurchaseController extends Controller
 
         $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
 
-        IndividualPurchase::create([
+        $purchase = IndividualPurchase::create([
             'user_id' => $userId,
             'purchasable_type' => $purchasableType,
             'purchasable_id' => $id,
@@ -181,6 +185,8 @@ class IndividualPurchaseController extends Controller
             'status' => IndividualPurchase::STATUS_PENDING,
             'transaction_id' => $transactionId,
         ]);
+
+        $this->sendPurchaseNotificationToAdmin($purchase);
 
         // TODO: Integrate with Xendit/Midtrans here
 
@@ -196,5 +202,45 @@ class IndividualPurchaseController extends Controller
             ->get();
 
         return view('user.pages.individual-purchase.history', compact('purchases'));
+    }
+
+    private function sendPurchaseNotificationToAdmin(IndividualPurchase $purchase): void
+    {
+        $recipient = config('client.branding.smtp_notification_email')
+            ?: config('client.branding.smtp_email');
+
+        if (!$recipient) {
+            return;
+        }
+
+        $purchase->load(['user', 'purchasable']);
+
+        $purchaseType = match (true) {
+            $purchase->purchasable instanceof \App\Models\Material => 'Materi',
+            $purchase->purchasable instanceof \App\Models\Tryout => 'Tryout',
+            $purchase->purchasable instanceof \App\Models\TesKoran => 'Tes Koran',
+            default => 'Item',
+        };
+
+        $itemName = $purchase->purchasable?->name ?? '-';
+        $brandName = config('client.branding.name', config('app.name'));
+
+        try {
+            Mail::send('emails.individual-purchase-notification', [
+                'purchase' => $purchase,
+                'purchaseType' => $purchaseType,
+                'itemName' => $itemName,
+                'brandName' => $brandName,
+            ], function ($message) use ($recipient, $brandName) {
+                $message->to($recipient);
+                $message->subject("Pembelian Baru - {$brandName}");
+            });
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send individual purchase notification email.', [
+                'email' => $recipient,
+                'purchase_id' => $purchase->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }
