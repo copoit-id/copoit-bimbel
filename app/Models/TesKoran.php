@@ -12,6 +12,7 @@ class TesKoran extends Model
     protected $fillable = [
         'name',
         'test_type',
+        'logic_test_type',
         'direction',
         'number_type',
         'operation_type',
@@ -34,6 +35,7 @@ class TesKoran extends Model
         'columns_count' => 'integer',
         'rows_count' => 'integer',
         'price' => 'decimal:0',
+        'logic_test_type' => 'string',
     ];
 
     public function detailPackages(): MorphMany

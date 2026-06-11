@@ -38,20 +38,41 @@
                            placeholder="Contoh: Tes Pauli - Batch 1">
                 </div>
 
-                <div>
-                    <label for="test_type" class="block text-sm font-medium text-gray-700 mb-1">
-                        Jenis Tes <span class="text-red-500">*</span>
-                    </label>
-                    <select id="test_type" name="test_type" required
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="pauli" {{ old('test_type') == 'pauli' ? 'selected' : '' }}>
-                            Pauli (otomatis atas ke bawah)
-                        </option>
-                        <option value="kraepelin" {{ old('test_type') == 'kraepelin' ? 'selected' : '' }}>
-                            Kraepelin (otomatis bawah ke atas)
-                        </option>
-                    </select>
-                    <p class="text-xs text-gray-400 mt-1">Arah pengerjaan otomatis mengikuti jenis tes.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="test_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Jenis Tes <span class="text-red-500">*</span>
+                        </label>
+                        <select id="test_type" name="test_type" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="pauli" {{ old('test_type') == 'pauli' ? 'selected' : '' }}>
+                                Pauli (otomatis atas ke bawah)
+                            </option>
+                            <option value="kraepelin" {{ old('test_type') == 'kraepelin' ? 'selected' : '' }}>
+                                Kraepelin (otomatis bawah ke atas)
+                            </option>
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">Arah pengerjaan otomatis mengikuti jenis tes.</p>
+                    </div>
+
+                    <div>
+                        <label for="logic_test_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Tipe Logic Test <span class="text-red-500">*</span>
+                        </label>
+                        <select id="logic_test_type" name="logic_test_type" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="standar" {{ old('logic_test_type') == 'standar' ? 'selected' : '' }}>
+                                Standar (per kolom, waktu per kolom)
+                            </option>
+                            <option value="stan" {{ old('logic_test_type') == 'stan' ? 'selected' : '' }}>
+                                STAN (full soal, waktu keseluruhan)
+                            </option>
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">
+                            <strong>Standar:</strong> soal dibagi per kolom dengan waktu per kolom.<br>
+                            <strong>STAN:</strong> semua soal aktif sekaligus, timer total, tidak ada pindah kolom.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -81,12 +102,12 @@
 
                     <div>
                         <label for="column_duration_seconds" class="block text-sm font-medium text-gray-700 mb-1">
-                            Durasi per Kolom (Detik) <span class="text-red-500">*</span>
+                            <span id="durationLabel">Durasi per Kolom (Detik)</span> <span class="text-red-500">*</span>
                         </label>
                         <input type="number" id="column_duration_seconds" name="column_duration_seconds" required min="10" max="3600"
                                value="{{ old('column_duration_seconds', 60) }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <p class="text-xs text-gray-400 mt-1">Waktu tidak tampil ke peserta.</p>
+                        <p class="text-xs text-gray-400 mt-1" id="durationHelp">Waktu tidak tampil ke peserta.</p>
                     </div>
                 </div>
 
@@ -191,6 +212,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     saleCheckbox?.addEventListener('change', syncPriceInput);
     syncPriceInput();
+
+    const logicTestType = document.getElementById('logic_test_type');
+    const durationLabel = document.getElementById('durationLabel');
+    const durationHelp = document.getElementById('durationHelp');
+
+    function syncDurationLabel() {
+        if (!logicTestType || !durationLabel) return;
+        if (logicTestType.value === 'stan') {
+            durationLabel.textContent = 'Durasi Total (Detik)';
+            durationHelp.textContent = 'Waktu keseluruhan untuk mengerjakan semua soal.';
+        } else {
+            durationLabel.textContent = 'Durasi per Kolom (Detik)';
+            durationHelp.textContent = 'Waktu tidak tampil ke peserta.';
+        }
+    }
+
+    logicTestType?.addEventListener('change', syncDurationLabel);
+    syncDurationLabel();
 });
 </script>
 @endpush

@@ -3,6 +3,7 @@
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $effectiveDirection = $tesKoran->test_type === 'kraepelin' ? 'bottom_to_top' : 'top_to_bottom';
+$isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
 @endphp
 
 @section('title', $tesKoran->name)
@@ -115,7 +116,11 @@ $effectiveDirection = $tesKoran->test_type === 'kraepelin' ? 'bottom_to_top' : '
     <div class="px-6 py-3.5 border-b border-gray-100 bg-gray-50/20 flex flex-wrap items-center justify-between gap-4">
         <div class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
             <i class="ri-loader-3-line text-primary animate-spin"></i>
-            Progres Kolom: <span id="colProgressText" class="text-primary">1 / {{ $tesKoran->columns_count }}</span>
+            @if($isStan)
+                Sisa Waktu: <span id="timerDisplay" class="text-primary font-mono">--:--</span>
+            @else
+                Progres Kolom: <span id="colProgressText" class="text-primary">1 / {{ $tesKoran->columns_count }}</span>
+            @endif
         </div>
         <div class="flex-1 min-w-[200px] max-w-md bg-gray-100 h-2.5 rounded-full overflow-hidden">
             <div id="colProgressBar" class="bg-primary h-full rounded-full transition-all duration-500 ease-out" style="width: 0%;"></div>
@@ -139,7 +144,11 @@ $effectiveDirection = $tesKoran->test_type === 'kraepelin' ? 'bottom_to_top' : '
                         <li>Kerjakan hitungan secara berurutan (<strong>{{ $effectiveDirection == 'top_to_bottom' ? 'dari atas ke bawah' : 'dari bawah ke atas' }}</strong>).</li>
                         <li>Tulis hanya <strong>angka satuan</strong> dari hasil hitung (contoh: 5 + 7 = 12, maka ketik <strong>2</strong>).</li>
                         <li>Tekan <strong>Enter</strong>, <strong>Tab</strong>, atau <strong>Spasi</strong> untuk lanjut ke baris berikutnya.</li>
-                        <li>Waktu per kolom terbatas. Ketika waktu habis, Anda akan otomatis berpindah kolom.</li>
+                        @if($isStan)
+                            <li>Waktu terbatas secara keseluruhan. Kerjakan semua kolom seefisien mungkin.</li>
+                        @else
+                            <li>Waktu per kolom terbatas. Ketika waktu habis, Anda akan otomatis berpindah kolom.</li>
+                        @endif
                     </ul>
                 </div>
             </div>
@@ -240,10 +249,11 @@ $effectiveDirection = $tesKoran->test_type === 'kraepelin' ? 'bottom_to_top' : '
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const isStanMode = {{ $isStan ? 'true' : 'false' }};
     const columnDurationSeconds = {{ $tesKoran->column_duration_seconds ?? 60 }};
     const columnsCount = {{ $tesKoran->columns_count }};
     const rowsCount = {{ $tesKoran->rows_count }};
-    const totalDurationSeconds = columnDurationSeconds * columnsCount;
+    const totalDurationSeconds = isStanMode ? columnDurationSeconds : (columnDurationSeconds * columnsCount);
     const columnsHash = '{{ md5($columnsJson) }}';
     const progressKey = 'tes_koran_progress:{{ auth()->id() }}:{{ $tesKoran->id }}';
     const currentColumnKey = 'tes_koran_current_column:{{ auth()->id() }}:{{ $tesKoran->id }}';
@@ -257,6 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const changeColumnTitle = document.getElementById('changeColumnTitle');
     const changeColumnText = document.getElementById('changeColumnText');
     const answeredCountEl = document.getElementById('answeredCount');
+    const timerDisplay = document.getElementById('timerDisplay');
     const inputs = document.querySelectorAll('input[data-row][data-col]');
     const form = document.getElementById('tesKoranForm');
     const submitStatus = document.getElementById('submitStatus');
@@ -269,9 +280,17 @@ document.addEventListener('DOMContentLoaded', function() {
     startColumnFlow();
     updateCount();
 
+    if (isStanMode) {
+        startStanTimer();
+    }
+
     window.addEventListener('beforeunload', function() {
         if (!isSubmitting) {
-            saveProgressToLocal(currentColumn, getActiveColumnRemainingSeconds());
+            if (isStanMode) {
+                saveStanProgressToLocal();
+            } else {
+                saveProgressToLocal(currentColumn, getActiveColumnRemainingSeconds());
+            }
             saveAnswersToLocal();
         }
     });
@@ -279,6 +298,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function resolveProgress() {
         const serverTimeLeft = Math.max(0, Math.floor({{ $timeLeft }}));
         const now = Date.now();
+
+        if (isStanMode) {
+            try {
+                const storedProgress = JSON.parse(localStorage.getItem(progressKey) || 'null');
+                if (storedProgress?.expiresAt) {
+                    const localTimeLeft = Math.max(0, Math.floor((storedProgress.expiresAt - now) / 1000));
+                    if (localTimeLeft <= totalDurationSeconds) {
+                        return {
+                            timeLeft: Math.min(serverTimeLeft, localTimeLeft),
+                            currentColumn: 0,
+                            currentColumnRemaining: Math.min(serverTimeLeft, localTimeLeft),
+                        };
+                    }
+                }
+            } catch (error) {
+                console.warn('Gagal membaca progres waktu lokal.', error);
+            }
+            return { timeLeft: serverTimeLeft, currentColumn: 0, currentColumnRemaining: serverTimeLeft };
+        }
 
         try {
             const storedColumnProgress = JSON.parse(localStorage.getItem(currentColumnKey) || 'null');
@@ -346,6 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function resolveStoredColumnProgress(storedColumnProgress, now) {
+        if (isStanMode) return null;
         if (!storedColumnProgress || !Number.isInteger(storedColumnProgress.currentColumn)) {
             return null;
         }
@@ -382,6 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function saveProgressToLocal(columnIndex, remainingSeconds = columnDurationSeconds) {
+        if (isStanMode) return;
         try {
             const existingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}');
             const now = Date.now();
@@ -410,7 +450,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function saveStanProgressToLocal() {
+        try {
+            const existingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+            const now = Date.now();
+            const expiresAt = existingProgress.expiresAt && existingProgress.expiresAt > now
+                ? existingProgress.expiresAt
+                : now + (timeLeft * 1000);
+
+            localStorage.setItem(progressKey, JSON.stringify({
+                ...existingProgress,
+                columnsHash,
+                startedAt: existingProgress.startedAt ?? now,
+                expiresAt,
+            }));
+        } catch (error) {
+            console.warn('Gagal menyimpan progres waktu lokal.', error);
+        }
+    }
+
     function getActiveColumnRemainingSeconds() {
+        if (isStanMode) return timeLeft;
         try {
             const storedColumnProgress = JSON.parse(localStorage.getItem(currentColumnKey) || 'null');
 
@@ -422,6 +482,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         return currentColumnRemaining;
+    }
+
+    function startStanTimer() {
+        if (timerDisplay) {
+            updateTimerDisplay(timeLeft);
+        }
+        const interval = setInterval(() => {
+            if (isSubmitting) {
+                clearInterval(interval);
+                return;
+            }
+            timeLeft--;
+            if (timerDisplay) updateTimerDisplay(timeLeft);
+
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                submitForm();
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplay(seconds) {
+        const m = Math.floor(Math.max(0, seconds) / 60).toString().padStart(2, '0');
+        const s = (Math.max(0, seconds) % 60).toString().padStart(2, '0');
+        timerDisplay.textContent = `${m}:${s}`;
     }
 
     // Count answered
@@ -437,7 +522,9 @@ document.addEventListener('DOMContentLoaded', function() {
     inputs.forEach(input => {
         input.addEventListener('input', function(e) {
             this.value = this.value.replace(disallowedInputPattern, '').slice(-1);
-            saveProgressToLocal(currentColumn, getActiveColumnRemainingSeconds());
+            if (!isStanMode) {
+                saveProgressToLocal(currentColumn, getActiveColumnRemainingSeconds());
+            }
             saveAnswersToLocal();
             updateCount();
 
@@ -572,6 +659,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize Column Flow
     function startColumnFlow() {
+        if (isStanMode) {
+            activateStanMode();
+            return;
+        }
+
         activateColumn(currentColumn);
 
         if (currentColumnRemaining <= 0) {
@@ -580,6 +672,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         columnTimeout = setTimeout(advanceColumn, currentColumnRemaining * 1000);
+    }
+
+    function activateStanMode() {
+        inputs.forEach(input => input.disabled = false);
+
+        document.querySelectorAll('[data-column-container]').forEach(col => {
+            col.classList.remove('column-active', 'column-past', 'column-future');
+            col.classList.add('column-active');
+            const header = col.querySelector('[data-col-header]');
+            if (header) {
+                header.classList.remove('text-gray-400', 'border-gray-100');
+                header.classList.add('text-primary', 'border-primary', 'font-black');
+            }
+        });
+
+        // Update progress bar to reflect total time progress roughly
+        const colProgressBar = document.getElementById('colProgressBar');
+        if (colProgressBar) colProgressBar.style.width = '0%';
+
+        focusFirstInput(0);
     }
 
     function activateColumn(columnIndex) {
@@ -656,6 +768,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showChangeColumnModal(message) {
+        if (isStanMode) return;
+
         changeColumnTitle.textContent = transitionInstruction;
         changeColumnText.textContent = message;
         
@@ -731,7 +845,11 @@ document.addEventListener('DOMContentLoaded', function() {
             submitStatus.classList.add('hidden');
             submitStatus.classList.remove('flex');
             isSubmitting = false;
-            activateColumn(currentColumn);
+            if (isStanMode) {
+                activateStanMode();
+            } else {
+                activateColumn(currentColumn);
+            }
         }
     }
 

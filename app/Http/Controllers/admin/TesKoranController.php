@@ -161,6 +161,7 @@ class TesKoranController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'test_type' => 'required|in:pauli,kraepelin',
+            'logic_test_type' => 'required|in:standar,stan',
             'number_type' => 'required|in:satuan,puluhan,ratusan',
             'operation_type' => 'required|in:addition,subtraction,division',
             'column_duration_seconds' => 'required|integer|min:10|max:3600',
@@ -175,7 +176,12 @@ class TesKoranController extends Controller
 
     private function totalDurationMinutes(array $validated): int
     {
-        return (int) ceil(($validated['column_duration_seconds'] * $validated['columns_count']) / 60);
+        $logicTestType = $validated['logic_test_type'] ?? 'standar';
+        $totalSeconds = $logicTestType === 'stan'
+            ? $validated['column_duration_seconds']
+            : ($validated['column_duration_seconds'] * $validated['columns_count']);
+
+        return (int) ceil($totalSeconds / 60);
     }
 
     private function directionForTestType(string $testType): string

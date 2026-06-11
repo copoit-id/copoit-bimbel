@@ -50,10 +50,14 @@ class TesKoranController extends Controller
         $expiresAt = isset($attempt['expires_at']) ? Carbon::parse($attempt['expires_at']) : null;
 
         if (!$attempt || !$expiresAt || $expiresAt->isPast()) {
+            $totalDurationSeconds = $tesKoran->logic_test_type === 'stan'
+                ? $tesKoran->column_duration_seconds
+                : ($tesKoran->column_duration_seconds * $tesKoran->columns_count);
+
             $attempt = [
                 'columns' => $tesKoran->generateColumns($tesKoran->columns_count),
                 'started_at' => now()->toIso8601String(),
-                'expires_at' => now()->addSeconds($tesKoran->column_duration_seconds * $tesKoran->columns_count)->toIso8601String(),
+                'expires_at' => now()->addSeconds($totalDurationSeconds)->toIso8601String(),
             ];
 
             session([$sessionKey => $attempt]);
