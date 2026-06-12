@@ -973,8 +973,7 @@ class TryoutController extends Controller
             ];
         }
 
-        $isCombinedSubtestView = count($subtestInfo) > 1
-            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'combined';
+        $isCombinedSubtestView = count($subtestInfo) > 1;
 
         if ($allQuestions->isEmpty()) {
             return redirect()->back()->with('error', 'Tryout belum memiliki soal');
@@ -1307,9 +1306,14 @@ class TryoutController extends Controller
 
             $tryout = Tryout::findOrFail($id_tryout);
             $tryoutDetails = $tryout->tryoutDetails()->get();
-            $totalDuration = $tryoutDetails->sum('duration');
+            $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
+            $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
 
-            $startTime = Carbon::parse($userAnswer->started_at, 'Asia/Jakarta');
+            $firstStartTime = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('attempt_token', $userAnswer->attempt_token)
+                ->min('started_at');
+            $startTime = Carbon::parse($firstStartTime ?: $userAnswer->started_at, 'Asia/Jakarta');
             $endTime = $startTime->copy()->addMinutes($totalDuration);
 
             if ($now->gte($endTime)) {

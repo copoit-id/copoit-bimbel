@@ -521,6 +521,7 @@
             const answersKey = `tryout_answers_${attemptToken}`;
             const csrfToken = '{{ csrf_token() }}';
             const answerPersistenceMode = @json($tryout->answer_persistence_mode ?? 'client_side');
+            const isCombinedSubtestView = @json($isCombinedSubtestView ?? false);
             const subtestRanges = @json($subtestRangesForJs);
             const allServerAnswers = @json($allAnswerDetailsForJs);
             const trackTabSwitchUrl =
@@ -901,14 +902,17 @@
                         item.classList.remove('bg-green', 'text-white');
                     }
 
-                    // Visibility logic (subtest filter)
-                    const rangeIdx = subtestRanges.findIndex(r => num >= r.start_number && num <= r
-                        .end_number);
-                    const currentRange = subtestRanges[rangeIdx];
-                    if (itemNum >= currentRange.start_number && itemNum <= currentRange.end_number) {
+                    if (isCombinedSubtestView) {
                         item.classList.remove('hidden');
                     } else {
-                        item.classList.add('hidden');
+                        const rangeIdx = subtestRanges.findIndex(r => num >= r.start_number && num <= r
+                            .end_number);
+                        const currentRange = subtestRanges[rangeIdx];
+                        if (itemNum >= currentRange.start_number && itemNum <= currentRange.end_number) {
+                            item.classList.remove('hidden');
+                        } else {
+                            item.classList.add('hidden');
+                        }
                     }
                 });
 
@@ -939,7 +943,7 @@
                     nextBtn.classList.remove('hidden');
                     finishForm.classList.add('hidden');
 
-                    if (isLastOfSubtest && hasNextSubtest) {
+                    if (!isCombinedSubtestView && isLastOfSubtest && hasNextSubtest) {
                         nextBtnText.textContent = "Mulai Subtest Berikutnya";
                     } else {
                         nextBtnText.textContent = "Selanjutnya";
@@ -992,7 +996,7 @@
                 const isLastOfSubtest = (currentNumber === currentRange.end_number);
                 const hasNextSubtest = (currentRangeIdx < subtestRanges.length - 1);
 
-                if (isLastOfSubtest && hasNextSubtest && answerPersistenceMode === 'hybrid_subtest') {
+                if (!isCombinedSubtestView && isLastOfSubtest && hasNextSubtest && answerPersistenceMode === 'hybrid_subtest') {
                     const ok = confirm(
                         "Anda akan beralih ke subtest berikutnya. Jawaban subtest ini akan dikunci. Lanjutkan?"
                     );
