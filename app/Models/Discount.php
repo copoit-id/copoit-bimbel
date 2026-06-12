@@ -171,8 +171,12 @@ class Discount extends Model
     {
         $ids = $this->applicable_package_ids;
 
-        if (empty($ids)) {
+        if ($ids === null) {
             return true;
+        }
+
+        if (empty($ids)) {
+            return false;
         }
 
         return in_array($packageId, array_map('intval', $ids), true);

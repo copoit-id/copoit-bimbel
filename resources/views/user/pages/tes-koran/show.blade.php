@@ -626,12 +626,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function moveToNextInput(input) {
-        const columnInputs = getColumnInputs(parseInt(input.dataset.col));
+        const columnIndex = parseInt(input.dataset.col);
+        const columnInputs = getColumnInputs(columnIndex);
         const currentIndex = columnInputs.indexOf(input);
         const nextInput = columnInputs[currentIndex + 1] ?? null;
 
         if (nextInput) {
             focusInput(nextInput);
+            return;
+        }
+
+        if (isStanMode && columnIndex < columnsCount - 1) {
+            focusFirstInput(columnIndex + 1);
+            const nextCol = document.querySelector(`[data-column-container="${columnIndex + 1}"]`);
+            if (nextCol) {
+                nextCol.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
         }
     }
 
