@@ -114,6 +114,79 @@
         </div>
     </div>
 
+    <div class="mt-6 border-t border-gray-200 pt-6">
+        <h3 class="text-sm font-semibold text-gray-800 mb-4">Scope Voucher</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Berlaku untuk Jenis Pembelian <span class="text-red-500">*</span></label>
+                <div class="space-y-2">
+                    @php
+                        $purchaseTypeLabels = [
+                            'package' => 'Paket',
+                            'tryout' => 'Tryout',
+                            'material' => 'Materi',
+                            'tes_koran' => 'Tes Koran',
+                        ];
+                        $selectedTypes = old('applicable_purchase_types', $discount->applicable_purchase_types ?: []);
+                    @endphp
+                    @foreach($purchaseTypeLabels as $value => $label)
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="applicable_purchase_types[]" value="{{ $value }}" class="rounded border-gray-300 text-primary focus:ring-primary"
+                            @checked(in_array($value, $selectedTypes, true))>
+                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                    </label>
+                    @endforeach
+                </div>
+                @error('applicable_purchase_types')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+                @error('applicable_purchase_types.*')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Berlaku untuk Paket <span class="text-red-500">*</span></label>
+                <label class="flex items-center gap-2 mb-3">
+                    <input type="hidden" name="all_packages" value="0">
+                    <input type="checkbox" name="all_packages" value="1" id="allPackagesToggle" class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('all_packages', is_null($discount->applicable_package_ids))))>
+                    <span class="text-sm text-gray-700 font-medium">Semua paket</span>
+                </label>
+                <div id="packageChecklist" class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 {{ old('all_packages', is_null($discount->applicable_package_ids)) ? 'opacity-50 pointer-events-none' : '' }}">
+                    @php
+                        $selectedPackageIds = old('applicable_package_ids', $discount->applicable_package_ids ?: []);
+                    @endphp
+                    @forelse($packages as $pkg)
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="applicable_package_ids[]" value="{{ $pkg->package_id }}" class="rounded border-gray-300 text-primary focus:ring-primary"
+                            @checked(in_array($pkg->package_id, $selectedPackageIds, true))>
+                        <span class="text-sm text-gray-700">{{ $pkg->name }} <span class="text-xs text-gray-400">({{ $pkg->type_price }})</span></span>
+                    </label>
+                    @empty
+                    <p class="text-sm text-gray-500">Tidak ada paket aktif.</p>
+                    @endforelse
+                </div>
+                @error('applicable_package_ids')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+                @error('applicable_package_ids.*')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const toggle = document.getElementById('allPackagesToggle');
+            const checklist = document.getElementById('packageChecklist');
+            if (!toggle || !checklist) return;
+            function update() {
+                if (toggle.checked) {
+                    checklist.classList.add('opacity-50', 'pointer-events-none');
+                } else {
+                    checklist.classList.remove('opacity-50', 'pointer-events-none');
+                }
+            }
+            toggle.addEventListener('change', update);
+            update();
+        })();
+    </script>
+
     <div class="grid grid-cols-1 {{ $isVoucher ? 'md:grid-cols-2' : '' }} gap-4 mt-6">
         <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg">
             <input type="hidden" name="is_active" value="0">

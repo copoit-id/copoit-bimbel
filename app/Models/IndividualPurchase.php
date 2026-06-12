@@ -11,6 +11,9 @@ class IndividualPurchase extends Model
         'user_id',
         'purchasable_type',
         'purchasable_id',
+        'discount_id',
+        'discount_code',
+        'discount_amount',
         'price',
         'admin_fee',
         'total_amount',
@@ -25,6 +28,7 @@ class IndividualPurchase extends Model
     protected $casts = [
         'price' => 'decimal:0',
         'admin_fee' => 'decimal:0',
+        'discount_amount' => 'decimal:0',
         'total_amount' => 'decimal:0',
         'payment_details' => 'array',
         'approved_at' => 'datetime',
@@ -37,6 +41,11 @@ class IndividualPurchase extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function discount(): BelongsTo
+    {
+        return $this->belongsTo(Discount::class);
     }
 
     public function approver(): BelongsTo

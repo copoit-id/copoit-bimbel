@@ -56,6 +56,12 @@
                     <p class="text-xs text-gray-500 mb-1">Harga</p>
                     <p class="font-medium text-gray-800">Rp {{ number_format($purchase->price, 0, ',', '.') }}</p>
                 </div>
+                @if($purchase->discount_amount > 0)
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Diskon @if($purchase->discount_code)<span class="text-primary font-medium">({{ $purchase->discount_code }})</span>@endif</p>
+                    <p class="font-medium text-gray-800">- Rp {{ number_format($purchase->discount_amount, 0, ',', '.') }}</p>
+                </div>
+                @endif
                 <div>
                     <p class="text-xs text-gray-500 mb-1">Total Bayar</p>
                     <p class="font-bold text-lg" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($purchase->total_amount, 0, ',', '.') }}</p>

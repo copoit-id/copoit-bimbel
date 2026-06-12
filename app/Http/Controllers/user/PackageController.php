@@ -79,7 +79,11 @@ class PackageController extends Controller
             ->publicAvailable()
             ->orderBy('created_at', 'desc')
             ->limit(5)
-            ->get();
+            ->get()
+            ->filter(fn (Discount $discount) => $discount->appliesToPurchaseType('package')
+                && $packages->contains(fn (Package $package) => $discount->appliesToPackage($package->package_id))
+            )
+            ->values();
         $automaticDiscounts = $tab === 'paid'
             ? Discount::query()
                 ->automaticAvailable()
@@ -425,7 +429,7 @@ class PackageController extends Controller
             ];
         }
 
-        $error = $discount->validationErrorFor($amount, Auth::id());
+        $error = $discount->validationErrorFor($amount, Auth::id(), $package->package_id, 'package');
         if ($error) {
             return [
                 'discount' => $discount,
@@ -2735,7 +2739,11 @@ class PackageController extends Controller
             ->publicAvailable()
             ->orderBy('created_at', 'desc')
             ->limit(5)
-            ->get();
+            ->get()
+            ->filter(fn (Discount $discount) => $discount->appliesToPurchaseType('package')
+                && $discount->appliesToPackage($package->package_id)
+            )
+            ->values();
         $packageAutomaticDiscounts = $package->type_price === 'paid'
             ? $this->automaticDiscountsForPackages(collect([$package]), Discount::query()
                 ->automaticAvailable()

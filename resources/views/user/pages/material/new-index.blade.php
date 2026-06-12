@@ -210,6 +210,13 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
                 @csrf
                 <div class="space-y-4">
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kode Voucher (opsional)</label>
+                        <input type="text" name="discount_code"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 uppercase focus:outline-none focus:ring-2"
+                               style="--tw-ring-color: {{ $primaryColor }}"
+                               placeholder="CONTOH: HEMAT50">
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Transfer <span class="text-red-500">*</span></label>
                         <input type="file" name="payment_proof" id="paymentProofInput" accept="image/*,.pdf" required
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"

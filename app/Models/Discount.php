@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 class Discount extends Model
@@ -23,6 +24,8 @@ class Discount extends Model
         'ends_at' => 'datetime',
         'is_active' => 'boolean',
         'is_public' => 'boolean',
+        'applicable_package_ids' => 'array',
+        'applicable_purchase_types' => 'array',
     ];
 
     public static function normalizeCode(?string $code): ?string
@@ -35,6 +38,11 @@ class Discount extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function individualPurchases(): HasMany
+    {
+        return $this->hasMany(IndividualPurchase::class);
     }
 
     public function tryout(): BelongsTo
@@ -97,7 +105,7 @@ class Discount extends Model
         return min($amount, max(0, $discount));
     }
 
-    public function validationErrorFor(int $amount, int $userId): ?string
+    public function validationErrorFor(int $amount, int $userId, ?int $packageId = null, ?string $purchaseType = null): ?string
     {
         $now = Carbon::now();
 
@@ -117,10 +125,20 @@ class Discount extends Model
             return 'Minimal pembelian untuk kode diskon ini belum terpenuhi.';
         }
 
-        $usedStatuses = [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS];
+        if ($purchaseType !== null && !$this->appliesToPurchaseType($purchaseType)) {
+            return 'Kode diskon tidak berlaku untuk jenis pembelian ini.';
+        }
+
+        if ($packageId !== null && !$this->appliesToPackage($packageId)) {
+            return 'Kode diskon tidak berlaku untuk paket ini.';
+        }
+
+        $paymentUsedStatuses = [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS];
+        $individualUsedStatuses = [IndividualPurchase::STATUS_PENDING, IndividualPurchase::STATUS_APPROVED];
 
         if ($this->usage_limit !== null) {
-            $totalUsed = $this->payments()->whereIn('status', $usedStatuses)->count();
+            $totalUsed = $this->payments()->whereIn('status', $paymentUsedStatuses)->count()
+                + $this->individualPurchases()->whereIn('status', $individualUsedStatuses)->count();
 
             if ($totalUsed >= (int) $this->usage_limit) {
                 return 'Kuota kode diskon sudah habis.';
@@ -130,7 +148,12 @@ class Discount extends Model
         if ($this->per_user_limit !== null) {
             $userUsed = $this->payments()
                 ->where('user_id', $userId)
-                ->whereIn('status', $usedStatuses)
+                ->whereIn('status', $paymentUsedStatuses)
+                ->count();
+
+            $userUsed += $this->individualPurchases()
+                ->where('user_id', $userId)
+                ->whereIn('status', $individualUsedStatuses)
                 ->count();
 
             if ($userUsed >= (int) $this->per_user_limit) {
@@ -139,6 +162,28 @@ class Discount extends Model
         }
 
         return null;
+    }
+
+    public function appliesToPackage(int $packageId): bool
+    {
+        $ids = $this->applicable_package_ids;
+
+        if (empty($ids)) {
+            return true;
+        }
+
+        return in_array($packageId, $ids, true);
+    }
+
+    public function appliesToPurchaseType(string $type): bool
+    {
+        $types = $this->applicable_purchase_types;
+
+        if (empty($types)) {
+            return true;
+        }
+
+        return in_array($type, $types, true);
     }
 
     public function getFormattedValueAttribute(): string

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Discount;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\TesKoran;
@@ -28,6 +29,7 @@ class IndividualPurchaseController extends Controller
         $request->validate([
             'type' => 'required|in:material,tryout,tes_koran',
             'id' => 'required|integer',
+            'discount_code' => 'nullable|string|max:50',
         ]);
 
         $type = $request->type;
@@ -103,6 +105,25 @@ class IndividualPurchaseController extends Controller
             ], 400);
         }
 
+        // Resolve optional voucher
+        $discountCode = Discount::normalizeCode($request->input('discount_code'));
+        $discountData = $this->resolveIndividualDiscount($discountCode, $item, $type, $userId);
+
+        if ($discountData['error']) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $discountData['error'],
+                ], 422);
+            }
+
+            return redirect()->back()->with('error', $discountData['error']);
+        }
+
+        $discount = $discountData['discount'];
+        $discountAmount = $discountData['discount_amount'];
+        $totalAmount = max(0, (int) $item->price - $discountAmount);
+
         // For manual payment, require payment proof
         $paymentMode = config('client.branding.payment_mode', 'gateway');
         
@@ -120,9 +141,12 @@ class IndividualPurchaseController extends Controller
                 'user_id' => $userId,
                 'purchasable_type' => $purchasableType,
                 'purchasable_id' => $id,
+                'discount_id' => $discount?->id,
+                'discount_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
                 'price' => $item->price,
                 'admin_fee' => 0,
-                'total_amount' => $item->price,
+                'total_amount' => $totalAmount,
                 'payment_method' => 'manual',
                 'status' => IndividualPurchase::STATUS_PENDING,
                 'transaction_id' => $transactionId,
@@ -143,7 +167,11 @@ class IndividualPurchaseController extends Controller
         // For gateway payment, redirect to payment
         return response()->json([
             'success' => true,
-            'redirect_url' => route('user.individual-purchase.gateway', ['type' => $type, 'id' => $id]),
+            'redirect_url' => route('user.individual-purchase.gateway', [
+                'type' => $type,
+                'id' => $id,
+                'discount_code' => $discountCode ?: null,
+            ]),
         ]);
     }
 
@@ -172,15 +200,29 @@ class IndividualPurchaseController extends Controller
             return redirect()->back()->with('error', 'Item tidak ditemukan.');
         }
 
+        $discountCode = Discount::normalizeCode($request->input('discount_code'));
+        $discountData = $this->resolveIndividualDiscount($discountCode, $item, $type, $userId);
+
+        if ($discountData['error']) {
+            return redirect()->back()->with('error', $discountData['error']);
+        }
+
+        $discount = $discountData['discount'];
+        $discountAmount = $discountData['discount_amount'];
+        $totalAmount = max(0, (int) $item->price - $discountAmount);
+
         $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
 
         $purchase = IndividualPurchase::create([
             'user_id' => $userId,
             'purchasable_type' => $purchasableType,
             'purchasable_id' => $id,
+            'discount_id' => $discount?->id,
+            'discount_code' => $discount?->code,
+            'discount_amount' => $discountAmount,
             'price' => $item->price,
             'admin_fee' => 0,
-            'total_amount' => $item->price,
+            'total_amount' => $totalAmount,
             'payment_method' => 'gateway',
             'status' => IndividualPurchase::STATUS_PENDING,
             'transaction_id' => $transactionId,
@@ -202,6 +244,43 @@ class IndividualPurchaseController extends Controller
             ->get();
 
         return view('user.pages.individual-purchase.history', compact('purchases'));
+    }
+
+    private function resolveIndividualDiscount(?string $code, $item, string $type, int $userId): array
+    {
+        if (!$code) {
+            return [
+                'discount' => null,
+                'discount_amount' => 0,
+                'error' => null,
+            ];
+        }
+
+        $discount = Discount::query()->voucher()->where('code', $code)->first();
+
+        if (!$discount) {
+            return [
+                'discount' => null,
+                'discount_amount' => 0,
+                'error' => 'Kode voucher tidak ditemukan.',
+            ];
+        }
+
+        $error = $discount->validationErrorFor((int) $item->price, $userId, null, $type);
+
+        if ($error) {
+            return [
+                'discount' => $discount,
+                'discount_amount' => 0,
+                'error' => $error,
+            ];
+        }
+
+        return [
+            'discount' => $discount,
+            'discount_amount' => $discount->calculateDiscountAmount((int) $item->price),
+            'error' => null,
+        ];
     }
 
     private function sendPurchaseNotificationToAdmin(IndividualPurchase $purchase): void

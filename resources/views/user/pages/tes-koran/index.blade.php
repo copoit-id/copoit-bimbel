@@ -139,6 +139,13 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 <p class="text-sm text-gray-500">Harga</p>
                 <p id="purchaseItemPrice" class="font-bold text-lg" style="color: {{ $primaryColor }}"></p>
             </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kode Voucher (opsional)</label>
+                <input type="text" name="discount_code"
+                       class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm uppercase focus:outline-none focus:ring-2"
+                       style="--tw-ring-color: {{ $primaryColor }}"
+                       placeholder="CONTOH: HEMAT50">
+            </div>
             @if($paymentMode === 'manual')
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Bukti Pembayaran</label>

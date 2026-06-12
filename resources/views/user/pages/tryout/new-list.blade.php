@@ -116,10 +116,14 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 <i class="ri-play-circle-line mr-1"></i>Kerjakan
             </a>
             @else
-            <form action="{{ route('user.individual-purchase.buy') }}" method="POST" class="w-full">
+            <form action="{{ route('user.individual-purchase.buy') }}" method="POST" class="w-full space-y-2">
                 @csrf
                 <input type="hidden" name="type" value="tryout">
                 <input type="hidden" name="id" value="{{ $tryout->tryout_id }}">
+                <input type="text" name="discount_code"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary"
+                    style="--tw-ring-color: {{ $primaryColor }}"
+                    placeholder="Kode voucher (opsional)">
                 <button type="submit" class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="ri-shopping-cart-line mr-1"></i>
