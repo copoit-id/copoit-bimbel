@@ -43,7 +43,8 @@
     $activeSettingsTab = 'smtp';
     } elseif (collect($settingErrorKeys)->intersect([
     'contact_whatsapp_number',
-    'contact_whatsapp_button_text'
+    'contact_whatsapp_button_text',
+    'concurrent_login_limit'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'contact';
     }
@@ -86,7 +87,7 @@
                 </button>
                 <button type="button" data-settings-tab="contact"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'contact' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    Kontak Bimbel
+                    Kontak & Login
                 </button>
             </div>
         </div>
@@ -548,9 +549,9 @@
         <div data-settings-panel="contact"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'contact' ? 'hidden' : '' }}">
             <div>
-                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Kontak User</p>
-                <h2 class="text-xl font-semibold text-gray-900">Floating WhatsApp</h2>
-                <p class="text-gray-500 text-sm">Atur tombol WhatsApp yang tampil mengambang di pojok kanan bawah halaman user.</p>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Kontak & Akses</p>
+                <h2 class="text-xl font-semibold text-gray-900">Kontak User & Login</h2>
+                <p class="text-gray-500 text-sm">Atur tombol WhatsApp dan batas login bersamaan untuk akun yang sama.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -571,6 +572,17 @@
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
                         placeholder="Contoh: Chat Admin">
                     @error('contact_whatsapp_button_text')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Maksimal Login Bersamaan</label>
+                    <input type="number" name="concurrent_login_limit" min="1" max="20"
+                        value="{{ old('concurrent_login_limit', $profile->concurrent_login_limit ?? ($branding['concurrent_login_limit'] ?? 1)) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: 1">
+                    <p class="text-xs text-gray-500 mt-1">Jika diisi 1, login baru akan memutus sesi lama. Jika diisi 2, sesi ke-3 akan memutus sesi paling lama.</p>
+                    @error('concurrent_login_limit')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>

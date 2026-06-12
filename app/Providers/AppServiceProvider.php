@@ -66,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
             'smtp_notification_email' => null,
             'contact_whatsapp_number' => null,
             'contact_whatsapp_button_text' => 'Chat Admin',
+            'concurrent_login_limit' => 1,
             'tes_koran_enabled' => true,
         ];
 
@@ -107,6 +108,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['smtp_notification_email'] = $clientProfile->smtp_notification_email ?? $defaults['smtp_notification_email'];
             $defaults['contact_whatsapp_number'] = $clientProfile->contact_whatsapp_number ?? $defaults['contact_whatsapp_number'];
             $defaults['contact_whatsapp_button_text'] = $clientProfile->contact_whatsapp_button_text ?: $defaults['contact_whatsapp_button_text'];
+            $defaults['concurrent_login_limit'] = max(1, (int) ($clientProfile->concurrent_login_limit ?? $defaults['concurrent_login_limit']));
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }

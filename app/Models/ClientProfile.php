@@ -42,6 +42,7 @@ class ClientProfile extends Model
         'smtp_notification_email',
         'contact_whatsapp_number',
         'contact_whatsapp_button_text',
+        'concurrent_login_limit',
     ];
 
     protected $casts = [
@@ -51,6 +52,7 @@ class ClientProfile extends Model
         'enable_utbk_types' => 'boolean',
         'allow_video_thumbnail' => 'boolean',
         'payment_unique_code_enabled' => 'boolean',
+        'concurrent_login_limit' => 'integer',
         'smtp_app_password' => 'encrypted',
         'xendit_secret_key' => 'encrypted',
         'xendit_webhook_token' => 'encrypted',

@@ -49,6 +49,7 @@ class SettingController extends Controller
             'smtp_notification_email' => null,
             'contact_whatsapp_number' => null,
             'contact_whatsapp_button_text' => 'Chat Admin',
+            'concurrent_login_limit' => 1,
         ]);
 
         return view('admin.pages.settings.index', [
@@ -93,6 +94,7 @@ class SettingController extends Controller
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
             'contact_whatsapp_number' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+()\-\s.]+$/'],
             'contact_whatsapp_button_text' => ['nullable', 'string', 'max:80'],
+            'concurrent_login_limit' => ['required', 'integer', 'min:1', 'max:20'],
         ];
 
         if ($request->input('payment_mode') === 'manual') {
@@ -270,6 +272,7 @@ class SettingController extends Controller
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
         $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
         $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
+        $validated['concurrent_login_limit'] = max(1, (int) ($validated['concurrent_login_limit'] ?? 1));
         $validated['enable_certificate_management'] = false;
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');

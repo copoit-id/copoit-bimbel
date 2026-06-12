@@ -8,6 +8,7 @@ use App\Models\ParticipantDestinationCategory;
 use App\Rules\RecaptchaRule;
 use App\Rules\SafeName;
 use App\Services\RecaptchaService;
+use App\Services\ConcurrentLoginService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -49,7 +50,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function authenticate(Request $request)
+    public function authenticate(Request $request, ConcurrentLoginService $concurrentLoginService)
     {
         $throttleKey = $this->throttleKey($request);
         $lockUntil = Cache::get($this->lockKey($throttleKey));
@@ -97,6 +98,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
 
             $user = Auth::user();
+            $concurrentLoginService->enforce($user, $request->session()->getId());
             ActivityLogger::log('login_success', 'success', $user, [], $request);
 
             // Redirect based on user role
@@ -165,7 +167,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function register(Request $request, AffiliateService $affiliateService)
+    public function register(Request $request, AffiliateService $affiliateService, ConcurrentLoginService $concurrentLoginService)
     {
         $rules = [
             'name' => ['required', 'string', 'max:255', new SafeName()],
@@ -224,6 +226,8 @@ class AuthController extends Controller
             ActivityLogger::log('register', 'success', $user, [], $request);
 
             Auth::login($user);
+            $request->session()->regenerate();
+            $concurrentLoginService->enforce($user, $request->session()->getId());
 
             return redirect()->route('user.dashboard.index')
                 ->with('success', "Akun berhasil dibuat! Selamat datang di {$brandName}.");
