@@ -221,18 +221,22 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
                     @endfor
                 </div>
                 @endfor
+
+                <!-- Finish Column -->
+                <div class="sticky right-0 bg-white/95 backdrop-blur-sm z-20 pl-4 pr-2 flex flex-col items-center justify-center border-l border-gray-200/60 shadow-sm rounded-r-2xl min-w-[6rem]">
+                    <button type="button" onclick="submitForm()"
+                        class="px-4 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm whitespace-nowrap"
+                        style="background-color: {{ $primaryColor }}">
+                        <i class="ri-check-line mr-1"></i> Selesai
+                    </button>
+                </div>
             </div>
-            
-            <div class="mt-8 flex flex-wrap items-center justify-end gap-4">
+
+            <div class="mt-6 flex items-center justify-center">
                 <div id="submitStatus" class="hidden items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-600 animate-pulse">
                     <i class="ri-loader-4-line animate-spin text-primary text-base"></i>
                     <span>Memproses jawaban, mohon tunggu...</span>
                 </div>
-                <button type="button" onclick="submitForm()"
-                    class="px-6 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
-                    style="background-color: {{ $primaryColor }}">
-                    <i class="ri-check-line mr-1"></i> Selesai
-                </button>
             </div>
         </form>
     </div>
