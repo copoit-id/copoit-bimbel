@@ -16,17 +16,6 @@ class Package extends Model
         'price' => 'decimal:0'
     ];
 
-    // Direct relationships (dari manajemen package lama)
-    public function directTryouts()
-    {
-        return $this->hasMany(Tryout::class, 'package_id', 'package_id');
-    }
-
-    public function directClasses()
-    {
-        return $this->hasMany(ClassModel::class, 'package_id', 'package_id');
-    }
-
     // Detail package relationships (sistem baru dengan checklist)
     public function detailPackages()
     {

@@ -24,7 +24,7 @@ class LeaderboardController extends Controller
     public function index()
     {
         // Get all tryouts with their packages and participant counts - GROUP BY tryout
-        $tryouts = Tryout::with(['tryoutDetails', 'packages', 'directPackage'])
+        $tryouts = Tryout::with(['tryoutDetails', 'packages'])
             ->get()
             ->map(function ($tryout) {
                 $tryoutDetail = $tryout->tryoutDetails->first();
@@ -36,9 +36,7 @@ class LeaderboardController extends Controller
                     ->count();
 
                 // Get all packages that have this tryout
-                $packages = $tryout->packages;
-                $directPackage = $tryout->directPackage ? collect([$tryout->directPackage]) : collect();
-                $allPackages = $packages->isEmpty() ? $directPackage : $packages;
+                $allPackages = $tryout->packages;
 
                 if ($allPackages->isEmpty()) {
                     return null; // Skip if no package

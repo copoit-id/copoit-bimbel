@@ -17,12 +17,6 @@ class ClassModel extends Model
         'schedule_time' => 'datetime',
     ];
 
-    // Direct relationship (untuk kelas yang dibuat langsung di package)
-    public function directPackage()
-    {
-        return $this->belongsTo(Package::class, 'package_id', 'package_id');
-    }
-
     // Polymorphic relationship untuk detail packages
     public function detailPackages()
     {

@@ -128,7 +128,6 @@ class LaporanController extends Controller
                 $query->withCount('questions');
             },
             'packages',
-            'directPackage',
         ])->findOrFail($id);
 
         $participantGroups = UserAnswer::where('tryout_id', $tryout->tryout_id)
@@ -222,8 +221,7 @@ class LaporanController extends Controller
             ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
             : 0;
 
-        $leaderboardPackageId = optional($tryout->packages->first())->package_id
-            ?? optional($tryout->directPackage)->package_id;
+        $leaderboardPackageId = optional($tryout->packages->first())->package_id;
 
         $liveScore = $this->buildLiveScoreBoard($tryout);
         $publicLiveScoreUrl = URL::signedRoute('laporan.live-score.public', [
@@ -585,7 +583,6 @@ class LaporanController extends Controller
                 $query->withCount('questions');
             },
             'packages',
-            'directPackage',
         ])
             ->withCount([
                 'userAnswers as total_attempts',
@@ -610,8 +607,7 @@ class LaporanController extends Controller
                 : 0;
             $tryout->total_questions = $tryout->tryoutDetails->sum('questions_count');
             $tryout->total_duration = $tryout->tryoutDetails->sum('duration');
-            $tryout->leaderboard_package_id = optional($tryout->packages->first())->package_id
-                ?? optional($tryout->directPackage)->package_id;
+            $tryout->leaderboard_package_id = optional($tryout->packages->first())->package_id;
             $tryout->has_snapshot_proctoring = $this->hasSnapshotProctoring($tryout, $globalProctoringSettings);
 
             return $tryout;

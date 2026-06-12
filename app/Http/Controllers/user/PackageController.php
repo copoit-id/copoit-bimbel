@@ -49,14 +49,14 @@ class PackageController extends Controller
             // Free packages (gratis)
             $packages = Package::where('status', 'active')
                 ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
-                ->with(['directTryouts:tryout_id,package_id', 'detailPackages'])
+                ->with(['detailPackages'])
                 ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         } else {
             // Paid packages (berbayar)
             $packages = Package::where('status', 'active')
                 ->where('type_price', 'paid')
-                ->with(['directTryouts:tryout_id,package_id', 'detailPackages'])
+                ->with(['detailPackages'])
                 ->withCount(['materials', 'tryouts', 'tesKorans'])
                 ->get();
         }
@@ -519,12 +519,6 @@ class PackageController extends Controller
     private function packageTryoutIds(Package $package): array
     {
         $tryoutIds = collect();
-
-        if ($package->relationLoaded('directTryouts')) {
-            $tryoutIds = $tryoutIds->merge($package->directTryouts->pluck('tryout_id'));
-        } else {
-            $tryoutIds = $tryoutIds->merge($package->directTryouts()->pluck('tryout_id'));
-        }
 
         if ($package->relationLoaded('detailPackages')) {
             $tryoutIds = $tryoutIds->merge(
@@ -2694,8 +2688,8 @@ class PackageController extends Controller
     {
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         $relations = $tesKoranEnabled
-            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans', 'directTryouts', 'detailPackages']
-            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'directTryouts', 'detailPackages'];
+            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans', 'detailPackages']
+            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'detailPackages'];
 
         $package = Package::with($relations)
             ->where('status', 'active')

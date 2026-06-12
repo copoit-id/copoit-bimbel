@@ -59,12 +59,6 @@ class Tryout extends Model
         return $this->requiresIrtScoring() && ! $this->hasReleasedUtbk();
     }
 
-    // Direct relationship (untuk tryout yang dibuat langsung di package)
-    public function directPackage()
-    {
-        return $this->belongsTo(Package::class, 'package_id', 'package_id');
-    }
-
     public function tryoutDetails()
     {
         return $this->hasMany(TryoutDetail::class, 'tryout_id', 'tryout_id');
