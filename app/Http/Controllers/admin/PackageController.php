@@ -232,7 +232,11 @@ class PackageController extends Controller
                 ->orderBy('schedule_time', 'desc')
                 ->paginate(10);
 
-            return view('admin.pages.package.class.index', compact('package', 'classes'));
+            $selectedClassCount = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', ClassModel::class)
+                ->count();
+
+            return view('admin.pages.package.class.index', compact('package', 'classes', 'selectedClassCount'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Data tidak ditemukan');
@@ -295,7 +299,11 @@ class PackageController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(15);
 
-            return view('admin.pages.package.material.index', compact('package', 'materials'));
+            $selectedMaterialCount = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', Material::class)
+                ->count();
+
+            return view('admin.pages.package.material.index', compact('package', 'materials', 'selectedMaterialCount'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
@@ -314,7 +322,25 @@ class PackageController extends Controller
                 ->where('detailable_id', $material_id)
                 ->first();
 
-            if ($existing) {
+            if ($request->has('selected')) {
+                $shouldBeSelected = $request->boolean('selected');
+
+                if ($shouldBeSelected && !$existing) {
+                    DetailPackage::create([
+                        'package_id' => $package_id,
+                        'detailable_type' => Material::class,
+                        'detailable_id' => $material_id,
+                    ]);
+                    $message = 'Materi berhasil ditambahkan ke paket';
+                } elseif (!$shouldBeSelected && $existing) {
+                    $existing->delete();
+                    $message = 'Materi berhasil dihapus dari paket';
+                } else {
+                    $message = $shouldBeSelected
+                        ? 'Materi sudah ada di paket'
+                        : 'Materi sudah tidak ada di paket';
+                }
+            } elseif ($existing) {
                 $existing->delete();
                 $message = 'Materi berhasil dihapus dari paket';
             } else {
@@ -326,10 +352,9 @@ class PackageController extends Controller
                 $message = 'Materi berhasil ditambahkan ke paket';
             }
 
-            return redirect()->back()->with('success', $message);
+            return response()->json(['success' => true, 'message' => $message]);
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
 
@@ -347,7 +372,11 @@ class PackageController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
-            return view('admin.pages.package.tes-koran.index', compact('package', 'tesKorans'));
+            $selectedTesKoranCount = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', TesKoran::class)
+                ->count();
+
+            return view('admin.pages.package.tes-koran.index', compact('package', 'tesKorans', 'selectedTesKoranCount'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
@@ -367,7 +396,25 @@ class PackageController extends Controller
                 ->where('detailable_id', $tes_koran_id)
                 ->first();
 
-            if ($existing) {
+            if ($request->has('selected')) {
+                $shouldBeSelected = $request->boolean('selected');
+
+                if ($shouldBeSelected && !$existing) {
+                    DetailPackage::create([
+                        'package_id' => $package_id,
+                        'detailable_type' => TesKoran::class,
+                        'detailable_id' => $tes_koran_id,
+                    ]);
+                    $message = 'Tes Koran berhasil ditambahkan ke paket';
+                } elseif (!$shouldBeSelected && $existing) {
+                    $existing->delete();
+                    $message = 'Tes Koran berhasil dihapus dari paket';
+                } else {
+                    $message = $shouldBeSelected
+                        ? 'Tes Koran sudah ada di paket'
+                        : 'Tes Koran sudah tidak ada di paket';
+                }
+            } elseif ($existing) {
                 $existing->delete();
                 $message = 'Tes Koran berhasil dihapus dari paket';
             } else {
@@ -379,10 +426,9 @@ class PackageController extends Controller
                 $message = 'Tes Koran berhasil ditambahkan ke paket';
             }
 
-            return redirect()->back()->with('success', $message);
+            return response()->json(['success' => true, 'message' => $message]);
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
 
@@ -399,7 +445,11 @@ class PackageController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
-            return view('admin.pages.package.tryout.index', compact('package', 'tryouts'));
+            $selectedTryoutCount = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', Tryout::class)
+                ->count();
+
+            return view('admin.pages.package.tryout.index', compact('package', 'tryouts', 'selectedTryoutCount'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
@@ -807,7 +857,26 @@ class PackageController extends Controller
                 'detailable_id' => $class_id
             ])->first();
 
-            if ($detailPackage) {
+            if ($request->has('selected')) {
+                $shouldBeSelected = $request->boolean('selected');
+
+                if ($shouldBeSelected && !$detailPackage) {
+                    DetailPackage::create([
+                        'package_id' => $package_id,
+                        'detailable_type' => ClassModel::class,
+                        'detailable_id' => $class_id,
+                        'order' => 0
+                    ]);
+                    $message = 'Kelas berhasil ditambahkan ke paket';
+                } elseif (!$shouldBeSelected && $detailPackage) {
+                    $detailPackage->delete();
+                    $message = 'Kelas berhasil dihapus dari paket';
+                } else {
+                    $message = $shouldBeSelected
+                        ? 'Kelas sudah ada di paket'
+                        : 'Kelas sudah tidak ada di paket';
+                }
+            } elseif ($detailPackage) {
                 // Remove from package
                 $detailPackage->delete();
                 $message = 'Kelas berhasil dihapus dari paket';
@@ -840,7 +909,26 @@ class PackageController extends Controller
                 'detailable_id' => $tryout_id
             ])->first();
 
-            if ($detailPackage) {
+            if ($request->has('selected')) {
+                $shouldBeSelected = $request->boolean('selected');
+
+                if ($shouldBeSelected && !$detailPackage) {
+                    DetailPackage::create([
+                        'package_id' => $package_id,
+                        'detailable_type' => Tryout::class,
+                        'detailable_id' => $tryout_id,
+                        'order' => 0
+                    ]);
+                    $message = 'Tryout berhasil ditambahkan ke paket';
+                } elseif (!$shouldBeSelected && $detailPackage) {
+                    $detailPackage->delete();
+                    $message = 'Tryout berhasil dihapus dari paket';
+                } else {
+                    $message = $shouldBeSelected
+                        ? 'Tryout sudah ada di paket'
+                        : 'Tryout sudah tidak ada di paket';
+                }
+            } elseif ($detailPackage) {
                 // Remove from package
                 $detailPackage->delete();
                 $message = 'Tryout berhasil dihapus dari paket';

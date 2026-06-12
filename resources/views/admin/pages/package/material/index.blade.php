@@ -21,6 +21,7 @@
                 <tr>
                     <th scope="col" class="px-6 py-3 w-16">
                         <input type="checkbox" id="select-all"
+                            autocomplete="off"
                             class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
                     </th>
                     <th scope="col" class="px-6 py-3">Nama Materi</th>
@@ -38,6 +39,7 @@
                     <td class="px-6 py-4">
                         <input type="checkbox"
                             class="material-checkbox w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            autocomplete="off"
                             data-material-id="{{ $material->material_id }}" {{ $isLinked ? 'checked' : '' }}>
                     </td>
                     <td class="px-6 py-4">
@@ -99,13 +101,9 @@
     <div class="mt-4 p-4 bg-gray-50 rounded-lg">
         <div class="flex justify-between items-center">
             <p class="text-sm text-gray-600">
-                <span class="font-medium" id="selected-count">{{ $materials->filter(fn($m) => $m->detailPackages->where('package_id', $package->package_id)->isNotEmpty())->count() }}</span>
+                <span class="font-medium" id="selected-count">{{ $selectedMaterialCount ?? 0 }}</span>
                 materi dipilih dari {{ $materials->total() }} total materi
             </p>
-            <button id="save-changes"
-                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 disabled:opacity-50" disabled>
-                Simpan Perubahan
-            </button>
         </div>
     </div>
 </div>
@@ -117,48 +115,30 @@
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.material-checkbox');
     const selectAll = document.getElementById('select-all');
-    const saveButton = document.getElementById('save-changes');
     const selectedCount = document.getElementById('selected-count');
-    let initialState = new Set();
-    let changedItems = new Set();
+    let totalSelectedCount = {{ (int) ($selectedMaterialCount ?? 0) }};
+    let savingCount = 0;
 
-    // Store initial state
     checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            initialState.add(checkbox.dataset.materialId);
-        }
+        checkbox.defaultChecked = checkbox.checked;
     });
 
     function updateUI() {
         const checkedCount = document.querySelectorAll('.material-checkbox:checked').length;
-        selectedCount.textContent = checkedCount;
+        selectedCount.textContent = totalSelectedCount;
 
-        saveButton.disabled = changedItems.size === 0;
-
-        // Update select all checkbox
         const totalCheckboxes = checkboxes.length;
-        selectAll.checked = checkedCount === totalCheckboxes;
+        selectAll.checked = totalCheckboxes > 0 && checkedCount === totalCheckboxes;
         selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCheckboxes;
+        selectAll.disabled = savingCount > 0;
     }
 
-    // Handle individual checkbox changes
     checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const materialId = this.dataset.materialId;
-            const isChecked = this.checked;
-            const wasInitiallyChecked = initialState.has(materialId);
-
-            if (isChecked !== wasInitiallyChecked) {
-                changedItems.add(materialId);
-            } else {
-                changedItems.delete(materialId);
-            }
-
-            updateUI();
+        checkbox.addEventListener('change', async function() {
+            await syncMaterialCheckbox(this);
         });
     });
 
-    // Handle select all
     selectAll.addEventListener('change', function() {
         checkboxes.forEach(checkbox => {
             if (checkbox.checked !== this.checked) {
@@ -168,49 +148,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Handle save changes
-    saveButton.addEventListener('click', async function() {
-        this.disabled = true;
-        this.textContent = 'Menyimpan...';
+    async function syncMaterialCheckbox(checkbox) {
+        const materialId = checkbox.dataset.materialId;
+        const previousState = checkbox.defaultChecked;
+        const nextState = checkbox.checked;
 
-        const promises = Array.from(changedItems).map(materialId => {
-            const checkbox = document.querySelector(`.material-checkbox[data-material-id="${materialId}"]`);
-            return fetch(`/admin/paket/{{ $package->package_id }}/materi/${materialId}/toggle`, {
+        checkbox.disabled = true;
+        savingCount++;
+        updateUI();
+
+        try {
+            const response = await fetch(`/admin/paket/{{ $package->package_id }}/materi/${materialId}/toggle`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            });
-        });
-
-        try {
-            await Promise.all(promises);
-
-            // Update initial state
-            initialState.clear();
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    initialState.add(checkbox.dataset.materialId);
-                }
+                },
+                body: JSON.stringify({
+                    selected: nextState
+                }),
+                keepalive: true
             });
 
-            changedItems.clear();
+            if (!response.ok) {
+                throw new Error('Gagal menyimpan perubahan');
+            }
 
-            // Show success message
+            checkbox.defaultChecked = nextState;
+            totalSelectedCount += nextState ? 1 : -1;
+            totalSelectedCount = Math.max(0, totalSelectedCount);
             showNotification('Perubahan berhasil disimpan', 'success');
 
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-
         } catch (error) {
+            checkbox.checked = previousState;
             showNotification('Terjadi kesalahan saat menyimpan', 'error');
+        } finally {
+            savingCount = Math.max(0, savingCount - 1);
+            checkbox.disabled = false;
+            updateUI();
         }
+    }
 
-        this.disabled = false;
-        this.textContent = 'Simpan Perubahan';
+    document.querySelectorAll('nav[role="navigation"] a, .pagination a').forEach(link => {
+        link.addEventListener('click', function(event) {
+            if (savingCount > 0) {
+                event.preventDefault();
+                showNotification('Tunggu sampai perubahan selesai tersimpan', 'error');
+            }
+        });
     });
 
     function showNotification(message, type) {

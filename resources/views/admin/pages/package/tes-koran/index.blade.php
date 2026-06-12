@@ -21,6 +21,7 @@
                 <tr>
                     <th scope="col" class="px-6 py-3 w-16">
                         <input type="checkbox" id="select-all"
+                            autocomplete="off"
                             class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
                     </th>
                     <th scope="col" class="px-6 py-3">Nama Tes</th>
@@ -38,6 +39,7 @@
                     <td class="px-6 py-4">
                         <input type="checkbox"
                             class="tes-koran-checkbox w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            autocomplete="off"
                             data-tes-koran-id="{{ $tesKoran->id }}" {{ $isLinked ? 'checked' : '' }}>
                     </td>
                     <td class="px-6 py-4">
@@ -96,14 +98,10 @@
         <div class="flex justify-between items-center">
             <p class="text-sm text-gray-600">
                 <span class="font-medium" id="selected-count">
-                    {{ $tesKorans->filter(fn($t) => $t->detailPackages->where('package_id', $package->package_id)->isNotEmpty())->count() }}
+                    {{ $selectedTesKoranCount ?? 0 }}
                 </span>
                 tes koran dipilih dari {{ $tesKorans->total() }} total
             </p>
-            <button id="save-changes"
-                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 disabled:opacity-50" disabled>
-                Simpan Perubahan
-            </button>
         </div>
     </div>
 </div>
@@ -115,39 +113,26 @@
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.tes-koran-checkbox');
     const selectAll = document.getElementById('select-all');
-    const saveButton = document.getElementById('save-changes');
     const selectedCount = document.getElementById('selected-count');
-    let initialState = new Set();
-    let changedItems = new Set();
+    let totalSelectedCount = {{ (int) ($selectedTesKoranCount ?? 0) }};
+    let savingCount = 0;
 
     checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            initialState.add(checkbox.dataset.tesKoranId);
-        }
+        checkbox.defaultChecked = checkbox.checked;
     });
 
     function updateUI() {
         const checkedCount = document.querySelectorAll('.tes-koran-checkbox:checked').length;
-        selectedCount.textContent = checkedCount;
-        saveButton.disabled = changedItems.size === 0;
+        selectedCount.textContent = totalSelectedCount;
         const totalCheckboxes = checkboxes.length;
-        selectAll.checked = checkedCount === totalCheckboxes;
+        selectAll.checked = totalCheckboxes > 0 && checkedCount === totalCheckboxes;
         selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCheckboxes;
+        selectAll.disabled = savingCount > 0;
     }
 
     checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const tesKoranId = this.dataset.tesKoranId;
-            const isChecked = this.checked;
-            const wasInitiallyChecked = initialState.has(tesKoranId);
-
-            if (isChecked !== wasInitiallyChecked) {
-                changedItems.add(tesKoranId);
-            } else {
-                changedItems.delete(tesKoranId);
-            }
-
-            updateUI();
+        checkbox.addEventListener('change', async function() {
+            await syncTesKoranCheckbox(this);
         });
     });
 
@@ -160,39 +145,53 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    saveButton.addEventListener('click', async function() {
-        this.disabled = true;
-        this.textContent = 'Menyimpan...';
+    async function syncTesKoranCheckbox(checkbox) {
+        const tesKoranId = checkbox.dataset.tesKoranId;
+        const previousState = checkbox.defaultChecked;
+        const nextState = checkbox.checked;
 
-        const promises = Array.from(changedItems).map(tesKoranId => {
-            return fetch(`/admin/paket/{{ $package->package_id }}/tes-koran/${tesKoranId}/toggle`, {
+        checkbox.disabled = true;
+        savingCount++;
+        updateUI();
+
+        try {
+            const response = await fetch(`/admin/paket/{{ $package->package_id }}/tes-koran/${tesKoranId}/toggle`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+                },
+                body: JSON.stringify({
+                    selected: nextState
+                }),
+                keepalive: true
             });
-        });
 
-        try {
-            await Promise.all(promises);
-            initialState.clear();
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    initialState.add(checkbox.dataset.tesKoranId);
-                }
-            });
-            changedItems.clear();
+            if (!response.ok) {
+                throw new Error('Gagal menyimpan perubahan');
+            }
+
+            checkbox.defaultChecked = nextState;
+            totalSelectedCount += nextState ? 1 : -1;
+            totalSelectedCount = Math.max(0, totalSelectedCount);
             showNotification('Perubahan berhasil disimpan', 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
         } catch (error) {
+            checkbox.checked = previousState;
             showNotification('Terjadi kesalahan saat menyimpan', 'error');
+        } finally {
+            savingCount = Math.max(0, savingCount - 1);
+            checkbox.disabled = false;
+            updateUI();
         }
+    }
 
-        this.disabled = false;
-        this.textContent = 'Simpan Perubahan';
+    document.querySelectorAll('nav[role="navigation"] a, .pagination a').forEach(link => {
+        link.addEventListener('click', function(event) {
+            if (savingCount > 0) {
+                event.preventDefault();
+                showNotification('Tunggu sampai perubahan selesai tersimpan', 'error');
+            }
+        });
     });
 
     function showNotification(message, type) {

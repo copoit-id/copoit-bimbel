@@ -86,7 +86,7 @@
                 </button>
                 <button type="button" data-settings-tab="contact"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'contact' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    Kontak User
+                    Kontak Bimbel
                 </button>
             </div>
         </div>
