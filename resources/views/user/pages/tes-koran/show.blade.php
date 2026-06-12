@@ -159,11 +159,11 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
     </div>
 
     <!-- Test Grid -->
-    <div class="p-6 overflow-x-auto grid-scroll-container">
-        <form id="tesKoranForm" method="POST" action="{{ route('user.tes-koran.start', $tesKoran) }}">
-            @csrf
-            <input type="hidden" name="columns_data" id="columnsData" value="{{ $columnsJson }}">
+    <form id="tesKoranForm" method="POST" action="{{ route('user.tes-koran.start', $tesKoran) }}">
+        @csrf
+        <input type="hidden" name="columns_data" id="columnsData" value="{{ $columnsJson }}">
 
+        <div class="p-6 overflow-x-auto grid-scroll-container">
             <div class="flex gap-8 min-w-full pb-4">
                 <!-- Sticky Row Numbers -->
                 <div class="sticky left-0 bg-white/95 backdrop-blur-sm z-20 pr-4 pl-2 flex flex-col items-center border-r border-gray-200/60 shadow-sm rounded-l-2xl">
@@ -221,25 +221,21 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
                     @endfor
                 </div>
                 @endfor
-
-                <!-- Finish Column -->
-                <div class="flex flex-col justify-end min-w-[6rem] pb-6 pl-2">
-                    <button type="button" onclick="submitForm()"
-                        class="px-4 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm whitespace-nowrap"
-                        style="background-color: {{ $primaryColor }}">
-                        <i class="ri-check-line mr-1"></i> Selesai
-                    </button>
-                </div>
             </div>
+        </div>
 
-            <div class="mt-6 flex items-center justify-center">
-                <div id="submitStatus" class="hidden items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-600 animate-pulse">
-                    <i class="ri-loader-4-line animate-spin text-primary text-base"></i>
-                    <span>Memproses jawaban, mohon tunggu...</span>
-                </div>
+        <div class="px-6 pb-6 flex flex-wrap items-center justify-end gap-4">
+            <div id="submitStatus" class="hidden items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-600 animate-pulse">
+                <i class="ri-loader-4-line animate-spin text-primary text-base"></i>
+                <span>Memproses jawaban, mohon tunggu...</span>
             </div>
-        </form>
-    </div>
+            <button type="button" onclick="submitForm()"
+                class="px-6 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+                style="background-color: {{ $primaryColor }}">
+                <i class="ri-check-line mr-1"></i> Selesai
+            </button>
+        </div>
+    </form>
 </div>
 
 <!-- Transition Modal -->
@@ -871,6 +867,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+    window.submitForm = submitForm;
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
