@@ -223,7 +223,7 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
                 @endfor
 
                 <!-- Finish Column -->
-                <div class="sticky right-0 bg-white/95 backdrop-blur-sm z-20 pl-4 pr-2 flex flex-col items-center justify-center border-l border-gray-200/60 shadow-sm rounded-r-2xl min-w-[6rem]">
+                <div class="flex flex-col justify-end min-w-[6rem] pb-6 pl-2">
                     <button type="button" onclick="submitForm()"
                         class="px-4 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm whitespace-nowrap"
                         style="background-color: {{ $primaryColor }}">
