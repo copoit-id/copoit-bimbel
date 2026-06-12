@@ -49,18 +49,18 @@ class IndividualPurchaseController extends Controller
         }
 
         if (!$item) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Item tidak ditemukan.'
-            ], 404);
+            $message = 'Item tidak ditemukan.';
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 404)
+                : redirect()->back()->with('error', $message);
         }
 
         // Check if item has price and is for sale (can be sold individually)
         if (!$item->is_for_sale || !$item->price || $item->price <= 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Item ini tidak dijual terpisah.'
-            ], 400);
+            $message = 'Item ini tidak dijual terpisah.';
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 400)
+                : redirect()->back()->with('error', $message);
         }
 
         // Check if already purchased
@@ -75,10 +75,10 @@ class IndividualPurchaseController extends Controller
             ->first();
 
         if ($existingPurchase) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda sudah memiliki item ini.'
-            ], 400);
+            $message = 'Anda sudah memiliki item ini.';
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 400)
+                : redirect()->back()->with('error', $message);
         }
 
         // Check if already has pending purchase
@@ -89,10 +89,10 @@ class IndividualPurchaseController extends Controller
             ->first();
 
         if ($pendingPurchase) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda sudah memiliki permintaan pembelian yang pending.'
-            ], 400);
+            $message = 'Anda sudah memiliki permintaan pembelian yang pending.';
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 400)
+                : redirect()->back()->with('error', $message);
         }
 
         // Check access via package
@@ -103,10 +103,10 @@ class IndividualPurchaseController extends Controller
                 default => 'tes koran',
             };
 
-            return response()->json([
-                'success' => false,
-                'message' => "Anda sudah memiliki akses ke {$itemLabel} ini."
-            ], 400);
+            $message = "Anda sudah memiliki akses ke {$itemLabel} ini.";
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 400)
+                : redirect()->back()->with('error', $message);
         }
 
         // Resolve optional voucher
@@ -162,21 +162,22 @@ class IndividualPurchaseController extends Controller
 
             $this->sendPurchaseNotificationToAdmin($purchase);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.'
-            ]);
+            $message = 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.';
+            return $request->expectsJson()
+                ? response()->json(['success' => true, 'message' => $message])
+                : redirect()->route('user.individual-purchase.history')->with('success', $message);
         }
 
         // For gateway payment, redirect to payment
-        return response()->json([
-            'success' => true,
-            'redirect_url' => route('user.individual-purchase.gateway', [
-                'type' => $type,
-                'id' => $id,
-                'discount_code' => $discountCode ?: null,
-            ]),
+        $redirectUrl = route('user.individual-purchase.gateway', [
+            'type' => $type,
+            'id' => $id,
+            'discount_code' => $discountCode ?: null,
         ]);
+
+        return $request->expectsJson()
+            ? response()->json(['success' => true, 'redirect_url' => $redirectUrl])
+            : redirect()->away($redirectUrl);
     }
 
     public function gatewayRedirect(Request $request, string $type, int $id)

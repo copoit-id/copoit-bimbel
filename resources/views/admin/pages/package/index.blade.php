@@ -142,39 +142,39 @@
                 </div>
             </div>
 
-            <div class="flex gap-2 mt-4">
+            <div class="flex flex-wrap gap-2 mt-4">
                 @if ($package->type_package == 'bimbel')
                 <a href="{{ route('admin.package.material.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Materi
                 </a>
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout
                 </a>
                 <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Kelas
                 </a>
                 @if($canManageTesKoran)
                 <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tes Koran
                 </a>
                 @endif
                 @elseif ($package->type_package == 'tryout')
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout
                 </a>
                 @elseif ($package->type_package == 'sertifikasi')
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Sertifikasi
                 </a>
                 @elseif ($package->type_package == 'tes_koran' && $canManageTesKoran)
                 <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tes Koran
                 </a>
                 @endif
@@ -182,13 +182,13 @@
                 {{-- Share Button --}}
                 <button type="button" 
                     onclick="copyPackageLink({{ $package->package_id }})"
-                    class="bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm transition-colors"
+                    class="inline-flex items-center justify-center bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm transition-colors"
                     title="Copy link detail paket">
                     <i class="ri-share-line"></i>
                 </button>
 
                 <a href="{{ route('admin.package.edit', $package->package_id) }}"
-                    class="bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm">
+                    class="inline-flex items-center justify-center bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm">
                     <i class="ri-pencil-fill"></i>
                 </a>
 
@@ -197,7 +197,7 @@
                     @csrf
                     @method('DELETE')
                     <button type="submit"
-                        class="bg-red-100 hover:bg-red hover:text-white border border-red/90 text-red px-3 py-2 rounded-lg text-sm">
+                        class="inline-flex items-center justify-center bg-red-100 hover:bg-red hover:text-white border border-red/90 text-red px-3 py-2 rounded-lg text-sm">
                         <i class="ri-delete-bin-fill"></i>
                     </button>
                 </form>
