@@ -115,75 +115,178 @@
     </div>
 
     <div class="mt-6 border-t border-gray-200 pt-6">
-        <h3 class="text-sm font-semibold text-gray-800 mb-4">Scope Voucher</h3>
+        <h3 class="text-sm font-semibold text-gray-800 mb-4">Scope {{ $isVoucher ? 'Voucher' : 'Diskon' }}</h3>
+        <p class="text-sm text-gray-500 mb-4">Pilih item spesifik yang boleh memakai {{ $isVoucher ? 'voucher' : 'diskon' }} ini.</p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Berlaku untuk Jenis Pembelian <span class="text-red-500">*</span></label>
-                <div class="space-y-2">
-                    @php
-                        $purchaseTypeLabels = [
-                            'package' => 'Paket',
-                            'tryout' => 'Tryout',
-                            'material' => 'Materi',
-                            'tes_koran' => 'Tes Koran',
-                        ];
-                        $selectedTypes = old('applicable_purchase_types', $discount->applicable_purchase_types ?: []);
-                    @endphp
-                    @foreach($purchaseTypeLabels as $value => $label)
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" name="applicable_purchase_types[]" value="{{ $value }}" class="rounded border-gray-300 text-primary focus:ring-primary"
-                            @checked(in_array($value, $selectedTypes, true))>
-                        <span class="text-sm text-gray-700">{{ $label }}</span>
-                    </label>
-                    @endforeach
-                </div>
-                @error('applicable_purchase_types')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
-                @error('applicable_purchase_types.*')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+        @php
+            $legacyTypes = $discount->applicable_purchase_types ?: [];
+            $resolveSelectedIds = function (string $field, string $legacyType, $items, string $keyName) use ($discount, $legacyTypes) {
+                $oldValue = old($field);
+                if (is_array($oldValue)) {
+                    return collect($oldValue)->map(fn($id) => (int) $id)->all();
+                }
+
+                $storedIds = $discount->{$field};
+                if (!empty($storedIds)) {
+                    return collect($storedIds)->map(fn($id) => (int) $id)->all();
+                }
+
+                if ($discount->exists && in_array($legacyType, $legacyTypes, true)) {
+                    return $items->pluck($keyName)->map(fn($id) => (int) $id)->all();
+                }
+
+                return [];
+            };
+
+            $scopeTabs = [
+                'package' => [
+                    'label' => 'Paket',
+                    'field' => 'applicable_package_ids',
+                    'items' => $packages,
+                    'key' => 'package_id',
+                    'name' => 'name',
+                    'meta' => fn($item) => 'Rp ' . number_format((float) $item->price, 0, ',', '.'),
+                    'empty' => 'Tidak ada paket berbayar aktif.',
+                    'selected' => $resolveSelectedIds('applicable_package_ids', 'package', $packages, 'package_id'),
+                ],
+                'tryout' => [
+                    'label' => 'Tryout',
+                    'field' => 'applicable_tryout_ids',
+                    'items' => $saleTryouts ?? $tryouts,
+                    'key' => 'tryout_id',
+                    'name' => 'name',
+                    'meta' => fn($item) => strtoupper(str_replace('_', ' ', $item->type_tryout ?? '-')) . ' - Rp ' . number_format((float) $item->price, 0, ',', '.'),
+                    'empty' => 'Tidak ada tryout yang dijual.',
+                    'selected' => $resolveSelectedIds('applicable_tryout_ids', 'tryout', $saleTryouts ?? $tryouts, 'tryout_id'),
+                ],
+                'material' => [
+                    'label' => 'Materi',
+                    'field' => 'applicable_material_ids',
+                    'items' => $materials,
+                    'key' => 'material_id',
+                    'name' => 'title',
+                    'meta' => fn($item) => ucfirst(str_replace('_', ' ', $item->type ?? '-')) . ' - Rp ' . number_format((float) $item->price, 0, ',', '.'),
+                    'empty' => 'Tidak ada materi yang dijual.',
+                    'selected' => $resolveSelectedIds('applicable_material_ids', 'material', $materials, 'material_id'),
+                ],
+                'tes_koran' => [
+                    'label' => 'Tes Koran',
+                    'field' => 'applicable_tes_koran_ids',
+                    'items' => $tesKorans,
+                    'key' => 'id',
+                    'name' => 'name',
+                    'meta' => fn($item) => ucfirst($item->test_type ?? '-') . ' - Rp ' . number_format((float) $item->price, 0, ',', '.'),
+                    'empty' => 'Tidak ada tes koran yang dijual.',
+                    'selected' => $resolveSelectedIds('applicable_tes_koran_ids', 'tes_koran', $tesKorans, 'id'),
+                ],
+            ];
+            $firstScopeTab = collect($scopeTabs)->first(fn($tab) => count($tab['selected']) > 0);
+            $activeScopeTab = array_search($firstScopeTab, $scopeTabs, true) ?: 'package';
+        @endphp
+
+        @error('scope_items')<p class="text-sm text-red-600 mb-3">{{ $message }}</p>@enderror
+
+        <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <div class="flex flex-wrap gap-2 bg-gray-50 p-3 border-b border-gray-200">
+                @foreach($scopeTabs as $tabKey => $scopeTab)
+                    <button type="button" data-discount-scope-tab="{{ $tabKey }}"
+                        class="discount-scope-tab px-4 py-2 rounded-lg text-sm font-semibold transition {{ $activeScopeTab === $tabKey ? 'bg-primary text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200' }}">
+                        {{ $scopeTab['label'] }}
+                        <span class="ml-1 text-xs" data-scope-count="{{ $tabKey }}">{{ count($scopeTab['selected']) }}</span>
+                    </button>
+                @endforeach
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Berlaku untuk Paket <span class="text-red-500">*</span></label>
-                <label class="flex items-center gap-2 mb-3">
-                    <input type="hidden" name="all_packages" value="0">
-                    <input type="checkbox" name="all_packages" value="1" id="allPackagesToggle" class="rounded border-gray-300 text-primary focus:ring-primary"
-                        @checked(old('all_packages', is_null($discount->applicable_package_ids))))>
-                    <span class="text-sm text-gray-700 font-medium">Semua paket</span>
-                </label>
-                <div id="packageChecklist" class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 {{ old('all_packages', is_null($discount->applicable_package_ids)) ? 'opacity-50 pointer-events-none' : '' }}">
-                    @php
-                        $selectedPackageIds = old('applicable_package_ids', $discount->applicable_package_ids ?: []);
-                    @endphp
-                    @forelse($packages as $pkg)
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" name="applicable_package_ids[]" value="{{ $pkg->package_id }}" class="rounded border-gray-300 text-primary focus:ring-primary"
-                            @checked(in_array($pkg->package_id, $selectedPackageIds, true))>
-                        <span class="text-sm text-gray-700">{{ $pkg->name }} <span class="text-xs text-gray-400">({{ $pkg->type_price }})</span></span>
-                    </label>
-                    @empty
-                    <p class="text-sm text-gray-500">Tidak ada paket aktif.</p>
-                    @endforelse
+            @foreach($scopeTabs as $tabKey => $scopeTab)
+                <div data-discount-scope-panel="{{ $tabKey }}" class="discount-scope-panel p-4 {{ $activeScopeTab !== $tabKey ? 'hidden' : '' }}">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                            <p class="font-semibold text-gray-800">{{ $scopeTab['label'] }}</p>
+                            <p class="text-xs text-gray-500">Centang item {{ strtolower($scopeTab['label']) }} yang boleh memakai promo ini.</p>
+                        </div>
+                        @if($scopeTab['items']->isNotEmpty())
+                            <button type="button" data-scope-select-all="{{ $tabKey }}" class="text-xs font-semibold text-primary hover:underline">
+                                Pilih semua
+                            </button>
+                        @endif
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+                        @forelse($scopeTab['items'] as $item)
+                            @php
+                                $itemId = (int) $item->{$scopeTab['key']};
+                            @endphp
+                            <label class="flex items-start gap-2 rounded-lg border border-gray-200 p-3 hover:border-primary/50 transition">
+                                <input type="checkbox"
+                                    name="{{ $scopeTab['field'] }}[]"
+                                    value="{{ $itemId }}"
+                                    data-scope-item="{{ $tabKey }}"
+                                    class="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                                    @checked(in_array($itemId, $scopeTab['selected'], true))>
+                                <span>
+                                    <span class="block text-sm font-medium text-gray-800">{{ $item->{$scopeTab['name']} }}</span>
+                                    <span class="block text-xs text-gray-500">{{ $scopeTab['meta']($item) }}</span>
+                                </span>
+                            </label>
+                        @empty
+                            <p class="text-sm text-gray-500 md:col-span-2">{{ $scopeTab['empty'] }}</p>
+                        @endforelse
+                    </div>
+
+                    @error($scopeTab['field'])<p class="text-sm text-red-600 mt-2">{{ $message }}</p>@enderror
+                    @error($scopeTab['field'] . '.*')<p class="text-sm text-red-600 mt-2">{{ $message }}</p>@enderror
                 </div>
-                @error('applicable_package_ids')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
-                @error('applicable_package_ids.*')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
-            </div>
+            @endforeach
         </div>
     </div>
 
     <script>
         (function () {
-            const toggle = document.getElementById('allPackagesToggle');
-            const checklist = document.getElementById('packageChecklist');
-            if (!toggle || !checklist) return;
-            function update() {
-                if (toggle.checked) {
-                    checklist.classList.add('opacity-50', 'pointer-events-none');
-                } else {
-                    checklist.classList.remove('opacity-50', 'pointer-events-none');
-                }
+            const tabButtons = document.querySelectorAll('[data-discount-scope-tab]');
+            const panels = document.querySelectorAll('[data-discount-scope-panel]');
+
+            function setActiveScopeTab(tab) {
+                tabButtons.forEach((button) => {
+                    const active = button.getAttribute('data-discount-scope-tab') === tab;
+                    button.classList.toggle('bg-primary', active);
+                    button.classList.toggle('text-white', active);
+                    button.classList.toggle('bg-white', !active);
+                    button.classList.toggle('text-gray-700', !active);
+                    button.classList.toggle('border', !active);
+                    button.classList.toggle('border-gray-200', !active);
+                    button.classList.toggle('hover:bg-gray-100', !active);
+                });
+
+                panels.forEach((panel) => {
+                    panel.classList.toggle('hidden', panel.getAttribute('data-discount-scope-panel') !== tab);
+                });
             }
-            toggle.addEventListener('change', update);
-            update();
+
+            function updateScopeCount(tab) {
+                const countEl = document.querySelector(`[data-scope-count="${tab}"]`);
+                if (!countEl) return;
+                countEl.textContent = document.querySelectorAll(`[data-scope-item="${tab}"]:checked`).length;
+            }
+
+            tabButtons.forEach((button) => {
+                button.addEventListener('click', () => setActiveScopeTab(button.getAttribute('data-discount-scope-tab')));
+            });
+
+            document.querySelectorAll('[data-scope-item]').forEach((input) => {
+                input.addEventListener('change', () => updateScopeCount(input.getAttribute('data-scope-item')));
+            });
+
+            document.querySelectorAll('[data-scope-select-all]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const tab = button.getAttribute('data-scope-select-all');
+                    const inputs = document.querySelectorAll(`[data-scope-item="${tab}"]`);
+                    const shouldCheck = Array.from(inputs).some((input) => !input.checked);
+                    inputs.forEach((input) => {
+                        input.checked = shouldCheck;
+                    });
+                    updateScopeCount(tab);
+                });
+            });
         })();
     </script>
 

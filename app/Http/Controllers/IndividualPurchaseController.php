@@ -266,7 +266,13 @@ class IndividualPurchaseController extends Controller
             ];
         }
 
-        $error = $discount->validationErrorFor((int) $item->price, $userId, null, $type);
+        $itemId = match ($type) {
+            'material' => (int) $item->material_id,
+            'tryout' => (int) $item->tryout_id,
+            'tes_koran' => (int) $item->id,
+        };
+
+        $error = $discount->validationErrorFor((int) $item->price, $userId, null, $type, $itemId);
 
         if ($error) {
             return [

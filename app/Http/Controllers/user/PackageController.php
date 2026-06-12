@@ -515,7 +515,7 @@ class PackageController extends Controller
         $userId = (int) (Auth::id() ?? 0);
 
         return $discounts
-            ->filter(fn (Discount $discount) => $discount->validationErrorFor($amount, $userId) === null)
+            ->filter(fn (Discount $discount) => $discount->validationErrorFor($amount, $userId, $package->package_id, 'package') === null)
             ->sortByDesc(fn (Discount $discount) => $discount->calculateDiscountAmount($amount))
             ->first();
     }

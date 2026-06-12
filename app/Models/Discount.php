@@ -25,6 +25,9 @@ class Discount extends Model
         'is_active' => 'boolean',
         'is_public' => 'boolean',
         'applicable_package_ids' => 'array',
+        'applicable_tryout_ids' => 'array',
+        'applicable_material_ids' => 'array',
+        'applicable_tes_koran_ids' => 'array',
         'applicable_purchase_types' => 'array',
     ];
 
@@ -105,7 +108,7 @@ class Discount extends Model
         return min($amount, max(0, $discount));
     }
 
-    public function validationErrorFor(int $amount, int $userId, ?int $packageId = null, ?string $purchaseType = null): ?string
+    public function validationErrorFor(int $amount, int $userId, ?int $packageId = null, ?string $purchaseType = null, ?int $purchaseItemId = null): ?string
     {
         $now = Carbon::now();
 
@@ -129,8 +132,8 @@ class Discount extends Model
             return 'Kode diskon tidak berlaku untuk jenis pembelian ini.';
         }
 
-        if ($packageId !== null && !$this->appliesToPackage($packageId)) {
-            return 'Kode diskon tidak berlaku untuk paket ini.';
+        if ($purchaseType !== null && !$this->appliesToPurchaseTarget($purchaseType, $purchaseItemId ?? $packageId)) {
+            return 'Kode diskon tidak berlaku untuk item ini.';
         }
 
         $paymentUsedStatuses = [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS];
@@ -172,7 +175,28 @@ class Discount extends Model
             return true;
         }
 
-        return in_array($packageId, $ids, true);
+        return in_array($packageId, array_map('intval', $ids), true);
+    }
+
+    public function appliesToPurchaseTarget(string $type, ?int $itemId): bool
+    {
+        if ($itemId === null) {
+            return true;
+        }
+
+        $ids = match ($type) {
+            'package' => $this->applicable_package_ids,
+            'tryout' => $this->applicable_tryout_ids,
+            'material' => $this->applicable_material_ids,
+            'tes_koran' => $this->applicable_tes_koran_ids,
+            default => null,
+        };
+
+        if (empty($ids)) {
+            return true;
+        }
+
+        return in_array($itemId, array_map('intval', $ids), true);
     }
 
     public function appliesToPurchaseType(string $type): bool

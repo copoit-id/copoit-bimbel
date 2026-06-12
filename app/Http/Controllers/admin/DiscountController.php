@@ -4,7 +4,9 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Discount;
+use App\Models\Material;
 use App\Models\Package;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -46,8 +48,11 @@ class DiscountController extends Controller
                 'is_public' => false,
                 'applicable_purchase_types' => ['package'],
             ]),
-            'tryouts' => $this->tryoutOptions(),
+            'tryouts' => $this->automaticTryoutOptions(),
+            'saleTryouts' => $this->tryoutOptions(),
             'packages' => $this->packageOptions(),
+            'materials' => $this->materialOptions(),
+            'tesKorans' => $this->tesKoranOptions(),
             'tab' => $tab,
         ]);
     }
@@ -69,8 +74,11 @@ class DiscountController extends Controller
     {
         return view('admin.pages.discounts.edit', [
             'discount' => $discount,
-            'tryouts' => $this->tryoutOptions(),
+            'tryouts' => $this->automaticTryoutOptions(),
+            'saleTryouts' => $this->tryoutOptions(),
             'packages' => $this->packageOptions(),
+            'materials' => $this->materialOptions(),
+            'tesKorans' => $this->tesKoranOptions(),
             'tab' => $discount->application_type ?: Discount::TYPE_VOUCHER,
         ]);
     }
@@ -101,6 +109,10 @@ class DiscountController extends Controller
     {
         $applicationType = $request->input('application_type', Discount::TYPE_VOUCHER);
         $isVoucher = $applicationType === Discount::TYPE_VOUCHER;
+        $salePackageIds = $this->packageOptions()->pluck('package_id')->map(fn ($id) => (int) $id)->all();
+        $saleTryoutIds = $this->tryoutOptions()->pluck('tryout_id')->map(fn ($id) => (int) $id)->all();
+        $saleMaterialIds = $this->materialOptions()->pluck('material_id')->map(fn ($id) => (int) $id)->all();
+        $saleTesKoranIds = $this->tesKoranOptions()->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         return $request->validate([
             'application_type' => ['required', Rule::in([Discount::TYPE_VOUCHER, Discount::TYPE_PACKAGE_TRYOUT])],
@@ -128,18 +140,23 @@ class DiscountController extends Controller
             'ends_at' => [$isVoucher ? 'nullable' : 'required', 'date', 'after_or_equal:starts_at'],
             'is_active' => ['nullable', 'boolean'],
             'is_public' => ['nullable', 'boolean'],
-            'applicable_purchase_types' => ['required', 'array', 'min:1'],
-            'applicable_purchase_types.*' => [Rule::in(['package', 'tryout', 'material', 'tes_koran'])],
             'applicable_package_ids' => ['nullable', 'array'],
-            'applicable_package_ids.*' => ['integer', Rule::exists('packages', 'package_id')],
-            'all_packages' => ['nullable', 'boolean'],
+            'applicable_package_ids.*' => ['integer', Rule::in($salePackageIds)],
+            'applicable_tryout_ids' => ['nullable', 'array'],
+            'applicable_tryout_ids.*' => ['integer', Rule::in($saleTryoutIds)],
+            'applicable_material_ids' => ['nullable', 'array'],
+            'applicable_material_ids.*' => ['integer', Rule::in($saleMaterialIds)],
+            'applicable_tes_koran_ids' => ['nullable', 'array'],
+            'applicable_tes_koran_ids.*' => ['integer', Rule::in($saleTesKoranIds)],
         ], [
             'code.regex' => 'Kode hanya boleh berisi huruf, angka, strip, atau underscore.',
             'tryout_id.required' => 'Tryout wajib dipilih untuk diskon non-voucher.',
             'ends_at.required' => 'Tanggal selesai wajib diisi untuk diskon non-voucher.',
             'ends_at.after_or_equal' => 'Tanggal selesai harus setelah atau sama dengan tanggal mulai.',
-            'applicable_purchase_types.required' => 'Pilih minimal satu jenis pembelian.',
-            'applicable_purchase_types.*.in' => 'Jenis pembelian tidak valid.',
+            'applicable_package_ids.*.in' => 'Paket yang dipilih harus paket berbayar aktif.',
+            'applicable_tryout_ids.*.in' => 'Tryout yang dipilih harus tryout yang dijual.',
+            'applicable_material_ids.*.in' => 'Materi yang dipilih harus materi yang dijual.',
+            'applicable_tes_koran_ids.*.in' => 'Tes koran yang dipilih harus tes koran yang dijual.',
         ]);
     }
 
@@ -151,17 +168,33 @@ class DiscountController extends Controller
             ? $request->boolean('is_public')
             : false;
 
-        $validated['applicable_purchase_types'] = array_values(array_intersect(
-            $validated['applicable_purchase_types'] ?? [],
-            ['package', 'tryout', 'material', 'tes_koran']
-        ));
+        foreach ([
+            'applicable_package_ids' => 'package',
+            'applicable_tryout_ids' => 'tryout',
+            'applicable_material_ids' => 'material',
+            'applicable_tes_koran_ids' => 'tes_koran',
+        ] as $field => $purchaseType) {
+            $validated[$field] = array_values(array_unique(array_map('intval', $validated[$field] ?? [])));
+        }
 
-        if ($request->boolean('all_packages')) {
-            $validated['applicable_package_ids'] = null;
-        } elseif (empty($validated['applicable_package_ids'])) {
-            $validated['applicable_package_ids'] = null;
-        } else {
-            $validated['applicable_package_ids'] = array_map('intval', $validated['applicable_package_ids']);
+        $validated['applicable_purchase_types'] = [];
+        if (!empty($validated['applicable_package_ids'])) {
+            $validated['applicable_purchase_types'][] = 'package';
+        }
+        if (!empty($validated['applicable_tryout_ids'])) {
+            $validated['applicable_purchase_types'][] = 'tryout';
+        }
+        if (!empty($validated['applicable_material_ids'])) {
+            $validated['applicable_purchase_types'][] = 'material';
+        }
+        if (!empty($validated['applicable_tes_koran_ids'])) {
+            $validated['applicable_purchase_types'][] = 'tes_koran';
+        }
+
+        if (empty($validated['applicable_purchase_types'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'scope_items' => 'Pilih minimal satu item untuk scope voucher/diskon.',
+            ]);
         }
 
         if ($validated['application_type'] === Discount::TYPE_VOUCHER) {
@@ -181,6 +214,17 @@ class DiscountController extends Controller
     private function tryoutOptions()
     {
         return Tryout::query()
+            ->select('tryout_id', 'name', 'type_tryout', 'price')
+            ->where('is_active', true)
+            ->where('is_for_sale', true)
+            ->where('price', '>', 0)
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function automaticTryoutOptions()
+    {
+        return Tryout::query()
             ->select('tryout_id', 'name', 'type_tryout')
             ->where('is_active', true)
             ->orderBy('name')
@@ -190,8 +234,32 @@ class DiscountController extends Controller
     private function packageOptions()
     {
         return Package::query()
-            ->select('package_id', 'name', 'type_price')
+            ->select('package_id', 'name', 'type_price', 'price')
             ->where('status', 'active')
+            ->where('type_price', 'paid')
+            ->where('price', '>', 0)
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function materialOptions()
+    {
+        return Material::query()
+            ->select('material_id', 'title', 'type', 'price')
+            ->where('is_active', true)
+            ->where('is_for_sale', true)
+            ->where('price', '>', 0)
+            ->orderBy('title')
+            ->get();
+    }
+
+    private function tesKoranOptions()
+    {
+        return TesKoran::query()
+            ->select('id', 'name', 'test_type', 'price')
+            ->where('is_active', true)
+            ->where('is_for_sale', true)
+            ->where('price', '>', 0)
             ->orderBy('name')
             ->get();
     }

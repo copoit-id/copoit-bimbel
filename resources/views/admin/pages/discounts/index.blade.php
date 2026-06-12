@@ -56,19 +56,29 @@
                         <p class="font-semibold text-gray-900">{{ $discount->code }}</p>
                         <p class="text-sm text-gray-500">{{ $discount->name ?: '-' }}</p>
                         @php
-                            $typeLabels = ['package' => 'Paket', 'tryout' => 'Tryout', 'material' => 'Materi', 'tes_koran' => 'Tes Koran'];
-                            $types = $discount->applicable_purchase_types ?: [];
-                            $packageScope = empty($discount->applicable_package_ids) ? 'Semua paket' : count($discount->applicable_package_ids) . ' paket';
+                            $scopeBadges = [
+                                'Paket' => count($discount->applicable_package_ids ?? []),
+                                'Tryout' => count($discount->applicable_tryout_ids ?? []),
+                                'Materi' => count($discount->applicable_material_ids ?? []),
+                                'Tes Koran' => count($discount->applicable_tes_koran_ids ?? []),
+                            ];
                         @endphp
                         <div class="flex flex-wrap gap-1 mt-1">
-                            @foreach($types as $type)
-                            <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-medium">{{ $typeLabels[$type] ?? $type }}</span>
+                            @foreach($scopeBadges as $label => $count)
+                                @if($count > 0)
+                                <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-medium">{{ $count }} {{ $label }}</span>
+                                @endif
                             @endforeach
-                            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[10px] font-medium">{{ $packageScope }}</span>
                         </div>
                         @else
                         <p class="font-semibold text-gray-900">{{ $discount->tryout?->name ?? 'Tryout tidak ditemukan' }}</p>
                         <p class="text-sm text-gray-500">{{ $discount->name ?: 'Diskon otomatis paket' }}</p>
+                        @php
+                            $packageScopeCount = count($discount->applicable_package_ids ?? []);
+                        @endphp
+                        @if($packageScopeCount > 0)
+                            <span class="inline-flex mt-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-medium">{{ $packageScopeCount }} Paket</span>
+                        @endif
                         @endif
                     </td>
                     <td class="px-6 py-4">
