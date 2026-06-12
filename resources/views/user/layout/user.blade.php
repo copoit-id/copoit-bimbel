@@ -42,6 +42,7 @@
     <div class="p-3 md:p-4 sm:ml-64 pt-4 {{ session('admin_login_as') ? '' : 'mt-14' }}">
         @yield('content')
     </div>
+    @include('user.components.floating-whatsapp')
     @include('components.flash-alert')
 
     {{-- jquery --}}

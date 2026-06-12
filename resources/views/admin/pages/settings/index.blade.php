@@ -41,6 +41,11 @@
     'smtp_notification_email'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'smtp';
+    } elseif (collect($settingErrorKeys)->intersect([
+    'contact_whatsapp_number',
+    'contact_whatsapp_button_text'
+    ])->isNotEmpty()) {
+    $activeSettingsTab = 'contact';
     }
     }
     @endphp
@@ -78,6 +83,10 @@
                 <button type="button" data-settings-tab="smtp"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'smtp' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Email SMTP
+                </button>
+                <button type="button" data-settings-tab="contact"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'contact' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Kontak User
                 </button>
             </div>
         </div>
@@ -530,6 +539,38 @@
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
                         placeholder="Opsional, default ke Email SMTP">
                     @error('smtp_notification_email')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        <div data-settings-panel="contact"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'contact' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Kontak User</p>
+                <h2 class="text-xl font-semibold text-gray-900">Floating WhatsApp</h2>
+                <p class="text-gray-500 text-sm">Atur tombol WhatsApp yang tampil mengambang di pojok kanan bawah halaman user.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Nomor WhatsApp</label>
+                    <input type="text" name="contact_whatsapp_number"
+                        value="{{ old('contact_whatsapp_number', $profile->contact_whatsapp_number ?? ($branding['contact_whatsapp_number'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: 6281234567890">
+                    <p class="text-xs text-gray-500 mt-1">Isi dengan format 62 atau 08. Kosongkan untuk menyembunyikan tombol.</p>
+                    @error('contact_whatsapp_number')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Tulisan Button</label>
+                    <input type="text" name="contact_whatsapp_button_text"
+                        value="{{ old('contact_whatsapp_button_text', $profile->contact_whatsapp_button_text ?? ($branding['contact_whatsapp_button_text'] ?? 'Chat Admin')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Chat Admin">
+                    @error('contact_whatsapp_button_text')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>

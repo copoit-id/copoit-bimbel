@@ -47,10 +47,10 @@ class DashboardController extends Controller
         // Total Revenue
         $currentRevenue = Payment::where('status', 'success')
             ->whereBetween('created_at', [$currentStart, $currentEnd])
-            ->sum('amount');
+            ->sum('total_amount');
         $previousRevenue = Payment::where('status', 'success')
             ->whereBetween('created_at', [$previousStart, $previousEnd])
-            ->sum('amount');
+            ->sum('total_amount');
         $revenueTrend = $this->calculateTrend($currentRevenue, $previousRevenue);
 
         // Total Tryout Attempts
@@ -99,7 +99,7 @@ class DashboardController extends Controller
         // === SUMMARY DATA ===
         $summary = [
             'total_users' => User::where('role', 'user')->count(),
-            'total_revenue' => Payment::where('status', 'success')->sum('amount'),
+            'total_revenue' => Payment::where('status', 'success')->sum('total_amount'),
             'total_tryouts' => Tryout::count(),
             'total_classes' => ClassModel::count(),
             'active_packages' => UserPackageAcces::where('status', 'active')->count(),
@@ -272,7 +272,7 @@ class DashboardController extends Controller
                     $labels[] = $date->format('D');
                     $data[] = Payment::where('status', 'success')
                         ->whereDate('created_at', $date)
-                        ->sum('amount');
+                        ->sum('total_amount');
                 }
                 break;
             
@@ -283,7 +283,7 @@ class DashboardController extends Controller
                     $labels[] = 'W' . $startOfWeek->format('W');
                     $data[] = Payment::where('status', 'success')
                         ->whereBetween('created_at', [$startOfWeek, $endOfWeek])
-                        ->sum('amount');
+                        ->sum('total_amount');
                 }
                 break;
             
@@ -294,7 +294,7 @@ class DashboardController extends Controller
                     $data[] = Payment::where('status', 'success')
                         ->whereMonth('created_at', $month->month)
                         ->whereYear('created_at', $month->year)
-                        ->sum('amount');
+                        ->sum('total_amount');
                 }
                 break;
             
@@ -305,7 +305,7 @@ class DashboardController extends Controller
                     $labels[] = $date->format('d M');
                     $data[] = Payment::where('status', 'success')
                         ->whereDate('created_at', $date)
-                        ->sum('amount');
+                        ->sum('total_amount');
                 }
                 break;
         }

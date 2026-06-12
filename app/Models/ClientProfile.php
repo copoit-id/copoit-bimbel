@@ -40,6 +40,8 @@ class ClientProfile extends Model
         'smtp_email',
         'smtp_app_password',
         'smtp_notification_email',
+        'contact_whatsapp_number',
+        'contact_whatsapp_button_text',
     ];
 
     protected $casts = [

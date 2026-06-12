@@ -55,7 +55,15 @@
                             </div>
                         </td>
                         <td class="px-4 py-3">{{ $payment->package->name ?? '-' }}</td>
-                        <td class="px-4 py-3">Rp {{ number_format($payment->amount, 0, ',', '.') }}</td>
+                        <td class="px-4 py-3">
+                            <p class="font-semibold text-gray-900">Rp {{ number_format((float) $payment->total_amount, 0, ',', '.') }}</p>
+                            @if((float) ($payment->discount_amount ?? 0) > 0)
+                                <p class="text-xs text-gray-500">
+                                    Harga awal Rp {{ number_format((float) ($payment->original_amount ?? $payment->amount), 0, ',', '.') }}
+                                    - diskon Rp {{ number_format((float) $payment->discount_amount, 0, ',', '.') }}
+                                </p>
+                            @endif
+                        </td>
                         <td class="px-4 py-3">{{ ($payment->paid_at ?? $payment->created_at)->format('d M Y') }}</td>
                         <td class="px-4 py-3">
                             <a href="{{ route('admin.pembayaran.show', $payment->payment_id) }}" class="text-primary hover:text-primary/80">

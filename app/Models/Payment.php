@@ -20,6 +20,7 @@ class Payment extends Model
 
     protected $casts = [
         'amount' => 'decimal:0',
+        'total_amount' => 'decimal:0',
         'original_amount' => 'decimal:0',
         'discount_amount' => 'decimal:0',
         'unique_code' => 'integer',

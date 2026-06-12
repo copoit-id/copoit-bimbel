@@ -67,6 +67,7 @@
             @yield('content')
         </div>
     </main>
+    @include('user.components.floating-whatsapp')
     
     @include('components.flash-alert')
     

@@ -40,6 +40,7 @@
     <div class="px-3 md:px-[150px]">
         @yield('content')
     </div>
+    @include('user.components.floating-whatsapp')
     @include('components.flash-alert')
 
     {{-- jquery --}}

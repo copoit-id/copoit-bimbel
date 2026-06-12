@@ -143,7 +143,7 @@
                         <span class="text-sm text-gray-500">{{ $payment->created_at->format('d M Y') }}</span>
                     </td>
                     <td class="px-6 py-4">
-                        <span class="text-sm font-medium text-gray-900">Rp {{ number_format($payment->amount, 0, ',', '.') }}</span>
+                        <span class="text-sm font-medium text-gray-900">Rp {{ number_format((float) $payment->total_amount, 0, ',', '.') }}</span>
                     </td>
                     <td class="px-6 py-4">
                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border {{ $payment->status === 'success' ? 'bg-green/10 text-green border-green/20' : 'bg-yellow-100 text-yellow-700 border-yellow-200' }}">

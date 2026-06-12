@@ -16,7 +16,7 @@ class FinanceIncomeController extends Controller
             ->orderByDesc('created_at')
             ->paginate(15);
 
-        $totalIncome = Payment::where('status', 'success')->sum('amount');
+        $totalIncome = Payment::where('status', 'success')->sum('total_amount');
         $period = request()->input('period', 'month');
         $chart = $this->buildChartData($period);
 
@@ -64,7 +64,7 @@ class FinanceIncomeController extends Controller
         $items = Payment::query()
             ->where('status', 'success')
             ->whereBetween('created_at', [$from, $to])
-            ->get(['amount', 'paid_at', 'created_at']);
+            ->get(['total_amount', 'paid_at', 'created_at']);
 
         foreach ($items as $item) {
             $date = $item->paid_at ?? $item->created_at;
@@ -76,7 +76,7 @@ class FinanceIncomeController extends Controller
             };
             $key = $bucketDate->toDateString();
             if (isset($buckets[$key])) {
-                $buckets[$key]['total'] += (float) $item->amount;
+                $buckets[$key]['total'] += (float) $item->total_amount;
             }
         }
 

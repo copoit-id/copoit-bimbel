@@ -47,6 +47,8 @@ class SettingController extends Controller
             'smtp_email' => null,
             'smtp_app_password' => null,
             'smtp_notification_email' => null,
+            'contact_whatsapp_number' => null,
+            'contact_whatsapp_button_text' => 'Chat Admin',
         ]);
 
         return view('admin.pages.settings.index', [
@@ -89,6 +91,8 @@ class SettingController extends Controller
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
+            'contact_whatsapp_number' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+()\-\s.]+$/'],
+            'contact_whatsapp_button_text' => ['nullable', 'string', 'max:80'],
         ];
 
         if ($request->input('payment_mode') === 'manual') {
@@ -264,6 +268,8 @@ class SettingController extends Controller
         }
 
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
+        $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
+        $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
         $validated['enable_certificate_management'] = false;
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
@@ -371,5 +377,20 @@ class SettingController extends Controller
                 @unlink($fullPath);
             }
         }
+    }
+
+    private function normalizeWhatsappNumber(?string $number): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $number);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            return '62' . substr($digits, 1);
+        }
+
+        return $digits;
     }
 }

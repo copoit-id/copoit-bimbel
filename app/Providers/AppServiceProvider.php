@@ -64,6 +64,8 @@ class AppServiceProvider extends ServiceProvider
             'smtp_email' => null,
             'smtp_app_password' => null,
             'smtp_notification_email' => null,
+            'contact_whatsapp_number' => null,
+            'contact_whatsapp_button_text' => 'Chat Admin',
             'tes_koran_enabled' => true,
         ];
 
@@ -103,6 +105,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['smtp_email'] = $clientProfile->smtp_email ?? $defaults['smtp_email'];
             $defaults['smtp_app_password'] = $clientProfile->smtp_app_password ?? $defaults['smtp_app_password'];
             $defaults['smtp_notification_email'] = $clientProfile->smtp_notification_email ?? $defaults['smtp_notification_email'];
+            $defaults['contact_whatsapp_number'] = $clientProfile->contact_whatsapp_number ?? $defaults['contact_whatsapp_number'];
+            $defaults['contact_whatsapp_button_text'] = $clientProfile->contact_whatsapp_button_text ?: $defaults['contact_whatsapp_button_text'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
