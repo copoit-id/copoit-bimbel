@@ -22,11 +22,22 @@ $accessiblePackageIds = $user->userPackageAccess()
     ->pluck('package_id')
     ->toArray();
 
-// Get materials via packages
-$accessibleMaterialIds = \DB::table('package_materials')
+// Get materials via active packages. Package assignment uses detail_packages.
+$packageMaterialIds = \DB::table('detail_packages')
     ->whereIn('package_id', $accessiblePackageIds)
+    ->where('detailable_type', \App\Models\Material::class)
+    ->pluck('detailable_id')
+    ->toArray();
+
+$directMaterialIds = \App\Models\UserMaterialAccess::where('user_id', $user->id)
+    ->where('status', '!=', 'not_started')
+    ->where(function ($q) {
+        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+    })
     ->pluck('material_id')
     ->toArray();
+
+$accessibleMaterialIds = array_values(array_unique(array_merge($packageMaterialIds, $directMaterialIds)));
 
 $myMaterials = \App\Models\Material::whereIn('material_id', $accessibleMaterialIds)
     ->with(['userAccess' => function($q) use ($user) {
@@ -133,9 +144,8 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         @php
         $package = $access->package;
         
-        // Load materials and tryouts with counts
-        $package->loadCount(['materials', 'tryouts']);
-        $materials = $package->materials;
+        // Package content uses detail_packages as the single source of truth.
+        $materials = $package->materialsThroughDetail;
         $tryouts = $package->tryouts;
         $tesKorans = $tesKoranEnabled ? $package->tesKorans : collect();
         $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
@@ -145,11 +155,10 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         
         // Check completed materials
         foreach ($materials as $material) {
-            $progress = \App\Models\MaterialProgressLog::where('user_id', $user->id)
+            $progress = \App\Models\UserMaterialAccess::where('user_id', $user->id)
                 ->where('material_id', $material->material_id)
-                ->where('is_completed', true)
                 ->first();
-            if ($progress) {
+            if ($progress && $progress->is_completed) {
                 $completedCount++;
             }
         }

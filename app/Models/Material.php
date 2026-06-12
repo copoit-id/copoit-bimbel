@@ -204,14 +204,16 @@ class Material extends Model
      */
     public function canUserAccess(int $userId): bool
     {
-        // Check via package
-        $hasPackageAccess = $this->packages()
-            ->whereHas('userAccess', function ($q) use ($userId) {
-                $q->where('user_id', $userId)
-                  ->where('status', 'active')
-                  ->where(function ($q) {
-                      $q->whereNull('end_date')->orWhere('end_date', '>', now());
-                  });
+        // Check via package. Package assignment uses detail_packages.
+        $hasPackageAccess = \DB::table('detail_packages')
+            ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
+            ->where('detail_packages.detailable_type', self::class)
+            ->where('detail_packages.detailable_id', $this->material_id)
+            ->where('user_package_access.user_id', $userId)
+            ->where('user_package_access.status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('user_package_access.end_date')
+                    ->orWhere('user_package_access.end_date', '>', now());
             })
             ->exists();
 

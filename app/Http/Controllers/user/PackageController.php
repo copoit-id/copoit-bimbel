@@ -13,6 +13,7 @@ use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
+use App\Models\UserMaterialAccess;
 use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
 use Illuminate\Http\Request;
@@ -2442,7 +2443,7 @@ class PackageController extends Controller
         
         $user = Auth::user();
         
-        $packageRelations = ['package.materials', 'package.tryouts'];
+        $packageRelations = ['package.materialsThroughDetail', 'package.tryouts'];
         if (config('client.branding.tes_koran_enabled', true)) {
             $packageRelations[] = 'package.tesKorans';
         }
@@ -2473,8 +2474,8 @@ class PackageController extends Controller
         $user = Auth::user();
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         $relations = $tesKoranEnabled
-            ? ['materials', 'tryouts', 'tesKorans']
-            : ['materials', 'tryouts'];
+            ? ['materialsThroughDetail.categories', 'tryouts', 'tesKorans']
+            : ['materialsThroughDetail.categories', 'tryouts'];
 
         $package = Package::with($relations)->findOrFail($packageId);
         
@@ -2498,18 +2499,18 @@ class PackageController extends Controller
         $completedCount = 0;
         $orderCounter = 1;
         
-        // Process materials first (sorted by pivot order)
-        $sortedMaterials = $package->materials->sortBy(function($material) {
-            return $material->pivot->order_number ?? 0;
+        // Process materials first. Package content uses detail_packages as the single source of truth.
+        $sortedMaterials = $package->materialsThroughDetail->sortBy(function ($material) {
+            return $material->order_number ?? $material->material_id;
         });
         
         foreach ($sortedMaterials as $material) {
-            $progress = MaterialProgressLog::where('user_id', $user->id)
+            $progress = UserMaterialAccess::where('user_id', $user->id)
                 ->where('material_id', $material->material_id)
                 ->first();
             $isCompleted = $progress && $progress->is_completed;
-            $isInProgress = $progress && !$progress->is_completed;
-            $itemProgress = $progress ? ($progress->progress_percent ?? 0) : 0;
+            $isInProgress = $progress && $progress->is_in_progress;
+            $itemProgress = $progress ? (int) ($progress->progress_percentage ?? 0) : 0;
             
             if ($isCompleted) {
                 $completedCount++;
@@ -2519,7 +2520,7 @@ class PackageController extends Controller
                 'order' => $orderCounter,
                 'type' => 'material',
                 'title' => $material->title,
-                'subtitle' => $material->category?->name ?? 'Materi Belajar',
+                'subtitle' => $material->categories->first()?->name ?? $material->type_label,
                 'icon' => $material->type === 'video' ? 'ri-video-line' : ($material->type === 'document' ? 'ri-file-text-line' : 'ri-live-line'),
                 'route' => route('user.material.show', $material->material_id),
                 'is_completed' => $isCompleted,

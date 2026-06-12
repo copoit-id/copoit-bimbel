@@ -425,10 +425,11 @@ class MaterialController extends Controller
             ->pluck('package_id')
             ->toArray();
         
-        // Access via package - menggunakan query manual untuk menghindari relasi yang bermasalah
-        $packageAccessIds = \DB::table('package_materials')
+        // Access via package. Package assignment uses detail_packages.
+        $packageAccessIds = \DB::table('detail_packages')
             ->whereIn('package_id', $activePackageIds)
-            ->pluck('material_id')
+            ->where('detailable_type', Material::class)
+            ->pluck('detailable_id')
             ->toArray();
         
         return array_unique(array_merge($directAccessIds, $packageAccessIds));

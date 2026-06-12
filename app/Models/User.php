@@ -296,8 +296,9 @@ class User extends Authenticatable
             ->pluck('package_id')
             ->toArray();
         
-        return \DB::table('package_materials')
-            ->where('material_id', $materialId)
+        return \DB::table('detail_packages')
+            ->where('detailable_type', Material::class)
+            ->where('detailable_id', $materialId)
             ->whereIn('package_id', $activePackageIds)
             ->exists();
     }
