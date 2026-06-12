@@ -2519,6 +2519,7 @@ class PackageController extends Controller
             $roadmapItems->push([
                 'order' => $orderCounter,
                 'type' => 'material',
+                'material_type' => $material->type,
                 'title' => $material->title,
                 'subtitle' => $material->categories->first()?->name ?? $material->type_label,
                 'icon' => $material->type === 'video' ? 'ri-video-line' : ($material->type === 'document' ? 'ri-file-text-line' : 'ri-live-line'),
@@ -2535,11 +2536,11 @@ class PackageController extends Controller
         
         // Process tryouts (append at the end)
         foreach ($package->tryouts as $tryout) {
-            $attempt = UserAnswer::where('user_id', $user->id)
+            $attempts = UserAnswer::where('user_id', $user->id)
                 ->where('tryout_id', $tryout->tryout_id)
-                ->where('status', 'completed')
-                ->first();
-            $isCompleted = $attempt !== null;
+                ->get();
+            $isCompleted = $attempts->where('status', 'completed')->isNotEmpty();
+            $isInProgress = $attempts->where('status', 'in_progress')->isNotEmpty();
             
             if ($isCompleted) {
                 $completedCount++;
@@ -2553,9 +2554,9 @@ class PackageController extends Controller
                 'icon' => 'ri-file-list-3-line',
                 'route' => route('user.tryout.lobby', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]),
                 'is_completed' => $isCompleted,
-                'is_in_progress' => false,
+                'is_in_progress' => $isInProgress,
                 'progress_percent' => 0,
-                'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
+                'status_text' => $isCompleted ? 'Selesai' : ($isInProgress ? 'Berlangsung' : 'Mulai'),
                 'is_left' => $orderCounter % 2 === 1,
             ]);
             

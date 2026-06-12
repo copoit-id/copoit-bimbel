@@ -247,6 +247,20 @@ class MaterialController extends Controller
                 'status' => 'not_started',
             ]
         );
+
+        $wasNotStarted = $userAccess->status === 'not_started';
+        $userAccess->markAsStarted();
+        $userAccess->refresh();
+
+        if ($wasNotStarted) {
+            MaterialProgressLog::create([
+                'user_id' => $user->id,
+                'material_id' => $materialId,
+                'event_type' => 'started',
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        }
         
         // Log view
         ActivityLogger::log('material_viewed', 'success', $user, [
