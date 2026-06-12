@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Services\AffiliateService;
+use App\Services\PurchaseAccessDuration;
 
 class PembayaranController extends Controller
 {
@@ -139,16 +140,21 @@ class PembayaranController extends Controller
             $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
                 ->where('package_id', $payment->package_id)
                 ->where('status', 'active')
-                ->where('end_date', '>', Carbon::now())
+                ->where(function ($query) {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+                })
                 ->first();
 
             if (!$existingAccess) {
+                $package = $payment->package ?: Package::find($payment->package_id);
+                $startDate = Carbon::now();
+
                 // Give user access to package
                 UserPackageAcces::create([
                     'user_id' => $payment->user_id,
                     'package_id' => $payment->package_id,
-                    'start_date' => Carbon::now(),
-                    'end_date' => Carbon::now()->addYear(),
+                    'start_date' => $startDate,
+                    'end_date' => $package ? PurchaseAccessDuration::expiresAt($package, $startDate) : $startDate->copy()->addYear(),
                     'status' => 'active',
                     'payment_amount' => $payment->total_amount,
                     'payment_status' => 'paid',

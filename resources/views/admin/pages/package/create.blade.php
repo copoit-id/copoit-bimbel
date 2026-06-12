@@ -6,6 +6,8 @@
     $selectedPriceType = old('type_price', $package->type_price ?? 'paid');
     $oldFeatures = old('features');
     $selectedFeatures = is_array($oldFeatures) ? $oldFeatures : [''];
+    $selectedAccessDurationUnit = old('access_duration_unit', $package->access_duration_unit ?? 'forever');
+    $selectedAccessDurationValue = old('access_duration_value', $package->access_duration_value ?? 1);
 
     if (!is_array($oldFeatures) && isset($package) && $package->features) {
         $decodedFeatures = json_decode($package->features, true);
@@ -171,6 +173,29 @@
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Contoh: Follow akun Instagram @copoit, upload bukti, dll.">{{ old('conditional_requirement', $package->conditional_requirement ?? '') }}</textarea>
                     </div>
+
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Durasi Akses Setelah Dibeli</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <select name="access_duration_unit" id="access_duration_unit"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="forever" @selected($selectedAccessDurationUnit === 'forever')>Selamanya</option>
+                                    <option value="day" @selected($selectedAccessDurationUnit === 'day')>Hari</option>
+                                    <option value="week" @selected($selectedAccessDurationUnit === 'week')>Minggu</option>
+                                    <option value="month" @selected($selectedAccessDurationUnit === 'month')>Bulan</option>
+                                    <option value="year" @selected($selectedAccessDurationUnit === 'year')>Tahun</option>
+                                </select>
+                            </div>
+                            <div>
+                                <input type="number" name="access_duration_value" id="access_duration_value"
+                                    min="1" max="1200" value="{{ $selectedAccessDurationValue }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Jumlah durasi">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Pilih Selamanya untuk akses tanpa batas waktu.</p>
+                    </div>
                     </div>
 
                     <div>
@@ -237,6 +262,8 @@
     const priceInput = document.getElementById('price');
     const requirementWrapper = document.getElementById('conditional-requirement-wrapper');
     const requirementInput = document.getElementById('conditional_requirement');
+    const durationUnit = document.getElementById('access_duration_unit');
+    const durationValue = document.getElementById('access_duration_value');
 
     function toggleFields() {
         if (typePriceSelect.value === 'paid') {
@@ -261,6 +288,14 @@
 
     toggleFields();
     typePriceSelect.addEventListener('change', toggleFields);
+
+    function toggleDurationValue() {
+        if (!durationUnit || !durationValue) return;
+        durationValue.disabled = durationUnit.value === 'forever';
+    }
+
+    toggleDurationValue();
+    durationUnit?.addEventListener('change', toggleDurationValue);
 });
 </script>
 @endsection

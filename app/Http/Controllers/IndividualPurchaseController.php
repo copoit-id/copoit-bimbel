@@ -68,6 +68,10 @@ class IndividualPurchaseController extends Controller
             ->where('purchasable_type', $purchasableType)
             ->where('purchasable_id', $id)
             ->where('status', 'approved')
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            })
             ->first();
 
         if ($existingPurchase) {

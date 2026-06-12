@@ -24,6 +24,7 @@ class Material extends Model
         'duration_minutes' => 'integer',
         'order_number' => 'integer',
         'price' => 'decimal:0',
+        'access_duration_value' => 'integer',
     ];
 
     /**
@@ -222,6 +223,10 @@ class Material extends Model
         $hasDirectAccess = $this->userAccess()
             ->where('user_id', $userId)
             ->where('status', '!=', 'not_started')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
             ->exists();
 
         if ($hasDirectAccess) {
@@ -234,6 +239,10 @@ class Material extends Model
                 ->where('purchasable_type', self::class)
                 ->where('purchasable_id', $this->material_id)
                 ->where('status', 'approved')
+                ->where(function ($query) {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
                 ->exists();
 
             if ($hasIndividualPurchase) {
@@ -253,6 +262,10 @@ class Material extends Model
             ->where('purchasable_type', self::class)
             ->where('purchasable_id', $this->material_id)
             ->where('status', 'approved')
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            })
             ->exists();
     }
 

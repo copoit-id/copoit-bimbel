@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\PurchaseAccessDuration;
 
 class MaterialManagementController extends Controller
 {
@@ -86,6 +87,8 @@ class MaterialManagementController extends Controller
             'is_for_sale' => 'nullable',
             'is_displayed' => 'nullable',
             'price' => 'nullable|numeric|min:0',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
             'title.max' => 'Judul materi maksimal 255 karakter.',
@@ -117,6 +120,7 @@ class MaterialManagementController extends Controller
 
         // Handle is_displayed checkbox (unchecked = false)
         $validated['is_displayed'] = $request->boolean('is_displayed');
+        $this->normalizeAccessDuration($validated);
 
         // Set default order_number if not provided
         if (empty($validated['order_number'])) {
@@ -184,6 +188,8 @@ class MaterialManagementController extends Controller
             'is_for_sale' => 'nullable',
             'is_displayed' => 'nullable',
             'price' => 'nullable|numeric|min:0',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ], [
             'title.required' => 'Judul materi wajib diisi.',
             'title.max' => 'Judul materi maksimal 255 karakter.',
@@ -224,6 +230,7 @@ class MaterialManagementController extends Controller
 
         // Handle is_displayed checkbox (unchecked = false)
         $validated['is_displayed'] = $request->boolean('is_displayed');
+        $this->normalizeAccessDuration($validated);
 
         // Extract category_id (single, not array)
         $categoryId = $validated['category_id'] ?? null;
@@ -271,6 +278,24 @@ class MaterialManagementController extends Controller
 
         return redirect()->route('admin.material.index')
             ->with('success', "Materi berhasil {$status}.");
+    }
+
+    private function normalizeAccessDuration(array &$validated): void
+    {
+        if (!($validated['is_for_sale'] ?? false) || (int) ($validated['price'] ?? 0) <= 0) {
+            $validated['access_duration_unit'] = 'forever';
+            $validated['access_duration_value'] = null;
+
+            return;
+        }
+
+        $unit = PurchaseAccessDuration::normalizedUnit($validated['access_duration_unit'] ?? 'forever');
+
+        $validated['access_duration_unit'] = $unit;
+        $validated['access_duration_value'] = PurchaseAccessDuration::normalizedValue(
+            $unit,
+            $validated['access_duration_value'] ?? null
+        );
     }
 
     private function isGoogleDriveUrl(string $url): bool

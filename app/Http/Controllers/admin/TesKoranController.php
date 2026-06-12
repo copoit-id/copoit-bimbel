@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\TesKoran;
 use App\Models\TesKoranResult;
+use App\Services\PurchaseAccessDuration;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -35,6 +36,7 @@ class TesKoranController extends Controller
         $validated['is_displayed'] = $request->boolean('is_displayed', true);
         $validated['direction'] = $this->directionForTestType($validated['test_type']);
         $validated['duration_minutes'] = $this->totalDurationMinutes($validated);
+        $this->normalizeAccessDuration($validated);
 
         TesKoran::create($validated);
 
@@ -57,6 +59,7 @@ class TesKoranController extends Controller
         $validated['is_active'] = $request->boolean('is_active');
         $validated['direction'] = $this->directionForTestType($validated['test_type']);
         $validated['duration_minutes'] = $this->totalDurationMinutes($validated);
+        $this->normalizeAccessDuration($validated);
 
         $tesKoran->update($validated);
 
@@ -171,7 +174,27 @@ class TesKoranController extends Controller
             'is_for_sale' => 'boolean',
             'is_displayed' => 'boolean',
             'is_active' => 'boolean',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ]);
+    }
+
+    private function normalizeAccessDuration(array &$validated): void
+    {
+        if (!($validated['is_for_sale'] ?? false) || (int) ($validated['price'] ?? 0) <= 0) {
+            $validated['access_duration_unit'] = 'forever';
+            $validated['access_duration_value'] = null;
+
+            return;
+        }
+
+        $unit = PurchaseAccessDuration::normalizedUnit($validated['access_duration_unit'] ?? 'forever');
+
+        $validated['access_duration_unit'] = $unit;
+        $validated['access_duration_value'] = PurchaseAccessDuration::normalizedValue(
+            $unit,
+            $validated['access_duration_value'] ?? null
+        );
     }
 
     private function totalDurationMinutes(array $validated): int

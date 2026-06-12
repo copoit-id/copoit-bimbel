@@ -24,6 +24,8 @@ class TesKoran extends Model
         'is_for_sale',
         'is_displayed',
         'is_active',
+        'access_duration_value',
+        'access_duration_unit',
     ];
 
     protected $casts = [
@@ -36,6 +38,7 @@ class TesKoran extends Model
         'rows_count' => 'integer',
         'price' => 'decimal:0',
         'logic_test_type' => 'string',
+        'access_duration_value' => 'integer',
     ];
 
     public function detailPackages(): MorphMany
@@ -208,6 +211,10 @@ class TesKoran extends Model
             ->where('purchasable_type', self::class)
             ->where('purchasable_id', $this->id)
             ->where('status', IndividualPurchase::STATUS_APPROVED)
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            })
             ->exists();
     }
 

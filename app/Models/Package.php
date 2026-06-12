@@ -13,7 +13,8 @@ class Package extends Model
     protected $primaryKey = 'package_id';
     protected $casts = [
         'is_active' => 'boolean',
-        'price' => 'decimal:0'
+        'price' => 'decimal:0',
+        'access_duration_value' => 'integer',
     ];
 
     // Detail package relationships (sistem baru dengan checklist)
@@ -78,7 +79,19 @@ class Package extends Model
 
     public function getDurationTextAttribute()
     {
-        return $this->duration . ' Hari';
+        if (($this->access_duration_unit ?? 'forever') === 'forever') {
+            return 'Selamanya';
+        }
+
+        $unitLabel = match ($this->access_duration_unit) {
+            'day' => 'Hari',
+            'week' => 'Minggu',
+            'month' => 'Bulan',
+            'year' => 'Tahun',
+            default => 'Hari',
+        };
+
+        return ((int) $this->access_duration_value) . ' ' . $unitLabel;
     }
 
     // Scopes

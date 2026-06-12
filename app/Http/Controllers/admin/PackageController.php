@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PackageRequest;
 use App\Services\PackageService;
 use App\Services\PlanQuotaService;
+use App\Services\PurchaseAccessDuration;
 use App\Models\ClassModel;
 use App\Models\DetailPackage;
 use App\Models\Package;
@@ -68,6 +69,8 @@ class PackageController extends Controller
                 'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
                 'conditional_requirement' => 'nullable|string',
+                'access_duration_unit' => 'required|in:forever,day,week,month,year',
+                'access_duration_value' => 'nullable|integer|min:1|max:1200',
             ];
 
             $thumbnailRule = $allowVideoThumbnail
@@ -87,6 +90,7 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            $this->normalizeAccessDuration($validated);
 
             if ($request->type_price !== 'paid') {
                 $validated['price'] = 0;
@@ -150,6 +154,8 @@ class PackageController extends Controller
                 'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
                 'conditional_requirement' => 'nullable|string',
+                'access_duration_unit' => 'required|in:forever,day,week,month,year',
+                'access_duration_value' => 'nullable|integer|min:1|max:1200',
             ];
 
             $thumbnailRule = $allowVideoThumbnail
@@ -169,6 +175,7 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            $this->normalizeAccessDuration($validated);
 
             if ($request->type_price !== 'paid') {
                 $validated['price'] = 0;
@@ -217,6 +224,17 @@ class PackageController extends Controller
             return redirect()->back()
                 ->with('error', 'Gagal menghapus paket: ' . $e->getMessage());
         }
+    }
+
+    private function normalizeAccessDuration(array &$validated): void
+    {
+        $unit = PurchaseAccessDuration::normalizedUnit($validated['access_duration_unit'] ?? 'forever');
+
+        $validated['access_duration_unit'] = $unit;
+        $validated['access_duration_value'] = PurchaseAccessDuration::normalizedValue(
+            $unit,
+            $validated['access_duration_value'] ?? null
+        );
     }
 
     public function indexClass($package_id)

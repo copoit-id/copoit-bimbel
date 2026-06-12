@@ -34,6 +34,7 @@ class Tryout extends Model
         'enable_webcam_check' => 'boolean',
         'enable_screen_check' => 'boolean',
         'price' => 'decimal:0',
+        'access_duration_value' => 'integer',
     ];
 
     public function requiresIrtScoring(): bool
@@ -163,6 +164,10 @@ class Tryout extends Model
                 ->where('purchasable_type', self::class)
                 ->where('purchasable_id', $this->tryout_id)
                 ->where('status', 'approved')
+                ->where(function ($query) {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
                 ->exists();
 
             if ($hasIndividualPurchase) {
@@ -182,6 +187,10 @@ class Tryout extends Model
             ->where('purchasable_type', self::class)
             ->where('purchasable_id', $this->tryout_id)
             ->where('status', 'approved')
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            })
             ->exists();
     }
 

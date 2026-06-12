@@ -16,6 +16,8 @@
             })->values(),
         ];
     })->values();
+    $selectedAccessDurationUnit = old('access_duration_unit', 'forever');
+    $selectedAccessDurationValue = old('access_duration_value', 1);
 @endphp
 <div class="container mx-auto px-4">
     <div class="mb-6">
@@ -77,12 +79,31 @@
 
                     <div>
                         <label class="flex items-center mb-1">
-                            <input type="checkbox" name="is_for_sale" value="1" {{ old('is_for_sale') ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                            <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale') ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
                             <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
                         </label>
                         <p class="text-xs text-gray-500 mb-2">Centang untuk menampilkan materi ini di halaman user dan bisa dibeli individually.</p>
                         <input type="number" name="price" value="{{ old('price', 0) }}" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0">
                         <p class="text-xs text-gray-500 mt-1">Harga dalam Rupiah (0 = gratis dalam paket).</p>
+                    </div>
+
+                    <div id="access-duration-wrapper" class="{{ old('is_for_sale') ? '' : 'hidden' }}">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses Setelah Dibeli</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <select name="access_duration_unit" id="access_duration_unit"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="forever" @selected($selectedAccessDurationUnit === 'forever')>Selamanya</option>
+                                <option value="day" @selected($selectedAccessDurationUnit === 'day')>Hari</option>
+                                <option value="week" @selected($selectedAccessDurationUnit === 'week')>Minggu</option>
+                                <option value="month" @selected($selectedAccessDurationUnit === 'month')>Bulan</option>
+                                <option value="year" @selected($selectedAccessDurationUnit === 'year')>Tahun</option>
+                            </select>
+                            <input type="number" name="access_duration_value" id="access_duration_value"
+                                value="{{ $selectedAccessDurationValue }}" min="1" max="1200"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Jumlah">
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Dipakai untuk pembelian materi terpisah. Jika materi masuk paket, aksesnya mengikuti durasi paket.</p>
                     </div>
 
                     <div>
@@ -171,6 +192,21 @@
     
     // Initialize on load
     updatePlaceholder();
+
+    const accessDurationUnit = document.getElementById('access_duration_unit');
+    const accessDurationValue = document.getElementById('access_duration_value');
+    const saleCheckbox = document.getElementById('is_for_sale');
+    const accessDurationWrapper = document.getElementById('access-duration-wrapper');
+    const syncAccessDuration = () => {
+        if (!accessDurationUnit || !accessDurationValue) return;
+        const isForSale = saleCheckbox?.checked ?? false;
+        accessDurationWrapper?.classList.toggle('hidden', !isForSale);
+        accessDurationUnit.disabled = !isForSale;
+        accessDurationValue.disabled = !isForSale || accessDurationUnit.value === 'forever';
+    };
+    syncAccessDuration();
+    accessDurationUnit?.addEventListener('change', syncAccessDuration);
+    saleCheckbox?.addEventListener('change', syncAccessDuration);
 
     const materialCategoryTree = @json($materialCategoryTree);
     const selectedMaterialCategoryId = Number(@json((int) old('category_id', 0)));

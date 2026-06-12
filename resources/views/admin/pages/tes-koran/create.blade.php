@@ -3,6 +3,10 @@
 @section('title', 'Tambah Tes Koran')
 
 @section('content')
+@php
+    $selectedAccessDurationUnit = old('access_duration_unit', 'forever');
+    $selectedAccessDurationValue = old('access_duration_value', 1);
+@endphp
 <div class="container mx-auto px-4">
     <x-breadcrumb>
         <x-slot name="items">
@@ -160,6 +164,25 @@
                             </div>
                         </div>
                     </div>
+
+                    <div id="access-duration-wrapper" class="mt-6 {{ old('is_for_sale') ? '' : 'hidden' }}">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses Setelah Dibeli</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <select name="access_duration_unit" id="access_duration_unit"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="forever" @selected($selectedAccessDurationUnit === 'forever')>Selamanya</option>
+                                <option value="day" @selected($selectedAccessDurationUnit === 'day')>Hari</option>
+                                <option value="week" @selected($selectedAccessDurationUnit === 'week')>Minggu</option>
+                                <option value="month" @selected($selectedAccessDurationUnit === 'month')>Bulan</option>
+                                <option value="year" @selected($selectedAccessDurationUnit === 'year')>Tahun</option>
+                            </select>
+                            <input type="number" name="access_duration_value" id="access_duration_value"
+                                   value="{{ $selectedAccessDurationValue }}" min="1" max="1200"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                   placeholder="Jumlah durasi">
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Dipakai untuk pembelian tes koran terpisah. Jika tes koran masuk paket, aksesnya mengikuti durasi paket.</p>
+                    </div>
                 </div>
 
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -212,6 +235,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     saleCheckbox?.addEventListener('change', syncPriceInput);
     syncPriceInput();
+
+    const accessDurationUnit = document.getElementById('access_duration_unit');
+    const accessDurationValue = document.getElementById('access_duration_value');
+    const accessDurationWrapper = document.getElementById('access-duration-wrapper');
+    function syncAccessDuration() {
+        if (!accessDurationUnit || !accessDurationValue) return;
+        const isForSale = saleCheckbox?.checked ?? false;
+        accessDurationWrapper?.classList.toggle('hidden', !isForSale);
+        accessDurationUnit.disabled = !isForSale;
+        accessDurationValue.disabled = !isForSale || accessDurationUnit.value === 'forever';
+    }
+    accessDurationUnit?.addEventListener('change', syncAccessDuration);
+    saleCheckbox?.addEventListener('change', syncAccessDuration);
+    syncAccessDuration();
 
     const logicTestType = document.getElementById('logic_test_type');
     const durationLabel = document.getElementById('durationLabel');

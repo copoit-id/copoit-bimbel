@@ -10,6 +10,7 @@ use App\Models\Tryout;
 use App\Models\User;
 use App\Models\UserMaterialAccess;
 use App\Models\UserTryoutAccess;
+use App\Services\PurchaseAccessDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -99,6 +100,12 @@ class IndividualPurchaseController extends Controller
         }
 
         try {
+            $purchase->loadMissing('purchasable');
+            $approvedAt = Carbon::now();
+            $accessExpiresAt = $purchase->purchasable
+                ? PurchaseAccessDuration::expiresAt($purchase->purchasable, $approvedAt)
+                : null;
+
             // Grant access based on purchasable type
             if ($purchase->purchasable_type === Material::class) {
                 UserMaterialAccess::updateOrCreate(
@@ -107,9 +114,9 @@ class IndividualPurchaseController extends Controller
                         'material_id' => $purchase->purchasable_id,
                     ],
                     [
-                        'status' => 'active',
+                        'status' => 'in_progress',
                         'started_at' => now(),
-                        'expires_at' => null,
+                        'expires_at' => $accessExpiresAt,
                     ]
                 );
             } elseif ($purchase->purchasable_type === Tryout::class) {
@@ -121,13 +128,15 @@ class IndividualPurchaseController extends Controller
                     [
                         'status' => 'active',
                         'assigned_at' => now(),
+                        'expires_at' => $accessExpiresAt,
                     ]
                 );
             }
 
             $purchase->update([
                 'status' => IndividualPurchase::STATUS_APPROVED,
-                'approved_at' => Carbon::now(),
+                'approved_at' => $approvedAt,
+                'access_expires_at' => $accessExpiresAt,
                 'approved_by' => Auth::id(),
             ]);
 

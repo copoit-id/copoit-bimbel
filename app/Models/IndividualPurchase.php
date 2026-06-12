@@ -22,6 +22,7 @@ class IndividualPurchase extends Model
         'transaction_id',
         'payment_details',
         'approved_at',
+        'access_expires_at',
         'approved_by',
     ];
 
@@ -32,6 +33,7 @@ class IndividualPurchase extends Model
         'total_amount' => 'decimal:0',
         'payment_details' => 'array',
         'approved_at' => 'datetime',
+        'access_expires_at' => 'datetime',
     ];
 
     const STATUS_PENDING = 'pending';

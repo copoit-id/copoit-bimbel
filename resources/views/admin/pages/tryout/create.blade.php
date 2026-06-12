@@ -5,6 +5,8 @@
     $utbkSubtests = $utbkSubtests ?? [];
     $utbkSingleTypes = $utbkSingleTypes ?? [];
     $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
+    $selectedAccessDurationUnit = old('access_duration_unit', $tryout->access_duration_unit ?? 'forever');
+    $selectedAccessDurationValue = old('access_duration_value', $tryout->access_duration_value ?? 1);
 @endphp
 <div class="space-y-6">
     <!-- Page Header -->
@@ -146,7 +148,7 @@
                         <div class="space-y-3">
                             <div>
                                 <label class="flex items-center">
-                                    <input type="checkbox" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
                                     <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
                                 </label>
                                 <p class="text-xs text-gray-500 ml-6">Centang agar tryout ini bisa dibeli secara individual.</p>
@@ -159,6 +161,25 @@
                                 <p class="text-xs text-gray-500 ml-6">Centang untuk menampilkan tryout di halaman user. Kosongkan untuk menyembunyikan.</p>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="access-duration-wrapper" class="mt-6 {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? '' : 'hidden' }}">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Durasi Akses Setelah Dibeli</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <select name="access_duration_unit" id="access_duration_unit"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="forever" @selected($selectedAccessDurationUnit === 'forever')>Selamanya</option>
+                                <option value="day" @selected($selectedAccessDurationUnit === 'day')>Hari</option>
+                                <option value="week" @selected($selectedAccessDurationUnit === 'week')>Minggu</option>
+                                <option value="month" @selected($selectedAccessDurationUnit === 'month')>Bulan</option>
+                                <option value="year" @selected($selectedAccessDurationUnit === 'year')>Tahun</option>
+                            </select>
+                            <input type="number" name="access_duration_value" id="access_duration_value" min="1" max="1200"
+                                value="{{ $selectedAccessDurationValue }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="Jumlah durasi">
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Dipakai untuk pembelian tryout terpisah. Jika tryout masuk paket, aksesnya mengikuti durasi paket.</p>
                     </div>
                 </div>
 
@@ -1112,6 +1133,22 @@
       }
     });
     bindPassingScoreInputs();
+
+    const durationUnit = root.querySelector('#access_duration_unit');
+    const durationValue = root.querySelector('#access_duration_value');
+    const saleCheckbox = root.querySelector('#is_for_sale');
+    const durationWrapper = root.querySelector('#access-duration-wrapper');
+    const syncAccessDuration = () => {
+      if (!durationUnit || !durationValue) return;
+      const isForSale = saleCheckbox?.checked ?? false;
+      durationWrapper?.classList.toggle('hidden', !isForSale);
+      durationUnit.disabled = !isForSale;
+      durationValue.disabled = !isForSale || durationUnit.value === 'forever';
+    };
+    syncAccessDuration();
+    durationUnit?.addEventListener('change', syncAccessDuration);
+    saleCheckbox?.addEventListener('change', syncAccessDuration);
+
     typeSelect.__tryoutBound = true;
   }
 

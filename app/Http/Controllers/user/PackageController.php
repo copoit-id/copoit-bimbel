@@ -23,6 +23,7 @@ use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
 use App\Services\AffiliateService;
 use App\Services\Payments\InteractiveQrisGateway;
+use App\Services\PurchaseAccessDuration;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class PackageController extends Controller
@@ -124,7 +125,11 @@ class PackageController extends Controller
                 ->where('package_id', $package_id)
                 ->first();
 
-            if ($existingAccess && $existingAccess->status === 'active' && $existingAccess->end_date && Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now())) {
+            if (
+                $existingAccess
+                && $existingAccess->status === 'active'
+                && (is_null($existingAccess->end_date) || Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now()))
+            ) {
                 if ($request->expectsJson()) {
                     return response()->json([
                         'success' => false,
@@ -136,7 +141,7 @@ class PackageController extends Controller
 
             switch ($package->type_price) {
                 case 'free_unconditional':
-                    $this->grantFreeAccess($package_id);
+                    $this->grantFreeAccess($package);
 
                     return response()->json([
                         'success' => true,
@@ -774,16 +779,18 @@ class PackageController extends Controller
         }
     }
 
-    private function grantFreeAccess(int $packageId): void
+    private function grantFreeAccess(Package $package): void
     {
+        $startDate = Carbon::now();
+
         UserPackageAcces::updateOrCreate(
             [
                 'user_id' => Auth::id(),
-                'package_id' => $packageId,
+                'package_id' => $package->package_id,
             ],
             [
-                'start_date' => Carbon::now(),
-                'end_date' => Carbon::now()->addDays(30),
+                'start_date' => $startDate,
+                'end_date' => PurchaseAccessDuration::expiresAt($package, $startDate),
                 'status' => 'active',
                 'payment_amount' => 0,
                 'payment_status' => 'free',
@@ -839,7 +846,10 @@ class PackageController extends Controller
     {
         $activePackages = UserPackageAcces::where('user_id', Auth::id())
             ->where('status', 'active')
-            ->where('end_date', '>', Carbon::now())
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
             ->with('package')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -895,7 +905,7 @@ class PackageController extends Controller
         $payment->refresh();
 
         if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
-            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS - 1 year access');
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS');
 
             return response()->json([
                 ...$result,
@@ -1627,29 +1637,7 @@ class PackageController extends Controller
                     'paid_at' => Carbon::now()
                 ]);
 
-                // Check if user already has access
-                $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
-                    ->where('package_id', $payment->package_id)
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now())
-                    ->first();
-
-                if (!$existingAccess) {
-                    // Give user access to package
-                    $userAccess = UserPackageAcces::create([
-                        'user_id' => $payment->user_id,
-                        'package_id' => $payment->package_id,
-                        'start_date' => Carbon::now(),
-                        'end_date' => Carbon::now()->addYear(),
-                        'status' => 'active',
-                        'payment_amount' => $payment->total_amount,
-                        'payment_status' => 'paid',
-                        'notes' => 'Auto-activated for development testing',
-                        'created_by' => $payment->user_id
-                    ]);
-                }
-
-                app(AffiliateService::class)->recordCommission($payment);
+                $this->ensureUserPackageAccess($payment, 'Auto-activated for development testing');
             }
         } catch (\Exception $e) {
         }
@@ -1684,7 +1672,7 @@ class PackageController extends Controller
                 'paid_at' => Carbon::now()
             ]);
 
-            $this->ensureUserPackageAccess($payment, 'Payment confirmed via Xendit - 1 year access');
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via Xendit');
         } elseif ($request->status === 'EXPIRED') {
             $payment->update(['status' => Payment::STATUS_EXPIRED]);
         } elseif ($request->status === 'FAILED') {
@@ -1734,7 +1722,7 @@ class PackageController extends Controller
                     'paid_at' => Carbon::now(),
                 ]);
 
-                $this->ensureUserPackageAccess($payment, 'Payment confirmed via Midtrans - 1 year access');
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via Midtrans');
             }
         } elseif ($transactionStatus === 'pending') {
             $payment->update(['status' => Payment::STATUS_PENDING]);
@@ -1752,15 +1740,22 @@ class PackageController extends Controller
         $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
             ->where('package_id', $payment->package_id)
             ->where('status', 'active')
-            ->where('end_date', '>', Carbon::now())
+            ->where(function ($query) {
+                $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+            })
             ->first();
 
         if (!$existingAccess) {
+            $payment->loadMissing('package');
+            $startDate = Carbon::now();
+
             UserPackageAcces::create([
                 'user_id' => $payment->user_id,
                 'package_id' => $payment->package_id,
-                'start_date' => Carbon::now(),
-                'end_date' => Carbon::now()->addYear(),
+                'start_date' => $startDate,
+                'end_date' => $payment->package
+                    ? PurchaseAccessDuration::expiresAt($payment->package, $startDate)
+                    : $startDate->copy()->addYear(),
                 'status' => 'active',
                 'payment_amount' => $payment->total_amount,
                 'payment_status' => 'paid',
@@ -1922,42 +1917,12 @@ class PackageController extends Controller
             ]);
 
             // Check if user already has access
-            $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
-                ->where('package_id', $payment->package_id)
-                ->where('status', 'active')
-                ->where('end_date', '>', Carbon::now())
-                ->first();
-
-            if (!$existingAccess) {
-                // Give user access to package
-                $userAccess = UserPackageAcces::create([
-                    'user_id' => $payment->user_id,
-                    'package_id' => $payment->package_id,
-                    'start_date' => Carbon::now(),
-                    'end_date' => Carbon::now()->addYear(),
-                    'status' => 'active',
-                    'payment_amount' => $payment->total_amount,
-                    'payment_status' => 'paid',
-                    'notes' => 'Manually activated by admin: ' . Auth::user()->name,
-                    'created_by' => Auth::id()
-                ]);
-
-                app(AffiliateService::class)->recordCommission($payment);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment activated successfully',
-                    'payment_id' => $payment->payment_id,
-                    'access_id' => $userAccess->user_package_access_id
-                ]);
-            }
-
-            app(AffiliateService::class)->recordCommission($payment);
+            $this->ensureUserPackageAccess($payment, 'Manually activated by admin: ' . Auth::user()->name);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Payment activated, user already had access',
-                'existing_access_id' => $existingAccess->user_package_access_id
+                'message' => 'Payment activated successfully',
+                'payment_id' => $payment->payment_id,
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\UserMaterialAccess;
 use App\Models\UserPackageAcces;
 use App\Models\UserTryoutAccess;
+use App\Services\PurchaseAccessDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,7 +33,8 @@ class AksesController extends Controller
         $items = match($tab) {
             'packages' => Package::withCount([
                 'userAccess',
-                'userAccess as active_users_count' => fn($q) => $q->where('status', 'active')->where('end_date', '>', Carbon::now()),
+                'userAccess as active_users_count' => fn($q) => $q->where('status', 'active')
+                    ->where(fn($query) => $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now())),
                 'userAccess as expired_users_count' => fn($q) => $q->where('status', 'expired')->orWhere('end_date', '<', Carbon::now()),
             ])->get(),
             'videos' => Material::where('type', 'video')->where('is_active', true)->withCount('userAccess')->get(),
@@ -225,14 +227,16 @@ class AksesController extends Controller
 
     private function grantPackageAccess($userId, $packageId, $request)
     {
-        $endDate = $request->end_date ?? Carbon::now()->addDays(30);
+        $package = Package::findOrFail($packageId);
+        $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
+        $endDate = $request->end_date ? Carbon::parse($request->end_date) : PurchaseAccessDuration::expiresAt($package, $startDate);
         
         UserPackageAcces::create([
             'user_id' => $userId,
             'package_id' => $packageId,
-            'start_date' => $request->start_date ?? Carbon::now(),
+            'start_date' => $startDate,
             'end_date' => $endDate,
-            'status' => $endDate->isPast() ? 'expired' : 'active',
+            'status' => $endDate && $endDate->isPast() ? 'expired' : 'active',
             'payment_amount' => $request->access_type === 'paid' ? 1 : 0,
             'payment_status' => $request->access_type === 'paid' ? 'paid' : 'free',
             'created_by' => Auth::id(),
@@ -241,30 +245,44 @@ class AksesController extends Controller
 
     private function grantMaterialAccess($userId, $materialId, $request)
     {
+        $material = Material::findOrFail($materialId);
+        $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
+
         UserMaterialAccess::create([
             'user_id' => $userId,
             'material_id' => $materialId,
             'access_type' => $request->access_type,
             'access_source' => 'direct',
-            'status' => 'not_started',
+            'status' => 'in_progress',
+            'started_at' => $startDate,
+            'expires_at' => $request->end_date
+                ? Carbon::parse($request->end_date)
+                : PurchaseAccessDuration::expiresAt($material, $startDate),
         ]);
     }
 
     private function grantTryoutAccess($userId, $tryoutId, $request)
     {
+        $tryout = Tryout::findOrFail($tryoutId);
+        $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
+
         UserTryoutAccess::create([
             'user_id' => $userId,
             'tryout_id' => $tryoutId,
             'access_type' => $request->access_type,
             'access_source' => 'direct',
             'status' => 'not_started',
-            'expires_at' => $request->end_date,
+            'assigned_at' => $startDate,
+            'expires_at' => $request->end_date
+                ? Carbon::parse($request->end_date)
+                : PurchaseAccessDuration::expiresAt($tryout, $startDate),
         ]);
     }
 
     private function grantTesKoranAccess($userId, $tesKoranId, $request)
     {
         $tesKoran = TesKoran::findOrFail($tesKoranId);
+        $approvedAt = now();
 
         IndividualPurchase::create([
             'user_id' => $userId,
@@ -276,7 +294,10 @@ class AksesController extends Controller
             'payment_method' => 'direct',
             'status' => IndividualPurchase::STATUS_APPROVED,
             'transaction_id' => 'DIRECT-TES-KORAN-' . $tesKoranId . '-' . $userId . '-' . time(),
-            'approved_at' => now(),
+            'approved_at' => $approvedAt,
+            'access_expires_at' => $request->end_date
+                ? Carbon::parse($request->end_date)
+                : PurchaseAccessDuration::expiresAt($tesKoran, $approvedAt),
             'approved_by' => Auth::id(),
         ]);
     }
@@ -293,9 +314,14 @@ class AksesController extends Controller
             return redirect()->back()->with('error', 'Pengajuan tidak tersedia atau sudah diproses.');
         }
 
+        $access->loadMissing('package');
+        $startDate = Carbon::now();
+
         $access->update([
-            'start_date' => Carbon::now(),
-            'end_date' => Carbon::now()->addDays(30),
+            'start_date' => $startDate,
+            'end_date' => $access->package
+                ? PurchaseAccessDuration::expiresAt($access->package, $startDate)
+                : $startDate->copy()->addDays(30),
             'status' => 'active',
             'payment_amount' => 0,
             'payment_status' => 'free',

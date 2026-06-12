@@ -10,6 +10,7 @@ use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
+use App\Services\PurchaseAccessDuration;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -132,6 +133,7 @@ class TryoutController extends Controller
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
                 'results_released_at' => null,
                 'price' => $request->price ?? 0,
+                ...$this->accessDurationData($request),
             ]);
 
             $this->createTryoutDetails($tryout, $request);
@@ -210,6 +212,7 @@ class TryoutController extends Controller
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
                 'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
                 'price' => $request->price ?? 0,
+                ...$this->accessDurationData($request),
             ]);
 
             // If type changed, rebuild subtests based on new type; else update existing ones
@@ -644,6 +647,8 @@ class TryoutController extends Controller
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
             'price' => 'nullable|numeric|min:0',
+            'access_duration_unit' => ['nullable', Rule::in(PurchaseAccessDuration::UNITS)],
+            'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ];
 
         foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
@@ -673,6 +678,27 @@ class TryoutController extends Controller
         }
 
         return $rules;
+    }
+
+    private function accessDurationData(Request $request): array
+    {
+        $price = (int) $request->input('price', 0);
+        if (!$request->has('is_for_sale') || $price <= 0) {
+            return [
+                'access_duration_unit' => 'forever',
+                'access_duration_value' => null,
+            ];
+        }
+
+        $unit = PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit'));
+
+        return [
+            'access_duration_unit' => $unit,
+            'access_duration_value' => PurchaseAccessDuration::normalizedValue(
+                $unit,
+                $request->input('access_duration_value')
+            ),
+        ];
     }
 
     private function getUtbkSubtests(): array

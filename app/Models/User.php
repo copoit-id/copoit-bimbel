@@ -263,6 +263,10 @@ class User extends Authenticatable
         return $this->materialAccess()
             ->where('material_id', $materialId)
             ->where('status', '!=', 'not_started')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->exists();
     }
 
@@ -272,6 +276,10 @@ class User extends Authenticatable
         $hasDirectAccess = $this->materialAccess()
             ->where('material_id', $materialId)
             ->where('status', '!=', 'not_started')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->exists();
 
         if ($hasDirectAccess) {

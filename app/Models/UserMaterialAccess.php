@@ -17,6 +17,7 @@ class UserMaterialAccess extends Model
     protected $casts = [
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'expires_at' => 'datetime',
         'progress_percentage' => 'integer',
     ];
 
@@ -96,6 +97,19 @@ class UserMaterialAccess extends Model
     public function scopeDirectAccess($query)
     {
         return $query->where('access_source', 'direct');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('expires_at')
+              ->orWhere('expires_at', '>', now());
+        });
+    }
+
+    public function getIsActiveAttribute(): bool
+    {
+        return is_null($this->expires_at) || $this->expires_at->isFuture();
     }
 
     /**

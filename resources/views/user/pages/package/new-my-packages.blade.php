@@ -67,7 +67,11 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
     })
     ->orWhereHas('individualPurchases', function($purchaseQuery) use ($user) {
         $purchaseQuery->where('user_id', $user->id)
-            ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED);
+            ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED)
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            });
     });
 })
 ->with(['results' => function($q) use ($user) {
