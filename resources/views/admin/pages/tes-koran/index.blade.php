@@ -78,7 +78,7 @@
                    class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-primary text-sm font-medium">
                     <i class="ri-bar-chart-line"></i>Hasil
                 </a>
-                <a href="{{ route('admin.tes-koran.edit', array_merge(['tesKoran' => $tes->id], request()->query())) }}"
+                <a href="{{ route('admin.tes-koran.edit', array_merge(request()->query(), ['tesKoran' => $tes->id])) }}"
                    class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white">
                     <i class="ri-edit-line"></i>
                 </a>

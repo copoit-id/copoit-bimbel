@@ -39,7 +39,7 @@
     @endif
 
     <div class="bg-white rounded-lg shadow p-6">
-        <form action="{{ route('admin.material.update', array_merge(['material' => $material], request()->query())) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('admin.material.update', array_merge(request()->query(), ['material' => $material])) }}" method="POST" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             

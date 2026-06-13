@@ -36,7 +36,7 @@
     <!-- Create/Edit Form -->
     <div class="bg-white rounded-lg shadow border border-gray-200">
         <form
-            action="{{ isset($tryout) ? route('admin.tryout.update', array_merge(['tryout' => $tryout->tryout_id], request()->query())) : route('admin.tryout.store') }}"
+            action="{{ isset($tryout) ? route('admin.tryout.update', array_merge(request()->query(), ['tryout' => $tryout->tryout_id])) : route('admin.tryout.store') }}"
             method="POST">
             @csrf
             @if(isset($tryout))

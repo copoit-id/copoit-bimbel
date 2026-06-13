@@ -27,7 +27,7 @@
 
     <!-- Edit Form -->
     <div class="bg-white rounded-lg border border-gray-200">
-        <form action="{{ route('admin.class.update', array_merge(['class' => $class->class_id], request()->query())) }}" method="POST">
+        <form action="{{ route('admin.class.update', array_merge(request()->query(), ['class' => $class->class_id])) }}" method="POST">
             @csrf
             @method('PUT')
             <div class="p-6 space-y-6">

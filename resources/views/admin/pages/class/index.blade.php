@@ -65,7 +65,7 @@
                                 <i class="ri-folder-line text-xl"></i>
                             </a>
                             @endif
-                            <a href="{{ route('admin.class.edit', array_merge(['class' => $class->class_id], request()->query())) }}"
+                            <a href="{{ route('admin.class.edit', array_merge(request()->query(), ['class' => $class->class_id])) }}"
                                 class="text-gray-500 hover:text-yellow-500">
                                 <i class="ri-edit-line text-xl"></i>
                             </a>

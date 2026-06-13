@@ -55,7 +55,7 @@
     <!-- Create/Edit Form -->
     <div class="bg-white rounded-lg shadow border border-gray-200">
         <form
-            action="{{ isset($package) ? route('admin.package.update', array_merge(['package_id' => $package->package_id], request()->query())) : route('admin.package.store') }}"
+            action="{{ isset($package) ? route('admin.package.update', array_merge(request()->query(), ['package_id' => $package->package_id])) : route('admin.package.store') }}"
             method="POST" enctype="multipart/form-data">
             @csrf
             @if(isset($package))

@@ -111,7 +111,7 @@
                             <i class="ri-{{ $material->is_active ? 'eye-off' : 'eye' }}-line text-lg"></i>
                         </button>
                     </form>
-                    <a href="{{ route('admin.material.edit', array_merge(['material' => $material], request()->query())) }}" class="p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors" title="Edit">
+                    <a href="{{ route('admin.material.edit', array_merge(request()->query(), ['material' => $material])) }}" class="p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors" title="Edit">
                         <i class="ri-edit-line text-lg"></i>
                     </a>
                     <form action="{{ route('admin.material.destroy', $material) }}" method="POST" class="inline"

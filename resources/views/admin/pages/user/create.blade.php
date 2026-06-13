@@ -51,7 +51,7 @@
 
     <!-- Create / Edit Form -->
     <div class="bg-white rounded-lg shadow border border-gray-200">
-        <form action="{{ $user ? route('admin.user.update', array_merge(['user' => $user->id], request()->query())) : route('admin.user.store') }}" method="POST">
+        <form action="{{ $user ? route('admin.user.update', array_merge(request()->query(), ['user' => $user->id])) : route('admin.user.store') }}" method="POST">
             @csrf
             @if ($user)
             @method('PUT')
