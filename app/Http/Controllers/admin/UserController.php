@@ -147,7 +147,7 @@ class UserController extends Controller
             $user->roles()->sync([$role->id]);
         }
 
-        return redirect()->route('admin.user.index')
+        return redirect()->route('admin.user.index', $request->query())
             ->with('success', 'User berhasil diperbarui');
     }
 

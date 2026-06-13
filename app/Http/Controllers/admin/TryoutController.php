@@ -257,7 +257,7 @@ class TryoutController extends Controller
                 $this->recalculateTryoutPassedStatus($tryout);
             }
 
-            return redirect()->route('admin.tryout.index')
+            return redirect()->route('admin.tryout.index', $request->query())
                 ->with('success', 'Tryout berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()

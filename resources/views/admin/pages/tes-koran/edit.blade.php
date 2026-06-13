@@ -34,7 +34,7 @@
             @method('DELETE')
         </form>
 
-        <form action="{{ route('admin.tes-koran.update', $tesKoran) }}" method="POST" novalidate>
+        <form action="{{ route('admin.tes-koran.update', array_merge(['tesKoran' => $tesKoran], request()->query())) }}" method="POST" novalidate>
             @csrf
             @method('PUT')
 

@@ -21,7 +21,7 @@
 @endphp
 <div class="container mx-auto px-4">
     <div class="mb-6">
-        <a href="{{ route('admin.material.index') }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 mb-2">
+        <a href="{{ route('admin.material.index', request()->query()) }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 mb-2">
             <i class="ri-arrow-left-line"></i>
             Kembali ke Daftar Materi
         </a>
@@ -39,7 +39,7 @@
     @endif
 
     <div class="bg-white rounded-lg shadow p-6">
-        <form action="{{ route('admin.material.update', $material) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('admin.material.update', array_merge(['material' => $material], request()->query())) }}" method="POST" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             
@@ -171,7 +171,7 @@
             </div>
 
             <div class="flex justify-end gap-3 mt-6 pt-6 border-t">
-                <a href="{{ route('admin.material.index') }}" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</a>
+                <a href="{{ route('admin.material.index', request()->query()) }}" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</a>
                 <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
                     <i class="ri-save-line mr-1"></i>
                     Simpan Perubahan

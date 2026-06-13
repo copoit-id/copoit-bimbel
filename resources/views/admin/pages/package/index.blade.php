@@ -187,7 +187,7 @@
                     <i class="ri-share-line"></i>
                 </button>
 
-                <a href="{{ route('admin.package.edit', $package->package_id) }}"
+                <a href="{{ route('admin.package.edit', array_merge(['package_id' => $package->package_id], request()->query())) }}"
                     class="inline-flex items-center justify-center bg-gray-100 hover:bg-primary hover:text-white border border-primary text-primary px-3 py-2 rounded-lg text-sm">
                     <i class="ri-pencil-fill"></i>
                 </a>

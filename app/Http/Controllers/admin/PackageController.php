@@ -204,7 +204,7 @@ class PackageController extends Controller
 
             $package->update($validated);
 
-            return redirect()->route('admin.package.index')
+            return redirect()->route('admin.package.index', $request->query())
                 ->with('success', 'Paket berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()

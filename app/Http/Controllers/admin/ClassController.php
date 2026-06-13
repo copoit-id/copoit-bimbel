@@ -83,7 +83,7 @@ class ClassController extends Controller
                 'status' => $request->status
             ]);
 
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class.index', $request->query())
                 ->with('success', 'Kelas berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()

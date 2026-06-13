@@ -181,7 +181,7 @@
                 </div>
 
                 <div class="flex gap-2">
-                    <a href="{{ route('admin.tryout.edit', $tryout->tryout_id) }}"
+                    <a href="{{ route('admin.tryout.edit', array_merge(['tryout' => $tryout->tryout_id], request()->query())) }}"
                         class="flex-1 flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-edit-line"></i>
                     </a>

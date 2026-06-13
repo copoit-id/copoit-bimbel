@@ -216,7 +216,7 @@
                                         </button>
                                     </form>
                                     @endif
-                                    <a href="{{ route('admin.user.edit', $user->id) }}"
+                                    <a href="{{ route('admin.user.edit', array_merge(['user' => $user->id], request()->query())) }}"
                                         class="text-blue-600 hover:text-blue-800" title="Edit">
                                         <i class="ri-edit-line"></i>
                                     </a>

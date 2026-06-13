@@ -63,7 +63,7 @@ class TesKoranController extends Controller
 
         $tesKoran->update($validated);
 
-        return redirect()->route('admin.tes-koran.index')
+        return redirect()->route('admin.tes-koran.index', $request->query())
             ->with('success', 'Tes Koran berhasil diperbarui.');
     }
 

@@ -12,7 +12,7 @@
                 {{ $user ? 'Perbarui data user' : 'Tambahkan user baru' }}
             </p>
         </div>
-        <a href="{{ route('admin.user.index') }}"
+        <a href="{{ route('admin.user.index', request()->query()) }}"
             class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center gap-2">
             <i class="ri-arrow-left-line"></i>
             Kembali
@@ -51,7 +51,7 @@
 
     <!-- Create / Edit Form -->
     <div class="bg-white rounded-lg shadow border border-gray-200">
-        <form action="{{ $user ? route('admin.user.update', $user->id) : route('admin.user.store') }}" method="POST">
+        <form action="{{ $user ? route('admin.user.update', array_merge(['user' => $user->id], request()->query())) : route('admin.user.store') }}" method="POST">
             @csrf
             @if ($user)
             @method('PUT')
@@ -133,7 +133,7 @@
             </div>
 
             <div class="flex items-center justify-end px-6 py-5 space-x-2">
-                <a href="{{ route('admin.user.index') }}"
+                <a href="{{ route('admin.user.index', request()->query()) }}"
                     class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
                     Batal
                 </a>

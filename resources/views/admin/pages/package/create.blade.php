@@ -35,7 +35,7 @@
             <p class="text-gray-500">{{ isset($package) ? 'Perbarui informasi paket' : 'Buat paket bimbel atau tryout
                 baru' }}</p>
         </div>
-        <a href="{{ route('admin.package.index') }}"
+        <a href="{{ route('admin.package.index', request()->query()) }}"
             class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center gap-2">
             <i class="ri-arrow-left-line"></i>
             Kembali
@@ -55,7 +55,7 @@
     <!-- Create/Edit Form -->
     <div class="bg-white rounded-lg shadow border border-gray-200">
         <form
-            action="{{ isset($package) ? route('admin.package.update', $package->package_id) : route('admin.package.store') }}"
+            action="{{ isset($package) ? route('admin.package.update', array_merge(['package_id' => $package->package_id], request()->query())) : route('admin.package.store') }}"
             method="POST" enctype="multipart/form-data">
             @csrf
             @if(isset($package))
@@ -241,7 +241,7 @@
             </div>
 
             <div class="flex items-center justify-end px-6 py-5 space-x-2 border-t border-gray-200">
-                <a href="{{ route('admin.package.index') }}"
+                <a href="{{ route('admin.package.index', request()->query()) }}"
                     class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
                     Batal
                 </a>

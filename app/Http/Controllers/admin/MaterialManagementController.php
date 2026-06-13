@@ -247,7 +247,7 @@ class MaterialManagementController extends Controller
             $material->categories()->detach();
         }
 
-        return redirect()->route('admin.material.index')
+        return redirect()->route('admin.material.index', $request->query())
             ->with('success', 'Materi berhasil diperbarui.');
     }
 
