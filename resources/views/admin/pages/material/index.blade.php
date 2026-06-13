@@ -41,8 +41,8 @@
            class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'document' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
             <i class="ri-file-text-line mr-1"></i>Dokumen
         </a>
-        <a href="{{ route('admin.material.index', ['type' => 'live']) }}"
-           class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'live' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+        <a href="{{ route('admin.material.index', ['type' => 'live_session']) }}"
+           class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'live_session' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
             <i class="ri-live-line mr-1"></i>Live Session
         </a>
     </div>
@@ -52,7 +52,7 @@
     $typeColors = [
         'video' => 'bg-primary/10 text-primary',
         'document' => 'bg-primary/10 text-primary',
-        'live' => 'bg-primary/10 text-primary',
+        'live_session' => 'bg-primary/10 text-primary',
     ];
     @endphp
 

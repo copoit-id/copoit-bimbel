@@ -43,7 +43,7 @@ class IndividualPurchaseController extends Controller
             $query->where('status', $status);
         }
 
-        $purchases = $query->paginate(15);
+        $purchases = $query->paginate(15)->withQueryString();
 
         // Stats
         $stats = [
