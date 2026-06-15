@@ -265,6 +265,15 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
             </a>
             <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
 
+            @if($package->type_price === 'free_conditional')
+            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                <div class="font-semibold mb-1 flex items-center gap-1">
+                    <i class="ri-file-upload-line"></i>Syarat klaim
+                </div>
+                <p class="line-clamp-2">{{ $package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.' }}</p>
+            </div>
+            @endif
+
             <!-- Features -->
             @php
                 $features = json_decode($package->features ?? '[]', true);
@@ -295,8 +304,15 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                        style="background-color: {{ $primaryColor }}">
                         <i class="ri-play-circle-line mr-1"></i>Mulai
                     </a>
+                    @elseif($tab === 'free' && $package->type_price === 'free_conditional')
+                    <button type="button"
+                            onclick="openConditionalModal({{ $package->package_id }}, @js($package->name), @js($package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.'))"
+                            class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        <i class="ri-file-upload-line mr-1"></i>Kirim Syarat
+                    </button>
                     @elseif($tab === 'free')
-                    <form action="{{ route('user.event.join', $package->package_id) }}" method="POST" class="claim-form flex-1">
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="claim-form flex-1">
                         @csrf
                         <button type="submit"
                                 class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
@@ -356,6 +372,61 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                     Gunakan
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Conditional Free Package Modal -->
+<div id="conditionalModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="text-lg font-semibold text-gray-800">Kirim Syarat Paket</h3>
+            <button type="button" onclick="closeConditionalModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <div class="p-5">
+            <div id="conditionalError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"></div>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+                <p class="text-xs text-amber-700 mb-1">Paket</p>
+                <p id="conditionalPackageName" class="font-semibold text-gray-800 mb-3"></p>
+                <p class="text-xs text-amber-700 mb-1">Syarat</p>
+                <p id="conditionalRequirementText" class="text-sm text-amber-900 leading-relaxed"></p>
+            </div>
+
+            <form id="conditionalForm" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Syarat <span class="text-red-500">*</span></label>
+                        <input type="file" name="requirement_proof" id="requirementProof" accept="image/*,.pdf,.mp4,.webm" required
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+                        <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, PDF, MP4, atau WEBM. Maks: 20MB</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Catatan untuk Admin <span class="text-gray-400 font-normal">(opsional)</span></label>
+                        <textarea name="requirement_user_notes" id="requirementUserNotes" rows="3" maxlength="1000"
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                                  placeholder="Contoh: Bukti ini dari akun Instagram saya, nama akun @..."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Catatan ini akan terlihat oleh admin saat review pengajuan.</p>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p class="text-sm text-gray-600">
+                            <i class="ri-information-line mr-1"></i>
+                            Akses belum aktif sampai admin menyetujui bukti yang kamu kirim.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="closeConditionalModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">
+                        Batal
+                    </button>
+                    <button type="submit" id="submitConditionalBtn" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">
+                        Kirim Bukti
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -507,6 +578,26 @@ let selectedPackageName = '';
 let selectedDiscountCode = '';
 let selectedDiscountAmount = 0;
 let selectedPayableAmount = 0;
+let selectedConditionalPackageId = null;
+
+function openConditionalModal(packageId, packageName, requirementText) {
+    selectedConditionalPackageId = packageId;
+    document.getElementById('conditionalPackageName').textContent = packageName;
+    document.getElementById('conditionalRequirementText').textContent = requirementText;
+    document.getElementById('conditionalError').classList.add('hidden');
+    document.getElementById('conditionalForm').action = `/user/paket/${packageId}/buy`;
+    document.getElementById('requirementProof').value = '';
+    document.getElementById('requirementUserNotes').value = '';
+    document.getElementById('conditionalModal').classList.remove('hidden');
+    document.getElementById('conditionalModal').classList.add('flex');
+}
+
+function closeConditionalModal() {
+    document.getElementById('conditionalModal').classList.add('hidden');
+    document.getElementById('conditionalModal').classList.remove('flex');
+    document.getElementById('conditionalForm').reset();
+    selectedConditionalPackageId = null;
+}
 
 // Reusable Toast Notification System
 function showToast(message, type = 'success') {
@@ -1075,6 +1166,54 @@ document.getElementById('paymentModal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closePaymentModal();
     }
+});
+
+document.getElementById('conditionalModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeConditionalModal();
+    }
+});
+
+document.getElementById('conditionalForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const form = this;
+    const submitBtn = document.getElementById('submitConditionalBtn');
+    const originalText = submitBtn.innerHTML;
+    const errorEl = document.getElementById('conditionalError');
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i>Mengirim...';
+    errorEl.classList.add('hidden');
+
+    fetch(form.action, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json',
+        },
+        body: new FormData(form),
+    })
+    .then(async response => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Bukti syarat gagal dikirim.');
+        }
+
+        closeConditionalModal();
+        showToast(data.message || 'Bukti berhasil dikirim. Mohon tunggu verifikasi admin.', 'success');
+        setTimeout(() => {
+            window.location.href = '{{ route("user.package.my") }}';
+        }, 1500);
+    })
+    .catch(error => {
+        errorEl.textContent = error.message || 'Terjadi kesalahan. Silakan coba lagi.';
+        errorEl.classList.remove('hidden');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
 });
 
 $(document).ready(function() {

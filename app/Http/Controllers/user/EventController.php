@@ -32,6 +32,13 @@ class EventController extends Controller
             ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
             ->firstOrFail();
 
+        if ($package->type_price === 'free_conditional') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Paket ini membutuhkan bukti syarat. Silakan kirim bukti terlebih dahulu untuk diverifikasi admin.',
+            ], 422);
+        }
+
         // Check if user already has active access (including not expired)
         $existing = UserPackageAcces::where('user_id', Auth::id())
             ->where('package_id', $package_id)

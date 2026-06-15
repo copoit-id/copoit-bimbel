@@ -76,11 +76,15 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
     @foreach($materials as $material)
     <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col">
         {{-- Thumbnail --}}
-        @if($material->thumbnail_url)
-        <div class="aspect-video overflow-hidden">
+        <div class="aspect-video bg-gray-100 overflow-hidden flex items-center justify-center">
+            @if($material->thumbnail_url)
             <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
+            @else
+            <div class="w-full h-full flex items-center justify-center {{ $material->type === 'video' ? 'bg-red-50 text-red-300' : ($material->type === 'document' ? 'bg-blue-50 text-blue-300' : 'bg-purple-50 text-purple-300') }}">
+                <i class="{{ $material->type_icon }} text-5xl"></i>
+            </div>
+            @endif
         </div>
-        @endif
 
         {{-- Card Body --}}
         <div class="p-4 flex flex-col flex-1">

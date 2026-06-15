@@ -165,6 +165,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengguna</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paket</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bukti</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catatan User</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                     </tr>
@@ -187,6 +188,13 @@
                             </a>
                             @else
                             <span class="text-gray-400 text-sm">-</span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600 max-w-xs">
+                            @if($request->requirement_user_notes)
+                            <p class="line-clamp-3">{{ $request->requirement_user_notes }}</p>
+                            @else
+                            <span class="text-gray-400">-</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-500">

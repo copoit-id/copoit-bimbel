@@ -80,18 +80,15 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col">
         <div class="flex">
             {{-- Thumbnail --}}
-            @if($material->thumbnail_url)
-            <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="w-32 aspect-video flex-shrink-0 overflow-hidden">
+            <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="w-32 aspect-video flex-shrink-0 overflow-hidden bg-blue-50 flex items-center justify-center">
+                @if($material->thumbnail_url)
                 <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="256" height="144" class="w-full h-full object-cover">
+                @else
+                <i class="ri-file-text-line text-3xl text-blue-300"></i>
+                @endif
             </a>
-            @endif
 
             <div class="flex items-start gap-4 p-4 flex-1">
-                @if(!$material->thumbnail_url)
-                <div class="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <i class="ri-file-text-line text-3xl text-blue-500"></i>
-                </div>
-                @endif
                 <div class="flex-1 min-w-0">
                     <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="block">
                         <h3 class="font-medium text-gray-800 mb-1 line-clamp-2 hover:text-blue-500 transition-colors">{{ $material->title }}</h3>

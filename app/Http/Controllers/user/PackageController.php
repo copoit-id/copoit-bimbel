@@ -152,13 +152,20 @@ class PackageController extends Controller
                 case 'free_conditional':
                     $validated = $request->validate([
                         'requirement_proof' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:20480',
+                        'requirement_user_notes' => 'nullable|string|max:1000',
                     ], [
                         'requirement_proof.required' => 'Bukti pemenuhan syarat wajib diunggah.',
                         'requirement_proof.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
                         'requirement_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                        'requirement_user_notes.max' => 'Catatan maksimal 1000 karakter.',
                     ]);
 
-                    $this->saveConditionalRequest($package, $existingAccess, $request->file('requirement_proof'));
+                    $this->saveConditionalRequest(
+                        $package,
+                        $existingAccess,
+                        $request->file('requirement_proof'),
+                        $validated['requirement_user_notes'] ?? null
+                    );
 
                     return response()->json([
                         'success' => true,
@@ -804,7 +811,7 @@ class PackageController extends Controller
         );
     }
 
-    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, \Illuminate\Http\UploadedFile $proof): void
+    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, \Illuminate\Http\UploadedFile $proof, ?string $userNotes = null): void
     {
         $proofPath = $proof->store('conditional-proofs', 'public');
 
@@ -825,6 +832,7 @@ class PackageController extends Controller
             'payment_status' => 'conditional',
             'notes' => $package->conditional_requirement,
             'requirement_proof_path' => $proofPath,
+            'requirement_user_notes' => $userNotes ? trim($userNotes) : null,
             'requirement_review_notes' => null,
             'requirement_status' => 'pending',
             'created_by' => Auth::id(),
