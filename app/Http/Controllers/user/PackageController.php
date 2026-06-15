@@ -35,6 +35,7 @@ class PackageController extends Controller
         
         // Get user's owned package IDs (cast to int for consistent comparison)
         $userOwnedPackageIds = [];
+        $pendingConditionalPackageIds = [];
         if (Auth::check()) {
             $userOwnedPackageIds = UserPackageAcces::where('user_id', Auth::id())
                 ->where('status', 'active')
@@ -42,6 +43,12 @@ class PackageController extends Controller
                     $query->whereNull('end_date')
                         ->orWhere('end_date', '>', Carbon::now());
                 })
+                ->pluck('package_id')
+                ->map(fn($id) => (int) $id)
+                ->toArray();
+
+            $pendingConditionalPackageIds = UserPackageAcces::where('user_id', Auth::id())
+                ->where('requirement_status', 'pending')
                 ->pluck('package_id')
                 ->map(fn($id) => (int) $id)
                 ->toArray();
@@ -102,6 +109,7 @@ class PackageController extends Controller
             'packages',
             'tab',
             'userOwnedPackageIds',
+            'pendingConditionalPackageIds',
             'manualPaymentUniqueCodes',
             'publicDiscounts',
             'packageAutomaticDiscounts',

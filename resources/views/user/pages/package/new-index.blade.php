@@ -209,6 +209,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
     @forelse($packages as $package)
     @php
     $isOwned = in_array((int) $package->package_id, $userOwnedPackageIds);
+    $isPendingConditional = in_array((int) $package->package_id, $pendingConditionalPackageIds ?? [], true);
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col">
         <!-- Package Image/Header -->
@@ -284,48 +285,53 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
             <!-- Action Buttons -->
             <div class="flex gap-2 mt-auto pt-2">
                 <a href="{{ route('user.package.detail', $package->package_id) }}"
-                   class="flex-1 py-2.5 rounded-xl text-center font-medium border transition-all hover:bg-gray-50"
+                   class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight border transition-all hover:bg-gray-50"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-                    <i class="ri-eye-line mr-1"></i>Detail
+                    <i class="ri-eye-line"></i><span>Detail</span>
                 </a>
                 @auth
                     @if($isOwned)
                     <a href="{{ route('user.package.show', $package->package_id) }}"
-                       class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                       class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                        style="background-color: {{ $primaryColor }}">
-                        <i class="ri-play-circle-line mr-1"></i>Mulai
+                        <i class="ri-play-circle-line"></i><span>Mulai</span>
                     </a>
+                    @elseif($tab === 'free' && $package->type_price === 'free_conditional' && $isPendingConditional)
+                    <button type="button" disabled
+                            class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 cursor-not-allowed">
+                        <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
+                    </button>
                     @elseif($tab === 'free' && $package->type_price === 'free_conditional')
                     <button type="button"
                             onclick="openConditionalModal({{ $package->package_id }}, @js($package->name), @js($package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.'))"
-                            class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                            class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                             style="background-color: {{ $primaryColor }}">
-                        <i class="ri-file-upload-line mr-1"></i>Kirim Syarat
+                        <i class="ri-file-upload-line"></i><span>Kirim Syarat</span>
                     </button>
                     @elseif($tab === 'free')
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="claim-form flex-1">
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="claim-form flex-1 flex">
                         @csrf
                         <button type="submit"
-                                class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                                class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
-                            <i class="ri-gift-line mr-1"></i>Klaim
+                            <i class="ri-gift-line"></i><span>Klaim</span>
                         </button>
                     </form>
                     @else
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1 flex" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
                         @csrf
                         <button type="button" onclick="handleBuy({{ $package->package_id }}, {{ $package->price }}, @js($package->name))"
-                                class="w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                                class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
-                            <i class="ri-shopping-cart-line mr-1"></i>Beli
+                            <i class="ri-shopping-cart-line"></i><span>Beli</span>
                         </button>
                     </form>
                     @endif
                 @else
                 <a href="{{ route('login') }}"
-                   class="flex-1 py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+                   class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
-                    <i class="ri-login-box-line mr-1"></i>Masuk
+                    <i class="ri-login-box-line"></i><span>Masuk</span>
                 </a>
                 @endauth
             </div>
@@ -563,6 +569,7 @@ $paymentModeConfig = $clientBranding['payment_mode'] ?? 'gateway';
 const PAYMENT_MODE = '{{ $paymentModeConfig }}';
 const PAYMENT_UNIQUE_CODE_ENABLED = @json($paymentUniqueCodeEnabled);
 const MANUAL_PAYMENT_UNIQUE_CODES = @json($manualPaymentUniqueCodes ?? []);
+const CONDITIONAL_PACKAGE_BUY_URL_TEMPLATE = @json(route('user.package.buy', ['package_id' => '__PACKAGE_ID__']));
 let selectedPackageId = null;
 let selectedPrice = 0;
 let selectedPackageName = '';
@@ -576,7 +583,7 @@ function openConditionalModal(packageId, packageName, requirementText) {
     document.getElementById('conditionalPackageName').textContent = packageName;
     document.getElementById('conditionalRequirementText').textContent = requirementText;
     document.getElementById('conditionalError').classList.add('hidden');
-    document.getElementById('conditionalForm').action = `/user/paket/${packageId}/buy`;
+    document.getElementById('conditionalForm').action = CONDITIONAL_PACKAGE_BUY_URL_TEMPLATE.replace('__PACKAGE_ID__', packageId);
     document.getElementById('requirementProof').value = '';
     document.getElementById('requirementUserNotes').value = '';
     document.getElementById('conditionalModal').classList.remove('hidden');
