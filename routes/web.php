@@ -321,6 +321,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
 // Admin Routes (add auth middleware)
 Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission', 'no-cache'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
     Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
     Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');
     Route::get('/update-notifications/{updateNotification}', [UpdateNotificationController::class, 'show'])->name('update-notifications.show');

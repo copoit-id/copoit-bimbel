@@ -16,7 +16,7 @@
 <div class="bg-white p-6 rounded-lg border border-border mt-6">
     <form
         action="{{ isset($faq) ? route('admin.faq.update', $faq->id) : route('admin.faq.store') }}"
-        method="POST" class="space-y-6">
+        method="POST" class="space-y-6" id="faqForm">
         @csrf
         @if(isset($faq))
         @method('PUT')
@@ -63,8 +63,8 @@
                 class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                 Batal
             </a>
-            <button type="submit"
-                class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+            <button type="submit" id="faqSubmitButton"
+                class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                 {{ isset($faq) ? 'Simpan Perubahan' : 'Simpan FAQ' }}
             </button>
         </div>
@@ -72,3 +72,74 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('faqForm');
+    const submitButton = document.getElementById('faqSubmitButton');
+    let isSubmitting = false;
+
+    if (!form) return;
+
+    form.addEventListener('submit', async function (event) {
+        if (isSubmitting) {
+            return;
+        }
+
+        if (!form.checkValidity()) {
+            return;
+        }
+
+        event.preventDefault();
+
+        try {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Menyimpan...';
+
+            if (window.jQuery && typeof window.jQuery.fn?.summernote === 'function') {
+                window.jQuery('.summernote').each(function () {
+                    window.jQuery(this).val(window.jQuery(this).summernote('code'));
+                });
+            }
+
+            const response = await fetch('{{ route('admin.csrf-token') }}', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                throw new Error('csrf-refresh-failed');
+            }
+
+            const data = await response.json();
+            const token = data.token;
+
+            if (!token) {
+                throw new Error('csrf-token-empty');
+            }
+
+            form.querySelectorAll('input[name="_token"]').forEach(input => {
+                input.value = token;
+            });
+
+            const metaToken = document.querySelector('meta[name="csrf-token"]');
+            if (metaToken) {
+                metaToken.setAttribute('content', token);
+            }
+
+            isSubmitting = true;
+            form.submit();
+        } catch (error) {
+            submitButton.disabled = false;
+            submitButton.textContent = @json(isset($faq) ? 'Simpan Perubahan' : 'Simpan FAQ');
+            alert('Sesi admin tidak bisa diverifikasi. Silakan refresh halaman lalu coba simpan lagi.');
+        }
+    });
+});
+</script>
+@endpush

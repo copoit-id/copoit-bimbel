@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\Faq;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class FaqController extends Controller
 {
@@ -20,6 +21,11 @@ class FaqController extends Controller
     public function create()
     {
         return view('admin.pages.faq.form');
+    }
+
+    public function csrfToken(): JsonResponse
+    {
+        return response()->json(['token' => csrf_token()]);
     }
 
     public function store(Request $request)
