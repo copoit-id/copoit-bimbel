@@ -36,6 +36,7 @@ class AksesController extends Controller
                 'userAccess as active_users_count' => fn($q) => $q->where('status', 'active')
                     ->where(fn($query) => $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now())),
                 'userAccess as expired_users_count' => fn($q) => $q->where('status', 'expired')->orWhere('end_date', '<', Carbon::now()),
+                'userAccess as pending_requests_count' => fn($q) => $q->where('requirement_status', 'pending'),
             ])->get(),
             'videos' => Material::where('type', 'video')->where('is_active', true)->withCount('userAccess')->get(),
             'documents' => Material::where('type', 'document')->where('is_active', true)->withCount('userAccess')->get(),
@@ -48,15 +49,56 @@ class AksesController extends Controller
                 ->get(),
             default => collect(),
         };
-        
-        // Pending requests (only for packages)
-        $pendingRequests = UserPackageAcces::where('requirement_status', 'pending')
-            ->with(['user', 'package'])
-            ->orderBy('created_at', 'asc')
-            ->get();
+
+        $pendingRequestType = $tab === 'packages' ? 'package' : 'individual';
+        $itemIds = $items->map(fn ($item) => $this->itemIdForTab($tab, $item))->filter()->values();
+
+        if ($pendingRequestType === 'individual') {
+            $pendingRequestCounts = $this->individualPendingCountsForTab($tab, $itemIds);
+
+            foreach ($items as $item) {
+                $item->pending_requests_count = $pendingRequestCounts->get($this->itemIdForTab($tab, $item), 0);
+            }
+        }
 
         return view('admin.pages.akses.index', compact(
-            'tab', 'items', 'pendingRequests'
+            'tab',
+            'items'
+        ));
+    }
+
+    public function requests(Request $request)
+    {
+        $type = $request->get('type', 'packages');
+        $itemId = $request->integer('item_id');
+        $normalizedType = rtrim($type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+
+        abort_if(!$itemId, 404);
+        abort_if(
+            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
+            403
+        );
+
+        $item = match($normalizedType) {
+            'package' => Package::findOrFail($itemId),
+            'video', 'document', 'live_session' => Material::findOrFail($itemId),
+            'tryout' => Tryout::findOrFail($itemId),
+            'tes_koran' => TesKoran::findOrFail($itemId),
+            default => abort(404),
+        };
+
+        $pendingRequestType = $normalizedType === 'package' ? 'package' : 'individual';
+        $pendingRequests = $pendingRequestType === 'package'
+            ? $this->packagePendingRequests($itemId)
+            : $this->individualPendingRequests($type, $itemId, collect([$itemId]));
+
+        return view('admin.pages.akses.requests', compact(
+            'type',
+            'item',
+            'itemId',
+            'pendingRequestType',
+            'pendingRequests'
         ));
     }
 
@@ -355,6 +397,67 @@ class AksesController extends Controller
                 : PurchaseAccessDuration::expiresAt($tesKoran, $approvedAt),
             'approved_by' => Auth::id(),
         ]);
+    }
+
+    private function packagePendingRequests(?int $packageId = null)
+    {
+        return UserPackageAcces::where('requirement_status', 'pending')
+            ->when($packageId, fn ($query) => $query->where('package_id', $packageId))
+            ->with(['user', 'package'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+    }
+
+    private function individualPendingRequests(string $tab, ?int $itemId = null, $itemIds = null)
+    {
+        $purchasableType = $this->individualPurchasableTypeForTab($tab);
+        $itemIds = collect($itemIds)->filter()->values();
+
+        if (!$purchasableType || (!$itemId && $itemIds->isEmpty())) {
+            return collect();
+        }
+
+        return IndividualPurchase::with(['user', 'purchasable'])
+            ->where('purchasable_type', $purchasableType)
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->when($itemId, fn ($query) => $query->where('purchasable_id', $itemId))
+            ->when(!$itemId, fn ($query) => $query->whereIn('purchasable_id', $itemIds))
+            ->orderBy('created_at', 'asc')
+            ->get();
+    }
+
+    private function individualPendingCountsForTab(string $tab, $itemIds)
+    {
+        $purchasableType = $this->individualPurchasableTypeForTab($tab);
+        $itemIds = collect($itemIds)->filter()->values();
+
+        if (!$purchasableType || $itemIds->isEmpty()) {
+            return collect();
+        }
+
+        return IndividualPurchase::where('purchasable_type', $purchasableType)
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->whereIn('purchasable_id', $itemIds)
+            ->select('purchasable_id', DB::raw('count(*) as total'))
+            ->groupBy('purchasable_id')
+            ->pluck('total', 'purchasable_id');
+    }
+
+    private function individualPurchasableTypeForTab(string $tab): ?string
+    {
+        return match ($tab) {
+            'video', 'videos', 'document', 'documents', 'live', 'live_session' => Material::class,
+            'tryout', 'tryouts' => Tryout::class,
+            'tes_koran' => TesKoran::class,
+            default => null,
+        };
+    }
+
+    private function itemIdForTab(string $tab, $item): ?int
+    {
+        $itemId = $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id ?? null;
+
+        return $itemId ? (int) $itemId : null;
     }
 
     // Legacy methods for backward compatibility

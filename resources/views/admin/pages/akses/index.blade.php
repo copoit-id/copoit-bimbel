@@ -62,32 +62,14 @@
     @endif
 </div>
 
-<!-- Pending Requests Alert (Only for packages tab) -->
-@if($tab === 'packages' && $pendingRequests->count() > 0)
-<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center">
-            <i class="ri-notification-3-line text-amber-500 text-xl mr-3"></i>
-            <div>
-                <p class="font-medium text-amber-800">Ada {{ $pendingRequests->count() }} pengajuan akses menunggu persetujuan</p>
-                <p class="text-sm text-amber-600">Pengajuan gratis bersyarat dari peserta</p>
-            </div>
-        </div>
-        <button onclick="document.getElementById('pending-requests').scrollIntoView({behavior: 'smooth'})"
-                class="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-200 transition-colors">
-            Lihat Pengajuan
-        </button>
-    </div>
-</div>
-@endif
-
 <!-- Items Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
     @forelse($items as $item)
     @php
     $itemId = $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id;
     $itemName = $item->name ?? $item->title ?? 'Unknown';
     $userCount = $item->user_access_count ?? $item->userAccess->count() ?? 0;
+    $pendingCount = (int) ($item->pending_requests_count ?? 0);
     
     // Get type-specific icon
     $icon = match($tab) {
@@ -112,7 +94,7 @@
     };
     @endphp
     <div class="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow group">
-        <div class="p-5">
+        <div class="p-5 flex h-full flex-col">
             <div class="flex items-start gap-4">
                 <div class="w-12 h-12 {{ $colorClass }} rounded-xl flex items-center justify-center flex-shrink-0">
                     <i class="{{ $icon }} text-xl"></i>
@@ -125,8 +107,9 @@
                 </div>
             </div>
             
-            <div class="mt-4 pt-4 border-t flex items-center justify-between">
-                <span class="text-xs text-gray-400">
+            <div class="mt-auto pt-4">
+                <div class="mb-3 border-t pt-4">
+                    <span class="inline-flex max-w-full items-center rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
                     @if(in_array($tab, ['packages', 'tes_koran']) && $item->price > 0)
                         Rp {{ number_format($item->price, 0, ',', '.') }}
                     @elseif(in_array($tab, ['packages', 'tes_koran']))
@@ -134,11 +117,19 @@
                     @else
                         {{ ucfirst(str_replace('_', ' ', $tab)) }}
                     @endif
-                </span>
-                <a href="{{ route('admin.akses.manage', ['type' => $tab, 'item_id' => $itemId]) }}" 
-                   class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                    Kelola Akses
-                </a>
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <a href="{{ route('admin.akses.requests.index', ['type' => $tab, 'item_id' => $itemId]) }}"
+                       class="min-h-[40px] inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-center text-sm font-medium transition-colors {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200' }}">
+                        <i class="ri-inbox-archive-line mr-1"></i>Pengajuan
+                        <span class="inline-flex min-w-5 justify-center rounded-full bg-white/70 px-1.5 text-xs">{{ $pendingCount }}</span>
+                    </a>
+                    <a href="{{ route('admin.akses.manage', ['type' => $tab, 'item_id' => $itemId]) }}"
+                       class="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-primary/90">
+                        Kelola Akses
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -152,88 +143,5 @@
     </div>
     @endforelse
 </div>
-
-<!-- Pending Requests Section -->
-@if($tab === 'packages' && $pendingRequests->count() > 0)
-<div id="pending-requests" class="mt-8">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">Pengajuan Akses Gratis Bersyarat</h3>
-    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengguna</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paket</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bukti</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catatan User</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
-                    @foreach($pendingRequests as $request)
-                    @php
-                        $proofPaths = collect($request->requirement_proof_paths ?? [])
-                            ->when($request->requirement_proof_path, fn ($paths) => $paths->push($request->requirement_proof_path))
-                            ->filter()
-                            ->unique()
-                            ->values();
-                    @endphp
-                    <tr>
-                        <td class="px-6 py-4">
-                            <div class="font-medium text-gray-900">{{ $request->user->name }}</div>
-                            <div class="text-xs text-gray-500">{{ $request->user->email }}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="font-medium text-gray-900">{{ $request->package->name }}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            @if($proofPaths->isNotEmpty())
-                            <div class="space-y-1">
-                                @foreach($proofPaths as $proofIndex => $proofPath)
-                                <a href="{{ asset('storage/' . $proofPath) }}" target="_blank"
-                                   class="text-primary hover:underline text-sm block">
-                                    <i class="ri-attachment-line mr-1"></i>Bukti {{ $proofIndex + 1 }}
-                                </a>
-                                @endforeach
-                            </div>
-                            @else
-                            <span class="text-gray-400 text-sm">-</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-600 max-w-xs">
-                            @if($request->requirement_user_notes)
-                            <p class="line-clamp-3">{{ $request->requirement_user_notes }}</p>
-                            @else
-                            <span class="text-gray-400">-</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            {{ $request->created_at->format('d M Y H:i') }}
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex gap-2">
-                                <form action="{{ route('admin.akses.requests.approve', $request) }}" method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit" class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200">
-                                        Setujui
-                                    </button>
-                                </form>
-                                <form action="{{ route('admin.akses.requests.reject', $request) }}" method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200">
-                                        Tolak
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-@endif
 
 @endsection
