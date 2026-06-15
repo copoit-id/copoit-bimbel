@@ -32,6 +32,7 @@ use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\DashboardController;
@@ -114,6 +115,13 @@ Route::get('/', function () {
     // Default ke user dashboard (support guest & logged in user)
     return redirect()->route('user.dashboard.index');
 });
+
+Route::get('/terms-and-conditions', [PublicPageController::class, 'terms'])->name('public.terms');
+Route::get('/syarat-ketentuan', [PublicPageController::class, 'terms'])->name('public.terms.id');
+Route::get('/payment-policy', [PublicPageController::class, 'paymentPolicy'])->name('public.payment-policy');
+Route::get('/kebijakan-pembayaran', [PublicPageController::class, 'paymentPolicy'])->name('public.payment-policy.id');
+Route::get('/refund-policy', [PublicPageController::class, 'refundPolicy'])->name('public.refund-policy');
+Route::get('/kebijakan-refund', [PublicPageController::class, 'refundPolicy'])->name('public.refund-policy.id');
 
 Route::get('/live-score/{tryout}', [LaporanController::class, 'publicLiveScore'])
     ->middleware('signed')
