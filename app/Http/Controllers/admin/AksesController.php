@@ -113,17 +113,21 @@ class AksesController extends Controller
         
         // Get all users (with pagination and search)
         $search = $request->get('search');
-        $usersQuery = User::where('role', 'user')
-            ->where('status', 'aktif')
-            ->when($search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"))
+        $usersQuery = User::where('status', 'aktif')
+            ->when($search, fn($q, $s) => $q->where(function ($query) use ($s) {
+                $query->where('name', 'like', "%{$s}%")
+                    ->orWhere('email', 'like', "%{$s}%");
+            }))
             ->orderBy('name');
         
         $allUsers = $usersQuery->paginate(20)->withQueryString();
         
-        // Mark users who already have access
-        $accessUserIds = $usersWithAccess->pluck('user_id')->toArray();
+        // Mark users who already have active access, while allowing expired access to be extended.
+        $accessByUserId = $usersWithAccess->keyBy('user_id');
         foreach ($allUsers as $user) {
-            $user->has_access = in_array($user->id, $accessUserIds);
+            $access = $accessByUserId->get($user->id);
+            $user->access_status = $this->accessStatusFor($normalizedType, $access);
+            $user->has_access = $user->access_status === 'active';
         }
         
         return view('admin.pages.akses.manage', compact(
@@ -160,9 +164,28 @@ class AksesController extends Controller
         
         // Check if already has access
         $hasAccess = match($normalizedType) {
-            'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->exists(),
-            'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->exists(),
-            'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->exists(),
+            'package' => UserPackageAcces::where('package_id', $itemId)
+                ->where('user_id', $userId)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists(),
+            'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)
+                ->where('user_id', $userId)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', Carbon::now());
+                })
+                ->exists(),
+            'tryout' => UserTryoutAccess::where('tryout_id', $itemId)
+                ->where('user_id', $userId)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', Carbon::now());
+                })
+                ->exists(),
             'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
                 ->where('purchasable_id', $itemId)
                 ->where('user_id', $userId)
@@ -231,16 +254,48 @@ class AksesController extends Controller
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : PurchaseAccessDuration::expiresAt($package, $startDate);
         
-        UserPackageAcces::create([
-            'user_id' => $userId,
-            'package_id' => $packageId,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'status' => $endDate && $endDate->isPast() ? 'expired' : 'active',
-            'payment_amount' => $request->access_type === 'paid' ? 1 : 0,
-            'payment_status' => $request->access_type === 'paid' ? 'paid' : 'free',
-            'created_by' => Auth::id(),
-        ]);
+        UserPackageAcces::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'package_id' => $packageId,
+            ],
+            [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'status' => $endDate && $endDate->isPast() ? 'expired' : 'active',
+                'payment_amount' => $request->access_type === 'paid' ? 1 : 0,
+                'payment_status' => $request->access_type === 'paid' ? 'paid' : 'free',
+                'requirement_status' => 'none',
+                'created_by' => Auth::id(),
+            ]
+        );
+    }
+
+    private function accessStatusFor(string $type, $access): string
+    {
+        if (!$access) {
+            return 'none';
+        }
+
+        if ($type === 'package') {
+            if ($access->status === 'active' && (is_null($access->end_date) || $access->end_date->isFuture())) {
+                return 'active';
+            }
+
+            return 'expired';
+        }
+
+        if (in_array($type, ['video', 'document', 'live_session', 'tryout'], true)) {
+            $expiresAt = $access->expires_at ?? null;
+
+            if (is_null($expiresAt) || Carbon::parse($expiresAt)->isFuture()) {
+                return 'active';
+            }
+
+            return 'expired';
+        }
+
+        return 'active';
     }
 
     private function grantMaterialAccess($userId, $materialId, $request)

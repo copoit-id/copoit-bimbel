@@ -70,7 +70,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 
 <!-- Documents Grid -->
 @if($materials->count() > 0)
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($materials as $material)
     @php
     $isAccessible = $user && $material->has_access;
@@ -78,75 +78,75 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     $displayPrice = $material->price ?? 0;
     @endphp
     <div class="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col">
-        <div class="flex">
-            {{-- Thumbnail --}}
-            <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="w-32 aspect-video flex-shrink-0 overflow-hidden bg-blue-50 flex items-center justify-center">
-                @if($material->thumbnail_url)
-                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="256" height="144" class="w-full h-full object-cover">
-                @else
-                <i class="ri-file-text-line text-3xl text-blue-300"></i>
-                @endif
-            </a>
-
-            <div class="flex items-start gap-4 p-4 flex-1">
-                <div class="flex-1 min-w-0">
-                    <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="block">
-                        <h3 class="font-medium text-gray-800 mb-1 line-clamp-2 hover:text-blue-500 transition-colors">{{ $material->title }}</h3>
-                    </a>
-                    <p class="text-sm text-gray-400 line-clamp-2 mb-3">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
-
-                    @if(!$user)
-                    <div class="flex items-center gap-3">
-                        <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
-                            <i class="ri-lock-line mr-1"></i>Login untuk akses
-                        </span>
-                        <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-300 text-blue-500 hover:bg-blue-50 transition-colors">
-                            Masuk
-                        </a>
-                    </div>
-                    @elseif($isAccessible && $userAccess && $userAccess->is_completed)
-                    <div class="flex items-center gap-3">
-                        <span class="px-2.5 py-1 text-xs rounded-full font-medium" style="background-color: {{ $primaryColor }}20; color: {{ $primaryColor }}">
-                            <i class="ri-check-line mr-1"></i>Selesai dibaca
-                        </span>
-                        <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
-                            Baca Lagi <i class="ri-arrow-right-line ml-1"></i>
-                        </a>
-                    </div>
-                    @elseif($isAccessible && $userAccess && $userAccess->is_in_progress)
-                    <div class="flex items-center gap-3">
-                        <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
-                            <i class="ri-time-line mr-1"></i>Sedang dibaca
-                        </span>
-                        <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
-                            Lanjutkan <i class="ri-arrow-right-line ml-1"></i>
-                        </a>
-                    </div>
-                    @elseif($isAccessible)
-                    <div class="flex items-center gap-3">
-                        <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                            <i class="ri-book-open-line mr-1"></i>Akses aktif
-                        </span>
-                        <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
-                            Baca <i class="ri-arrow-right-line ml-1"></i>
-                        </a>
-                    </div>
-                    @else
-                    {{-- User logged in but no access --}}
-                    @if($material->is_for_sale)
-                        <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
-                                class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
-                                style="background-color: {{ $primaryColor }}">
-                            <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
-                        </button>
-                    @else
-                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500">
-                            <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
-                        </div>
-                    @endif
-                    @endif
-                </div>
+        {{-- Thumbnail --}}
+        <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="block aspect-video bg-blue-50 overflow-hidden">
+            @if($material->thumbnail_url)
+            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
+            @else
+            <div class="w-full h-full flex items-center justify-center bg-blue-50 text-blue-300">
+                <i class="ri-file-text-line text-5xl"></i>
             </div>
+            @endif
+        </a>
+
+        <div class="p-4 flex flex-col flex-1">
+            <div class="flex-1 min-w-0 mb-4">
+                <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="block">
+                    <h3 class="font-medium text-gray-800 mb-1 line-clamp-2 hover:text-blue-500 transition-colors">{{ $material->title }}</h3>
+                </a>
+                <p class="text-sm text-gray-400 line-clamp-2">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
+            </div>
+
+            @if(!$user)
+            <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
+                    <i class="ri-lock-line mr-1"></i>Login untuk akses
+                </span>
+                <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-300 text-blue-500 hover:bg-blue-50 transition-colors">
+                    Masuk
+                </a>
+            </div>
+            @elseif($isAccessible && $userAccess && $userAccess->is_completed)
+            <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 text-xs rounded-full font-medium" style="background-color: {{ $primaryColor }}20; color: {{ $primaryColor }}">
+                    <i class="ri-check-line mr-1"></i>Selesai dibaca
+                </span>
+                <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
+                    Baca Lagi <i class="ri-arrow-right-line ml-1"></i>
+                </a>
+            </div>
+            @elseif($isAccessible && $userAccess && $userAccess->is_in_progress)
+            <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                    <i class="ri-time-line mr-1"></i>Sedang dibaca
+                </span>
+                <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
+                    Lanjutkan <i class="ri-arrow-right-line ml-1"></i>
+                </a>
+            </div>
+            @elseif($isAccessible)
+            <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                    <i class="ri-book-open-line mr-1"></i>Akses aktif
+                </span>
+                <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
+                    Baca <i class="ri-arrow-right-line ml-1"></i>
+                </a>
+            </div>
+            @else
+            {{-- User logged in but no access --}}
+            @if($material->is_for_sale)
+                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
+                        style="background-color: {{ $primaryColor }}">
+                    <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
+                </button>
+            @else
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500">
+                    <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
+                </div>
+            @endif
+            @endif
         </div>
     </div>
     @endforeach

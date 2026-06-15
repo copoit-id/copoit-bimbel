@@ -151,7 +151,7 @@
                         </select>
                         <button onclick="grantAccess({{ $user->id }}, '{{ $user->name }}')" 
                                 class="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90">
-                            <i class="ri-add-line mr-1"></i>Beri Akses
+                            <i class="{{ $user->access_status === 'expired' ? 'ri-refresh-line' : 'ri-add-line' }} mr-1"></i>{{ $user->access_status === 'expired' ? 'Perpanjang' : 'Beri Akses' }}
                         </button>
                     </div>
                     @endif
@@ -189,7 +189,7 @@ const csrfToken = '{{ csrf_token() }}';
 function grantAccess(userId, userName) {
     const accessType = document.getElementById(`access_type_${userId}`).value;
     
-    if (!confirm(`Berikan akses ${accessType === 'free' ? 'GRATIS' : 'BERBAYAR'} kepada ${userName}?`)) {
+    if (!confirm(`Berikan/perpanjang akses ${accessType === 'free' ? 'GRATIS' : 'BERBAYAR'} kepada ${userName}?`)) {
         return;
     }
     
