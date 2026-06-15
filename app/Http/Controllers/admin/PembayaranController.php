@@ -16,26 +16,55 @@ use App\Services\PurchaseAccessDuration;
 
 class PembayaranController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Get all payments with user and package info
-        $payments = Payment::with(['user', 'package'])
-            ->where('status', 'pending')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $status = $request->get('status', Payment::STATUS_PENDING);
+        $method = $request->get('method');
+        $search = trim((string) $request->get('search', ''));
+
+        $paymentsQuery = Payment::with(['user', 'package'])
+            ->when($status && $status !== 'all', fn ($query) => $query->where('status', $status))
+            ->when($method, fn ($query) => $query->where('payment_method', $method))
+            ->when($search !== '', fn ($query) => $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('transaction_id', 'like', "%{$search}%")
+                    ->orWhereHas('user', fn ($userQuery) => $userQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                    )
+                    ->orWhereHas('package', fn ($packageQuery) => $packageQuery
+                        ->where('name', 'like', "%{$search}%")
+                    );
+            }))
+            ->orderBy('created_at', 'desc');
+
+        $payments = $paymentsQuery->paginate(15)->withQueryString();
 
         // Get summary statistics
         $totalPayments = Payment::count();
         $successPayments = Payment::where('status', 'success')->count();
         $pendingPayments = Payment::where('status', 'pending')->count();
-        $failedPayments = Payment::whereIn('status', ['failed', 'expired'])->count();
+        $failedOnlyPayments = Payment::where('status', 'failed')->count();
+        $expiredPayments = Payment::where('status', 'expired')->count();
+        $failedPayments = $failedOnlyPayments + $expiredPayments;
+        $paymentMethods = Payment::query()
+            ->whereNotNull('payment_method')
+            ->select('payment_method')
+            ->distinct()
+            ->orderBy('payment_method')
+            ->pluck('payment_method');
 
         return view('admin.pages.pembayaran.index', compact(
             'payments',
             'totalPayments',
             'successPayments',
             'pendingPayments',
-            'failedPayments'
+            'failedPayments',
+            'failedOnlyPayments',
+            'expiredPayments',
+            'paymentMethods',
+            'status',
+            'method',
+            'search'
         ));
     }
 

@@ -12,7 +12,7 @@
 <x-page-desc title="Manajemen Pembayaran" description="Monitor dan kelola semua transaksi pembayaran"></x-page-desc>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-4 gap-4 mt-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
     <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
@@ -53,44 +53,46 @@
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6 mb-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
-            <div class="relative w-full sm:w-auto">
-                <input type="text" id="payment-search" placeholder="Cari transaksi..."
+        <form method="GET" action="{{ route('admin.pembayaran.index') }}" class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
+            <div class="relative w-full sm:w-64">
+                <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari transaksi..."
                     class="pl-10 pr-4 py-2 w-full sm:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
             </div>
             <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <select id="payment-status-filter"
+                <select name="status"
                     class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Status Pembayaran</option>
-                    <option value="success">Berhasil</option>
-                    <option value="pending">Pending</option>
-                    <option value="failed">Gagal</option>
-                    <option value="expired">Expired</option>
+                    <option value="all" {{ ($status ?? 'pending') === 'all' ? 'selected' : '' }}>Semua Status ({{ $totalPayments ?? 0 }})</option>
+                    <option value="pending" {{ ($status ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending ({{ $pendingPayments ?? 0 }})</option>
+                    <option value="success" {{ ($status ?? 'pending') === 'success' ? 'selected' : '' }}>Berhasil ({{ $successPayments ?? 0 }})</option>
+                    <option value="failed" {{ ($status ?? 'pending') === 'failed' ? 'selected' : '' }}>Gagal ({{ $failedOnlyPayments ?? 0 }})</option>
+                    <option value="expired" {{ ($status ?? 'pending') === 'expired' ? 'selected' : '' }}>Expired ({{ $expiredPayments ?? 0 }})</option>
                 </select>
-                <select id="payment-method-filter"
+                <select name="method"
                     class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">Metode Pembayaran</option>
-                    <option value="bank">Transfer Bank</option>
-                    <option value="ewallet">E-Wallet</option>
-                    <option value="credit">Kartu Kredit</option>
-                    <option value="xendit">Xendit</option>
-                    <option value="midtrans">Midtrans</option>
-                    <option value="interactive_qris">InterActive QRIS</option>
-                    <option value="manual">Manual</option>
+                    @foreach($paymentMethods ?? [] as $paymentMethod)
+                    <option value="{{ $paymentMethod }}" {{ ($method ?? '') === $paymentMethod ? 'selected' : '' }}>
+                        {{ ucwords(str_replace('_', ' ', $paymentMethod)) }}
+                    </option>
+                    @endforeach
                 </select>
             </div>
-            <button id="reset-payment-filters"
-                class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
-                <i class="ri-refresh-line"></i> Reset
+            <button type="submit"
+                class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 w-full sm:w-auto">
+                Terapkan
             </button>
-        </div>
+            <a href="{{ route('admin.pembayaran.index') }}"
+                class="inline-flex items-center justify-center px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
+                <i class="ri-refresh-line"></i> Reset
+            </a>
+        </form>
         <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
             <div id="payment-count" class="text-sm text-gray-500">
                 Total: <span class="font-medium text-gray-700">{{ $payments->total() ?? 0 }} Transaksi</span>
             </div>
-            <a href="{{ route('admin.pembayaran.manual.create') }}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">
-                Tambah Pembayaran Manual
+            <a href="{{ route('admin.pembayaran.manual.create') }}" class="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium whitespace-nowrap">
+                <i class="ri-add-line mr-1"></i>Tambah Manual
             </a>
         </div>
     </div>
@@ -100,30 +102,26 @@
         <table class="w-full text-sm text-left rtl:text-right text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3 w-full">Transaksi</th>
-                    <th scope="col" class="px-6 py-3 w-full">User</th>
-                    <th scope="col" class="px-6 py-3 w-full">Paket</th>
-                    <th scope="col" class="px-6 py-3 w-full">Jumlah</th>
-                    <th scope="col" class="px-6 py-3 w-full">Metode</th>
-                    <th scope="col" class="px-6 py-3 w-full">Status</th>
-                    <th scope="col" class="px-6 py-3 w-full">Tanggal</th>
-                    <th scope="col" class="px-6 py-3 w-full">Action</th>
+                    <th scope="col" class="px-4 py-3 min-w-[180px]">Transaksi</th>
+                    <th scope="col" class="px-4 py-3 min-w-[220px]">User</th>
+                    <th scope="col" class="px-4 py-3 min-w-[180px]">Paket</th>
+                    <th scope="col" class="px-4 py-3 min-w-[120px]">Jumlah</th>
+                    <th scope="col" class="px-4 py-3 min-w-[130px]">Metode</th>
+                    <th scope="col" class="px-4 py-3 min-w-[110px]">Status</th>
+                    <th scope="col" class="px-4 py-3 min-w-[110px]">Tanggal</th>
+                    <th scope="col" class="px-4 py-3 min-w-[150px]">Aksi</th>
                 </tr>
             </thead>
             <tbody id="payment-table-body">
                 @forelse($payments ?? [] as $payment)
-                <tr class="payment-row bg-white border-b border-dashed border-gray-200"
-                    data-user="{{ strtolower($payment->user->name ?? 'unknown') }}"
-                    data-package="{{ strtolower($payment->package->name ?? 'unknown') }}"
-                    data-status="{{ $payment->status }}" data-method="{{ $payment->payment_method }}"
-                    data-date="{{ $payment->created_at->format('Y-m-d') }}">
-                    <td class="px-6 py-4">
+                <tr class="payment-row bg-white border-b border-dashed border-gray-200">
+                    <td class="px-4 py-4">
                         <div>
                             <p class="font-medium text-gray-900">{{ $payment->transaction_id }}</p>
                             <p class="text-sm text-gray-500">ID: {{ $payment->payment_id }}</p>
                         </div>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-4">
                         <div class="flex items-center gap-3">
                             <img src="https://ui-avatars.com/api/?name={{ urlencode($payment->user->name ?? 'Unknown') }}&background=444444&color=fff"
                                 class="w-8 h-8 rounded-full">
@@ -133,14 +131,14 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4">{{ $payment->package->name ?? 'Unknown Package' }}</td>
-                    <td class="px-6 py-4">Rp {{ number_format($payment->amount, 0, ',', '.') }}</td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-4">{{ $payment->package->name ?? 'Unknown Package' }}</td>
+                    <td class="px-4 py-4">Rp {{ number_format($payment->amount, 0, ',', '.') }}</td>
+                    <td class="px-4 py-4">
                         <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs capitalize">
                             {{ $payment->payment_method ?? 'Unknown' }}
                         </span>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-4">
                         @switch($payment->status)
                         @case('success')
                         <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Berhasil</span>
@@ -159,20 +157,23 @@
                             ucfirst($payment->status) }}</span>
                         @endswitch
                     </td>
-                    <td class="px-6 py-4">{{ $payment->created_at->format('d M Y') }}</td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-2">
+                    <td class="px-4 py-4">{{ $payment->created_at->format('d M Y') }}</td>
+                    <td class="px-4 py-4">
+                        <div class="flex flex-wrap items-center gap-2">
                             <a href="{{ route('admin.pembayaran.show', $payment->payment_id) }}"
-                                class="text-primary hover:text-primary/80">
-                                <i class="ri-eye-line"></i>
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary"
+                                title="Detail">
+                                <i class="ri-eye-line text-base"></i>
                             </a>
                             @if($payment->status === 'pending')
                             <form action="{{ route('admin.pembayaran.confirm', $payment->payment_id) }}" method="POST"
                                 class="inline">
                                 @csrf
-                                <button type="submit" class="text-green-600 hover:text-green-800"
+                                <button type="submit"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-700 hover:bg-green-200"
+                                    title="Konfirmasi"
                                     onclick="return confirm('Konfirmasi pembayaran ini?')">
-                                    <i class="ri-check-line"></i>
+                                    <i class="ri-check-line text-base"></i>
                                 </button>
                             </form>
                             @endif
@@ -184,7 +185,7 @@
                     <td colspan="12" class="px-6 py-8 text-center text-gray-500 w-full">
                         <div class="flex flex-col items-center">
                             <i class="ri-money-dollar-circle-line text-4xl text-gray-300 mb-2"></i>
-                            <p>Belum ada transaksi pembayaran</p>
+                            <p>{{ ($status ?? 'pending') !== 'pending' || ($method ?? '') || ($search ?? '') ? 'Tidak ada transaksi sesuai filter' : 'Belum ada transaksi pembayaran pending' }}</p>
                         </div>
                     </td>
                 </tr>
@@ -200,86 +201,6 @@
     </div>
     @endif
 
-    <!-- No Results Message -->
-    <div id="no-payment-results" class="hidden text-center py-12">
-        <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-            <i class="ri-search-line text-3xl text-gray-400"></i>
-        </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada transaksi ditemukan</h3>
-        <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
-    </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('payment-search');
-    const statusFilter = document.getElementById('payment-status-filter');
-    const methodFilter = document.getElementById('payment-method-filter');
-    const resetButton = document.getElementById('reset-payment-filters');
-    const paymentCount = document.getElementById('payment-count');
-    const paymentRows = document.querySelectorAll('.payment-row');
-    const tableBody = document.getElementById('payment-table-body');
-    const noResults = document.getElementById('no-payment-results');
-
-    function filterPayments() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const selectedStatus = statusFilter.value;
-        const selectedMethod = methodFilter.value;
-
-        let visibleCount = 0;
-
-        paymentRows.forEach(row => {
-            const userName = row.dataset.user || '';
-            const packageName = row.dataset.package || '';
-            const paymentStatus = row.dataset.status || '';
-            const paymentMethod = row.dataset.method || '';
-
-            const matchesSearch = userName.includes(searchTerm) || packageName.includes(searchTerm);
-            const matchesStatus = !selectedStatus || paymentStatus === selectedStatus;
-            const matchesMethod = !selectedMethod || paymentMethod === selectedMethod;
-
-            if (matchesSearch && matchesStatus && matchesMethod) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Show/hide no results message
-        if (visibleCount === 0 && paymentRows.length > 0) {
-            noResults.classList.remove('hidden');
-            tableBody.parentElement.style.display = 'none';
-        } else {
-            noResults.classList.add('hidden');
-            tableBody.parentElement.style.display = 'block';
-        }
-
-        updatePaymentCount(visibleCount);
-    }
-
-    function updatePaymentCount(count) {
-        paymentCount.innerHTML = `Total: <span class="font-medium text-gray-700">${count} Transaksi</span>`;
-    }
-
-    function resetFilters() {
-        searchInput.value = '';
-        statusFilter.value = '';
-        methodFilter.value = '';
-        filterPayments();
-    }
-
-    // Event listeners
-    searchInput.addEventListener('input', filterPayments);
-    statusFilter.addEventListener('change', filterPayments);
-    methodFilter.addEventListener('change', filterPayments);
-    resetButton.addEventListener('click', resetFilters);
-
-    // Initial render
-    filterPayments();
-
-    console.log('Payment management scripts loaded');
-});
-</script>
 
 @endsection
