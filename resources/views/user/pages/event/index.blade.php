@@ -128,6 +128,9 @@
                             class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition">
                             Ambil Gratis
                         </button>
+                        @if($package->type_price === 'paid')
+                        <x-legal-links compact class="mt-2 text-center" />
+                        @endif
                     </form>
                     @endif
                 @endif
@@ -230,6 +233,7 @@
                                     class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                                 <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF (maks 20MB)</p>
                             </div>
+                            <x-legal-links />
                             <div class="flex items-center justify-end gap-3">
                                 <button type="button"
                                     class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"

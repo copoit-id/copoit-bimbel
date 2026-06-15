@@ -189,6 +189,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                        class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm">
             </div>
             @endif
+            <x-legal-links class="mb-4" />
             <div class="flex gap-3">
                 <button type="button" id="cancelPurchase" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">Batal</button>
                 <button type="submit" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">Beli</button>

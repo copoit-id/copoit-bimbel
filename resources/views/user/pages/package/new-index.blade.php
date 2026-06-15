@@ -345,13 +345,14 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                         </button>
                     </form>
                     @else
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1 flex" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1 flex flex-col gap-2" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
                         @csrf
                         <button type="button" onclick="handleBuy({{ $package->package_id }}, {{ $package->price }}, @js($package->name))"
                                 class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-shopping-cart-line"></i><span>Beli</span>
                         </button>
+                        <x-legal-links compact class="text-center" />
                     </form>
                     @endif
                 @else
@@ -549,6 +550,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                             Setelah upload, silakan tunggu verifikasi dari admin. Paket akan aktif setelah pembayaran dikonfirmasi.
                         </p>
                     </div>
+                    <x-legal-links />
                 </div>
                 <div class="flex gap-3 mt-6">
                     <button type="button" onclick="closePaymentModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">

@@ -213,6 +213,7 @@ $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-shopping-cart-line mr-2"></i>Beli Paket
                         </button>
+                        <x-legal-links class="text-center" />
                     </form>
                     @endif
                 @else
@@ -233,6 +234,7 @@ $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
                         <i class="ri-information-line mr-1"></i>
                         Silakan masuk untuk melanjutkan
                     </p>
+                    <x-legal-links class="text-center" />
                 @endauth
             </div>
         </div>

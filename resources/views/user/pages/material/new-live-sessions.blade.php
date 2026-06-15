@@ -210,6 +210,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                             Setelah upload, tunggu verifikasi admin. Item akan aktif setelah pembayaran dikonfirmasi.
                         </p>
                     </div>
+                    <x-legal-links />
                 </div>
                 <div class="flex gap-3 mt-6">
                     <button type="button" onclick="closePurchaseModal()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">Batal</button>
