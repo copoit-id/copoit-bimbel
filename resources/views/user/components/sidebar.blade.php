@@ -109,7 +109,7 @@
                     class="flex items-center py-2 px-4  {{ request()->routeIs('user.help.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-question-line text-[20px]  {{ request()->routeIs('user.help.index') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Bantuan</span>
+                    <span class="ms-3">FAQ</span>
                 </a>
             </li>
             @if($canShowAffiliateMenu)

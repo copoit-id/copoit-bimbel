@@ -5,6 +5,11 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$whatsappNumber = preg_replace('/\D+/', '', (string) ($clientBranding['contact_whatsapp_number'] ?? ''));
+$contactUrl = $whatsappNumber !== ''
+    ? "https://wa.me/{$whatsappNumber}"
+    : 'mailto:' . ($clientBranding['contact_email'] ?? 'support@example.com');
+$contactTarget = $whatsappNumber !== '' ? '_blank' : '_self';
 @endphp
 
 <!-- Header -->
@@ -58,7 +63,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <h3 class="font-semibold text-gray-800">Masih butuh bantuan?</h3>
             <p class="text-sm text-gray-500">Tim support kami siap membantu kamu.</p>
         </div>
-        <a href="mailto:{{ $clientBranding['contact_email'] ?? 'support@example.com' }}" class="px-4 py-2 rounded-xl text-white font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+        <a href="{{ $contactUrl }}" target="{{ $contactTarget }}" @if($whatsappNumber !== '') rel="noopener noreferrer" @endif class="px-4 py-2 rounded-xl text-white font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
             Hubungi Kami
         </a>
     </div>

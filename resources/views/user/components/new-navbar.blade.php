@@ -143,6 +143,11 @@ function isActive($route, $current) {
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $currentRoute === 'user.package.index' ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-store-3-line mr-1.5 {{ $currentRoute === 'user.package.index' ? '' : 'text-gray-400' }}"></i>Paket
                 </a>
+
+                <a href="{{ route('user.help.index') }}"
+                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.help', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
+                    <i class="ri-question-line mr-1.5 {{ isActive('user.help', $currentRoute) ? '' : 'text-gray-400' }}"></i>FAQ
+                </a>
                 
                 @if($user)
                 {{-- Paket Saya with Dropdown (paling kanan) --}}
@@ -210,6 +215,9 @@ function isActive($route, $current) {
                             <i class="ri-share-forward-line mr-2"></i>Affiliate
                         </a>
                         @endif
+                        <a href="{{ route('user.help.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="ri-question-line mr-2"></i>FAQ
+                        </a>
                         <form action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 mt-1 pt-1">
                             @csrf
                             <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
@@ -262,6 +270,11 @@ function isActive($route, $current) {
         <a href="{{ route('user.package.index') }}" class="flex flex-col items-center p-2 {{ $currentRoute === 'user.package.index' ? '' : 'text-gray-400' }}" style="{{ $currentRoute === 'user.package.index' ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-store-3-line text-xl"></i>
             <span class="text-xs mt-0.5">Paket</span>
+        </a>
+
+        <a href="{{ route('user.help.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.help', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.help', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
+            <i class="ri-question-line text-xl"></i>
+            <span class="text-xs mt-0.5">FAQ</span>
         </a>
         
         @if($user)
