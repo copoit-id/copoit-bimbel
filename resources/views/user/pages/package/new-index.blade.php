@@ -265,15 +265,6 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
             </a>
             <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
 
-            @if($package->type_price === 'free_conditional')
-            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-                <div class="font-semibold mb-1 flex items-center gap-1">
-                    <i class="ri-file-upload-line"></i>Syarat klaim
-                </div>
-                <p class="line-clamp-2">{{ $package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.' }}</p>
-            </div>
-            @endif
-
             <!-- Features -->
             @php
                 $features = json_decode($package->features ?? '[]', true);
@@ -400,9 +391,9 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Syarat <span class="text-red-500">*</span></label>
-                        <input type="file" name="requirement_proof" id="requirementProof" accept="image/*,.pdf,.mp4,.webm" required
+                        <input type="file" name="requirement_proofs[]" id="requirementProof" accept="image/*,.pdf,.mp4,.webm" required multiple
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
-                        <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, PDF, MP4, atau WEBM. Maks: 20MB</p>
+                        <p class="text-xs text-gray-500 mt-1">Bisa pilih lebih dari satu file. Format: JPG, PNG, PDF, MP4, atau WEBM. Maks: 2MB per file.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Catatan untuk Admin <span class="text-gray-400 font-normal">(opsional)</span></label>

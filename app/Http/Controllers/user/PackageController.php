@@ -151,19 +151,23 @@ class PackageController extends Controller
 
                 case 'free_conditional':
                     $validated = $request->validate([
-                        'requirement_proof' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:20480',
+                        'requirement_proofs' => 'required|array|min:1',
+                        'requirement_proofs.*' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:2048',
                         'requirement_user_notes' => 'nullable|string|max:1000',
                     ], [
-                        'requirement_proof.required' => 'Bukti pemenuhan syarat wajib diunggah.',
-                        'requirement_proof.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
-                        'requirement_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                        'requirement_proofs.required' => 'Bukti pemenuhan syarat wajib diunggah.',
+                        'requirement_proofs.array' => 'Bukti pemenuhan syarat tidak valid.',
+                        'requirement_proofs.min' => 'Minimal unggah 1 bukti syarat.',
+                        'requirement_proofs.*.required' => 'Bukti pemenuhan syarat wajib diunggah.',
+                        'requirement_proofs.*.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
+                        'requirement_proofs.*.max' => 'Ukuran setiap file maksimal 2MB.',
                         'requirement_user_notes.max' => 'Catatan maksimal 1000 karakter.',
                     ]);
 
                     $this->saveConditionalRequest(
                         $package,
                         $existingAccess,
-                        $request->file('requirement_proof'),
+                        $request->file('requirement_proofs', []),
                         $validated['requirement_user_notes'] ?? null
                     );
 
@@ -811,17 +815,27 @@ class PackageController extends Controller
         );
     }
 
-    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, \Illuminate\Http\UploadedFile $proof, ?string $userNotes = null): void
+    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, array $proofs, ?string $userNotes = null): void
     {
-        $proofPath = $proof->store('conditional-proofs', 'public');
+        $proofPaths = collect($proofs)
+            ->map(fn (\Illuminate\Http\UploadedFile $proof) => $proof->store('conditional-proofs', 'public'))
+            ->values()
+            ->all();
 
         $access = $existingAccess ?: new UserPackageAcces([
             'user_id' => Auth::id(),
             'package_id' => $package->package_id,
         ]);
 
-        if ($access->requirement_proof_path && Storage::disk('public')->exists($access->requirement_proof_path)) {
-            Storage::disk('public')->delete($access->requirement_proof_path);
+        $oldProofPaths = collect($access->requirement_proof_paths ?? [])
+            ->when($access->requirement_proof_path, fn ($paths) => $paths->push($access->requirement_proof_path))
+            ->filter()
+            ->unique();
+
+        foreach ($oldProofPaths as $oldProofPath) {
+            if (Storage::disk('public')->exists($oldProofPath)) {
+                Storage::disk('public')->delete($oldProofPath);
+            }
         }
 
         $access->fill([
@@ -831,7 +845,8 @@ class PackageController extends Controller
             'payment_amount' => 0,
             'payment_status' => 'conditional',
             'notes' => $package->conditional_requirement,
-            'requirement_proof_path' => $proofPath,
+            'requirement_proof_path' => $proofPaths[0] ?? null,
+            'requirement_proof_paths' => $proofPaths,
             'requirement_user_notes' => $userNotes ? trim($userNotes) : null,
             'requirement_review_notes' => null,
             'requirement_status' => 'pending',

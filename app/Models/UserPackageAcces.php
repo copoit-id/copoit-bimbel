@@ -18,6 +18,7 @@ class UserPackageAcces extends Model
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'payment_amount' => 'decimal:0',
+        'requirement_proof_paths' => 'array',
     ];
 
     // Relationships

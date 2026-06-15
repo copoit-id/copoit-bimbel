@@ -172,6 +172,13 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
                     @foreach($pendingRequests as $request)
+                    @php
+                        $proofPaths = collect($request->requirement_proof_paths ?? [])
+                            ->when($request->requirement_proof_path, fn ($paths) => $paths->push($request->requirement_proof_path))
+                            ->filter()
+                            ->unique()
+                            ->values();
+                    @endphp
                     <tr>
                         <td class="px-6 py-4">
                             <div class="font-medium text-gray-900">{{ $request->user->name }}</div>
@@ -181,11 +188,15 @@
                             <div class="font-medium text-gray-900">{{ $request->package->name }}</div>
                         </td>
                         <td class="px-6 py-4">
-                            @if($request->requirement_proof_path)
-                            <a href="{{ asset('storage/' . $request->requirement_proof_path) }}" target="_blank"
-                               class="text-primary hover:underline text-sm">
-                                <i class="ri-attachment-line mr-1"></i>Lihat Bukti
-                            </a>
+                            @if($proofPaths->isNotEmpty())
+                            <div class="space-y-1">
+                                @foreach($proofPaths as $proofIndex => $proofPath)
+                                <a href="{{ asset('storage/' . $proofPath) }}" target="_blank"
+                                   class="text-primary hover:underline text-sm block">
+                                    <i class="ri-attachment-line mr-1"></i>Bukti {{ $proofIndex + 1 }}
+                                </a>
+                                @endforeach
+                            </div>
                             @else
                             <span class="text-gray-400 text-sm">-</span>
                             @endif
