@@ -66,6 +66,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 @endif
 
+@include('user.pages.material.partials.filter-sort', ['action' => route('user.material.documents')])
+
 <!-- Documents Grid -->
 @if($materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -80,7 +82,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             {{-- Thumbnail --}}
             @if($material->thumbnail_url)
             <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="w-32 aspect-video flex-shrink-0 overflow-hidden">
-                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="256" height="144" class="w-full h-full object-cover">
             </a>
             @endif
 
@@ -105,7 +107,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                             Masuk
                         </a>
                     </div>
-                    @elseif($userAccess && $userAccess->is_completed)
+                    @elseif($isAccessible && $userAccess && $userAccess->is_completed)
                     <div class="flex items-center gap-3">
                         <span class="px-2.5 py-1 text-xs rounded-full font-medium" style="background-color: {{ $primaryColor }}20; color: {{ $primaryColor }}">
                             <i class="ri-check-line mr-1"></i>Selesai dibaca
@@ -114,13 +116,22 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                             Baca Lagi <i class="ri-arrow-right-line ml-1"></i>
                         </a>
                     </div>
-                    @elseif($userAccess && $userAccess->is_in_progress)
+                    @elseif($isAccessible && $userAccess && $userAccess->is_in_progress)
                     <div class="flex items-center gap-3">
                         <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
                             <i class="ri-time-line mr-1"></i>Sedang dibaca
                         </span>
                         <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
                             Lanjutkan <i class="ri-arrow-right-line ml-1"></i>
+                        </a>
+                    </div>
+                    @elseif($isAccessible)
+                    <div class="flex items-center gap-3">
+                        <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                            <i class="ri-book-open-line mr-1"></i>Akses aktif
+                        </span>
+                        <a href="{{ route('user.material.show', $material->material_id) }}" class="text-blue-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
+                            Baca <i class="ri-arrow-right-line ml-1"></i>
                         </a>
                     </div>
                     @else

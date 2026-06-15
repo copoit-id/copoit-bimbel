@@ -12,83 +12,15 @@ $currentTab = request('tab', 'packages');
 if (!$tesKoranEnabled && $currentTab === 'tes-koran') {
     $currentTab = 'packages';
 }
+$assetUrl = function (?string $path) {
+    if (!$path) {
+        return null;
+    }
 
-// Get user's accessible data for each tab
-$accessiblePackageIds = $user->userPackageAccess()
-    ->where('status', 'active')
-    ->where(function ($q) {
-        $q->whereNull('end_date')->orWhere('end_date', '>', now());
-    })
-    ->pluck('package_id')
-    ->toArray();
-
-// Get materials via active packages. Package assignment uses detail_packages.
-$packageMaterialIds = \DB::table('detail_packages')
-    ->whereIn('package_id', $accessiblePackageIds)
-    ->where('detailable_type', \App\Models\Material::class)
-    ->pluck('detailable_id')
-    ->toArray();
-
-$directMaterialIds = \App\Models\UserMaterialAccess::where('user_id', $user->id)
-    ->where('status', '!=', 'not_started')
-    ->where(function ($q) {
-        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-    })
-    ->pluck('material_id')
-    ->toArray();
-
-$accessibleMaterialIds = array_values(array_unique(array_merge($packageMaterialIds, $directMaterialIds)));
-
-$myMaterials = \App\Models\Material::whereIn('material_id', $accessibleMaterialIds)
-    ->with(['userAccess' => function($q) use ($user) {
-        $q->where('user_id', $user->id);
-    }])
-    ->get();
-
-$videoMaterials = $myMaterials->where('type', 'video');
-$documentMaterials = $myMaterials->where('type', 'document');
-
-// Get tryouts via active packages and direct tryout access.
-$directTryoutIds = \App\Models\UserTryoutAccess::where('user_id', $user->id)
-    ->where(function ($q) {
-        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-    })
-    ->pluck('tryout_id')
-    ->toArray();
-
-$myTryouts = \App\Models\Tryout::where(function($q) use ($accessiblePackageIds, $directTryoutIds) {
-    $q->whereHas('packages', function($packageQuery) use ($accessiblePackageIds) {
-        $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
-    })
-    ->orWhereIn('tryout_id', $directTryoutIds);
-})
-->with([
-    'packages' => function($q) use ($accessiblePackageIds) {
-        $q->whereIn('packages.package_id', $accessiblePackageIds);
-    },
-    'userAnswers' => function($q) use ($user) {
-        $q->where('user_id', $user->id);
-    },
-])
-->get();
-
-$myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use ($accessiblePackageIds, $user) {
-    $q->whereHas('packages', function($packageQuery) use ($accessiblePackageIds) {
-        $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
-    })
-    ->orWhereHas('individualPurchases', function($purchaseQuery) use ($user) {
-        $purchaseQuery->where('user_id', $user->id)
-            ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED)
-            ->where(function ($query) {
-                $query->whereNull('access_expires_at')
-                    ->orWhere('access_expires_at', '>', now());
-            });
-    });
-})
-->with(['results' => function($q) use ($user) {
-    $q->where('user_id', $user->id);
-}])
-->get() : collect();
+    return \Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '/'])
+        ? $path
+        : Storage::url($path);
+};
 @endphp
 
 <style>
@@ -112,29 +44,56 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
 
 <!-- Tabs Navigation -->
 <div class="bg-white rounded-2xl p-2 mb-6 border border-gray-100 inline-flex flex-wrap gap-1">
-    <a href="{{ route('user.package.my') }}?tab=packages" 
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'packages'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'packages' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-folder-3-line mr-1"></i>Paket
     </a>
-    <a href="{{ route('user.package.my') }}?tab=videos" 
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'videos'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'videos' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-video-line mr-1"></i>Video
     </a>
-    <a href="{{ route('user.package.my') }}?tab=documents" 
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'documents'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'documents' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-text-line mr-1"></i>Dokumen
     </a>
-    <a href="{{ route('user.package.my') }}?tab=tryouts" 
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'tryouts'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tryouts' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
     </a>
     @if($tesKoranEnabled)
-    <a href="{{ route('user.package.my') }}?tab=tes-koran"
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'tes-koran'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tes-koran' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-edit-line mr-1"></i>Tes Koran
     </a>
     @endif
 </div>
+
+<form method="GET" action="{{ route('user.package.my') }}" class="bg-white border border-gray-100 rounded-xl p-3 mb-6 flex flex-col md:flex-row gap-3">
+    <input type="hidden" name="tab" value="{{ $currentTab }}">
+    <div class="flex-1">
+        <label for="my-package-search" class="sr-only">Cari</label>
+        <div class="relative">
+            <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input id="my-package-search" type="search" name="search" value="{{ request('search', $search ?? '') }}"
+                   placeholder="Cari berdasarkan nama"
+                   class="w-full rounded-lg border border-gray-200 pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                   style="--tw-ring-color: {{ $primaryColor }}">
+        </div>
+    </div>
+    <div class="flex gap-2">
+        <label for="my-package-sort" class="sr-only">Urutkan</label>
+        <select id="my-package-sort" name="sort" class="min-w-[180px] rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                style="--tw-ring-color: {{ $primaryColor }}">
+            <option value="latest" {{ request('sort', $sort ?? 'latest') === 'latest' ? 'selected' : '' }}>Terbaru</option>
+            <option value="oldest" {{ request('sort', $sort ?? 'latest') === 'oldest' ? 'selected' : '' }}>Terlama</option>
+            <option value="name_asc" {{ request('sort', $sort ?? 'latest') === 'name_asc' ? 'selected' : '' }}>Nama A-Z</option>
+            <option value="name_desc" {{ request('sort', $sort ?? 'latest') === 'name_desc' ? 'selected' : '' }}>Nama Z-A</option>
+        </select>
+        <button type="submit" class="px-4 py-2.5 text-white rounded-lg text-sm font-medium hover:opacity-90" style="background-color: {{ $primaryColor }}">
+            Terapkan
+        </button>
+    </div>
+</form>
 
 {{-- ==================== TAB: PACKAGES ==================== --}}
 @if($currentTab === 'packages')
@@ -144,47 +103,10 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         @php
         $package = $access->package;
         
-        // Package content uses detail_packages as the single source of truth.
-        $materials = $package->materialsThroughDetail;
-        $tryouts = $package->tryouts;
-        $tesKorans = $tesKoranEnabled ? $package->tesKorans : collect();
-        $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
-        
-        // Calculate actual progress
-        $completedCount = 0;
-        
-        // Check completed materials
-        foreach ($materials as $material) {
-            $progress = \App\Models\UserMaterialAccess::where('user_id', $user->id)
-                ->where('material_id', $material->material_id)
-                ->first();
-            if ($progress && $progress->is_completed) {
-                $completedCount++;
-            }
-        }
-        
-        // Check completed tryouts
-        foreach ($tryouts as $tryout) {
-            $attempt = \App\Models\UserAnswer::where('user_id', $user->id)
-                ->where('tryout_id', $tryout->tryout_id)
-                ->where('status', 'completed')
-                ->first();
-            if ($attempt) {
-                $completedCount++;
-            }
-        }
-
-        foreach ($tesKorans as $tesKoran) {
-            $attempt = \App\Models\TesKoranResult::where('user_id', $user->id)
-                ->where('tes_koran_id', $tesKoran->id)
-                ->where('status', 'completed')
-                ->first();
-            if ($attempt) {
-                $completedCount++;
-            }
-        }
-        
-        $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
+        $progress = $packageProgress[$access->package_id] ?? ['total_items' => 0, 'completed_count' => 0, 'percent' => 0];
+        $totalItems = $progress['total_items'];
+        $completedCount = $progress['completed_count'];
+        $progressPercent = $progress['percent'];
         @endphp
         <div class="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
             {{-- Package Image --}}
@@ -193,12 +115,12 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
                     @php
                         $pkgExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
                         $isPkgVideo = in_array($pkgExt, ['mp4','webm','mov','m4v'], true);
-                        $pkgUrl = Storage::url($package->image);
+                        $pkgUrl = $assetUrl($package->image);
                     @endphp
                     @if($isPkgVideo)
-                    <video src="{{ $pkgUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+                    <video src="{{ $pkgUrl }}" class="w-full h-full object-cover" preload="metadata" playsinline></video>
                     @else
-                    <img src="{{ $pkgUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
+                    <img src="{{ $pkgUrl }}" alt="{{ $package->name }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
                     @endif
                 @else
                     <div class="w-full h-full flex items-center justify-center bg-gray-100">
@@ -263,8 +185,12 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         @endphp
         <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
             <div class="flex items-start gap-4">
-                <div class="w-14 h-14 bg-red-100 text-red-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div class="w-14 h-14 bg-red-100 text-red-500 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    @if($material->thumbnail_url)
+                    <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="96" height="96" class="w-full h-full object-cover">
+                    @else
                     <i class="{{ $material->type_icon }} text-2xl"></i>
+                    @endif
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
@@ -326,8 +252,12 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         @endphp
         <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
             <div class="flex items-start gap-4">
-                <div class="w-14 h-14 bg-blue-100 text-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div class="w-14 h-14 bg-blue-100 text-blue-500 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    @if($material->thumbnail_url)
+                    <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="96" height="96" class="w-full h-full object-cover">
+                    @else
                     <i class="{{ $material->type_icon }} text-2xl"></i>
+                    @endif
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
@@ -380,20 +310,7 @@ $myTesKorans = $tesKoranEnabled ? \App\Models\TesKoran::where(function($q) use (
         $isInProgress = $userAnswers->where('status', 'in_progress')->count() > 0;
         $totalQuestions = $tryout->getTotalQuestionsAttribute();
         $totalDuration = $tryout->getTotalDurationAttribute();
-        $packageId = $tryout->packages->first()?->package_id;
-        if (!$packageId) {
-            $packageId = \DB::table('detail_packages')
-                ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
-                ->where('detail_packages.detailable_type', \App\Models\Tryout::class)
-                ->where('detail_packages.detailable_id', $tryout->tryout_id)
-                ->where('user_package_access.user_id', $user->id)
-                ->where('user_package_access.status', 'active')
-                ->where(function ($q) {
-                    $q->whereNull('user_package_access.end_date')
-                        ->orWhere('user_package_access.end_date', '>', now());
-                })
-                ->value('detail_packages.package_id');
-        }
+        $packageId = $tryout->packages->first()?->package_id ?? ($tryoutPackageIds[$tryout->tryout_id] ?? null);
         $packageId = $packageId ?: 'free';
         @endphp
         <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">

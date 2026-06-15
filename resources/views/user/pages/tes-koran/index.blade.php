@@ -26,6 +26,32 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     @endif
 </div>
 
+<form method="GET" action="{{ route('user.tes-koran.index') }}" class="bg-white border border-gray-100 rounded-xl p-3 mb-6 flex flex-col md:flex-row gap-3">
+    <div class="flex-1">
+        <label for="tes-koran-search" class="sr-only">Cari tes koran</label>
+        <div class="relative">
+            <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input id="tes-koran-search" type="search" name="search" value="{{ request('search', $search ?? '') }}"
+                   placeholder="Cari berdasarkan nama"
+                   class="w-full rounded-lg border border-gray-200 pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                   style="--tw-ring-color: {{ $primaryColor }}">
+        </div>
+    </div>
+    <div class="flex gap-2">
+        <label for="tes-koran-sort" class="sr-only">Urutkan</label>
+        <select id="tes-koran-sort" name="sort" class="min-w-[180px] rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                style="--tw-ring-color: {{ $primaryColor }}">
+            <option value="latest" {{ request('sort', $sort ?? 'latest') === 'latest' ? 'selected' : '' }}>Terbaru</option>
+            <option value="oldest" {{ request('sort', $sort ?? 'latest') === 'oldest' ? 'selected' : '' }}>Terlama</option>
+            <option value="name_asc" {{ request('sort', $sort ?? 'latest') === 'name_asc' ? 'selected' : '' }}>Nama A-Z</option>
+            <option value="name_desc" {{ request('sort', $sort ?? 'latest') === 'name_desc' ? 'selected' : '' }}>Nama Z-A</option>
+        </select>
+        <button type="submit" class="px-4 py-2.5 text-white rounded-lg text-sm font-medium hover:opacity-90" style="background-color: {{ $primaryColor }}">
+            Terapkan
+        </button>
+    </div>
+</form>
+
 @if($tesKorans->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($tesKorans as $tesKoran)
@@ -109,6 +135,11 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     </div>
     @endforeach
 </div>
+@if($tesKorans->hasPages())
+<div class="mt-8">
+    {{ $tesKorans->appends(request()->query())->links() }}
+</div>
+@endif
 @else
 <div class="text-center py-16">
     <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

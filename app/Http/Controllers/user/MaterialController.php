@@ -22,6 +22,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $categoryId = $request->get('category');
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'default');
 
         // Get categories with material count (only displayed materials)
         $categories = MaterialCategory::active()
@@ -48,7 +50,9 @@ class MaterialController extends Controller
             $materialsQuery->byCategory($categoryId);
         }
 
-        $materials = $materialsQuery->ordered()->paginate(12);
+        $this->applyMaterialFilters($materialsQuery, $search, $sort);
+
+        $materials = $materialsQuery->paginate(12)->withQueryString();
 
         // Mark each material with access status
         foreach ($materials as $material) {
@@ -76,7 +80,9 @@ class MaterialController extends Controller
             'userProgress',
             'stats',
             'accessibleMaterialIds',
-            'categoryId'
+            'categoryId',
+            'search',
+            'sort'
         ));
     }
     
@@ -88,6 +94,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $categoryId = $request->get('category');
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'default');
 
         // Get categories for filter
         $categories = MaterialCategory::active()
@@ -110,14 +118,16 @@ class MaterialController extends Controller
             $materialsQuery->byCategory($categoryId);
         }
 
-        $materials = $materialsQuery->ordered()->paginate(12);
+        $this->applyMaterialFilters($materialsQuery, $search, $sort);
+
+        $materials = $materialsQuery->paginate(12)->withQueryString();
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
 
-        return view('user.pages.material.new-videos', compact('materials', 'categories', 'categoryId'));
+        return view('user.pages.material.new-videos', compact('materials', 'categories', 'categoryId', 'search', 'sort'));
     }
 
     /**
@@ -127,6 +137,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $categoryId = $request->get('category');
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'default');
 
         // Get categories for filter
         $categories = MaterialCategory::active()
@@ -149,14 +161,16 @@ class MaterialController extends Controller
             $materialsQuery->byCategory($categoryId);
         }
 
-        $materials = $materialsQuery->ordered()->paginate(12);
+        $this->applyMaterialFilters($materialsQuery, $search, $sort);
+
+        $materials = $materialsQuery->paginate(12)->withQueryString();
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
 
-        return view('user.pages.material.new-documents', compact('materials', 'categories', 'categoryId'));
+        return view('user.pages.material.new-documents', compact('materials', 'categories', 'categoryId', 'search', 'sort'));
     }
 
     /**
@@ -166,6 +180,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $categoryId = $request->get('category');
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'default');
 
         // Get categories for filter
         $categories = MaterialCategory::active()
@@ -188,34 +204,40 @@ class MaterialController extends Controller
             $materialsQuery->byCategory($categoryId);
         }
 
-        $materials = $materialsQuery->ordered()->paginate(12);
+        $this->applyMaterialFilters($materialsQuery, $search, $sort);
+
+        $materials = $materialsQuery->paginate(12)->withQueryString();
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
             $material->access_via_package = $material->packages->first();
         }
 
-        return view('user.pages.material.new-live-sessions', compact('materials', 'categories', 'categoryId'));
+        return view('user.pages.material.new-live-sessions', compact('materials', 'categories', 'categoryId', 'search', 'sort'));
     }
 
     /**
      * List materials by category
      * BISA diakses oleh GUEST
      */
-    public function byCategory($categoryId)
+    public function byCategory(Request $request, $categoryId)
     {
         $user = Auth::user();
         $category = MaterialCategory::active()->findOrFail($categoryId);
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'default');
 
         // Get ALL displayed materials in this category for guest to browse
-        $materials = Material::active()
+        $materialsQuery = Material::active()
             ->where('is_displayed', true)
             ->byCategory($categoryId)
-            ->with(['categories', 'packages'])
-            ->ordered()
-            ->paginate(12);
+            ->with(['categories', 'packages']);
+
+        $this->applyMaterialFilters($materialsQuery, $search, $sort);
+
+        $materials = $materialsQuery->paginate(12)->withQueryString();
         
-        return view('user.pages.material.by-category', compact('category', 'materials'));
+        return view('user.pages.material.by-category', compact('category', 'materials', 'search', 'sort'));
     }
     
     /**
@@ -447,5 +469,23 @@ class MaterialController extends Controller
             ->toArray();
         
         return array_unique(array_merge($directAccessIds, $packageAccessIds));
+    }
+
+    private function applyMaterialFilters($query, string $search, string $sort): void
+    {
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        match ($sort) {
+            'latest' => $query->orderBy('created_at', 'desc'),
+            'oldest' => $query->orderBy('created_at', 'asc'),
+            'name_asc' => $query->orderBy('title', 'asc'),
+            'name_desc' => $query->orderBy('title', 'desc'),
+            default => $query->ordered(),
+        };
     }
 }

@@ -3,6 +3,9 @@
 @section('title', 'Kategori: ' . $category->name)
 
 @section('content')
+@php
+    $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+@endphp
 <div class="max-w-7xl mx-auto">
     <!-- Breadcrumb -->
     <div class="mb-6">
@@ -30,6 +33,8 @@
         </div>
     </div>
 
+    @include('user.pages.material.partials.filter-sort', ['action' => route('user.material.category', $category->category_id)])
+
     <!-- Materials Grid -->
     @if($materials->count() > 0)
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -37,7 +42,7 @@
         <a href="{{ route('user.material.show', $material->material_id) }}" class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden group">
             <div class="aspect-video bg-gray-100 relative">
                 @if($material->thumbnail_url)
-                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
                 @else
                 <div class="w-full h-full flex items-center justify-center">
                     <i class="{{ $material->type_icon }} text-4xl text-gray-400"></i>
@@ -62,7 +67,7 @@
     
     <!-- Pagination -->
     <div class="mt-6">
-        {{ $materials->links() }}
+        {{ $materials->appends(request()->query())->links() }}
     </div>
     @else
     <div class="text-center py-16 bg-white rounded-lg shadow">

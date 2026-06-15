@@ -27,7 +27,7 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
         <p class="text-gray-500 mt-1">Jelajahi semua materi yang tersedia</p>
     </div>
     @if($user)
-    <a href="{{ route('user.package.my') }}?tab=materials" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
+    <a href="{{ route('user.package.my', ['tab' => 'videos']) }}" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
         <i class="ri-book-marked-line mr-1"></i>Materi Saya
     </a>
     @endif
@@ -68,6 +68,8 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
 </div>
 @endif
 
+@include('user.pages.material.partials.filter-sort', ['action' => route('user.material.index')])
+
 <!-- Materials Grid -->
 @if(isset($materials) && $materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -76,7 +78,7 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
         {{-- Thumbnail --}}
         @if($material->thumbnail_url)
         <div class="aspect-video overflow-hidden">
-            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
         </div>
         @endif
 
@@ -118,21 +120,19 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-login-box-line mr-1"></i>Masuk untuk Akses
                 </a>
-            @elseif($material->is_for_sale)
-                {{-- Material for individual sale --}}
-                @if($material->has_access)
+            @elseif($material->has_access)
                 <a href="{{ route('user.material.show', $material->material_id) }}"
                    class="flex items-center justify-center w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>Lihat Materi
                 </a>
-                @else
+            @elseif($material->is_for_sale)
+                {{-- Material for individual sale --}}
                 <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price ?? 0 }}, '{{ addslashes($material->title) }}')"
                         class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
                 </button>
-                @endif
             @else
                 {{-- Material not for sale, only available via package --}}
                 <div class="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">

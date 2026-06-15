@@ -66,6 +66,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 @endif
 
+@include('user.pages.material.partials.filter-sort', ['action' => route('user.material.live-sessions')])
+
 <!-- Live Sessions Grid -->
 @if($materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -79,7 +81,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         {{-- Thumbnail --}}
         @if($material->thumbnail_url)
         <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="block aspect-video bg-gray-100 overflow-hidden">
-            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+            <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
         </a>
         @endif
 
@@ -106,17 +108,27 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-300 text-purple-500 hover:bg-purple-50 transition-colors">
                         Masuk
                     </a>
-                    @elseif($userAccess && $userAccess->is_completed)
+                    @elseif($isAccessible && $userAccess && $userAccess->is_completed)
                     <span class="px-2.5 py-1 text-xs rounded-full font-medium" style="background-color: {{ $primaryColor }}20; color: {{ $primaryColor }}">
                         <i class="ri-check-line mr-1"></i>Sudah diikuti
                     </span>
                     <a href="{{ route('user.material.show', $material->material_id) }}" class="text-purple-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
                         Detail <i class="ri-arrow-right-line ml-1"></i>
                     </a>
-                    @elseif($userAccess && $userAccess->is_in_progress)
+                    @elseif($isAccessible && $userAccess && $userAccess->is_in_progress)
                     <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
                         <i class="ri-time-line mr-1"></i>Sedang dibaca
                     </span>
+                    <a href="{{ route('user.material.show', $material->material_id) }}" class="text-purple-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
+                        Detail <i class="ri-arrow-right-line ml-1"></i>
+                    </a>
+                    @elseif($isAccessible)
+                    <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                        <i class="ri-live-line mr-1"></i>Akses aktif
+                    </span>
+                    <a href="{{ route('user.material.show', $material->material_id) }}" class="text-purple-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
+                        Detail <i class="ri-arrow-right-line ml-1"></i>
+                    </a>
                     @else
                     {{-- User logged in but no access --}}
                     <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">

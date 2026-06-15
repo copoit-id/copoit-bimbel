@@ -12,17 +12,30 @@ use Illuminate\Support\Str;
 
 class TesKoranController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->abortIfFeatureDisabled();
 
         $user = Auth::user();
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
 
-        $tesKorans = TesKoran::with('packages')
+        $tesKoransQuery = TesKoran::with('packages')
             ->where('is_active', true)
-            ->where('is_displayed', true)
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->where('is_displayed', true);
+
+        if ($search !== '') {
+            $tesKoransQuery->where('name', 'like', "%{$search}%");
+        }
+
+        match ($sort) {
+            'oldest' => $tesKoransQuery->orderBy('created_at', 'asc'),
+            'name_asc' => $tesKoransQuery->orderBy('name', 'asc'),
+            'name_desc' => $tesKoransQuery->orderBy('name', 'desc'),
+            default => $tesKoransQuery->orderBy('created_at', 'desc'),
+        };
+
+        $tesKorans = $tesKoransQuery->paginate(12)->withQueryString();
 
         foreach ($tesKorans as $tesKoran) {
             $tesKoran->has_access = $user ? $tesKoran->canUserAccess($user->id) : false;
@@ -31,7 +44,7 @@ class TesKoranController extends Controller
             $tesKoran->has_pending_purchase = $user ? $tesKoran->hasPendingPurchase($user->id) : false;
         }
 
-        return view('user.pages.tes-koran.index', compact('tesKorans'));
+        return view('user.pages.tes-koran.index', compact('tesKorans', 'search', 'sort'));
     }
 
     public function show(TesKoran $tesKoran)

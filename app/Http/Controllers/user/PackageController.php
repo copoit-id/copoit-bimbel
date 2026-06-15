@@ -2433,7 +2433,7 @@ class PackageController extends Controller
     /**
      * Display user's active packages with step by step view
      */
-    public function myPackages()
+    public function myPackages(Request $request)
     {
         // Check if user is authenticated
         if (!Auth::check()) {
@@ -2442,9 +2442,12 @@ class PackageController extends Controller
         }
         
         $user = Auth::user();
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         
         $packageRelations = ['package.materialsThroughDetail', 'package.tryouts'];
-        if (config('client.branding.tes_koran_enabled', true)) {
+        if ($tesKoranEnabled) {
             $packageRelations[] = 'package.tesKorans';
         }
 
@@ -2456,8 +2459,173 @@ class PackageController extends Controller
             })
             ->with($packageRelations)
             ->get();
-        
-        return view('user.pages.package.new-my-packages', compact('activePackages'));
+
+        $accessiblePackageIds = $activePackages
+            ->pluck('package_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $packageMaterialIds = \DB::table('detail_packages')
+            ->whereIn('package_id', $accessiblePackageIds)
+            ->where('detailable_type', \App\Models\Material::class)
+            ->pluck('detailable_id')
+            ->toArray();
+
+        $directMaterialIds = UserMaterialAccess::where('user_id', $user->id)
+            ->where('status', '!=', 'not_started')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->pluck('material_id')
+            ->toArray();
+
+        $accessibleMaterialIds = array_values(array_unique(array_merge($packageMaterialIds, $directMaterialIds)));
+
+        $myMaterials = \App\Models\Material::whereIn('material_id', $accessibleMaterialIds)
+            ->with(['userAccess' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }])
+            ->get();
+
+        $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->pluck('tryout_id')
+            ->toArray();
+
+        $myTryouts = Tryout::where(function ($query) use ($accessiblePackageIds, $directTryoutIds) {
+            $query->whereHas('packages', function ($packageQuery) use ($accessiblePackageIds) {
+                $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+            })->orWhereIn('tryout_id', $directTryoutIds);
+        })
+            ->with([
+                'packages' => function ($query) use ($accessiblePackageIds) {
+                    $query->whereIn('packages.package_id', $accessiblePackageIds);
+                },
+                'userAnswers' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                },
+            ])
+            ->get();
+
+        $myTesKorans = $tesKoranEnabled
+            ? \App\Models\TesKoran::where(function ($query) use ($accessiblePackageIds, $user) {
+                $query->whereHas('packages', function ($packageQuery) use ($accessiblePackageIds) {
+                    $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+                })->orWhereHas('individualPurchases', function ($purchaseQuery) use ($user) {
+                    $purchaseQuery->where('user_id', $user->id)
+                        ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED)
+                        ->where(function ($query) {
+                            $query->whereNull('access_expires_at')
+                                ->orWhere('access_expires_at', '>', now());
+                        });
+                });
+            })
+                ->with(['results' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                }])
+                ->get()
+            : collect();
+
+        $activePackages = $this->filterAndSortUserCollection(
+            $activePackages,
+            $search,
+            $sort,
+            fn ($access) => (string) ($access->package?->name ?? ''),
+            fn ($access) => $access->created_at
+        );
+
+        $myMaterials = $this->filterAndSortUserCollection(
+            $myMaterials,
+            $search,
+            $sort,
+            fn ($material) => (string) $material->title,
+            fn ($material) => $material->created_at
+        );
+
+        $myTryouts = $this->filterAndSortUserCollection(
+            $myTryouts,
+            $search,
+            $sort,
+            fn ($tryout) => (string) $tryout->name,
+            fn ($tryout) => $tryout->created_at
+        );
+
+        $myTesKorans = $this->filterAndSortUserCollection(
+            $myTesKorans,
+            $search,
+            $sort,
+            fn ($tesKoran) => (string) $tesKoran->name,
+            fn ($tesKoran) => $tesKoran->created_at
+        );
+
+        $videoMaterials = $myMaterials->where('type', 'video')->values();
+        $documentMaterials = $myMaterials->where('type', 'document')->values();
+
+        $completedMaterialIds = UserMaterialAccess::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->pluck('material_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $completedTryoutIds = UserAnswer::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->pluck('tryout_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $completedTesKoranIds = $tesKoranEnabled
+            ? TesKoranResult::where('user_id', $user->id)
+                ->where('status', 'completed')
+                ->pluck('tes_koran_id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
+
+        $packageProgress = [];
+        foreach ($activePackages as $access) {
+            $package = $access->package;
+            $materials = $package?->materialsThroughDetail ?? collect();
+            $tryouts = $package?->tryouts ?? collect();
+            $tesKorans = $tesKoranEnabled ? ($package?->tesKorans ?? collect()) : collect();
+            $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
+            $completedCount = $materials->whereIn('material_id', $completedMaterialIds)->count()
+                + $tryouts->whereIn('tryout_id', $completedTryoutIds)->count()
+                + $tesKorans->whereIn('id', $completedTesKoranIds)->count();
+
+            $packageProgress[$access->package_id] = [
+                'total_items' => $totalItems,
+                'completed_count' => $completedCount,
+                'percent' => $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0,
+            ];
+        }
+
+        $tryoutPackageIds = \DB::table('detail_packages')
+            ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
+            ->where('detail_packages.detailable_type', Tryout::class)
+            ->where('user_package_access.user_id', $user->id)
+            ->where('user_package_access.status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('user_package_access.end_date')
+                    ->orWhere('user_package_access.end_date', '>', now());
+            })
+            ->pluck('detail_packages.package_id', 'detail_packages.detailable_id')
+            ->all();
+
+        return view('user.pages.package.new-my-packages', compact(
+            'activePackages',
+            'myMaterials',
+            'videoMaterials',
+            'documentMaterials',
+            'myTryouts',
+            'myTesKorans',
+            'packageProgress',
+            'tryoutPackageIds',
+            'search',
+            'sort'
+        ));
     }
     
     /**
@@ -2607,6 +2775,23 @@ class PackageController extends Controller
             'progressPercent',
             'nextItem'
         ));
+    }
+
+    private function filterAndSortUserCollection($items, string $search, string $sort, callable $nameResolver, callable $dateResolver)
+    {
+        if ($search !== '') {
+            $needle = Str::lower($search);
+            $items = $items->filter(fn ($item) => Str::contains(Str::lower($nameResolver($item)), $needle));
+        }
+
+        $items = match ($sort) {
+            'oldest' => $items->sortBy(fn ($item) => $dateResolver($item)),
+            'name_asc' => $items->sortBy(fn ($item) => Str::lower($nameResolver($item))),
+            'name_desc' => $items->sortByDesc(fn ($item) => Str::lower($nameResolver($item))),
+            default => $items->sortByDesc(fn ($item) => $dateResolver($item)),
+        };
+
+        return $items->values();
     }
 
     /**

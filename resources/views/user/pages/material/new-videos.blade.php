@@ -66,6 +66,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 @endif
 
+@include('user.pages.material.partials.filter-sort', ['action' => route('user.material.videos')])
+
 <!-- Videos Grid -->
 @if($materials->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -80,7 +82,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <a href="{{ $isAccessible ? route('user.material.show', $material->material_id) : 'javascript:void(0)' }}" class="block">
             <div class="aspect-video bg-gray-100 relative">
                 @if($material->thumbnail_url)
-                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" class="w-full h-full object-cover">
+                <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="480" height="270" class="w-full h-full object-cover">
                 @else
                 <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-50">
                     <i class="ri-video-line text-5xl text-red-300"></i>
@@ -128,15 +130,19 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     Masuk
                 </a>
             </div>
-            @elseif($userAccess)
+            @elseif($isAccessible)
             <div class="mt-3 flex items-center justify-between">
-                <span class="text-xs {{ $userAccess->is_completed ? 'text-emerald-600' : 'text-yellow-600' }}" style="{{ $userAccess->is_completed ? 'color: ' . $primaryColor : '' }}">
-                    {{ $userAccess->is_completed ? 'Selesai ditonton' : 'Sedang ditonton' }}
+                <span class="text-xs {{ $userAccess?->is_completed ? 'text-emerald-600' : 'text-yellow-600' }}" style="{{ $userAccess?->is_completed ? 'color: ' . $primaryColor : '' }}">
+                    {{ $userAccess?->is_completed ? 'Selesai ditonton' : ($userAccess?->is_in_progress ? 'Sedang ditonton' : 'Akses aktif') }}
                 </span>
-                @if(!$userAccess->is_completed)
+                @if($userAccess && !$userAccess->is_completed)
                 <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div class="h-full bg-red-400 rounded-full" style="width: {{ $userAccess->progress_percentage }}%"></div>
                 </div>
+                @else
+                <a href="{{ route('user.material.show', $material->material_id) }}" class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                    Lihat
+                </a>
                 @endif
             </div>
             @else
