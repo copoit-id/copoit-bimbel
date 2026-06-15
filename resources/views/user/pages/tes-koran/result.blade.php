@@ -6,18 +6,43 @@
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $columnScores = $result->column_scores ?? [];
-$maxColumnScore = max(array_merge($columnScores, [1]));
 $hasColumnProgress = collect($columnScores)->contains(fn($score) => (int) $score > 0);
-$resultIcon = match ($result->final_result) {
-    'tinggi' => 'ri-emotion-happy-line',
-    'sedang' => 'ri-emotion-normal-line',
-    default => 'ri-emotion-unhappy-line',
-};
-$resultBadgeClass = match ($result->final_result) {
-    'tinggi' => 'bg-green-500',
-    'sedang' => 'bg-yellow-500',
-    default => 'bg-red-500',
-};
+$scoreOffset = 0;
+$sheetChartData = $tesKoran->sheetConfigs()
+    ->map(function (array $sheet, int $sheetIndex) use (&$scoreOffset, $columnScores) {
+        $columnsCount = max(0, (int) ($sheet['columns_count'] ?? 0));
+        $scores = array_slice($columnScores, $scoreOffset, $columnsCount);
+        $scoreOffset += $columnsCount;
+
+        return [
+            'name' => $sheet['name'] ?? 'Lembar ' . ($sheetIndex + 1),
+            'scores' => array_values(array_map(fn($score) => (int) $score, $scores)),
+            'max_score' => max(1, ((int) ($sheet['rows_count'] ?? 10)) - 1),
+            'columns_count' => $columnsCount,
+            'has_progress' => collect($scores)->contains(fn($score) => (int) $score > 0),
+        ];
+    })
+    ->filter(fn(array $sheet) => count($sheet['scores']) > 0)
+    ->values();
+
+if ($sheetChartData->isEmpty() && count($columnScores) > 0) {
+    $sheetChartData = collect([[
+        'name' => 'Lembar 1',
+        'scores' => array_values(array_map(fn($score) => (int) $score, $columnScores)),
+        'max_score' => max(1, (int) ($tesKoran->rows_count ?? 10) - 1),
+        'columns_count' => count($columnScores),
+        'has_progress' => $hasColumnProgress,
+    ]]);
+} elseif ($scoreOffset < count($columnScores)) {
+    $remainingScores = array_slice($columnScores, $scoreOffset);
+    $sheetChartData->push([
+        'name' => 'Lembar Tambahan',
+        'scores' => array_values(array_map(fn($score) => (int) $score, $remainingScores)),
+        'max_score' => max(1, (int) ($tesKoran->rows_count ?? 10) - 1),
+        'columns_count' => count($remainingScores),
+        'has_progress' => collect($remainingScores)->contains(fn($score) => (int) $score > 0),
+    ]);
+}
 $stabilityIcon = match ($result->stability_status) {
     'meningkat' => 'ri-arrow-up-line',
     'menurun' => 'ri-arrow-down-line',
@@ -47,11 +72,6 @@ $stabilityClass = match ($result->stability_status) {
         <div>
             <h2 class="text-xl font-bold text-gray-800">Ringkasan Hasil</h2>
             <p class="text-gray-500 text-sm">{{ $result->finished_at ? $result->finished_at->format('d M Y, H:i') : 'Baru saja' }}</p>
-        </div>
-        <div>
-            <span class="px-4 py-2 {{ $resultBadgeClass }} text-white rounded-full font-bold">
-                <i class="{{ $resultIcon }} mr-1"></i>{{ strtoupper($result->final_result) }}
-            </span>
         </div>
     </div>
 
@@ -101,13 +121,13 @@ $stabilityClass = match ($result->stability_status) {
         </div>
     </div>
 
-    <!-- Column Chart -->
-    @if(count($columnScores) > 0)
+    <!-- Sheet Charts -->
+    @if($sheetChartData->isNotEmpty())
     <div class="bg-white border border-gray-100 rounded-2xl p-6 mb-6">
         <div class="flex items-center justify-between gap-4 mb-6">
             <div>
-                <h4 class="text-lg font-bold text-gray-800">Jawaban Benar per Kolom (Maks: {{ $tesKoran->rows_count - 1 }})</h4>
-                <p class="text-xs text-gray-500">Menampilkan jumlah jawaban benar di setiap kolom.</p>
+                <h4 class="text-lg font-bold text-gray-800">Jawaban Benar per Lembar</h4>
+                <p class="text-xs text-gray-500">Menampilkan grafik jawaban benar di setiap kolom untuk masing-masing lembar.</p>
             </div>
             @unless($hasColumnProgress)
             <span class="px-3 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-medium">
@@ -116,10 +136,51 @@ $stabilityClass = match ($result->stability_status) {
             @endunless
         </div>
 
-        <div class="relative w-full overflow-x-auto pb-2">
-            <div class="h-64" style="min-width: {{ max(500, count($columnScores) * 25) }}px; width: 100%;">
-                <canvas id="columnScoresChart"></canvas>
+        @if($sheetChartData->count() > 1)
+        <div class="flex gap-2 overflow-x-auto pb-2 mb-5" role="tablist" aria-label="Pilih grafik lembar">
+            @foreach($sheetChartData as $sheetIndex => $sheetChart)
+            <button type="button"
+                    class="sheet-chart-tab shrink-0 px-4 py-2 rounded-lg border text-sm font-semibold transition-colors {{ $sheetIndex === 0 ? 'text-white border-transparent' : 'text-gray-600 border-gray-200 hover:bg-gray-50' }}"
+                    data-sheet-tab="{{ $sheetIndex }}"
+                    role="tab"
+                    aria-selected="{{ $sheetIndex === 0 ? 'true' : 'false' }}"
+                    aria-controls="sheetChartPanel{{ $sheetIndex }}"
+                    style="{{ $sheetIndex === 0 ? 'background-color: ' . $primaryColor : '' }}">
+                {{ $sheetChart['name'] }}
+            </button>
+            @endforeach
+        </div>
+        @endif
+
+        <div>
+            @foreach($sheetChartData as $sheetIndex => $sheetChart)
+            <div id="sheetChartPanel{{ $sheetIndex }}"
+                 class="sheet-chart-panel rounded-xl border border-gray-100 p-4 {{ $sheetIndex === 0 ? '' : 'hidden' }}"
+                 data-sheet-panel="{{ $sheetIndex }}"
+                 role="tabpanel">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <div>
+                        <h5 class="font-semibold text-gray-800">{{ $sheetChart['name'] }}</h5>
+                        <p class="text-xs text-gray-500">
+                            {{ count($sheetChart['scores']) }} kolom
+                            <span class="mx-1">•</span>
+                            Maks {{ $sheetChart['max_score'] }} benar per kolom
+                        </p>
+                    </div>
+                    @unless($sheetChart['has_progress'])
+                    <span class="self-start sm:self-center px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-medium">
+                        Lembar ini 0
+                    </span>
+                    @endunless
+                </div>
+
+                <div class="relative w-full overflow-x-auto pb-2">
+                    <div class="h-64" style="min-width: {{ max(420, count($sheetChart['scores']) * 28) }}px; width: 100%;">
+                        <canvas id="columnScoresChart{{ $sheetIndex }}"></canvas>
+                    </div>
+                </div>
             </div>
+            @endforeach
         </div>
 
         @unless($hasColumnProgress)
@@ -195,14 +256,10 @@ $stabilityClass = match ($result->stability_status) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const ctx = document.getElementById('columnScoresChart');
-        if (!ctx) return;
-
-        const columnScores = @json($columnScores);
-        const maxScore = {{ $tesKoran->rows_count - 1 }};
+        const sheetCharts = @json($sheetChartData);
         const primaryColor = '{{ $primaryColor }}';
+        const renderedCharts = {};
 
-        // Helper function to convert Hex to RGBA
         function hexToRgba(hex, alpha) {
             let c;
             if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
@@ -216,100 +273,134 @@ $stabilityClass = match ($result->stability_status) {
             return hex;
         }
 
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        gradient.addColorStop(0, hexToRgba(primaryColor, 0.25));
-        gradient.addColorStop(1, hexToRgba(primaryColor, 0.0));
+        sheetCharts.forEach(function(sheet, sheetIndex) {
+            const canvas = document.getElementById('columnScoresChart' + sheetIndex);
+            if (!canvas) return;
 
-        const labels = Array.from({length: columnScores.length}, (_, i) => i + 1);
+            const scores = sheet.scores || [];
+            const gradient = canvas.getContext('2d').createLinearGradient(0, 0, 0, 240);
+            gradient.addColorStop(0, hexToRgba(primaryColor, 0.25));
+            gradient.addColorStop(1, hexToRgba(primaryColor, 0.0));
 
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Jawaban Benar',
-                    data: columnScores,
-                    borderColor: '#1f2937', // dark color for line as in screenshot
-                    borderWidth: 2,
-                    backgroundColor: gradient,
-                    fill: true,
-                    tension: 0.35, // smooth curved line
-                    pointBackgroundColor: '#d1fae5', // light green point fill
-                    pointBorderColor: '#1f2937', // dark border for points
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    pointHoverBackgroundColor: primaryColor,
-                    pointHoverBorderColor: '#1f2937',
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+            renderedCharts[sheetIndex] = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: scores.map(function(_, index) {
+                        return index + 1;
+                    }),
+                    datasets: [{
+                        label: 'Jawaban Benar',
+                        data: scores,
+                        borderColor: '#1f2937',
+                        borderWidth: 2,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#d1fae5',
+                        pointBorderColor: '#1f2937',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: primaryColor,
+                        pointHoverBorderColor: '#1f2937',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                title: function(context) {
+                                    return sheet.name + ' - Kolom ' + context[0].label;
+                                },
+                                label: function(context) {
+                                    return 'Jawaban Benar: ' + context.raw;
+                                }
+                            }
+                        }
                     },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(31, 41, 55, 0.9)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#ffffff',
-                        padding: 10,
-                        cornerRadius: 8,
-                        callbacks: {
-                            title: function(context) {
-                                return 'Kolom ' + context[0].label;
+                    scales: {
+                        x: {
+                            grid: {
+                                display: true,
+                                color: '#e5e7eb',
+                                drawTicks: false
                             },
-                            label: function(context) {
-                                return 'Jawaban Benar: ' + context.raw;
+                            ticks: {
+                                color: '#6b7280',
+                                font: {
+                                    size: 10,
+                                    weight: '500'
+                                },
+                                padding: 8
+                            },
+                            border: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            suggestedMax: Math.max(sheet.max_score || 1, Math.max(...scores, 0) + 1),
+                            grid: {
+                                display: true,
+                                color: '#e5e7eb',
+                                drawTicks: false
+                            },
+                            ticks: {
+                                stepSize: 1,
+                                color: '#6b7280',
+                                font: {
+                                    size: 10,
+                                    weight: '500'
+                                },
+                                padding: 8
+                            },
+                            border: {
+                                color: '#e5e7eb'
                             }
                         }
                     }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            display: true,
-                            color: '#e5e7eb',
-                            drawTicks: false
-                        },
-                        ticks: {
-                            color: '#6b7280',
-                            font: {
-                                size: 10,
-                                weight: '500'
-                            },
-                            padding: 8
-                        },
-                        border: {
-                            color: '#e5e7eb'
-                        }
-                    },
-                    y: {
-                        min: 0,
-                        suggestedMax: Math.max(5, Math.max(...columnScores, 0) + 1),
-                        grid: {
-                            display: true,
-                            color: '#e5e7eb',
-                            drawTicks: false
-                        },
-                        ticks: {
-                            stepSize: 1,
-                            color: '#6b7280',
-                            font: {
-                                size: 10,
-                                weight: '500'
-                            },
-                            padding: 8
-                        },
-                        border: {
-                            color: '#e5e7eb'
-                        }
-                    }
                 }
-            }
+            });
+        });
+
+        const tabs = document.querySelectorAll('[data-sheet-tab]');
+        const panels = document.querySelectorAll('[data-sheet-panel]');
+
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                const activeIndex = tab.dataset.sheetTab;
+
+                tabs.forEach(function(item) {
+                    const isActive = item.dataset.sheetTab === activeIndex;
+                    item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                    item.classList.toggle('text-white', isActive);
+                    item.classList.toggle('border-transparent', isActive);
+                    item.classList.toggle('text-gray-600', !isActive);
+                    item.classList.toggle('border-gray-200', !isActive);
+                    item.classList.toggle('hover:bg-gray-50', !isActive);
+                    item.style.backgroundColor = isActive ? primaryColor : '';
+                });
+
+                panels.forEach(function(panel) {
+                    panel.classList.toggle('hidden', panel.dataset.sheetPanel !== activeIndex);
+                });
+
+                if (renderedCharts[activeIndex]) {
+                    renderedCharts[activeIndex].resize();
+                }
+            });
         });
     });
 </script>

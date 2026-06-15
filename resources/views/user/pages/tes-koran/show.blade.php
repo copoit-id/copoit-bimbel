@@ -167,7 +167,14 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
             <div class="flex gap-8 min-w-full pb-4">
                 @php $globalColumnIndex = 0; @endphp
                 @foreach($sheets as $sheetIndex => $sheet)
-                <div class="shrink-0">
+                @php
+                    $sheetStartColumn = $globalColumnIndex;
+                    $sheetEndColumn = $sheetStartColumn + count($sheet['columns'] ?? []) - 1;
+                @endphp
+                <div data-sheet-container="{{ $sheetIndex }}"
+                     data-sheet-start="{{ $sheetStartColumn }}"
+                     data-sheet-end="{{ $sheetEndColumn }}"
+                     class="shrink-0 {{ $sheetIndex === 0 ? '' : 'hidden' }}">
                     <div class="mb-3 rounded-xl bg-gray-50 border border-gray-100 px-4 py-2">
                         <p class="text-xs font-bold text-gray-700">{{ $sheet['name'] ?? 'Lembar ' . ($sheetIndex + 1) }}</p>
                         <p class="text-[11px] text-gray-400">{{ $tesKoran->operationLabelFor($sheet['operation_type'] ?? 'addition') }} · {{ count($sheet['columns'] ?? []) }} kolom · {{ $sheet['rows_count'] ?? 10 }} baris</p>
@@ -214,7 +221,11 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
                 <i class="ri-loader-4-line animate-spin text-primary text-base"></i>
                 <span>Memproses jawaban, mohon tunggu...</span>
             </div>
-            <button type="button" onclick="submitForm()"
+            <button type="button" id="nextSheetButton"
+                class="hidden px-6 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                <i class="ri-arrow-right-line mr-1"></i> Lembar Berikutnya
+            </button>
+            <button type="button" id="finishButton" onclick="submitForm()"
                 class="px-6 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
                 style="background-color: {{ $primaryColor }}">
                 <i class="ri-check-line mr-1"></i> Selesai
@@ -242,17 +253,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const isStanMode = {{ $isStan ? 'true' : 'false' }};
     const columnDurations = @json($columnDurations);
     const columnLabels = @json($columnLabels);
+    const sheetRanges = @json($sheetRanges);
     const columnDurationSeconds = columnDurations[0] || {{ $tesKoran->column_duration_seconds ?? 60 }};
     const columnsCount = {{ count($columns) }};
     const totalDurationSeconds = {{ $totalDurationSeconds }};
     const columnsHash = '{{ md5($columnsJson) }}';
     const progressKey = 'tes_koran_progress:{{ auth()->id() }}:{{ $tesKoran->id }}';
     const currentColumnKey = 'tes_koran_current_column:{{ auth()->id() }}:{{ $tesKoran->id }}';
+    const currentSheetKey = 'tes_koran_current_sheet:{{ auth()->id() }}:{{ $tesKoran->id }}';
     const storageKey = `tes_koran_answers:{{ auth()->id() }}:{{ $tesKoran->id }}:${columnsHash}`;
     const initialProgress = resolveProgress();
     let timeLeft = initialProgress.timeLeft;
     let currentColumn = initialProgress.currentColumn;
     let currentColumnRemaining = initialProgress.currentColumnRemaining;
+    let currentSheet = resolveInitialSheet();
     const currentColumnLabel = document.getElementById('currentColumnLabel');
     const changeColumnModal = document.getElementById('changeColumnModal');
     const changeColumnTitle = document.getElementById('changeColumnTitle');
@@ -262,6 +276,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('input[data-row][data-col]');
     const form = document.getElementById('tesKoranForm');
     const submitStatus = document.getElementById('submitStatus');
+    const nextSheetButton = document.getElementById('nextSheetButton');
+    const finishButton = document.getElementById('finishButton');
     let isSubmitting = false;
     let columnTimeout = null;
     const transitionInstruction = '{{ $tesKoran->test_type === 'pauli' ? 'GARIS!' : 'PINDAH!' }}';
@@ -269,6 +285,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getColumnDuration(columnIndex) {
         return columnDurations[columnIndex] || columnDurationSeconds;
+    }
+
+    function sheetIndexForColumn(columnIndex) {
+        const sheet = sheetRanges.find(range => columnIndex >= range.start && columnIndex <= range.end);
+        return sheet ? sheet.index : 0;
+    }
+
+    function resolveInitialSheet() {
+        if (!isStanMode) {
+            return sheetIndexForColumn(initialProgress.currentColumn);
+        }
+
+        try {
+            const storedSheet = parseInt(localStorage.getItem(currentSheetKey), 10);
+            if (Number.isInteger(storedSheet) && storedSheet >= 0 && storedSheet < sheetRanges.length) {
+                return storedSheet;
+            }
+        } catch (error) {
+            console.warn('Gagal membaca progres lembar lokal.', error);
+        }
+
+        return 0;
+    }
+
+    function showSheet(sheetIndex) {
+        currentSheet = Math.max(0, Math.min(sheetRanges.length - 1, sheetIndex));
+        document.querySelectorAll('[data-sheet-container]').forEach(sheet => {
+            sheet.classList.toggle('hidden', parseInt(sheet.dataset.sheetContainer) !== currentSheet);
+        });
+
+        const activeSheet = sheetRanges[currentSheet] || sheetRanges[0];
+        currentColumnLabel.textContent = activeSheet?.name || `Lembar ${currentSheet + 1}`;
+
+        if (isStanMode) {
+            try {
+                localStorage.setItem(currentSheetKey, String(currentSheet));
+            } catch (error) {
+                console.warn('Gagal menyimpan progres lembar lokal.', error);
+            }
+
+            inputs.forEach(input => {
+                const inputColumn = parseInt(input.dataset.col);
+                input.disabled = !(inputColumn >= activeSheet.start && inputColumn <= activeSheet.end);
+            });
+
+            nextSheetButton?.classList.toggle('hidden', currentSheet >= sheetRanges.length - 1);
+            finishButton?.classList.toggle('hidden', currentSheet < sheetRanges.length - 1);
+            focusFirstInput(activeSheet.start);
+        }
     }
 
     function resolveColumnFromElapsed(elapsedSeconds) {
@@ -633,6 +698,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem(storageKey);
             localStorage.removeItem(progressKey);
             localStorage.removeItem(currentColumnKey);
+            localStorage.removeItem(currentSheetKey);
         } catch (error) {
             console.warn('Gagal menghapus jawaban lokal.', error);
         }
@@ -650,6 +716,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (isStanMode && columnIndex < columnsCount - 1) {
+            const activeSheet = sheetRanges[currentSheet] || sheetRanges[0];
+            if (columnIndex >= activeSheet.end) {
+                return;
+            }
             focusFirstInput(columnIndex + 1);
             const nextCol = document.querySelector(`[data-column-container="${columnIndex + 1}"]`);
             if (nextCol) {
@@ -698,7 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function activateStanMode() {
-        inputs.forEach(input => input.disabled = false);
+        showSheet(currentSheet);
 
         document.querySelectorAll('[data-column-container]').forEach(col => {
             col.classList.remove('column-active', 'column-past', 'column-future');
@@ -714,10 +784,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const colProgressBar = document.getElementById('colProgressBar');
         if (colProgressBar) colProgressBar.style.width = '0%';
 
-        focusFirstInput(0);
+        const activeSheet = sheetRanges[currentSheet] || sheetRanges[0];
+        focusFirstInput(activeSheet.start);
     }
 
     function activateColumn(columnIndex) {
+        showSheet(sheetIndexForColumn(columnIndex));
         currentColumnLabel.textContent = columnLabels[columnIndex] || `Kolom ${columnIndex + 1}`;
         saveProgressToLocal(columnIndex, currentColumnRemaining);
 
@@ -776,10 +848,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const previousSheet = sheetIndexForColumn(currentColumn);
         currentColumn++;
         currentColumnRemaining = getColumnDuration(currentColumn);
         activateColumn(currentColumn);
-        showChangeColumnModal(`Lanjut ke ${columnLabels[currentColumn] || 'kolom ' + (currentColumn + 1)}`);
+        const nextSheet = sheetIndexForColumn(currentColumn);
+        showChangeColumnModal(nextSheet !== previousSheet
+            ? `Lanjut ke ${sheetRanges[nextSheet]?.name || 'lembar berikutnya'}`
+            : `Lanjut ke ${columnLabels[currentColumn] || 'kolom ' + (currentColumn + 1)}`
+        );
 
         clearTimeout(columnTimeout);
         columnTimeout = setTimeout(advanceColumn, currentColumnRemaining * 1000);
@@ -876,6 +953,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     window.submitForm = submitForm;
+
+    nextSheetButton?.addEventListener('click', function () {
+        if (!isStanMode || currentSheet >= sheetRanges.length - 1) return;
+        showSheet(currentSheet + 1);
+    });
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();

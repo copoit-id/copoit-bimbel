@@ -109,8 +109,20 @@ class TesKoranController extends Controller
             })
             ->values()
             ->all();
+        $sheetRanges = [];
+        $startColumn = 0;
+        foreach ($sheets as $sheetIndex => $sheet) {
+            $sheetColumnCount = count($sheet['columns'] ?? []);
+            $sheetRanges[] = [
+                'index' => $sheetIndex,
+                'name' => $sheet['name'] ?? 'Lembar ' . ($sheetIndex + 1),
+                'start' => $startColumn,
+                'end' => max($startColumn, $startColumn + $sheetColumnCount - 1),
+            ];
+            $startColumn += $sheetColumnCount;
+        }
 
-        return view('user.pages.tes-koran.show', compact('tesKoran', 'package', 'columnsJson', 'columns', 'sheets', 'timeLeft', 'totalDurationSeconds', 'columnDurations', 'columnLabels'));
+        return view('user.pages.tes-koran.show', compact('tesKoran', 'package', 'columnsJson', 'columns', 'sheets', 'timeLeft', 'totalDurationSeconds', 'columnDurations', 'columnLabels', 'sheetRanges'));
     }
 
     public function start(Request $request, TesKoran $tesKoran)
@@ -178,6 +190,8 @@ class TesKoranController extends Controller
         if ($result->user_id !== Auth::id()) {
             abort(403);
         }
+
+        $tesKoran->loadMissing('sheets');
 
         $package = $tesKoran->accessiblePackageForUser(Auth::id());
 
