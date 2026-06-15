@@ -190,8 +190,9 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Durasi/Kolom atau Total (Detik)</label>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Durasi per Kolom (Standar)</label>
                                     <input type="number" name="sheets[{{ $sheetIndex }}][column_duration_seconds]" min="10" max="3600" value="{{ $sheet['column_duration_seconds'] ?? 60 }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <p class="text-[11px] text-gray-400 mt-1">Untuk STAN, durasi total memakai field utama di atas.</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 mb-1">Jumlah Kolom</label>
@@ -374,8 +375,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Durasi/Kolom atau Total (Detik)</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Durasi per Kolom (Standar)</label>
                         <input type="number" name="sheets[${index}][column_duration_seconds]" min="10" max="3600" value="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <p class="text-[11px] text-gray-400 mt-1">Untuk STAN, durasi total memakai field utama di atas.</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Jumlah Kolom</label>

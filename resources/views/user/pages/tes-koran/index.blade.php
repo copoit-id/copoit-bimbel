@@ -58,7 +58,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     @php
     $isForSale = $tesKoran->is_for_sale && $tesKoran->price > 0;
     @endphp
-    <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
+    <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
         <div class="flex items-start justify-between mb-4">
             <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background-color: {{ $primaryColor }}20">
                 <i class="ri-file-edit-line text-xl" style="color: {{ $primaryColor }}"></i>
@@ -77,7 +77,10 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             </div>
             <div class="flex items-center text-sm text-gray-500">
                 <i class="ri-time-line mr-2 text-gray-400"></i>
-                <span>{{ $tesKoran->column_duration_seconds ?? 60 }} Detik/Kolom</span>
+                <span>
+                    {{ $tesKoran->column_duration_seconds ?? 60 }}
+                    {{ ($tesKoran->logic_test_type ?? 'standar') === 'stan' ? 'Detik Total' : 'Detik/Kolom' }}
+                </span>
             </div>
             <div class="flex items-center text-sm text-gray-500">
                 <i class="ri-calculator-line mr-2 text-gray-400"></i>
@@ -95,43 +98,45 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             @endif
         </div>
 
-        @if(!$user)
-        <a href="{{ route('login') }}"
-           class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
-           style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-            <i class="ri-login-box-line mr-1"></i>Masuk untuk Akses
-        </a>
-        @elseif($tesKoran->has_access)
-        <a href="{{ route('user.tes-koran.show', $tesKoran) }}"
-           class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-           style="background-color: {{ $primaryColor }}">
-            <i class="ri-play-circle-line mr-1"></i>Mulai Tes
-        </a>
-        @elseif($tesKoran->has_pending_purchase)
-        <button disabled class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium bg-yellow-100 text-yellow-700 cursor-not-allowed">
-            <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
-        </button>
-        @elseif($isForSale)
-        <button type="button"
-                data-buy-tes-koran
-                data-id="{{ $tesKoran->id }}"
-                data-name="{{ e($tesKoran->name) }}"
-                data-price="{{ (int) $tesKoran->price }}"
-                class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                style="background-color: {{ $primaryColor }}">
-            <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
-        </button>
-        @elseif($tesKoran->access_via_package)
-        <a href="{{ route('user.package.detail', $tesKoran->access_via_package->package_id) }}"
-           class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
-           style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-            <i class="ri-shopping-bag-line mr-1"></i>Dapatkan Paket
-        </a>
-        @else
-        <button disabled class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
-            <i class="ri-lock-line mr-1"></i>Tidak Tersedia
-        </button>
-        @endif
+        <div class="mt-auto w-full">
+            @if(!$user)
+            <a href="{{ route('login') }}"
+               class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+               style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                <i class="ri-login-box-line mr-1"></i>Masuk untuk Akses
+            </a>
+            @elseif($tesKoran->has_access)
+            <a href="{{ route('user.tes-koran.show', $tesKoran) }}"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+               style="background-color: {{ $primaryColor }}">
+                <i class="ri-play-circle-line mr-1"></i>Mulai Tes
+            </a>
+            @elseif($tesKoran->has_pending_purchase)
+            <button disabled class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium bg-yellow-100 text-yellow-700 cursor-not-allowed">
+                <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
+            </button>
+            @elseif($isForSale)
+            <button type="button"
+                    data-buy-tes-koran
+                    data-id="{{ $tesKoran->id }}"
+                    data-name="{{ e($tesKoran->name) }}"
+                    data-price="{{ (int) $tesKoran->price }}"
+                    class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                    style="background-color: {{ $primaryColor }}">
+                <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
+            </button>
+            @elseif($tesKoran->access_via_package)
+            <a href="{{ route('user.package.detail', $tesKoran->access_via_package->package_id) }}"
+               class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+               style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                <i class="ri-shopping-bag-line mr-1"></i>Dapatkan Paket
+            </a>
+            @else
+            <button disabled class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
+                <i class="ri-lock-line mr-1"></i>Tidak Tersedia
+            </button>
+            @endif
+        </div>
     </div>
     @endforeach
 </div>

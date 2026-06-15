@@ -244,7 +244,9 @@ class TesKoranController extends Controller
 
         $validated['number_type'] = $firstSheet['number_type'];
         $validated['operation_type'] = $firstSheet['operation_type'];
-        $validated['column_duration_seconds'] = $firstSheet['column_duration_seconds'];
+        if (($validated['logic_test_type'] ?? 'standar') !== 'stan') {
+            $validated['column_duration_seconds'] = $firstSheet['column_duration_seconds'];
+        }
         $validated['columns_count'] = $firstSheet['columns_count'];
         $validated['rows_count'] = $firstSheet['rows_count'];
     }
@@ -279,14 +281,18 @@ class TesKoranController extends Controller
     private function totalDurationMinutes(array $validated, array $sheets = []): int
     {
         $logicTestType = $validated['logic_test_type'] ?? 'standar';
+
+        if ($logicTestType === 'stan') {
+            return (int) ceil((int) ($validated['column_duration_seconds'] ?? 60) / 60);
+        }
+
         $sheetConfigs = $sheets ?: [[
             'column_duration_seconds' => $validated['column_duration_seconds'],
             'columns_count' => $validated['columns_count'],
         ]];
 
-        $totalSeconds = collect($sheetConfigs)->sum(fn ($sheet) => $logicTestType === 'stan'
-            ? (int) $sheet['column_duration_seconds']
-            : ((int) $sheet['column_duration_seconds'] * (int) $sheet['columns_count'])
+        $totalSeconds = collect($sheetConfigs)->sum(
+            fn ($sheet) => (int) $sheet['column_duration_seconds'] * (int) $sheet['columns_count']
         );
 
         return (int) ceil($totalSeconds / 60);

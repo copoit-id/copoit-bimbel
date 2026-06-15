@@ -78,6 +78,7 @@ class TesKoranController extends Controller
                 'columns' => collect($sheets)->flatMap(fn ($sheet) => $sheet['columns'])->values()->all(),
                 'started_at' => now()->toIso8601String(),
                 'expires_at' => now()->addSeconds($totalDurationSeconds)->toIso8601String(),
+                'duration_seconds' => $totalDurationSeconds,
             ];
 
             session([$sessionKey => $attempt]);
@@ -95,8 +96,20 @@ class TesKoranController extends Controller
         ]];
         $columns = collect($sheets)->flatMap(fn ($sheet) => $sheet['columns'])->values()->all();
         $columnsJson = json_encode($columns);
-        $timeLeft = max(0, (int) floor(now()->diffInSeconds($expiresAt, false)));
         $totalDurationSeconds = $this->totalDurationSeconds($sheets, $tesKoran);
+        if ($tesKoran->logic_test_type === 'stan' && isset($attempt['started_at'])) {
+            $startedAt = Carbon::parse($attempt['started_at']);
+            $normalizedExpiresAt = $startedAt->copy()->addSeconds($totalDurationSeconds);
+
+            if (!$expiresAt || !$expiresAt->equalTo($normalizedExpiresAt)) {
+                $attempt['expires_at'] = $normalizedExpiresAt->toIso8601String();
+                $attempt['duration_seconds'] = $totalDurationSeconds;
+                session([$sessionKey => $attempt]);
+                $expiresAt = $normalizedExpiresAt;
+            }
+        }
+
+        $timeLeft = max(0, (int) floor(now()->diffInSeconds($expiresAt, false)));
         $columnDurations = collect($sheets)
             ->flatMap(fn ($sheet) => array_fill(0, count($sheet['columns'] ?? []), (int) ($sheet['column_duration_seconds'] ?? 60)))
             ->values()
@@ -339,9 +352,12 @@ class TesKoranController extends Controller
 
     private function totalDurationSeconds(array $sheets, TesKoran $tesKoran): int
     {
-        return (int) collect($sheets)->sum(fn ($sheet) => $tesKoran->logic_test_type === 'stan'
-            ? (int) ($sheet['column_duration_seconds'] ?? 60)
-            : ((int) ($sheet['column_duration_seconds'] ?? 60) * count($sheet['columns'] ?? []))
+        if ($tesKoran->logic_test_type === 'stan') {
+            return (int) ($tesKoran->column_duration_seconds ?? 60);
+        }
+
+        return (int) collect($sheets)->sum(
+            fn ($sheet) => (int) ($sheet['column_duration_seconds'] ?? 60) * count($sheet['columns'] ?? [])
         );
     }
 

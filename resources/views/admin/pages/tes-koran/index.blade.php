@@ -56,7 +56,7 @@
 
             <div class="mt-5 grid grid-cols-3 gap-3 text-sm">
                 <div class="rounded-lg bg-gray-50 px-4 py-3">
-                    <p class="text-gray-500">Per Kolom</p>
+                    <p class="text-gray-500">{{ ($tes->logic_test_type ?? 'standar') === 'stan' ? 'Total' : 'Per Kolom' }}</p>
                     <p class="font-semibold text-gray-900 mt-1 truncate">
                         {{ $tes->column_duration_seconds ?? 60 }} detik
                     </p>

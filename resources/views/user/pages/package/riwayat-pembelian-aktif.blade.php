@@ -36,7 +36,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     $endDate = $access->end_date ? \Carbon\Carbon::parse($access->end_date) : null;
     $daysLeft = $endDate ? now()->diffInDays($endDate, false) : null;
     @endphp
-    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all">
+    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all flex flex-col h-full">
         <!-- Package Image -->
         <div class="h-40 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
             @if($package->image)
@@ -64,7 +64,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         </div>
         
         <!-- Content -->
-        <div class="p-5">
+        <div class="p-5 flex-1 flex flex-col">
             <h3 class="font-bold text-lg text-gray-800 mb-2">{{ $package->name }}</h3>
             <div class="text-gray-500 text-sm mb-4">{!! $package->description ?? 'Paket belajar lengkap.' !!}</div>
             
@@ -84,7 +84,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             
             <!-- Action -->
             <a href="{{ route('user.package.show', $package->package_id) }}" 
-               class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity"
+               class="block w-full py-2.5 rounded-xl text-center font-medium text-white hover:opacity-90 transition-opacity mt-auto"
                style="background-color: {{ $primaryColor }}">
                 <i class="ri-play-circle-line mr-2"></i>Mulai Belajar
             </a>

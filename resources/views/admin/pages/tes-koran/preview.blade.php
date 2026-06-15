@@ -31,8 +31,10 @@
                             <span class="font-medium ml-1">{{ $sheet['name'] ?? 'Lembar ' . ($sheetIndex + 1) }}</span>
                         </div>
                         <div>
-                            <span class="text-gray-500">Durasi/Kolom:</span>
-                            <span class="font-medium ml-1">{{ $sheet['column_duration_seconds'] ?? 60 }} detik</span>
+                            <span class="text-gray-500">{{ ($tesKoran->logic_test_type ?? 'standar') === 'stan' ? 'Durasi Total:' : 'Durasi/Kolom:' }}</span>
+                            <span class="font-medium ml-1">
+                                {{ ($tesKoran->logic_test_type ?? 'standar') === 'stan' ? ($tesKoran->column_duration_seconds ?? 60) : ($sheet['column_duration_seconds'] ?? 60) }} detik
+                            </span>
                         </div>
                         <div>
                             <span class="text-gray-500">Ukuran:</span>
@@ -86,8 +88,13 @@
             <ul class="text-sm text-gray-600 space-y-1">
                 <li>1. Peserta mengerjakan angka berurutan sesuai operasi pada masing-masing lembar.</li>
                 <li>2. Arah: <strong>{{ $tesKoran->direction == 'top_to_bottom' ? 'Dari atas ke bawah' : 'Dari bawah ke atas' }}</strong></li>
+                @if(($tesKoran->logic_test_type ?? 'standar') === 'stan')
+                <li>3. Durasi memakai timer total: <strong>{{ $tesKoran->column_duration_seconds ?? 60 }} detik</strong>.</li>
+                <li>4. Semua kolom aktif selama timer total berjalan.</li>
+                @else
                 <li>3. Durasi kolom mengikuti setting tiap lembar.</li>
                 <li>4. Saat waktu kolom habis, sistem memberi instruksi pindah dan mengunci kolom sebelumnya.</li>
+                @endif
             </ul>
         </div>
     </div>

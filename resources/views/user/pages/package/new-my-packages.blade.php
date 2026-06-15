@@ -108,7 +108,7 @@ $assetUrl = function (?string $path) {
         $completedCount = $progress['completed_count'];
         $progressPercent = $progress['percent'];
         @endphp
-        <div class="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all">
+        <div class="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col h-full">
             {{-- Package Image --}}
             <div class="relative h-40 bg-gray-100 overflow-hidden">
                 @if($package->image)
@@ -130,7 +130,7 @@ $assetUrl = function (?string $path) {
                 <span class="absolute top-3 right-3 px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Aktif</span>
             </div>
             
-            <div class="p-5">
+            <div class="p-5 flex-1 flex flex-col">
             <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
             <div class="text-sm text-gray-400 mb-4 line-clamp-2">{!! $package->description ?? 'Paket pembelajaran lengkap' !!}</div>
             
@@ -154,7 +154,7 @@ $assetUrl = function (?string $path) {
             
             <!-- Actions -->
             <a href="{{ route('user.package.show', $package->package_id) }}" 
-               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
+               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity mt-auto"
                style="background-color: {{ $primaryColor }}">
                 <i class="ri-play-circle-line mr-1"></i>Lanjutkan Belajar
             </a>
@@ -183,7 +183,7 @@ $assetUrl = function (?string $path) {
         @php
         $userAccess = $material->userAccess->first();
         @endphp
-        <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
+        <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group flex flex-col h-full">
             <div class="flex items-start gap-4">
                 <div class="w-14 h-14 bg-red-100 text-red-500 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                     @if($material->thumbnail_url)
@@ -204,7 +204,7 @@ $assetUrl = function (?string $path) {
                 </div>
             </div>
             
-            <div class="mt-4 pt-3 border-t flex items-center justify-between">
+            <div class="mt-auto pt-3 border-t flex items-center justify-between">
                 @if($userAccess && $userAccess->is_completed)
                 <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
                     <i class="ri-check-line"></i>Selesai
@@ -250,7 +250,7 @@ $assetUrl = function (?string $path) {
         @php
         $userAccess = $material->userAccess->first();
         @endphp
-        <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group">
+        <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group flex flex-col h-full">
             <div class="flex items-start gap-4">
                 <div class="w-14 h-14 bg-blue-100 text-blue-500 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                     @if($material->thumbnail_url)
@@ -268,7 +268,7 @@ $assetUrl = function (?string $path) {
                 </div>
             </div>
             
-            <div class="mt-4 pt-3 border-t flex items-center justify-between">
+            <div class="mt-auto pt-3 border-t flex items-center justify-between">
                 @if($userAccess && $userAccess->is_completed)
                 <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
                     <i class="ri-check-line"></i>Selesai
@@ -313,7 +313,7 @@ $assetUrl = function (?string $path) {
         $packageId = $tryout->packages->first()?->package_id ?? ($tryoutPackageIds[$tryout->tryout_id] ?? null);
         $packageId = $packageId ?: 'free';
         @endphp
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
             <div class="flex items-start justify-between mb-4">
                 <div class="w-12 h-12 {{ $hasAttempts ? ($isInProgress ? 'bg-yellow-100' : 'bg-green-100') : 'bg-gray-100' }} rounded-xl flex items-center justify-center"
                      style="{{ !$hasAttempts ? 'background-color: ' . $primaryColor . '20' : '' }}">
@@ -343,7 +343,7 @@ $assetUrl = function (?string $path) {
             </div>
 
             {{-- Buttons --}}
-            <div class="flex gap-2">
+            <div class="flex gap-2 mt-auto">
                 <a href="{{ route('user.tryout.lobby', ['id_package' => $packageId, 'id_tryout' => $tryout->tryout_id]) }}"
                    class="flex-1 py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                    style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
@@ -383,7 +383,7 @@ $assetUrl = function (?string $path) {
         $hasAttempts = $results->count() > 0;
         $latestResult = $results->sortByDesc('created_at')->first();
         @endphp
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
             <div class="flex items-start justify-between mb-4">
                 <div class="w-12 h-12 {{ $hasAttempts ? 'bg-green-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center"
                      style="{{ !$hasAttempts ? 'background-color: ' . $primaryColor . '20' : '' }}">
@@ -417,7 +417,7 @@ $assetUrl = function (?string $path) {
             </div>
 
             <a href="{{ route('user.tes-koran.show', $tesKoran) }}"
-               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity mt-auto"
                style="background-color: {{ $primaryColor }}">
                 <i class="ri-play-circle-line mr-1"></i>{{ $hasAttempts ? 'Kerjakan Lagi' : 'Kerjakan' }}
             </a>
