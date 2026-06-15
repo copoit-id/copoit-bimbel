@@ -32,6 +32,8 @@ class PackageController extends Controller
     public function index(Request $request)
     {
         $tab = $request->get('tab', 'paid'); // paid or free
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
         
         // Get user's owned package IDs (cast to int for consistent comparison)
         $userOwnedPackageIds = [];
@@ -54,21 +56,31 @@ class PackageController extends Controller
                 ->toArray();
         }
         
+        $packagesQuery = Package::where('status', 'active')
+            ->with(['detailPackages'])
+            ->withCount(['materials', 'tryouts', 'tesKorans']);
+
         if ($tab === 'free') {
-            // Free packages (gratis)
-            $packages = Package::where('status', 'active')
-                ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
-                ->with(['detailPackages'])
-                ->withCount(['materials', 'tryouts', 'tesKorans'])
-                ->get();
+            $packagesQuery->whereIn('type_price', ['free_unconditional', 'free_conditional']);
         } else {
-            // Paid packages (berbayar)
-            $packages = Package::where('status', 'active')
-                ->where('type_price', 'paid')
-                ->with(['detailPackages'])
-                ->withCount(['materials', 'tryouts', 'tesKorans'])
-                ->get();
+            $packagesQuery->where('type_price', 'paid');
         }
+
+        if ($search !== '') {
+            $packagesQuery->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+
+        match ($sort) {
+            'oldest' => $packagesQuery->orderBy('created_at', 'asc'),
+            'name_asc' => $packagesQuery->orderBy('name', 'asc'),
+            'name_desc' => $packagesQuery->orderBy('name', 'desc'),
+            default => $packagesQuery->orderBy('created_at', 'desc'),
+        };
+
+        $packages = $packagesQuery->get();
 
         $manualPaymentUniqueCodes = [];
         $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
@@ -113,7 +125,9 @@ class PackageController extends Controller
             'manualPaymentUniqueCodes',
             'publicDiscounts',
             'packageAutomaticDiscounts',
-            'affiliateDiscountPreview'
+            'affiliateDiscountPreview',
+            'search',
+            'sort'
         ));
     }
 
@@ -2829,9 +2843,11 @@ class PackageController extends Controller
      * List all tryouts - tampilkan SEMUA dengan status akses user
      * BISA diakses oleh GUEST
      */
-    public function listTryout()
+    public function listTryout(Request $request)
     {
         $user = Auth::user();
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
         
         // Get packages that user has access to (empty for guest)
         $accessiblePackageIds = $user ? $user->userPackageAccess()
@@ -2844,14 +2860,29 @@ class PackageController extends Controller
             ->toArray() : [];
         
         // Get ALL active tryouts with their packages (only displayed)
-        $tryouts = \App\Models\Tryout::with(['tryoutDetails', 'packages', 'userAnswers' => function ($query) use ($user) {
+        $tryoutsQuery = \App\Models\Tryout::with(['tryoutDetails', 'packages', 'userAnswers' => function ($query) use ($user) {
             if ($user) {
                 $query->where('user_id', $user->id);
             }
         }])
         ->where('is_active', true)
-        ->where('is_displayed', true)
-        ->get();
+        ->where('is_displayed', true);
+
+        if ($search !== '') {
+            $tryoutsQuery->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+
+        match ($sort) {
+            'oldest' => $tryoutsQuery->orderBy('created_at', 'asc'),
+            'name_asc' => $tryoutsQuery->orderBy('name', 'asc'),
+            'name_desc' => $tryoutsQuery->orderBy('name', 'desc'),
+            default => $tryoutsQuery->orderBy('created_at', 'desc'),
+        };
+
+        $tryouts = $tryoutsQuery->get();
 
         // Mark each tryout with access status
         foreach ($tryouts as $tryout) {
@@ -2865,7 +2896,7 @@ class PackageController extends Controller
             $tryout->is_for_sale = $tryout->is_for_sale && $tryout->price > 0;
         }
         
-        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds'));
+        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort'));
     }
 
     /**

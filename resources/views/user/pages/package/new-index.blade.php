@@ -46,17 +46,44 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
 
 <!-- Tabs -->
 <div class="bg-white rounded-2xl p-2 mb-6 border border-gray-100 inline-flex">
-    <a href="{{ route('user.package.index', ['tab' => 'paid']) }}" 
+    <a href="{{ route('user.package.index', array_merge(request()->only(['search', 'sort']), ['tab' => 'paid'])) }}"
        class="px-6 py-2.5 rounded-xl font-medium transition-all {{ $tab === 'paid' ? 'text-white' : 'text-gray-600 hover:bg-gray-50' }}"
        style="{{ $tab === 'paid' ? 'background-color: ' . $primaryColor : '' }}">
         <i class="ri-vip-crown-line mr-2"></i>Berbayar
     </a>
-    <a href="{{ route('user.package.index', ['tab' => 'free']) }}" 
+    <a href="{{ route('user.package.index', array_merge(request()->only(['search', 'sort']), ['tab' => 'free'])) }}"
        class="px-6 py-2.5 rounded-xl font-medium transition-all {{ $tab === 'free' ? 'text-white' : 'text-gray-600 hover:bg-gray-50' }}"
        style="{{ $tab === 'free' ? 'background-color: ' . $primaryColor : '' }}">
         <i class="ri-gift-line mr-2"></i>Gratis
     </a>
 </div>
+
+<form method="GET" action="{{ route('user.package.index') }}" class="bg-white border border-gray-100 rounded-xl p-3 mb-6 flex flex-col md:flex-row gap-3">
+    <input type="hidden" name="tab" value="{{ $tab }}">
+    <div class="flex-1">
+        <label for="package-search" class="sr-only">Cari paket</label>
+        <div class="relative">
+            <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input id="package-search" type="search" name="search" value="{{ request('search', $search ?? '') }}"
+                   placeholder="Cari berdasarkan nama"
+                   class="w-full rounded-lg border border-gray-200 pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                   style="--tw-ring-color: {{ $primaryColor }}">
+        </div>
+    </div>
+    <div class="flex gap-2">
+        <label for="package-sort" class="sr-only">Urutkan</label>
+        <select id="package-sort" name="sort" class="min-w-[180px] rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                style="--tw-ring-color: {{ $primaryColor }}">
+            <option value="latest" {{ request('sort', $sort ?? 'latest') === 'latest' ? 'selected' : '' }}>Terbaru</option>
+            <option value="oldest" {{ request('sort', $sort ?? 'latest') === 'oldest' ? 'selected' : '' }}>Terlama</option>
+            <option value="name_asc" {{ request('sort', $sort ?? 'latest') === 'name_asc' ? 'selected' : '' }}>Nama A-Z</option>
+            <option value="name_desc" {{ request('sort', $sort ?? 'latest') === 'name_desc' ? 'selected' : '' }}>Nama Z-A</option>
+        </select>
+        <button type="submit" class="px-4 py-2.5 text-white rounded-lg text-sm font-medium hover:opacity-90" style="background-color: {{ $primaryColor }}">
+            Terapkan
+        </button>
+    </div>
+</form>
 
 @if($tab === 'paid' && ($affiliateDiscountPreview || $publicDiscounts->isNotEmpty()))
 <div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100 shadow-sm">
