@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Collection;
 
 class TesKoran extends Model
 {
@@ -56,6 +57,11 @@ class TesKoran extends Model
         return $this->hasMany(TesKoranResult::class);
     }
 
+    public function sheets(): HasMany
+    {
+        return $this->hasMany(TesKoranSheet::class)->orderBy('sheet_order');
+    }
+
     public function individualPurchases(): MorphMany
     {
         return $this->morphMany(IndividualPurchase::class, 'purchasable');
@@ -74,6 +80,57 @@ class TesKoran extends Model
         return $columns;
     }
 
+    public function sheetConfigs(): Collection
+    {
+        $sheets = $this->relationLoaded('sheets') ? $this->sheets : $this->sheets()->get();
+
+        if ($sheets->isNotEmpty()) {
+            return $sheets->values()->map(fn (TesKoranSheet $sheet, int $index) => [
+                'id' => $sheet->id,
+                'sheet_order' => (int) ($sheet->sheet_order ?: ($index + 1)),
+                'name' => $sheet->name ?: 'Lembar ' . ($index + 1),
+                'number_type' => $sheet->number_type ?: 'satuan',
+                'operation_type' => $sheet->operation_type ?: 'addition',
+                'column_duration_seconds' => (int) ($sheet->column_duration_seconds ?: 60),
+                'columns_count' => (int) ($sheet->columns_count ?: 30),
+                'rows_count' => (int) ($sheet->rows_count ?: 10),
+            ]);
+        }
+
+        return collect([[
+            'id' => null,
+            'sheet_order' => 1,
+            'name' => 'Lembar 1',
+            'number_type' => $this->number_type ?: 'satuan',
+            'operation_type' => $this->operation_type ?: 'addition',
+            'column_duration_seconds' => (int) ($this->column_duration_seconds ?: 60),
+            'columns_count' => (int) ($this->columns_count ?: 30),
+            'rows_count' => (int) ($this->rows_count ?: 10),
+        ]]);
+    }
+
+    public function generateColumnsForSheet(array $sheet): array
+    {
+        $columns = [];
+        for ($i = 0; $i < (int) $sheet['columns_count']; $i++) {
+            $column = [];
+            for ($j = 0; $j < (int) $sheet['rows_count']; $j++) {
+                $column[] = rand(...$this->numberRangeFor($sheet['number_type'] ?? 'satuan'));
+            }
+            $columns[] = $column;
+        }
+        return $columns;
+    }
+
+    public function numberRangeFor(string $numberType): array
+    {
+        return match ($numberType) {
+            'puluhan' => [10, 99],
+            'ratusan' => [100, 999],
+            default => [1, 9],
+        };
+    }
+
     public function numberRange(): array
     {
         return match ($this->number_type) {
@@ -85,7 +142,12 @@ class TesKoran extends Model
 
     public function operationLabel(): string
     {
-        return match ($this->operation_type) {
+        return $this->operationLabelFor($this->operation_type ?: 'addition');
+    }
+
+    public function operationLabelFor(string $operationType): string
+    {
+        return match ($operationType) {
             'subtraction' => 'Pengurangan',
             'division' => 'Pembagian',
             default => 'Penjumlahan',
@@ -94,7 +156,12 @@ class TesKoran extends Model
 
     public function calculateExpectedAnswer(int|float $firstNumber, int|float $secondNumber): string
     {
-        $result = match ($this->operation_type) {
+        return $this->calculateExpectedAnswerFor($firstNumber, $secondNumber, $this->operation_type ?: 'addition');
+    }
+
+    public function calculateExpectedAnswerFor(int|float $firstNumber, int|float $secondNumber, string $operationType): string
+    {
+        $result = match ($operationType) {
             'subtraction' => abs($firstNumber - $secondNumber),
             'division' => $this->calculateDivisionResult($firstNumber, $secondNumber),
             default => $firstNumber + $secondNumber,

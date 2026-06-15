@@ -6,6 +6,14 @@
 @php
     $selectedAccessDurationUnit = old('access_duration_unit', $tesKoran->access_duration_unit ?? 'forever');
     $selectedAccessDurationValue = old('access_duration_value', $tesKoran->access_duration_value ?? 1);
+    $sheetConfigs = old('sheets', $tesKoran->sheetConfigs()->map(fn ($sheet) => [
+        'name' => $sheet['name'],
+        'number_type' => $sheet['number_type'],
+        'operation_type' => $sheet['operation_type'],
+        'column_duration_seconds' => $sheet['column_duration_seconds'],
+        'columns_count' => $sheet['columns_count'],
+        'rows_count' => $sheet['rows_count'],
+    ])->toArray());
 @endphp
 <div class="container mx-auto px-4">
     <x-breadcrumb>
@@ -138,6 +146,64 @@
                         <input type="number" id="rows_count" name="rows_count" required min="5" max="20"
                                value="{{ old('rows_count', $tesKoran->rows_count) }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Konfigurasi Lembar</h3>
+                            <p class="text-xs text-gray-500 mt-1">Atur jumlah lembar dan setting berbeda untuk tiap lembar.</p>
+                        </div>
+                        <button type="button" id="addSheetBtn" class="px-3 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary/90">
+                            <i class="ri-add-line mr-1"></i>Tambah Lembar
+                        </button>
+                    </div>
+                    <div id="sheetsContainer" class="space-y-4">
+                        @foreach($sheetConfigs as $sheetIndex => $sheet)
+                        <div class="sheet-card rounded-xl border border-gray-200 bg-gray-50/70 p-4" data-sheet-index="{{ $sheetIndex }}">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <h4 class="font-semibold text-gray-700">Lembar <span data-sheet-number>{{ $sheetIndex + 1 }}</span></h4>
+                                <button type="button" class="remove-sheet-btn px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100">
+                                    Hapus
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Nama Lembar</label>
+                                    <input type="text" name="sheets[{{ $sheetIndex }}][name]" value="{{ $sheet['name'] ?? 'Lembar ' . ($sheetIndex + 1) }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Jenis Angka</label>
+                                    <select name="sheets[{{ $sheetIndex }}][number_type]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="satuan" @selected(($sheet['number_type'] ?? 'satuan') === 'satuan')>Satuan</option>
+                                        <option value="puluhan" @selected(($sheet['number_type'] ?? 'satuan') === 'puluhan')>Puluhan</option>
+                                        <option value="ratusan" @selected(($sheet['number_type'] ?? 'satuan') === 'ratusan')>Ratusan</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Operasi</label>
+                                    <select name="sheets[{{ $sheetIndex }}][operation_type]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option value="addition" @selected(($sheet['operation_type'] ?? 'addition') === 'addition')>Penjumlahan</option>
+                                        <option value="subtraction" @selected(($sheet['operation_type'] ?? 'addition') === 'subtraction')>Pengurangan</option>
+                                        <option value="division" @selected(($sheet['operation_type'] ?? 'addition') === 'division')>Pembagian</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Durasi/Kolom atau Total (Detik)</label>
+                                    <input type="number" name="sheets[{{ $sheetIndex }}][column_duration_seconds]" min="10" max="3600" value="{{ $sheet['column_duration_seconds'] ?? 60 }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Jumlah Kolom</label>
+                                    <input type="number" name="sheets[{{ $sheetIndex }}][columns_count]" min="1" max="50" value="{{ $sheet['columns_count'] ?? 30 }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Baris/Kolom</label>
+                                    <input type="number" name="sheets[{{ $sheetIndex }}][rows_count]" min="5" max="20" value="{{ $sheet['rows_count'] ?? 10 }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
                 </div>
 
@@ -275,6 +341,84 @@ document.addEventListener('DOMContentLoaded', function () {
 
     logicTestType?.addEventListener('change', syncDurationLabel);
     syncDurationLabel();
+
+    const sheetsContainer = document.getElementById('sheetsContainer');
+    const addSheetBtn = document.getElementById('addSheetBtn');
+
+    function sheetTemplate(index) {
+        return `
+            <div class="sheet-card rounded-xl border border-gray-200 bg-gray-50/70 p-4" data-sheet-index="${index}">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h4 class="font-semibold text-gray-700">Lembar <span data-sheet-number>${index + 1}</span></h4>
+                    <button type="button" class="remove-sheet-btn px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100">Hapus</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Nama Lembar</label>
+                        <input type="text" name="sheets[${index}][name]" value="Lembar ${index + 1}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Jenis Angka</label>
+                        <select name="sheets[${index}][number_type]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="satuan">Satuan</option>
+                            <option value="puluhan">Puluhan</option>
+                            <option value="ratusan">Ratusan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Operasi</label>
+                        <select name="sheets[${index}][operation_type]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="addition">Penjumlahan</option>
+                            <option value="subtraction">Pengurangan</option>
+                            <option value="division">Pembagian</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Durasi/Kolom atau Total (Detik)</label>
+                        <input type="number" name="sheets[${index}][column_duration_seconds]" min="10" max="3600" value="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Jumlah Kolom</label>
+                        <input type="number" name="sheets[${index}][columns_count]" min="1" max="50" value="30" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Baris/Kolom</label>
+                        <input type="number" name="sheets[${index}][rows_count]" min="5" max="20" value="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renumberSheets() {
+        if (!sheetsContainer) return;
+        sheetsContainer.querySelectorAll('.sheet-card').forEach((card, index) => {
+            card.dataset.sheetIndex = index;
+            card.querySelector('[data-sheet-number]').textContent = index + 1;
+            card.querySelectorAll('[name^="sheets["]').forEach(input => {
+                input.name = input.name.replace(/sheets\[\d+\]/, `sheets[${index}]`);
+            });
+        });
+        sheetsContainer.querySelectorAll('.remove-sheet-btn').forEach(button => {
+            button.disabled = sheetsContainer.querySelectorAll('.sheet-card').length <= 1;
+            button.classList.toggle('opacity-50', button.disabled);
+        });
+    }
+
+    addSheetBtn?.addEventListener('click', function () {
+        const index = sheetsContainer.querySelectorAll('.sheet-card').length;
+        sheetsContainer.insertAdjacentHTML('beforeend', sheetTemplate(index));
+        renumberSheets();
+    });
+
+    sheetsContainer?.addEventListener('click', function (event) {
+        const button = event.target.closest('.remove-sheet-btn');
+        if (!button || button.disabled) return;
+        button.closest('.sheet-card')?.remove();
+        renumberSheets();
+    });
+
+    renumberSheets();
 });
 </script>
 @endpush

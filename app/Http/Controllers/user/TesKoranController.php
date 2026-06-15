@@ -50,6 +50,7 @@ class TesKoranController extends Controller
     public function show(TesKoran $tesKoran)
     {
         $this->abortIfFeatureDisabled();
+        $tesKoran->load('sheets');
 
         $package = $tesKoran->accessiblePackageForUser(Auth::id());
 
@@ -63,12 +64,18 @@ class TesKoranController extends Controller
         $expiresAt = isset($attempt['expires_at']) ? Carbon::parse($attempt['expires_at']) : null;
 
         if (!$attempt || !$expiresAt || $expiresAt->isPast()) {
-            $totalDurationSeconds = $tesKoran->logic_test_type === 'stan'
-                ? $tesKoran->column_duration_seconds
-                : ($tesKoran->column_duration_seconds * $tesKoran->columns_count);
+            $sheets = $tesKoran->sheetConfigs()
+                ->map(function (array $sheet) use ($tesKoran) {
+                    $sheet['columns'] = $tesKoran->generateColumnsForSheet($sheet);
+                    return $sheet;
+                })
+                ->values()
+                ->all();
+            $totalDurationSeconds = $this->totalDurationSeconds($sheets, $tesKoran);
 
             $attempt = [
-                'columns' => $tesKoran->generateColumns($tesKoran->columns_count),
+                'sheets' => $sheets,
+                'columns' => collect($sheets)->flatMap(fn ($sheet) => $sheet['columns'])->values()->all(),
                 'started_at' => now()->toIso8601String(),
                 'expires_at' => now()->addSeconds($totalDurationSeconds)->toIso8601String(),
             ];
@@ -77,11 +84,33 @@ class TesKoranController extends Controller
             $expiresAt = Carbon::parse($attempt['expires_at']);
         }
 
-        $columns = $attempt['columns'];
+        $sheets = $attempt['sheets'] ?? [[
+            'name' => 'Lembar 1',
+            'number_type' => $tesKoran->number_type,
+            'operation_type' => $tesKoran->operation_type,
+            'column_duration_seconds' => $tesKoran->column_duration_seconds,
+            'columns_count' => $tesKoran->columns_count,
+            'rows_count' => $tesKoran->rows_count,
+            'columns' => $attempt['columns'],
+        ]];
+        $columns = collect($sheets)->flatMap(fn ($sheet) => $sheet['columns'])->values()->all();
         $columnsJson = json_encode($columns);
         $timeLeft = max(0, (int) floor(now()->diffInSeconds($expiresAt, false)));
+        $totalDurationSeconds = $this->totalDurationSeconds($sheets, $tesKoran);
+        $columnDurations = collect($sheets)
+            ->flatMap(fn ($sheet) => array_fill(0, count($sheet['columns'] ?? []), (int) ($sheet['column_duration_seconds'] ?? 60)))
+            ->values()
+            ->all();
+        $columnLabels = collect($sheets)
+            ->flatMap(function ($sheet) {
+                return collect($sheet['columns'] ?? [])
+                    ->keys()
+                    ->map(fn ($index) => ($sheet['name'] ?? 'Lembar') . ' - Kolom ' . ($index + 1));
+            })
+            ->values()
+            ->all();
 
-        return view('user.pages.tes-koran.show', compact('tesKoran', 'package', 'columnsJson', 'columns', 'timeLeft'));
+        return view('user.pages.tes-koran.show', compact('tesKoran', 'package', 'columnsJson', 'columns', 'sheets', 'timeLeft', 'totalDurationSeconds', 'columnDurations', 'columnLabels'));
     }
 
     public function start(Request $request, TesKoran $tesKoran)
@@ -105,11 +134,14 @@ class TesKoranController extends Controller
 
         $attemptToken = Str::uuid()->toString();
         $answers = $request->input('answers', []);
+        $sheetsData = $attempt['sheets'] ?? null;
         $columnsData = $attempt['columns'];
         $startedAt = Carbon::parse($attempt['started_at'] ?? now());
 
         // Calculate results
-        $result = $this->calculateResults($answers, $columnsData, $tesKoran);
+        $result = $sheetsData
+            ? $this->calculateSheetResults($answers, $sheetsData, $tesKoran)
+            : $this->calculateResults($answers, $columnsData, $tesKoran);
 
         // Store result
         $tesKoranResult = TesKoranResult::create([
@@ -224,6 +256,79 @@ class TesKoranController extends Controller
             'stability_status' => $stabilityStatus,
             'final_result' => $finalResult,
         ];
+    }
+
+    private function calculateSheetResults(array $answers, array $sheets, TesKoran $tesKoran): array
+    {
+        $totalCorrect = 0;
+        $totalWrong = 0;
+        $totalSkipped = 0;
+        $columnScores = [];
+        $totalAnswers = 0;
+        $globalColumnIndex = 0;
+
+        foreach ($sheets as $sheet) {
+            foreach (($sheet['columns'] ?? []) as $column) {
+                $colCorrect = 0;
+                $maxAnswers = count($column) - 1;
+
+                for ($i = 0; $i < $maxAnswers; $i++) {
+                    $userAnswer = $answers[$globalColumnIndex][$i] ?? null;
+
+                    if ($userAnswer === null || $userAnswer === '') {
+                        $totalSkipped++;
+                        continue;
+                    }
+
+                    $expected = $tesKoran->calculateExpectedAnswerFor(
+                        $column[$i],
+                        $column[$i + 1],
+                        $sheet['operation_type'] ?? 'addition'
+                    );
+                    $normalizedAnswer = $tesKoran->normalizeAnswer($userAnswer);
+
+                    if ($normalizedAnswer === $expected) {
+                        $totalCorrect++;
+                        $colCorrect++;
+                    } else {
+                        $totalWrong++;
+                    }
+
+                    $totalAnswers++;
+                }
+
+                $columnScores[] = $colCorrect;
+                $globalColumnIndex++;
+            }
+        }
+
+        $durationMinutes = max(1, (int) ceil($this->totalDurationSeconds($sheets, $tesKoran) / 60));
+        $speedScore = min(100, ($totalCorrect / $durationMinutes) * 5);
+        $accuracyScore = $totalAnswers > 0 ? (($totalCorrect / $totalAnswers) * 100) : 0;
+        $stabilityAnalysis = TesKoran::analyzeStability($columnScores);
+        $stabilityScore = $stabilityAnalysis['score'];
+        $stabilityStatus = $stabilityAnalysis['status'];
+        $avgScore = ($speedScore + $accuracyScore + $stabilityScore) / 3;
+
+        return [
+            'total_correct' => $totalCorrect,
+            'total_wrong' => $totalWrong,
+            'total_skipped' => $totalSkipped,
+            'column_scores' => $columnScores,
+            'speed_score' => $speedScore,
+            'accuracy_score' => $accuracyScore,
+            'stability_score' => $stabilityScore,
+            'stability_status' => $stabilityStatus,
+            'final_result' => $avgScore >= 70 ? 'tinggi' : ($avgScore >= 40 ? 'sedang' : 'rendah'),
+        ];
+    }
+
+    private function totalDurationSeconds(array $sheets, TesKoran $tesKoran): int
+    {
+        return (int) collect($sheets)->sum(fn ($sheet) => $tesKoran->logic_test_type === 'stan'
+            ? (int) ($sheet['column_duration_seconds'] ?? 60)
+            : ((int) ($sheet['column_duration_seconds'] ?? 60) * count($sheet['columns'] ?? []))
+        );
     }
 
     public function history()

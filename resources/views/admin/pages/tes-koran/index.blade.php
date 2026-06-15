@@ -33,7 +33,7 @@
                 <div class="min-w-0 flex-1">
                     <h3 class="font-semibold text-gray-900 text-base line-clamp-2">{{ $tes->name }}</h3>
                     <p class="mt-1.5 text-sm text-gray-500 capitalize">
-                        {{ $tes->test_type }} · {{ $tes->operationLabel() }} · {{ $tes->columns_count }}×{{ $tes->rows_count }}
+                        {{ $tes->test_type }} · {{ $tes->sheets_count ?: 1 }} lembar · {{ $tes->columns_count }}×{{ $tes->rows_count }}
                     </p>
                 </div>
             </div>

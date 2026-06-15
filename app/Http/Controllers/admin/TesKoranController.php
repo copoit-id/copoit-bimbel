@@ -7,6 +7,7 @@ use App\Models\TesKoran;
 use App\Models\TesKoranResult;
 use App\Services\PurchaseAccessDuration;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -15,7 +16,8 @@ class TesKoranController extends Controller
 {
     public function index()
     {
-        $tesKorans = TesKoran::orderBy('created_at', 'desc')
+        $tesKorans = TesKoran::withCount('sheets')
+            ->orderBy('created_at', 'desc')
             ->withCount('results')
             ->paginate(20);
 
@@ -30,15 +32,20 @@ class TesKoranController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validatedData($request);
+        $sheets = $this->validatedSheets($request, $validated);
+        $this->syncBaseSettingsFromFirstSheet($validated, $sheets);
 
         $validated['price'] = (int) ($validated['price'] ?? 0);
         $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
         $validated['is_displayed'] = $request->boolean('is_displayed', true);
         $validated['direction'] = $this->directionForTestType($validated['test_type']);
-        $validated['duration_minutes'] = $this->totalDurationMinutes($validated);
+        $validated['duration_minutes'] = $this->totalDurationMinutes($validated, $sheets);
         $this->normalizeAccessDuration($validated);
 
-        TesKoran::create($validated);
+        DB::transaction(function () use ($validated, $sheets) {
+            $tesKoran = TesKoran::create($validated);
+            $this->syncSheets($tesKoran, $sheets);
+        });
 
         return redirect()->route('admin.tes-koran.index')
             ->with('success', 'Tes Koran berhasil ditambahkan.');
@@ -46,22 +53,29 @@ class TesKoranController extends Controller
 
     public function edit(TesKoran $tesKoran)
     {
+        $tesKoran->load('sheets');
+
         return view('admin.pages.tes-koran.edit', compact('tesKoran'));
     }
 
     public function update(Request $request, TesKoran $tesKoran)
     {
         $validated = $this->validatedData($request);
+        $sheets = $this->validatedSheets($request, $validated);
+        $this->syncBaseSettingsFromFirstSheet($validated, $sheets);
 
         $validated['price'] = (int) ($validated['price'] ?? 0);
         $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
         $validated['is_displayed'] = $request->boolean('is_displayed');
         $validated['is_active'] = $request->boolean('is_active');
         $validated['direction'] = $this->directionForTestType($validated['test_type']);
-        $validated['duration_minutes'] = $this->totalDurationMinutes($validated);
+        $validated['duration_minutes'] = $this->totalDurationMinutes($validated, $sheets);
         $this->normalizeAccessDuration($validated);
 
-        $tesKoran->update($validated);
+        DB::transaction(function () use ($tesKoran, $validated, $sheets) {
+            $tesKoran->update($validated);
+            $this->syncSheets($tesKoran, $sheets);
+        });
 
         return redirect()->route('admin.tes-koran.index', $request->query())
             ->with('success', 'Tes Koran berhasil diperbarui.');
@@ -104,9 +118,14 @@ class TesKoranController extends Controller
 
     public function preview(TesKoran $tesKoran)
     {
-        $columns = $tesKoran->generateColumns($tesKoran->columns_count);
+        $tesKoran->load('sheets');
+        $sheets = $tesKoran->sheetConfigs()
+            ->map(function (array $sheet) use ($tesKoran) {
+                $sheet['columns'] = $tesKoran->generateColumnsForSheet($sheet);
+                return $sheet;
+            });
 
-        return view('admin.pages.tes-koran.preview', compact('tesKoran', 'columns'));
+        return view('admin.pages.tes-koran.preview', compact('tesKoran', 'sheets'));
     }
 
     public function export(TesKoran $tesKoran): StreamedResponse
@@ -179,6 +198,66 @@ class TesKoranController extends Controller
         ]);
     }
 
+    private function validatedSheets(Request $request, array $validated): array
+    {
+        $request->validate([
+            'sheets' => 'nullable|array|min:1|max:10',
+            'sheets.*.name' => 'nullable|string|max:100',
+            'sheets.*.number_type' => 'required_with:sheets|in:satuan,puluhan,ratusan',
+            'sheets.*.operation_type' => 'required_with:sheets|in:addition,subtraction,division',
+            'sheets.*.column_duration_seconds' => 'required_with:sheets|integer|min:10|max:3600',
+            'sheets.*.columns_count' => 'required_with:sheets|integer|min:1|max:50',
+            'sheets.*.rows_count' => 'required_with:sheets|integer|min:5|max:20',
+        ]);
+
+        $sheetInputs = collect($request->input('sheets', []))->values();
+
+        if ($sheetInputs->isEmpty()) {
+            $sheetInputs = collect([[
+                'name' => 'Lembar 1',
+                'number_type' => $validated['number_type'],
+                'operation_type' => $validated['operation_type'],
+                'column_duration_seconds' => $validated['column_duration_seconds'],
+                'columns_count' => $validated['columns_count'],
+                'rows_count' => $validated['rows_count'],
+            ]]);
+        }
+
+        return $sheetInputs->map(fn ($sheet, int $index) => [
+            'sheet_order' => $index + 1,
+            'name' => $sheet['name'] ?: 'Lembar ' . ($index + 1),
+            'number_type' => $sheet['number_type'] ?? 'satuan',
+            'operation_type' => $sheet['operation_type'] ?? 'addition',
+            'column_duration_seconds' => (int) ($sheet['column_duration_seconds'] ?? 60),
+            'columns_count' => (int) ($sheet['columns_count'] ?? 30),
+            'rows_count' => (int) ($sheet['rows_count'] ?? 10),
+        ])->all();
+    }
+
+    private function syncBaseSettingsFromFirstSheet(array &$validated, array $sheets): void
+    {
+        $firstSheet = $sheets[0] ?? null;
+
+        if (!$firstSheet) {
+            return;
+        }
+
+        $validated['number_type'] = $firstSheet['number_type'];
+        $validated['operation_type'] = $firstSheet['operation_type'];
+        $validated['column_duration_seconds'] = $firstSheet['column_duration_seconds'];
+        $validated['columns_count'] = $firstSheet['columns_count'];
+        $validated['rows_count'] = $firstSheet['rows_count'];
+    }
+
+    private function syncSheets(TesKoran $tesKoran, array $sheets): void
+    {
+        $tesKoran->sheets()->delete();
+
+        foreach ($sheets as $sheet) {
+            $tesKoran->sheets()->create($sheet);
+        }
+    }
+
     private function normalizeAccessDuration(array &$validated): void
     {
         if (!($validated['is_for_sale'] ?? false) || (int) ($validated['price'] ?? 0) <= 0) {
@@ -197,12 +276,18 @@ class TesKoranController extends Controller
         );
     }
 
-    private function totalDurationMinutes(array $validated): int
+    private function totalDurationMinutes(array $validated, array $sheets = []): int
     {
         $logicTestType = $validated['logic_test_type'] ?? 'standar';
-        $totalSeconds = $logicTestType === 'stan'
-            ? $validated['column_duration_seconds']
-            : ($validated['column_duration_seconds'] * $validated['columns_count']);
+        $sheetConfigs = $sheets ?: [[
+            'column_duration_seconds' => $validated['column_duration_seconds'],
+            'columns_count' => $validated['columns_count'],
+        ]];
+
+        $totalSeconds = collect($sheetConfigs)->sum(fn ($sheet) => $logicTestType === 'stan'
+            ? (int) $sheet['column_duration_seconds']
+            : ((int) $sheet['column_duration_seconds'] * (int) $sheet['columns_count'])
+        );
 
         return (int) ceil($totalSeconds / 60);
     }

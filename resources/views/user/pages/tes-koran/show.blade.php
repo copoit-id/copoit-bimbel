@@ -96,7 +96,7 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
                     <i class="ri-survey-line mr-1"></i>{{ $tesKoran->test_type == 'pauli' ? 'Pauli' : 'Kraepelin' }}
                 </span>
                 <span class="px-2.5 py-1 text-xs font-semibold rounded-full text-emerald-700 bg-emerald-50 border border-emerald-100/80">
-                    <i class="ri-calculator-line mr-1"></i>{{ $tesKoran->operationLabel() }}
+                    <i class="ri-file-copy-2-line mr-1"></i>{{ count($sheets ?? []) }} Lembar
                 </span>
                 <span class="px-2.5 py-1 text-xs font-semibold rounded-full text-blue-700 bg-blue-50 border border-blue-100/80">
                     <i class="ri-direction-line mr-1"></i>{{ $effectiveDirection == 'top_to_bottom' ? 'Atas ke Bawah' : 'Bawah ke Atas' }}
@@ -119,7 +119,7 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
             @if($isStan)
                 Sisa Waktu: <span id="timerDisplay" class="text-primary font-mono">--:--</span>
             @else
-                Progres Kolom: <span id="colProgressText" class="text-primary">1 / {{ $tesKoran->columns_count }}</span>
+                Progres Kolom: <span id="colProgressText" class="text-primary">1 / {{ count($columns) }}</span>
             @endif
         </div>
         <div class="flex-1 min-w-[200px] max-w-md bg-gray-100 h-2.5 rounded-full overflow-hidden">
@@ -165,62 +165,47 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
 
         <div class="p-6 overflow-x-auto grid-scroll-container">
             <div class="flex gap-8 min-w-full pb-4">
-                <!-- Sticky Row Numbers -->
-                <div class="sticky left-0 bg-white/95 backdrop-blur-sm z-20 pr-4 pl-2 flex flex-col items-center border-r border-gray-200/60 shadow-sm rounded-l-2xl">
-                    <div class="w-10 text-center mb-4 text-xs font-extrabold text-gray-400 border-b-2 border-transparent pb-1">Baris</div>
-                    
-                    @for($r = 0; $r < $tesKoran->rows_count; $r++)
-                    <div class="h-16 flex items-center justify-center text-xs font-bold text-gray-400 font-mono">
-                        {{ $r + 1 }}
+                @php $globalColumnIndex = 0; @endphp
+                @foreach($sheets as $sheetIndex => $sheet)
+                <div class="shrink-0">
+                    <div class="mb-3 rounded-xl bg-gray-50 border border-gray-100 px-4 py-2">
+                        <p class="text-xs font-bold text-gray-700">{{ $sheet['name'] ?? 'Lembar ' . ($sheetIndex + 1) }}</p>
+                        <p class="text-[11px] text-gray-400">{{ $tesKoran->operationLabelFor($sheet['operation_type'] ?? 'addition') }} · {{ count($sheet['columns'] ?? []) }} kolom · {{ $sheet['rows_count'] ?? 10 }} baris</p>
                     </div>
-                    @endfor
+                    <div class="flex gap-8">
+                        @foreach(($sheet['columns'] ?? []) as $localColumnIndex => $column)
+                        @php $c = $globalColumnIndex++; @endphp
+                        <div data-column-container="{{ $c }}" class="column-container relative flex flex-col items-start min-w-[8rem] w-32 py-6 px-0 rounded-2xl transition-all duration-300">
+                            <div class="absolute left-[36px] top-16 bottom-6 w-0.5 bg-gray-150/85 z-0"></div>
+                            <div data-col-header="{{ $c }}" class="z-10 w-10 text-center ml-4 mb-4 text-xs font-bold text-gray-400 border-b-2 border-gray-100 pb-1 transition-all duration-300">
+                                {{ $localColumnIndex + 1 }}
+                            </div>
+                            @foreach($column as $r => $digit)
+                            <div class="z-10 h-16 w-full flex items-center justify-start pl-4 relative">
+                                <div class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-gray-200 shadow-sm transition-all duration-200">
+                                    <span data-num-cell="{{ $c }}-{{ $r }}" class="text-base font-black text-gray-700 font-mono transition-all duration-200">
+                                        {{ $digit }}
+                                    </span>
+                                </div>
+                                @if($r > 0)
+                                <div class="absolute top-0 left-16 -translate-y-1/2 z-20">
+                                    <input type="text"
+                                           maxlength="{{ $tesKoran->answerMaxLength() }}"
+                                           pattern="[0-9]"
+                                           inputmode="numeric"
+                                           data-row="{{ $r }}"
+                                           data-col="{{ $c }}"
+                                           class="tes-koran-input bg-white"
+                                           autocomplete="off">
+                                </div>
+                                @endif
+                            </div>
+                            @endforeach
+                        </div>
+                        @endforeach
+                    </div>
                 </div>
-
-                <!-- Columns -->
-                @for($c = 0; $c < $tesKoran->columns_count; $c++)
-                <div data-column-container="{{ $c }}" class="column-container relative flex flex-col items-start min-w-[8rem] w-32 py-6 px-0 rounded-2xl transition-all duration-300">
-                    <!-- Vertical Connective Line -->
-                    <div class="absolute left-[36px] top-16 bottom-6 w-0.5 bg-gray-150/85 z-0"></div>
-
-                    <!-- Column Header -->
-                    <div data-col-header="{{ $c }}" class="z-10 w-10 text-center ml-4 mb-4 text-xs font-bold text-gray-400 border-b-2 border-gray-100 pb-1 transition-all duration-300">
-                        {{ $c + 1 }}
-                    </div>
-
-                    <!-- Row 0: Digit Only -->
-                    <div class="z-10 h-16 w-full flex items-center justify-start pl-4 relative">
-                        <div class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-gray-200 shadow-sm transition-all duration-200">
-                            <span data-num-cell="{{ $c }}-0" class="text-base font-black text-gray-700 font-mono transition-all duration-200">
-                                {{ $columns[$c][0] }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Rows 1 to N-1: Digit + Input on the side, centered vertically between this digit and the one above it -->
-                    @for($r = 1; $r < $tesKoran->rows_count; $r++)
-                    <div class="z-10 h-16 w-full flex items-center justify-start pl-4 relative">
-                        <!-- Digit Tile -->
-                        <div class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-gray-200 shadow-sm transition-all duration-200">
-                            <span data-num-cell="{{ $c }}-{{ $r }}" class="text-base font-black text-gray-700 font-mono transition-all duration-200">
-                                {{ $columns[$c][$r] }}
-                            </span>
-                        </div>
-                        
-                        <!-- Input Box (Centered vertically at top border between digits) -->
-                        <div class="absolute top-0 left-16 -translate-y-1/2 z-20">
-                            <input type="text"
-                                   maxlength="{{ $tesKoran->answerMaxLength() }}"
-                                   pattern="[0-9]"
-                                   inputmode="numeric"
-                                   data-row="{{ $r }}"
-                                   data-col="{{ $c }}"
-                                   class="tes-koran-input bg-white"
-                                   autocomplete="off">
-                        </div>
-                    </div>
-                    @endfor
-                </div>
-                @endfor
+                @endforeach
             </div>
         </div>
 
@@ -255,10 +240,11 @@ $isStan = ($tesKoran->logic_test_type ?? 'standar') === 'stan';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const isStanMode = {{ $isStan ? 'true' : 'false' }};
-    const columnDurationSeconds = {{ $tesKoran->column_duration_seconds ?? 60 }};
-    const columnsCount = {{ $tesKoran->columns_count }};
-    const rowsCount = {{ $tesKoran->rows_count }};
-    const totalDurationSeconds = isStanMode ? columnDurationSeconds : (columnDurationSeconds * columnsCount);
+    const columnDurations = @json($columnDurations);
+    const columnLabels = @json($columnLabels);
+    const columnDurationSeconds = columnDurations[0] || {{ $tesKoran->column_duration_seconds ?? 60 }};
+    const columnsCount = {{ count($columns) }};
+    const totalDurationSeconds = {{ $totalDurationSeconds }};
     const columnsHash = '{{ md5($columnsJson) }}';
     const progressKey = 'tes_koran_progress:{{ auth()->id() }}:{{ $tesKoran->id }}';
     const currentColumnKey = 'tes_koran_current_column:{{ auth()->id() }}:{{ $tesKoran->id }}';
@@ -280,6 +266,25 @@ document.addEventListener('DOMContentLoaded', function() {
     let columnTimeout = null;
     const transitionInstruction = '{{ $tesKoran->test_type === 'pauli' ? 'GARIS!' : 'PINDAH!' }}';
     const disallowedInputPattern = /[^0-9]/g;
+
+    function getColumnDuration(columnIndex) {
+        return columnDurations[columnIndex] || columnDurationSeconds;
+    }
+
+    function resolveColumnFromElapsed(elapsedSeconds) {
+        let accumulated = 0;
+        for (let index = 0; index < columnsCount; index++) {
+            const duration = getColumnDuration(index);
+            if (elapsedSeconds < accumulated + duration) {
+                return {
+                    column: index,
+                    remaining: Math.max(0, (accumulated + duration) - elapsedSeconds),
+                };
+            }
+            accumulated += duration;
+        }
+        return { column: Math.max(0, columnsCount - 1), remaining: 0 };
+    }
 
     restoreAnswersFromLocal();
     startColumnFlow();
@@ -338,7 +343,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (localTimeLeft <= totalDurationSeconds) {
                     const elapsedSeconds = Math.max(0, totalDurationSeconds - Math.min(serverTimeLeft, localTimeLeft));
-                    const timeBasedColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
+                    const timeBasedProgress = resolveColumnFromElapsed(elapsedSeconds);
+                    const timeBasedColumn = timeBasedProgress.column;
                     const storedColumn = Number.isInteger(storedProgress.currentColumn)
                         ? Math.min(columnsCount - 1, Math.max(0, storedProgress.currentColumn))
                         : 0;
@@ -346,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const storedColumnEndsAt = Number.isFinite(storedProgress.columnEndsAt) ? storedProgress.columnEndsAt : null;
                     const columnRemaining = storedColumnEndsAt && resolvedColumn === storedColumn
                         ? Math.max(0, Math.floor((storedColumnEndsAt - now) / 1000))
-                        : Math.max(0, columnDurationSeconds - (elapsedSeconds % columnDurationSeconds));
+                        : timeBasedProgress.remaining;
 
                     if (storedProgress.columnsHash !== columnsHash) {
                         localStorage.setItem(progressKey, JSON.stringify({
@@ -359,14 +365,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     return {
                         timeLeft: Math.min(serverTimeLeft, localTimeLeft),
                         currentColumn: resolvedColumn,
-                        currentColumnRemaining: Math.min(columnDurationSeconds, columnRemaining),
+                        currentColumnRemaining: Math.min(getColumnDuration(resolvedColumn), columnRemaining),
                     };
                 }
             }
 
             const elapsedSeconds = Math.max(0, totalDurationSeconds - serverTimeLeft);
-            const currentColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
-            const currentColumnRemaining = serverTimeLeft <= 0 ? 0 : columnDurationSeconds - (elapsedSeconds % columnDurationSeconds);
+            const timeBasedProgress = resolveColumnFromElapsed(elapsedSeconds);
+            const currentColumn = timeBasedProgress.column;
+            const currentColumnRemaining = serverTimeLeft <= 0 ? 0 : timeBasedProgress.remaining;
 
             localStorage.setItem(progressKey, JSON.stringify({
                 columnsHash,
@@ -382,8 +389,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const elapsedSeconds = Math.max(0, totalDurationSeconds - serverTimeLeft);
-        const currentColumn = Math.min(columnsCount - 1, Math.floor(elapsedSeconds / columnDurationSeconds));
-        const currentColumnRemaining = serverTimeLeft <= 0 ? 0 : columnDurationSeconds - (elapsedSeconds % columnDurationSeconds);
+        const timeBasedProgress = resolveColumnFromElapsed(elapsedSeconds);
+        const currentColumn = timeBasedProgress.column;
+        const currentColumnRemaining = serverTimeLeft <= 0 ? 0 : timeBasedProgress.remaining;
 
         return { timeLeft: serverTimeLeft, currentColumn, currentColumnRemaining };
     }
@@ -400,41 +408,41 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!columnEndsAt) {
             return {
                 currentColumn: resolvedColumn,
-                currentColumnRemaining: columnDurationSeconds,
-                timeLeft: ((columnsCount - resolvedColumn - 1) * columnDurationSeconds) + columnDurationSeconds,
+                currentColumnRemaining: getColumnDuration(resolvedColumn),
+                timeLeft: totalDurationSeconds,
             };
         }
 
         if (columnEndsAt <= now && resolvedColumn < columnsCount - 1) {
             const overdueSeconds = Math.floor((now - columnEndsAt) / 1000);
-            const passedColumns = Math.floor(overdueSeconds / columnDurationSeconds) + 1;
+            const passedColumns = Math.floor(overdueSeconds / getColumnDuration(resolvedColumn)) + 1;
             resolvedColumn = Math.min(columnsCount - 1, resolvedColumn + passedColumns);
-            const overflowSeconds = overdueSeconds % columnDurationSeconds;
-            columnEndsAt = now + ((columnDurationSeconds - overflowSeconds) * 1000);
+            const overflowSeconds = overdueSeconds % getColumnDuration(resolvedColumn);
+            columnEndsAt = now + ((getColumnDuration(resolvedColumn) - overflowSeconds) * 1000);
         }
 
         const currentColumnRemaining = Math.max(0, Math.min(
-            columnDurationSeconds,
+            getColumnDuration(resolvedColumn),
             Math.ceil((columnEndsAt - now) / 1000)
         ));
 
         return {
             currentColumn: resolvedColumn,
             currentColumnRemaining,
-            timeLeft: ((columnsCount - resolvedColumn - 1) * columnDurationSeconds) + currentColumnRemaining,
+            timeLeft: currentColumnRemaining,
         };
     }
 
-    function saveProgressToLocal(columnIndex, remainingSeconds = columnDurationSeconds) {
+    function saveProgressToLocal(columnIndex, remainingSeconds = getColumnDuration(columnIndex)) {
         if (isStanMode) return;
         try {
             const existingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}');
             const now = Date.now();
-            const normalizedRemainingSeconds = Math.max(0, Math.min(columnDurationSeconds, remainingSeconds));
+            const normalizedRemainingSeconds = Math.max(0, Math.min(getColumnDuration(columnIndex), remainingSeconds));
             const columnEndsAt = now + (normalizedRemainingSeconds * 1000);
             const expiresAt = existingProgress.expiresAt && existingProgress.expiresAt > now
                 ? existingProgress.expiresAt
-                : now + (Math.max(0, totalDurationSeconds - (columnIndex * columnDurationSeconds)) * 1000);
+                : now + (Math.max(0, totalDurationSeconds) * 1000);
 
             localStorage.setItem(currentColumnKey, JSON.stringify({
                 currentColumn: columnIndex,
@@ -710,7 +718,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function activateColumn(columnIndex) {
-        currentColumnLabel.textContent = `Kolom ${columnIndex + 1}`;
+        currentColumnLabel.textContent = columnLabels[columnIndex] || `Kolom ${columnIndex + 1}`;
         saveProgressToLocal(columnIndex, currentColumnRemaining);
 
         // Update progress bar
@@ -769,12 +777,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         currentColumn++;
-        currentColumnRemaining = columnDurationSeconds;
+        currentColumnRemaining = getColumnDuration(currentColumn);
         activateColumn(currentColumn);
-        showChangeColumnModal(`Lanjut ke kolom ${currentColumn + 1}`);
+        showChangeColumnModal(`Lanjut ke ${columnLabels[currentColumn] || 'kolom ' + (currentColumn + 1)}`);
 
         clearTimeout(columnTimeout);
-        columnTimeout = setTimeout(advanceColumn, columnDurationSeconds * 1000);
+        columnTimeout = setTimeout(advanceColumn, currentColumnRemaining * 1000);
     }
 
     function focusFirstInput(columnIndex) {
