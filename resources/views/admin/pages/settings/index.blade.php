@@ -551,7 +551,7 @@
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Kontak & Akses</p>
                 <h2 class="text-xl font-semibold text-gray-900">Kontak User & Login</h2>
-                <p class="text-gray-500 text-sm">Atur tombol WhatsApp dan batas login bersamaan untuk akun yang sama.</p>
+                <p class="text-gray-500 text-sm">Atur tombol WhatsApp dan batas login bersamaan khusus akun user. Admin tidak terkena batasan ini.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -581,7 +581,7 @@
                         value="{{ old('concurrent_login_limit', $profile->concurrent_login_limit ?? ($branding['concurrent_login_limit'] ?? 1)) }}"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
                         placeholder="Contoh: 1">
-                    <p class="text-xs text-gray-500 mt-1">Jika diisi 1, login baru akan memutus sesi lama. Jika diisi 2, sesi ke-3 akan memutus sesi paling lama.</p>
+                    <p class="text-xs text-gray-500 mt-1">Berlaku hanya untuk akun user. Jika diisi 1, login user baru akan memutus sesi lama. Jika diisi 2, sesi ke-3 akan memutus sesi paling lama.</p>
                     @error('concurrent_login_limit')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror

@@ -11,6 +11,10 @@ class ConcurrentLoginService
 {
     public function enforce(User $user, ?string $currentSessionId = null): void
     {
+        if ($user->role !== 'user') {
+            return;
+        }
+
         if (Config::get('session.driver') !== 'database') {
             return;
         }
