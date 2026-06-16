@@ -1229,7 +1229,7 @@ document.getElementById('conditionalForm')?.addEventListener('submit', function(
         closeConditionalModal();
         showToast(data.message || 'Bukti berhasil dikirim. Mohon tunggu verifikasi admin.', 'success');
         setTimeout(() => {
-            window.location.href = '{{ route("user.package.my") }}';
+            window.location.reload();
         }, 1500);
     })
     .catch(error => {

@@ -540,7 +540,7 @@ document.getElementById('conditionalForm')?.addEventListener('submit', function(
         }
 
         closeConditionalModal();
-        window.location.href = '{{ route("user.package.my") }}';
+        window.location.reload();
     })
     .catch(error => {
         errorEl.textContent = error.message || 'Terjadi kesalahan. Silakan coba lagi.';
