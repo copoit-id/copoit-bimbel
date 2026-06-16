@@ -20,12 +20,24 @@
     $selectedAccessDurationValue = old('access_duration_value', $material->access_duration_value ?? 1);
 @endphp
 <div class="container mx-auto px-4">
-    <div class="mb-6">
-        <a href="{{ route('admin.material.index', request()->query()) }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 mb-2">
-            <i class="ri-arrow-left-line"></i>
-            Kembali ke Daftar Materi
-        </a>
-        <h1 class="text-2xl font-bold text-gray-800">Edit Materi</h1>
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <a href="{{ route('admin.material.index', request()->query()) }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 mb-2">
+                <i class="ri-arrow-left-line"></i>
+                Kembali ke Daftar Materi
+            </a>
+            <h1 class="text-2xl font-bold text-gray-800">Edit Materi</h1>
+        </div>
+        <button type="button"
+            class="material-preview-trigger inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/15"
+            data-title="{{ $material->title }}"
+            data-type="{{ $material->type }}"
+            data-type-label="{{ $material->type_label }}"
+            data-embed-url="{{ $material->embed_url }}"
+            data-content-url="{{ $material->content_url }}">
+            <i class="ri-play-circle-line"></i>
+            Preview
+        </button>
     </div>
 
     @if($errors->any())
@@ -180,6 +192,8 @@
         </form>
     </div>
 </div>
+
+@include('admin.pages.material.partials.preview-modal')
 @endsection
 
 @section('scripts')

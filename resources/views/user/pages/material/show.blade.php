@@ -10,6 +10,7 @@
         'live_session' => route('user.material.live-sessions'),
         default => route('user.material.videos'),
     };
+    $embedUrl = $material->embed_url;
 @endphp
 
 <div class="space-y-6">
@@ -29,14 +30,14 @@
                 <div class="aspect-video bg-gray-950">
                     @if($material->type === 'video')
                         <iframe
-                            src="{{ $material->content_url }}"
+                            src="{{ $embedUrl }}"
                             class="w-full h-full"
                             frameborder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowfullscreen>
                         </iframe>
                     @elseif($material->type === 'document')
-                        <iframe src="{{ $material->content_url }}" class="w-full h-full bg-white" frameborder="0"></iframe>
+                        <iframe src="{{ $embedUrl }}" class="w-full h-full bg-white" frameborder="0"></iframe>
                     @else
                         <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-800 to-indigo-900 text-white">
                             <div class="text-center px-6">

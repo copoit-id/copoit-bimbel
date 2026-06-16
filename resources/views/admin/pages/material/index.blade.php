@@ -114,6 +114,16 @@
                     <a href="{{ route('admin.material.edit', array_merge(request()->query(), ['material' => $material])) }}" class="p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors" title="Edit">
                         <i class="ri-edit-line text-lg"></i>
                     </a>
+                    <button type="button"
+                        class="material-preview-trigger p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
+                        title="Preview"
+                        data-title="{{ $material->title }}"
+                        data-type="{{ $material->type }}"
+                        data-type-label="{{ $material->type_label }}"
+                        data-embed-url="{{ $material->embed_url }}"
+                        data-content-url="{{ $material->content_url }}">
+                        <i class="ri-play-circle-line text-lg"></i>
+                    </button>
                     <form action="{{ route('admin.material.destroy', $material) }}" method="POST" class="inline"
                           onsubmit="return confirm('Apakah Anda yakin ingin menghapus?')">
                         @csrf
@@ -145,4 +155,6 @@
     </div>
     @endif
 </div>
+
+@include('admin.pages.material.partials.preview-modal')
 @endsection

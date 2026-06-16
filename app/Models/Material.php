@@ -199,6 +199,120 @@ class Material extends Model
         };
     }
 
+    public function getEmbedUrlAttribute(): string
+    {
+        $url = trim((string) $this->content_url);
+
+        if ($url === '') {
+            return '';
+        }
+
+        return match ($this->type) {
+            'video' => $this->videoEmbedUrl($url),
+            'document' => $this->documentEmbedUrl($url),
+            default => $url,
+        };
+    }
+
+    private function videoEmbedUrl(string $url): string
+    {
+        return $this->youtubeEmbedUrl($url)
+            ?? $this->vimeoEmbedUrl($url)
+            ?? $this->googleDrivePreviewUrl($url)
+            ?? $url;
+    }
+
+    private function documentEmbedUrl(string $url): string
+    {
+        return $this->googleDrivePreviewUrl($url)
+            ?? $this->googleDocsPreviewUrl($url)
+            ?? $url;
+    }
+
+    private function youtubeEmbedUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        if ($host === 'youtu.be') {
+            $videoId = explode('/', $path)[0] ?? null;
+        } elseif (str_ends_with($host, 'youtube.com')) {
+            if (str_starts_with($path, 'embed/')) {
+                return $url;
+            }
+
+            $videoId = $query['v'] ?? null;
+
+            if (!$videoId && preg_match('~^(shorts|live)/([^/?#]+)~', $path, $matches)) {
+                $videoId = $matches[2];
+            }
+        } else {
+            return null;
+        }
+
+        $videoId = is_string($videoId ?? null) ? trim($videoId) : '';
+
+        return $videoId !== '' ? 'https://www.youtube.com/embed/' . $videoId : null;
+    }
+
+    private function vimeoEmbedUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+
+        if ($host === 'player.vimeo.com') {
+            return $url;
+        }
+
+        if (!str_ends_with($host, 'vimeo.com') || !preg_match('~(\d+)~', $path, $matches)) {
+            return null;
+        }
+
+        return 'https://player.vimeo.com/video/' . $matches[1];
+    }
+
+    private function googleDrivePreviewUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        if ($host !== 'drive.google.com' && !str_ends_with($host, '.drive.google.com')) {
+            return null;
+        }
+
+        if (preg_match('~/file/d/([^/]+)~', $path, $matches)) {
+            return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+        }
+
+        if (!empty($query['id']) && is_string($query['id'])) {
+            return 'https://drive.google.com/file/d/' . $query['id'] . '/preview';
+        }
+
+        return null;
+    }
+
+    private function googleDocsPreviewUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+
+        if ($host !== 'docs.google.com' && !str_ends_with($host, '.docs.google.com')) {
+            return null;
+        }
+
+        if (str_ends_with($path, '/preview')) {
+            return $url;
+        }
+
+        if (preg_match('~^/(document|presentation|spreadsheets)/d/([^/]+)~', $path, $matches)) {
+            return 'https://docs.google.com/' . $matches[1] . '/d/' . $matches[2] . '/preview';
+        }
+
+        return null;
+    }
+
     /**
      * Check if user can access this material (via any method)
      */
