@@ -70,7 +70,7 @@
                                 class="ri-book-line text-[20px] flex items-center justify-center text-white font-medium bg-primary w-10 h-10 rounded-lg"></i>
                             <div>
                                 <p class="text-[24px] font-bold">{{ $tryoutDetails->count() }}</p>
-                                <p class="text-[12px] mt-[-6px] font-light">Jumlah Jumlah</p>
+                                <p class="text-[12px] mt-[-6px] font-light">Jumlah Subtest</p>
                             </div>
                         </div>
                     </div>

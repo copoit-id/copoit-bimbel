@@ -55,7 +55,6 @@ class LeaderboardController extends Controller
                     'description' => $tryout->description,
                     'total_questions' => $tryoutDetail ? $tryoutDetail->questions()->count() : 0,
                     'duration' => $tryoutDetail ? $tryoutDetail->duration : 0,
-                    'difficulty' => $this->getDifficultyLevel($tryoutDetail ? $tryoutDetail->duration : 0),
                     'participant_count' => $participantCount,
                     'package_name' => $combinedPackageName,
                     'package_count' => count($packageNames),
@@ -236,20 +235,6 @@ class LeaderboardController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
-    }
-
-    /**
-     * Determine difficulty level based on duration and question count
-     */
-    private function getDifficultyLevel($duration)
-    {
-        if ($duration <= 30) {
-            return 'Mudah';
-        } elseif ($duration <= 60) {
-            return 'Sedang';
-        } else {
-            return 'Sulit';
-        }
     }
 
     /**

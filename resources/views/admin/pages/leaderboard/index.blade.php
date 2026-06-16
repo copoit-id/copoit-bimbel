@@ -25,10 +25,6 @@
                 <p class="font-light">{{ $tryout['duration'] }} Menit</p>
             </span>
             <span class="flex items-center justify-between">
-                <p class="font-medium">Kesulitan : </p>
-                <p class="font-light">{{ $tryout['difficulty'] }}</p>
-            </span>
-            <span class="flex items-center justify-between">
                 <p class="font-medium">Peserta : </p>
                 <p class="font-light">{{ $tryout['participant_count'] }} Orang</p>
             </span>
