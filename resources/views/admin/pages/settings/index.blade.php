@@ -47,6 +47,21 @@
     'concurrent_login_limit'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'contact';
+    } elseif (collect($settingErrorKeys)->intersect([
+    'footer_enabled',
+    'footer_description',
+    'footer_copyright',
+    'footer_links',
+    'footer_address',
+    'footer_phone',
+    'footer_email',
+    'footer_whatsapp',
+    'footer_facebook',
+    'footer_instagram',
+    'footer_twitter',
+    'footer_youtube'
+    ])->isNotEmpty()) {
+    $activeSettingsTab = 'footer';
     }
     }
     @endphp
@@ -88,6 +103,10 @@
                 <button type="button" data-settings-tab="contact"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'contact' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Kontak & Login
+                </button>
+                <button type="button" data-settings-tab="footer"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Footer
                 </button>
             </div>
         </div>
@@ -589,6 +608,193 @@
             </div>
         </div>
 
+        <div data-settings-panel="footer"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'footer' ? 'hidden' : '' }}">
+            @php
+            $defaultFooterLinks = [
+                ['label' => 'FAQ', 'url' => '/user/bantuan'],
+                ['label' => 'Syarat dan Ketentuan', 'url' => '/terms-and-conditions'],
+                ['label' => 'Kebijakan Pembayaran', 'url' => '/payment-policy'],
+                ['label' => 'Refund Policy', 'url' => '/refund-policy'],
+            ];
+            $footerLinks = old('footer_links', $profile->footer_links ?? ($branding['footer_links'] ?? $defaultFooterLinks));
+            if (empty($footerLinks)) {
+                $footerLinks = $defaultFooterLinks;
+            }
+            @endphp
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Footer User</p>
+                <h2 class="text-xl font-semibold text-gray-900">Konten Footer</h2>
+                <p class="text-gray-500 text-sm">Footer tampil di halaman user dan bisa diubah sesuai kebutuhan brand.</p>
+            </div>
+
+            <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                <input type="hidden" name="footer_enabled" value="0">
+                <input type="checkbox" name="footer_enabled" value="1"
+                    class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                    {{ old('footer_enabled', $profile->footer_enabled ?? ($branding['footer_enabled'] ?? true)) ? 'checked' : '' }}>
+                <div>
+                    <p class="font-semibold text-gray-900">Tampilkan footer di halaman user</p>
+                    <p class="text-xs text-gray-500">Matikan jika footer sementara tidak ingin ditampilkan.</p>
+                </div>
+            </label>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Deskripsi Footer</label>
+                    <textarea name="footer_description" rows="3"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Deskripsi singkat platform">{{ old('footer_description', $profile->footer_description ?? ($branding['footer_description'] ?? '')) }}</textarea>
+                    @error('footer_description')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Copyright</label>
+                    <input type="text" name="footer_copyright"
+                        value="{{ old('footer_copyright', $profile->footer_copyright ?? ($branding['footer_copyright'] ?? '')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Kosongkan untuk otomatis mengikuti nama brand dan tahun">
+                    @error('footer_copyright')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100 pt-5 mt-5 space-y-4">
+                <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <i class="ri-contacts-book-line text-primary text-lg"></i>
+                    Alamat & Kontak Kantor
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Alamat Lengkap</label>
+                        <textarea name="footer_address" rows="3"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Alamat fisik kantor atau bimbel">{{ old('footer_address', $profile->footer_address ?? ($branding['footer_address'] ?? '')) }}</textarea>
+                        @error('footer_address')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">No. Telepon</label>
+                        <input type="text" name="footer_phone"
+                            value="{{ old('footer_phone', $profile->footer_phone ?? ($branding['footer_phone'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: (021) 123456">
+                        @error('footer_phone')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">No. WhatsApp</label>
+                        <input type="text" name="footer_whatsapp"
+                            value="{{ old('footer_whatsapp', $profile->footer_whatsapp ?? ($branding['footer_whatsapp'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: 628123456789">
+                        @error('footer_whatsapp')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Email Kontak</label>
+                        <input type="email" name="footer_email"
+                            value="{{ old('footer_email', $profile->footer_email ?? ($branding['footer_email'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: info@bimbel.com">
+                        @error('footer_email')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100 pt-5 mt-5 space-y-4">
+                <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <i class="ri-share-line text-primary text-lg"></i>
+                    Media Sosial
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link Facebook</label>
+                        <input type="text" name="footer_facebook"
+                            value="{{ old('footer_facebook', $profile->footer_facebook ?? ($branding['footer_facebook'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: https://facebook.com/namahalaman">
+                        @error('footer_facebook')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link Instagram</label>
+                        <input type="text" name="footer_instagram"
+                            value="{{ old('footer_instagram', $profile->footer_instagram ?? ($branding['footer_instagram'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: https://instagram.com/akunanda">
+                        @error('footer_instagram')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link X/Twitter</label>
+                        <input type="text" name="footer_twitter"
+                            value="{{ old('footer_twitter', $profile->footer_twitter ?? ($branding['footer_twitter'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: https://twitter.com/akunanda">
+                        @error('footer_twitter')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link YouTube</label>
+                        <input type="text" name="footer_youtube"
+                            value="{{ old('footer_youtube', $profile->footer_youtube ?? ($branding['footer_youtube'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: https://youtube.com/channel/idchannel">
+                        @error('footer_youtube')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                        <p class="font-semibold text-gray-900">Link Footer</p>
+                        <p class="text-xs text-gray-500">Bisa pakai path internal seperti /user/bantuan atau URL penuh.</p>
+                    </div>
+                    <button type="button" id="add-footer-link"
+                        class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        <i class="ri-add-line"></i>
+                        Tambah Link
+                    </button>
+                </div>
+                <div id="footer-links-wrapper" class="space-y-3">
+                    @foreach($footerLinks as $index => $link)
+                    <div class="footer-link-row grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] gap-3 rounded-2xl border border-gray-200 p-3">
+                        <input type="text" name="footer_links[{{ $index }}][label]"
+                            value="{{ $link['label'] ?? '' }}"
+                            class="rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Label">
+                        <input type="text" name="footer_links[{{ $index }}][url]"
+                            value="{{ $link['url'] ?? '' }}"
+                            class="rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="/user/bantuan">
+                        <button type="button"
+                            class="remove-footer-link inline-flex items-center justify-center rounded-xl border border-gray-200 px-3 py-2.5 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                            aria-label="Hapus link footer">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    </div>
+                    @endforeach
+                </div>
+                @error('footer_links')
+                <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+        </div>
+
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>
@@ -725,6 +931,53 @@
                 button.textContent = isHidden ? 'Hide' : 'Show';
             });
         });
+
+        const footerLinksWrapper = document.getElementById('footer-links-wrapper');
+        const addFooterLinkButton = document.getElementById('add-footer-link');
+
+        const reindexFooterLinks = () => {
+            footerLinksWrapper?.querySelectorAll('.footer-link-row').forEach((row, index) => {
+                row.querySelectorAll('input').forEach((input) => {
+                    const field = input.name.includes('[url]') ? 'url' : 'label';
+                    input.name = `footer_links[${index}][${field}]`;
+                });
+            });
+        };
+
+        const bindFooterRemoveButtons = () => {
+            footerLinksWrapper?.querySelectorAll('.remove-footer-link').forEach((button) => {
+                button.onclick = () => {
+                    button.closest('.footer-link-row')?.remove();
+                    reindexFooterLinks();
+                };
+            });
+        };
+
+        addFooterLinkButton?.addEventListener('click', () => {
+            if (!footerLinksWrapper) return;
+            const count = footerLinksWrapper.querySelectorAll('.footer-link-row').length;
+            if (count >= 8) return;
+
+            const row = document.createElement('div');
+            row.className = 'footer-link-row grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] gap-3 rounded-2xl border border-gray-200 p-3';
+            row.innerHTML = `
+                <input type="text" name="footer_links[${count}][label]"
+                    class="rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                    placeholder="Label">
+                <input type="text" name="footer_links[${count}][url]"
+                    class="rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                    placeholder="/user/bantuan">
+                <button type="button"
+                    class="remove-footer-link inline-flex items-center justify-center rounded-xl border border-gray-200 px-3 py-2.5 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                    aria-label="Hapus link footer">
+                    <i class="ri-delete-bin-line"></i>
+                </button>
+            `;
+            footerLinksWrapper.appendChild(row);
+            bindFooterRemoveButtons();
+        });
+
+        bindFooterRemoveButtons();
     });
 </script>
 @endpush

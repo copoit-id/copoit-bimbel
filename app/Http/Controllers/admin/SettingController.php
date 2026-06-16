@@ -50,6 +50,10 @@ class SettingController extends Controller
             'contact_whatsapp_number' => null,
             'contact_whatsapp_button_text' => 'Chat Admin',
             'concurrent_login_limit' => 1,
+            'footer_enabled' => true,
+            'footer_description' => null,
+            'footer_copyright' => null,
+            'footer_links' => [],
         ]);
 
         return view('admin.pages.settings.index', [
@@ -95,6 +99,20 @@ class SettingController extends Controller
             'contact_whatsapp_number' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+()\-\s.]+$/'],
             'contact_whatsapp_button_text' => ['nullable', 'string', 'max:80'],
             'concurrent_login_limit' => ['required', 'integer', 'min:1', 'max:20'],
+            'footer_enabled' => ['nullable', 'boolean'],
+            'footer_description' => ['nullable', 'string', 'max:1000'],
+            'footer_copyright' => ['nullable', 'string', 'max:255'],
+            'footer_links' => ['nullable', 'array', 'max:8'],
+            'footer_links.*.label' => ['nullable', 'string', 'max:80'],
+            'footer_links.*.url' => ['nullable', 'string', 'max:2048'],
+            'footer_address' => ['nullable', 'string', 'max:1000'],
+            'footer_phone' => ['nullable', 'string', 'max:32'],
+            'footer_email' => ['nullable', 'email', 'max:255'],
+            'footer_whatsapp' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+()\-\s.]+$/'],
+            'footer_facebook' => ['nullable', 'string', 'max:255'],
+            'footer_instagram' => ['nullable', 'string', 'max:255'],
+            'footer_twitter' => ['nullable', 'string', 'max:255'],
+            'footer_youtube' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($request->input('payment_mode') === 'manual') {
@@ -273,6 +291,18 @@ class SettingController extends Controller
         $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
         $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
         $validated['concurrent_login_limit'] = max(1, (int) ($validated['concurrent_login_limit'] ?? 1));
+        $validated['footer_enabled'] = $request->boolean('footer_enabled');
+        $validated['footer_description'] = trim((string) ($validated['footer_description'] ?? '')) ?: null;
+        $validated['footer_copyright'] = trim((string) ($validated['footer_copyright'] ?? '')) ?: null;
+        $validated['footer_links'] = $this->normalizeFooterLinks($validated['footer_links'] ?? []);
+        $validated['footer_address'] = trim((string) ($validated['footer_address'] ?? '')) ?: null;
+        $validated['footer_phone'] = trim((string) ($validated['footer_phone'] ?? '')) ?: null;
+        $validated['footer_email'] = trim((string) ($validated['footer_email'] ?? '')) ?: null;
+        $validated['footer_whatsapp'] = $this->normalizeWhatsappNumber($validated['footer_whatsapp'] ?? null);
+        $validated['footer_facebook'] = trim((string) ($validated['footer_facebook'] ?? '')) ?: null;
+        $validated['footer_instagram'] = trim((string) ($validated['footer_instagram'] ?? '')) ?: null;
+        $validated['footer_twitter'] = trim((string) ($validated['footer_twitter'] ?? '')) ?: null;
+        $validated['footer_youtube'] = trim((string) ($validated['footer_youtube'] ?? '')) ?: null;
         $validated['enable_certificate_management'] = false;
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
@@ -395,5 +425,31 @@ class SettingController extends Controller
         }
 
         return $digits;
+    }
+
+    private function normalizeFooterLinks(array $links): array
+    {
+        return collect($links)
+            ->map(function ($link) {
+                $label = trim((string) ($link['label'] ?? ''));
+                $url = trim((string) ($link['url'] ?? ''));
+
+                if ($label === '' || $url === '') {
+                    return null;
+                }
+
+                if (!Str::startsWith($url, ['http://', 'https://', '/', 'mailto:', 'tel:'])) {
+                    $url = '/' . ltrim($url, '/');
+                }
+
+                return [
+                    'label' => $label,
+                    'url' => $url,
+                ];
+            })
+            ->filter()
+            ->take(8)
+            ->values()
+            ->all();
     }
 }

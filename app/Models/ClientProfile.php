@@ -43,6 +43,18 @@ class ClientProfile extends Model
         'contact_whatsapp_number',
         'contact_whatsapp_button_text',
         'concurrent_login_limit',
+        'footer_enabled',
+        'footer_description',
+        'footer_copyright',
+        'footer_links',
+        'footer_address',
+        'footer_phone',
+        'footer_email',
+        'footer_whatsapp',
+        'footer_facebook',
+        'footer_instagram',
+        'footer_twitter',
+        'footer_youtube',
     ];
 
     protected $casts = [
@@ -53,6 +65,8 @@ class ClientProfile extends Model
         'allow_video_thumbnail' => 'boolean',
         'payment_unique_code_enabled' => 'boolean',
         'concurrent_login_limit' => 'integer',
+        'footer_enabled' => 'boolean',
+        'footer_links' => 'array',
         'smtp_app_password' => 'encrypted',
         'xendit_secret_key' => 'encrypted',
         'xendit_webhook_token' => 'encrypted',

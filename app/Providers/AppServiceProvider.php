@@ -67,6 +67,23 @@ class AppServiceProvider extends ServiceProvider
             'contact_whatsapp_number' => null,
             'contact_whatsapp_button_text' => 'Chat Admin',
             'concurrent_login_limit' => 1,
+            'footer_enabled' => true,
+            'footer_description' => null,
+            'footer_copyright' => null,
+            'footer_links' => [
+                ['label' => 'FAQ', 'url' => '/user/bantuan'],
+                ['label' => 'Syarat dan Ketentuan', 'url' => '/terms-and-conditions'],
+                ['label' => 'Kebijakan Pembayaran', 'url' => '/payment-policy'],
+                ['label' => 'Refund Policy', 'url' => '/refund-policy'],
+            ],
+            'footer_address' => null,
+            'footer_phone' => null,
+            'footer_email' => null,
+            'footer_whatsapp' => null,
+            'footer_facebook' => null,
+            'footer_instagram' => null,
+            'footer_twitter' => null,
+            'footer_youtube' => null,
             'tes_koran_enabled' => true,
         ];
 
@@ -109,6 +126,18 @@ class AppServiceProvider extends ServiceProvider
             $defaults['contact_whatsapp_number'] = $clientProfile->contact_whatsapp_number ?? $defaults['contact_whatsapp_number'];
             $defaults['contact_whatsapp_button_text'] = $clientProfile->contact_whatsapp_button_text ?: $defaults['contact_whatsapp_button_text'];
             $defaults['concurrent_login_limit'] = max(1, (int) ($clientProfile->concurrent_login_limit ?? $defaults['concurrent_login_limit']));
+            $defaults['footer_enabled'] = (bool) ($clientProfile->footer_enabled ?? $defaults['footer_enabled']);
+            $defaults['footer_description'] = $clientProfile->footer_description ?? $defaults['footer_description'];
+            $defaults['footer_copyright'] = $clientProfile->footer_copyright ?? $defaults['footer_copyright'];
+            $defaults['footer_links'] = $clientProfile->footer_links ?: $defaults['footer_links'];
+            $defaults['footer_address'] = $clientProfile->footer_address ?? $defaults['footer_address'];
+            $defaults['footer_phone'] = $clientProfile->footer_phone ?? $defaults['footer_phone'];
+            $defaults['footer_email'] = $clientProfile->footer_email ?? $defaults['footer_email'];
+            $defaults['footer_whatsapp'] = $clientProfile->footer_whatsapp ?? $defaults['footer_whatsapp'];
+            $defaults['footer_facebook'] = $clientProfile->footer_facebook ?? $defaults['footer_facebook'];
+            $defaults['footer_instagram'] = $clientProfile->footer_instagram ?? $defaults['footer_instagram'];
+            $defaults['footer_twitter'] = $clientProfile->footer_twitter ?? $defaults['footer_twitter'];
+            $defaults['footer_youtube'] = $clientProfile->footer_youtube ?? $defaults['footer_youtube'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
