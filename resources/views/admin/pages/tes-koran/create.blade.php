@@ -14,6 +14,8 @@
         'columns_count' => old('columns_count', 30),
         'rows_count' => old('rows_count', 10),
     ]]);
+    $sheetCount = old('sheet_count', count($sheetConfigs));
+    $isCustomSheets = old('custom_sheets', false);
 @endphp
 <div class="container mx-auto px-4">
     <x-breadcrumb>
@@ -23,8 +25,11 @@
         </x-slot>
     </x-breadcrumb>
 
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-6">Buat Tes Koran Baru</h2>
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div class="mb-6">
+            <h2 class="text-xl font-bold text-gray-800">Buat Tes Koran Baru</h2>
+            <p class="text-sm text-gray-500 mt-1">Atur Pauli/Kraepelin dari setting utama. Aktifkan custom hanya jika tiap lembar perlu konfigurasi berbeda.</p>
+        </div>
 
         @if($errors->any())
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -36,11 +41,11 @@
         </div>
         @endif
 
-        <form action="{{ route('admin.tes-koran.store') }}" method="POST" novalidate>
+        <form id="tesKoranForm" action="{{ route('admin.tes-koran.store') }}" method="POST" novalidate>
             @csrf
 
-            <div class="space-y-4">
-                <div>
+            <div class="space-y-6">
+                <div class="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
                     <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
                         Nama Tes <span class="text-red-500">*</span>
                     </label>
@@ -145,19 +150,37 @@
                     </div>
                 </div>
 
-                <div class="rounded-lg border border-gray-200 p-4">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div class="rounded-2xl border border-gray-200 p-5">
+                    <div class="flex flex-col gap-4 mb-4">
                         <div>
                             <h3 class="font-semibold text-gray-800">Konfigurasi Lembar</h3>
-                            <p class="text-xs text-gray-500 mt-1">Atur jumlah lembar dan setting berbeda untuk tiap lembar.</p>
+                            <p class="text-xs text-gray-500 mt-1">Masukkan jumlah lembar langsung. Jika tidak custom, semua lembar memakai setting utama di atas.</p>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <button type="button" id="addSheetBtn" class="px-3 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary/90">
-                                <i class="ri-add-line mr-1"></i>Tambah Lembar
+                        <div class="grid grid-cols-1 md:grid-cols-[180px_1fr_auto] gap-3 md:items-end">
+                            <div>
+                                <label for="sheet_count" class="block text-sm font-medium text-gray-700 mb-1">Jumlah Lembar</label>
+                                <input type="number" id="sheet_count" name="sheet_count" min="1" max="50" value="{{ $sheetCount }}"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                                <input type="checkbox" id="custom_sheets" name="custom_sheets" value="1" {{ $isCustomSheets ? 'checked' : '' }}
+                                       class="rounded border-gray-300 text-primary focus:ring-primary">
+                                <span>
+                                    <span class="block text-sm font-semibold text-gray-700">Tambah lembar secara custom</span>
+                                    <span class="block text-xs text-gray-500">Nyalakan jika jenis angka, operasi, durasi, kolom, atau baris tiap lembar berbeda.</span>
+                                </span>
+                            </label>
+                            <button type="button" id="addSheetBtn" class="px-3 py-2 rounded-lg bg-primary text-white text-sm hover:bg-primary/90 {{ $isCustomSheets ? '' : 'hidden' }}">
+                                <i class="ri-add-line mr-1"></i>Tambah Custom
                             </button>
                         </div>
                     </div>
-                    <div id="sheetsContainer" class="space-y-4">
+                    <div id="sheetsCustomPanel" class="{{ $isCustomSheets ? '' : 'hidden' }}">
+                        <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            Mode custom aktif. Perubahan di kartu lembar akan disimpan per lembar.
+                        </div>
+                    </div>
+                    <div id="sheetsContainer" class="space-y-4 {{ $isCustomSheets ? '' : 'hidden' }}">
                         @foreach($sheetConfigs as $sheetIndex => $sheet)
                         <div class="sheet-card rounded-xl border border-gray-200 bg-gray-50/70 p-4" data-sheet-index="{{ $sheetIndex }}">
                             <div class="flex items-center justify-between gap-3 mb-3">
@@ -338,9 +361,35 @@ document.addEventListener('DOMContentLoaded', function () {
     syncDurationLabel();
 
     const sheetsContainer = document.getElementById('sheetsContainer');
+    const sheetsCustomPanel = document.getElementById('sheetsCustomPanel');
     const addSheetBtn = document.getElementById('addSheetBtn');
+    const sheetCountInput = document.getElementById('sheet_count');
+    const customSheetsInput = document.getElementById('custom_sheets');
+    const baseInputs = {
+        number_type: document.getElementById('number_type'),
+        operation_type: document.getElementById('operation_type'),
+        column_duration_seconds: document.getElementById('column_duration_seconds'),
+        columns_count: document.getElementById('columns_count'),
+        rows_count: document.getElementById('rows_count'),
+    };
 
-    function sheetTemplate(index) {
+    function baseSheetValues(index) {
+        return {
+            name: `Lembar ${index + 1}`,
+            number_type: baseInputs.number_type?.value || 'satuan',
+            operation_type: baseInputs.operation_type?.value || 'addition',
+            column_duration_seconds: baseInputs.column_duration_seconds?.value || 60,
+            columns_count: baseInputs.columns_count?.value || 30,
+            rows_count: baseInputs.rows_count?.value || 10,
+        };
+    }
+
+    function selectOptions(options, selected) {
+        return options.map(([value, label]) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${label}</option>`).join('');
+    }
+
+    function sheetTemplate(index, values = {}) {
+        const sheet = { ...baseSheetValues(index), ...values };
         return `
             <div class="sheet-card rounded-xl border border-gray-200 bg-gray-50/70 p-4" data-sheet-index="${index}">
                 <div class="flex items-center justify-between gap-3 mb-3">
@@ -350,40 +399,48 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Nama Lembar</label>
-                        <input type="text" name="sheets[${index}][name]" value="Lembar ${index + 1}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <input type="text" name="sheets[${index}][name]" value="${sheet.name}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Jenis Angka</label>
                         <select name="sheets[${index}][number_type]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                            <option value="satuan">Satuan</option>
-                            <option value="puluhan">Puluhan</option>
-                            <option value="ratusan">Ratusan</option>
+                            ${selectOptions([['satuan', 'Satuan'], ['puluhan', 'Puluhan'], ['ratusan', 'Ratusan']], sheet.number_type)}
                         </select>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Operasi</label>
                         <select name="sheets[${index}][operation_type]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                            <option value="addition">Penjumlahan</option>
-                            <option value="subtraction">Pengurangan</option>
-                            <option value="division">Pembagian</option>
+                            ${selectOptions([['addition', 'Penjumlahan'], ['subtraction', 'Pengurangan'], ['division', 'Pembagian']], sheet.operation_type)}
                         </select>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Durasi per Kolom (Standar)</label>
-                        <input type="number" name="sheets[${index}][column_duration_seconds]" min="10" max="3600" value="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <input type="number" name="sheets[${index}][column_duration_seconds]" min="10" max="3600" value="${sheet.column_duration_seconds}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         <p class="text-[11px] text-gray-400 mt-1">Untuk STAN, durasi total memakai field utama di atas.</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Jumlah Kolom</label>
-                        <input type="number" name="sheets[${index}][columns_count]" min="1" max="50" value="30" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <input type="number" name="sheets[${index}][columns_count]" min="1" max="50" value="${sheet.columns_count}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Baris/Kolom</label>
-                        <input type="number" name="sheets[${index}][rows_count]" min="5" max="20" value="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <input type="number" name="sheets[${index}][rows_count]" min="5" max="20" value="${sheet.rows_count}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     </div>
                 </div>
             </div>
         `;
+    }
+
+    function sheetCount() {
+        return Math.max(1, Math.min(50, parseInt(sheetCountInput?.value || '1', 10) || 1));
+    }
+
+    function rebuildUniformSheets() {
+        if (!sheetsContainer) return;
+        const count = sheetCount();
+        sheetCountInput.value = count;
+        sheetsContainer.innerHTML = Array.from({ length: count }, (_, index) => sheetTemplate(index, baseSheetValues(index))).join('');
+        renumberSheets();
     }
 
     function renumberSheets() {
@@ -391,14 +448,31 @@ document.addEventListener('DOMContentLoaded', function () {
         sheetsContainer.querySelectorAll('.sheet-card').forEach((card, index) => {
             card.dataset.sheetIndex = index;
             card.querySelector('[data-sheet-number]').textContent = index + 1;
+            const nameInput = card.querySelector('input[name$="[name]"]');
+            if (nameInput && /^Lembar \d+$/.test(nameInput.value)) {
+                nameInput.value = `Lembar ${index + 1}`;
+            }
             card.querySelectorAll('[name^="sheets["]').forEach(input => {
                 input.name = input.name.replace(/sheets\[\d+\]/, `sheets[${index}]`);
             });
         });
+        if (sheetCountInput) {
+            sheetCountInput.value = sheetsContainer.querySelectorAll('.sheet-card').length || 1;
+        }
         sheetsContainer.querySelectorAll('.remove-sheet-btn').forEach(button => {
             button.disabled = sheetsContainer.querySelectorAll('.sheet-card').length <= 1;
             button.classList.toggle('opacity-50', button.disabled);
         });
+    }
+
+    function syncCustomMode() {
+        const isCustom = customSheetsInput?.checked ?? false;
+        sheetsContainer?.classList.toggle('hidden', !isCustom);
+        sheetsCustomPanel?.classList.toggle('hidden', !isCustom);
+        addSheetBtn?.classList.toggle('hidden', !isCustom);
+        if (!isCustom) {
+            rebuildUniformSheets();
+        }
     }
 
     addSheetBtn?.addEventListener('click', function () {
@@ -414,6 +488,39 @@ document.addEventListener('DOMContentLoaded', function () {
         renumberSheets();
     });
 
+    sheetCountInput?.addEventListener('change', function () {
+        if (customSheetsInput?.checked) {
+            const current = sheetsContainer.querySelectorAll('.sheet-card').length;
+            const target = sheetCount();
+            if (target > current) {
+                for (let index = current; index < target; index++) {
+                    sheetsContainer.insertAdjacentHTML('beforeend', sheetTemplate(index));
+                }
+            } else if (target < current) {
+                Array.from(sheetsContainer.querySelectorAll('.sheet-card')).slice(target).forEach(card => card.remove());
+            }
+            renumberSheets();
+            return;
+        }
+        rebuildUniformSheets();
+    });
+
+    Object.values(baseInputs).forEach(input => {
+        input?.addEventListener('change', function () {
+            if (!(customSheetsInput?.checked)) {
+                rebuildUniformSheets();
+            }
+        });
+    });
+    customSheetsInput?.addEventListener('change', syncCustomMode);
+    document.getElementById('tesKoranForm')?.addEventListener('submit', function () {
+        if (!(customSheetsInput?.checked)) {
+            rebuildUniformSheets();
+        } else {
+            sheetCountInput?.dispatchEvent(new Event('change'));
+        }
+    });
+    syncCustomMode();
     renumberSheets();
 });
 </script>

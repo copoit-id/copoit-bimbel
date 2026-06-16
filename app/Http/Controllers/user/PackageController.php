@@ -2916,6 +2916,7 @@ class PackageController extends Controller
         // Check if user is logged in and has access
         $hasAccess = false;
         $isOwned = false;
+        $isPendingConditional = false;
         
         if (Auth::check()) {
             $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -2927,6 +2928,10 @@ class PackageController extends Controller
                 })
                 ->exists();
             $isOwned = $hasAccess;
+            $isPendingConditional = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $package_id)
+                ->where('requirement_status', 'pending')
+                ->exists();
         }
         
         // Calculate stats counts from materialsThroughDetail
@@ -2974,6 +2979,7 @@ class PackageController extends Controller
             'package',
             'hasAccess',
             'isOwned',
+            'isPendingConditional',
             'totalVideos',
             'totalDocuments',
             'totalLiveSessions',

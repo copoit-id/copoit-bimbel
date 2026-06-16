@@ -352,7 +352,6 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-shopping-cart-line"></i><span>Beli</span>
                         </button>
-                        <x-legal-links compact class="text-center" />
                     </form>
                     @endif
                 @else

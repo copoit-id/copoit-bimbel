@@ -33,6 +33,7 @@ class TesKoranController extends Controller
     {
         $validated = $this->validatedData($request);
         $sheets = $this->validatedSheets($request, $validated);
+        unset($validated['sheet_count'], $validated['custom_sheets']);
         $this->syncBaseSettingsFromFirstSheet($validated, $sheets);
 
         $validated['price'] = (int) ($validated['price'] ?? 0);
@@ -62,6 +63,7 @@ class TesKoranController extends Controller
     {
         $validated = $this->validatedData($request);
         $sheets = $this->validatedSheets($request, $validated);
+        unset($validated['sheet_count'], $validated['custom_sheets']);
         $this->syncBaseSettingsFromFirstSheet($validated, $sheets);
 
         $validated['price'] = (int) ($validated['price'] ?? 0);
@@ -189,6 +191,8 @@ class TesKoranController extends Controller
             'column_duration_seconds' => 'required|integer|min:10|max:3600',
             'columns_count' => 'required|integer|min:5|max:50',
             'rows_count' => 'required|integer|min:5|max:20',
+            'sheet_count' => 'nullable|integer|min:1|max:50',
+            'custom_sheets' => 'boolean',
             'price' => 'nullable|integer|min:0',
             'is_for_sale' => 'boolean',
             'is_displayed' => 'boolean',
@@ -201,7 +205,7 @@ class TesKoranController extends Controller
     private function validatedSheets(Request $request, array $validated): array
     {
         $request->validate([
-            'sheets' => 'nullable|array|min:1|max:10',
+            'sheets' => 'nullable|array|min:1|max:50',
             'sheets.*.name' => 'nullable|string|max:100',
             'sheets.*.number_type' => 'required_with:sheets|in:satuan,puluhan,ratusan',
             'sheets.*.operation_type' => 'required_with:sheets|in:addition,subtraction,division',

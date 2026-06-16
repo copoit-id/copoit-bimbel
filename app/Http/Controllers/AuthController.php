@@ -61,7 +61,7 @@ class AuthController extends Controller
                 'remaining_seconds' => $remaining,
             ], $request, (string) $request->input('email'));
             return back()->withErrors([
-                'email' => 'Terlalu banyak percobaan login. Coba lagi dalam ' . $remaining . ' detik.',
+                'email' => 'Terlalu banyak percobaan login. Coba lagi dalam ' . $this->humanDuration($remaining) . '.',
             ])->withInput($request->except('password'));
         }
 
@@ -440,6 +440,25 @@ class AuthController extends Controller
             8 => 2 * 60 * 60,
             default => 24 * 60 * 60,
         };
+    }
+
+    private function humanDuration(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+
+        if ($seconds < 60) {
+            return $seconds . ' detik';
+        }
+
+        if ($seconds < 3600) {
+            return (int) ceil($seconds / 60) . ' menit';
+        }
+
+        if ($seconds < 86400) {
+            return (int) ceil($seconds / 3600) . ' jam';
+        }
+
+        return (int) ceil($seconds / 86400) . ' hari';
     }
 
     private function sendNewRegistrationNotification(User $newUser): void

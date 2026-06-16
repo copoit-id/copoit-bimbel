@@ -119,11 +119,6 @@ if ($activeTab == 'berbayar') {
             <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
             <div class="text-sm text-gray-500 mb-4 line-clamp-2">{!! $package->description ?? 'Paket pembelajaran lengkap' !!}</div>
 
-            <!-- Conditional Requirement -->
-            @if($package->type_price === 'free_conditional' && $package->conditional_requirement)
-            <p class="text-xs text-gray-500 mb-3">Syarat: {{ Str::limit($package->conditional_requirement, 60) }}</p>
-            @endif
-
             <!-- Features -->
             @php
                 $features = json_decode($package->features ?? '[]', true);
@@ -162,6 +157,12 @@ if ($activeTab == 'berbayar') {
                             style="background-color: {{ $primaryColor }}">
                         Beli
                     </button>
+                    @elseif($package->type_price === 'free_conditional')
+                    <a href="{{ route('user.package.detail', $package->package_id) }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        Ajukan
+                    </a>
                     @else
                     <button onclick="claimPackage({{ $package->package_id }})"
                             class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
