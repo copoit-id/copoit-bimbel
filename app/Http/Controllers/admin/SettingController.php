@@ -333,7 +333,7 @@ class SettingController extends Controller
                 continue;
             }
             $original = $profile->exists ? $profile->getOriginal($key) : null;
-            if ((string) $original !== (string) $value) {
+            if ($this->settingValueForComparison($original) !== $this->settingValueForComparison($value)) {
                 $changedFields[] = $key;
             }
         }
@@ -451,5 +451,14 @@ class SettingController extends Controller
             ->take(8)
             ->values()
             ->all();
+    }
+
+    private function settingValueForComparison(mixed $value): string
+    {
+        if (is_array($value) || is_object($value)) {
+            return (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        return (string) $value;
     }
 }
