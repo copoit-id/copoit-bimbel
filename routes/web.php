@@ -141,10 +141,10 @@ Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
 
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Route untuk logout as (admin kembali ke akun admin)
-Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
+Route::match(['get', 'post'], '/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
 
 // Public user routes (no auth required)
 Route::prefix('user')->group(function () {

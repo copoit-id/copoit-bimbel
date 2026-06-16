@@ -294,7 +294,10 @@ class UserController extends Controller
         // Simpan admin ID dan info ke session
         session([
             'admin_login_as' => Auth::id(),
-            'admin_name' => Auth::user()->name
+            'admin_name' => Auth::user()->name,
+            'login_as_user_id' => $user->id,
+            'login_as_user_name' => $user->name,
+            'login_as_user_email' => $user->email,
         ]);
         
         // Login sebagai user
@@ -314,12 +317,24 @@ class UserController extends Controller
         $admin = User::find($adminId);
         
         if (!$admin) {
-            session()->forget('admin_login_as');
+            session()->forget([
+                'admin_login_as',
+                'admin_name',
+                'login_as_user_id',
+                'login_as_user_name',
+                'login_as_user_email',
+            ]);
             return redirect()->route('login');
         }
         
         // Hapus session admin_login_as
-        session()->forget('admin_login_as');
+        session()->forget([
+            'admin_login_as',
+            'admin_name',
+            'login_as_user_id',
+            'login_as_user_name',
+            'login_as_user_email',
+        ]);
         
         // Login kembali sebagai admin
         Auth::login($admin);
