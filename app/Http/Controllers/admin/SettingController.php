@@ -153,19 +153,13 @@ class SettingController extends Controller
 
     private function storeBrandingImage($file, ?string $existingPath = null, string $prefix = 'brand'): string
     {
-        $directory = public_path('logo');
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
-        }
-
         $extension = strtolower($file->getClientOriginalExtension() ?: 'png');
         $filename = $prefix . '-' . now()->format('YmdHis') . '.' . $extension;
+        $relativePath = 'branding/' . $filename;
 
-        $relativePath = 'logo/' . $filename;
+        Storage::disk('public')->putFileAs('branding', $file, $filename);
 
         $this->deleteBrandingImage($existingPath);
-
-        $file->move($directory, $filename);
 
         return $relativePath;
     }
