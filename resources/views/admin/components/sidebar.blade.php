@@ -50,7 +50,16 @@
         || request()->routeIs('admin.essay-review.*')
         || request()->routeIs('admin.feedback.*');
     $isFinanceActive = request()->routeIs('admin.finance.*') || request()->routeIs('admin.pembayaran.*');
-    $isGeneralActive = request()->routeIs('admin.artikel.*') || request()->routeIs('admin.general-pages.*');
+    $generalPublicVisibility = \Illuminate\Support\Facades\Schema::hasTable('general_pages')
+        ? \App\Models\GeneralPage::query()
+            ->whereIn('page_key', ['landing', 'statistik-ptn', 'artikel'])
+            ->pluck('is_active', 'page_key')
+        : collect();
+    $isGeneralPagePublicVisible = fn (string $pageKey): bool => (bool) $generalPublicVisibility->get($pageKey, false);
+    $canShowAdminLanding = $canFeatureView('general_page') && $isGeneralPagePublicVisible('landing');
+    $canShowAdminArticles = $canFeatureView('artikel') && $isGeneralPagePublicVisible('artikel');
+    $isGeneralActive = request()->routeIs('admin.general-pages.*')
+        || ($canShowAdminArticles && request()->routeIs('admin.artikel.*'));
 @endphp
 
 <aside id="logo-sidebar" x-ignore
@@ -287,7 +296,7 @@
                 </a>
             </li>
             @endif
-            @if($canFeatureView('artikel') || $canFeatureView('general_page'))
+            @if($canShowAdminLanding || $canShowAdminArticles)
             <li>
                 <details id="menu-general" class="group" {{ $isGeneralActive ? 'open' : '' }}>
                     <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isGeneralActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
@@ -298,7 +307,7 @@
                         <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isGeneralActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                     </summary>
                     <ul class="mt-1 ms-2 space-y-1">
-                        @if($canFeatureView('general_page'))
+                        @if($canShowAdminLanding)
                         <li>
                             <a href="{{ route('admin.general-pages.landing.edit') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.general-pages.landing.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -306,7 +315,7 @@
                             </a>
                         </li>
                         @endif
-                        @if($canFeatureView('artikel'))
+                        @if($canShowAdminArticles)
                         <li>
                             <a href="{{ route('admin.artikel.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.artikel.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">

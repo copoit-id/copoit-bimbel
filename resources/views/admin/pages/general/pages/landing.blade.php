@@ -41,35 +41,15 @@
         @method('PUT')
 
         <div class="rounded-lg border border-gray-200 bg-white p-5">
-            <div class="grid gap-4 md:grid-cols-2">
-                <div>
-                    <label for="template_key" class="mb-2 block text-sm font-medium text-gray-700">Tipe Template</label>
-                    <input type="text" id="template_key" name="template_key"
-                        value="{{ old('template_key', $page->template_key ?? 'default') }}"
-                        class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                    <p class="mt-2 text-xs text-gray-500">Gunakan <code>default</code> untuk tampilan landing saat ini.</p>
-                    @error('template_key')
-                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div>
-                    <p class="mb-2 text-sm font-medium text-gray-700">Tampilan Public General</p>
-                    <div class="grid gap-2 sm:grid-cols-3">
-                        @foreach([
-                            'landing' => 'Landing Page',
-                            'artikel' => 'Artikel',
-                            'statistik-ptn' => 'Statistik PTN',
-                        ] as $pageKey => $label)
-                            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700">
-                                <input type="checkbox" name="public_visibility[{{ $pageKey }}]" value="1"
-                                    class="rounded border-gray-300 text-primary focus:ring-primary"
-                                    @checked(old("public_visibility.{$pageKey}", data_get($visibilityPages ?? collect(), "{$pageKey}.is_active", false)))>
-                                {{ $label }}
-                            </label>
-                        @endforeach
-                    </div>
-                    <p class="mt-2 text-xs text-gray-500">Kalau Landing Page mati, route <code>/</code> otomatis diarahkan ke login.</p>
-                </div>
+            <div>
+                <label for="template_key" class="mb-2 block text-sm font-medium text-gray-700">Tipe Template</label>
+                <input type="text" id="template_key" name="template_key"
+                    value="{{ old('template_key', $page->template_key ?? 'default') }}"
+                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                <p class="mt-2 text-xs text-gray-500">Gunakan <code>default</code> untuk tampilan landing saat ini. Aktif/nonaktif menu General diatur dari Super Admin.</p>
+                @error('template_key')
+                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                @enderror
             </div>
         </div>
 

@@ -31,6 +31,13 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('super-admin.general-settings.edit') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.general-settings.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-global-line text-[20px]"></i>
+                    <span class="ms-3">General Settings</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('super-admin.plans.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.plans.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i class="ri-vip-crown-line text-[20px]"></i>

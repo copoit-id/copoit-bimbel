@@ -3,6 +3,14 @@
 @php
     $landingContent = $content ?? [];
     $landingDefaults = \App\Http\Controllers\GeneralPageController::defaultLandingContent();
+    $generalVisiblePages = \Illuminate\Support\Facades\Schema::hasTable('general_pages')
+        ? \App\Models\GeneralPage::query()
+            ->whereIn('page_key', ['statistik-ptn', 'artikel'])
+            ->where('is_active', true)
+            ->pluck('is_active', 'page_key')
+        : collect();
+    $showStatisticsNav = (bool) $generalVisiblePages->get('statistik-ptn', false);
+    $showArticlesNav = (bool) $generalVisiblePages->get('artikel', false);
     $landingValue = fn (string $key, mixed $default = null) => data_get($landingContent, $key, $default);
     $landingItems = fn (string $key) => data_get($landingContent, $key, data_get($landingDefaults, $key, [])) ?: [];
     $landingAsset = function (?string $path, string $fallback): string {
@@ -465,8 +473,12 @@
             <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">Navigasi</h4>
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90 list-disc pl-5">
                 <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">Home Landing</a></li>
-                <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">Statistik PTN</a></li>
-                <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">Insight & Artikel</a></li>
+                @if($showStatisticsNav)
+                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">Statistik PTN</a></li>
+                @endif
+                @if($showArticlesNav)
+                    <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">Insight & Artikel</a></li>
+                @endif
                 <li><a href="{{ route('login') }}" class="hover:text-amber-300 transition-colors">Daftar / Login Akun</a></li>
             </ul>
         </div>

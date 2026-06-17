@@ -314,6 +314,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::put('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [\App\Http\Controllers\superadmin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/{role}/permissions', [\App\Http\Controllers\superadmin\RoleController::class, 'updatePermissions'])->name('roles.permissions');
+    Route::get('/general-settings', [\App\Http\Controllers\superadmin\GeneralSettingController::class, 'edit'])->name('general-settings.edit');
+    Route::put('/general-settings', [\App\Http\Controllers\superadmin\GeneralSettingController::class, 'update'])->name('general-settings.update');
 
     // Plan Master Data Routes (CRUD Plan templates)
     Route::get('/plans', [\App\Http\Controllers\superadmin\PlanController::class, 'index'])->name('plans.index');
