@@ -95,7 +95,7 @@ class IndividualPurchaseController extends Controller
         $purchase = IndividualPurchase::findOrFail($id);
 
         if ($purchase->status !== 'pending') {
-            return redirect()->route('admin.individual-purchase.show', $id)
+            return redirect()->route('admin.pembayaran.item.show', $id)
                 ->with('error', 'Pembelian sudah diproses sebelumnya.');
         }
 
@@ -140,10 +140,10 @@ class IndividualPurchaseController extends Controller
                 'approved_by' => Auth::id(),
             ]);
 
-            return redirect()->route('admin.individual-purchase.show', $id)
+            return redirect()->route('admin.pembayaran.item.show', $id)
                 ->with('success', 'Pembelian berhasil disetujui. User mendapat akses.');
         } catch (\Exception $e) {
-            return redirect()->route('admin.individual-purchase.show', $id)
+            return redirect()->route('admin.pembayaran.item.show', $id)
                 ->with('error', 'Gagal mengkonfirmasi: ' . $e->getMessage());
         }
     }
@@ -156,7 +156,7 @@ class IndividualPurchaseController extends Controller
         $purchase = IndividualPurchase::findOrFail($id);
 
         if ($purchase->status !== 'pending') {
-            return redirect()->route('admin.individual-purchase.show', $id)
+            return redirect()->route('admin.pembayaran.item.show', $id)
                 ->with('error', 'Pembelian sudah diproses sebelumnya.');
         }
 
@@ -167,10 +167,10 @@ class IndividualPurchaseController extends Controller
                 'approved_by' => Auth::id(),
             ]);
 
-            return redirect()->route('admin.individual-purchase.show', $id)
+            return redirect()->route('admin.pembayaran.item.show', $id)
                 ->with('success', 'Pembelian berhasil ditolak.');
         } catch (\Exception $e) {
-            return redirect()->route('admin.individual-purchase.show', $id)
+            return redirect()->route('admin.pembayaran.item.show', $id)
                 ->with('error', 'Gagal menolak: ' . $e->getMessage());
         }
     }

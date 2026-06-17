@@ -124,7 +124,7 @@ class DiscountController extends Controller
                 Rule::unique('discounts', 'code')->ignore($discount?->id),
             ],
             'tryout_id' => [
-                $isVoucher ? 'nullable' : 'required',
+                'nullable',
                 'integer',
                 Rule::exists('tryouts', 'tryout_id'),
             ],
@@ -150,7 +150,6 @@ class DiscountController extends Controller
             'applicable_tes_koran_ids.*' => ['integer', Rule::in($saleTesKoranIds)],
         ], [
             'code.regex' => 'Kode hanya boleh berisi huruf, angka, strip, atau underscore.',
-            'tryout_id.required' => 'Tryout wajib dipilih untuk diskon non-voucher.',
             'ends_at.required' => 'Tanggal selesai wajib diisi untuk diskon non-voucher.',
             'ends_at.after_or_equal' => 'Tanggal selesai harus setelah atau sama dengan tanggal mulai.',
             'applicable_package_ids.*.in' => 'Paket yang dipilih harus paket berbayar aktif.',
@@ -203,7 +202,10 @@ class DiscountController extends Controller
             return $validated;
         }
 
-        $validated['code'] = $discount?->code ?: 'AUTO-' . $validated['tryout_id'] . '-' . Str::upper(Str::random(8));
+        $validated['tryout_id'] = !empty($validated['applicable_tryout_ids'])
+            ? (int) $validated['applicable_tryout_ids'][0]
+            : null;
+        $validated['code'] = $discount?->code ?: 'AUTO-' . ($validated['tryout_id'] ?: 'SCOPE') . '-' . Str::upper(Str::random(8));
         $validated['min_purchase_amount'] = 0;
         $validated['usage_limit'] = null;
         $validated['per_user_limit'] = null;

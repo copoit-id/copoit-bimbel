@@ -7,14 +7,14 @@
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="{{ route('admin.individual-purchase.index') }}" title="Pembelian Individual" />
+            <x-breadcrumb-item href="{{ route('admin.pembayaran.index') }}" title="Pembayaran" />
             <x-breadcrumb-item href="" title="Detail" />
         </x-slot>
     </x-breadcrumb>
 </div>
 
 <div class="flex items-center gap-3 mt-4">
-    <a href="{{ route('admin.individual-purchase.index') }}" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+    <a href="{{ route('admin.pembayaran.index') }}" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
         <i class="ri-arrow-left-line text-xl text-gray-600"></i>
     </a>
     <div>
@@ -131,14 +131,14 @@
                 </span>
             </div>
             <div class="flex gap-2">
-                <form action="{{ route('admin.individual-purchase.confirm', $purchase) }}" method="POST" class="flex-1">
+                <form action="{{ route('admin.pembayaran.item.confirm', $purchase) }}" method="POST" class="flex-1">
                     @csrf
                     <button type="submit" onclick="return confirm('Setujui pembelian ini? User akan mendapat akses.')"
                             class="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
                         <i class="ri-check-line mr-1"></i>Setujui
                     </button>
                 </form>
-                <form action="{{ route('admin.individual-purchase.reject', $purchase) }}" method="POST" class="flex-1">
+                <form action="{{ route('admin.pembayaran.item.reject', $purchase) }}" method="POST" class="flex-1">
                     @csrf
                     <button type="submit" onclick="return confirm('Tolak pembelian ini?')"
                             class="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors">

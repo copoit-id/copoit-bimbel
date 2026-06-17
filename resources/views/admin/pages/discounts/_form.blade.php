@@ -15,24 +15,9 @@
                 placeholder="CONTOH: HEMAT50">
             @error('code')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
         </div>
-        @else
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tryout <span class="text-red-500">*</span></label>
-            <select name="tryout_id" required
-                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
-                <option value="">Pilih tryout</option>
-                @foreach($tryouts as $tryout)
-                    <option value="{{ $tryout->tryout_id }}" @selected((int) old('tryout_id', $discount->tryout_id) === (int) $tryout->tryout_id)>
-                        {{ $tryout->name }}{{ $tryout->type_tryout ? ' - ' . strtoupper(str_replace('_', ' ', $tryout->type_tryout)) : '' }}
-                    </option>
-                @endforeach
-            </select>
-            @error('tryout_id')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
-            <p class="text-xs text-gray-500 mt-1">Diskon otomatis aktif untuk paket yang berisi tryout ini.</p>
-        </div>
         @endif
 
-        <div>
+        <div class="{{ $isVoucher ? '' : 'md:col-span-2' }}">
             <label class="block text-sm font-medium text-gray-700 mb-2">Nama</label>
             <input type="text" name="name" value="{{ old('name', $discount->name) }}"
                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
@@ -129,6 +114,10 @@
                 $storedIds = $discount->{$field};
                 if (!empty($storedIds)) {
                     return collect($storedIds)->map(fn($id) => (int) $id)->all();
+                }
+
+                if ($field === 'applicable_tryout_ids' && $discount->tryout_id) {
+                    return [(int) $discount->tryout_id];
                 }
 
                 if ($discount->exists && in_array($legacyType, $legacyTypes, true)) {

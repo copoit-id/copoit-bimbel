@@ -112,20 +112,20 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex flex-wrap gap-2">
-                            <form action="{{ $pendingRequestType === 'package' ? route('admin.akses.requests.approve', $accessRequest) : route('admin.individual-purchase.confirm', $accessRequest) }}" method="POST" class="inline">
+                            <form action="{{ $pendingRequestType === 'package' ? route('admin.akses.requests.approve', $accessRequest) : route('admin.pembayaran.item.confirm', $accessRequest) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200">
                                     Setujui
                                 </button>
                             </form>
-                            <form action="{{ $pendingRequestType === 'package' ? route('admin.akses.requests.reject', $accessRequest) : route('admin.individual-purchase.reject', $accessRequest) }}" method="POST" class="inline">
+                            <form action="{{ $pendingRequestType === 'package' ? route('admin.akses.requests.reject', $accessRequest) : route('admin.pembayaran.item.reject', $accessRequest) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200">
                                     Tolak
                                 </button>
                             </form>
                             @if($pendingRequestType === 'individual')
-                            <a href="{{ route('admin.individual-purchase.show', $accessRequest) }}"
+                            <a href="{{ route('admin.pembayaran.item.show', $accessRequest) }}"
                                class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200">
                                 Detail
                             </a>

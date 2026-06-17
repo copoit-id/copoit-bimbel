@@ -293,13 +293,6 @@
                                 <span class="ms-3">Pembayaran</span>
                             </a>
                         </li>
-                        <li>
-                            <a href="{{ route('admin.individual-purchase.index') }}"
-                                class="flex items-center py-2 px-4 {{ request()->routeIs('admin.individual-purchase.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <i class="ri-shopping-cart-line text-[20px] {{ request()->routeIs('admin.individual-purchase.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                                <span class="ms-3">Pembelian Individual</span>
-                            </a>
-                        </li>
                     </ul>
                 </details>
             </li>

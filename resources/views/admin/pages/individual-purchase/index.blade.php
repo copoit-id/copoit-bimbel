@@ -1,191 +1,205 @@
-@extends('admin.layout.admin')
-
-@section('title', 'Pembelian Individual')
-
-@section('content')
 @php
     $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+    $typeOptions = [
+        'material' => 'Materi',
+        'tryout' => 'Tryout',
+    ];
+
+    if ($canManageTesKoran) {
+        $typeOptions['tes_koran'] = 'Tes Koran';
+    }
 @endphp
 
-<div class="flex justify-between items-center">
-    <x-breadcrumb>
-        <x-slot name="items">
-            <x-breadcrumb-item href="" title="Pembelian Individual" />
-        </x-slot>
-    </x-breadcrumb>
-</div>
-<x-page-desc title="Pembelian Individual"
-    description="{{ $canManageTesKoran ? 'Kelola pembelian materi, tryout, dan tes koran secara terpisah (tanpa paket)' : 'Kelola pembelian materi dan tryout secara terpisah (tanpa paket)' }}"></x-page-desc>
-
-<!-- Type Tabs -->
-<div class="flex gap-2 mt-6">
-    <a href="{{ route('admin.individual-purchase.index', ['type' => 'material', 'status' => $status]) }}"
-       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'material' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
-        <i class="ri-book-line mr-1"></i>Materi
-    </a>
-    <a href="{{ route('admin.individual-purchase.index', ['type' => 'tryout', 'status' => $status]) }}"
-       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'tryout' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
-        <i class="ri-file-list-3-line mr-1"></i>Tryout
-    </a>
-    @if($canManageTesKoran)
-    <a href="{{ route('admin.individual-purchase.index', ['type' => 'tes_koran', 'status' => $status]) }}"
-       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ $type === 'tes_koran' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
-        <i class="ri-file-edit-line mr-1"></i>Tes Koran
-    </a>
-    @endif
-</div>
-
 <!-- Summary Cards -->
-<div class="grid grid-cols-4 gap-4 mt-4">
-    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500">Total</p>
-                <p class="text-xl font-bold text-gray-800">{{ $stats['total'] }}</p>
+                <p class="text-sm text-primary">Total Transaksi</p>
+                <p class="text-2xl font-bold text-primary">{{ $stats['total'] ?? 0 }}</p>
             </div>
-            <i class="ri-list-check text-2xl text-gray-400"></i>
+            <i class="ri-shopping-cart-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-amber-600">Pending</p>
-                <p class="text-xl font-bold text-amber-700">{{ $stats['pending'] }}</p>
+                <p class="text-sm text-primary">Berhasil</p>
+                <p class="text-2xl font-bold text-primary">{{ $stats['approved'] ?? 0 }}</p>
             </div>
-            <i class="ri-time-line text-2xl text-amber-400"></i>
+            <i class="ri-check-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-green-600">Disetujui</p>
-                <p class="text-xl font-bold text-green-700">{{ $stats['approved'] }}</p>
+                <p class="text-sm text-primary">Pending</p>
+                <p class="text-2xl font-bold text-primary">{{ $stats['pending'] ?? 0 }}</p>
             </div>
-            <i class="ri-check-line text-2xl text-green-400"></i>
+            <i class="ri-time-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-red-600">Ditolak</p>
-                <p class="text-xl font-bold text-red-700">{{ $stats['rejected'] }}</p>
+                <p class="text-sm text-primary">Gagal</p>
+                <p class="text-2xl font-bold text-primary">{{ $stats['rejected'] ?? 0 }}</p>
             </div>
-            <i class="ri-close-line text-2xl text-red-400"></i>
+            <i class="ri-close-line text-3xl text-primary"></i>
         </div>
     </div>
 </div>
 
-<div class="bg-white p-6 rounded-lg border border-gray-100 mt-6">
-    <!-- Filters -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div class="flex gap-2">
-            @php $statuses = ['pending' => 'Pending', 'approved' => 'Disetujui', 'rejected' => 'Ditolak', 'all' => 'Semua']; @endphp
-            @foreach($statuses as $key => $label)
-            <a href="{{ route('admin.individual-purchase.index', ['type' => $type, 'status' => $key]) }}"
-               class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors {{ $status === $key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
-                {{ $label }}
+<div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6 mb-6">
+        <form method="GET" action="{{ route('admin.pembayaran.index') }}" class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
+            <div class="relative w-full sm:w-64">
+                <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari transaksi..."
+                    class="pl-10 pr-4 py-2 w-full sm:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <select name="product_type"
+                    class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    @foreach($typeOptions as $typeKey => $typeLabel)
+                    <option value="{{ $typeKey }}" {{ ($type ?? 'material') === $typeKey ? 'selected' : '' }}>
+                        {{ $typeLabel }}
+                    </option>
+                    @endforeach
+                </select>
+                <select name="status"
+                    class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="all" {{ ($status ?? 'pending') === 'all' ? 'selected' : '' }}>Semua Status ({{ $stats['total'] ?? 0 }})</option>
+                    <option value="pending" {{ ($status ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending ({{ $stats['pending'] ?? 0 }})</option>
+                    <option value="approved" {{ ($status ?? 'pending') === 'approved' ? 'selected' : '' }}>Berhasil ({{ $stats['approved'] ?? 0 }})</option>
+                    <option value="rejected" {{ ($status ?? 'pending') === 'rejected' ? 'selected' : '' }}>Gagal ({{ $stats['rejected'] ?? 0 }})</option>
+                </select>
+                <select name="method"
+                    class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="">Metode Pembayaran</option>
+                    @foreach($paymentMethods ?? [] as $paymentMethod)
+                    <option value="{{ $paymentMethod }}" {{ ($method ?? '') === $paymentMethod ? 'selected' : '' }}>
+                        {{ ucwords(str_replace('_', ' ', $paymentMethod)) }}
+                    </option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit"
+                class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 w-full sm:w-auto">
+                Terapkan
+            </button>
+            <a href="{{ route('admin.pembayaran.index', ['product_type' => 'all']) }}"
+                class="inline-flex items-center justify-center px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
+                <i class="ri-refresh-line"></i> Reset
             </a>
-            @endforeach
-        </div>
-        <div class="text-sm text-gray-500">
-            Total: <span class="font-medium text-gray-700">{{ $purchases->total() }} transaksi</span>
+        </form>
+        <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+            <div id="payment-count" class="text-sm text-gray-500">
+                Total: <span class="font-medium text-gray-700">{{ $purchases->total() ?? 0 }} Transaksi</span>
+            </div>
         </div>
     </div>
 
-    <!-- Table -->
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left">
+    <!-- Payment Table -->
+    <div class="relative overflow-x-auto w-full">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                    <th class="px-4 py-3">Transaksi</th>
-                    <th class="px-4 py-3">User</th>
-                    <th class="px-4 py-3">Item</th>
-                    <th class="px-4 py-3">Jumlah</th>
-                    <th class="px-4 py-3">Metode</th>
-                    <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">Tanggal</th>
-                    <th class="px-4 py-3">Aksi</th>
+                    <th scope="col" class="px-4 py-3 min-w-[180px]">Transaksi</th>
+                    <th scope="col" class="px-4 py-3 min-w-[220px]">User</th>
+                    <th scope="col" class="px-4 py-3 min-w-[180px]">Item</th>
+                    <th scope="col" class="px-4 py-3 min-w-[120px]">Jumlah</th>
+                    <th scope="col" class="px-4 py-3 min-w-[130px]">Metode</th>
+                    <th scope="col" class="px-4 py-3 min-w-[110px]">Status</th>
+                    <th scope="col" class="px-4 py-3 min-w-[110px]">Tanggal</th>
+                    <th scope="col" class="px-4 py-3 min-w-[150px]">Aksi</th>
                 </tr>
             </thead>
-            <tbody>
-                @forelse($purchases as $purchase)
-                <tr class="border-b border-dashed border-gray-200 hover:bg-gray-50">
-                    <td class="px-4 py-3">
-                        <p class="font-medium text-gray-900 text-xs">{{ $purchase->transaction_id }}</p>
+            <tbody id="payment-table-body">
+                @forelse($purchases ?? [] as $purchase)
+                @php
+                    $itemTitle = $purchase->purchasable?->title ?? $purchase->purchasable?->name ?? 'N/A';
+                    $itemType = class_basename($purchase->purchasable_type ?? '');
+                    $typeLabel = match ($itemType) {
+                        'Tryout' => 'Tryout',
+                        'TesKoran' => 'Tes Koran',
+                        default => 'Materi',
+                    };
+                @endphp
+                <tr class="payment-row bg-white border-b border-dashed border-gray-200">
+                    <td class="px-4 py-4">
+                        <div>
+                            <p class="font-medium text-gray-900">{{ $purchase->transaction_id }}</p>
+                            <p class="text-sm text-gray-500">ID: {{ $purchase->id }}</p>
+                        </div>
                     </td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-2">
-                            <img src="https://ui-avatars.com/api/?name={{ urlencode($purchase->user->name ?? 'U') }}&background=444&color=fff&size=32"
-                                 class="w-8 h-8 rounded-full flex-shrink-0">
+                    <td class="px-4 py-4">
+                        <div class="flex items-center gap-3">
+                            <img src="https://ui-avatars.com/api/?name={{ urlencode($purchase->user->name ?? 'Unknown') }}&background=444444&color=fff"
+                                class="w-8 h-8 rounded-full">
                             <div>
-                                <p class="font-medium text-gray-800 text-xs">{{ $purchase->user->name ?? 'Unknown' }}</p>
-                                <p class="text-xs text-gray-400">{{ $purchase->user->email ?? '' }}</p>
+                                <p class="font-medium">{{ $purchase->user->name ?? 'Unknown User' }}</p>
+                                <p class="text-sm text-gray-500">{{ $purchase->user->email ?? 'No email' }}</p>
                             </div>
                         </div>
                     </td>
-                    <td class="px-4 py-3">
-                        @php
-                        $itemTitle = $purchase->purchasable?->title ?? $purchase->purchasable?->name ?? 'N/A';
-                        $itemType = class_basename($purchase->purchasable_type ?? '');
-                        $typeIcon = match ($itemType) {
-                            'Tryout' => 'ri-file-list-3-line',
-                            'TesKoran' => 'ri-file-edit-line',
-                            default => 'ri-book-line',
-                        };
-                        $typeColor = match ($itemType) {
-                            'Tryout' => 'text-purple-600 bg-purple-50',
-                            'TesKoran' => 'text-emerald-600 bg-emerald-50',
-                            default => 'text-blue-600 bg-blue-50',
-                        };
-                        @endphp
+                    <td class="px-4 py-4">
                         <div>
-                            <span class="px-1.5 py-0.5 rounded text-xs font-medium {{ $typeColor }}">
-                                <i class="{{ $typeIcon }} mr-0.5"></i>{{ $itemType }}
-                            </span>
-                            <p class="text-xs text-gray-700 mt-1 line-clamp-1 max-w-[150px]">{{ $itemTitle }}</p>
+                            <p class="font-medium text-gray-900">{{ $itemTitle }}</p>
+                            <p class="text-sm text-gray-500">{{ $typeLabel }}</p>
                         </div>
                     </td>
-                    <td class="px-4 py-3">
-                        <span class="font-semibold text-gray-800 text-sm">Rp {{ number_format($purchase->total_amount, 0, ',', '.') }}</span>
-                    </td>
-                    <td class="px-4 py-3">
-                        <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs capitalize">
-                            {{ $purchase->payment_method }}
+                    <td class="px-4 py-4">Rp {{ number_format($purchase->total_amount, 0, ',', '.') }}</td>
+                    <td class="px-4 py-4">
+                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs capitalize">
+                            {{ $purchase->payment_method ?? 'Unknown' }}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        @if($purchase->status === 'pending')
-                        <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                            <i class="ri-time-line mr-0.5"></i>Pending
-                        </span>
-                        @elseif($purchase->status === 'approved')
-                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                            <i class="ri-check-line mr-0.5"></i>Disetujui
-                        </span>
-                        @else
-                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                            <i class="ri-close-line mr-0.5"></i>Ditolak
-                        </span>
-                        @endif
+                    <td class="px-4 py-4">
+                        @switch($purchase->status)
+                        @case('approved')
+                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Berhasil</span>
+                        @break
+                        @case('pending')
+                        <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Pending</span>
+                        @break
+                        @case('rejected')
+                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Gagal</span>
+                        @break
+                        @default
+                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{{ ucfirst($purchase->status) }}</span>
+                        @endswitch
                     </td>
-                    <td class="px-4 py-3 text-xs text-gray-500">
-                        {{ $purchase->created_at->format('d M Y, H:i') }}
-                    </td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-1">
-                            <a href="{{ route('admin.individual-purchase.show', $purchase) }}"
-                               class="p-1.5 text-gray-500 hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
-                               title="Detail">
+                    <td class="px-4 py-4">{{ $purchase->created_at->format('d M Y') }}</td>
+                    <td class="px-4 py-4">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ route('admin.pembayaran.item.show', $purchase) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary"
+                                title="Detail">
                                 <i class="ri-eye-line text-base"></i>
                             </a>
+                            @if($purchase->status === 'pending')
+                            <form action="{{ route('admin.pembayaran.item.confirm', $purchase) }}" method="POST"
+                                class="inline">
+                                @csrf
+                                <button type="submit"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-700 hover:bg-green-200"
+                                    title="Konfirmasi"
+                                    onclick="return confirm('Konfirmasi pembayaran ini?')">
+                                    <i class="ri-check-line text-base"></i>
+                                </button>
+                            </form>
+                            @endif
                         </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="px-4 py-8 text-center text-gray-400">
-                        <i class="ri-inbox-line text-3xl mb-2 block"></i>
-                        <p>Belum ada transaksi</p>
+                    <td colspan="8" class="px-6 py-8 text-center text-gray-500 w-full">
+                        <div class="flex flex-col items-center">
+                            <i class="ri-money-dollar-circle-line text-4xl text-gray-300 mb-2"></i>
+                            <p>{{ ($status ?? 'pending') !== 'pending' || ($method ?? '') || ($search ?? '') ? 'Tidak ada transaksi sesuai filter' : 'Belum ada transaksi pembayaran pending' }}</p>
+                        </div>
                     </td>
                 </tr>
                 @endforelse
@@ -193,10 +207,10 @@
         </table>
     </div>
 
-    @if($purchases->hasPages())
-    <div class="mt-4">
+    <!-- Pagination -->
+    @if(isset($purchases) && $purchases->hasPages())
+    <div class="flex justify-center mt-6">
         {{ $purchases->links() }}
     </div>
     @endif
 </div>
-@endsection
