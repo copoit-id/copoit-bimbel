@@ -139,7 +139,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
-                            <input type="number" id="price" name="price" min="0" step="1000"
+                            <input type="number" id="price" name="price" min="0" step="1" inputmode="numeric"
                                 value="{{ old('price', isset($tryout) ? $tryout->price : 0) }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="0">

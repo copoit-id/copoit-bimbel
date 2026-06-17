@@ -13,6 +13,7 @@ use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -277,6 +278,67 @@ class TryoutController extends Controller
             return redirect()->back()
                 ->with('error', 'Gagal menghapus tryout: ' . $e->getMessage());
         }
+    }
+
+    public function clone(Request $request, Tryout $tryout)
+    {
+        try {
+            $tryout->load([
+                'tryoutDetails.questions.questionOptions',
+            ]);
+
+            $clone = DB::transaction(function () use ($tryout) {
+                $newTryout = $tryout->replicate();
+                $newTryout->name = $this->uniqueCloneName($tryout->name);
+                $newTryout->is_active = false;
+                $newTryout->is_displayed = false;
+                $newTryout->results_released_at = null;
+                $newTryout->results_reset_at = null;
+                $newTryout->save();
+
+                foreach ($tryout->tryoutDetails as $detail) {
+                    $newDetail = $detail->replicate();
+                    $newDetail->tryout_id = $newTryout->tryout_id;
+                    $newDetail->save();
+
+                    foreach ($detail->questions as $question) {
+                        $newQuestion = $question->replicate();
+                        $newQuestion->tryout_detail_id = $newDetail->tryout_detail_id;
+                        $newQuestion->save();
+
+                        foreach ($question->questionOptions as $option) {
+                            $newOption = $option->replicate();
+                            $newOption->question_id = $newQuestion->question_id;
+                            $newOption->save();
+                        }
+                    }
+                }
+
+                return $newTryout;
+            });
+
+            return redirect()
+                ->route('admin.tryout.index', $request->query())
+                ->with('success', 'Tryout berhasil diclone ke "' . $clone->name . '". Clone dibuat nonaktif dan tidak ditampilkan agar bisa dicek dulu.');
+        } catch (\Exception $e) {
+            return redirect()
+                ->route('admin.tryout.index', $request->query())
+                ->with('error', 'Gagal clone tryout: ' . $e->getMessage());
+        }
+    }
+
+    private function uniqueCloneName(string $name): string
+    {
+        $baseName = $name . ' (Copy)';
+        $candidate = $baseName;
+        $counter = 2;
+
+        while (Tryout::where('name', $candidate)->exists()) {
+            $candidate = $name . ' (Copy ' . $counter . ')';
+            $counter++;
+        }
+
+        return $candidate;
     }
 
     public function preview($id)

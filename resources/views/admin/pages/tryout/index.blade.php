@@ -185,6 +185,15 @@
                         class="flex-1 flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-edit-line"></i>
                     </a>
+                    <form action="{{ route('admin.tryout.clone', array_merge(request()->query(), ['tryout' => $tryout->tryout_id])) }}" method="POST" class="flex-1"
+                        onsubmit="return confirm('Clone tryout ini beserta semua subtest, soal, dan opsi jawaban?')">
+                        @csrf
+                        <button type="submit"
+                            class="w-full flex justify-center border border-blue-500 text-blue-500 px-3 py-2 rounded-lg text-sm hover:bg-blue-500 hover:text-white transition-colors"
+                            title="Clone tryout">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </form>
                     <form action="{{ route('admin.tryout.destroy', $tryout->tryout_id) }}" method="POST" class="flex-1"
                         onsubmit="return confirm('Apakah Anda yakin ingin menghapus tryout ini?')">
                         @csrf

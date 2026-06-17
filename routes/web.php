@@ -438,6 +438,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     });
 
     Route::resource('tryout', AdminTryoutController::class);
+    Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->name('tryout.clone');
     Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
     Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
     Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');

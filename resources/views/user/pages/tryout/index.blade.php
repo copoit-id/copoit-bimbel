@@ -223,7 +223,7 @@
                                     !($isFirstQuestionOfSubtest && ($currentSubtestIndex ?? 0) > 0));
                         @endphp
                         <div class="mt-8 flex justify-between items-center pt-6 border-t border-border">
-                            <div id="prevBtnContainer" class="flex gap-2 sm:gap-3 {{ $number === 1 ? 'hidden' : '' }}">
+                            <div id="prevBtnContainer" class="flex gap-2 sm:gap-3 {{ !$canGoPrev ? 'hidden' : '' }}">
                                 <button id="prevBtn" onclick="prevQuestion()"
                                     class="px-3 sm:px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
                                     <i class="ri-arrow-left-line sm:mr-2"></i><span
@@ -251,6 +251,7 @@
                                     @csrf
                                     <input type="hidden" name="answers_payload" id="answersPayloadInput">
                                     <input type="hidden" name="attempt_token" value="{{ $attemptToken }}">
+                                    <input type="hidden" name="current_question_number" id="currentQuestionNumberInput" value="{{ $number }}">
                                     <button type="submit"
                                         onclick="return confirm('Apakah Anda yakin ingin menyelesaikan tryout ini?')"
                                         class="px-5 sm:px-6 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors">
@@ -265,7 +266,9 @@
                 <!-- Sidebar -->
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-lg border border-border p-6 sticky top-6 text-center">
-                        <p class="text-sm text-gray-600 mb-2">Sisa Waktu</p>
+                        <p class="text-sm text-gray-600 mb-2">
+                            {{ ($isCombinedSubtestView ?? false) ? 'Sisa Waktu Tryout' : 'Sisa Waktu Subtest' }}
+                        </p>
                         <div id="timer-display" class="text-3xl font-bold text-primary">00:00:00</div>
                         <p class="text-xs text-gray-500 mt-3 uppercase tracking-wide">
                             @if ($isCombinedSubtestView ?? false)
@@ -314,9 +317,10 @@
                         </div>
 
                         <button type="submit"
+                            id="sidebarFinishButton"
                             form="finishForm"
                             onclick="return confirm('Apakah Anda yakin ingin mengakhiri ujian ini? Jawaban yang sudah terisi akan disubmit.')"
-                            class="w-full mb-6 rounded-lg border border-primary bg-white px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white">
+                            class="w-full mb-6 rounded-lg border border-primary bg-white px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white {{ !($isCombinedSubtestView ?? false) && $number < $totalQuestions ? 'hidden' : '' }}">
                             <i class="ri-check-line mr-2"></i>Akhiri Ujian
                         </button>
 
@@ -522,6 +526,7 @@
             const csrfToken = '{{ csrf_token() }}';
             const answerPersistenceMode = @json($tryout->answer_persistence_mode ?? 'client_side');
             const isCombinedSubtestView = @json($isCombinedSubtestView ?? false);
+            const displayRemainingSeconds = @json((int) ($displayRemainingSeconds ?? $remainingSeconds ?? 1));
             const subtestRanges = @json($subtestRangesForJs);
             const allServerAnswers = @json($allAnswerDetailsForJs);
             const trackTabSwitchUrl =
@@ -921,27 +926,29 @@
                 const nextBtn = document.getElementById('nextBtn');
                 const nextBtnText = document.getElementById('nextBtnText');
                 const finishForm = document.getElementById('finishForm');
+                const sidebarFinishButton = document.getElementById('sidebarFinishButton');
+                const currentRangeIdx = subtestRanges.findIndex(r => num >= r.start_number && num <= r
+                    .end_number);
+                const currentRange = subtestRanges[currentRangeIdx];
+                const isLastOfSubtest = currentRange ? (num === currentRange.end_number) : false;
+                const hasNextSubtest = (currentRangeIdx < subtestRanges.length - 1);
 
                 if (prevBtnContainer) {
-                    if (num === 1) {
+                    if (num === 1 || (!isCombinedSubtestView && currentRangeIdx > 0 && currentRange && num === currentRange.start_number)) {
                         prevBtnContainer.classList.add('hidden');
                     } else {
                         prevBtnContainer.classList.remove('hidden');
                     }
                 }
 
-                const currentRangeIdx = subtestRanges.findIndex(r => num >= r.start_number && num <= r
-                    .end_number);
-                const currentRange = subtestRanges[currentRangeIdx];
-                const isLastOfSubtest = (num === currentRange.end_number);
-                const hasNextSubtest = (currentRangeIdx < subtestRanges.length - 1);
-
                 if (num === totalQuestions) {
                     nextBtn.classList.add('hidden');
                     finishForm.classList.remove('hidden');
+                    sidebarFinishButton?.classList.remove('hidden');
                 } else {
                     nextBtn.classList.remove('hidden');
                     finishForm.classList.add('hidden');
+                    sidebarFinishButton?.classList.toggle('hidden', !isCombinedSubtestView);
 
                     if (!isCombinedSubtestView && isLastOfSubtest && hasNextSubtest) {
                         nextBtnText.textContent = "Mulai Subtest Berikutnya";
@@ -983,6 +990,15 @@
             };
 
             window.prevQuestion = function() {
+                const currentRangeIdx = subtestRanges.findIndex(r => currentNumber >= r.start_number &&
+                    currentNumber <= r.end_number);
+                const currentRange = subtestRanges[currentRangeIdx];
+                if (!currentRange) return;
+
+                if (!isCombinedSubtestView && currentRangeIdx > 0 && currentNumber === currentRange.start_number) {
+                    return;
+                }
+
                 goToQuestion(currentNumber - 1);
             };
 
@@ -996,19 +1012,23 @@
                 const isLastOfSubtest = (currentNumber === currentRange.end_number);
                 const hasNextSubtest = (currentRangeIdx < subtestRanges.length - 1);
 
-                if (!isCombinedSubtestView && isLastOfSubtest && hasNextSubtest && answerPersistenceMode === 'hybrid_subtest') {
+                if (!isCombinedSubtestView && isLastOfSubtest && hasNextSubtest) {
                     const ok = confirm(
                         "Anda akan beralih ke subtest berikutnya. Jawaban subtest ini akan dikunci. Lanjutkan?"
                     );
                     if (!ok) return;
 
-                    showSaveIndicator(true, 'Menyinkronkan subtest...');
-                    try {
-                        await flushSubtestAnswers(detailId);
-                        goToQuestion(currentNumber + 1);
-                    } catch (e) {
-                        showSaveIndicator(false, e.message);
+                    if (answerPersistenceMode === 'hybrid_subtest') {
+                        showSaveIndicator(true, 'Menyinkronkan subtest...');
+                        try {
+                            await flushSubtestAnswers(detailId);
+                        } catch (e) {
+                            showSaveIndicator(false, e.message);
+                            return;
+                        }
                     }
+
+                    window.location.href = baseUrlTemplate.replace(':num', currentNumber + 1);
                 } else {
                     goToQuestion(currentNumber + 1);
                 }
@@ -1298,6 +1318,7 @@
                     capturePendingTextAnswers();
                     const unsynced = Object.values(answerCache).filter(a => !a.synced);
                     document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
+                    document.getElementById('currentQuestionNumberInput').value = currentNumber;
                 });
             }
 
@@ -1396,15 +1417,52 @@
 
             // Timer Setup (adapted)
             function setupTimerSPA() {
-                let timeLeft = {{ $remainingSeconds }};
+                let timeLeft = Math.max(1, displayRemainingSeconds);
                 const timerDisplay = document.getElementById('timer-display');
+                let isHandlingTimeout = false;
+
+                async function handleTimeout() {
+                    if (isHandlingTimeout) return;
+                    isHandlingTimeout = true;
+
+                    capturePendingTextAnswers();
+                    if (!isCombinedSubtestView) {
+                        const currentRangeIdx = subtestRanges.findIndex(r => currentNumber >= r.start_number &&
+                            currentNumber <= r.end_number);
+                        const currentRange = subtestRanges[currentRangeIdx];
+                        const hasNextSubtest = currentRangeIdx < subtestRanges.length - 1;
+
+                        if (currentRange && hasNextSubtest) {
+                            alert("Waktu subtest habis. Anda akan diarahkan ke subtest berikutnya.");
+
+                            if (answerPersistenceMode === 'hybrid_subtest') {
+                                const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
+                                const detailId = wrapper?.dataset.subtestDetailId;
+                                if (detailId) {
+                                    try {
+                                        await flushSubtestAnswers(detailId);
+                                    } catch (e) {
+                                        showSaveIndicator(false, e.message);
+                                        isHandlingTimeout = false;
+                                        return;
+                                    }
+                                }
+                            }
+
+                            window.location.href = baseUrlTemplate.replace(':num', currentRange.end_number + 1);
+                            return;
+                        }
+                    }
+
+                    alert("Waktu habis!");
+                    finishButton.click();
+                }
 
                 const interval = setInterval(() => {
                     timeLeft--;
                     if (timeLeft <= 0) {
                         clearInterval(interval);
-                        alert("Waktu habis!");
-                        finishButton.click();
+                        handleTimeout();
                         return;
                     }
 

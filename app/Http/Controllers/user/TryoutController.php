@@ -973,7 +973,8 @@ class TryoutController extends Controller
             ];
         }
 
-        $isCombinedSubtestView = count($subtestInfo) > 1;
+        $isCombinedSubtestView = count($subtestInfo) > 1
+            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'combined';
 
         if ($allQuestions->isEmpty()) {
             return redirect()->back()->with('error', 'Tryout belum memiliki soal');
@@ -1115,6 +1116,7 @@ class TryoutController extends Controller
         $subtestRemainingSeconds = $subtestEnd->greaterThan($now)
             ? $now->diffInSeconds($subtestEnd)
             : 0;
+        $displayRemainingSeconds = $isCombinedSubtestView ? $remainingSeconds : max(1, (int) $subtestRemainingSeconds);
 
         // Get all user answers untuk navigation status dari semua subtest
         $allUserAnswers = UserAnswer::where('user_id', Auth::id())
@@ -1177,6 +1179,7 @@ class TryoutController extends Controller
             'isLastQuestionOfSubtest',
             'remainingSeconds',
             'subtestRemainingSeconds',
+            'displayRemainingSeconds',
             'attemptToken',
             'extraMinutes',
             'effectiveProctoringSettings'
@@ -1905,6 +1908,70 @@ class TryoutController extends Controller
         if ($userAnswers->isEmpty()) {
             return redirect()->route('user.tryout.index', [$id_package, $id_tryout, 1])
                 ->with('error', 'Jawaban belum ditemukan. Silakan lanjutkan tryout.');
+        }
+
+        $currentQuestionNumber = (int) $request->input('current_question_number', 0);
+        if (
+            $currentQuestionNumber > 0
+            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'per_subtest'
+        ) {
+            $tryoutDetails = $tryout->tryoutDetails()->get();
+            if ($tryout->system_tryout === 'toefl') {
+                $order = ['listening', 'writing', 'reading'];
+                $tryoutDetails = $tryoutDetails->sortBy(function ($detail) use ($order) {
+                    $position = array_search($detail->type_subtest, $order, true);
+                    return $position === false ? PHP_INT_MAX : $position;
+                })->values();
+            } else {
+                $tryoutDetails = $tryoutDetails->sortBy('tryout_detail_id')->values();
+            }
+
+            if ($tryoutDetails->count() > 1) {
+                $questionCounts = Question::whereIn('tryout_detail_id', $tryoutDetails->pluck('tryout_detail_id'))
+                    ->select('tryout_detail_id', DB::raw('count(*) as total'))
+                    ->groupBy('tryout_detail_id')
+                    ->pluck('total', 'tryout_detail_id');
+
+                $startNumber = 1;
+                $subtestRanges = [];
+                foreach ($tryoutDetails as $detail) {
+                    $questionCount = (int) ($questionCounts[$detail->tryout_detail_id] ?? 0);
+                    if ($questionCount <= 0) {
+                        continue;
+                    }
+
+                    $endNumber = $startNumber + $questionCount - 1;
+                    $subtestRanges[] = [
+                        'start_number' => $startNumber,
+                        'end_number' => $endNumber,
+                    ];
+                    $startNumber = $endNumber + 1;
+                }
+
+                $totalQuestions = $startNumber - 1;
+                if ($totalQuestions > 0 && $currentQuestionNumber < $totalQuestions) {
+                    $targetNumber = $currentQuestionNumber;
+                    foreach ($subtestRanges as $index => $range) {
+                        if ($currentQuestionNumber >= $range['start_number'] && $currentQuestionNumber <= $range['end_number']) {
+                            if ($currentQuestionNumber >= $range['end_number'] && isset($subtestRanges[$index + 1])) {
+                                $targetNumber = $subtestRanges[$index + 1]['start_number'];
+                            }
+                            break;
+                        }
+                    }
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'redirect' => route('user.tryout.index', [$id_package, $id_tryout, $targetNumber]),
+                            'message' => 'Selesaikan semua subtest sebelum mengakhiri tryout.',
+                        ], 422);
+                    }
+
+                    return redirect()->route('user.tryout.index', [$id_package, $id_tryout, $targetNumber])
+                        ->with('error', 'Selesaikan semua subtest sebelum mengakhiri tryout.');
+                }
+            }
         }
 
         if ($tryout->requiresIrtScoring()) {
