@@ -13,7 +13,12 @@ class GeneralPageController extends Controller
     public function landing()
     {
         $page = GeneralPage::findActiveByKey('landing');
-        $content = $page?->content ?: self::defaultLandingContent();
+
+        if (!$page) {
+            return redirect()->route('login');
+        }
+
+        $content = $page->content ?: self::defaultLandingContent();
 
         return view($this->resolveTemplateView('landing', $page, 'general.landing'), [
             'title' => $content['title'] ?? 'Landing Page',
@@ -27,7 +32,10 @@ class GeneralPageController extends Controller
     public function statistics()
     {
         $page = GeneralPage::findActiveByKey('statistik-ptn');
-        $content = $page?->content ?? [];
+
+        abort_unless($page, 404);
+
+        $content = $page->content ?? [];
 
         return view($this->resolveTemplateView('statistik-ptn', $page, 'general.statistics'), [
             'title' => $content['title'] ?? 'Statistik PTN',
@@ -40,6 +48,8 @@ class GeneralPageController extends Controller
 
     public function proxyPtnList()
     {
+        abort_unless(GeneralPage::findActiveByKey('statistik-ptn'), 404);
+
         // Cache the PTN list for 6 hours
         $data = Cache::remember('snpmb_ptn_list', 3600 * 6, function () {
             try {
@@ -62,6 +72,8 @@ class GeneralPageController extends Controller
 
     public function proxyProdiList(Request $request)
     {
+        abort_unless(GeneralPage::findActiveByKey('statistik-ptn'), 404);
+
         $ptnId = $request->query('ptn');
         if (!$ptnId) {
             return response()->json(['error' => 'Parameter ptn wajib diisi.'], 400);
@@ -97,6 +109,8 @@ class GeneralPageController extends Controller
 
     public function articles()
     {
+        abort_unless(GeneralPage::findActiveByKey('artikel'), 404);
+
         $articles = Article::query()
             ->with('author:id,name')
             ->published()
@@ -114,6 +128,8 @@ class GeneralPageController extends Controller
 
     public function showArticle(string $slug)
     {
+        abort_unless(GeneralPage::findActiveByKey('artikel'), 404);
+
         $article = Article::query()
             ->with('author:id,name')
             ->published()

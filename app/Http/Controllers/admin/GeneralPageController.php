@@ -17,9 +17,10 @@ class GeneralPageController extends Controller
                 'content' => null,
                 'settings' => null,
                 'seo' => null,
-                'is_active' => true,
+                'is_active' => false,
             ]
         );
+        $visibilityPages = $this->ensureVisibilityPages();
 
         $defaultContent = \App\Http\Controllers\GeneralPageController::defaultLandingContent();
 
@@ -27,6 +28,7 @@ class GeneralPageController extends Controller
             'page' => $page,
             'content' => $page->content ?? $defaultContent,
             'seo' => $page->seo ?? [],
+            'visibilityPages' => $visibilityPages,
         ]);
     }
 
@@ -41,7 +43,8 @@ class GeneralPageController extends Controller
             'landing_images.logo_stack.*.src' => ['nullable', 'image', 'max:10240'],
             'landing_images.testimonials.*.image' => ['nullable', 'image', 'max:10240'],
             'landing_images.seo_image' => ['nullable', 'image', 'max:10240'],
-            'is_active' => ['nullable', 'boolean'],
+            'public_visibility' => ['nullable', 'array'],
+            'public_visibility.*' => ['nullable', 'boolean'],
         ]);
 
         $seo = $this->cleanArray($validated['seo'] ?? []);
@@ -57,13 +60,48 @@ class GeneralPageController extends Controller
                 'content' => $content,
                 'settings' => $existingPage?->settings ?? [],
                 'seo' => $seo,
-                'is_active' => $request->boolean('is_active'),
+                'is_active' => $request->boolean('public_visibility.landing'),
             ]
         );
+        $this->updatePublicVisibility($request);
 
         return redirect()
             ->route('admin.general-pages.landing.edit')
             ->with('success', 'Landing page berhasil diperbarui.');
+    }
+
+    private function ensureVisibilityPages()
+    {
+        foreach (['statistik-ptn', 'artikel'] as $pageKey) {
+            GeneralPage::query()->firstOrCreate(
+                ['page_key' => $pageKey],
+                [
+                    'template_key' => 'default',
+                    'content' => null,
+                    'settings' => null,
+                    'seo' => null,
+                    'is_active' => false,
+                ]
+            );
+        }
+
+        return GeneralPage::query()
+            ->whereIn('page_key', ['landing', 'statistik-ptn', 'artikel'])
+            ->get()
+            ->keyBy('page_key');
+    }
+
+    private function updatePublicVisibility(Request $request): void
+    {
+        foreach (['statistik-ptn', 'artikel'] as $pageKey) {
+            GeneralPage::query()->updateOrCreate(
+                ['page_key' => $pageKey],
+                [
+                    'template_key' => 'default',
+                    'is_active' => $request->boolean("public_visibility.{$pageKey}"),
+                ]
+            );
+        }
     }
 
     private function applyUploadedImages(Request $request, array &$content, array &$seo): void

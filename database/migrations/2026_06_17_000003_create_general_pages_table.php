@@ -15,7 +15,7 @@ return new class extends Migration
             $table->json('content')->nullable();
             $table->json('settings')->nullable();
             $table->json('seo')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->boolean('is_active')->default(false);
             $table->timestamps();
         });
     }
