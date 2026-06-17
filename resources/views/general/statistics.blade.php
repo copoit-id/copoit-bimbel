@@ -503,7 +503,7 @@ document.addEventListener('alpine:init', () => {
             this.isLoadingPtn = true;
             this.ptnError = null;
             try {
-                const res = await fetch('https://snpmb.id/proxy-ptn-sn.php');
+                const res = await fetch('/statistik-ptn/data-ptn');
                 if (!res.ok) throw new Error('Gagal memuat data PTN');
                 this.ptnList = await res.json();
                 
@@ -562,7 +562,7 @@ document.addEventListener('alpine:init', () => {
 
             this.isLoadingProdi = true;
             try {
-                const res = await fetch(`https://snpmb.id/proxy-prodi-sn.php?ptn=${ptnId}`);
+                const res = await fetch(`/statistik-ptn/data-prodi?ptn=${ptnId}`);
                 if (!res.ok) throw new Error('Gagal memuat program studi');
                 const data = await res.json();
                 

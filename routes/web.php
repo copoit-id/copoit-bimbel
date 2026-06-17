@@ -114,6 +114,8 @@ Route::get('/setup-project', function () {
 
 Route::get('/', [GeneralPageController::class, 'landing'])->name('landing');
 Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
+Route::get('/statistik-ptn/data-ptn', [GeneralPageController::class, 'proxyPtnList'])->name('statistics.proxy.ptn');
+Route::get('/statistik-ptn/data-prodi', [GeneralPageController::class, 'proxyProdiList'])->name('statistics.proxy.prodi');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 
