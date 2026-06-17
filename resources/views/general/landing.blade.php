@@ -1,6 +1,26 @@
 @extends('general.layout')
 
-@section('title', 'Persiapan Ujian UTBK SNBT & SNBP Terbaik')
+@php
+    $landingContent = $content ?? [];
+    $landingDefaults = \App\Http\Controllers\GeneralPageController::defaultLandingContent();
+    $landingValue = fn (string $key, mixed $default = null) => data_get($landingContent, $key, $default);
+    $landingItems = fn (string $key) => data_get($landingContent, $key, data_get($landingDefaults, $key, [])) ?: [];
+    $landingAsset = function (?string $path, string $fallback): string {
+        $target = $path ?: $fallback;
+
+        if (\Illuminate\Support\Str::startsWith($target, ['http://', 'https://', '//', '/'])) {
+            return $target;
+        }
+
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($target)) {
+            return \Illuminate\Support\Facades\Storage::url($target);
+        }
+
+        return asset($target);
+    };
+@endphp
+
+@section('title', $landingValue('meta.title', 'Persiapan Ujian UTBK SNBT & SNBP Terbaik'))
 
 @push('styles')
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -56,51 +76,54 @@
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
                     </span>
-                    Bimbel Persiapan UTBK 2026 #1
+                    {{ $landingValue('hero.badge', 'Bimbel Persiapan UTBK 2026 #1') }}
                 </div>
-                
+
                 <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight tracking-tight">
-                    Siap Tembus <br class="hidden sm:block">
-                    <span class="text-gradient">PTN Impian</span> Kamu?
+                    {!! $landingValue('hero.title_html', 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?') !!}
                 </h1>
-                
+
                 <p class="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed mx-auto lg:mx-0 font-medium">
-                    BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.
+                    {{ $landingValue('hero.description', 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.') }}
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                    <a href="{{ route('login') }}" 
+                    <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
                        class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white transition-all hover:bg-primary-hover shadow-md hover:shadow-lg active:scale-98">
-                        Mulai Belajar Sekarang
+                        {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar Sekarang') }}
                         <i class="ri-arrow-right-line text-lg"></i>
                     </a>
-                    <a href="https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel" 
-                       target="_blank" 
-                       rel="noopener noreferrer" 
+                    <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
                        class="inline-flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-8 py-4 text-base font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-98">
                         <i class="ri-whatsapp-line text-lg text-emerald-500"></i>
-                        Hubungi Admin
+                        {{ $landingValue('hero.secondary_cta.label', 'Hubungi Admin') }}
                     </a>
                 </div>
 
                 <!-- Avatar Stack featuring Campus Logos as requested -->
                 <div class="flex flex-col sm:flex-row items-center gap-4 pt-8 border-t border-slate-100 justify-center lg:justify-start">
                     <div class="flex -space-x-2.5">
-                        <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ asset('img/logo_kampus.png') }}" alt="UI Logo">
-                        <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ asset('img/logo_kampus.png') }}" alt="ITB Logo">
-                        <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ asset('img/logo_kampus.png') }}" alt="UGM Logo">
-                        <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ asset('img/logo_kampus.png') }}" alt="ITS Logo">
+                        @foreach($landingValue('hero.logo_stack', [
+                            ['src' => 'img/logo_kampus.png', 'alt' => 'UI Logo'],
+                            ['src' => 'img/logo_kampus.png', 'alt' => 'ITB Logo'],
+                            ['src' => 'img/logo_kampus.png', 'alt' => 'UGM Logo'],
+                            ['src' => 'img/logo_kampus.png', 'alt' => 'ITS Logo'],
+                        ]) as $logo)
+                            <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ $landingAsset($logo['src'] ?? null, 'img/logo_kampus.png') }}" alt="{{ $logo['alt'] ?? 'Campus Logo' }}">
+                        @endforeach
                     </div>
                     <p class="text-xs sm:text-sm font-semibold text-slate-650">
-                        Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!
+                        {!! $landingValue('hero.social_proof_html', 'Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!') !!}
                     </p>
                 </div>
             </div>
 
             <!-- Right Column: Raw Illustration with rounded corners as requested (No background box container, blobs or shadows) -->
             <div class="lg:col-span-6 flex justify-center lg:justify-end">
-                <img src="{{ asset('img/hero_study.png') }}" 
-                     alt="Siswa Belajar UTBK Online" 
+                <img src="{{ $landingAsset($landingValue('hero.image'), 'img/hero_study.png') }}"
+                     alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
                      class="w-full max-w-[480px] aspect-square object-cover rounded-[32px]">
             </div>
         </div>
@@ -111,149 +134,76 @@
 <section id="program" class="border-b border-slate-100 bg-slate-50/50 py-16 sm:py-24">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="text-center max-w-3xl mx-auto mb-16">
-            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">Investasi Masa Depan</span>
-            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">Program Bimbingan Belajar Pilihan</h2>
+            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">{{ $landingValue('program.eyebrow', 'Investasi Masa Depan') }}</span>
+            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">{{ $landingValue('program.title', 'Program Bimbingan Belajar Pilihan') }}</h2>
             <p class="text-sm sm:text-base text-slate-550 mt-4 leading-relaxed font-medium">
-                Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.
+                {{ $landingValue('program.description', 'Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.') }}
             </p>
         </div>
 
-        <div class="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto items-stretch">
-            <!-- Paket 1: Free -->
-            <div class="rounded-3xl border border-slate-200 bg-white p-8 flex flex-col justify-between hover:border-primary/20 transition-all duration-300 hover:shadow-md">
-                <div class="space-y-6">
-                    <div>
-                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Akses Uji Coba</span>
-                        <h3 class="text-xl font-bold text-slate-800">Free Trial</h3>
-                        <div class="mt-4 flex items-baseline gap-1">
-                            <span class="text-3xl sm:text-4xl font-black text-slate-900">Rp 0</span>
-                        </div>
-                        <p class="text-xs text-slate-500 font-medium mt-3 leading-relaxed">Coba simulasi ujian dan rasakan kemudahan menggunakan platform bimbingan kami.</p>
-                    </div>
+        <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto items-stretch">
+            @foreach($landingItems('program.cards') as $cardIndex => $card)
+                @php
+                    $isFeaturedProgram = filled(data_get($card, 'badge')) || $cardIndex === 2;
+                    $programFeatures = data_get($card, 'features', []);
+                @endphp
+                <div class="{{ $isFeaturedProgram ? 'rounded-3xl border-2 border-amber-400 bg-gradient-to-b from-white to-amber-50/20 p-8 flex flex-col justify-between hover:shadow-lg transition-all duration-300 relative' : 'rounded-3xl border border-slate-200 bg-white p-8 flex flex-col justify-between hover:border-primary/20 transition-all duration-300 hover:shadow-md relative' }}">
+                    @if(filled(data_get($card, 'badge')))
+                        <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-md">{{ data_get($card, 'badge') }}</span>
+                    @endif
 
-                    <div class="h-px bg-slate-100"></div>
-
-                    <ul class="space-y-3.5 text-xs sm:text-sm font-semibold text-slate-600">
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-primary text-base"></i>
-                            Cek Daya Tampung PTN Se-Indonesia
-                        </li>
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-primary text-base"></i>
-                            1x Latihan Tryout Ujian Mandiri
-                        </li>
-                        <li class="flex items-center gap-2.5 text-slate-350 line-through">
-                            <i class="ri-close-circle-fill text-slate-250 text-base"></i>
-                            Rasionalisasi Rapor SNBP Penuh
-                        </li>
-                        <li class="flex items-center gap-2.5 text-slate-350 line-through">
-                            <i class="ri-close-circle-fill text-slate-250 text-base"></i>
-                            Grup Tanya Jawab & Mentor Alumni
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="pt-8">
-                    <a href="{{ route('login') }}" 
-                       class="flex w-full items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200/80 py-3.5 text-center text-xs sm:text-sm font-bold text-slate-700 transition-colors">
-                        Daftar Akun Gratis
-                    </a>
-                </div>
-            </div>
-
-            <!-- Paket 2: Silver -->
-            <div class="rounded-3xl border border-slate-200 bg-white p-8 flex flex-col justify-between hover:border-primary/20 transition-all duration-300 hover:shadow-md relative">
-                <div class="space-y-6">
-                    <div>
-                        <span class="text-xs font-bold text-primary uppercase tracking-widest block mb-2">Pemetaan Peluang</span>
-                        <h3 class="text-xl font-bold text-slate-800">Silver Package</h3>
-                        <div class="mt-4 flex flex-col">
-                            <span class="text-xs text-slate-400 font-bold line-through decoration-red-500 mb-0.5">Rp 69.000</span>
-                            <div class="flex items-baseline gap-1">
-                                <span class="text-3xl sm:text-4xl font-black text-slate-900">Rp 39.000</span>
-                                <span class="text-2xs text-slate-400 font-bold uppercase tracking-wider">Sekali Bayar</span>
+                    <div class="space-y-6">
+                        <div>
+                            <span class="text-xs font-bold {{ $isFeaturedProgram ? 'text-amber-600' : ($cardIndex === 0 ? 'text-slate-400' : 'text-primary') }} uppercase tracking-widest block mb-2">{{ data_get($card, 'eyebrow') }}</span>
+                            <h3 class="text-xl font-bold text-slate-800">{{ data_get($card, 'title') }}</h3>
+                            <div class="mt-4 flex flex-col">
+                                @if(filled(data_get($card, 'original_price')))
+                                    <span class="text-xs text-slate-400 font-bold line-through decoration-red-500 mb-0.5">{{ data_get($card, 'original_price') }}</span>
+                                @endif
+                                <div class="flex items-baseline gap-1">
+                                    <span class="text-3xl sm:text-4xl font-black text-slate-900">{{ data_get($card, 'price') }}</span>
+                                    @if(filled(data_get($card, 'price_note')))
+                                        <span class="text-2xs text-slate-400 font-bold uppercase tracking-wider">{{ data_get($card, 'price_note') }}</span>
+                                    @endif
+                                </div>
                             </div>
+                            <p class="text-xs text-slate-500 font-medium mt-3 leading-relaxed">{{ data_get($card, 'description') }}</p>
                         </div>
-                        <p class="text-xs text-slate-500 font-medium mt-3 leading-relaxed">Analisis mendalam nilai rapor untuk memperkuat persiapan masuk jalur SNBP.</p>
+
+                        <div class="h-px bg-slate-100"></div>
+
+                        <ul class="space-y-3.5 text-xs sm:text-sm font-semibold text-slate-600">
+                            @foreach($programFeatures as $featureIndex => $feature)
+                                @php
+                                    $isDisabledFeature = data_get($feature, 'disabled', false) || ($cardIndex === 0 && $featureIndex >= 2) || ($cardIndex === 1 && $featureIndex === 3);
+                                @endphp
+                                <li class="flex items-center gap-2.5 {{ $isDisabledFeature ? 'text-slate-350 line-through' : '' }}">
+                                    <i class="{{ $isDisabledFeature ? 'ri-close-circle-fill text-slate-250' : 'ri-checkbox-circle-fill ' . ($isFeaturedProgram ? 'text-amber-500' : 'text-primary') }} text-base"></i>
+                                    @if(filled(data_get($feature, 'label_html')))
+                                        {!! data_get($feature, 'label_html') !!}
+                                    @else
+                                        {{ data_get($feature, 'label') }}
+                                    @endif
+                                </li>
+                            @endforeach
+
+                            @if(filled(data_get($card, 'highlight')))
+                                <li class="flex items-start gap-2.5 bg-amber-500/10 border border-amber-200/50 p-3 rounded-xl">
+                                    <i class="ri-award-fill text-amber-650 text-xl shrink-0 mt-0.5"></i>
+                                    <span class="text-xs font-bold text-amber-950 leading-normal">{{ data_get($card, 'highlight') }}</span>
+                                </li>
+                            @endif
+                        </ul>
                     </div>
 
-                    <div class="h-px bg-slate-100"></div>
-
-                    <ul class="space-y-3.5 text-xs sm:text-sm font-semibold text-slate-600">
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-primary text-base"></i>
-                            Rasionalisasi Rapor SNBP Penuh
-                        </li>
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-primary text-base"></i>
-                            3x Tryout UTBK Berskala Nasional
-                        </li>
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-primary text-base"></i>
-                            Pembahasan Lembar Soal & Kunci Jawaban
-                        </li>
-                        <li class="flex items-center gap-2.5 text-slate-350 line-through">
-                            <i class="ri-close-circle-fill text-slate-250 text-base"></i>
-                            Pendampingan Konsultasi Jurusan Personal
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="pt-8">
-                    <a href="{{ route('login') }}" 
-                       class="flex w-full items-center justify-center rounded-xl bg-primary hover:bg-primary-hover py-3.5 text-center text-xs sm:text-sm font-bold text-white transition-colors">
-                        Upgrade ke Silver
-                    </a>
-                </div>
-            </div>
-
-            <!-- Paket 3: Gold (Terpopuler) -->
-            <div class="rounded-3xl border-2 border-amber-400 bg-gradient-to-b from-white to-amber-50/20 p-8 flex flex-col justify-between hover:shadow-lg transition-all duration-300 relative transform lg:scale-103">
-                <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-md">PILIHAN TERBAIK</span>
-                
-                <div class="space-y-6">
-                    <div>
-                        <span class="text-xs font-bold text-amber-600 uppercase tracking-widest block mb-2 mt-1">Pendampingan Penuh</span>
-                        <h3 class="text-xl font-bold text-slate-800">Gold Package</h3>
-                        <div class="mt-4 flex flex-col">
-                            <span class="text-xs text-slate-400 font-bold line-through decoration-red-500 mb-0.5">Rp 99.000</span>
-                            <div class="flex items-baseline gap-1">
-                                <span class="text-3xl sm:text-4xl font-black text-slate-900">Rp 49.000</span>
-                                <span class="text-2xs text-slate-400 font-bold uppercase tracking-wider">Sekali Bayar</span>
-                            </div>
-                        </div>
-                        <p class="text-xs text-slate-500 font-medium mt-3 leading-relaxed">Layanan bimbingan super komprehensif, didampingi secara langsung oleh mentor top PTN.</p>
+                    <div class="pt-8">
+                        <a href="{{ data_get($card, 'cta.href', route('login')) }}"
+                           class="flex w-full items-center justify-center rounded-xl {{ $isFeaturedProgram ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold shadow-sm hover:shadow-md' : ($cardIndex === 0 ? 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold' : 'bg-primary hover:bg-primary-hover text-white font-bold') }} py-3.5 text-center text-xs sm:text-sm transition-all">
+                            {{ data_get($card, 'cta.label', 'Daftar') }}
+                        </a>
                     </div>
-
-                    <div class="h-px bg-slate-150"></div>
-
-                    <ul class="space-y-3.5 text-xs sm:text-sm font-semibold text-slate-600">
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-amber-500 text-base"></i>
-                            Rasionalisasi Peluang Rapor & Skor UTBK
-                        </li>
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-amber-500 text-base"></i>
-                            Tryout UTBK Nasional <strong class="text-amber-600 font-bold">Unlimited</strong>
-                        </li>
-                        <li class="flex items-center gap-2.5">
-                            <i class="ri-checkbox-circle-fill text-amber-500 text-base"></i>
-                            Premium Akses Asisten Pintar Kak AI 24 Jam
-                        </li>
-                        <li class="flex items-start gap-2.5 bg-amber-500/10 border border-amber-200/50 p-3 rounded-xl">
-                            <i class="ri-award-fill text-amber-650 text-xl shrink-0 mt-0.5"></i>
-                            <span class="text-xs font-bold text-amber-950 leading-normal">Bimbingan & Konsultasi Jurusan 1-on-1 dengan Mentor Alumni UI/ITB/UGM</span>
-                        </li>
-                    </ul>
                 </div>
-
-                <div class="pt-8">
-                    <a href="{{ route('login') }}" 
-                       class="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 py-3.5 text-center text-xs sm:text-sm font-extrabold text-white transition-all shadow-sm hover:shadow-md">
-                        Upgrade ke Gold
-                    </a>
-                </div>
-            </div>
+            @endforeach
         </div>
     </div>
 </section>
@@ -271,19 +221,19 @@
                 <div class="lg:col-span-7 space-y-4">
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white font-extrabold uppercase tracking-widest text-[10px] sm:text-xs">
                         <i class="ri-wechat-line text-sm"></i>
-                        Support System Pejuang PTN
+                        {{ $landingValue('community.badge', 'Support System Pejuang PTN') }}
                     </div>
-                    <h3 class="text-2xl sm:text-3xl.5 font-black tracking-tight leading-tight">Komunitas Pejuang PTN {{ $clientBranding['name'] }}</h3>
+                    <h3 class="text-2xl sm:text-3xl.5 font-black tracking-tight leading-tight">{{ $landingValue('community.title', 'Komunitas Pejuang PTN ' . $clientBranding['name']) }}</h3>
                     <p class="text-sm sm:text-base text-slate-100/90 font-medium leading-relaxed max-w-2xl">
-                        Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.
+                        {{ $landingValue('community.description', 'Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.') }}
                     </p>
                     <div class="pt-4">
-                        <a href="https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H" 
-                           target="_blank" 
-                           rel="noopener noreferrer" 
+                        <a href="{{ $landingValue('community.cta.href', 'https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H') }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
                            class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-50 px-8 py-4 text-base font-extrabold text-primary shadow-md hover:shadow-lg transition-all w-full sm:w-auto active:scale-98">
                             <i class="ri-whatsapp-line text-xl text-emerald-500"></i>
-                            Gabung Grup Sekarang
+                            {{ $landingValue('community.cta.label', 'Gabung Grup Sekarang') }}
                         </a>
                     </div>
                 </div>
@@ -302,7 +252,7 @@
                             </div>
                             <i class="ri-more-2-line text-lg"></i>
                         </div>
-                        
+
                         <!-- Chat content spacing -->
                         <div class="space-y-3 pt-8 pb-1 text-[11px] sm:text-xs">
                             <!-- Msg 1 (Admin) -->
@@ -343,121 +293,38 @@
 <section class="border-y border-slate-100 bg-slate-50/50 py-16 sm:py-24">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="text-center max-w-3xl mx-auto mb-16">
-            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm block mb-3">Kisah Sukses Pejuang</span>
-            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">Apa Kata Alumni Kami?</h2>
+            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm block mb-3">{{ $landingValue('testimonials.eyebrow', 'Kisah Sukses Pejuang') }}</span>
+            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">{{ $landingValue('testimonials.title', 'Apa Kata Alumni Kami?') }}</h2>
             <p class="text-sm sm:text-base text-slate-550 mt-4 leading-relaxed font-medium">
-                Mereka telah membuktikan keakuratan data dan bimbingan kami, kini berhasil lolos ke prodi impian.
+                {{ $landingValue('testimonials.description', 'Mereka telah membuktikan keakuratan data dan bimbingan kami, kini berhasil lolos ke prodi impian.') }}
             </p>
         </div>
 
         <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-4 items-stretch">
-            <!-- Testi 1 -->
-            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 flex flex-col justify-between hover:border-primary/25 hover:shadow-md transition-all duration-300">
-                <div class="space-y-4">
-                    <div class="flex items-center gap-1 text-amber-400">
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                    </div>
-                    <p class="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed italic">
-                        "Tryout IRT di sini bener-bener mirip dengan ujian UTBK aslinya. Ranking nasionalnya bikin aku termotivasi untuk terus mengejar ketertinggalan materi."
-                    </p>
-                </div>
-                <div class="flex items-center gap-3 pt-5 border-t border-slate-100 mt-6">
-                    <!-- Real student photo instead of text initials -->
-                    <img src="{{ asset('img/student_rian.png') }}" alt="Rian H." class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-1">
-                            <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">Rian H.</h4>
-                            <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
+            @foreach($landingItems('testimonials.items') as $testimonial)
+                <div class="rounded-2xl border border-slate-200/80 bg-white p-6 flex flex-col justify-between hover:border-primary/25 hover:shadow-md transition-all duration-300">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-1 text-amber-400">
+                            @for($star = 0; $star < 5; $star++)
+                                <i class="ri-star-fill text-sm"></i>
+                            @endfor
                         </div>
-                        <p class="text-[10px] text-slate-400 font-bold mt-1">Lolos Teknik Sipil ITB</p>
+                        <p class="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed italic">
+                            "{{ data_get($testimonial, 'quote') }}"
+                        </p>
                     </div>
-                </div>
-            </div>
-
-            <!-- Testi 2 -->
-            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 flex flex-col justify-between hover:border-primary/25 hover:shadow-md transition-all duration-300">
-                <div class="space-y-4">
-                    <div class="flex items-center gap-1 text-amber-400">
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                    </div>
-                    <p class="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed italic">
-                        "Fitur Kak AI ngebantu aku banget saat ngerjain soal fisika malam-malam. Penjelasan langkah demi langkahnya mudah dipahami dan cepat responnya!"
-                    </p>
-                </div>
-                <div class="flex items-center gap-3 pt-5 border-t border-slate-100 mt-6">
-                    <!-- Real student photo instead of text initials -->
-                    <img src="{{ asset('img/student_nanda.png') }}" alt="Nanda P." class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-1">
-                            <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">Nanda P.</h4>
-                            <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
+                    <div class="flex items-center gap-3 pt-5 border-t border-slate-100 mt-6">
+                        <img src="{{ $landingAsset(data_get($testimonial, 'image'), 'img/student_rian.png') }}" alt="{{ data_get($testimonial, 'name') }}" class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1">
+                                <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">{{ data_get($testimonial, 'name') }}</h4>
+                                <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
+                            </div>
+                            <p class="text-[10px] text-slate-400 font-bold mt-1">{{ data_get($testimonial, 'result') }}</p>
                         </div>
-                        <p class="text-[10px] text-slate-400 font-bold mt-1">Lolos Farmasi UI</p>
                     </div>
                 </div>
-            </div>
-
-            <!-- Testi 3 -->
-            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 flex flex-col justify-between hover:border-primary/25 hover:shadow-md transition-all duration-300">
-                <div class="space-y-4">
-                    <div class="flex items-center gap-1 text-amber-400">
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                    </div>
-                    <p class="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed italic">
-                        "Terima kasih program bimbingan rapot SNBP-nya. Penjelasan mentor tentang strategi memilih prodi di UI dan UGM bikin aku mantap melangkah."
-                    </p>
-                </div>
-                <div class="flex items-center gap-3 pt-5 border-t border-slate-100 mt-6">
-                    <!-- Real student photo instead of text initials -->
-                    <img src="{{ asset('img/student_farah.png') }}" alt="Farah D." class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-1">
-                            <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">Farah D.</h4>
-                            <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
-                        </div>
-                        <p class="text-[10px] text-slate-400 font-bold mt-1">Lolos Psikologi UGM</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Testi 4 -->
-            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 flex flex-col justify-between hover:border-primary/25 hover:shadow-md transition-all duration-300">
-                <div class="space-y-4">
-                    <div class="flex items-center gap-1 text-amber-400">
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                        <i class="ri-star-fill text-sm"></i>
-                    </div>
-                    <p class="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed italic">
-                        "Sebagai siswa dari luar Jawa, akses materi UTBK premium di sini terjangkau dan sangat berkualitas dibandingkan bimbel tatap muka biasa."
-                    </p>
-                </div>
-                <div class="flex items-center gap-3 pt-5 border-t border-slate-100 mt-6">
-                    <!-- Real student photo instead of text initials -->
-                    <img src="{{ asset('img/student_alvin.png') }}" alt="Alvin K." class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-1">
-                            <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">Alvin K.</h4>
-                            <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
-                        </div>
-                        <p class="text-[10px] text-slate-400 font-bold mt-1">Lolos Matematika ITS</p>
-                    </div>
-                </div>
-            </div>
+            @endforeach
         </div>
     </div>
 </section>
@@ -468,49 +335,26 @@
         <!-- Part 1: Achievements Details -->
         <div class="space-y-8">
             <div class="text-center max-w-3xl mx-auto">
-                <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">Pencapaian Terbaik Kami</span>
-                <h3 class="text-2xl sm:text-3.5xl font-black text-slate-900 leading-tight">Bukti Nyata Kualitas Pendampingan BimbelHub</h3>
+                <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">{{ $landingValue('achievements.eyebrow', 'Pencapaian Terbaik Kami') }}</span>
+                <h3 class="text-2xl sm:text-3.5xl font-black text-slate-900 leading-tight">{{ $landingValue('achievements.title', 'Bukti Nyata Kualitas Pendampingan BimbelHub') }}</h3>
             </div>
-            
-            <div class="grid gap-8 sm:grid-cols-3">
-                <!-- Achievement 1 -->
-                <div class="rounded-3xl border-2 border-slate-200 bg-slate-50/30 p-8 flex flex-col justify-between hover:border-primary/40 transition-all duration-300 hover:shadow-xs">
-                    <div class="space-y-4">
-                        <!-- Replaced Emoji with High-quality Remixicon -->
-                        <div class="h-12 w-12 rounded-2xl bg-primary/8 flex items-center justify-center text-primary border border-primary/20">
-                            <i class="ri-trophy-line text-2xl"></i>
-                        </div>
-                        <h4 class="text-3xl sm:text-4.5xl font-black text-primary leading-none">92,4%</h4>
-                        <p class="text-sm font-bold text-slate-850">Tingkat Kelolosan Ujian</p>
-                        <p class="text-xs text-slate-500 leading-relaxed font-medium">9.240 dari total 10.000 siswa bimbingan kami berhasil lolos ke program studi & PTN pilihan ke-1 dan ke-2.</p>
-                    </div>
-                </div>
 
-                <!-- Achievement 2 -->
-                <div class="rounded-3xl border-2 border-slate-200 bg-slate-50/30 p-8 flex flex-col justify-between hover:border-primary/40 transition-all duration-300 hover:shadow-xs">
-                    <div class="space-y-4">
-                        <!-- Replaced Emoji with High-quality Remixicon -->
-                        <div class="h-12 w-12 rounded-2xl bg-primary/8 flex items-center justify-center text-primary border border-primary/20">
-                            <i class="ri-group-line text-2xl"></i>
+            <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($landingItems('achievements.items') as $achievementIndex => $achievement)
+                    @php
+                        $achievementIcons = ['ri-trophy-line', 'ri-group-line', 'ri-book-open-line'];
+                    @endphp
+                    <div class="rounded-3xl border-2 border-slate-200 bg-slate-50/30 p-8 flex flex-col justify-between hover:border-primary/40 transition-all duration-300 hover:shadow-xs">
+                        <div class="space-y-4">
+                            <div class="h-12 w-12 rounded-2xl bg-primary/8 flex items-center justify-center text-primary border border-primary/20">
+                                <i class="{{ $achievementIcons[$achievementIndex % count($achievementIcons)] }} text-2xl"></i>
+                            </div>
+                            <h4 class="text-3xl sm:text-4.5xl font-black text-primary leading-none">{{ data_get($achievement, 'value') }}</h4>
+                            <p class="text-sm font-bold text-slate-850">{{ data_get($achievement, 'label') }}</p>
+                            <p class="text-xs text-slate-500 leading-relaxed font-medium">{{ data_get($achievement, 'description') }}</p>
                         </div>
-                        <h4 class="text-3xl sm:text-4.5xl font-black text-primary leading-none">10.000+</h4>
-                        <p class="text-sm font-bold text-slate-850">Pejuang PTN Aktif</p>
-                        <p class="text-xs text-slate-500 leading-relaxed font-medium">Siswa terdaftar aktif berasal dari sekolah-sekolah unggulan mitra kami di seluruh wilayah Indonesia.</p>
                     </div>
-                </div>
-
-                <!-- Achievement 3 -->
-                <div class="rounded-3xl border-2 border-slate-200 bg-slate-50/30 p-8 flex flex-col justify-between hover:border-primary/40 transition-all duration-300 hover:shadow-xs">
-                    <div class="space-y-4">
-                        <!-- Replaced Emoji with High-quality Remixicon -->
-                        <div class="h-12 w-12 rounded-2xl bg-primary/8 flex items-center justify-center text-primary border border-primary/20">
-                            <i class="ri-book-open-line text-2xl"></i>
-                        </div>
-                        <h4 class="text-3xl sm:text-4.5xl font-black text-primary leading-none">50.000+</h4>
-                        <p class="text-sm font-bold text-slate-850">Bank Soal & Pembahasan</p>
-                        <p class="text-xs text-slate-500 leading-relaxed font-medium">Koleksi bank soal terlengkap dari subtest TPS, Literasi Bahasa, dan Penalaran Matematika terupdate.</p>
-                    </div>
-                </div>
+                @endforeach
             </div>
         </div>
 
@@ -521,7 +365,7 @@
                 <p class="text-xs text-slate-400 font-medium mt-1">Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN</p>
                 <div class="mt-3.5 h-0.5 w-12 bg-primary/30 mx-auto rounded"></div>
             </div>
-            
+
             <!-- Grid of Cooperating Schools (Lembaga Bekerjasama) -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6">
                 <!-- SMAN 8 Jakarta -->
@@ -574,85 +418,26 @@
 <section class="border-t border-slate-100 bg-slate-50/50 py-16 sm:py-24">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 space-y-12">
         <div class="text-center space-y-3">
-            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm block">Pertanyaan Umum</span>
-            <h2 class="text-2xl sm:text-3.5xl font-black text-slate-900 leading-tight">FAQ (Frequently Asked Questions)</h2>
+            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm block">{{ $landingValue('faq.eyebrow', 'Pertanyaan Umum') }}</span>
+            <h2 class="text-2xl sm:text-3.5xl font-black text-slate-900 leading-tight">{{ $landingValue('faq.title', 'FAQ (Frequently Asked Questions)') }}</h2>
         </div>
 
         <div x-data="{ activeIndex: null }" class="space-y-4">
-            <!-- FAQ 1 -->
-            <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
-                <button @click="activeIndex = (activeIndex === 1 ? null : 1)" 
-                        class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
-                    <span>Apakah saya bisa menggunakan platform ini secara gratis?</span>
-                    <i :class="activeIndex === 1 ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
-                </button>
-                <div x-show="activeIndex === 1" 
-                     x-collapse 
-                     class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed" 
-                     style="display: none;">
-                    Ya, tentu saja! Kamu bisa menggunakan akun gratis untuk melihat data statistik program studi PTN se-Indonesia serta menguji coba 1x sistem simulasi tryout awal yang kami miliki.
+            @foreach($landingItems('faq.items') as $faqIndex => $faq)
+                <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
+                    <button @click="activeIndex = (activeIndex === {{ $faqIndex }} ? null : {{ $faqIndex }})"
+                            class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
+                        <span>{{ data_get($faq, 'question') }}</span>
+                        <i :class="activeIndex === {{ $faqIndex }} ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
+                    </button>
+                    <div x-show="activeIndex === {{ $faqIndex }}"
+                         x-collapse
+                         class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed"
+                         style="display: none;">
+                        {{ data_get($faq, 'answer') }}
+                    </div>
                 </div>
-            </div>
-
-            <!-- FAQ 2 -->
-            <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
-                <button @click="activeIndex = (activeIndex === 2 ? null : 2)" 
-                        class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
-                    <span>Bagaimana sistem penilaian di simulasi Tryout UTBK?</span>
-                    <i :class="activeIndex === 2 ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
-                </button>
-                <div x-show="activeIndex === 2" 
-                     x-collapse 
-                     class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed" 
-                     style="display: none;">
-                    Sistem penilaian tryout kami menggunakan algoritma Item Response Theory (IRT) yang disesuaikan dengan aturan penilaian resmi dari panitia pelaksana seleksi SNPMB BP3 Kemendikbud. Bobot nilai setiap soal dihitung berdasarkan tingkat kesulitan riil soal tersebut.
-                </div>
-            </div>
-
-            <!-- FAQ 3 -->
-            <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
-                <button @click="activeIndex = (activeIndex === 3 ? null : 3)" 
-                        class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
-                    <span>Apa itu fitur Rasionalisasi Rapor SNBP?</span>
-                    <i :class="activeIndex === 3 ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
-                </button>
-                <div x-show="activeIndex === 3" 
-                     x-collapse 
-                     class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed" 
-                     style="display: none;">
-                    Rasionalisasi Rapor SNBP adalah fitur analisis kelayakan nilai rapor semester 1 sampai 5. Nilai rapor kamu akan dikalkulasikan dengan bobot mata pelajaran pendukung prodi yang dituju, dipetakan secara statistik, lalu dibandingkan dengan jutaan histori pendaftar lain di PTN pilihan Anda.
-                </div>
-            </div>
-
-            <!-- FAQ 4 -->
-            <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
-                <button @click="activeIndex = (activeIndex === 4 ? null : 4)" 
-                        class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
-                    <span>Apakah pembayaran paket berlaku langganan bulanan?</span>
-                    <i :class="activeIndex === 4 ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
-                </button>
-                <div x-show="activeIndex === 4" 
-                     x-collapse 
-                     class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed" 
-                     style="display: none;">
-                    Tidak. Pembayaran paket bimbingan belajar (Silver maupun Gold) bersifat sekali bayar (*One-Time Payment*) di awal dan langsung aktif untuk masa kepesertaan penuh selama satu tahun penuh hingga seleksi ujian mandiri selesai.
-                </div>
-            </div>
-
-            <!-- FAQ 5 -->
-            <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
-                <button @click="activeIndex = (activeIndex === 5 ? null : 5)" 
-                        class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
-                    <span>Bagaimana asisten cerdas Kak AI membantu saya?</span>
-                    <i :class="activeIndex === 5 ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
-                </button>
-                <div x-show="activeIndex === 5" 
-                     x-collapse 
-                     class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed" 
-                     style="display: none;">
-                    Kak AI terintegrasi dengan model AI canggih. Kamu cukup mengetik pertanyaan atau mengunggah gambar/foto soal latihan yang sulit, dan Kak AI akan memberikan panduan penjelasan langkah-demi-langkah, rumus pelengkap, serta tips cepat mengerjakannya.
-                </div>
-            </div>
+            @endforeach
         </div>
     </div>
 </section>
@@ -667,11 +452,11 @@
                      class="h-12 w-12 rounded-xl object-contain bg-white p-1 shadow-md">
                 <div>
                     <h3 class="text-lg sm:text-xl font-bold leading-none">{{ $clientBranding['name'] }}</h3>
-                    <p class="text-xs text-white/70 font-medium mt-1">Platform Sukses Tembus PTN Impian</p>
+                    <p class="text-xs text-white/70 font-medium mt-1">{{ $landingValue('footer.tagline', 'Platform Sukses Tembus PTN Impian') }}</p>
                 </div>
             </div>
             <p class="text-sm text-slate-100/80 font-medium leading-relaxed max-w-md">
-                Penyedia layanan bimbingan belajar, tryout IRT online nasional, pendampingan konsultasi jurusan, serta rasionalisasi rapor seleksi SNBP/SNBT terpercaya di Indonesia.
+                {{ $landingValue('footer.description', 'Penyedia layanan bimbingan belajar, tryout IRT online nasional, pendampingan konsultasi jurusan, serta rasionalisasi rapor seleksi SNBP/SNBT terpercaya di Indonesia.') }}
             </p>
         </div>
 
@@ -691,30 +476,30 @@
             <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">Hubungi Kami</h4>
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90">
                 <li>
-                    <a href="https://instagram.com/naufalacademy" target="_blank" rel="noopener noreferrer" 
+                    <a href="{{ $landingValue('footer.instagram_href', 'https://instagram.com/naufalacademy') }}" target="_blank" rel="noopener noreferrer"
                        class="flex items-center gap-2.5 hover:text-amber-300 transition-colors">
                         <i class="ri-instagram-line text-base"></i>
-                        @naufalacademy
+                        {{ $landingValue('footer.instagram_label', '@naufalacademy') }}
                     </a>
                 </li>
                 <li>
-                    <a href="https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya" target="_blank" rel="noopener noreferrer"
+                    <a href="{{ $landingValue('footer.whatsapp_href', 'https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya') }}" target="_blank" rel="noopener noreferrer"
                        class="flex items-center gap-2.5 hover:text-amber-300 transition-colors">
                         <i class="ri-whatsapp-line text-base"></i>
-                        +62 856-1078-411
+                        {{ $landingValue('footer.whatsapp_label', '+62 856-1078-411') }}
                     </a>
                 </li>
                 <li>
-                    <a href="mailto:team.naufalacademy@gmail.com" 
+                    <a href="{{ $landingValue('footer.email_href', 'mailto:team.naufalacademy@gmail.com') }}"
                        class="flex items-center gap-2.5 hover:text-amber-300 transition-colors">
                         <i class="ri-mail-line text-base"></i>
-                        team.naufalacademy@gmail.com
+                        {{ $landingValue('footer.email_label', 'team.naufalacademy@gmail.com') }}
                     </a>
                 </li>
             </ul>
         </div>
     </div>
-    
+
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs sm:text-sm font-semibold text-slate-300 text-center">
         <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}. Hak cipta dilindungi undang-undang.</p>
         <div class="flex gap-4 justify-center">

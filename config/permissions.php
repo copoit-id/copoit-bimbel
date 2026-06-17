@@ -100,5 +100,9 @@ return [
             'label' => 'Artikel',
             'routes' => ['admin.artikel.'],
         ],
+        'general_page' => [
+            'label' => 'General Page',
+            'routes' => ['admin.general-pages.'],
+        ],
     ],
 ];

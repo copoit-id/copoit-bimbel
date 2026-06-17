@@ -14,6 +14,7 @@ use App\Http\Controllers\admin\ExpenseController;
 use App\Http\Controllers\admin\FaqController;
 use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\admin\FinanceIncomeController;
+use App\Http\Controllers\admin\GeneralPageController as AdminGeneralPageController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
@@ -349,6 +350,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         ->except(['show'])
         ->names('artikel')
         ->parameters(['artikel' => 'artikel']);
+
+    Route::get('/general/landing-page', [AdminGeneralPageController::class, 'editLanding'])->name('general-pages.landing.edit');
+    Route::put('/general/landing-page', [AdminGeneralPageController::class, 'updateLanding'])->name('general-pages.landing.update');
 
     Route::prefix('affiliate')->name('affiliate.')->group(function () {
         Route::get('/', [AdminAffiliateController::class, 'index'])->name('index');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Article;
+use App\Models\GeneralPage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
@@ -11,15 +12,29 @@ class GeneralPageController extends Controller
 {
     public function landing()
     {
-        return view('general.landing', [
-            'title' => 'Landing Page',
+        $page = GeneralPage::findActiveByKey('landing');
+        $content = $page?->content ?: self::defaultLandingContent();
+
+        return view($this->resolveTemplateView('landing', $page, 'general.landing'), [
+            'title' => $content['title'] ?? 'Landing Page',
+            'page' => $page,
+            'content' => $content,
+            'settings' => $page?->settings ?? [],
+            'seo' => $page?->seo ?? [],
         ]);
     }
 
     public function statistics()
     {
-        return view('general.statistics', [
-            'title' => 'Statistik PTN',
+        $page = GeneralPage::findActiveByKey('statistik-ptn');
+        $content = $page?->content ?? [];
+
+        return view($this->resolveTemplateView('statistik-ptn', $page, 'general.statistics'), [
+            'title' => $content['title'] ?? 'Statistik PTN',
+            'page' => $page,
+            'content' => $content,
+            'settings' => $page?->settings ?? [],
+            'seo' => $page?->seo ?? [],
         ]);
     }
 
@@ -113,5 +128,214 @@ class GeneralPageController extends Controller
             ->get();
 
         return view('general.articles.show', compact('article', 'relatedArticles'));
+    }
+
+    private function resolveTemplateView(string $pageKey, ?GeneralPage $page, string $defaultView): string
+    {
+        $templateKey = $page?->template_key ?: 'default';
+
+        if ($templateKey === 'default') {
+            return $defaultView;
+        }
+
+        $templateView = 'general.templates.' . $pageKey . '.' . $templateKey;
+
+        return view()->exists($templateView) ? $templateView : $defaultView;
+    }
+
+    public static function defaultLandingContent(): array
+    {
+        return [
+            'meta' => [
+                'title' => 'Persiapan Ujian UTBK SNBT & SNBP Terbaik',
+            ],
+            'hero' => [
+                'badge' => 'Bimbel Persiapan UTBK 2026 #1',
+                'title_html' => 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?',
+                'description' => 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.',
+                'primary_cta' => [
+                    'label' => 'Mulai Belajar Sekarang',
+                    'href' => route('login'),
+                ],
+                'secondary_cta' => [
+                    'label' => 'Hubungi Admin',
+                    'href' => 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel',
+                ],
+                'logo_stack' => [
+                    ['src' => 'img/logo_kampus.png', 'alt' => 'UI Logo'],
+                    ['src' => 'img/logo_kampus.png', 'alt' => 'ITB Logo'],
+                    ['src' => 'img/logo_kampus.png', 'alt' => 'UGM Logo'],
+                    ['src' => 'img/logo_kampus.png', 'alt' => 'ITS Logo'],
+                ],
+                'social_proof_html' => 'Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!',
+                'image' => 'img/hero_study.png',
+                'image_alt' => 'Siswa Belajar UTBK Online',
+            ],
+            'program' => [
+                'eyebrow' => 'Investasi Masa Depan',
+                'title' => 'Program Bimbingan Belajar Pilihan',
+                'description' => 'Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.',
+                'cards' => [
+                    [
+                        'eyebrow' => 'Akses Uji Coba',
+                        'title' => 'Free Trial',
+                        'price' => 'Rp 0',
+                        'description' => 'Coba simulasi ujian dan rasakan kemudahan menggunakan platform bimbingan kami.',
+                        'features' => [
+                            ['label' => 'Cek Daya Tampung PTN Se-Indonesia'],
+                            ['label' => '1x Latihan Tryout Ujian Mandiri'],
+                            ['label' => 'Rasionalisasi Rapor SNBP Penuh'],
+                            ['label' => 'Grup Tanya Jawab & Mentor Alumni'],
+                        ],
+                        'cta' => [
+                            'label' => 'Daftar Akun Gratis',
+                            'href' => route('login'),
+                        ],
+                    ],
+                    [
+                        'eyebrow' => 'Pemetaan Peluang',
+                        'title' => 'Silver Package',
+                        'original_price' => 'Rp 69.000',
+                        'price' => 'Rp 39.000',
+                        'price_note' => 'Sekali Bayar',
+                        'description' => 'Analisis mendalam nilai rapor untuk memperkuat persiapan masuk jalur SNBP.',
+                        'features' => [
+                            ['label' => 'Rasionalisasi Rapor SNBP Penuh'],
+                            ['label' => '3x Tryout UTBK Berskala Nasional'],
+                            ['label' => 'Pembahasan Lembar Soal & Kunci Jawaban'],
+                            ['label' => 'Pendampingan Konsultasi Jurusan Personal'],
+                        ],
+                        'cta' => [
+                            'label' => 'Upgrade ke Silver',
+                            'href' => route('login'),
+                        ],
+                    ],
+                    [
+                        'badge' => 'PILIHAN TERBAIK',
+                        'eyebrow' => 'Pendampingan Penuh',
+                        'title' => 'Gold Package',
+                        'original_price' => 'Rp 99.000',
+                        'price' => 'Rp 49.000',
+                        'price_note' => 'Sekali Bayar',
+                        'description' => 'Layanan bimbingan super komprehensif, didampingi secara langsung oleh mentor top PTN.',
+                        'features' => [
+                            ['label' => 'Rasionalisasi Peluang Rapor & Skor UTBK'],
+                            ['label_html' => 'Tryout UTBK Nasional <strong class="text-amber-600 font-bold">Unlimited</strong>'],
+                            ['label' => 'Premium Akses Asisten Pintar Kak AI 24 Jam'],
+                        ],
+                        'highlight' => 'Bimbingan & Konsultasi Jurusan 1-on-1 dengan Mentor Alumni UI/ITB/UGM',
+                        'cta' => [
+                            'label' => 'Upgrade ke Gold',
+                            'href' => route('login'),
+                        ],
+                    ],
+                ],
+            ],
+            'community' => [
+                'badge' => 'Support System Pejuang PTN',
+                'title' => 'Komunitas Pejuang PTN ' . config('client.branding.name', 'Copoit Academy'),
+                'description' => 'Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.',
+                'cta' => [
+                    'label' => 'Gabung Grup Sekarang',
+                    'href' => 'https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H',
+                ],
+            ],
+            'testimonials' => [
+                'eyebrow' => 'Kisah Sukses Pejuang',
+                'title' => 'Apa Kata Alumni Kami?',
+                'description' => 'Mereka telah membuktikan keakuratan data dan bimbingan kami, kini berhasil lolos ke prodi impian.',
+                'items' => [
+                    [
+                        'quote' => 'Tryout IRT di sini bener-bener mirip dengan ujian UTBK aslinya. Ranking nasionalnya bikin aku termotivasi untuk terus mengejar ketertinggalan materi.',
+                        'image' => 'img/student_rian.png',
+                        'name' => 'Rian H.',
+                        'result' => 'Lolos Teknik Sipil ITB',
+                    ],
+                    [
+                        'quote' => 'Fitur Kak AI ngebantu aku banget saat ngerjain soal fisika malam-malam. Penjelasan langkah demi langkahnya mudah dipahami dan cepat responnya!',
+                        'image' => 'img/student_nanda.png',
+                        'name' => 'Nanda P.',
+                        'result' => 'Lolos Farmasi UI',
+                    ],
+                    [
+                        'quote' => 'Terima kasih program bimbingan rapot SNBP-nya. Penjelasan mentor tentang strategi memilih prodi di UI dan UGM bikin aku mantap melangkah.',
+                        'image' => 'img/student_farah.png',
+                        'name' => 'Farah D.',
+                        'result' => 'Lolos Psikologi UGM',
+                    ],
+                    [
+                        'quote' => 'Sebagai siswa dari luar Jawa, akses materi UTBK premium di sini terjangkau dan sangat berkualitas dibandingkan bimbel tatap muka biasa.',
+                        'image' => 'img/student_alvin.png',
+                        'name' => 'Alvin K.',
+                        'result' => 'Lolos Matematika ITS',
+                    ],
+                ],
+            ],
+            'achievements' => [
+                'eyebrow' => 'Pencapaian Terbaik Kami',
+                'title' => 'Bukti Nyata Kualitas Pendampingan BimbelHub',
+                'items' => [
+                    [
+                        'value' => '92,4%',
+                        'label' => 'Tingkat Kelolosan Ujian',
+                        'description' => '9.240 dari total 10.000 siswa bimbingan kami berhasil lolos ke program studi & PTN pilihan ke-1 dan ke-2.',
+                    ],
+                    [
+                        'value' => '10.000+',
+                        'label' => 'Pejuang PTN Aktif',
+                        'description' => 'Siswa terdaftar aktif berasal dari sekolah-sekolah unggulan mitra kami di seluruh wilayah Indonesia.',
+                    ],
+                    [
+                        'value' => '50.000+',
+                        'label' => 'Bank Soal & Pembahasan',
+                        'description' => 'Koleksi bank soal terlengkap dari subtest TPS, Literasi Bahasa, dan Penalaran Matematika terupdate.',
+                    ],
+                ],
+            ],
+            'faq' => [
+                'eyebrow' => 'Pertanyaan Umum',
+                'title' => 'FAQ (Frequently Asked Questions)',
+                'items' => [
+                    [
+                        'question' => 'Apakah saya bisa menggunakan platform ini secara gratis?',
+                        'answer' => 'Ya, tentu saja! Kamu bisa menggunakan akun gratis untuk melihat data statistik program studi PTN se-Indonesia serta menguji coba 1x sistem simulasi tryout awal yang kami miliki.',
+                    ],
+                    [
+                        'question' => 'Bagaimana sistem penilaian di simulasi Tryout UTBK?',
+                        'answer' => 'Sistem penilaian tryout kami menggunakan algoritma Item Response Theory (IRT) yang disesuaikan dengan aturan penilaian resmi dari panitia pelaksana seleksi SNPMB BP3 Kemendikbud. Bobot nilai setiap soal dihitung berdasarkan tingkat kesulitan riil soal tersebut.',
+                    ],
+                    [
+                        'question' => 'Apa itu fitur Rasionalisasi Rapor SNBP?',
+                        'answer' => 'Rasionalisasi Rapor SNBP adalah fitur analisis kelayakan nilai rapor semester 1 sampai 5. Nilai rapor kamu akan dikalkulasikan dengan bobot mata pelajaran pendukung prodi yang dituju, dipetakan secara statistik, lalu dibandingkan dengan jutaan histori pendaftar lain di PTN pilihan Anda.',
+                    ],
+                    [
+                        'question' => 'Apakah pembayaran paket berlaku langganan bulanan?',
+                        'answer' => 'Tidak. Pembayaran paket bimbingan belajar (Silver maupun Gold) bersifat sekali bayar (*One-Time Payment*) di awal dan langsung aktif untuk masa kepesertaan penuh selama satu tahun penuh hingga seleksi ujian mandiri selesai.',
+                    ],
+                    [
+                        'question' => 'Bagaimana asisten cerdas Kak AI membantu saya?',
+                        'answer' => 'Kak AI terintegrasi dengan model AI canggih. Kamu cukup mengetik pertanyaan atau mengunggah gambar/foto soal latihan yang sulit, dan Kak AI akan memberikan panduan penjelasan langkah-demi-langkah, rumus pelengkap, serta tips cepat mengerjakannya.',
+                    ],
+                ],
+            ],
+            'footer' => [
+                'tagline' => 'Platform Sukses Tembus PTN Impian',
+                'description' => 'Penyedia layanan bimbingan belajar, tryout IRT online nasional, pendampingan konsultasi jurusan, serta rasionalisasi rapor seleksi SNBP/SNBT terpercaya di Indonesia.',
+                'instagram_label' => '@naufalacademy',
+                'instagram_href' => 'https://instagram.com/naufalacademy',
+                'whatsapp_label' => '+62 856-1078-411',
+                'whatsapp_href' => 'https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya',
+                'email_label' => 'team.naufalacademy@gmail.com',
+                'email_href' => 'mailto:team.naufalacademy@gmail.com',
+            ],
+            'sections' => [
+                'testimonials' => [
+                    'template_note' => 'Field lanjutan untuk testimoni mengikuti layout landing.blade.php.',
+                ],
+                'partners' => [
+                    'template_note' => 'Field lanjutan untuk logo mitra mengikuti layout landing.blade.php.',
+                ],
+            ],
+        ];
     }
 }

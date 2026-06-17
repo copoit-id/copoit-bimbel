@@ -50,7 +50,7 @@
         || request()->routeIs('admin.essay-review.*')
         || request()->routeIs('admin.feedback.*');
     $isFinanceActive = request()->routeIs('admin.finance.*') || request()->routeIs('admin.pembayaran.*');
-    $isGeneralActive = request()->routeIs('admin.artikel.*');
+    $isGeneralActive = request()->routeIs('admin.artikel.*') || request()->routeIs('admin.general-pages.*');
 @endphp
 
 <aside id="logo-sidebar" x-ignore
@@ -287,7 +287,7 @@
                 </a>
             </li>
             @endif
-            @if($canFeatureView('artikel'))
+            @if($canFeatureView('artikel') || $canFeatureView('general_page'))
             <li>
                 <details id="menu-general" class="group" {{ $isGeneralActive ? 'open' : '' }}>
                     <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isGeneralActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
@@ -298,12 +298,22 @@
                         <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isGeneralActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                     </summary>
                     <ul class="mt-1 ms-2 space-y-1">
+                        @if($canFeatureView('general_page'))
+                        <li>
+                            <a href="{{ route('admin.general-pages.landing.edit') }}"
+                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.general-pages.landing.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <span>Landing Page</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('artikel'))
                         <li>
                             <a href="{{ route('admin.artikel.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.artikel.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <span>Artikel</span>
                             </a>
                         </li>
+                        @endif
                     </ul>
                 </details>
             </li>
