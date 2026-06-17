@@ -11,7 +11,7 @@ class GeneralPageController extends Controller
 {
     public function landing()
     {
-        return view('general.placeholder', [
+        return view('general.landing', [
             'title' => 'Landing Page',
         ]);
     }
