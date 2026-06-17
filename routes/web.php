@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
+use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\CertificateController;
 use App\Http\Controllers\admin\ClassController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
@@ -110,9 +112,18 @@ Route::get('/setup-project', function () {
     }
 });
 
-Route::get('/', function () {
-    // Default ke user dashboard (support guest & logged in user)
-    return redirect()->route('user.dashboard.index');
+Route::get('/', [GeneralPageController::class, 'landing'])->name('landing');
+Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
+Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
+Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
+
+Route::prefix('general')->name('general.')->group(function () {
+    Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
+    Route::get('/landing-page', [GeneralPageController::class, 'landing'])->name('landing');
+    Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
+    Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
+    Route::get('/blog', [GeneralPageController::class, 'articles'])->name('blog.index');
+    Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 });
 
 Route::get('/terms-and-conditions', [PublicPageController::class, 'terms'])->name('public.terms');
@@ -331,6 +342,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/pengeluaran', [ExpenseController::class, 'store'])->name('expenses.store');
         Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
     });
+
+    Route::resource('general/artikel', AdminArticleController::class)
+        ->except(['show'])
+        ->names('artikel')
+        ->parameters(['artikel' => 'artikel']);
 
     Route::prefix('affiliate')->name('affiliate.')->group(function () {
         Route::get('/', [AdminAffiliateController::class, 'index'])->name('index');

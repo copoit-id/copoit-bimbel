@@ -50,6 +50,7 @@
         || request()->routeIs('admin.essay-review.*')
         || request()->routeIs('admin.feedback.*');
     $isFinanceActive = request()->routeIs('admin.finance.*') || request()->routeIs('admin.pembayaran.*');
+    $isGeneralActive = request()->routeIs('admin.artikel.*');
 @endphp
 
 <aside id="logo-sidebar" x-ignore
@@ -284,6 +285,27 @@
                     <i class="ri-coupon-3-line text-[20px] {{ request()->routeIs('admin.discounts.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
                     <span class="ms-3">Diskon</span>
                 </a>
+            </li>
+            @endif
+            @if($canFeatureView('artikel'))
+            <li>
+                <details id="menu-general" class="group" {{ $isGeneralActive ? 'open' : '' }}>
+                    <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isGeneralActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
+                        <span class="flex items-center">
+                            <i class="ri-global-line text-[20px] {{ $isGeneralActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                            <span class="ms-3">General</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isGeneralActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    </summary>
+                    <ul class="mt-1 ms-2 space-y-1">
+                        <li>
+                            <a href="{{ route('admin.artikel.index') }}"
+                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.artikel.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <span>Artikel</span>
+                            </a>
+                        </li>
+                    </ul>
+                </details>
             </li>
             @endif
             @if($canFeatureView('faq'))

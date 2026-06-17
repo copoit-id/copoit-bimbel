@@ -263,6 +263,7 @@
             }).catch(function() {});
         }, 300000); // Every 5 minutes
     </script>
+    @stack('scripts')
 </body>
 
 </html>

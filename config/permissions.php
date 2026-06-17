@@ -96,5 +96,9 @@ return [
             'label' => 'Tes Koran',
             'routes' => ['admin.tes-koran.'],
         ],
+        'artikel' => [
+            'label' => 'Artikel',
+            'routes' => ['admin.artikel.'],
+        ],
     ],
 ];
