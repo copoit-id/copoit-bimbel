@@ -157,7 +157,11 @@ class SettingController extends Controller
         $filename = $prefix . '-' . now()->format('YmdHis') . '.' . $extension;
         $relativePath = 'branding/' . $filename;
 
-        Storage::disk('public')->putFileAs('branding', $file, $filename);
+        $storedPath = Storage::disk('public')->putFileAs('branding', $file, $filename);
+
+        if ($storedPath !== $relativePath) {
+            throw new \RuntimeException('Gagal menyimpan aset branding.');
+        }
 
         $this->deleteBrandingImage($existingPath);
 

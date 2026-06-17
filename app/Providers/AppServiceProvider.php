@@ -132,7 +132,13 @@ class AppServiceProvider extends ServiceProvider
 
         $normalized = ltrim($target, '/');
         if (Str::startsWith($normalized, 'storage/')) {
-            return asset($normalized);
+            $storagePath = Str::after($normalized, 'storage/');
+
+            if (Storage::disk('public')->exists($storagePath)) {
+                return asset($normalized);
+            }
+
+            return asset($fallback);
         }
 
         if (file_exists(public_path($normalized))) {
@@ -145,8 +151,12 @@ class AppServiceProvider extends ServiceProvider
 
         if (!Str::contains($normalized, '/')) {
             $normalized = 'img/logo/' . $normalized;
+
+            if (file_exists(public_path($normalized))) {
+                return asset($normalized);
+            }
         }
 
-        return asset($normalized);
+        return asset($fallback);
     }
 }
