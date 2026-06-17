@@ -15,7 +15,7 @@ class GeneralPageController extends Controller
 
     public function statistics()
     {
-        return view('general.placeholder', [
+        return view('general.statistics', [
             'title' => 'Statistik PTN',
         ]);
     }

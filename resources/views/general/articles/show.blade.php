@@ -3,6 +3,7 @@
 @section('title', $article->title)
 
 @push('styles')
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <style>
     .article-content {
         font-size: 1.05rem;
@@ -99,7 +100,7 @@
         border-radius: 1rem;
         margin: 2rem auto;
         max-width: 100%;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        border: 1px solid rgb(226, 232, 240);
     }
     
     .article-content a {
@@ -136,12 +137,12 @@
                     <span class="inline-flex items-center gap-1 rounded-md bg-primary/5 px-2.5 py-0.5 text-xs font-semibold text-primary tracking-wide">
                         <i class="ri-lightbulb-line"></i> Bimbel Insight
                     </span>
-                    <h1 class="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl leading-tight">
+                    <h1 class="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl leading-tight">
                         {{ $article->title }}
                     </h1>
                     
                     @if($article->excerpt)
-                        <p class="mt-6 text-lg sm:text-xl leading-relaxed text-slate-600 border-l-4 border-primary/20 pl-4">
+                        <p class="mt-6 text-lg sm:text-xl leading-relaxed text-slate-600 border-l-2 border-primary/30 pl-4">
                             {{ $article->excerpt }}
                         </p>
                     @endif
@@ -149,11 +150,11 @@
                     <!-- Author & Share Row -->
                     <div class="mt-8 flex flex-wrap items-center justify-between gap-6 border-y border-slate-100 py-4">
                         <div class="flex items-center gap-3">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-base border border-primary/20">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-base border border-primary/20">
                                 {{ $article->author ? strtoupper(substr($article->author->name, 0, 1)) : 'A' }}
                             </div>
                             <div class="text-left">
-                                <p class="text-sm font-bold text-slate-900">{{ $article->author ? $article->author->name : 'Admin' }}</p>
+                                <p class="text-sm font-semibold text-slate-800">{{ $article->author ? $article->author->name : 'Admin' }}</p>
                                 <p class="text-xs text-slate-500">{{ $article->published_date_label }} &middot; {{ $article->reading_minutes }} menit baca</p>
                             </div>
                         </div>
@@ -176,7 +177,7 @@
                             <a :href="'https://api.whatsapp.com/send?text=' + encodeURIComponent(title + ' ' + url)" 
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-colors"
+                               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-100 transition-colors"
                                title="Bagikan ke WhatsApp">
                                 <i class="ri-whatsapp-line text-lg"></i>
                             </a>
@@ -185,7 +186,7 @@
                             <a :href="'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title)" 
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors"
+                               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors"
                                title="Bagikan ke Telegram">
                                 <i class="ri-telegram-line text-lg"></i>
                             </a>
@@ -194,48 +195,48 @@
                             <a :href="'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title)" 
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-350 transition-colors"
+                               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-350 transition-colors"
                                title="Bagikan ke X">
                                 <i class="ri-twitter-x-line text-base"></i>
                             </a>
 
                             <!-- Copy Link -->
                             <button @click="copyLink"
-                                    class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-colors relative"
+                                    class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-colors relative"
                                     title="Salin Tautan">
                                 <i class="ri-link text-lg" x-show="!copied"></i>
                                 <i class="ri-check-line text-lg text-emerald-600" x-show="copied" style="display: none;"></i>
                                 
                                 <span x-show="copied" 
                                       x-transition 
-                                      class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white shadow-md"
+                                      class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white border border-slate-800"
                                       style="display: none;">
                                     Tautan disalin!
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                @if($article->cover_url)
-                    <div class="mt-8 overflow-hidden rounded-2xl border border-slate-100 shadow-md aspect-[16/9] w-full">
-                        <img src="{{ $article->cover_url }}" alt="{{ $article->title }}"
-                            class="h-full w-full object-cover">
-                    </div>
-                @endif
-
-                <div class="article-content mt-12 text-slate-700">
-                    {!! $article->content !!}
-                </div>
-
-                <!-- Author Bio Card -->
-                <div class="mt-16 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg border-2 border-white shadow-sm">
+                                  </span>
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+  
+                  @if($article->cover_url)
+                      <div class="mt-8 overflow-hidden rounded-2xl border-2 border-slate-200 aspect-[16/9] w-full">
+                          <img src="{{ $article->cover_url }}" alt="{{ $article->title }}"
+                              class="h-full w-full object-cover">
+                      </div>
+                  @endif
+  
+                  <div class="article-content mt-12 text-slate-700">
+                      {!! $article->content !!}
+                  </div>
+  
+                  <!-- Author Bio Card -->
+                  <div class="mt-16 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                      <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-lg border-2 border-white">
                         {{ $article->author ? strtoupper(substr($article->author->name, 0, 1)) : 'A' }}
                     </div>
                     <div class="text-center sm:text-left space-y-2">
                         <p class="text-xs font-semibold uppercase tracking-wider text-primary">Penulis Artikel</p>
-                        <h3 class="text-lg font-bold text-slate-900">{{ $article->author ? $article->author->name : 'Tim BimbelHub' }}</h3>
+                        <h3 class="text-lg font-semibold text-slate-800">{{ $article->author ? $article->author->name : 'Tim BimbelHub' }}</h3>
                         <p class="text-sm text-slate-600 leading-relaxed">
                             Pengajar dan kontributor ahli di {{ $clientBranding['name'] }}. Berkomitmen menyajikan wawasan akademis terbaru dan bimbingan belajar terbaik untuk kesuksesan siswa meraih kampus impian.
                         </p>
@@ -248,7 +249,7 @@
                 <div class="space-y-8 lg:sticky lg:top-24">
                     
                     <!-- Promotional CTA Widget -->
-                    <div class="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary to-primary/90 p-6 text-white shadow-md relative overflow-hidden group">
+                    <div class="rounded-2xl border border-white/20 bg-gradient-to-br from-primary to-primary/90 p-6 text-white relative overflow-hidden group">
                         <!-- Decorative background vectors -->
                         <div class="absolute -right-16 -top-16 h-32 w-32 rounded-full bg-white/10 blur-xl group-hover:scale-110 transition-transform duration-500"></div>
                         <div class="absolute -left-16 -bottom-16 h-32 w-32 rounded-full bg-white/10 blur-xl group-hover:scale-110 transition-transform duration-500"></div>
@@ -257,14 +258,14 @@
                             <span class="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-md px-2.5 py-0.5 text-2xs font-bold uppercase tracking-wider text-white">
                                 Program Unggulan
                             </span>
-                            <h4 class="text-xl font-extrabold leading-snug">
+                            <h4 class="text-xl font-bold leading-snug">
                                 Ingin Lolos PTN Impianmu?
                             </h4>
                             <p class="text-xs text-white/90 leading-relaxed">
                                 Bergabunglah dengan program persiapan intensif UTBK-SNBT & Mandiri kami. Dapatkan akses tryout terakreditasi, materi lengkap, dan bimbingan guru ahli!
                             </p>
                             <div class="pt-2">
-                                <a href="{{ route('user.package.index') }}" class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-primary shadow-sm hover:bg-slate-50 transition-colors">
+                                <a href="{{ route('user.package.index') }}" class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-sm font-bold text-primary hover:bg-slate-50 transition-colors">
                                     Mulai Belajar Sekarang
                                     <i class="ri-arrow-right-line"></i>
                                 </a>
@@ -274,8 +275,8 @@
 
                     <!-- Related Articles Widget -->
                     @if($relatedArticles->count())
-                    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6">
+                        <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
                             <i class="ri-article-line text-primary"></i>
                             Artikel Terpopuler
                         </h3>
@@ -294,7 +295,7 @@
                                     @endif
                                 </div>
                                 <div class="min-w-0 flex-1 space-y-1">
-                                    <h4 class="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                                    <h4 class="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                                         {{ $related->title }}
                                     </h4>
                                     <p class="text-2xs text-slate-500">{{ $related->published_date_label }}</p>

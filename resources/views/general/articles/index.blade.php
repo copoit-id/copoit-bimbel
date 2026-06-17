@@ -14,7 +14,7 @@
                 <i class="ri-newspaper-line text-sm"></i>
                 Bimbel News & Updates
             </span>
-            <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+            <h1 class="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
                 Insight & Panduan Belajar
             </h1>
             <p class="mt-4 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-600">
@@ -26,7 +26,7 @@
         @if($featuredArticle)
         <div class="mt-8">
             <a href="{{ route('articles.show', $featuredArticle->slug) }}"
-                class="group relative block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300">
+                class="group relative block overflow-hidden rounded-2xl border-2 border-slate-200 bg-white hover:border-primary/60 transition-all duration-300">
                 <div class="grid lg:grid-cols-12 gap-0">
                     <div class="lg:col-span-7 relative aspect-[16/10] sm:aspect-[16/9] lg:aspect-auto min-h-[300px] sm:min-h-[350px] lg:min-h-[420px] overflow-hidden bg-slate-100">
                         @if($featuredArticle->cover_url)
@@ -37,7 +37,7 @@
                                 <i class="ri-article-line text-6xl"></i>
                             </div>
                         @endif
-                        <span class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-900/80 backdrop-blur-md px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm">
+                        <span class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-900/80 backdrop-blur-md px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-white border border-white/10">
                             <span class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                             Terbaru
                         </span>
@@ -47,7 +47,7 @@
                             <div class="flex items-center gap-3 text-xs font-semibold text-primary">
                                 <span class="uppercase tracking-wider">Artikel Unggulan</span>
                             </div>
-                            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 group-hover:text-primary transition-colors duration-200 leading-tight">
+                            <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 group-hover:text-primary transition-colors duration-200 leading-tight">
                                 {{ $featuredArticle->title }}
                             </h2>
                             <p class="text-sm sm:text-base leading-relaxed text-slate-600 line-clamp-4">
@@ -85,7 +85,7 @@
             <p class="text-sm text-slate-500 mt-1">Jelajahi wawasan baru dari pengajar kami</p>
         </div>
         <div class="h-px flex-1 bg-slate-200/80 mx-8 hidden sm:block"></div>
-        <span class="text-sm font-medium text-slate-500 bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200">
+        <span class="text-xs font-medium text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
             Total: {{ $articles->total() }} Artikel
         </span>
     </div>
@@ -94,7 +94,7 @@
         <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             @foreach($articles as $article)
             <a href="{{ route('articles.show', $article->slug) }}"
-                class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm hover:shadow-xl hover:border-primary/20 hover:-translate-y-1 transition-all duration-300">
+                class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-primary/50 hover:-translate-y-0.5 transition-all duration-250">
                 <div class="relative aspect-[16/10] overflow-hidden bg-slate-100">
                     @if($article->cover_url)
                         <img src="{{ $article->cover_url }}" alt="{{ $article->title }}"
@@ -115,7 +115,7 @@
                             <span>&middot;</span>
                             <span>{{ $article->reading_minutes }} mnt baca</span>
                         </div>
-                        <h3 class="text-lg font-bold leading-snug text-slate-900 group-hover:text-primary transition-colors duration-200 line-clamp-2">
+                        <h3 class="text-base font-semibold leading-snug text-slate-800 group-hover:text-primary transition-colors duration-200 line-clamp-2">
                             {{ $article->title }}
                         </h3>
                         <p class="text-sm leading-relaxed text-slate-600 line-clamp-3">
@@ -145,7 +145,7 @@
         </div>
         @endif
     @else
-        <div class="rounded-2xl border-2 border-dashed border-slate-200 bg-white px-6 py-16 text-center max-w-xl mx-auto shadow-sm">
+        <div class="rounded-2xl border border-dashed border-slate-200/70 bg-white px-6 py-16 text-center max-w-xl mx-auto">
             <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 border border-slate-200 text-slate-400">
                 <i class="ri-article-line text-3xl"></i>
             </div>
