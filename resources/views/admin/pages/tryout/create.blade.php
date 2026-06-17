@@ -116,14 +116,16 @@
                     </div>
 
                     <div>
-                        <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">Kategori Penilaian <span class="text-red-500">*</span></label>
+                        <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">
+                            Kategori Penilaian <span class="text-red-500">*</span>
+                            <x-ui.tooltip>Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas.</x-ui.tooltip>
+                        </label>
                         <select id="assessment_type" name="assessment_type" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             <option value="standard" {{ (isset($tryout) && $tryout->assessment_type === 'standard') || old('assessment_type', 'standard') === 'standard' ? 'selected' : '' }}>Tryout Reguler</option>
                             <option value="pre_test" {{ (isset($tryout) && $tryout->assessment_type === 'pre_test') || old('assessment_type') === 'pre_test' ? 'selected' : '' }}>Pre Test</option>
                             <option value="post_test" {{ (isset($tryout) && $tryout->assessment_type === 'post_test') || old('assessment_type') === 'post_test' ? 'selected' : '' }}>Post Test</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas.</p>
                     </div>
                 </div>
 
@@ -138,33 +140,42 @@
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
+                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">
+                                Harga (Rp)
+                                <x-ui.tooltip>Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</x-ui.tooltip>
+                            </label>
                             <input type="number" id="price" name="price" min="0" step="1" inputmode="numeric"
                                 value="{{ old('price', isset($tryout) ? $tryout->price : 0) }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="0">
-                            <p class="text-xs text-gray-500 mt-1">Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</p>
                         </div>
                         <div class="space-y-3">
                             <div>
                                 <label class="flex items-center">
                                     <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
+                                    <span class="ml-2 text-sm font-medium text-gray-700 flex items-center">
+                                        Dijual Terpisah
+                                        <x-ui.tooltip>Centang agar tryout ini bisa dibeli secara individual.</x-ui.tooltip>
+                                    </span>
                                 </label>
-                                <p class="text-xs text-gray-500 ml-6">Centang agar tryout ini bisa dibeli secara individual.</p>
                             </div>
                             <div>
                                 <label class="flex items-center">
                                     <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', isset($tryout) ? $tryout->is_displayed : true) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm font-medium text-gray-700">Tampilkan</span>
+                                    <span class="ml-2 text-sm font-medium text-gray-700 flex items-center">
+                                        Tampilkan
+                                        <x-ui.tooltip>Centang untuk menampilkan tryout di halaman user. Kosongkan untuk menyembunyikan.</x-ui.tooltip>
+                                    </span>
                                 </label>
-                                <p class="text-xs text-gray-500 ml-6">Centang untuk menampilkan tryout di halaman user. Kosongkan untuk menyembunyikan.</p>
                             </div>
                         </div>
                     </div>
 
                     <div id="access-duration-wrapper" class="mt-6 {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? '' : 'hidden' }}">
-                        <label class="block text-sm font-medium text-gray-700 mb-3">Durasi Akses Setelah Dibeli</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Durasi Akses Setelah Dibeli
+                            <x-ui.tooltip>Dipakai untuk pembelian tryout terpisah. Jika tryout masuk paket, aksesnya mengikuti durasi paket.</x-ui.tooltip>
+                        </label>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <select name="access_duration_unit" id="access_duration_unit"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -179,7 +190,6 @@
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Jumlah durasi">
                         </div>
-                        <p class="text-xs text-gray-500 mt-2">Dipakai untuk pembelian tryout terpisah. Jika tryout masuk paket, aksesnya mengikuti durasi paket.</p>
                     </div>
                 </div>
 
@@ -208,16 +218,17 @@
                     <div>
                         <label for="section_break_duration" class="block text-sm font-medium text-gray-700 mb-2">
                             Durasi Jeda Antar Subtest (detik)
+                            <x-ui.tooltip>Saat lebih dari satu subtest, peserta akan melihat layar jeda dengan hitung mundur selama durasi ini.</x-ui.tooltip>
                         </label>
                         <input type="number" id="section_break_duration" name="section_break_duration" min="0" max="3600"
                             value="{{ old('section_break_duration', isset($tryout) ? $tryout->section_break_duration : 0) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Contoh: 60">
-                        <p class="text-xs text-gray-500 mt-1">Saat lebih dari satu subtest, peserta akan melihat layar jeda dengan hitung mundur selama durasi ini.</p>
                     </div>
                     <div>
                         <label for="answer_persistence_mode" class="block text-sm font-medium text-gray-700 mb-2">
                             Mode Penyimpanan Jawaban
+                            <x-ui.tooltip>Hybrid cocok untuk live score per subtest, sementara Client Side mempertahankan perilaku lama.</x-ui.tooltip>
                         </label>
                         @php
                             $answerMode = old('answer_persistence_mode', isset($tryout) ? $tryout->answer_persistence_mode : 'client_side');
@@ -227,11 +238,12 @@
                             <option value="client_side" @selected($answerMode === 'client_side')>Client Side (simpan saat selesai tryout)</option>
                             <option value="hybrid_subtest" @selected($answerMode === 'hybrid_subtest')>Hybrid (simpan setiap selesai subtest)</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">Hybrid cocok untuk live score per subtest, sementara Client Side mempertahankan perilaku lama.</p>
+                        <p id="answerPersistenceModeNotice" class="hidden text-xs text-amber-600 mt-1">Hybrid hanya tersedia untuk tampilan Per Subtest.</p>
                     </div>
                     <div>
                         <label for="subtest_display_mode" class="block text-sm font-medium text-gray-700 mb-2">
                             Tampilan Multi Subtest
+                            <x-ui.tooltip>Per Subtest mengikuti alur jeda dan pembatasan subtest. Gabung menampilkan navigasi semua soal sekaligus.</x-ui.tooltip>
                         </label>
                         @php
                             $subtestDisplayMode = old('subtest_display_mode', isset($tryout) ? $tryout->subtest_display_mode : 'per_subtest');
@@ -241,7 +253,6 @@
                             <option value="per_subtest" @selected($subtestDisplayMode === 'per_subtest')>Per Subtest (bertahap)</option>
                             <option value="combined" @selected($subtestDisplayMode === 'combined')>Gabung Semua Subtest</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">Per Subtest mengikuti alur jeda dan pembatasan subtest. Gabung menampilkan navigasi semua soal sekaligus.</p>
                     </div>
                 </div>
 
@@ -263,13 +274,7 @@
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tryout Aktif
-                            <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
-                                <i class="ri-information-line text-sm"></i>
-                                <span
-                                    class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
-                                    Tryout tidak akan tampil di user jika dinonaktifkan.
-                                </span>
-                            </span>
+                            <x-ui.tooltip>Tryout tidak akan tampil di user jika dinonaktifkan.</x-ui.tooltip>
                         </span>
                     </label>
 
@@ -284,13 +289,7 @@
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Generate Sertifikat Otomatis
-                            <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
-                                <i class="ri-information-line text-sm"></i>
-                                <span
-                                    class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
-                                    Sertifikat akan digenerate jika diaktifkan. Wajib memiliki template.
-                                </span>
-                            </span>
+                            <x-ui.tooltip>Sertifikat akan digenerate jika diaktifkan. Wajib memiliki template.</x-ui.tooltip>
                         </span>
                     </label>
 
@@ -305,13 +304,7 @@
                             </span>
                             <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                                 IRT TOEFL Scoring
-                                <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
-                                    <i class="ri-information-line text-sm"></i>
-                                    <span
-                                        class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
-                                        Menggunakan penilaian IRT TOEFL.
-                                    </span>
-                                </span>
+                                <x-ui.tooltip>Menggunakan penilaian IRT TOEFL.</x-ui.tooltip>
                             </span>
                         </label>
                     </div>
@@ -329,13 +322,7 @@
                             </span>
                             <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                                 IRT UTBK Scoring
-                                <span class="relative group inline-flex items-center text-gray-400 hover:text-primary">
-                                    <i class="ri-information-line text-sm"></i>
-                                    <span
-                                        class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-sm transition group-hover:opacity-100 group-hover:translate-y-0">
-                                        Nilai dirilis otomatis setelah periode UTBK berakhir.
-                                    </span>
-                                </span>
+                                <x-ui.tooltip>Nilai dirilis otomatis setelah periode UTBK berakhir.</x-ui.tooltip>
                             </span>
                         </label>
                     </div>
@@ -950,6 +937,9 @@
       const irtInput = irtBlock ? irtBlock.querySelector('#is_irt') : null;
       const toeflBlock = root.querySelector('[data-toefl-toggle]');
       const toeflInput = toeflBlock ? toeflBlock.querySelector('#is_toefl') : null;
+      const answerModeSelect = root.querySelector('#answer_persistence_mode');
+      const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
+      const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
       if (!typeSelect || typeSelect.__tryoutBound) return;
 
     const configSectionMap = {
@@ -1117,10 +1107,25 @@
       passingSelects.forEach(selectEl => syncPassingScoreLimit(selectEl));
     }
 
+    function syncAnswerPersistenceAvailability() {
+      if (!answerModeSelect || !subtestDisplaySelect) return;
+
+      const hybridOption = answerModeSelect.querySelector('option[value="hybrid_subtest"]');
+      const isCombinedView = subtestDisplaySelect.value === 'combined';
+
+      if (hybridOption) hybridOption.disabled = isCombinedView;
+      if (isCombinedView && answerModeSelect.value === 'hybrid_subtest') {
+        answerModeSelect.value = 'client_side';
+      }
+
+      answerModeNotice?.classList.toggle('hidden', !isCombinedView);
+    }
+
     window.__tryoutChange = function () {
       showConfigSection();
       updateFieldNames();
       syncAllPassingScoreLimits();
+      syncAnswerPersistenceAvailability();
     };
 
     window.__tryoutChange();
@@ -1130,6 +1135,10 @@
     root.addEventListener('change', (event) => {
       if (event.target && event.target.matches('select[name^="passing_type_"]')) {
         syncPassingScoreLimit(event.target);
+      }
+
+      if (event.target && event.target.matches('#subtest_display_mode')) {
+        syncAnswerPersistenceAvailability();
       }
     });
     bindPassingScoreInputs();

@@ -117,7 +117,7 @@ class TryoutController extends Controller
                 'type_tryout' => $request->type_tryout,
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
-                'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
+                'answer_persistence_mode' => $this->normalizedAnswerPersistenceMode($request),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
@@ -196,7 +196,7 @@ class TryoutController extends Controller
                 'type_tryout' => $request->type_tryout,
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
-                'answer_persistence_mode' => $request->input('answer_persistence_mode', 'client_side'),
+                'answer_persistence_mode' => $this->normalizedAnswerPersistenceMode($request),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
@@ -761,6 +761,15 @@ class TryoutController extends Controller
                 $request->input('access_duration_value')
             ),
         ];
+    }
+
+    private function normalizedAnswerPersistenceMode(Request $request): string
+    {
+        if ($request->input('subtest_display_mode', 'per_subtest') === 'combined') {
+            return 'client_side';
+        }
+
+        return $request->input('answer_persistence_mode', 'client_side');
     }
 
     private function getUtbkSubtests(): array
