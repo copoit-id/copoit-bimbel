@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\IndividualPurchase;
+use App\Models\Kecermatan;
 use App\Models\Material;
 use App\Models\TesKoran;
 use App\Models\Tryout;
@@ -26,12 +27,16 @@ class IndividualPurchaseController extends Controller
         if ($type === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false)) {
             $type = 'material';
         }
+        if (!in_array($type, ['material', 'tryout', 'tes_koran', 'kecermatan'], true)) {
+            $type = 'material';
+        }
 
         $status = $request->get('status', 'pending'); // 'pending', 'approved', 'rejected', 'all'
 
         $purchasableType = match ($type) {
             'tryout' => Tryout::class,
             'tes_koran' => TesKoran::class,
+            'kecermatan' => Kecermatan::class,
             default => Material::class,
         };
 

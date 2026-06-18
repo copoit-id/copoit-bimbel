@@ -15,6 +15,7 @@ use App\Http\Controllers\admin\FaqController;
 use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\admin\FinanceIncomeController;
 use App\Http\Controllers\admin\GeneralPageController as AdminGeneralPageController;
+use App\Http\Controllers\admin\KecermatanController as AdminKecermatanController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
@@ -41,6 +42,7 @@ use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
 use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
 use App\Http\Controllers\user\HelpController;
+use App\Http\Controllers\user\KecermatanController as UserKecermatanController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
@@ -255,6 +257,14 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{tesKoran}/result/{result}', [UserTesKoranController::class, 'result'])->name('result');
     });
 
+    Route::prefix('kecermatan')->name('user.kecermatan.')->group(function () {
+        Route::get('/', [UserKecermatanController::class, 'index'])->name('index');
+        Route::get('/{kecermatan}/mulai', [UserKecermatanController::class, 'start'])->name('start');
+        Route::get('/{kecermatan}/kolom/{column}', [UserKecermatanController::class, 'show'])->name('show');
+        Route::post('/{kecermatan}/kolom/{column}/submit', [UserKecermatanController::class, 'submit'])->name('submit');
+        Route::get('/{kecermatan}/result/{token}', [UserKecermatanController::class, 'result'])->name('result');
+    });
+
     // My Packages (Step by Step)
     Route::get('/paket-saya', [PackageController::class, 'myPackages'])->name('user.package.my');
     Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])->name('user.package.show');
@@ -412,6 +422,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Package Tes Koran Management
     Route::get('/paket/{package_id}/tes-koran', [AdminPackageController::class, 'indexTesKoran'])->name('package.tes-koran.index');
     Route::post('/paket/{package_id}/tes-koran/{tes_koran_id}/toggle', [AdminPackageController::class, 'toggleTesKoran'])->name('package.tes-koran.toggle');
+    Route::get('/paket/{package_id}/kecermatan', [AdminPackageController::class, 'indexKecermatan'])->name('package.kecermatan.index');
+    Route::post('/paket/{package_id}/kecermatan/{kecermatan_id}/toggle', [AdminPackageController::class, 'toggleKecermatan'])->name('package.kecermatan.toggle');
 
     // Package Tryout Soal Management
     Route::get('/paket/{package_id}/tryout/{tryout_detail_id}/soal', [AdminPackageController::class, 'indexSoal'])->name('package.tryout.soal');
@@ -550,6 +562,18 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/{tesKoran}/hasil', [AdminTesKoranController::class, 'results'])->name('results');
         Route::get('/{tesKoran}/hasil/export', [AdminTesKoranController::class, 'export'])->name('results.export');
         Route::get('/{tesKoran}/preview', [AdminTesKoranController::class, 'preview'])->name('preview');
+    });
+
+    Route::prefix('kecermatan')->name('kecermatan.')->group(function () {
+        Route::get('/', [AdminKecermatanController::class, 'index'])->name('index');
+        Route::get('/tambah', [AdminKecermatanController::class, 'create'])->name('create');
+        Route::post('/tambah', [AdminKecermatanController::class, 'store'])->name('store');
+        Route::get('/{kecermatan}/edit', [AdminKecermatanController::class, 'edit'])->name('edit');
+        Route::put('/{kecermatan}/edit', [AdminKecermatanController::class, 'update'])->name('update');
+        Route::delete('/{kecermatan}', [AdminKecermatanController::class, 'destroy'])->name('destroy');
+        Route::get('/{kecermatan}/preview', [AdminKecermatanController::class, 'preview'])->name('preview');
+        Route::post('/{kecermatan}/kolom', [AdminKecermatanController::class, 'storeColumn'])->name('columns.store');
+        Route::delete('/{kecermatan}/kolom/{column}', [AdminKecermatanController::class, 'destroyColumn'])->name('columns.destroy');
     });
 
     // Route untuk laporan user

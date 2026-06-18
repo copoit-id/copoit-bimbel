@@ -20,6 +20,7 @@
         'live', 'live_session' => 'Live Session',
         'tryouts', 'tryout' => 'Tryout',
         'tes_koran' => 'Tes Koran',
+        'kecermatan' => 'Kecermatan',
         default => 'Item',
     };
 @endphp

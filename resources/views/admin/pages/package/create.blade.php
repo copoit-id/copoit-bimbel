@@ -133,6 +133,9 @@
                                 <option value="sertifikasi" {{ (isset($package) && $package->type_package ===
                                     'sertifikasi') || old('type_package') === 'sertifikasi' ? 'selected' : ''
                                     }}>Sertifikasi</option>
+                                <option value="kecermatan" {{ (isset($package) && $package->type_package ===
+                                    'kecermatan') || old('type_package') === 'kecermatan' ? 'selected' : ''
+                                    }}>Kecermatan</option>
                                 @if($canManageTesKoran || (isset($package) && $package->type_package === 'tes_koran'))
                                 <option value="tes_koran" {{ (isset($package) && $package->type_package ===
                                     'tes_koran') || old('type_package') === 'tes_koran' ? 'selected' : ''

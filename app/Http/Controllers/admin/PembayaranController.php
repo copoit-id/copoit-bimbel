@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\IndividualPurchase;
+use App\Models\Kecermatan;
 use App\Models\Material;
 use App\Models\Payment;
 use App\Models\TesKoran;
@@ -39,7 +40,7 @@ class PembayaranController extends Controller
         $productType = $request->get('product_type', 'all');
         $summaryMetric = $request->get('summary_metric', 'count');
         $search = trim((string) $request->get('search', ''));
-        $allowedProductTypes = ['all', 'package', 'material', 'tryout'];
+        $allowedProductTypes = ['all', 'package', 'material', 'tryout', 'kecermatan'];
         $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
 
         if ($canManageTesKoran) {
@@ -83,6 +84,7 @@ class PembayaranController extends Controller
         $individualTypes = [
             Material::class => 'material',
             Tryout::class => 'tryout',
+            Kecermatan::class => 'kecermatan',
         ];
 
         if ($canManageTesKoran) {
@@ -168,6 +170,7 @@ class PembayaranController extends Controller
                 'item_type' => match ($itemType) {
                     'Tryout' => 'Tryout',
                     'TesKoran' => 'Tes Koran',
+                    'Kecermatan' => 'Kecermatan',
                     default => 'Materi',
                 },
                 'amount' => (int) $purchase->total_amount,
@@ -231,6 +234,7 @@ class PembayaranController extends Controller
             'package' => 'Paket',
             'material' => 'Materi',
             'tryout' => 'Tryout',
+            'kecermatan' => 'Kecermatan',
         ];
 
         if ($canManageTesKoran) {

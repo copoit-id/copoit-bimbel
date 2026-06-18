@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Discount;
 use App\Models\IndividualPurchase;
+use App\Models\Kecermatan;
 use App\Models\Material;
 use App\Models\TesKoran;
 use App\Models\Tryout;
@@ -27,7 +28,7 @@ class IndividualPurchaseController extends Controller
         }
 
         $request->validate([
-            'type' => 'required|in:material,tryout,tes_koran',
+            'type' => 'required|in:material,tryout,tes_koran,kecermatan',
             'id' => 'required|integer',
             'discount_code' => 'nullable|string|max:50',
         ]);
@@ -43,9 +44,12 @@ class IndividualPurchaseController extends Controller
         } elseif ($type === 'tryout') {
             $item = Tryout::find($id);
             $purchasableType = Tryout::class;
-        } else {
+        } elseif ($type === 'tes_koran') {
             $item = TesKoran::find($id);
             $purchasableType = TesKoran::class;
+        } else {
+            $item = Kecermatan::find($id);
+            $purchasableType = Kecermatan::class;
         }
 
         if (!$item) {
@@ -100,7 +104,8 @@ class IndividualPurchaseController extends Controller
             $itemLabel = match ($type) {
                 'material' => 'materi',
                 'tryout' => 'tryout',
-                default => 'tes koran',
+                'tes_koran' => 'tes koran',
+                default => 'kecermatan',
             };
 
             $message = "Anda sudah memiliki akses ke {$itemLabel} ini.";
@@ -182,7 +187,7 @@ class IndividualPurchaseController extends Controller
 
     public function gatewayRedirect(Request $request, string $type, int $id)
     {
-        if (!in_array($type, ['material', 'tryout', 'tes_koran'], true)) {
+        if (!in_array($type, ['material', 'tryout', 'tes_koran', 'kecermatan'], true)) {
             abort(404);
         }
 
@@ -196,9 +201,12 @@ class IndividualPurchaseController extends Controller
         } elseif ($type === 'tryout') {
             $item = Tryout::find($id);
             $purchasableType = Tryout::class;
-        } else {
+        } elseif ($type === 'tes_koran') {
             $item = TesKoran::find($id);
             $purchasableType = TesKoran::class;
+        } else {
+            $item = Kecermatan::find($id);
+            $purchasableType = Kecermatan::class;
         }
 
         if (!$item) {
@@ -275,6 +283,7 @@ class IndividualPurchaseController extends Controller
             'material' => (int) $item->material_id,
             'tryout' => (int) $item->tryout_id,
             'tes_koran' => (int) $item->id,
+            'kecermatan' => (int) $item->id,
         };
 
         $error = $discount->validationErrorFor((int) $item->price, $userId, null, $type, $itemId);
@@ -309,6 +318,7 @@ class IndividualPurchaseController extends Controller
             $purchase->purchasable instanceof \App\Models\Material => 'Materi',
             $purchase->purchasable instanceof \App\Models\Tryout => 'Tryout',
             $purchase->purchasable instanceof \App\Models\TesKoran => 'Tes Koran',
+            $purchase->purchasable instanceof \App\Models\Kecermatan => 'Kecermatan',
             default => 'Item',
         };
 

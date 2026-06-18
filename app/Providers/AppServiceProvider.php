@@ -85,6 +85,7 @@ class AppServiceProvider extends ServiceProvider
             'footer_twitter' => null,
             'footer_youtube' => null,
             'tes_koran_enabled' => true,
+            'kecermatan_enabled' => false,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -148,6 +149,7 @@ class AppServiceProvider extends ServiceProvider
             && Schema::hasTable('permission_role')
         ) {
             $defaults['tes_koran_enabled'] = Role::adminCanViewFeature('tes_koran');
+            $defaults['kecermatan_enabled'] = Role::adminCanViewFeature('kecermatan');
         }
 
         if (Schema::hasTable('client_plan_subscriptions') && Schema::hasTable('plans')) {

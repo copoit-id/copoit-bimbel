@@ -13,6 +13,8 @@
     $dropdownLinkInactive = $sidebarPrimary ? 'text-white/80 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100';
     $emptyTextClass = $sidebarPrimary ? 'text-white/70' : 'text-gray-500';
     $secondaryColor = $clientBranding['secondary_color'] ?? '#F3F3F3';
+    $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
+    $kecermatanEnabled = $clientBranding['kecermatan_enabled'] ?? false;
     $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
         && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
     if ($sidebarPrimary) {
@@ -98,11 +100,38 @@
                 </ul>
             </li>
             <li>
-                <a href="{{ route('user.package.tryout.list') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.list') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                    <i class="ri-file-list-3-line text-[20px] {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.list') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="ms-3">Tryout</span>
-                </a>
+                <button type="button"
+                    class="flex items-center w-full py-2 px-4 {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.*') || request()->routeIs('user.tes-koran.*') || request()->routeIs('user.kecermatan.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group transition-colors duration-200"
+                    aria-controls="dropdown-tryout"
+                    data-collapse-toggle="dropdown-tryout">
+                    <i class="ri-file-list-3-line text-[20px] {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.*') || request()->routeIs('user.tes-koran.*') || request()->routeIs('user.kecermatan.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="flex-1 ms-3 text-left">Tryout</span>
+                    <svg class="w-3 h-3 transition-transform duration-200 {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.*') || request()->routeIs('user.tes-koran.*') || request()->routeIs('user.kecermatan.*') ? 'rotate-180' : '' }}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4" />
+                    </svg>
+                </button>
+                <div class="h-px bg-gray-200/40 mx-4"></div>
+                <ul id="dropdown-tryout" class="{{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.*') || request()->routeIs('user.tes-koran.*') || request()->routeIs('user.kecermatan.*') ? '' : 'hidden' }} py-2 space-y-1">
+                    <li>
+                        <a href="{{ route('user.package.tryout.list') }}" class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.*') ? $dropdownLinkActive : $dropdownLinkInactive }}">
+                            <i class="ri-file-list-3-line text-[16px] mr-2"></i>Tryout
+                        </a>
+                    </li>
+                    @if($tesKoranEnabled)
+                    <li>
+                        <a href="{{ route('user.tes-koran.index') }}" class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.tes-koran.*') ? $dropdownLinkActive : $dropdownLinkInactive }}">
+                            <i class="ri-file-edit-line text-[16px] mr-2"></i>Pauli/Krapelin
+                        </a>
+                    </li>
+                    @endif
+                    @if($kecermatanEnabled)
+                    <li>
+                        <a href="{{ route('user.kecermatan.index') }}" class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.kecermatan.*') ? $dropdownLinkActive : $dropdownLinkInactive }}">
+                            <i class="ri-focus-3-line text-[16px] mr-2"></i>Kecermatan
+                        </a>
+                    </li>
+                    @endif
+                </ul>
             </li>
             <li>
                 <a href="{{ route('user.help.index') }}"

@@ -9,6 +9,7 @@ use App\Models\Discount;
 use App\Models\AffiliateSetting;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
+use App\Models\KecermatanAttempt;
 use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
 use App\Models\Tryout;
@@ -58,7 +59,7 @@ class PackageController extends Controller
         
         $packagesQuery = Package::where('status', 'active')
             ->with(['detailPackages'])
-            ->withCount(['materials', 'tryouts', 'tesKorans']);
+            ->withCount(['materials', 'tryouts', 'tesKorans', 'kecermatans']);
 
         if ($tab === 'free') {
             $packagesQuery->whereIn('type_price', ['free_unconditional', 'free_conditional']);
@@ -2490,10 +2491,14 @@ class PackageController extends Controller
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $kecermatanEnabled = config('client.branding.kecermatan_enabled', false);
         
         $packageRelations = ['package.materialsThroughDetail', 'package.tryouts'];
         if ($tesKoranEnabled) {
             $packageRelations[] = 'package.tesKorans';
+        }
+        if ($kecermatanEnabled) {
+            $packageRelations[] = 'package.kecermatans.columns';
         }
 
         $activePackages = UserPackageAcces::where('user_id', $user->id)
@@ -2576,6 +2581,27 @@ class PackageController extends Controller
                 ->get()
             : collect();
 
+        $myKecermatans = $kecermatanEnabled
+            ? \App\Models\Kecermatan::where('is_active', true)
+                ->where('is_displayed', true)
+                ->where(function ($query) use ($accessiblePackageIds, $user) {
+                $query->whereHas('packages', function ($packageQuery) use ($accessiblePackageIds) {
+                    $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+                })->orWhereHas('individualPurchases', function ($purchaseQuery) use ($user) {
+                    $purchaseQuery->where('user_id', $user->id)
+                        ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED)
+                        ->where(function ($query) {
+                            $query->whereNull('access_expires_at')
+                                ->orWhere('access_expires_at', '>', now());
+                        });
+                });
+            })
+                ->with(['columns', 'attempts' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                }])
+                ->get()
+            : collect();
+
         $activePackages = $this->filterAndSortUserCollection(
             $activePackages,
             $search,
@@ -2608,6 +2634,14 @@ class PackageController extends Controller
             fn ($tesKoran) => $tesKoran->created_at
         );
 
+        $myKecermatans = $this->filterAndSortUserCollection(
+            $myKecermatans,
+            $search,
+            $sort,
+            fn ($kecermatan) => (string) $kecermatan->name,
+            fn ($kecermatan) => $kecermatan->created_at
+        );
+
         $videoMaterials = $myMaterials->where('type', 'video')->values();
         $documentMaterials = $myMaterials->where('type', 'document')->values();
 
@@ -2628,6 +2662,17 @@ class PackageController extends Controller
                 ->map(fn ($id) => (int) $id)
                 ->all()
             : [];
+        $completedKecermatanIds = $kecermatanEnabled
+            ? KecermatanAttempt::where('user_id', $user->id)
+                ->where('status', 'completed')
+                ->select('kecermatan_id', 'attempt_token')
+                ->groupBy('kecermatan_id', 'attempt_token')
+                ->get()
+                ->groupBy('kecermatan_id')
+                ->keys()
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
 
         $packageProgress = [];
         foreach ($activePackages as $access) {
@@ -2635,10 +2680,12 @@ class PackageController extends Controller
             $materials = $package?->materialsThroughDetail ?? collect();
             $tryouts = $package?->tryouts ?? collect();
             $tesKorans = $tesKoranEnabled ? ($package?->tesKorans ?? collect()) : collect();
-            $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
+            $kecermatans = $kecermatanEnabled ? ($package?->kecermatans ?? collect()) : collect();
+            $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count() + $kecermatans->count();
             $completedCount = $materials->whereIn('material_id', $completedMaterialIds)->count()
                 + $tryouts->whereIn('tryout_id', $completedTryoutIds)->count()
-                + $tesKorans->whereIn('id', $completedTesKoranIds)->count();
+                + $tesKorans->whereIn('id', $completedTesKoranIds)->count()
+                + $kecermatans->whereIn('id', $completedKecermatanIds)->count();
 
             $packageProgress[$access->package_id] = [
                 'total_items' => $totalItems,
@@ -2666,6 +2713,7 @@ class PackageController extends Controller
             'documentMaterials',
             'myTryouts',
             'myTesKorans',
+            'myKecermatans',
             'packageProgress',
             'tryoutPackageIds',
             'search',
@@ -2686,9 +2734,14 @@ class PackageController extends Controller
         
         $user = Auth::user();
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
-        $relations = $tesKoranEnabled
-            ? ['materialsThroughDetail.categories', 'tryouts', 'tesKorans']
-            : ['materialsThroughDetail.categories', 'tryouts'];
+        $kecermatanEnabled = config('client.branding.kecermatan_enabled', false);
+        $relations = ['materialsThroughDetail.categories', 'tryouts'];
+        if ($tesKoranEnabled) {
+            $relations[] = 'tesKorans';
+        }
+        if ($kecermatanEnabled) {
+            $relations[] = 'kecermatans.columns';
+        }
 
         $package = Package::with($relations)->findOrFail($packageId);
         
@@ -2805,6 +2858,46 @@ class PackageController extends Controller
                 $orderCounter++;
             }
         }
+
+        $packageKecermatans = $kecermatanEnabled
+            ? $package->kecermatans->where('is_active', true)->where('is_displayed', true)
+            : collect();
+
+        foreach ($packageKecermatans as $kecermatan) {
+            $columnsCount = $kecermatan->columns->count();
+            $completedToken = KecermatanAttempt::where('user_id', $user->id)
+                ->where('kecermatan_id', $kecermatan->id)
+                ->where('status', 'completed')
+                ->select('attempt_token')
+                ->groupBy('attempt_token')
+                ->havingRaw('COUNT(DISTINCT kecermatan_column_id) >= ?', [$columnsCount])
+                ->value('attempt_token');
+            $inProgress = KecermatanAttempt::where('user_id', $user->id)
+                ->where('kecermatan_id', $kecermatan->id)
+                ->where('status', 'in_progress')
+                ->exists();
+            $isCompleted = $completedToken !== null && $columnsCount > 0;
+
+            if ($isCompleted) {
+                $completedCount++;
+            }
+
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'kecermatan',
+                'title' => $kecermatan->name,
+                'subtitle' => $kecermatan->typeLabel(),
+                'icon' => 'ri-focus-3-line',
+                'route' => route('user.kecermatan.start', $kecermatan),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => $inProgress,
+                'progress_percent' => 0,
+                'status_text' => $isCompleted ? 'Selesai' : ($inProgress ? 'Lanjutkan' : 'Mulai'),
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+
+            $orderCounter++;
+        }
         
         $totalItems = $roadmapItems->count();
         $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
@@ -2905,9 +2998,14 @@ class PackageController extends Controller
     public function detail($package_id)
     {
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
-        $relations = $tesKoranEnabled
-            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans', 'detailPackages']
-            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'detailPackages'];
+        $kecermatanEnabled = config('client.branding.kecermatan_enabled', false);
+        $relations = ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'detailPackages'];
+        if ($tesKoranEnabled) {
+            $relations[] = 'tesKorans';
+        }
+        if ($kecermatanEnabled) {
+            $relations[] = 'kecermatans';
+        }
 
         $package = Package::with($relations)
             ->where('status', 'active')

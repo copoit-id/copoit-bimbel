@@ -3,6 +3,7 @@ $user = auth()->user();
 $currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
+$kecermatanEnabled = $clientBranding['kecermatan_enabled'] ?? false;
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
 
@@ -124,19 +125,29 @@ function isActive($route, $current) {
                     </div>
                 </div>
                 
-                {{-- Tryout - Accessible by Guest & User --}}
-                <a href="{{ route('user.package.tryout.list') }}"
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
-                </a>
-
-                @if($tesKoranEnabled)
-                {{-- Tes Koran - Accessible by Guest & User --}}
-                <a href="{{ route('user.tes-koran.index') }}"
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tes-koran', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-file-edit-line mr-1.5 {{ isActive('user.tes-koran', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tes Koran
-                </a>
-                @endif
+                {{-- Tryout with Dropdown --}}
+                <div class="relative group">
+                    <a href="{{ route('user.package.tryout.list') }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.kecermatan', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.kecermatan', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
+                        <i class="ri-arrow-down-s-line ml-1 text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="{{ route('user.package.tryout.list') }}" class="dropdown-item {{ isActive('user.package.tryout', $currentRoute) || isActive('user.tryout', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-file-list-3-line"></i>Tryout
+                        </a>
+                        @if($tesKoranEnabled)
+                        <a href="{{ route('user.tes-koran.index') }}" class="dropdown-item {{ isActive('user.tes-koran', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-file-edit-line"></i>Pauli/Krapelin
+                        </a>
+                        @endif
+                        @if($kecermatanEnabled)
+                        <a href="{{ route('user.kecermatan.index') }}" class="dropdown-item {{ isActive('user.kecermatan', $currentRoute) ? 'text-emerald-600' : '' }}">
+                            <i class="ri-focus-3-line"></i>Kecermatan
+                        </a>
+                        @endif
+                    </div>
+                </div>
                 
                 {{-- Paket (untuk semua user - berbayar & gratis) --}}
                 <a href="{{ route('user.package.index') }}" 
@@ -173,7 +184,12 @@ function isActive($route, $current) {
                         </a>
                         @if($tesKoranEnabled)
                         <a href="{{ route('user.package.my') }}?tab=tes-koran" class="dropdown-item">
-                            <i class="ri-file-edit-line"></i>Tes Koran Saya
+                            <i class="ri-file-edit-line"></i>Pauli/Krapelin Saya
+                        </a>
+                        @endif
+                        @if($kecermatanEnabled)
+                        <a href="{{ route('user.package.my') }}?tab=kecermatan" class="dropdown-item">
+                            <i class="ri-focus-3-line"></i>Kecermatan Saya
                         </a>
                         @endif
                     </div>
@@ -255,17 +271,10 @@ function isActive($route, $current) {
         </a>
         
         {{-- Tryout - Accessible by Guest & User --}}
-        <a href="{{ route('user.package.tryout.list') }}" class="flex flex-col items-center p-2 {{ isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.package.tryout', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
+        <a href="{{ route('user.package.tryout.list') }}" class="flex flex-col items-center p-2 {{ isActive('user.package.tryout', $currentRoute) || isActive('user.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.kecermatan', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.package.tryout', $currentRoute) || isActive('user.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.kecermatan', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-file-list-3-line text-xl"></i>
             <span class="text-xs mt-0.5">Tryout</span>
         </a>
-
-        @if($tesKoranEnabled)
-        <a href="{{ route('user.tes-koran.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.tes-koran', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.tes-koran', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
-            <i class="ri-file-edit-line text-xl"></i>
-            <span class="text-xs mt-0.5">Koran</span>
-        </a>
-        @endif
         
         <a href="{{ route('user.package.index') }}" class="flex flex-col items-center p-2 {{ $currentRoute === 'user.package.index' ? '' : 'text-gray-400' }}" style="{{ $currentRoute === 'user.package.index' ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-store-3-line text-xl"></i>

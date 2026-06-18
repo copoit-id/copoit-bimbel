@@ -41,8 +41,10 @@
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
         || request()->routeIs('admin.tes-koran.*')
+        || request()->routeIs('admin.kecermatan.*')
         || $isMaterialManagementActive;
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
+    $isKecermatanActive = request()->routeIs('admin.kecermatan.*');
     $isUserActive = request()->routeIs('admin.user.*')
         || request()->routeIs('admin.akses.*');
     $isReportActive = request()->routeIs('admin.leaderboard.*')
@@ -100,6 +102,14 @@
                             <a href="{{ route('admin.tryout.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tryout.*')  || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <span>Manajemen Tryout</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('kecermatan'))
+                        <li>
+                            <a href="{{ route('admin.kecermatan.index') }}"
+                                class="flex items-center py-2 pl-12 pr-4 {{ $isKecermatanActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <span>Kecermatan</span>
                             </a>
                         </li>
                         @endif

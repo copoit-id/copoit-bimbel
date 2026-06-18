@@ -193,6 +193,7 @@ class Discount extends Model
             'tryout' => $this->applicable_tryout_ids,
             'material' => $this->applicable_material_ids,
             'tes_koran' => $this->applicable_tes_koran_ids,
+            'kecermatan' => null,
             default => null,
         };
 

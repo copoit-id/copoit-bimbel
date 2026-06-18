@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\IndividualPurchase;
+use App\Models\Kecermatan;
 use App\Models\Material;
 use App\Models\Package;
 use App\Models\TesKoran;
@@ -24,8 +25,12 @@ class AksesController extends Controller
     {
         $tab = $request->get('tab', 'packages');
         $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
+        $canManageKecermatan = $request->user()?->hasPermission('kecermatan', 'view') ?? false;
 
         if ($tab === 'tes_koran' && !$canManageTesKoran) {
+            $tab = 'packages';
+        }
+        if ($tab === 'kecermatan' && !$canManageKecermatan) {
             $tab = 'packages';
         }
         
@@ -43,6 +48,11 @@ class AksesController extends Controller
             'live' => Material::where('type', 'live_session')->where('is_active', true)->withCount('userAccess')->get(),
             'tryouts' => Tryout::where('is_active', true)->withCount('userAccess')->get(),
             'tes_koran' => TesKoran::where('is_active', true)
+                ->withCount([
+                    'individualPurchases as user_access_count' => fn($q) => $q->where('status', IndividualPurchase::STATUS_APPROVED),
+                ])
+                ->get(),
+            'kecermatan' => Kecermatan::where('is_active', true)
                 ->withCount([
                     'individualPurchases as user_access_count' => fn($q) => $q->where('status', IndividualPurchase::STATUS_APPROVED),
                 ])
@@ -79,12 +89,17 @@ class AksesController extends Controller
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
             403
         );
+        abort_if(
+            $normalizedType === 'kecermatan' && !($request->user()?->hasPermission('kecermatan', 'view') ?? false),
+            403
+        );
 
         $item = match($normalizedType) {
             'package' => Package::findOrFail($itemId),
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
             'tryout' => Tryout::findOrFail($itemId),
             'tes_koran' => TesKoran::findOrFail($itemId),
+            'kecermatan' => Kecermatan::findOrFail($itemId),
             default => abort(404),
         };
 
@@ -116,6 +131,10 @@ class AksesController extends Controller
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
             403
         );
+        abort_if(
+            $normalizedType === 'kecermatan' && !($request->user()?->hasPermission('kecermatan', 'view') ?? false),
+            403
+        );
         
         if (!$itemId) {
             return redirect()->route('admin.akses.index');
@@ -127,6 +146,7 @@ class AksesController extends Controller
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
             'tryout' => Tryout::findOrFail($itemId),
             'tes_koran' => TesKoran::findOrFail($itemId),
+            'kecermatan' => Kecermatan::findOrFail($itemId),
             default => abort(404),
         };
         
@@ -145,6 +165,12 @@ class AksesController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get(),
             'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
+                ->where('purchasable_id', $itemId)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+            'kecermatan' => IndividualPurchase::where('purchasable_type', Kecermatan::class)
                 ->where('purchasable_id', $itemId)
                 ->where('status', IndividualPurchase::STATUS_APPROVED)
                 ->with('user')
@@ -183,7 +209,7 @@ class AksesController extends Controller
     public function grant(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran',
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran,kecermatan',
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
             'start_date' => 'nullable|date',
@@ -201,6 +227,10 @@ class AksesController extends Controller
 
         abort_if(
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'update') ?? false),
+            403
+        );
+        abort_if(
+            $normalizedType === 'kecermatan' && !($request->user()?->hasPermission('kecermatan', 'update') ?? false),
             403
         );
         
@@ -232,6 +262,19 @@ class AksesController extends Controller
                 ->where('purchasable_id', $itemId)
                 ->where('user_id', $userId)
                 ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->where(function ($query) {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', Carbon::now());
+                })
+                ->exists(),
+            'kecermatan' => IndividualPurchase::where('purchasable_type', Kecermatan::class)
+                ->where('purchasable_id', $itemId)
+                ->where('user_id', $userId)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->where(function ($query) {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', Carbon::now());
+                })
                 ->exists(),
             default => true,
         };
@@ -246,6 +289,7 @@ class AksesController extends Controller
             'video', 'document', 'live_session' => $this->grantMaterialAccess($userId, $itemId, $request),
             'tryout' => $this->grantTryoutAccess($userId, $itemId, $request),
             'tes_koran' => $this->grantTesKoranAccess($userId, $itemId, $request),
+            'kecermatan' => $this->grantKecermatanAccess($userId, $itemId, $request),
             default => null,
         };
         
@@ -258,7 +302,7 @@ class AksesController extends Controller
     public function revoke(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran',
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran,kecermatan',
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
         ]);
@@ -275,12 +319,20 @@ class AksesController extends Controller
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'delete') ?? false),
             403
         );
+        abort_if(
+            $normalizedType === 'kecermatan' && !($request->user()?->hasPermission('kecermatan', 'delete') ?? false),
+            403
+        );
         
         match($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->delete(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->delete(),
             'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->delete(),
             'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
+                ->where('purchasable_id', $itemId)
+                ->where('user_id', $userId)
+                ->delete(),
+            'kecermatan' => IndividualPurchase::where('purchasable_type', Kecermatan::class)
                 ->where('purchasable_id', $itemId)
                 ->where('user_id', $userId)
                 ->delete(),
@@ -329,6 +381,16 @@ class AksesController extends Controller
 
         if (in_array($type, ['video', 'document', 'live_session', 'tryout'], true)) {
             $expiresAt = $access->expires_at ?? null;
+
+            if (is_null($expiresAt) || Carbon::parse($expiresAt)->isFuture()) {
+                return 'active';
+            }
+
+            return 'expired';
+        }
+
+        if (in_array($type, ['tes_koran', 'kecermatan'], true)) {
+            $expiresAt = $access->access_expires_at ?? null;
 
             if (is_null($expiresAt) || Carbon::parse($expiresAt)->isFuture()) {
                 return 'active';
@@ -399,6 +461,34 @@ class AksesController extends Controller
         ]);
     }
 
+    private function grantKecermatanAccess($userId, $kecermatanId, $request)
+    {
+        $kecermatan = Kecermatan::findOrFail($kecermatanId);
+        $approvedAt = now();
+        $price = $request->access_type === 'paid' ? ($kecermatan->price ?? 0) : 0;
+
+        IndividualPurchase::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'purchasable_type' => Kecermatan::class,
+                'purchasable_id' => $kecermatanId,
+            ],
+            [
+                'price' => $price,
+                'admin_fee' => 0,
+                'total_amount' => $price,
+                'payment_method' => 'direct',
+                'status' => IndividualPurchase::STATUS_APPROVED,
+                'transaction_id' => 'DIRECT-KECERMATAN-' . $kecermatanId . '-' . $userId . '-' . time(),
+                'approved_at' => $approvedAt,
+                'access_expires_at' => $request->end_date
+                    ? Carbon::parse($request->end_date)
+                    : PurchaseAccessDuration::expiresAt($kecermatan, $approvedAt),
+                'approved_by' => Auth::id(),
+            ]
+        );
+    }
+
     private function packagePendingRequests(?int $packageId = null)
     {
         return UserPackageAcces::where('requirement_status', 'pending')
@@ -449,6 +539,7 @@ class AksesController extends Controller
             'video', 'videos', 'document', 'documents', 'live', 'live_session' => Material::class,
             'tryout', 'tryouts' => Tryout::class,
             'tes_koran' => TesKoran::class,
+            'kecermatan' => Kecermatan::class,
             default => null,
         };
     }

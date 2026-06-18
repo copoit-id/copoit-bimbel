@@ -13,13 +13,15 @@
     $liveSessions = $roadmapItems->filter(fn ($item) => ($item['type'] ?? null) === 'material' && ($item['material_type'] ?? null) === 'live_session')->values();
     $tryouts = $roadmapItems->where('type', 'tryout')->values();
     $tesKorans = $roadmapItems->where('type', 'tes_koran')->values();
+    $kecermatans = $roadmapItems->where('type', 'kecermatan')->values();
 
     $sections = [
         ['key' => 'videos', 'title' => 'Video Materi', 'icon' => 'ri-video-line', 'items' => $videos, 'empty' => 'Belum ada video di paket ini.'],
         ['key' => 'documents', 'title' => 'Dokumen', 'icon' => 'ri-file-text-line', 'items' => $documents, 'empty' => 'Belum ada dokumen di paket ini.'],
         ['key' => 'live', 'title' => 'Live Session', 'icon' => 'ri-live-line', 'items' => $liveSessions, 'empty' => 'Belum ada live session di paket ini.'],
         ['key' => 'tryouts', 'title' => 'Tryout', 'icon' => 'ri-file-list-3-line', 'items' => $tryouts, 'empty' => 'Belum ada tryout di paket ini.'],
-        ['key' => 'tes-koran', 'title' => 'Tes Koran', 'icon' => 'ri-file-edit-line', 'items' => $tesKorans, 'empty' => 'Belum ada tes koran di paket ini.'],
+        ['key' => 'tes-koran', 'title' => 'Pauli/Krapelin', 'icon' => 'ri-file-edit-line', 'items' => $tesKorans, 'empty' => 'Belum ada Pauli/Krapelin di paket ini.'],
+        ['key' => 'kecermatan', 'title' => 'Kecermatan', 'icon' => 'ri-focus-3-line', 'items' => $kecermatans, 'empty' => 'Belum ada kecermatan di paket ini.'],
     ];
 @endphp
 

@@ -66,6 +66,18 @@ class Package extends Model
         )->where('detail_packages.detailable_type', TesKoran::class);
     }
 
+    public function kecermatans()
+    {
+        return $this->hasManyThrough(
+            Kecermatan::class,
+            DetailPackage::class,
+            'package_id',
+            'id',
+            'package_id',
+            'detailable_id'
+        )->where('detail_packages.detailable_type', Kecermatan::class);
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class);

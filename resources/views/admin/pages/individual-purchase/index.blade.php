@@ -3,6 +3,7 @@
     $typeOptions = [
         'material' => 'Materi',
         'tryout' => 'Tryout',
+        'kecermatan' => 'Kecermatan',
     ];
 
     if ($canManageTesKoran) {
@@ -123,6 +124,7 @@
                     $typeLabel = match ($itemType) {
                         'Tryout' => 'Tryout',
                         'TesKoran' => 'Tes Koran',
+                        'Kecermatan' => 'Kecermatan',
                         default => 'Materi',
                     };
                 @endphp

@@ -6,10 +6,14 @@
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
+$kecermatanEnabled = $clientBranding['kecermatan_enabled'] ?? false;
 $user = auth()->user();
 $currentTab = request('tab', 'packages');
 
 if (!$tesKoranEnabled && $currentTab === 'tes-koran') {
+    $currentTab = 'packages';
+}
+if (!$kecermatanEnabled && $currentTab === 'kecermatan') {
     $currentTab = 'packages';
 }
 $assetUrl = function (?string $path) {
@@ -63,7 +67,13 @@ $assetUrl = function (?string $path) {
     @if($tesKoranEnabled)
     <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'tes-koran'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tes-koran' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
-        <i class="ri-file-edit-line mr-1"></i>Tes Koran
+        <i class="ri-file-edit-line mr-1"></i>Pauli/Krapelin
+    </a>
+    @endif
+    @if($kecermatanEnabled)
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'kecermatan'])) }}"
+       class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'kecermatan' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-focus-3-line mr-1"></i>Kecermatan
     </a>
     @endif
 </div>
@@ -367,6 +377,71 @@ $assetUrl = function (?string $path) {
         </div>
         <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada tryout</h3>
         <p class="text-gray-400 text-sm mb-6">Tryout akan muncul di sini setelah kamu memiliki akses.</p>
+        <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+            <i class="ri-store-3-line mr-2"></i>Lihat Paket
+        </a>
+    </div>
+    @endif
+
+{{-- ==================== TAB: KECERMATAN ==================== --}}
+@elseif($kecermatanEnabled && $currentTab === 'kecermatan')
+    @if($myKecermatans->count() > 0)
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach($myKecermatans as $kecermatan)
+        @php
+        $attempts = $kecermatan->attempts;
+        $columnsCount = $kecermatan->columns->count();
+        $completedToken = $attempts
+            ->where('status', 'completed')
+            ->groupBy('attempt_token')
+            ->first(fn ($tokenAttempts) => $columnsCount > 0 && $tokenAttempts->pluck('kecermatan_column_id')->unique()->count() >= $columnsCount);
+        $hasCompleted = $completedToken !== null;
+        $isInProgress = $attempts->where('status', 'in_progress')->isNotEmpty();
+        @endphp
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 {{ $hasCompleted ? 'bg-green-100' : ($isInProgress ? 'bg-yellow-100' : 'bg-gray-100') }} rounded-xl flex items-center justify-center"
+                     style="{{ !$hasCompleted && !$isInProgress ? 'background-color: ' . $primaryColor . '20' : '' }}">
+                    <i class="ri-focus-3-line text-xl {{ $hasCompleted ? 'text-green-600' : ($isInProgress ? 'text-yellow-600' : '') }}"
+                       style="{{ !$hasCompleted && !$isInProgress ? 'color: ' . $primaryColor : '' }}"></i>
+                </div>
+                @if($hasCompleted)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Sudah Dikerjakan</span>
+                @elseif($isInProgress)
+                <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang Dikerjakan</span>
+                @else
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Belum Dikerjakan</span>
+                @endif
+            </div>
+
+            <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $kecermatan->name }}</h3>
+
+            <div class="space-y-2 mb-4">
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-price-tag-3-line mr-2 text-gray-400"></i>
+                    <span>{{ $kecermatan->typeLabel() }}</span>
+                </div>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-layout-column-line mr-2 text-gray-400"></i>
+                    <span>{{ $columnsCount }} Kolom</span>
+                </div>
+            </div>
+
+            <a href="{{ route('user.kecermatan.start', $kecermatan) }}"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity mt-auto"
+               style="background-color: {{ $isInProgress ? '#f59e0b' : $primaryColor }}">
+                <i class="ri-play-circle-line mr-1"></i>{{ $isInProgress ? 'Lanjutkan' : ($hasCompleted ? 'Kerjakan Lagi' : 'Kerjakan') }}
+            </a>
+        </div>
+        @endforeach
+    </div>
+    @else
+    <div class="text-center py-16">
+        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="ri-focus-3-line text-4xl text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada kecermatan</h3>
+        <p class="text-gray-400 text-sm mb-6">Kecermatan akan muncul di sini setelah kamu memiliki akses.</p>
         <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
             <i class="ri-store-3-line mr-2"></i>Lihat Paket
         </a>

@@ -22,6 +22,7 @@
             'live' => 'ri-live-line',
             'tryout' => 'ri-file-list-3-line',
             'tes_koran' => 'ri-file-edit-line',
+            'kecermatan' => 'ri-focus-3-line',
             default => 'ri-apps-line',
         };
         $colorClass = match($type) {
@@ -31,6 +32,7 @@
             'live' => 'bg-purple-100 text-purple-600',
             'tryout' => 'bg-orange-100 text-orange-600',
             'tes_koran' => 'bg-emerald-100 text-emerald-600',
+            'kecermatan' => 'bg-cyan-100 text-cyan-600',
             default => 'bg-gray-100 text-gray-600',
         };
         @endphp
@@ -75,6 +77,8 @@
                                 Akses: {{ $access->created_at->format('d M Y') }}
                                 @if($type === 'package' && $access->end_date)
                                     • Exp: {{ $access->end_date->format('d M Y') }}
+                                @elseif(in_array($type, ['tes_koran', 'kecermatan'], true) && $access->access_expires_at)
+                                    • Exp: {{ $access->access_expires_at->format('d M Y') }}
                                 @endif
                             </p>
                         </div>

@@ -3,6 +3,7 @@
 @section('content')
 @php
     $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+    $canManageKecermatan = auth()->user()?->hasPermission('kecermatan', 'view') ?? false;
 @endphp
 
 <div class="flex justify-between items-center">
@@ -12,7 +13,7 @@
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="{{ $canManageTesKoran ? 'Kelola Akses User - Paket, Materi, Tryout & Tes Koran' : 'Kelola Akses User - Paket, Materi & Tryout' }}"></x-page-desc>
+<x-page-desc title="Kelola Akses User - Paket, Materi, Tryout{{ $canManageTesKoran ? ', Tes Koran' : '' }}{{ $canManageKecermatan ? ' dan Kecermatan' : '' }}"></x-page-desc>
 
 <!-- Tabs Navigation -->
 <div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex flex-wrap gap-1">
@@ -60,6 +61,15 @@
         </span>
     </a>
     @endif
+    @if($canManageKecermatan)
+    <a href="{{ route('admin.akses.index', ['tab' => 'kecermatan']) }}"
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'kecermatan' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-focus-3-line mr-1"></i>Kecermatan
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'kecermatan' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'kecermatan' ? $items->count() : '' }}
+        </span>
+    </a>
+    @endif
 </div>
 
 <!-- Items Grid -->
@@ -79,6 +89,7 @@
         'live' => 'ri-live-line',
         'tryouts' => 'ri-file-list-3-line',
         'tes_koran' => 'ri-file-edit-line',
+        'kecermatan' => 'ri-focus-3-line',
         default => 'ri-apps-line',
     };
     
@@ -90,6 +101,7 @@
         'live' => 'bg-purple-100 text-purple-600',
         'tryouts' => 'bg-orange-100 text-orange-600',
         'tes_koran' => 'bg-emerald-100 text-emerald-600',
+        'kecermatan' => 'bg-cyan-100 text-cyan-600',
         default => 'bg-gray-100 text-gray-600',
     };
     @endphp
@@ -110,9 +122,9 @@
             <div class="mt-auto pt-4">
                 <div class="mb-3 border-t pt-4">
                     <span class="inline-flex max-w-full items-center rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
-                    @if(in_array($tab, ['packages', 'tes_koran']) && $item->price > 0)
+                    @if(in_array($tab, ['packages', 'tes_koran', 'kecermatan']) && $item->price > 0)
                         Rp {{ number_format($item->price, 0, ',', '.') }}
-                    @elseif(in_array($tab, ['packages', 'tes_koran']))
+                    @elseif(in_array($tab, ['packages', 'tes_koran', 'kecermatan']))
                         Gratis
                     @else
                         {{ ucfirst(str_replace('_', ' ', $tab)) }}

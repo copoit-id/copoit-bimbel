@@ -10,6 +10,7 @@ use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
 use App\Models\ClassModel;
 use App\Models\DetailPackage;
+use App\Models\Kecermatan;
 use App\Models\Package;
 use App\Models\Material;
 use App\Models\Question;
@@ -55,7 +56,7 @@ class PackageController extends Controller
 
             $allowVideoThumbnail = config('client.branding.allow_video_thumbnail', false);
 
-            $packageTypes = ['bimbel', 'tryout', 'sertifikasi'];
+            $packageTypes = ['bimbel', 'tryout', 'sertifikasi', 'kecermatan'];
             if (auth()->user()?->hasPermission('tes_koran', 'view')) {
                 $packageTypes[] = 'tes_koran';
             }
@@ -140,7 +141,7 @@ class PackageController extends Controller
 
             $package = Package::findOrFail($id);
 
-            $packageTypes = ['bimbel', 'tryout', 'sertifikasi'];
+            $packageTypes = ['bimbel', 'tryout', 'sertifikasi', 'kecermatan'];
             if (auth()->user()?->hasPermission('tes_koran', 'view')) {
                 $packageTypes[] = 'tes_koran';
             }
@@ -442,6 +443,69 @@ class PackageController extends Controller
                     'detailable_id' => $tes_koran_id,
                 ]);
                 $message = 'Tes Koran berhasil ditambahkan ke paket';
+            }
+
+            return response()->json(['success' => true, 'message' => $message]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function indexKecermatan($package_id)
+    {
+        abort_unless(auth()->user()?->hasPermission('tryout', 'view'), 403);
+
+        try {
+            $package = Package::where('package_id', $package_id)->firstOrFail();
+
+            $kecermatans = Kecermatan::with(['detailPackages' => function ($query) use ($package_id) {
+                $query->where('package_id', $package_id);
+            }])
+                ->withCount('columns')
+                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = kecermatans.id AND package_id = ?) DESC", [Kecermatan::class, $package_id])
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+
+            $selectedKecermatanCount = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', Kecermatan::class)
+                ->count();
+
+            return view('admin.pages.package.kecermatan.index', compact('package', 'kecermatans', 'selectedKecermatanCount'));
+        } catch (\Exception $e) {
+            return redirect()->route('admin.package.index')
+                ->with('error', 'Paket tidak ditemukan');
+        }
+    }
+
+    public function toggleKecermatan(Request $request, $package_id, $kecermatan_id)
+    {
+        abort_unless(auth()->user()?->hasPermission('tryout', 'update'), 403);
+
+        try {
+            Package::where('package_id', $package_id)->firstOrFail();
+            Kecermatan::findOrFail($kecermatan_id);
+
+            $existing = DetailPackage::where('package_id', $package_id)
+                ->where('detailable_type', Kecermatan::class)
+                ->where('detailable_id', $kecermatan_id)
+                ->first();
+
+            $shouldBeSelected = $request->has('selected') ? $request->boolean('selected') : !$existing;
+
+            if ($shouldBeSelected && !$existing) {
+                DetailPackage::create([
+                    'package_id' => $package_id,
+                    'detailable_type' => Kecermatan::class,
+                    'detailable_id' => $kecermatan_id,
+                ]);
+                $message = 'Kecermatan berhasil ditambahkan ke paket';
+            } elseif (!$shouldBeSelected && $existing) {
+                $existing->delete();
+                $message = 'Kecermatan berhasil dihapus dari paket';
+            } else {
+                $message = $shouldBeSelected
+                    ? 'Kecermatan sudah ada di paket'
+                    : 'Kecermatan sudah tidak ada di paket';
             }
 
             return response()->json(['success' => true, 'message' => $message]);
