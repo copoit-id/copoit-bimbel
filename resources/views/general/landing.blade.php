@@ -216,7 +216,7 @@
     </div>
 </section>
 
-<!-- Section 3: Komunitas Belajar (WhatsApp Group with Live Chat Preview) -->
+<!-- Section 3: Komunitas Belajar -->
 <section class="py-16 bg-white">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-primary to-primary-hover p-8 md:p-12 text-white border border-primary/10">
@@ -226,7 +226,7 @@
 
             <div class="relative grid lg:grid-cols-12 gap-8 items-center z-10">
                 <!-- Left: Content details -->
-                <div class="lg:col-span-7 space-y-4">
+                <div class="lg:col-span-8 space-y-4">
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white font-extrabold uppercase tracking-widest text-[10px] sm:text-xs">
                         <i class="ri-wechat-line text-sm"></i>
                         {{ $landingValue('community.badge', 'Support System Pejuang PTN') }}
@@ -235,62 +235,17 @@
                     <p class="text-sm sm:text-base text-slate-100/90 font-medium leading-relaxed max-w-2xl">
                         {{ $landingValue('community.description', 'Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.') }}
                     </p>
-                    <div class="pt-4">
-                        <a href="{{ $landingValue('community.cta.href', 'https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H') }}"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-50 px-8 py-4 text-base font-extrabold text-primary shadow-md hover:shadow-lg transition-all w-full sm:w-auto active:scale-98">
-                            <i class="ri-whatsapp-line text-xl text-emerald-500"></i>
-                            {{ $landingValue('community.cta.label', 'Gabung Grup Sekarang') }}
-                        </a>
-                    </div>
                 </div>
 
-                <!-- Right: Realistic WhatsApp Chat Mockup -->
-                <div class="lg:col-span-5">
-                    <div class="rounded-2xl bg-[#ECE5DD] text-slate-800 p-4 shadow-xl border border-white/10 max-w-md mx-auto relative overflow-hidden">
-                        <!-- Chat header mock -->
-                        <div class="absolute top-0 left-0 right-0 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
-                            <div class="flex items-center gap-2">
-                                <div class="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center text-xs">💬</div>
-                                <div>
-                                    <p class="truncate font-extrabold">Grup Belajar UTBK {{ $clientBranding['name'] }}</p>
-                                    <p class="text-[9px] text-emerald-100 font-medium">10,482 Anggota • Online</p>
-                                </div>
-                            </div>
-                            <i class="ri-more-2-line text-lg"></i>
-                        </div>
-
-                        <!-- Chat content spacing -->
-                        <div class="space-y-3 pt-8 pb-1 text-[11px] sm:text-xs">
-                            <!-- Msg 1 (Admin) -->
-                            <div class="flex items-start gap-1.5 max-w-[85%]">
-                                <div class="h-6 w-6 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">AD</div>
-                                <div class="bg-white p-2.5 rounded-lg rounded-tl-none shadow-2xs">
-                                    <p class="font-extrabold text-primary text-[10px] mb-0.5">Admin BimbelHub</p>
-                                    <p class="leading-normal font-semibold">Halo Pejuang! Hari ini Tryout Akbar SNBT ke-5 sudah dibuka ya. Pastikan gunakan skor IRT terbaru!</p>
-                                </div>
-                            </div>
-
-                            <!-- Msg 2 (Rian) -->
-                            <div class="flex items-start gap-1.5 max-w-[85%] ml-auto justify-end">
-                                <div class="bg-[#DCF8C6] p-2.5 rounded-lg rounded-tr-none shadow-2xs text-right">
-                                    <p class="font-extrabold text-slate-600 text-[10px] mb-0.5">Rian H. (ITB)</p>
-                                    <p class="leading-normal font-semibold text-left">Bismillah, otw ngerjain target hari ini 720+! 💪</p>
-                                </div>
-                                <div class="h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">RH</div>
-                            </div>
-
-                            <!-- Msg 3 (Nanda) -->
-                            <div class="flex items-start gap-1.5 max-w-[85%]">
-                                <div class="h-6 w-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">NP</div>
-                                <div class="bg-white p-2.5 rounded-lg rounded-tl-none shadow-2xs">
-                                    <p class="font-extrabold text-emerald-600 text-[10px] mb-0.5">Nanda P. (UI)</p>
-                                    <p class="leading-normal font-semibold">Bahas soal Penalaran Matematika no 12 nanti malem ya guys.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Right: CTA -->
+                <div class="lg:col-span-4 flex lg:justify-end">
+                    <a href="{{ $landingValue('community.cta.href', 'https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H') }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="inline-flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-50 px-8 py-4 text-base font-extrabold text-primary shadow-md hover:shadow-lg transition-all active:scale-98">
+                        <i class="ri-whatsapp-line text-xl text-emerald-500"></i>
+                        {{ $landingValue('community.cta.label', 'Gabung Grup Sekarang') }}
+                    </a>
                 </div>
             </div>
         </div>
