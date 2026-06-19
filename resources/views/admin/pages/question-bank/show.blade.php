@@ -64,6 +64,11 @@
                 <p class="text-gray-500">{{ $bank->description ?: 'Belum ada deskripsi.' }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                <a href="{{ route('admin.question-bank.questions.ai-generator', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
+                    class="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50">
+                    <i class="ri-sparkling-2-line"></i>
+                    Generate AI
+                </a>
                 <button type="button" id="openImportQuestions"
                     class="inline-flex items-center gap-2 rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">
                     <i class="ri-file-excel-2-line"></i>

@@ -68,6 +68,26 @@ return [
         'key' => env('TINYMCE_API_KEY'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'question_model' => env('OPENAI_QUESTION_MODEL', 'gpt-5.4-mini'),
+        'timeout' => env('OPENAI_TIMEOUT', 90),
+        'question_models' => [
+            'gpt-5.4-mini' => 'OpenAI - GPT-5.4 Mini',
+        ],
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => env('GEMINI_TIMEOUT', 90),
+        'question_models' => [
+            'gemini-2.5-flash' => 'Gemini - 2.5 Flash',
+            'gemini-2.5-flash-lite' => 'Gemini - 2.5 Flash-Lite',
+        ],
+    ],
+
     'ai_similarity' => [
         'enabled' => env('AI_SIMILARITY_ENABLED', true),
         'url' => env('SIMILARITY_SERVICE_URL', 'http://localhost:8000'),
