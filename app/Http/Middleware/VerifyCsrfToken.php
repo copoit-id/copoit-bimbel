@@ -16,6 +16,8 @@ class VerifyCsrfToken extends Middleware
         '/webhook/xendit',
         'webhook/midtrans',
         '/webhook/midtrans',
+        'webhook/ipaymu',
+        '/webhook/ipaymu',
         'api/*'
     ];
 }

@@ -56,6 +56,8 @@ class AppServiceProvider extends ServiceProvider
             'interactive_qris_api_key' => null,
             'interactive_qris_mid' => null,
             'interactive_qris_use_tip' => false,
+            'ipaymu_api_key' => null,
+            'ipaymu_va' => null,
             'discount_menu_enabled' => (bool) config('settings.discount_menu_enabled', true),
             'affiliate_menu_enabled' => (bool) config('settings.affiliate_menu_enabled', false),
             'smtp_host' => null,
@@ -119,6 +121,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['interactive_qris_api_key'] = $clientProfile->interactive_qris_api_key ?? $defaults['interactive_qris_api_key'];
             $defaults['interactive_qris_mid'] = $clientProfile->interactive_qris_mid ?? $defaults['interactive_qris_mid'];
             $defaults['interactive_qris_use_tip'] = (bool) ($clientProfile->interactive_qris_use_tip ?? $defaults['interactive_qris_use_tip']);
+            $defaults['ipaymu_api_key'] = $clientProfile->ipaymu_api_key ?? $defaults['ipaymu_api_key'];
+            $defaults['ipaymu_va'] = $clientProfile->ipaymu_va ?? $defaults['ipaymu_va'];
             $defaults['smtp_host'] = $clientProfile->smtp_host ?? $defaults['smtp_host'];
             $defaults['smtp_port'] = $clientProfile->smtp_port ?? $defaults['smtp_port'];
             $defaults['smtp_encryption'] = $clientProfile->smtp_encryption ?? $defaults['smtp_encryption'];
@@ -226,6 +230,9 @@ class AppServiceProvider extends ServiceProvider
             : 'https://api.sandbox.midtrans.com/v2';
 
         $xenditBaseUrl = 'https://api.xendit.co';
+        $ipaymuBaseUrl = $mode === 'production'
+            ? config('payment_gateways.gateways.ipaymu.production_url', 'https://my.ipaymu.com/api/v2')
+            : config('payment_gateways.gateways.ipaymu.sandbox_url', 'https://sandbox.ipaymu.com/api/v2');
 
         config([
             'services.payment_gateway' => $gateway,
@@ -241,6 +248,9 @@ class AppServiceProvider extends ServiceProvider
             'services.interactive_qris.mid' => $branding['interactive_qris_mid'] ?: env('INTERACTIVE_QRIS_MID'),
             'services.interactive_qris.use_tip' => (bool) ($branding['interactive_qris_use_tip'] ?? env('INTERACTIVE_QRIS_USE_TIP', false)),
             'services.interactive_qris.base_url' => config('payment_gateways.gateways.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'),
+            'services.ipaymu.api_key' => $branding['ipaymu_api_key'] ?: env('IPAYMU_API_KEY'),
+            'services.ipaymu.va' => $branding['ipaymu_va'] ?: env('IPAYMU_VA'),
+            'services.ipaymu.base_url' => $ipaymuBaseUrl,
         ]);
     }
 

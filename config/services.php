@@ -58,6 +58,12 @@ return [
         'base_url' => env('INTERACTIVE_QRIS_BASE_URL', 'https://qris.interactive.co.id/restapi/qris'),
     ],
 
+    'ipaymu' => [
+        'api_key' => env('IPAYMU_API_KEY'),
+        'va' => env('IPAYMU_VA'),
+        'base_url' => env('IPAYMU_BASE_URL', 'https://sandbox.ipaymu.com/api/v2'),
+    ],
+
     'recaptcha' => [
         'enabled' => env('RECAPTCHA_ENABLED', false),
         'site_key' => env('RECAPTCHA_SITE_KEY'),

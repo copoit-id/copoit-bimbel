@@ -303,7 +303,7 @@
                         {{ $paymentMode === 'gateway' ? 'checked' : '' }}>
                     <div>
                         <p class="font-semibold text-gray-900">Otomatis (Payment Gateway)</p>
-                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke Xendit/Midtrans.</p>
+                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke gateway pilihan.</p>
                     </div>
                 </label>
                 <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
@@ -415,8 +415,12 @@
                             <p class="text-xs uppercase text-gray-500">InterActive QRIS Base URL</p>
                             <p id="interactive-qris-base-url">https://qris.interactive.co.id/restapi/qris</p>
                         </div>
+                        <div>
+                            <p class="text-xs uppercase text-gray-500">iPaymu Base URL</p>
+                            <p id="ipaymu-base-url">https://sandbox.ipaymu.com/api/v2</p>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis. InterActive QRIS saat ini adalah API live/production.</p>
+                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis mengikuti mode sandbox/production. InterActive QRIS saat ini adalah API live/production.</p>
                 </div>
                 <div data-gateway-fields="xendit" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                     <div>
@@ -494,6 +498,37 @@
                         </p>
                         @endif
                         @error('midtrans_client_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+                <div data-gateway-fields="ipaymu" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">iPaymu API Key</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="ipaymu_api_key"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="ipaymu_api_key">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="ipaymu_api_key">Show</button>
+                        </div>
+                        @if (!empty($profile?->getRawOriginal('ipaymu_api_key')))
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            API key sudah tersimpan.
+                        </p>
+                        @endif
+                        @error('ipaymu_api_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">VA iPaymu</label>
+                        <input type="text" name="ipaymu_va"
+                            value="{{ old('ipaymu_va', $profile->ipaymu_va ?? ($branding['ipaymu_va'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: 1179000899">
+                        @error('ipaymu_va')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -992,6 +1027,7 @@
         const midtransSnapUrlEl = document.getElementById('midtrans-snap-url');
         const midtransStatusUrlEl = document.getElementById('midtrans-status-url');
         const interactiveQrisBaseUrlEl = document.getElementById('interactive-qris-base-url');
+        const ipaymuBaseUrlEl = document.getElementById('ipaymu-base-url');
         const gatewayBlocks = document.querySelectorAll('[data-gateway-fields]');
 
         const gatewayEndpoints = {
@@ -999,13 +1035,15 @@
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.sandbox.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.sandbox.midtrans.com/v2',
-                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris'
+                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
+                ipaymuBase: 'https://sandbox.ipaymu.com/api/v2'
             },
             production: {
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.midtrans.com/v2',
-                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris'
+                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
+                ipaymuBase: 'https://my.ipaymu.com/api/v2'
             }
         };
 
@@ -1040,6 +1078,7 @@
             if (midtransSnapUrlEl) midtransSnapUrlEl.textContent = endpoints.midtransSnap;
             if (midtransStatusUrlEl) midtransStatusUrlEl.textContent = endpoints.midtransStatus;
             if (interactiveQrisBaseUrlEl) interactiveQrisBaseUrlEl.textContent = endpoints.interactiveQrisBase;
+            if (ipaymuBaseUrlEl) ipaymuBaseUrlEl.textContent = endpoints.ipaymuBase;
         };
 
         paymentModeInputs.forEach((input) => input.addEventListener('change', togglePaymentFields));

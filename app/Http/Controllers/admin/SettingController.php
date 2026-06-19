@@ -41,6 +41,8 @@ class SettingController extends Controller
             'interactive_qris_api_key' => null,
             'interactive_qris_mid' => null,
             'interactive_qris_use_tip' => false,
+            'ipaymu_api_key' => null,
+            'ipaymu_va' => null,
             'smtp_host' => null,
             'smtp_port' => null,
             'smtp_encryption' => null,
@@ -71,6 +73,7 @@ class SettingController extends Controller
         $paymentGatewayKeys = array_keys(config('payment_gateways.gateways', [
             'xendit' => [],
             'midtrans' => [],
+            'ipaymu' => [],
             'interactive_qris' => [],
         ]));
 
@@ -95,6 +98,8 @@ class SettingController extends Controller
             'interactive_qris_api_key' => ['nullable', 'string', 'max:500'],
             'interactive_qris_mid' => ['nullable', 'string', 'max:100'],
             'interactive_qris_use_tip' => ['nullable', 'boolean'],
+            'ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
+            'ipaymu_va' => ['nullable', 'string', 'max:100'],
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
@@ -168,6 +173,30 @@ class SettingController extends Controller
                     ->with('active_tab', $request->input('settings_tab', 'payment'));
             }
         }
+        if (
+            ($validated['payment_mode'] ?? null) === 'gateway'
+            && ($validated['payment_gateway'] ?? null) === 'ipaymu'
+        ) {
+            try {
+                $existingIpaymuApiKey = (string) ($profile->ipaymu_api_key ?? '');
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $existingIpaymuApiKey = '';
+            }
+
+            if (trim((string) ($validated['ipaymu_va'] ?? '')) === '') {
+                return back()
+                    ->withErrors(['ipaymu_va' => 'VA iPaymu wajib diisi.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password', 'ipaymu_api_key']))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
+            }
+
+            if ($existingIpaymuApiKey === '' && trim((string) ($validated['ipaymu_api_key'] ?? '')) === '') {
+                return back()
+                    ->withErrors(['ipaymu_api_key' => 'API key iPaymu wajib diisi.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password', 'ipaymu_api_key']))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
+            }
+        }
 
         $smtpHost = $profile->smtp_host ?: 'smtp.gmail.com';
         $smtpPort = (int) ($profile->smtp_port ?: 587);
@@ -207,6 +236,7 @@ class SettingController extends Controller
             'midtrans_server_key',
             'midtrans_client_key',
             'interactive_qris_api_key',
+            'ipaymu_api_key',
         ];
 
         foreach ($sensitiveKeys as $key) {
