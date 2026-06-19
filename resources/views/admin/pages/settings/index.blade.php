@@ -20,6 +20,7 @@
 
     @php
     $settingErrorKeys = $errors->keys();
+    $aiGeneratorEnabled = (bool) ($branding['ai_question_generator_enabled'] ?? false);
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
@@ -63,7 +64,6 @@
     ])->isNotEmpty()) {
     $activeSettingsTab = 'footer';
     } elseif (collect($settingErrorKeys)->intersect([
-    'ai_question_generator_enabled',
     'ai_openai_api_key',
     'ai_openai_base_url',
     'ai_openai_timeout',
@@ -75,6 +75,10 @@
     ])->isNotEmpty()) {
     $activeSettingsTab = 'ai';
     }
+    }
+
+    if (!$aiGeneratorEnabled && $activeSettingsTab === 'ai') {
+    $activeSettingsTab = 'identity';
     }
 
     $aiSettings = old('ai_question_generator_settings', $profile->ai_question_generator_settings ?? ($branding['ai_question_generator_settings'] ?? []));
@@ -130,10 +134,12 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Footer
                 </button>
-                <button type="button" data-settings-tab="ai"
-                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    AI Soal
-                </button>
+                @if($aiGeneratorEnabled)
+                    <button type="button" data-settings-tab="ai"
+                        class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                        AI Soal
+                    </button>
+                @endif
             </div>
         </div>
 
@@ -821,23 +827,13 @@
             </div>
         </div>
 
+        @if($aiGeneratorEnabled)
         <div data-settings-panel="ai"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'ai' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Generator Soal AI</p>
                 <h2 class="text-xl font-semibold text-gray-900">API & Model Generator</h2>
-                <p class="text-gray-500 text-sm">Show/hide fitur dikontrol dari Super Admin Role & Akses. Di sini admin hanya mengatur API key dan model saat fitur aktif.</p>
-            </div>
-
-            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <input type="checkbox" id="ai_question_generator_enabled"
-                    class="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
-                    {{ ($branding['ai_question_generator_enabled'] ?? false) ? 'checked' : '' }}
-                    disabled>
-                <span>
-                    <span class="block font-semibold text-gray-900">Status fitur Generate AI di Bank Soal</span>
-                    <span class="block text-sm text-gray-500">Show/hide fitur ini dikontrol dari Super Admin. Jika aktif, API key dan model bisa diatur di sini.</span>
-                </span>
+                <p class="text-gray-500 text-sm">Atur API key provider dan daftar model yang bisa dipilih admin saat generate soal.</p>
             </div>
 
             <div id="ai-generator-settings-fields" class="space-y-6">
@@ -923,6 +919,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
@@ -969,23 +966,6 @@
         });
 
         setActiveTab(settingsTabInput?.value || 'identity');
-
-        const aiToggle = document.getElementById('ai_question_generator_enabled');
-        const aiSettingsFields = document.getElementById('ai-generator-settings-fields');
-        const toggleAiSettingsFields = () => {
-            const enabled = aiToggle?.checked ?? false;
-            if (!aiSettingsFields) {
-                return;
-            }
-
-            aiSettingsFields.classList.toggle('hidden', !enabled);
-            aiSettingsFields.querySelectorAll('input, textarea, select').forEach((field) => {
-                field.disabled = !enabled;
-            });
-        };
-
-        aiToggle?.addEventListener('change', toggleAiSettingsFields);
-        toggleAiSettingsFields();
 
         document.querySelectorAll('input[data-preview-target]').forEach(input => {
             input.addEventListener('change', (event) => {
