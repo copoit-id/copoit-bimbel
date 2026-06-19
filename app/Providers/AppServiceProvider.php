@@ -90,6 +90,8 @@ class AppServiceProvider extends ServiceProvider
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
             'admin_assistant_enabled' => false,
+            'class_schedule_menu_enabled' => false,
+            'recurring_bill_menu_enabled' => false,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -147,6 +149,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['footer_youtube'] = $clientProfile->footer_youtube ?? $defaults['footer_youtube'];
             $defaults['ai_question_generator_settings'] = $clientProfile->ai_question_generator_settings ?: $defaults['ai_question_generator_settings'];
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
+            $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);
+            $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }

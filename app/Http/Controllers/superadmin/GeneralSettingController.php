@@ -23,6 +23,8 @@ class GeneralSettingController extends Controller
             'public_visibility' => ['nullable', 'array'],
             'public_visibility.*' => ['nullable', 'boolean'],
             'admin_assistant_enabled' => ['nullable', 'boolean'],
+            'class_schedule_menu_enabled' => ['nullable', 'boolean'],
+            'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
         ]);
 
         foreach ($this->pageLabels() as $pageKey => $label) {
@@ -39,6 +41,8 @@ class GeneralSettingController extends Controller
             ->first()
             ?->update([
                 'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
+                'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
+                'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
             ]);
 
         return redirect()

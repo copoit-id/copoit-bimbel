@@ -31,6 +31,11 @@
     $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
         && $canAccessAdminPanel
         && $adminRouteExists('admin.affiliate.index');
+    $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
+        && $canFeatureView('class')
+        && $adminRouteExists('admin.class-schedules.index');
+    $canShowRecurringBillMenu = ($clientBranding['recurring_bill_menu_enabled'] ?? false)
+        && $adminRouteExists('admin.recurring-bills.index');
     $isMaterialManagementActive = request()->routeIs('admin.material.index')
         || request()->routeIs('admin.material.create')
         || request()->routeIs('admin.material.edit');
@@ -40,8 +45,8 @@
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
-        || request()->routeIs('admin.class-schedules.*')
-        || request()->routeIs('admin.class-attendance.*')
+        || ($canShowClassScheduleMenu && request()->routeIs('admin.class-schedules.*'))
+        || ($canShowClassScheduleMenu && request()->routeIs('admin.class-attendance.*'))
         || request()->routeIs('admin.tes-koran.*')
         || $isMaterialManagementActive;
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
@@ -53,7 +58,7 @@
         || request()->routeIs('admin.feedback.*');
     $isFinanceActive = request()->routeIs('admin.finance.*')
         || request()->routeIs('admin.pembayaran.*')
-        || request()->routeIs('admin.recurring-bills.*');
+        || ($canShowRecurringBillMenu && request()->routeIs('admin.recurring-bills.*'));
     $generalPublicVisibility = \Illuminate\Support\Facades\Schema::hasTable('general_pages')
         ? \App\Models\GeneralPage::query()
             ->whereIn('page_key', ['landing', 'statistik-ptn', 'artikel'])
@@ -114,6 +119,8 @@
                                 <span>Manajemen Kelas</span>
                             </a>
                         </li>
+                        @endif
+                        @if($canShowClassScheduleMenu)
                         <li>
                             <a href="{{ route('admin.class-schedules.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class-schedules.*') || request()->routeIs('admin.class-attendance.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -285,12 +292,14 @@
                                 <span>Pembayaran</span>
                             </a>
                         </li>
+                        @if($canShowRecurringBillMenu)
                         <li>
                             <a href="{{ route('admin.recurring-bills.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.recurring-bills.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <span>Tagihan Rutin</span>
                             </a>
                         </li>
+                        @endif
                     </ul>
                 </details>
             </li>

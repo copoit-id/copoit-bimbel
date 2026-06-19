@@ -59,6 +59,8 @@ class ClientProfile extends Model
         'footer_youtube',
         'ai_question_generator_settings',
         'admin_assistant_enabled',
+        'class_schedule_menu_enabled',
+        'recurring_bill_menu_enabled',
     ];
 
     protected $casts = [
@@ -81,5 +83,7 @@ class ClientProfile extends Model
         'ipaymu_api_key' => 'encrypted',
         'ai_question_generator_settings' => 'encrypted:array',
         'admin_assistant_enabled' => 'boolean',
+        'class_schedule_menu_enabled' => 'boolean',
+        'recurring_bill_menu_enabled' => 'boolean',
     ];
 }

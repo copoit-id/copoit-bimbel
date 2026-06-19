@@ -70,9 +70,14 @@
 
                             <!-- Actions -->
                             <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2 text-xs">
-                                <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
-                                    <i class="ri-eye-line"></i> Absen
-                                </a>
+                                <div class="flex items-center gap-3">
+                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
+                                        <i class="ri-eye-line"></i> Absen
+                                    </a>
+                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
+                                        <i class="ri-edit-line"></i> Edit
+                                    </a>
+                                </div>
                                 
                                 <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');" class="inline">
                                     @csrf
@@ -124,6 +129,7 @@
                                 <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
                                 <td class="px-4 py-3 flex items-center gap-3">
                                     <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-primary hover:underline">Absen</a>
+                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="text-gray-600 hover:text-primary hover:underline">Edit</a>
                                     <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin?');" class="inline">
                                         @csrf
                                         @method('DELETE')
