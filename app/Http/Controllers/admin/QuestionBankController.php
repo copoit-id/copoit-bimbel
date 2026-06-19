@@ -342,6 +342,18 @@ class QuestionBankController extends Controller
             ->with('success', "{$storedCount} soal AI berhasil disimpan ke {$questionBank->name}.");
     }
 
+    public function resetAiPreview(QuestionBank $questionBank, Request $request)
+    {
+        session()->forget($this->aiPreviewSessionKey($questionBank));
+
+        return redirect()
+            ->route('admin.question-bank.questions.ai-generator', [
+                'questionBank' => $questionBank->id,
+                'import_for' => $request->integer('import_for') ?: null,
+            ])
+            ->with('success', 'Preview AI berhasil direset.');
+    }
+
     public function downloadImportTemplate(QuestionBank $questionBank)
     {
         $spreadsheet = new Spreadsheet();

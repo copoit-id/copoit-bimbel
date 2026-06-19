@@ -441,6 +441,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/{questionBank}/questions/ai-generator', [QuestionBankController::class, 'aiGeneratorForm'])->name('questions.ai-generator');
         Route::post('/{questionBank}/questions/ai-generator/preview', [QuestionBankController::class, 'previewAiQuestions'])->name('questions.ai-generator.preview');
         Route::post('/{questionBank}/questions/ai-generator/store', [QuestionBankController::class, 'storeAiQuestions'])->name('questions.ai-generator.store');
+        Route::post('/{questionBank}/questions/ai-generator/reset', [QuestionBankController::class, 'resetAiPreview'])->name('questions.ai-generator.reset');
         Route::get('/{questionBank}/questions/import-template', [QuestionBankController::class, 'downloadImportTemplate'])->name('questions.import-template');
         Route::post('/{questionBank}/questions/import', [QuestionBankController::class, 'importQuestions'])->name('questions.import');
         Route::post('/{questionBank}/questions/import-ppt/preview', [QuestionBankController::class, 'previewPptQuestions'])->name('questions.import-ppt.preview');

@@ -140,11 +140,21 @@
                     </p>
                 </div>
                 @if($previewQuestions->isNotEmpty())
-                <div class="px-6 pt-6 lg:px-6">
+                <div class="px-6 pt-6 lg:px-6 flex flex-wrap items-center gap-3">
                     <span class="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                         <i class="ri-check-line"></i>
                         {{ $previewQuestions->count() }} soal siap direview
                     </span>
+                    <form action="{{ route('admin.question-bank.questions.ai-generator.reset', $bank->id) }}" method="POST" class="inline">
+                        @csrf
+                        @if($importTarget)
+                        <input type="hidden" name="import_for" value="{{ $importTarget }}">
+                        @endif
+                        <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+                            <i class="ri-refresh-line"></i>
+                            Reset Preview
+                        </button>
+                    </form>
                 </div>
                 @endif
             </div>
