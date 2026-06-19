@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
 use App\Services\AffiliateService;
+use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -1782,6 +1783,21 @@ class PackageController extends Controller
         return response()->json(['message' => 'OK']);
     }
 
+    public function ipaymuWebhook(Request $request, IpaymuGateway $gateway)
+    {
+        $payment = $gateway->handleWebhook($request);
+
+        if (!$payment) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+
+        if ($payment->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu');
+        }
+
+        return response()->json(['message' => 'OK']);
+    }
+
     private function ensureUserPackageAccess(Payment $payment, string $notes): void
     {
         $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
@@ -1878,6 +1894,19 @@ class PackageController extends Controller
                 }
 
                 return response()->json(['error' => 'Failed to fetch from Midtrans']);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()]);
+            }
+        }
+
+        if ($payment->payment_method === 'ipaymu') {
+            try {
+                $result = app(IpaymuGateway::class)->checkTransaction($payment);
+
+                return response()->json([
+                    'payment_status' => $payment->status,
+                    'ipaymu_result' => $result,
+                ]);
             } catch (\Exception $e) {
                 return response()->json(['error' => $e->getMessage()]);
             }

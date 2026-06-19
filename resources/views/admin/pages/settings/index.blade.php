@@ -20,6 +20,7 @@
 
     @php
     $settingErrorKeys = $errors->keys();
+    $aiGeneratorEnabled = (bool) ($branding['ai_question_generator_enabled'] ?? false);
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
@@ -62,8 +63,33 @@
     'footer_youtube'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'footer';
+    } elseif (collect($settingErrorKeys)->intersect([
+    'ai_openai_api_key',
+    'ai_openai_base_url',
+    'ai_openai_timeout',
+    'ai_gemini_api_key',
+    'ai_gemini_base_url',
+    'ai_gemini_timeout',
+    'ai_question_default_model',
+    'ai_question_models_json'
+    ])->isNotEmpty()) {
+    $activeSettingsTab = 'ai';
     }
     }
+
+    if (!$aiGeneratorEnabled && $activeSettingsTab === 'ai') {
+    $activeSettingsTab = 'identity';
+    }
+
+    $aiSettings = old('ai_question_generator_settings', $profile->ai_question_generator_settings ?? ($branding['ai_question_generator_settings'] ?? []));
+    $aiProviders = is_array($aiSettings['providers'] ?? null) ? $aiSettings['providers'] : [];
+    $aiModels = is_array($aiSettings['models'] ?? null) ? $aiSettings['models'] : [
+        ['id' => 'gpt-5.4-mini', 'label' => 'OpenAI - GPT-5.4 Mini', 'provider' => 'openai', 'enabled' => true],
+        ['id' => 'gemini-2.5-flash', 'label' => 'Gemini - 2.5 Flash', 'provider' => 'gemini', 'enabled' => true],
+        ['id' => 'gemini-2.5-flash-lite', 'label' => 'Gemini - 2.5 Flash-Lite', 'provider' => 'gemini', 'enabled' => true],
+    ];
+    $aiModelsJson = old('ai_question_models_json', json_encode($aiModels, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    $aiDefaultModel = old('ai_question_default_model', $aiSettings['default_model'] ?? ($aiModels[0]['id'] ?? 'gemini-2.5-flash'));
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
@@ -108,6 +134,12 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Footer
                 </button>
+                @if($aiGeneratorEnabled)
+                    <button type="button" data-settings-tab="ai"
+                        class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                        AI Soal
+                    </button>
+                @endif
             </div>
         </div>
 
@@ -271,7 +303,7 @@
                         {{ $paymentMode === 'gateway' ? 'checked' : '' }}>
                     <div>
                         <p class="font-semibold text-gray-900">Otomatis (Payment Gateway)</p>
-                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke Xendit/Midtrans.</p>
+                        <p class="text-xs text-gray-500">Pembayaran langsung diarahkan ke gateway pilihan.</p>
                     </div>
                 </label>
                 <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
@@ -383,8 +415,12 @@
                             <p class="text-xs uppercase text-gray-500">InterActive QRIS Base URL</p>
                             <p id="interactive-qris-base-url">https://qris.interactive.co.id/restapi/qris</p>
                         </div>
+                        <div>
+                            <p class="text-xs uppercase text-gray-500">iPaymu Base URL</p>
+                            <p id="ipaymu-base-url">https://sandbox.ipaymu.com/api/v2</p>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis. InterActive QRIS saat ini adalah API live/production.</p>
+                    <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis mengikuti mode sandbox/production. InterActive QRIS saat ini adalah API live/production.</p>
                 </div>
                 <div data-gateway-fields="xendit" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                     <div>
@@ -462,6 +498,37 @@
                         </p>
                         @endif
                         @error('midtrans_client_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+                <div data-gateway-fields="ipaymu" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">iPaymu API Key</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" name="ipaymu_api_key"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="Kosongkan jika tidak diubah" data-secret-field="ipaymu_api_key">
+                            <button type="button" class="px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                                data-secret-toggle="ipaymu_api_key">Show</button>
+                        </div>
+                        @if (!empty($profile?->getRawOriginal('ipaymu_api_key')))
+                        <p class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 mt-2">
+                            <i class="ri-checkbox-circle-line"></i>
+                            API key sudah tersimpan.
+                        </p>
+                        @endif
+                        @error('ipaymu_api_key')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">VA iPaymu</label>
+                        <input type="text" name="ipaymu_va"
+                            value="{{ old('ipaymu_va', $profile->ipaymu_va ?? ($branding['ipaymu_va'] ?? '')) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="Contoh: 1179000899">
+                        @error('ipaymu_va')
                         <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -795,6 +862,100 @@
             </div>
         </div>
 
+        @if($aiGeneratorEnabled)
+        <div data-settings-panel="ai"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'ai' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Generator Soal AI</p>
+                <h2 class="text-xl font-semibold text-gray-900">API & Model Generator</h2>
+                <p class="text-gray-500 text-sm">Atur API key provider dan daftar model yang bisa dipilih admin saat generate soal.</p>
+            </div>
+
+            <div id="ai-generator-settings-fields" class="space-y-6">
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">OpenAI</p>
+                            <p class="text-xs text-gray-500">Kosongkan API key jika tidak ingin mengubah key yang sudah tersimpan.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Key OpenAI</label>
+                            <input type="password" name="ai_openai_api_key" autocomplete="new-password"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="{{ filled($aiProviders['openai']['api_key'] ?? null) ? 'Sudah tersimpan - isi untuk mengganti' : 'sk-...' }}">
+                            @error('ai_openai_api_key')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                            <input type="url" name="ai_openai_base_url"
+                                value="{{ old('ai_openai_base_url', $aiProviders['openai']['base_url'] ?? 'https://api.openai.com/v1') }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                            @error('ai_openai_base_url')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Timeout</label>
+                            <input type="number" name="ai_openai_timeout" min="5" max="300"
+                                value="{{ old('ai_openai_timeout', $aiProviders['openai']['timeout'] ?? 90) }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">Gemini</p>
+                            <p class="text-xs text-gray-500">Cocok untuk mode free tier/testing. Kosongkan API key jika tidak ingin mengubah.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Key Gemini</label>
+                            <input type="password" name="ai_gemini_api_key" autocomplete="new-password"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="{{ filled($aiProviders['gemini']['api_key'] ?? null) ? 'Sudah tersimpan - isi untuk mengganti' : 'AIza...' }}">
+                            @error('ai_gemini_api_key')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                            <input type="url" name="ai_gemini_base_url"
+                                value="{{ old('ai_gemini_base_url', $aiProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta') }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                            @error('ai_gemini_base_url')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Timeout</label>
+                            <input type="number" name="ai_gemini_timeout" min="5" max="300"
+                                value="{{ old('ai_gemini_timeout', $aiProviders['gemini']['timeout'] ?? 90) }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Default Model</label>
+                        <input type="text" name="ai_question_default_model" value="{{ $aiDefaultModel }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="gemini-2.5-flash">
+                        @error('ai_question_default_model')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Model JSON</label>
+                        <textarea name="ai_question_models_json" rows="10"
+                            class="font-mono text-xs w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">{{ $aiModelsJson }}</textarea>
+                        <p class="text-xs text-gray-500 mt-1">Format: array object dengan key id, label, provider openai/gemini, enabled true/false.</p>
+                        @error('ai_question_models_json')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Admin</label>
+                    <input type="password" name="ai_admin_password" autocomplete="current-password"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Wajib diisi kalau mengganti API key AI">
+                    @error('admin_password')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
+        </div>
+        @endif
+
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>
@@ -866,6 +1027,7 @@
         const midtransSnapUrlEl = document.getElementById('midtrans-snap-url');
         const midtransStatusUrlEl = document.getElementById('midtrans-status-url');
         const interactiveQrisBaseUrlEl = document.getElementById('interactive-qris-base-url');
+        const ipaymuBaseUrlEl = document.getElementById('ipaymu-base-url');
         const gatewayBlocks = document.querySelectorAll('[data-gateway-fields]');
 
         const gatewayEndpoints = {
@@ -873,13 +1035,15 @@
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.sandbox.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.sandbox.midtrans.com/v2',
-                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris'
+                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
+                ipaymuBase: 'https://sandbox.ipaymu.com/api/v2'
             },
             production: {
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.midtrans.com/v2',
-                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris'
+                interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
+                ipaymuBase: 'https://my.ipaymu.com/api/v2'
             }
         };
 
@@ -914,6 +1078,7 @@
             if (midtransSnapUrlEl) midtransSnapUrlEl.textContent = endpoints.midtransSnap;
             if (midtransStatusUrlEl) midtransStatusUrlEl.textContent = endpoints.midtransStatus;
             if (interactiveQrisBaseUrlEl) interactiveQrisBaseUrlEl.textContent = endpoints.interactiveQrisBase;
+            if (ipaymuBaseUrlEl) ipaymuBaseUrlEl.textContent = endpoints.ipaymuBase;
         };
 
         paymentModeInputs.forEach((input) => input.addEventListener('change', togglePaymentFields));

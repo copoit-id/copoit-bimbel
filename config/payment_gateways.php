@@ -12,6 +12,13 @@ return [
             'label' => 'Midtrans',
             'type' => 'redirect',
         ],
+        'ipaymu' => [
+            'label' => 'iPaymu',
+            'type' => 'redirect',
+            'handler' => \App\Services\Payments\IpaymuGateway::class,
+            'sandbox_url' => env('IPAYMU_SANDBOX_URL', 'https://sandbox.ipaymu.com/api/v2'),
+            'production_url' => env('IPAYMU_PRODUCTION_URL', 'https://my.ipaymu.com/api/v2'),
+        ],
         'interactive_qris' => [
             'label' => 'InterActive QRIS',
             'type' => 'qris',

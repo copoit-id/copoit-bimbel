@@ -58,6 +58,12 @@ return [
         'base_url' => env('INTERACTIVE_QRIS_BASE_URL', 'https://qris.interactive.co.id/restapi/qris'),
     ],
 
+    'ipaymu' => [
+        'api_key' => env('IPAYMU_API_KEY'),
+        'va' => env('IPAYMU_VA'),
+        'base_url' => env('IPAYMU_BASE_URL', 'https://sandbox.ipaymu.com/api/v2'),
+    ],
+
     'recaptcha' => [
         'enabled' => env('RECAPTCHA_ENABLED', false),
         'site_key' => env('RECAPTCHA_SITE_KEY'),
@@ -66,6 +72,26 @@ return [
     ],
     'tinymce' => [
         'key' => env('TINYMCE_API_KEY'),
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'question_model' => env('OPENAI_QUESTION_MODEL', 'gpt-5.4-mini'),
+        'timeout' => env('OPENAI_TIMEOUT', 90),
+        'question_models' => [
+            'gpt-5.4-mini' => 'OpenAI - GPT-5.4 Mini',
+        ],
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => env('GEMINI_TIMEOUT', 90),
+        'question_models' => [
+            'gemini-2.5-flash' => 'Gemini - 2.5 Flash',
+            'gemini-2.5-flash-lite' => 'Gemini - 2.5 Flash-Lite',
+        ],
     ],
 
     'ai_similarity' => [

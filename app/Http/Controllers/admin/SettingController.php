@@ -41,6 +41,8 @@ class SettingController extends Controller
             'interactive_qris_api_key' => null,
             'interactive_qris_mid' => null,
             'interactive_qris_use_tip' => false,
+            'ipaymu_api_key' => null,
+            'ipaymu_va' => null,
             'smtp_host' => null,
             'smtp_port' => null,
             'smtp_encryption' => null,
@@ -54,6 +56,8 @@ class SettingController extends Controller
             'footer_description' => null,
             'footer_copyright' => null,
             'footer_links' => [],
+            'ai_question_generator_enabled' => false,
+            'ai_question_generator_settings' => [],
         ]);
 
         return view('admin.pages.settings.index', [
@@ -69,6 +73,7 @@ class SettingController extends Controller
         $paymentGatewayKeys = array_keys(config('payment_gateways.gateways', [
             'xendit' => [],
             'midtrans' => [],
+            'ipaymu' => [],
             'interactive_qris' => [],
         ]));
 
@@ -93,6 +98,8 @@ class SettingController extends Controller
             'interactive_qris_api_key' => ['nullable', 'string', 'max:500'],
             'interactive_qris_mid' => ['nullable', 'string', 'max:100'],
             'interactive_qris_use_tip' => ['nullable', 'boolean'],
+            'ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
+            'ipaymu_va' => ['nullable', 'string', 'max:100'],
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
@@ -113,6 +120,15 @@ class SettingController extends Controller
             'footer_instagram' => ['nullable', 'string', 'max:255'],
             'footer_twitter' => ['nullable', 'string', 'max:255'],
             'footer_youtube' => ['nullable', 'string', 'max:255'],
+            'ai_openai_api_key' => ['nullable', 'string', 'max:1000'],
+            'ai_openai_base_url' => ['nullable', 'url', 'max:255'],
+            'ai_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
+            'ai_gemini_api_key' => ['nullable', 'string', 'max:1000'],
+            'ai_gemini_base_url' => ['nullable', 'url', 'max:255'],
+            'ai_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
+            'ai_question_default_model' => ['nullable', 'string', 'max:120'],
+            'ai_question_models_json' => ['nullable', 'string'],
+            'ai_admin_password' => ['nullable', 'string'],
         ];
 
         if ($request->input('payment_mode') === 'manual') {
@@ -157,6 +173,30 @@ class SettingController extends Controller
                     ->with('active_tab', $request->input('settings_tab', 'payment'));
             }
         }
+        if (
+            ($validated['payment_mode'] ?? null) === 'gateway'
+            && ($validated['payment_gateway'] ?? null) === 'ipaymu'
+        ) {
+            try {
+                $existingIpaymuApiKey = (string) ($profile->ipaymu_api_key ?? '');
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $existingIpaymuApiKey = '';
+            }
+
+            if (trim((string) ($validated['ipaymu_va'] ?? '')) === '') {
+                return back()
+                    ->withErrors(['ipaymu_va' => 'VA iPaymu wajib diisi.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password', 'ipaymu_api_key']))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
+            }
+
+            if ($existingIpaymuApiKey === '' && trim((string) ($validated['ipaymu_api_key'] ?? '')) === '') {
+                return back()
+                    ->withErrors(['ipaymu_api_key' => 'API key iPaymu wajib diisi.'])
+                    ->withInput($request->except(['admin_password', 'smtp_app_password', 'ipaymu_api_key']))
+                    ->with('active_tab', $request->input('settings_tab', 'payment'));
+            }
+        }
 
         $smtpHost = $profile->smtp_host ?: 'smtp.gmail.com';
         $smtpPort = (int) ($profile->smtp_port ?: 587);
@@ -196,6 +236,7 @@ class SettingController extends Controller
             'midtrans_server_key',
             'midtrans_client_key',
             'interactive_qris_api_key',
+            'ipaymu_api_key',
         ];
 
         foreach ($sensitiveKeys as $key) {
@@ -226,11 +267,25 @@ class SettingController extends Controller
             }
         }
 
+        $aiSettingsResult = $this->buildAiQuestionGeneratorSettings($request, $profile);
+        if (!empty($aiSettingsResult['errors'])) {
+            return back()
+                ->withErrors($aiSettingsResult['errors'])
+                ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key']))
+                ->with('active_tab', 'ai');
+        }
+
+        $sensitiveChanged = $sensitiveChanged || (bool) ($aiSettingsResult['sensitive_changed'] ?? false);
+
         if ($sensitiveChanged) {
+            if (!$request->filled('admin_password') && $request->filled('ai_admin_password')) {
+                $request->merge(['admin_password' => $request->input('ai_admin_password')]);
+            }
+
             $request->validate([
                 'admin_password' => ['required', 'string'],
             ], [
-                'admin_password.required' => 'Password admin wajib diisi untuk mengubah kredensial pembayaran.',
+                'admin_password.required' => 'Password admin wajib diisi untuk mengubah kredensial sensitif.',
             ]);
 
             $user = $request->user();
@@ -240,6 +295,9 @@ class SettingController extends Controller
                     ->withInput($request->except([
                         'admin_password',
                         'smtp_app_password',
+                        'ai_openai_api_key',
+                        'ai_gemini_api_key',
+                        'ai_admin_password',
                         ...$sensitiveKeys,
                     ]))
                     ->with('active_tab', $request->input('settings_tab', 'payment'));
@@ -307,6 +365,19 @@ class SettingController extends Controller
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['enable_utbk_types'] = false;
+        unset($validated['ai_question_generator_enabled']);
+        $validated['ai_question_generator_settings'] = $aiSettingsResult['settings'];
+        unset(
+            $validated['ai_openai_api_key'],
+            $validated['ai_openai_base_url'],
+            $validated['ai_openai_timeout'],
+            $validated['ai_gemini_api_key'],
+            $validated['ai_gemini_base_url'],
+            $validated['ai_gemini_timeout'],
+            $validated['ai_question_default_model'],
+            $validated['ai_question_models_json'],
+            $validated['ai_admin_password']
+        );
         $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
         $validated['payment_unique_code_enabled'] = $request->boolean('payment_unique_code_enabled');
         $validated['payment_gateway'] = $validated['payment_gateway']
@@ -366,6 +437,115 @@ class SettingController extends Controller
             ->route('admin.settings.index')
             ->with('success', 'Pengaturan berhasil diperbarui.')
             ->with('active_tab', $request->input('settings_tab', 'identity'));
+    }
+
+    private function buildAiQuestionGeneratorSettings(Request $request, ClientProfile $profile): array
+    {
+        $existing = is_array($profile->ai_question_generator_settings ?? null)
+            ? $profile->ai_question_generator_settings
+            : [];
+        $existingProviders = $existing['providers'] ?? [];
+
+        $modelsJson = trim((string) $request->input('ai_question_models_json', ''));
+        $models = $modelsJson !== ''
+            ? json_decode($modelsJson, true)
+            : ($existing['models'] ?? $this->defaultAiQuestionModels());
+
+        if (!is_array($models)) {
+            return [
+                'settings' => $existing,
+                'sensitive_changed' => false,
+                'errors' => ['ai_question_models_json' => 'JSON model AI tidak valid.'],
+            ];
+        }
+
+        $models = $this->normalizeAiQuestionModels($models);
+        if (empty($models)) {
+            return [
+                'settings' => $existing,
+                'sensitive_changed' => false,
+                'errors' => ['ai_question_models_json' => 'Minimal isi 1 model AI yang aktif.'],
+            ];
+        }
+
+        $openAiKey = trim((string) $request->input('ai_openai_api_key', ''));
+        $geminiKey = trim((string) $request->input('ai_gemini_api_key', ''));
+        $existingOpenAiKey = (string) ($existingProviders['openai']['api_key'] ?? '');
+        $existingGeminiKey = (string) ($existingProviders['gemini']['api_key'] ?? '');
+        $sensitiveChanged = ($openAiKey !== '' && !hash_equals($existingOpenAiKey, $openAiKey))
+            || ($geminiKey !== '' && !hash_equals($existingGeminiKey, $geminiKey));
+
+        $settings = [
+            'default_model' => $request->input('ai_question_default_model')
+                ?: ($existing['default_model'] ?? $models[0]['id']),
+            'providers' => [
+                'openai' => [
+                    'api_key' => $openAiKey !== '' ? $openAiKey : ($existingProviders['openai']['api_key'] ?? null),
+                    'base_url' => trim((string) $request->input('ai_openai_base_url', $existingProviders['openai']['base_url'] ?? 'https://api.openai.com/v1')),
+                    'timeout' => max(5, min(300, (int) $request->input('ai_openai_timeout', $existingProviders['openai']['timeout'] ?? 90))),
+                ],
+                'gemini' => [
+                    'api_key' => $geminiKey !== '' ? $geminiKey : ($existingProviders['gemini']['api_key'] ?? null),
+                    'base_url' => trim((string) $request->input('ai_gemini_base_url', $existingProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta')),
+                    'timeout' => max(5, min(300, (int) $request->input('ai_gemini_timeout', $existingProviders['gemini']['timeout'] ?? 90))),
+                ],
+            ],
+            'models' => $models,
+        ];
+
+        $modelIds = collect($models)->pluck('id')->all();
+        if (!in_array($settings['default_model'], $modelIds, true)) {
+            $settings['default_model'] = $models[0]['id'];
+        }
+
+        return [
+            'settings' => $settings,
+            'sensitive_changed' => $sensitiveChanged,
+            'errors' => [],
+        ];
+    }
+
+    private function normalizeAiQuestionModels(array $models): array
+    {
+        return collect($models)
+            ->map(function ($model) {
+                return [
+                    'id' => trim((string) ($model['id'] ?? '')),
+                    'label' => trim((string) ($model['label'] ?? ($model['id'] ?? ''))),
+                    'provider' => in_array(($model['provider'] ?? ''), ['openai', 'gemini'], true)
+                        ? $model['provider']
+                        : (str_starts_with((string) ($model['id'] ?? ''), 'gemini-') ? 'gemini' : 'openai'),
+                    'enabled' => filter_var($model['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                ];
+            })
+            ->filter(fn ($model) => $model['id'] !== '' && $model['label'] !== '')
+            ->unique('id')
+            ->values()
+            ->all();
+    }
+
+    private function defaultAiQuestionModels(): array
+    {
+        return [
+            [
+                'id' => 'gpt-5.4-mini',
+                'label' => 'OpenAI - GPT-5.4 Mini',
+                'provider' => 'openai',
+                'enabled' => true,
+            ],
+            [
+                'id' => 'gemini-2.5-flash',
+                'label' => 'Gemini - 2.5 Flash',
+                'provider' => 'gemini',
+                'enabled' => true,
+            ],
+            [
+                'id' => 'gemini-2.5-flash-lite',
+                'label' => 'Gemini - 2.5 Flash-Lite',
+                'provider' => 'gemini',
+                'enabled' => true,
+            ],
+        ];
     }
 
     private function storeBrandingImage($file, ?string $existingPath = null, string $prefix = 'brand'): string

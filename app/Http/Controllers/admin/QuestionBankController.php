@@ -9,6 +9,7 @@ use App\Models\QuestionBankQuestion;
 use App\Models\QuestionBankQuestionOption;
 use App\Models\QuestionOption;
 use App\Models\TryoutDetail;
+use App\Services\AiQuestionGeneratorService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -198,6 +200,144 @@ class QuestionBankController extends Controller
             'recursiveQuestionCounts' => $recursiveQuestionCounts,
             'bankTotalQuestions' => $bankTotalQuestions,
         ]);
+    }
+
+    public function aiGeneratorForm(QuestionBank $questionBank, Request $request, AiQuestionGeneratorService $aiGeneratorService)
+    {
+        abort_unless($aiGeneratorService->isEnabled(), 404);
+
+        $importTarget = $request->integer('import_for');
+        $tryoutDetail = $importTarget
+            ? TryoutDetail::with('tryout')->find($importTarget)
+            : null;
+        $breadcrumbs = $this->buildBreadcrumbs($questionBank);
+        $models = $aiGeneratorService->availableModels();
+        abort_if(empty($models), 404);
+
+        $defaultModel = $aiGeneratorService->defaultModel();
+        $preview = session($this->aiPreviewSessionKey($questionBank));
+
+        return view('admin.pages.question-bank.ai-generator', [
+            'bank' => $questionBank,
+            'breadcrumbs' => $breadcrumbs,
+            'tryoutDetail' => $tryoutDetail,
+            'importTarget' => $importTarget,
+            'models' => $models,
+            'defaultModel' => $defaultModel,
+            'preview' => $preview,
+        ]);
+    }
+
+    public function previewAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService)
+    {
+        abort_unless($aiGeneratorService->isEnabled(), 404);
+
+        $models = array_keys($aiGeneratorService->availableModels());
+        abort_if(empty($models), 404);
+
+        $validated = $request->validate([
+            'model' => ['required', Rule::in($models)],
+            'subject' => ['required', 'string', 'max:120'],
+            'topic' => ['required', 'string', 'max:180'],
+            'difficulty' => ['required', Rule::in(['mudah', 'sedang', 'sulit', 'campuran'])],
+            'question_count' => ['required', 'integer', 'min:1', 'max:25'],
+            'option_count' => ['required', 'integer', 'min:2', 'max:5'],
+            'explanation_style' => ['required', Rule::in(['singkat', 'normal', 'detail'])],
+            'instruction' => ['nullable', 'string', 'max:1500'],
+            'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
+        ], [], [
+            'subject' => 'mata pelajaran/kategori',
+            'topic' => 'topik',
+            'question_count' => 'jumlah soal',
+            'option_count' => 'jumlah opsi',
+            'explanation_style' => 'gaya pembahasan',
+            'instruction' => 'instruksi tambahan',
+        ]);
+
+        try {
+            $preview = $aiGeneratorService->generate($validated);
+            $preview['request'] = $validated;
+
+            session()->put($this->aiPreviewSessionKey($questionBank), $preview);
+
+            return redirect()
+                ->route('admin.question-bank.questions.ai-generator', [
+                    'questionBank' => $questionBank->id,
+                    'import_for' => $request->integer('import_for') ?: null,
+                ])
+                ->with('success', count($preview['questions']) . ' soal berhasil dibuat sebagai preview. Review dulu sebelum disimpan.');
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->with('error', $exception->getMessage());
+        }
+    }
+
+    public function storeAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService)
+    {
+        abort_unless($aiGeneratorService->isEnabled(), 404);
+
+        $models = array_keys($aiGeneratorService->availableModels());
+        abort_if(empty($models), 404);
+
+        $validated = $request->validate([
+            'questions_json' => ['required', 'string'],
+            'model' => ['required', Rule::in($models)],
+            'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
+        ]);
+
+        $questions = json_decode($validated['questions_json'], true);
+        if (!is_array($questions)) {
+            return back()->with('error', 'Data preview AI tidak valid. Silakan generate ulang.');
+        }
+
+        $questions = $this->normalizeAiPreviewQuestions($questions);
+        if (empty($questions)) {
+            return back()->with('error', 'Tidak ada soal valid untuk disimpan.');
+        }
+
+        $storedCount = 0;
+        DB::transaction(function () use ($questionBank, $questions, $validated, &$storedCount) {
+            foreach ($questions as $question) {
+                $bankQuestion = QuestionBankQuestion::create([
+                    'question_bank_id' => $questionBank->id,
+                    'question_type' => 'multiple_choice',
+                    'question_text' => $question['question_text'],
+                    'explanation' => $question['explanation'] ?: null,
+                    'default_weight' => 1,
+                    'custom_score' => 'no',
+                    'metadata' => [
+                        'source' => 'ai_generator',
+                        'model' => $validated['model'],
+                        'generated_at' => now()->toDateTimeString(),
+                    ],
+                    'created_by' => Auth::id(),
+                ]);
+
+                foreach ($question['options'] as $position => $option) {
+                    QuestionBankQuestionOption::create([
+                        'question_bank_question_id' => $bankQuestion->id,
+                        'option_text' => $option['text'],
+                        'weight' => $option['label'] === $question['correct_option'] ? 1 : 0,
+                        'is_correct' => $option['label'] === $question['correct_option'],
+                        'position' => $position + 1,
+                    ]);
+                }
+
+                $storedCount++;
+            }
+        });
+
+        session()->forget($this->aiPreviewSessionKey($questionBank));
+
+        return redirect()
+            ->route('admin.question-bank.show', [
+                'questionBank' => $questionBank->id,
+                'import_for' => $request->integer('import_for') ?: null,
+            ])
+            ->with('success', "{$storedCount} soal AI berhasil disimpan ke {$questionBank->name}.");
     }
 
     public function downloadImportTemplate(QuestionBank $questionBank)
@@ -1014,6 +1154,47 @@ class QuestionBankController extends Controller
         $question->delete();
 
         return back()->with('success', 'Soal berhasil dihapus dari bank.');
+    }
+
+    private function aiPreviewSessionKey(QuestionBank $bank): string
+    {
+        return 'ai_question_preview_' . $bank->id;
+    }
+
+    private function normalizeAiPreviewQuestions(array $questions): array
+    {
+        $letters = ['A', 'B', 'C', 'D', 'E'];
+
+        return collect($questions)
+            ->take(50)
+            ->map(function ($question) use ($letters) {
+                $options = collect($question['options'] ?? [])
+                    ->values()
+                    ->map(function ($option, $index) use ($letters) {
+                        return [
+                            'label' => strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? ''))),
+                            'text' => trim((string) ($option['text'] ?? '')),
+                        ];
+                    })
+                    ->filter(fn ($option) => $option['label'] !== '' && $option['text'] !== '')
+                    ->unique('label')
+                    ->values()
+                    ->all();
+
+                return [
+                    'question_text' => trim((string) ($question['question_text'] ?? '')),
+                    'options' => $options,
+                    'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
+                    'explanation' => trim((string) ($question['explanation'] ?? '')),
+                ];
+            })
+            ->filter(function ($question) {
+                return $question['question_text'] !== ''
+                    && count($question['options']) >= 2
+                    && collect($question['options'])->contains('label', $question['correct_option']);
+            })
+            ->values()
+            ->all();
     }
 
     private function buildBreadcrumbs(QuestionBank $bank): array

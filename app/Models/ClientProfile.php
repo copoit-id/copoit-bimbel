@@ -34,6 +34,8 @@ class ClientProfile extends Model
         'interactive_qris_api_key',
         'interactive_qris_mid',
         'interactive_qris_use_tip',
+        'ipaymu_api_key',
+        'ipaymu_va',
         'smtp_host',
         'smtp_port',
         'smtp_encryption',
@@ -55,6 +57,7 @@ class ClientProfile extends Model
         'footer_instagram',
         'footer_twitter',
         'footer_youtube',
+        'ai_question_generator_settings',
     ];
 
     protected $casts = [
@@ -74,5 +77,7 @@ class ClientProfile extends Model
         'midtrans_client_key' => 'encrypted',
         'interactive_qris_api_key' => 'encrypted',
         'interactive_qris_use_tip' => 'boolean',
+        'ipaymu_api_key' => 'encrypted',
+        'ai_question_generator_settings' => 'encrypted:array',
     ];
 }

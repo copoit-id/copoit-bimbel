@@ -306,6 +306,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 // Webhook route (outside auth middleware) - make sure this is correct
 Route::post('/webhook/xendit', [PackageController::class, 'xenditWebhook'])->name('webhook.xendit');
 Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])->name('webhook.midtrans');
+Route::post('/webhook/ipaymu', [PackageController::class, 'ipaymuWebhook'])->name('webhook.ipaymu');
 
 // Add route for checking payment status (for debugging)
 Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
@@ -449,6 +450,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         // Specific routes first (questions create/edit/update/delete)
         Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
         Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
+        Route::get('/{questionBank}/questions/ai-generator', [QuestionBankController::class, 'aiGeneratorForm'])->name('questions.ai-generator');
+        Route::post('/{questionBank}/questions/ai-generator/preview', [QuestionBankController::class, 'previewAiQuestions'])->name('questions.ai-generator.preview');
+        Route::post('/{questionBank}/questions/ai-generator/store', [QuestionBankController::class, 'storeAiQuestions'])->name('questions.ai-generator.store');
         Route::get('/{questionBank}/questions/import-template', [QuestionBankController::class, 'downloadImportTemplate'])->name('questions.import-template');
         Route::post('/{questionBank}/questions/import', [QuestionBankController::class, 'importQuestions'])->name('questions.import');
         Route::post('/{questionBank}/questions/import-ppt/preview', [QuestionBankController::class, 'previewPptQuestions'])->name('questions.import-ppt.preview');
