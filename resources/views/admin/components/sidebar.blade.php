@@ -40,6 +40,8 @@
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
+        || request()->routeIs('admin.class-schedules.*')
+        || request()->routeIs('admin.class-attendance.*')
         || request()->routeIs('admin.tes-koran.*')
         || $isMaterialManagementActive;
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
@@ -49,7 +51,9 @@
         || request()->routeIs('admin.laporan.*')
         || request()->routeIs('admin.essay-review.*')
         || request()->routeIs('admin.feedback.*');
-    $isFinanceActive = request()->routeIs('admin.finance.*') || request()->routeIs('admin.pembayaran.*');
+    $isFinanceActive = request()->routeIs('admin.finance.*')
+        || request()->routeIs('admin.pembayaran.*')
+        || request()->routeIs('admin.recurring-bills.*');
     $generalPublicVisibility = \Illuminate\Support\Facades\Schema::hasTable('general_pages')
         ? \App\Models\GeneralPage::query()
             ->whereIn('page_key', ['landing', 'statistik-ptn', 'artikel'])
@@ -108,6 +112,12 @@
                             <a href="{{ route('admin.class.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <span>Manajemen Kelas</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.class-schedules.index') }}"
+                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class-schedules.*') || request()->routeIs('admin.class-attendance.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <span>Jadwal & Absensi</span>
                             </a>
                         </li>
                         @endif
@@ -273,6 +283,12 @@
                             <a href="{{ route('admin.pembayaran.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.pembayaran.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <span>Pembayaran</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.recurring-bills.index') }}"
+                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.recurring-bills.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <span>Tagihan Rutin</span>
                             </a>
                         </li>
                     </ul>

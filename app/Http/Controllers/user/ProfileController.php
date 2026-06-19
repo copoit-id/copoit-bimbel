@@ -30,12 +30,13 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = Auth::user();
+        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
 
         $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'phone' => ['nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
             'date_of_birth' => 'nullable|date|before:today',
-            'participant_destination_category_id' => ['nullable', 'exists:participant_destination_categories,id'],
+            'participant_destination_category_id' => [$destinationRule, 'exists:participant_destination_categories,id'],
         ]);
 
         $user->update([

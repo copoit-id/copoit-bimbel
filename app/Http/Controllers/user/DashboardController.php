@@ -8,6 +8,8 @@ use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
 use App\Models\UserAnswer;
 use App\Models\Package;
+use App\Models\BillInvoice;
+use App\Models\ClassSession;
 use App\Models\MaterialProgressLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -119,6 +121,39 @@ class DashboardController extends Controller
             ->with('package')
             ->get();
 
+        $unpaidInvoices = BillInvoice::where('user_id', $user->id)
+            ->whereIn('status', ['unpaid', 'overdue'])
+            ->orderBy('due_date')
+            ->limit(3)
+            ->get();
+
+        $activePackageIds = $activePackages->pluck('package_id');
+        $user->loadMissing('participantDestinationCategory');
+        $destinationCategoryIds = collect([
+            $user->participant_destination_category_id,
+            $user->participantDestinationCategory?->parent_id,
+        ])->filter()->map(fn ($id) => (int) $id)->values();
+
+        $upcomingClassSessions = ClassSession::with(['class', 'schedule.attendanceSetting', 'schedule.destinationCategories'])
+            ->where(function ($query) use ($destinationCategoryIds, $activePackageIds) {
+                if ($destinationCategoryIds->isNotEmpty()) {
+                    $query->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
+                        $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
+                    });
+                }
+
+                $query->orWhere(function ($fallbackQuery) use ($activePackageIds) {
+                    $fallbackQuery
+                        ->whereDoesntHave('schedule.destinationCategories')
+                        ->whereHas('class.packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $activePackageIds));
+                });
+            })
+            ->where('status', 'scheduled')
+            ->where('start_at', '>=', now()->subHours(2))
+            ->orderBy('start_at')
+            ->limit(3)
+            ->get();
+
         // Calculate accuracy stats
         $totalAnswered = UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
             $q->where('user_id', $user->id);
@@ -176,7 +211,9 @@ class DashboardController extends Controller
             'totalCorrect',
             'accuracyPercent',
             'recentTryouts',
-            'packageProgress'
+            'packageProgress',
+            'unpaidInvoices',
+            'upcomingClassSessions'
         ));
     }
 

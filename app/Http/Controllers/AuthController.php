@@ -169,6 +169,8 @@ class AuthController extends Controller
 
     public function register(Request $request, AffiliateService $affiliateService, ConcurrentLoginService $concurrentLoginService)
     {
+        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
+
         $rules = [
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users',
@@ -176,7 +178,7 @@ class AuthController extends Controller
             'date_of_birth' => 'required|date|before:today',
             'phone' => ['required', 'string', 'regex:/^62[0-9]{8,14}$/'],
             'participant_destination_category_id' => [
-                'nullable',
+                $destinationRule,
                 'exists:participant_destination_categories,id',
             ],
             'affiliate_ref_code' => ['nullable', 'string', 'max:32'],

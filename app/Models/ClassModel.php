@@ -36,6 +36,16 @@ class ClassModel extends Model
             ->withTimestamps();
     }
 
+    public function schedules()
+    {
+        return $this->hasMany(ClassSchedule::class, 'class_id', 'class_id');
+    }
+
+    public function sessions()
+    {
+        return $this->hasMany(ClassSession::class, 'class_id', 'class_id');
+    }
+
     public function preTest()
     {
         return $this->assessments()->wherePivot('assessment_type', 'pre_test');

@@ -143,6 +143,16 @@ class User extends Authenticatable
         return $this->hasMany(MaterialProgressLog::class, 'user_id');
     }
 
+    public function billInvoices()
+    {
+        return $this->hasMany(BillInvoice::class, 'user_id');
+    }
+
+    public function classAttendances()
+    {
+        return $this->hasMany(ClassAttendance::class, 'user_id');
+    }
+
     public function participantDestinationCategory(): BelongsTo
     {
         return $this->belongsTo(ParticipantDestinationCategory::class, 'participant_destination_category_id');

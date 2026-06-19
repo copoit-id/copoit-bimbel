@@ -67,6 +67,7 @@ class UserController extends Controller
 
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
+        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users',
@@ -74,7 +75,7 @@ class UserController extends Controller
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
-            'participant_destination_category_id' => ['nullable', 'exists:participant_destination_categories,id'],
+            'participant_destination_category_id' => [$destinationRule, 'exists:participant_destination_categories,id'],
         ]);
 
         $user = User::create([
@@ -116,6 +117,7 @@ class UserController extends Controller
     {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
+        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users,email,' . $id,
@@ -123,7 +125,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
-            'participant_destination_category_id' => ['nullable', 'exists:participant_destination_categories,id'],
+            'participant_destination_category_id' => [$destinationRule, 'exists:participant_destination_categories,id'],
         ]);
 
         $user = User::findOrFail($id);

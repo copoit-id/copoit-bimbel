@@ -30,7 +30,7 @@ $isGuest = !$user;
 
 @if(!$isGuest)
 <!-- Akses Cepat -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
     <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-video-line text-xl"></i>
@@ -58,7 +58,62 @@ $isGuest = !$user;
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Beli Paket</h3>
     </a>
+
+    <a href="{{ route('user.class-schedule.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-calendar-check-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Jadwal Kelas</h3>
+    </a>
+
+    <a href="{{ route('user.billing.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-bill-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Tagihan</h3>
+    </a>
 </div>
+
+@if(($unpaidInvoices ?? collect())->isNotEmpty() || ($upcomingClassSessions ?? collect())->isNotEmpty())
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    @if(($unpaidInvoices ?? collect())->isNotEmpty())
+    <div class="bg-white rounded-2xl p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-800">Pengingat Tagihan</h3>
+            <a href="{{ route('user.billing.index') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }}">Lihat semua</a>
+        </div>
+        <div class="space-y-3">
+            @foreach($unpaidInvoices as $invoice)
+            <div class="flex items-center justify-between rounded-xl bg-gray-50 p-4">
+                <div>
+                    <p class="font-semibold text-gray-800">{{ $invoice->title }}</p>
+                    <p class="text-xs text-gray-500">Jatuh tempo {{ $invoice->due_date->format('d M Y') }}</p>
+                </div>
+                <p class="font-bold text-gray-900">Rp {{ number_format((float) $invoice->amount, 0, ',', '.') }}</p>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
+    @if(($upcomingClassSessions ?? collect())->isNotEmpty())
+    <div class="bg-white rounded-2xl p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-800">Jadwal Terdekat</h3>
+            <a href="{{ route('user.class-schedule.index') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }}">Lihat semua</a>
+        </div>
+        <div class="space-y-3">
+            @foreach($upcomingClassSessions as $session)
+            <div class="rounded-xl bg-gray-50 p-4">
+                <p class="font-semibold text-gray-800">{{ $session->class->title ?? 'Kelas' }}</p>
+                <p class="text-sm text-gray-500">{{ $session->start_at->translatedFormat('l, d M Y H:i') }}</p>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+</div>
+@endif
 
 <!-- Stats Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

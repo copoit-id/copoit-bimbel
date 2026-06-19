@@ -6,7 +6,9 @@ use App\Http\Controllers\admin\AdminAssistantController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\CertificateController;
+use App\Http\Controllers\admin\ClassAttendanceController;
 use App\Http\Controllers\admin\ClassController;
+use App\Http\Controllers\admin\ClassScheduleController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\admin\DiscussionController;
 use App\Http\Controllers\admin\DiscountController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\admin\ProfileController;
 use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionBankController;
 use App\Http\Controllers\admin\QuestionImportController;
+use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
@@ -45,6 +48,8 @@ use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
+use App\Http\Controllers\user\UserBillingController;
+use App\Http\Controllers\user\UserClassScheduleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
@@ -219,6 +224,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::get('/class/{class}/material', [PackageController::class, 'openClassMaterial'])->name('user.class.material');
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
+    Route::get('/tagihan', [UserBillingController::class, 'index'])->name('user.billing.index');
+    Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
+    Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])->name('user.class-schedule.attend');
 
     Route::prefix('tryout')->group(function () {
         Route::get('/{id_package}/{id_tryout}/lobby', [TryoutController::class, 'indexLobby'])->name('user.tryout.lobby');
@@ -350,6 +358,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/pengeluaran', [ExpenseController::class, 'store'])->name('expenses.store');
         Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
     });
+    Route::resource('tagihan-rutin', RecurringBillController::class)
+        ->only(['index', 'create', 'store', 'show'])
+        ->names('recurring-bills')
+        ->parameters(['tagihan-rutin' => 'recurringBill']);
+    Route::post('tagihan-rutin/{recurringBill}/generate', [RecurringBillController::class, 'generate'])->name('recurring-bills.generate');
+    Route::post('tagihan-rutin/invoice/{invoice}/paid', [RecurringBillController::class, 'markPaid'])->name('recurring-bills.invoices.paid');
 
     Route::resource('general/artikel', AdminArticleController::class)
         ->except(['show'])
@@ -509,6 +523,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
     Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
     Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
+    Route::resource('jadwal-kelas', ClassScheduleController::class)
+        ->only(['index', 'create', 'store', 'show', 'destroy'])
+        ->names('class-schedules')
+        ->parameters(['jadwal-kelas' => 'classSchedule']);
+    Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
+    Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
+    Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
+    Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
     Route::resource('class', ClassController::class);
     Route::resource('certification', CertificationController::class);
     Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
