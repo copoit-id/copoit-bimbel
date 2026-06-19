@@ -301,13 +301,15 @@ class QuestionBankController extends Controller
         $storedCount = 0;
         DB::transaction(function () use ($questionBank, $questions, $validated, &$storedCount) {
             foreach ($questions as $question) {
+                $questionScore = (float) ($question['question_score'] ?? 1);
+
                 $bankQuestion = QuestionBankQuestion::create([
                     'question_bank_id' => $questionBank->id,
                     'question_type' => 'multiple_choice',
                     'question_text' => $question['question_text'],
                     'explanation' => $question['explanation'] ?: null,
-                    'default_weight' => 1,
-                    'custom_score' => 'no',
+                    'default_weight' => $questionScore,
+                    'custom_score' => 'yes',
                     'metadata' => [
                         'source' => 'ai_generator',
                         'model' => $validated['model'],
@@ -320,7 +322,7 @@ class QuestionBankController extends Controller
                     QuestionBankQuestionOption::create([
                         'question_bank_question_id' => $bankQuestion->id,
                         'option_text' => $option['text'],
-                        'weight' => $option['label'] === $question['correct_option'] ? 1 : 0,
+                        'weight' => (float) ($option['score'] ?? 0),
                         'is_correct' => $option['label'] === $question['correct_option'],
                         'position' => $position + 1,
                     ]);
@@ -1174,6 +1176,7 @@ class QuestionBankController extends Controller
                         return [
                             'label' => strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? ''))),
                             'text' => trim((string) ($option['text'] ?? '')),
+                            'score' => max(0, min(999, (float) ($option['score'] ?? 0))),
                         ];
                     })
                     ->filter(fn ($option) => $option['label'] !== '' && $option['text'] !== '')
@@ -1183,6 +1186,7 @@ class QuestionBankController extends Controller
 
                 return [
                     'question_text' => trim((string) ($question['question_text'] ?? '')),
+                    'question_score' => max(0, min(999, (float) ($question['question_score'] ?? 1))),
                     'options' => $options,
                     'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
                     'explanation' => trim((string) ($question['explanation'] ?? '')),

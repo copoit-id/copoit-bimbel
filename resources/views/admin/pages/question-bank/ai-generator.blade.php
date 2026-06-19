@@ -189,6 +189,7 @@
                     @foreach($previewQuestions as $index => $question)
                     @php
                         $correctOption = $question['correct_option'] ?? 'A';
+                        $questionScore = max(0, (float) ($question['question_score'] ?? 1));
                     @endphp
                     <article class="ai-preview-question overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" data-index="{{ $index }}">
                         <div class="flex flex-col gap-3 border-b border-gray-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -198,7 +199,11 @@
                                 </div>
                                 <div>
                                     <h3 data-question-title class="font-semibold text-gray-900">Soal {{ $index + 1 }}</h3>
-                                    <p class="text-xs text-gray-500">Jawaban benar: <span data-correct-badge class="font-bold text-green-700">{{ $correctOption }}</span></p>
+                                    <p class="text-xs text-gray-500">
+                                        Jawaban benar: <span data-correct-badge class="font-bold text-green-700">{{ $correctOption }}</span>
+                                        <span class="mx-1 text-gray-300">/</span>
+                                        Skor: <span data-score-badge class="font-bold text-gray-700">{{ rtrim(rtrim(number_format($questionScore, 2, '.', ''), '0'), '.') }}</span>
+                                    </p>
                                 </div>
                             </div>
                             <button type="button" data-remove-ai-question
@@ -230,20 +235,37 @@
                                     @php
                                         $optionLabel = $option['label'] ?? '';
                                         $isCorrect = $optionLabel === $correctOption;
+                                        $optionScore = $option['score'] ?? ($isCorrect ? $questionScore : 0);
                                     @endphp
                                     <div data-option-row data-option-label="{{ $optionLabel }}"
-                                        class="grid gap-3 rounded-xl border {{ $isCorrect ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white' }} p-3 md:grid-cols-[44px_minmax(0,1fr)] md:items-start">
-                                        <div class="flex h-9 w-9 items-center justify-center rounded-lg {{ $isCorrect ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700' }} text-sm font-bold">
+                                        class="flex flex-col gap-3 rounded-xl border {{ $isCorrect ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white' }} p-3 md:flex-row md:items-center">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {{ $isCorrect ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700' }} text-sm font-bold">
                                             {{ $optionLabel }}
                                         </div>
-                                        <textarea data-option-text data-option-label="{{ $optionLabel }}" rows="2"
-                                            class="w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-900 focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $option['text'] ?? '' }}</textarea>
+                                        <input type="text" data-option-text data-option-label="{{ $optionLabel }}"
+                                            value="{{ $option['text'] ?? '' }}"
+                                            class="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                        <div class="flex shrink-0 items-center gap-2">
+                                            <span class="text-xs font-semibold text-gray-500">Skor:</span>
+                                            <input type="number" data-option-score data-option-label="{{ $optionLabel }}" min="0" max="999" step="0.1"
+                                                value="{{ rtrim(rtrim(number_format($optionScore, 2, '.', ''), '0'), '.') }}"
+                                                class="w-20 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm font-semibold text-gray-900 focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                        </div>
                                     </div>
                                     @endforeach
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
+                            <div class="grid grid-cols-1 gap-4 lg:grid-cols-[160px_180px_minmax(0,1fr)]">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                        <i class="ri-medal-line"></i>
+                                        Skor
+                                    </label>
+                                    <input type="number" data-question-score min="0" max="999" step="0.1" value="{{ $questionScore }}"
+                                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                </div>
+
                                 <div class="rounded-xl border border-green-200 bg-green-50 p-4">
                                     <label class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-green-700">
                                         <i class="ri-check-double-line"></i>
@@ -296,6 +318,15 @@
         const questionsJson = document.getElementById('questionsJson');
         const previewList = document.getElementById('aiPreviewList');
 
+        const formatScore = (value) => {
+            const score = Number.parseFloat(value);
+            if (Number.isNaN(score)) {
+                return '0';
+            }
+
+            return String(Math.max(0, Math.min(999, score))).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        };
+
         const syncQuestionDisplay = (question, index) => {
             const title = question.querySelector('[data-question-title]');
             if (title) {
@@ -311,6 +342,12 @@
             const correctBadge = question.querySelector('[data-correct-badge]');
             if (correctBadge) {
                 correctBadge.textContent = correctValue || '-';
+            }
+
+            const scoreBadge = question.querySelector('[data-score-badge]');
+            const scoreInput = question.querySelector('[data-question-score]');
+            if (scoreBadge && scoreInput) {
+                scoreBadge.textContent = formatScore(scoreInput.value || '1');
             }
 
             question.querySelectorAll('[data-option-row]').forEach((row) => {
@@ -343,7 +380,7 @@
         });
 
         previewList?.addEventListener('change', (event) => {
-            if (!event.target.matches('[data-correct-option]')) {
+            if (!event.target.matches('[data-correct-option], [data-question-score]')) {
                 return;
             }
 
@@ -352,18 +389,75 @@
                 return;
             }
 
+            if (event.target.matches('[data-correct-option]')) {
+                const correctValue = event.target.value;
+                const scoreInput = question.querySelector('[data-question-score]');
+                const currentScore = Number.parseFloat(scoreInput?.value || '1') || 0;
+                question.querySelectorAll('[data-option-row]').forEach((row) => {
+                    const isCorrect = row.dataset.optionLabel === correctValue;
+                    const optionScoreInput = row.querySelector('[data-option-score]');
+                    if (optionScoreInput) {
+                        optionScoreInput.value = isCorrect ? currentScore : 0;
+                    }
+                });
+            }
+
+            syncQuestionDisplay(question, Array.from(document.querySelectorAll('.ai-preview-question')).indexOf(question));
+        });
+
+        previewList?.addEventListener('input', (event) => {
+            if (!event.target.matches('[data-question-score], [data-option-score]')) {
+                return;
+            }
+
+            const question = event.target.closest('.ai-preview-question');
+            if (!question) {
+                return;
+            }
+
+            if (event.target.matches('[data-question-score]')) {
+                const correctValue = question.querySelector('[data-correct-option]')?.value || '';
+                const newScore = event.target.value;
+                question.querySelectorAll('[data-option-row]').forEach((row) => {
+                    const isCorrect = row.dataset.optionLabel === correctValue;
+                    if (isCorrect) {
+                        const optionScoreInput = row.querySelector('[data-option-score]');
+                        if (optionScoreInput) {
+                            optionScoreInput.value = newScore;
+                        }
+                    }
+                });
+            }
+
+            if (event.target.matches('[data-option-score]')) {
+                const correctValue = question.querySelector('[data-correct-option]')?.value || '';
+                const optionRow = event.target.closest('[data-option-row]');
+                if (optionRow && optionRow.dataset.optionLabel === correctValue) {
+                    const scoreInput = question.querySelector('[data-question-score]');
+                    if (scoreInput) {
+                        scoreInput.value = event.target.value;
+                    }
+                }
+            }
+
             syncQuestionDisplay(question, Array.from(document.querySelectorAll('.ai-preview-question')).indexOf(question));
         });
 
         form?.addEventListener('submit', (event) => {
             const questions = Array.from(document.querySelectorAll('.ai-preview-question')).map((item) => ({
                 question_text: item.querySelector('[data-question-text]')?.value || '',
+                question_score: Number.parseFloat(item.querySelector('[data-question-score]')?.value || '1') || 0,
                 correct_option: item.querySelector('[data-correct-option]')?.value || '',
                 explanation: item.querySelector('[data-explanation]')?.value || '',
-                options: Array.from(item.querySelectorAll('[data-option-text]')).map((optionInput) => ({
-                    label: optionInput.dataset.optionLabel || '',
-                    text: optionInput.value || '',
-                })),
+                options: Array.from(item.querySelectorAll('[data-option-text]')).map((optionInput) => {
+                    const optionRow = optionInput.closest('[data-option-row]');
+                    const optionScoreInput = optionRow?.querySelector('[data-option-score]');
+                    return {
+                        label: optionInput.dataset.optionLabel || '',
+                        text: optionInput.value || '',
+                        score: Number.parseFloat(optionScoreInput?.value || '0') || 0,
+                    };
+                }),
             }));
 
             if (questions.length === 0) {
