@@ -202,15 +202,19 @@ class QuestionBankController extends Controller
         ]);
     }
 
-    public function aiGeneratorForm(QuestionBank $questionBank, Request $request)
+    public function aiGeneratorForm(QuestionBank $questionBank, Request $request, AiQuestionGeneratorService $aiGeneratorService)
     {
+        abort_unless($aiGeneratorService->isEnabled(), 404);
+
         $importTarget = $request->integer('import_for');
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
             : null;
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
-        $models = $this->availableAiQuestionModels();
-        $defaultModel = config('services.openai.question_model', 'gpt-5.4-mini');
+        $models = $aiGeneratorService->availableModels();
+        abort_if(empty($models), 404);
+
+        $defaultModel = $aiGeneratorService->defaultModel();
         $preview = session($this->aiPreviewSessionKey($questionBank));
 
         return view('admin.pages.question-bank.ai-generator', [
@@ -226,7 +230,10 @@ class QuestionBankController extends Controller
 
     public function previewAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService)
     {
-        $models = array_keys($this->availableAiQuestionModels());
+        abort_unless($aiGeneratorService->isEnabled(), 404);
+
+        $models = array_keys($aiGeneratorService->availableModels());
+        abort_if(empty($models), 404);
 
         $validated = $request->validate([
             'model' => ['required', Rule::in($models)],
@@ -268,9 +275,12 @@ class QuestionBankController extends Controller
         }
     }
 
-    public function storeAiQuestions(Request $request, QuestionBank $questionBank)
+    public function storeAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService)
     {
-        $models = array_keys($this->availableAiQuestionModels());
+        abort_unless($aiGeneratorService->isEnabled(), 404);
+
+        $models = array_keys($aiGeneratorService->availableModels());
+        abort_if(empty($models), 404);
 
         $validated = $request->validate([
             'questions_json' => ['required', 'string'],
@@ -1149,14 +1159,6 @@ class QuestionBankController extends Controller
     private function aiPreviewSessionKey(QuestionBank $bank): string
     {
         return 'ai_question_preview_' . $bank->id;
-    }
-
-    private function availableAiQuestionModels(): array
-    {
-        return array_merge(
-            config('services.openai.question_models', []),
-            config('services.gemini.question_models', [])
-        );
     }
 
     private function normalizeAiPreviewQuestions(array $questions): array

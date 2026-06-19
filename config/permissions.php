@@ -36,6 +36,10 @@ return [
             'label' => 'Import Soal',
             'routes' => ['admin.question-import.'],
         ],
+        'ai_question_generator' => [
+            'label' => 'Generate Soal AI',
+            'routes' => ['admin.question-bank.questions.ai-generator'],
+        ],
         'question_bank' => [
             'label' => 'Bank Soal',
             'routes' => ['admin.question-bank.'],

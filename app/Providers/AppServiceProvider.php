@@ -85,6 +85,8 @@ class AppServiceProvider extends ServiceProvider
             'footer_twitter' => null,
             'footer_youtube' => null,
             'tes_koran_enabled' => true,
+            'ai_question_generator_enabled' => false,
+            'ai_question_generator_settings' => [],
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -138,6 +140,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['footer_instagram'] = $clientProfile->footer_instagram ?? $defaults['footer_instagram'];
             $defaults['footer_twitter'] = $clientProfile->footer_twitter ?? $defaults['footer_twitter'];
             $defaults['footer_youtube'] = $clientProfile->footer_youtube ?? $defaults['footer_youtube'];
+            $defaults['ai_question_generator_settings'] = $clientProfile->ai_question_generator_settings ?: $defaults['ai_question_generator_settings'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
@@ -148,6 +151,7 @@ class AppServiceProvider extends ServiceProvider
             && Schema::hasTable('permission_role')
         ) {
             $defaults['tes_koran_enabled'] = Role::adminCanViewFeature('tes_koran');
+            $defaults['ai_question_generator_enabled'] = Role::adminCanViewFeature('ai_question_generator');
         }
 
         if (Schema::hasTable('client_plan_subscriptions') && Schema::hasTable('plans')) {

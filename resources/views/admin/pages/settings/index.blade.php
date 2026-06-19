@@ -62,8 +62,30 @@
     'footer_youtube'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'footer';
+    } elseif (collect($settingErrorKeys)->intersect([
+    'ai_question_generator_enabled',
+    'ai_openai_api_key',
+    'ai_openai_base_url',
+    'ai_openai_timeout',
+    'ai_gemini_api_key',
+    'ai_gemini_base_url',
+    'ai_gemini_timeout',
+    'ai_question_default_model',
+    'ai_question_models_json'
+    ])->isNotEmpty()) {
+    $activeSettingsTab = 'ai';
     }
     }
+
+    $aiSettings = old('ai_question_generator_settings', $profile->ai_question_generator_settings ?? ($branding['ai_question_generator_settings'] ?? []));
+    $aiProviders = is_array($aiSettings['providers'] ?? null) ? $aiSettings['providers'] : [];
+    $aiModels = is_array($aiSettings['models'] ?? null) ? $aiSettings['models'] : [
+        ['id' => 'gpt-5.4-mini', 'label' => 'OpenAI - GPT-5.4 Mini', 'provider' => 'openai', 'enabled' => true],
+        ['id' => 'gemini-2.5-flash', 'label' => 'Gemini - 2.5 Flash', 'provider' => 'gemini', 'enabled' => true],
+        ['id' => 'gemini-2.5-flash-lite', 'label' => 'Gemini - 2.5 Flash-Lite', 'provider' => 'gemini', 'enabled' => true],
+    ];
+    $aiModelsJson = old('ai_question_models_json', json_encode($aiModels, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    $aiDefaultModel = old('ai_question_default_model', $aiSettings['default_model'] ?? ($aiModels[0]['id'] ?? 'gemini-2.5-flash'));
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
@@ -107,6 +129,10 @@
                 <button type="button" data-settings-tab="footer"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Footer
+                </button>
+                <button type="button" data-settings-tab="ai"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    AI Soal
                 </button>
             </div>
         </div>
@@ -795,6 +821,109 @@
             </div>
         </div>
 
+        <div data-settings-panel="ai"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'ai' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Generator Soal AI</p>
+                <h2 class="text-xl font-semibold text-gray-900">API & Model Generator</h2>
+                <p class="text-gray-500 text-sm">Show/hide fitur dikontrol dari Super Admin Role & Akses. Di sini admin hanya mengatur API key dan model saat fitur aktif.</p>
+            </div>
+
+            <div class="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <input type="checkbox" id="ai_question_generator_enabled"
+                    class="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                    {{ ($branding['ai_question_generator_enabled'] ?? false) ? 'checked' : '' }}
+                    disabled>
+                <span>
+                    <span class="block font-semibold text-gray-900">Status fitur Generate AI di Bank Soal</span>
+                    <span class="block text-sm text-gray-500">Show/hide fitur ini dikontrol dari Super Admin. Jika aktif, API key dan model bisa diatur di sini.</span>
+                </span>
+            </div>
+
+            <div id="ai-generator-settings-fields" class="space-y-6">
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">OpenAI</p>
+                            <p class="text-xs text-gray-500">Kosongkan API key jika tidak ingin mengubah key yang sudah tersimpan.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Key OpenAI</label>
+                            <input type="password" name="ai_openai_api_key" autocomplete="new-password"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="{{ filled($aiProviders['openai']['api_key'] ?? null) ? 'Sudah tersimpan - isi untuk mengganti' : 'sk-...' }}">
+                            @error('ai_openai_api_key')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                            <input type="url" name="ai_openai_base_url"
+                                value="{{ old('ai_openai_base_url', $aiProviders['openai']['base_url'] ?? 'https://api.openai.com/v1') }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                            @error('ai_openai_base_url')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Timeout</label>
+                            <input type="number" name="ai_openai_timeout" min="5" max="300"
+                                value="{{ old('ai_openai_timeout', $aiProviders['openai']['timeout'] ?? 90) }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">Gemini</p>
+                            <p class="text-xs text-gray-500">Cocok untuk mode free tier/testing. Kosongkan API key jika tidak ingin mengubah.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Key Gemini</label>
+                            <input type="password" name="ai_gemini_api_key" autocomplete="new-password"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                                placeholder="{{ filled($aiProviders['gemini']['api_key'] ?? null) ? 'Sudah tersimpan - isi untuk mengganti' : 'AIza...' }}">
+                            @error('ai_gemini_api_key')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                            <input type="url" name="ai_gemini_base_url"
+                                value="{{ old('ai_gemini_base_url', $aiProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta') }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                            @error('ai_gemini_base_url')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Timeout</label>
+                            <input type="number" name="ai_gemini_timeout" min="5" max="300"
+                                value="{{ old('ai_gemini_timeout', $aiProviders['gemini']['timeout'] ?? 90) }}"
+                                class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Default Model</label>
+                        <input type="text" name="ai_question_default_model" value="{{ $aiDefaultModel }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="gemini-2.5-flash">
+                        @error('ai_question_default_model')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Model JSON</label>
+                        <textarea name="ai_question_models_json" rows="10"
+                            class="font-mono text-xs w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">{{ $aiModelsJson }}</textarea>
+                        <p class="text-xs text-gray-500 mt-1">Format: array object dengan key id, label, provider openai/gemini, enabled true/false.</p>
+                        @error('ai_question_models_json')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Admin</label>
+                    <input type="password" name="ai_admin_password" autocomplete="current-password"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Wajib diisi kalau mengganti API key AI">
+                    @error('admin_password')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
+        </div>
+
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>
@@ -840,6 +969,23 @@
         });
 
         setActiveTab(settingsTabInput?.value || 'identity');
+
+        const aiToggle = document.getElementById('ai_question_generator_enabled');
+        const aiSettingsFields = document.getElementById('ai-generator-settings-fields');
+        const toggleAiSettingsFields = () => {
+            const enabled = aiToggle?.checked ?? false;
+            if (!aiSettingsFields) {
+                return;
+            }
+
+            aiSettingsFields.classList.toggle('hidden', !enabled);
+            aiSettingsFields.querySelectorAll('input, textarea, select').forEach((field) => {
+                field.disabled = !enabled;
+            });
+        };
+
+        aiToggle?.addEventListener('change', toggleAiSettingsFields);
+        toggleAiSettingsFields();
 
         document.querySelectorAll('input[data-preview-target]').forEach(input => {
             input.addEventListener('change', (event) => {

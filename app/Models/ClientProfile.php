@@ -55,6 +55,7 @@ class ClientProfile extends Model
         'footer_instagram',
         'footer_twitter',
         'footer_youtube',
+        'ai_question_generator_settings',
     ];
 
     protected $casts = [
@@ -74,5 +75,6 @@ class ClientProfile extends Model
         'midtrans_client_key' => 'encrypted',
         'interactive_qris_api_key' => 'encrypted',
         'interactive_qris_use_tip' => 'boolean',
+        'ai_question_generator_settings' => 'encrypted:array',
     ];
 }

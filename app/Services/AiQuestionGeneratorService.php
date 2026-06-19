@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ClientProfile;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -12,6 +13,10 @@ class AiQuestionGeneratorService
     public function generate(array $input): array
     {
         $model = $input['model'] ?? config('services.openai.question_model', 'gpt-5.4-mini');
+        if (!array_key_exists($model, $this->availableModels())) {
+            throw new RuntimeException('Model AI tidak aktif atau belum tersedia di pengaturan.');
+        }
+
         $response = str_starts_with($model, 'gemini-')
             ? $this->generateWithGemini($input, $model)
             : $this->generateWithOpenAi($input, $model);
@@ -40,11 +45,52 @@ class AiQuestionGeneratorService
         ];
     }
 
+    public function isEnabled(): bool
+    {
+        return (bool) config('client.branding.ai_question_generator_enabled', false);
+    }
+
+    public function availableModels(): array
+    {
+        if (!$this->isEnabled()) {
+            return [];
+        }
+
+        $settings = $this->settings();
+        $models = collect($settings['models'] ?? [])
+            ->filter(fn ($model) => ($model['enabled'] ?? true) && filled($model['id'] ?? null))
+            ->mapWithKeys(fn ($model) => [
+                (string) $model['id'] => (string) ($model['label'] ?? $model['id']),
+            ])
+            ->all();
+
+        if (!empty($models)) {
+            return $models;
+        }
+
+        return array_merge(
+            config('services.openai.question_models', []),
+            config('services.gemini.question_models', [])
+        );
+    }
+
+    public function defaultModel(): string
+    {
+        $settings = $this->settings();
+        $defaultModel = (string) ($settings['default_model'] ?? config('services.openai.question_model', 'gpt-5.4-mini'));
+        $models = $this->availableModels();
+
+        return array_key_exists($defaultModel, $models)
+            ? $defaultModel
+            : (array_key_first($models) ?: $defaultModel);
+    }
+
     private function generateWithOpenAi(array $input, string $model): array
     {
-        $apiKey = config('services.openai.api_key');
+        $provider = $this->providerSettings('openai');
+        $apiKey = $provider['api_key'] ?? config('services.openai.api_key');
         if (!$apiKey) {
-            throw new RuntimeException('OPENAI_API_KEY belum diatur di environment.');
+            throw new RuntimeException('API key OpenAI belum diatur di pengaturan AI.');
         }
 
         $payload = $this->buildOpenAiPayload($input, $model);
@@ -53,8 +99,8 @@ class AiQuestionGeneratorService
             $response = Http::withToken($apiKey)
                 ->acceptJson()
                 ->asJson()
-                ->timeout((int) config('services.openai.timeout', 90))
-                ->post(rtrim((string) config('services.openai.base_url'), '/') . '/responses', $payload)
+                ->timeout((int) ($provider['timeout'] ?? config('services.openai.timeout', 90)))
+                ->post(rtrim((string) ($provider['base_url'] ?? config('services.openai.base_url')), '/') . '/responses', $payload)
                 ->throw()
                 ->json();
         } catch (RequestException $exception) {
@@ -74,19 +120,20 @@ class AiQuestionGeneratorService
 
     private function generateWithGemini(array $input, string $model): array
     {
-        $apiKey = config('services.gemini.api_key');
+        $provider = $this->providerSettings('gemini');
+        $apiKey = $provider['api_key'] ?? config('services.gemini.api_key');
         if (!$apiKey) {
-            throw new RuntimeException('GEMINI_API_KEY belum diatur di environment.');
+            throw new RuntimeException('API key Gemini belum diatur di pengaturan AI.');
         }
 
         $payload = $this->buildGeminiPayload($input);
-        $endpoint = rtrim((string) config('services.gemini.base_url'), '/')
+        $endpoint = rtrim((string) ($provider['base_url'] ?? config('services.gemini.base_url')), '/')
             . '/models/' . rawurlencode($model) . ':generateContent';
 
         try {
             $response = Http::acceptJson()
                 ->asJson()
-                ->timeout((int) config('services.gemini.timeout', 90))
+                ->timeout((int) ($provider['timeout'] ?? config('services.gemini.timeout', 90)))
                 ->withQueryParameters(['key' => $apiKey])
                 ->post($endpoint, $payload)
                 ->throw()
@@ -307,5 +354,29 @@ PROMPT;
             })
             ->values()
             ->all();
+    }
+
+    private function settings(): array
+    {
+        $settings = config('client.branding.ai_question_generator_settings');
+
+        if (is_array($settings) && !empty($settings)) {
+            return $settings;
+        }
+
+        $profile = ClientProfile::query()->first();
+
+        return is_array($profile?->ai_question_generator_settings)
+            ? $profile->ai_question_generator_settings
+            : [];
+    }
+
+    private function providerSettings(string $provider): array
+    {
+        $settings = $this->settings();
+
+        return is_array($settings['providers'][$provider] ?? null)
+            ? $settings['providers'][$provider]
+            : [];
     }
 }
