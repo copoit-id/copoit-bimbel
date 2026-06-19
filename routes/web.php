@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
+use App\Http\Controllers\admin\AdminAssistantController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\CertificateController;
@@ -337,6 +338,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
 // Admin Routes (add auth middleware)
 Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission', 'no-cache'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
     Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
     Route::get('/activity', [\App\Http\Controllers\ActivityController::class, 'index'])->name('activity.index');
     Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');

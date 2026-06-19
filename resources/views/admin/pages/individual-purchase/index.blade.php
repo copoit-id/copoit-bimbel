@@ -1,3 +1,6 @@
+@extends('admin.layout.admin')
+
+@section('content')
 @php
     $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
     $typeOptions = [
@@ -214,3 +217,4 @@
     </div>
     @endif
 </div>
+@endsection

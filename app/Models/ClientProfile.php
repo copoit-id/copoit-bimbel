@@ -58,6 +58,7 @@ class ClientProfile extends Model
         'footer_twitter',
         'footer_youtube',
         'ai_question_generator_settings',
+        'admin_assistant_enabled',
     ];
 
     protected $casts = [
@@ -79,5 +80,6 @@ class ClientProfile extends Model
         'interactive_qris_use_tip' => 'boolean',
         'ipaymu_api_key' => 'encrypted',
         'ai_question_generator_settings' => 'encrypted:array',
+        'admin_assistant_enabled' => 'boolean',
     ];
 }
