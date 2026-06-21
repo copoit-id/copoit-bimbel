@@ -2,6 +2,14 @@
 
 @section('title', $title)
 
+@php
+    $selectionPath = $selectionPath ?? 'snbp';
+    $selectionLabel = $selectionLabel ?? strtoupper($selectionPath);
+    $quotaField = $quotaField ?? 'daya_tampung_snbp';
+    $ptnDataUrl = $ptnDataUrl ?? route('statistics.proxy.ptn');
+    $prodiDataUrl = $prodiDataUrl ?? route('statistics.proxy.prodi');
+@endphp
+
 @push('styles')
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <style>
@@ -33,10 +41,10 @@
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10 text-center">
         <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary-light border border-primary/20">
             <i class="ri-line-chart-line"></i>
-            Analisis Daya Tampung & Keketatan SNBP
+            Analisis Daya Tampung & Keketatan {{ $selectionLabel }}
         </span>
         <h1 class="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-            Statistik PTN & Keketatan Prodi
+            Statistik PTN {{ $selectionLabel }} & Keketatan Prodi
         </h1>
         <p class="mt-3 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed text-slate-400">
             Pantau kuota daya tampung terbaru dan persentase keketatan penerimaan program studi untuk menyusun strategi kelulusan pilihan kuliahmu.
@@ -154,7 +162,7 @@
                     Pilih salah satu Perguruan Tinggi Negeri di sidebar kiri untuk menampilkan rincian daya tampung kuota program studi serta kalkulasi keketatan persaingannya.
                 </p>
                 <div class="mt-2 flex flex-wrap gap-1.5 justify-center max-w-lg">
-                    <span class="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md flex items-center gap-1"><i class="ri-check-line text-emerald-500"></i> Kuota SNBP</span>
+                    <span class="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md flex items-center gap-1"><i class="ri-check-line text-emerald-500"></i> Kuota {{ $selectionLabel }}</span>
                     <span class="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md flex items-center gap-1"><i class="ri-check-line text-emerald-500"></i> Histori Peminat</span>
                     <span class="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md flex items-center gap-1"><i class="ri-check-line text-emerald-500"></i> Persentase Lolos</span>
                 </div>
@@ -272,7 +280,7 @@
                             <div class="col-span-2">Kode</div>
                             <div class="col-span-4">Program Studi</div>
                             <div class="col-span-2 text-center">Kuota (2025)</div>
-                            <div class="col-span-2 text-center">Peminat (2024)</div>
+                            <div class="col-span-2 text-center">Peminat Terbaru</div>
                             <div class="col-span-2 text-center">Keketatan</div>
                         </div>
 
@@ -311,7 +319,7 @@
 
                                         <!-- Peminat -->
                                         <div class="col-span-1 md:col-span-2 text-left md:text-center flex md:block justify-between items-center text-xs">
-                                            <span class="text-slate-400 font-medium md:hidden">Peminat 2024:</span>
+                                            <span class="text-slate-400 font-medium md:hidden">Peminat terbaru:</span>
                                             <span class="font-semibold text-slate-600 text-sm" x-text="prodi.latest_peminat || '0'"></span>
                                         </div>
 
@@ -478,6 +486,9 @@
 <script>
 document.addEventListener('alpine:init', () => {
     Alpine.data('ptnStats', () => ({
+        ptnDataUrl: @js($ptnDataUrl),
+        prodiDataUrl: @js($prodiDataUrl),
+        quotaField: @js($quotaField),
         ptnList: [],
         filteredPtnList: [],
         selectedPtn: null,
@@ -503,7 +514,7 @@ document.addEventListener('alpine:init', () => {
             this.isLoadingPtn = true;
             this.ptnError = null;
             try {
-                const res = await fetch('/statistik-ptn/data-ptn');
+                const res = await fetch(this.ptnDataUrl);
                 if (!res.ok) throw new Error('Gagal memuat data PTN');
                 this.ptnList = await res.json();
                 
@@ -562,7 +573,7 @@ document.addEventListener('alpine:init', () => {
 
             this.isLoadingProdi = true;
             try {
-                const res = await fetch(`/statistik-ptn/data-prodi?ptn=${ptnId}`);
+                const res = await fetch(`${this.prodiDataUrl}?ptn=${ptnId}`);
                 if (!res.ok) throw new Error('Gagal memuat program studi');
                 const data = await res.json();
                 
@@ -576,7 +587,7 @@ document.addEventListener('alpine:init', () => {
                     // Find latest year info (e.g. 2025)
                     const latest = history.find(h => h.tahun === 2025) || history[history.length - 1] || null;
                     
-                    const dayaTampung = latest ? latest.daya_tampung : parseInt(prodi.daya_tampung_snbp || 0);
+                    const dayaTampung = latest ? latest.daya_tampung : parseInt(prodi[this.quotaField] || 0);
                     const peminat = latest ? latest.peminat : 0;
                     const keketatan = peminat > 0 ? (dayaTampung / peminat) * 100 : 0;
 

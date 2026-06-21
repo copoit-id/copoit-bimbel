@@ -429,7 +429,8 @@
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90 list-disc pl-5">
                 <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">Home Landing</a></li>
                 @if($showStatisticsNav)
-                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">Statistik PTN</a></li>
+                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">Statistik PTN SNBP</a></li>
+                    <li><a href="{{ route('statistics.snbt') }}" class="hover:text-amber-300 transition-colors">Statistik PTN SNBT</a></li>
                 @endif
                 @if($showArticlesNav)
                     <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">Insight & Artikel</a></li>

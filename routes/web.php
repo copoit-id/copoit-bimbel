@@ -123,6 +123,9 @@ Route::get('/', [GeneralPageController::class, 'landing'])->name('landing');
 Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
 Route::get('/statistik-ptn/data-ptn', [GeneralPageController::class, 'proxyPtnList'])->name('statistics.proxy.ptn');
 Route::get('/statistik-ptn/data-prodi', [GeneralPageController::class, 'proxyProdiList'])->name('statistics.proxy.prodi');
+Route::get('/statistik-ptn/snbt', [GeneralPageController::class, 'statisticsSnbt'])->name('statistics.snbt');
+Route::get('/statistik-ptn/snbt/data-ptn', [GeneralPageController::class, 'proxyPtnListSnbt'])->name('statistics.snbt.proxy.ptn');
+Route::get('/statistik-ptn/snbt/data-prodi', [GeneralPageController::class, 'proxyProdiListSnbt'])->name('statistics.snbt.proxy.prodi');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 
@@ -130,6 +133,7 @@ Route::prefix('general')->name('general.')->group(function () {
     Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
     Route::get('/landing-page', [GeneralPageController::class, 'landing'])->name('landing');
     Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
+    Route::get('/statistik-ptn/snbt', [GeneralPageController::class, 'statisticsSnbt'])->name('statistics.snbt');
     Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
     Route::get('/blog', [GeneralPageController::class, 'articles'])->name('blog.index');
     Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');

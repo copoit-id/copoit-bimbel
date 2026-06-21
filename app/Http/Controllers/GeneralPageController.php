@@ -31,34 +31,73 @@ class GeneralPageController extends Controller
 
     public function statistics()
     {
+        return $this->statisticsView('snbp');
+    }
+
+    public function statisticsSnbt()
+    {
+        return $this->statisticsView('snbt');
+    }
+
+    private function statisticsView(string $selectionPath)
+    {
         $page = GeneralPage::findActiveByKey('statistik-ptn');
 
         abort_unless($page, 404);
 
         $content = $page->content ?? [];
+        $isSnbt = $selectionPath === 'snbt';
 
         return view($this->resolveTemplateView('statistik-ptn', $page, 'general.statistics'), [
-            'title' => $content['title'] ?? 'Statistik PTN',
+            'title' => $content['title'] ?? ($isSnbt ? 'Statistik PTN SNBT' : 'Statistik PTN SNBP'),
             'page' => $page,
             'content' => $content,
             'settings' => $page?->settings ?? [],
             'seo' => $page?->seo ?? [],
+            'selectionPath' => $selectionPath,
+            'selectionLabel' => strtoupper($selectionPath),
+            'ptnDataUrl' => $isSnbt ? route('statistics.snbt.proxy.ptn') : route('statistics.proxy.ptn'),
+            'prodiDataUrl' => $isSnbt ? route('statistics.snbt.proxy.prodi') : route('statistics.proxy.prodi'),
+            'quotaField' => $isSnbt ? 'daya_tampung_snbt' : 'daya_tampung_snbp',
         ]);
     }
 
     public function proxyPtnList()
     {
+        return $this->proxyPtnSelectionList('snbp');
+    }
+
+    public function proxyPtnListSnbt()
+    {
+        return $this->proxyPtnSelectionList('snbt');
+    }
+
+    public function proxyProdiList(Request $request)
+    {
+        return $this->proxyProdiSelectionList($request, 'snbp');
+    }
+
+    public function proxyProdiListSnbt(Request $request)
+    {
+        return $this->proxyProdiSelectionList($request, 'snbt');
+    }
+
+    private function proxyPtnSelectionList(string $selectionPath)
+    {
         abort_unless(GeneralPage::findActiveByKey('statistik-ptn'), 404);
 
-        // Cache the PTN list for 6 hours
-        $data = Cache::remember('snpmb_ptn_list', 3600 * 6, function () {
+        $endpoint = $selectionPath === 'snbt'
+            ? 'https://snpmb.id/proxy-ptn-sb.php'
+            : 'https://snpmb.id/proxy-ptn-sn.php';
+
+        $data = Cache::remember("snpmb_{$selectionPath}_ptn_list", 3600 * 6, function () use ($endpoint, $selectionPath) {
             try {
-                $response = Http::timeout(10)->get('https://snpmb.id/proxy-ptn-sn.php');
+                $response = Http::timeout(10)->get($endpoint);
                 if ($response->successful()) {
                     return $response->json();
                 }
             } catch (\Exception $e) {
-                logger()->error('Error fetching PTN list from SNPMB: ' . $e->getMessage());
+                logger()->error("Error fetching PTN list {$selectionPath} from SNPMB: " . $e->getMessage());
             }
             return null;
         });
@@ -70,7 +109,7 @@ class GeneralPageController extends Controller
         return response()->json($data);
     }
 
-    public function proxyProdiList(Request $request)
+    private function proxyProdiSelectionList(Request $request, string $selectionPath)
     {
         abort_unless(GeneralPage::findActiveByKey('statistik-ptn'), 404);
 
@@ -84,18 +123,21 @@ class GeneralPageController extends Controller
             return response()->json(['error' => 'Parameter ptn tidak valid.'], 400);
         }
 
-        // Cache the Prodi list per PTN for 6 hours
-        $cacheKey = 'snpmb_prodi_list_' . $ptnId;
-        $data = Cache::remember($cacheKey, 3600 * 6, function () use ($ptnId) {
+        $endpoint = $selectionPath === 'snbt'
+            ? 'https://snpmb.id/proxy-prodi-sb.php'
+            : 'https://snpmb.id/proxy-prodi-sn.php';
+
+        $cacheKey = "snpmb_{$selectionPath}_prodi_list_" . $ptnId;
+        $data = Cache::remember($cacheKey, 3600 * 6, function () use ($ptnId, $endpoint, $selectionPath) {
             try {
-                $response = Http::timeout(10)->get("https://snpmb.id/proxy-prodi-sn.php", [
+                $response = Http::timeout(10)->get($endpoint, [
                     'ptn' => $ptnId
                 ]);
                 if ($response->successful()) {
                     return $response->json();
                 }
             } catch (\Exception $e) {
-                logger()->error("Error fetching Prodi list for PTN {$ptnId} from SNPMB: " . $e->getMessage());
+                logger()->error("Error fetching Prodi list {$selectionPath} for PTN {$ptnId} from SNPMB: " . $e->getMessage());
             }
             return null;
         });

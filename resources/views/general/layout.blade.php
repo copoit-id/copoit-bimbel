@@ -45,10 +45,23 @@
                 </a>
                 @endif
                 @if($showStatisticsNav)
-                <a href="{{ route('statistics') }}"
-                    class="rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
-                    Statistik PTN
-                </a>
+                <div class="group relative">
+                    <button type="button"
+                        class="rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
+                        Statistik PTN
+                        <i class="ri-arrow-down-s-line align-middle"></i>
+                    </button>
+                    <div class="invisible absolute left-0 top-full z-50 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1 text-slate-700 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+                        <a href="{{ route('statistics') }}"
+                            class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
+                            Statistik SNBP
+                        </a>
+                        <a href="{{ route('statistics.snbt') }}"
+                            class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
+                            Statistik SNBT
+                        </a>
+                    </div>
+                </div>
                 @endif
                 @if($showArticlesNav)
                 <a href="{{ route('articles.index') }}"
@@ -83,7 +96,11 @@
             @if($showStatisticsNav)
             <a href="{{ route('statistics') }}"
                 class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary text-white' : 'bg-white' }}">
-                Statistik PTN
+                Statistik SNBP
+            </a>
+            <a href="{{ route('statistics.snbt') }}"
+                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary text-white' : 'bg-white' }}">
+                Statistik SNBT
             </a>
             @endif
             @if($showArticlesNav)
@@ -104,6 +121,10 @@
         <div class="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
             <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}.</p>
             <div class="flex gap-4">
+                @if($showStatisticsNav)
+                    <a href="{{ route('statistics') }}" class="hover:text-primary">SNBP</a>
+                    <a href="{{ route('statistics.snbt') }}" class="hover:text-primary">SNBT</a>
+                @endif
                 @if($showArticlesNav)
                     <a href="{{ route('articles.index') }}" class="hover:text-primary">Artikel</a>
                 @endif
