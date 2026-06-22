@@ -38,6 +38,7 @@ use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GeneralPageController;
+use App\Http\Controllers\ParticipantDestinationLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
@@ -126,6 +127,8 @@ Route::get('/statistik-ptn/data-prodi', [GeneralPageController::class, 'proxyPro
 Route::get('/statistik-ptn/snbt', [GeneralPageController::class, 'statisticsSnbt'])->name('statistics.snbt');
 Route::get('/statistik-ptn/snbt/data-ptn', [GeneralPageController::class, 'proxyPtnListSnbt'])->name('statistics.snbt.proxy.ptn');
 Route::get('/statistik-ptn/snbt/data-prodi', [GeneralPageController::class, 'proxyProdiListSnbt'])->name('statistics.snbt.proxy.prodi');
+Route::get('/participant-destinations/official/institutions', [ParticipantDestinationLookupController::class, 'institutions'])->name('participant-destinations.official.institutions');
+Route::get('/participant-destinations/official/programs', [ParticipantDestinationLookupController::class, 'programs'])->name('participant-destinations.official.programs');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 
@@ -542,8 +545,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
     Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
     Route::resource('user', UserController::class);
-    Route::post('participant-destination-categories/import-snpmb', [ParticipantDestinationCategoryController::class, 'importSnpmb'])
-        ->name('participant-destination-categories.import-snpmb');
+    Route::get('participant-destination-categories/official/institutions', [ParticipantDestinationCategoryController::class, 'officialInstitutions'])
+        ->name('participant-destination-categories.official.institutions');
+    Route::get('participant-destination-categories/official/programs', [ParticipantDestinationCategoryController::class, 'officialPrograms'])
+        ->name('participant-destination-categories.official.programs');
     Route::resource('participant-destination-categories', ParticipantDestinationCategoryController::class)
         ->only(['index', 'store', 'update', 'destroy'])
         ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);

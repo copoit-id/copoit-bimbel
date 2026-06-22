@@ -2062,8 +2062,15 @@ class PackageController extends Controller
         ]);
         $activeRankingTab = request('tab', 'all') === 'profile' ? 'profile' : 'all';
         $profileCategory = $currentUser->participantDestinationCategory;
-        $profileNeedsCompletion = !$profileCategory
-            || (!$profileCategory->parent_id && $profileCategory->activeChildren()->exists());
+        $profileOfficialInstitution = trim((string) ($currentUser->participant_destination_institution_name ?? ''));
+        $profileOfficialProgram = trim((string) ($currentUser->participant_destination_program_name ?? ''));
+        $hasOfficialDestination = $currentUser->participant_destination_source === 'snpmb'
+            && $profileOfficialInstitution !== '';
+        $profileNeedsCompletion = !$hasOfficialDestination
+            && (
+                !$profileCategory
+                || (!$profileCategory->parent_id && $profileCategory->activeChildren()->exists())
+            );
 
         if ($activeRankingTab === 'profile' && $profileNeedsCompletion) {
             return redirect()->route('user.profile.index')
@@ -2072,6 +2079,7 @@ class PackageController extends Controller
 
         $profileDestinationIds = [];
         $profileDestinationLabel = null;
+        $profileDestinationSnapshot = null;
         if ($profileCategory) {
             $profileDestinationLabel = $profileCategory->display_name;
             $profileDestinationIds = $profileCategory->parent_id
@@ -2082,14 +2090,32 @@ class PackageController extends Controller
                     ->unique()
                     ->values()
                     ->all();
+        } elseif ($hasOfficialDestination) {
+            $profileDestinationLabel = $currentUser->participant_destination_display_name;
+            $profileDestinationSnapshot = [
+                'source' => 'snpmb',
+                'institution_name' => $profileOfficialInstitution,
+                'program_name' => $profileOfficialProgram,
+            ];
         }
 
-        $buildRankings = function (array $destinationIds = []) use ($id_tryout, $tryout) {
+        $buildRankings = function (array $destinationIds = [], ?array $destinationSnapshot = null) use ($id_tryout, $tryout) {
             return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
                 ->where('status', 'completed')
                 ->when(!empty($destinationIds), function ($query) use ($destinationIds) {
                     $query->whereHas('user', function ($userQuery) use ($destinationIds) {
                         $userQuery->whereIn('participant_destination_category_id', $destinationIds);
+                    });
+                })
+                ->when(!empty($destinationSnapshot), function ($query) use ($destinationSnapshot) {
+                    $query->whereHas('user', function ($userQuery) use ($destinationSnapshot) {
+                        $userQuery
+                            ->where('participant_destination_source', $destinationSnapshot['source'])
+                            ->where('participant_destination_institution_name', $destinationSnapshot['institution_name']);
+
+                        if (!empty($destinationSnapshot['program_name'])) {
+                            $userQuery->where('participant_destination_program_name', $destinationSnapshot['program_name']);
+                        }
                     });
                 })
                 ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
@@ -2202,8 +2228,8 @@ class PackageController extends Controller
         };
 
         $allRankings = $buildRankings();
-        $profileRankings = ($profileCategory && !$profileNeedsCompletion)
-            ? $buildRankings($profileDestinationIds)
+        $profileRankings = !$profileNeedsCompletion
+            ? $buildRankings($profileDestinationIds, $profileDestinationSnapshot)
             : collect();
         $rankings = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
 

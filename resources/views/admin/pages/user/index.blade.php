@@ -163,7 +163,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 <span class="text-gray-700">
-                                    {{ $user->participantDestinationCategory?->display_name ?? '-' }}
+                                    {{ $user->participant_destination_display_name ?? '-' }}
                                 </span>
                             </td>
                             <td class="px-6 py-4">

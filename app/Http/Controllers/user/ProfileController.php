@@ -10,6 +10,7 @@ use Illuminate\Validation\Rules\Password;
 use App\Services\ActivityLogger;
 use App\Models\ParticipantDestinationCategory;
 use App\Rules\SafeName;
+use App\Services\ParticipantDestinationSelectionService;
 
 class ProfileController extends Controller
 {
@@ -27,23 +28,25 @@ class ProfileController extends Controller
         return view('user.pages.profile.index', compact('user', 'destinationCategories'));
     }
 
-    public function update(Request $request)
+    public function update(Request $request, ParticipantDestinationSelectionService $destinationSelectionService)
     {
         $user = Auth::user();
-        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
 
         $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'phone' => ['nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
             'date_of_birth' => 'nullable|date|before:today',
-            'participant_destination_category_id' => [$destinationRule, 'exists:participant_destination_categories,id'],
         ]);
+        $destinationPayload = $destinationSelectionService->validate(
+            $request,
+            $destinationSelectionService->isRequired()
+        );
 
         $user->update([
             'name' => $request->name,
             'phone' => $request->phone,
             'date_of_birth' => $request->date_of_birth,
-            'participant_destination_category_id' => $request->input('participant_destination_category_id'),
+            ...$destinationPayload,
         ]);
 
         ActivityLogger::log('profile_updated', 'success', $user, [], $request);

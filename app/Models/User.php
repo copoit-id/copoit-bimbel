@@ -158,6 +158,40 @@ class User extends Authenticatable
         return $this->belongsTo(ParticipantDestinationCategory::class, 'participant_destination_category_id');
     }
 
+    public function getParticipantDestinationDisplayNameAttribute(): ?string
+    {
+        if ($this->participantDestinationCategory) {
+            return $this->participantDestinationCategory->display_name;
+        }
+
+        $institutionName = trim((string) ($this->participant_destination_institution_name ?? ''));
+        $programName = trim((string) ($this->participant_destination_program_name ?? ''));
+
+        if ($institutionName === '' && $programName === '') {
+            return null;
+        }
+
+        return $programName !== ''
+            ? $institutionName . ' - ' . $programName
+            : $institutionName;
+    }
+
+    public function getParticipantDestinationFilterKeyAttribute(): ?string
+    {
+        if ($this->participantDestinationCategory) {
+            return 'db:' . $this->participantDestinationCategory->id;
+        }
+
+        $source = trim((string) ($this->participant_destination_source ?? ''));
+        $externalId = trim((string) ($this->participant_destination_external_id ?? ''));
+
+        if ($source === '' || $externalId === '') {
+            return null;
+        }
+
+        return $source . ':' . $externalId;
+    }
+
     // Helper methods
     public function hasActivePackageAccess($packageId)
     {

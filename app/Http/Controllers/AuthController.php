@@ -9,6 +9,7 @@ use App\Rules\RecaptchaRule;
 use App\Rules\SafeName;
 use App\Services\RecaptchaService;
 use App\Services\ConcurrentLoginService;
+use App\Services\ParticipantDestinationSelectionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -167,20 +168,19 @@ class AuthController extends Controller
         ]);
     }
 
-    public function register(Request $request, AffiliateService $affiliateService, ConcurrentLoginService $concurrentLoginService)
+    public function register(
+        Request $request,
+        AffiliateService $affiliateService,
+        ConcurrentLoginService $concurrentLoginService,
+        ParticipantDestinationSelectionService $destinationSelectionService
+    )
     {
-        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
-
         $rules = [
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'date_of_birth' => 'required|date|before:today',
             'phone' => ['required', 'string', 'regex:/^62[0-9]{8,14}$/'],
-            'participant_destination_category_id' => [
-                $destinationRule,
-                'exists:participant_destination_categories,id',
-            ],
             'affiliate_ref_code' => ['nullable', 'string', 'max:32'],
         ];
 
@@ -192,6 +192,10 @@ class AuthController extends Controller
         $validatedData = $request->validate($rules, [
             'g-recaptcha-response.required' => 'Verifikasi reCAPTCHA diperlukan.'
         ]);
+        $destinationPayload = $destinationSelectionService->validate(
+            $request,
+            $destinationSelectionService->isRequired()
+        );
 
         // Verify reCAPTCHA if enabled
         if (config('services.recaptcha.enabled')) {
@@ -214,7 +218,7 @@ class AuthController extends Controller
                 'password' => Hash::make($validatedData['password']),
                 'date_of_birth' => $validatedData['date_of_birth'],
                 'phone' => $validatedData['phone'],
-                'participant_destination_category_id' => $validatedData['participant_destination_category_id'] ?? null,
+                ...$destinationPayload,
                 'referred_by_user_id' => $referrer?->id,
                 'referred_at' => $referrer ? now() : null,
                 'role' => 'user',

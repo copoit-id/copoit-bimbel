@@ -166,7 +166,7 @@ class LeaderboardController extends Controller
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
-                $ranking->user?->participantDestinationCategory?->display_name ?? '-',
+                $ranking->user?->participant_destination_display_name ?? '-',
                 $score,
                 $maxScore,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',

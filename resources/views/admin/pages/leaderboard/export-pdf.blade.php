@@ -77,7 +77,7 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
-                    <td>{{ $ranking->user?->participantDestinationCategory?->display_name ?? '-' }}</td>
+                    <td>{{ $ranking->user?->participant_destination_display_name ?? '-' }}</td>
                     <td class="text-center">{{ $score }}</td>
                     <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
                     <td class="text-center">{{ $status }}</td>

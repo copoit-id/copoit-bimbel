@@ -237,7 +237,7 @@
                                         <p class="font-medium">{{ $ranking->user->name ?? 'Unknown User' }}</p>
                                         <p class="text-md text-gray-500">{{ $ranking->user->email ?? 'No Email' }}</p>
                                         <p class="text-xs text-gray-400">
-                                            {{ $ranking->user?->participantDestinationCategory?->display_name ?? 'Tujuan belum dipilih' }}
+                                            {{ $ranking->user?->participant_destination_display_name ?? 'Tujuan belum dipilih' }}
                                         </p>
                                     </div>
                                 </div>

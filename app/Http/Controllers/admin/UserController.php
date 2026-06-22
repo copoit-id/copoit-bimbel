@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\ParticipantDestinationCategory;
+use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -56,7 +57,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, ParticipantDestinationSelectionService $destinationSelectionService)
     {
         // Cek quota user - backend validation (hindari bypass)
         $quotaCheck = PlanQuotaService::canRegisterUser();
@@ -67,7 +68,6 @@ class UserController extends Controller
 
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
-        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users',
@@ -75,8 +75,11 @@ class UserController extends Controller
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
-            'participant_destination_category_id' => [$destinationRule, 'exists:participant_destination_categories,id'],
         ]);
+        $destinationPayload = $destinationSelectionService->validate(
+            $request,
+            $destinationSelectionService->isRequired()
+        );
 
         $user = User::create([
             'name' => $validated['name'],
@@ -85,7 +88,7 @@ class UserController extends Controller
             'password' => Hash::make($validated['password']),
             'status' => $validated['status'] ?? 'aktif',
             'role' => $validated['role'],
-            'participant_destination_category_id' => $validated['participant_destination_category_id'] ?? null,
+            ...$destinationPayload,
         ]);
         $role = \App\Models\Role::where('slug', $user->role)->first();
         if ($role) {
@@ -113,11 +116,10 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, ParticipantDestinationSelectionService $destinationSelectionService)
     {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
-        $destinationRule = ParticipantDestinationCategory::active()->exists() ? 'required' : 'nullable';
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'email' => 'required|string|email|max:255|unique:users,email,' . $id,
@@ -125,8 +127,11 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
-            'participant_destination_category_id' => [$destinationRule, 'exists:participant_destination_categories,id'],
         ]);
+        $destinationPayload = $destinationSelectionService->validate(
+            $request,
+            $destinationSelectionService->isRequired()
+        );
 
         $user = User::findOrFail($id);
 
@@ -136,7 +141,7 @@ class UserController extends Controller
             'username' => $validated['username'],
             'status' => $validated['status'],
             'role' => $validated['role'],
-            'participant_destination_category_id' => $validated['participant_destination_category_id'] ?? null,
+            ...$destinationPayload,
         ]);
 
         if (!empty($validated['password'])) {
