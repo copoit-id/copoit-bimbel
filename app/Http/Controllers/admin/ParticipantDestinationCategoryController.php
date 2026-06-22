@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClientProfile;
 use App\Models\ParticipantDestinationCategory;
 use App\Services\OfficialParticipantDestinationService;
 use Illuminate\Http\Request;
@@ -27,7 +28,14 @@ class ParticipantDestinationCategoryController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.pages.participant-destination-categories.index', compact('categories', 'parentOptions'));
+        $profile = ClientProfile::query()->first();
+        $officialApiEnabled = (bool) ($profile->participant_destination_api_enabled ?? false);
+
+        return view('admin.pages.participant-destination-categories.index', compact(
+            'categories',
+            'parentOptions',
+            'officialApiEnabled'
+        ));
     }
 
     public function store(Request $request)
@@ -114,6 +122,27 @@ class ParticipantDestinationCategoryController extends Controller
                 $validated['ptn_snbp'] ?? null
             ),
         ]);
+    }
+
+    public function updateOfficialApiSetting(Request $request)
+    {
+        $profile = ClientProfile::query()->first() ?? new ClientProfile();
+        $profile->participant_destination_api_enabled = $request->boolean('participant_destination_api_enabled');
+
+        if (!$profile->exists) {
+            $profile->nama_bimbel = config('client.branding.name', config('app.name', 'Copoit Academy'));
+            $profile->logo = config('client.branding.logo', 'img/logo/logo-copoit.png');
+            $profile->warna_primary = config('client.branding.primary_color', '#1C3259');
+            $profile->warna_secondary = config('client.branding.secondary_color', '#F3F3F3');
+        }
+
+        $profile->save();
+
+        return redirect()
+            ->route('admin.participant-destination-categories.index')
+            ->with('success', $profile->participant_destination_api_enabled
+                ? 'Opsi peserta sekarang menampilkan gabungan data DB dan API resmi SNPMB.'
+                : 'Opsi peserta sekarang hanya menampilkan data DB manual.');
     }
 
     private function validateCategory(Request $request, ?ParticipantDestinationCategory $category = null): array

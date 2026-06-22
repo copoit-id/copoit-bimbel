@@ -99,6 +99,7 @@
                             $selectedOfficialExternalId = old('participant_destination_external_id', '');
                             $selectedOfficialInstitutionName = old('participant_destination_institution_name', '');
                             $selectedOfficialProgramName = old('participant_destination_program_name', '');
+                            $officialApiEnabled = (bool) config('client.branding.participant_destination_api_enabled', false);
                             $selectedDestination = $destinationCategories
                                 ->flatMap(fn($category) => collect([$category])->merge($category->activeChildren))
                                 ->firstWhere('id', $selectedDestinationId);
@@ -150,15 +151,9 @@
                                     </option>
                                 @endif
                             </select>
-                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                <button type="button" id="load_official_destinations"
-                                    class="inline-flex items-center justify-center rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white">
-                                    Muat data resmi
-                                </button>
-                                <span id="official_destination_status" class="text-xs text-gray-500"></span>
-                            </div>
+                            <span id="official_destination_status" class="text-xs text-gray-500"></span>
                         </div>
-                        @if($destinationCategories->isEmpty())
+                        @if($destinationCategories->isEmpty() && !$officialApiEnabled)
                             <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Hubungi admin.</p>
                         @else
                             <p class="text-xs text-gray-500 mt-1">Pilih instansi dulu, lalu pilih prodi/sub jika tersedia.</p>
@@ -243,10 +238,10 @@
         const externalIdInput = document.getElementById('participant_destination_external_id');
         const institutionNameInput = document.getElementById('participant_destination_institution_name');
         const programNameInput = document.getElementById('participant_destination_program_name');
-        const officialButton = document.getElementById('load_official_destinations');
         const officialStatus = document.getElementById('official_destination_status');
         const selectedProgramId = @json((string) ($selectedProgramId ?? ''));
         const selectedOfficialProgramName = @json((string) ($selectedOfficialProgramName ?? ''));
+        const officialAutoLoadEnabled = @json((bool) config('client.branding.participant_destination_api_enabled', false));
         const officialInstitutionsUrl = @json(route('participant-destinations.official.institutions'));
         const officialProgramsUrl = @json(route('participant-destinations.official.programs'));
         const programsByInstitution = @json($destinationCategories->mapWithKeys(fn($category) => [
@@ -392,8 +387,7 @@
                 .finally(syncDestination);
         });
         program?.addEventListener('change', syncDestination);
-        officialButton?.addEventListener('click', async () => {
-            officialButton.disabled = true;
+        const loadOfficialDestinations = async () => {
             if (officialStatus) officialStatus.textContent = 'Memuat data resmi...';
 
             try {
@@ -402,13 +396,15 @@
                 const payload = await response.json();
                 const items = Array.isArray(payload.data) ? payload.data : [];
                 addOfficialInstitutionOptions(items);
-                if (officialStatus) officialStatus.textContent = `${items.length} data resmi ditambahkan ke opsi.`;
+                if (officialStatus) officialStatus.textContent = '';
             } catch (error) {
                 if (officialStatus) officialStatus.textContent = error.message || 'Gagal memuat data resmi.';
-            } finally {
-                officialButton.disabled = false;
             }
-        });
+        };
+
+        if (officialAutoLoadEnabled) {
+            loadOfficialDestinations();
+        }
         renderProgramOptions(institution?.value || '');
         syncDestination();
     });

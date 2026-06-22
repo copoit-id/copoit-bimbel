@@ -61,6 +61,7 @@ class ClientProfile extends Model
         'admin_assistant_enabled',
         'class_schedule_menu_enabled',
         'recurring_bill_menu_enabled',
+        'participant_destination_api_enabled',
     ];
 
     protected $casts = [
@@ -85,5 +86,6 @@ class ClientProfile extends Model
         'admin_assistant_enabled' => 'boolean',
         'class_schedule_menu_enabled' => 'boolean',
         'recurring_bill_menu_enabled' => 'boolean',
+        'participant_destination_api_enabled' => 'boolean',
     ];
 }

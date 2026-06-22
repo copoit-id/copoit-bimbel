@@ -10,6 +10,8 @@ class ParticipantDestinationLookupController extends Controller
 {
     public function institutions(Request $request, OfficialParticipantDestinationService $destinationService)
     {
+        abort_unless((bool) config('client.branding.participant_destination_api_enabled', false), 404);
+
         $validated = $request->validate([
             'source' => ['required', Rule::in(['all', 'snbt', 'snbp'])],
         ]);
@@ -21,6 +23,8 @@ class ParticipantDestinationLookupController extends Controller
 
     public function programs(Request $request, OfficialParticipantDestinationService $destinationService)
     {
+        abort_unless((bool) config('client.branding.participant_destination_api_enabled', false), 404);
+
         $validated = $request->validate([
             'source' => ['required', Rule::in(['all', 'snbt', 'snbp'])],
             'ptn' => ['required', 'regex:/^[a-zA-Z0-9_-]+$/'],

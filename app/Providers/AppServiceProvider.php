@@ -92,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
             'admin_assistant_enabled' => false,
             'class_schedule_menu_enabled' => false,
             'recurring_bill_menu_enabled' => false,
+            'participant_destination_api_enabled' => false,
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -151,6 +152,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
             $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
+            $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }

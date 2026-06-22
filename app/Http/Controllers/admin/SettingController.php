@@ -58,6 +58,7 @@ class SettingController extends Controller
             'footer_links' => [],
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
+            'participant_destination_api_enabled' => false,
         ]);
 
         return view('admin.pages.settings.index', [
@@ -120,6 +121,7 @@ class SettingController extends Controller
             'footer_instagram' => ['nullable', 'string', 'max:255'],
             'footer_twitter' => ['nullable', 'string', 'max:255'],
             'footer_youtube' => ['nullable', 'string', 'max:255'],
+            'participant_destination_api_enabled' => ['nullable', 'boolean'],
             'ai_openai_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_openai_base_url' => ['nullable', 'url', 'max:255'],
             'ai_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
@@ -364,6 +366,7 @@ class SettingController extends Controller
         $validated['enable_certificate_management'] = false;
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
+        $validated['participant_destination_api_enabled'] = $request->boolean('participant_destination_api_enabled');
         $validated['enable_utbk_types'] = false;
         unset($validated['ai_question_generator_enabled']);
         $validated['ai_question_generator_settings'] = $aiSettingsResult['settings'];

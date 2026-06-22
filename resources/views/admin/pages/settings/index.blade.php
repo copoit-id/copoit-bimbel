@@ -257,6 +257,7 @@
             @php
             $headerPrimary = old('header_primary_color', $profile->header_primary_color ?? ($clientBranding['header_primary_color'] ?? false));
             $sidebarPrimary = old('sidebar_primary_color', $profile->sidebar_primary_color ?? ($clientBranding['sidebar_primary_color'] ?? false));
+            $destinationApiEnabled = old('participant_destination_api_enabled', $profile->participant_destination_api_enabled ?? ($clientBranding['participant_destination_api_enabled'] ?? false));
             @endphp
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
@@ -275,6 +276,16 @@
                     <div>
                         <p class="font-semibold text-gray-900">Sidebar gunakan warna utama</p>
                         <p class="text-xs text-gray-500">Menu admin berubah sesuai warna brand.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                    <input type="hidden" name="participant_destination_api_enabled" value="0">
+                    <input type="checkbox" name="participant_destination_api_enabled" value="1"
+                        class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                        {{ $destinationApiEnabled ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Tampilkan data resmi bersama data manual</p>
+                        <p class="text-xs text-gray-500">Register, profil, dan admin user menampilkan gabungan data DB + API resmi SNPMB.</p>
                     </div>
                 </label>
             </div>

@@ -3,6 +3,12 @@
 @section('title', 'Tujuan / Instansi')
 
 @section('content')
+<style>
+    .destination-toggle-input:checked + .destination-toggle-track .destination-toggle-knob {
+        transform: translateX(1.25rem);
+        border-color: #ffffff;
+    }
+</style>
 <div class="container mx-auto px-4">
     <div class="flex flex-col gap-4 md:flex-row md:justify-between md:items-center mb-6">
         <div>
@@ -10,14 +16,40 @@
             <p class="text-gray-600">Kelola instansi tujuan dan sub tujuan peserta untuk profile dan filter leaderboard.</p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-row">
-            <button onclick="openModal('importSnpmbModal')" class="border border-primary text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
-                <i class="ri-download-cloud-2-line"></i>
-                Tarik Data Perguruan Tinggi Resmi
-            </button>
             <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
                 <i class="ri-add-line"></i>
                 Tambah Instansi
             </button>
+        </div>
+    </div>
+
+    <div class="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <i class="ri-cloud-line text-lg"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900">Tampilkan data perguruan tinggi resmi bersama data manual</h2>
+                        <p class="text-sm text-gray-500">Jika aktif, opsi instansi/prodi perguruan tinggi di pendaftaran, profil, dan admin user berisi gabungan data DB + API resmi SNPMB.</p>
+                    </div>
+                </div>
+            </div>
+            <form action="{{ route('admin.participant-destination-categories.official-api-setting') }}" method="POST" class="flex items-center gap-3">
+                @csrf
+                <input type="hidden" name="participant_destination_api_enabled" value="0">
+                <label class="relative inline-flex cursor-pointer items-center" for="participant_destination_api_enabled">
+                    <input type="checkbox" id="participant_destination_api_enabled" name="participant_destination_api_enabled" value="1"
+                        class="sr-only peer destination-toggle-input" onchange="this.form.submit()" @checked($officialApiEnabled)>
+                    <span class="destination-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                        <span class="destination-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                    </span>
+                </label>
+                <span class="text-sm font-medium {{ $officialApiEnabled ? 'text-green-700' : 'text-gray-500' }}">
+                    {{ $officialApiEnabled ? 'DB + API' : 'Hanya DB' }}
+                </span>
+            </form>
         </div>
     </div>
 
@@ -121,69 +153,6 @@
                 @endforelse
             </tbody>
         </table>
-    </div>
-</div>
-
-<div id="importSnpmbModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 transform transition-all">
-        <div class="flex justify-between items-start p-5 border-b border-gray-100">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-800">Tarik Data Perguruan Tinggi Resmi</h3>
-                <p class="text-sm text-gray-500 mt-1">Tampilkan referensi universitas dan program studi tanpa menyimpan otomatis.</p>
-            </div>
-            <button onclick="closeModal('importSnpmbModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
-                <i class="ri-close-line text-xl"></i>
-            </button>
-        </div>
-        <div class="p-5 space-y-4">
-            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                <p class="font-semibold mb-2">Info sebelum menarik data</p>
-                <ul class="list-disc pl-5 space-y-1">
-                    <li>Sumber data memakai endpoint resmi yang juga dipakai halaman statistik perguruan tinggi SNPMB.</li>
-                    <li>Fetch ini hanya menampilkan data sebagai referensi, tidak langsung menyimpan ke database.</li>
-                    <li>Klik Pakai untuk mengisi form manual, lalu simpan jika data memang ingin dimasukkan.</li>
-                    <li>Prodi hanya diambil untuk perguruan tinggi yang dipilih, jadi tidak membebani server dengan tarik data massal.</li>
-                </ul>
-            </div>
-
-            <div>
-                <label for="snpmb_source" class="block text-sm font-medium text-gray-700 mb-1">Jalur data</label>
-                <select id="snpmb_source" name="source" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <option value="all">Lengkap (SNBT + SNBP)</option>
-                    <option value="snbt">SNBT</option>
-                    <option value="snbp">SNBP</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-1">Pilih Lengkap untuk mengambil gabungan SNBT dan SNBP.</p>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row">
-                <button type="button" onclick="fetchOfficialInstitutions()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
-                    Tampilkan Perguruan Tinggi
-                </button>
-                <button type="button" onclick="closeModal('importSnpmbModal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Tutup</button>
-            </div>
-
-            <div id="officialDataStatus" class="hidden rounded-lg border px-4 py-3 text-sm"></div>
-
-            <div id="officialInstitutionPanel" class="hidden space-y-3">
-                <input type="text" id="officialInstitutionSearch" placeholder="Cari perguruan tinggi..."
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                <div id="officialInstitutionList" class="max-h-64 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100"></div>
-            </div>
-
-            <div id="officialProgramPanel" class="hidden space-y-3">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <p class="text-sm font-semibold text-gray-800">Program studi</p>
-                        <p id="officialSelectedInstitution" class="text-xs text-gray-500"></p>
-                    </div>
-                    <button type="button" onclick="clearOfficialPrograms()" class="text-xs text-gray-500 hover:text-gray-800">Tutup prodi</button>
-                </div>
-                <input type="text" id="officialProgramSearch" placeholder="Cari prodi..."
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                <div id="officialProgramList" class="max-h-64 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100"></div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -300,19 +269,12 @@
 
 @section('scripts')
 <script>
-    const officialInstitutionsUrl = @js(route('admin.participant-destination-categories.official.institutions'));
-    const officialProgramsUrl = @js(route('admin.participant-destination-categories.official.programs'));
-    const existingParentOptions = @json($parentOptions->map(fn($parent) => ['id' => $parent->id, 'name' => $parent->name])->values());
-    let officialInstitutions = [];
-    let officialPrograms = [];
-    let selectedOfficialInstitution = null;
-
     function openModal(modalId) {
-        document.getElementById(modalId).classList.remove('hidden');
+        document.getElementById(modalId)?.classList.remove('hidden');
     }
 
     function closeModal(modalId) {
-        document.getElementById(modalId).classList.add('hidden');
+        document.getElementById(modalId)?.classList.add('hidden');
     }
 
     function openSubcategoryModal(parentId, parentName) {
@@ -331,194 +293,9 @@
         openModal('editModal');
     }
 
-    function setOfficialStatus(message, type = 'info') {
-        const status = document.getElementById('officialDataStatus');
-        status.textContent = message;
-        status.className = 'rounded-lg border px-4 py-3 text-sm';
-
-        if (type === 'error') {
-            status.classList.add('border-red-200', 'bg-red-50', 'text-red-700');
-        } else if (type === 'success') {
-            status.classList.add('border-green-200', 'bg-green-50', 'text-green-700');
-        } else {
-            status.classList.add('border-blue-200', 'bg-blue-50', 'text-blue-700');
-        }
-
-        status.classList.remove('hidden');
-    }
-
-    function selectedOfficialSource() {
-        return document.getElementById('snpmb_source')?.value || 'all';
-    }
-
-    async function fetchOfficialInstitutions() {
-        clearOfficialPrograms();
-        officialInstitutions = [];
-        document.getElementById('officialInstitutionPanel').classList.add('hidden');
-        setOfficialStatus('Mengambil daftar perguruan tinggi resmi...', 'info');
-
-        try {
-            const url = `${officialInstitutionsUrl}?source=${encodeURIComponent(selectedOfficialSource())}`;
-            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!response.ok) throw new Error('Gagal mengambil data perguruan tinggi.');
-            const payload = await response.json();
-            officialInstitutions = Array.isArray(payload.data) ? payload.data : [];
-            renderOfficialInstitutions();
-            document.getElementById('officialInstitutionPanel').classList.remove('hidden');
-            setOfficialStatus(`${officialInstitutions.length} perguruan tinggi berhasil ditampilkan. Data belum disimpan ke database.`, 'success');
-        } catch (error) {
-            setOfficialStatus(error.message || 'Gagal mengambil data perguruan tinggi.', 'error');
-        }
-    }
-
-    function renderOfficialInstitutions() {
-        const query = (document.getElementById('officialInstitutionSearch')?.value || '').toLowerCase();
-        const list = document.getElementById('officialInstitutionList');
-        const filtered = officialInstitutions
-            .filter(item => String(item.nama || '').toLowerCase().includes(query))
-            .slice(0, 80);
-
-        list.innerHTML = filtered.length
-            ? filtered.map((item, index) => `
-                <div class="flex items-center justify-between gap-3 p-3">
-                    <div class="min-w-0">
-                        <p class="truncate text-sm font-medium text-gray-800">${escapeHtml(item.nama || '-')}</p>
-                        <p class="text-xs text-gray-500">Kode: ${escapeHtml(String(item.kode_ptn || item.id_ptn || '-'))}</p>
-                    </div>
-                    <div class="flex shrink-0 gap-2">
-                        <button type="button" class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50" onclick="fetchOfficialPrograms(${index})">Lihat Prodi</button>
-                        <button type="button" class="rounded-lg bg-primary px-3 py-1.5 text-xs text-white hover:bg-primary-dark" onclick="useOfficialInstitution(${index})">Pakai</button>
-                    </div>
-                </div>
-            `).join('')
-            : '<div class="p-4 text-center text-sm text-gray-500">Data tidak ditemukan.</div>';
-    }
-
-    async function fetchOfficialPrograms(index) {
-        const filtered = filteredOfficialInstitutions();
-        selectedOfficialInstitution = filtered[index] || null;
-        if (!selectedOfficialInstitution) return;
-
-        officialPrograms = [];
-        document.getElementById('officialProgramPanel').classList.remove('hidden');
-        document.getElementById('officialSelectedInstitution').textContent = selectedOfficialInstitution.nama;
-        document.getElementById('officialProgramList').innerHTML = '<div class="p-4 text-sm text-gray-500">Mengambil daftar prodi...</div>';
-
-        try {
-            const params = new URLSearchParams({
-                source: selectedOfficialSource(),
-                ptn: selectedOfficialInstitution.id_ptn || '',
-            });
-
-            if (selectedOfficialInstitution.source_ids?.snbt) {
-                params.set('ptn_snbt', selectedOfficialInstitution.source_ids.snbt);
-            }
-
-            if (selectedOfficialInstitution.source_ids?.snbp) {
-                params.set('ptn_snbp', selectedOfficialInstitution.source_ids.snbp);
-            }
-
-            const url = `${officialProgramsUrl}?${params.toString()}`;
-            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!response.ok) throw new Error('Gagal mengambil data prodi.');
-            const payload = await response.json();
-            officialPrograms = Array.isArray(payload.data) ? payload.data : [];
-            renderOfficialPrograms();
-        } catch (error) {
-            document.getElementById('officialProgramList').innerHTML = `<div class="p-4 text-sm text-red-600">${escapeHtml(error.message || 'Gagal mengambil data prodi.')}</div>`;
-        }
-    }
-
-    function filteredOfficialInstitutions() {
-        const query = (document.getElementById('officialInstitutionSearch')?.value || '').toLowerCase();
-        return officialInstitutions
-            .filter(item => String(item.nama || '').toLowerCase().includes(query))
-            .slice(0, 80);
-    }
-
-    function renderOfficialPrograms() {
-        const query = (document.getElementById('officialProgramSearch')?.value || '').toLowerCase();
-        const list = document.getElementById('officialProgramList');
-        const filtered = officialPrograms
-            .filter(item => String(item.nama || '').toLowerCase().includes(query))
-            .slice(0, 120);
-
-        list.innerHTML = filtered.length
-            ? filtered.map((item, index) => `
-                <div class="flex items-center justify-between gap-3 p-3">
-                    <div class="min-w-0">
-                        <p class="truncate text-sm font-medium text-gray-800">${escapeHtml(item.nama || '-')}</p>
-                        <p class="text-xs text-gray-500">Kode: ${escapeHtml(String(item.kode_prodi || item.id_prodi || '-'))}</p>
-                    </div>
-                    <button type="button" class="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs text-white hover:bg-primary-dark" onclick="useOfficialProgram(${index})">Pakai</button>
-                </div>
-            `).join('')
-            : '<div class="p-4 text-center text-sm text-gray-500">Data prodi tidak ditemukan.</div>';
-    }
-
-    function useOfficialInstitution(index) {
-        const item = filteredOfficialInstitutions()[index];
-        if (!item) return;
-
-        document.getElementById('createName').value = item.nama || '';
-        document.getElementById('createOrder').value = 0;
-        closeModal('importSnpmbModal');
-        openModal('createModal');
-    }
-
-    function useOfficialProgram(index) {
-        const query = (document.getElementById('officialProgramSearch')?.value || '').toLowerCase();
-        const item = officialPrograms
-            .filter(program => String(program.nama || '').toLowerCase().includes(query))
-            .slice(0, 120)[index];
-
-        if (!item || !selectedOfficialInstitution) return;
-
-        const parent = existingParentOptions.find(parent => normalizeName(parent.name) === normalizeName(selectedOfficialInstitution.nama));
-        if (!parent) {
-            document.getElementById('createName').value = selectedOfficialInstitution.nama || '';
-            document.getElementById('createOrder').value = 0;
-            closeModal('importSnpmbModal');
-            openModal('createModal');
-            alert('Instansi parent belum ada di database. Simpan instansi ini dulu, lalu buka lagi data resmi untuk memilih prodinya.');
-            return;
-        }
-
-        document.getElementById('subcategoryParentName').textContent = selectedOfficialInstitution.nama || '';
-        document.getElementById('subcategoryParentId').value = parent.id;
-        document.getElementById('subcategoryName').value = item.nama || '';
-        document.getElementById('subcategoryOrder').value = 0;
-        closeModal('importSnpmbModal');
-        openModal('subcategoryModal');
-    }
-
-    function clearOfficialPrograms() {
-        selectedOfficialInstitution = null;
-        officialPrograms = [];
-        document.getElementById('officialProgramPanel')?.classList.add('hidden');
-        const search = document.getElementById('officialProgramSearch');
-        if (search) search.value = '';
-    }
-
-    function escapeHtml(value) {
-        return String(value)
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function normalizeName(value) {
-        return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
-    }
-
-    document.getElementById('officialInstitutionSearch')?.addEventListener('input', renderOfficialInstitutions);
-    document.getElementById('officialProgramSearch')?.addEventListener('input', renderOfficialPrograms);
-
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
-            ['createModal', 'editModal', 'subcategoryModal', 'importSnpmbModal'].forEach(closeModal);
+            ['createModal', 'editModal', 'subcategoryModal'].forEach(closeModal);
         }
     });
 </script>

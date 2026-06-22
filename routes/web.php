@@ -549,6 +549,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         ->name('participant-destination-categories.official.institutions');
     Route::get('participant-destination-categories/official/programs', [ParticipantDestinationCategoryController::class, 'officialPrograms'])
         ->name('participant-destination-categories.official.programs');
+    Route::post('participant-destination-categories/official-api-setting', [ParticipantDestinationCategoryController::class, 'updateOfficialApiSetting'])
+        ->name('participant-destination-categories.official-api-setting');
     Route::resource('participant-destination-categories', ParticipantDestinationCategoryController::class)
         ->only(['index', 'store', 'update', 'destroy'])
         ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);
