@@ -542,6 +542,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
     Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
     Route::resource('user', UserController::class);
+    Route::post('participant-destination-categories/import-snpmb', [ParticipantDestinationCategoryController::class, 'importSnpmb'])
+        ->name('participant-destination-categories.import-snpmb');
     Route::resource('participant-destination-categories', ParticipantDestinationCategoryController::class)
         ->only(['index', 'store', 'update', 'destroy'])
         ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);

@@ -4,15 +4,21 @@
 
 @section('content')
 <div class="container mx-auto px-4">
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col gap-4 md:flex-row md:justify-between md:items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Tujuan / Instansi</h1>
             <p class="text-gray-600">Kelola instansi tujuan dan sub tujuan peserta untuk profile dan filter leaderboard.</p>
         </div>
-        <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2">
-            <i class="ri-add-line"></i>
-            Tambah Instansi
-        </button>
+        <div class="flex flex-col gap-2 sm:flex-row">
+            <button onclick="openModal('importSnpmbModal')" class="border border-primary text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
+                <i class="ri-download-cloud-2-line"></i>
+                Tarik Data Perguruan Tinggi Resmi
+            </button>
+            <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
+                <i class="ri-add-line"></i>
+                Tambah Instansi
+            </button>
+        </div>
     </div>
 
     <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -115,6 +121,51 @@
                 @endforelse
             </tbody>
         </table>
+    </div>
+</div>
+
+<div id="importSnpmbModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 transform transition-all">
+        <div class="flex justify-between items-start p-5 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Tarik Data Perguruan Tinggi Resmi</h3>
+                <p class="text-sm text-gray-500 mt-1">Import daftar universitas dan program studi ke Tujuan / Instansi.</p>
+            </div>
+            <button onclick="closeModal('importSnpmbModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('admin.participant-destination-categories.import-snpmb') }}" method="POST" class="p-5 space-y-4">
+            @csrf
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <p class="font-semibold mb-2">Info sebelum menarik data</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Sumber data memakai endpoint resmi yang juga dipakai halaman statistik perguruan tinggi di aplikasi ini.</li>
+                    <li>Mode lengkap akan menarik data SNBT dan SNBP lalu menggabungkannya tanpa duplikasi berdasarkan slug.</li>
+                    <li>Data akan disimpan sebagai instansi utama dan prodi sebagai sub tujuan.</li>
+                    <li>Import tidak menghapus data manual yang sudah ada.</li>
+                    <li>Data yang sudah ada akan dicocokkan berdasarkan slug agar tidak duplikat.</li>
+                    <li>Proses bisa memakan waktu karena sistem mengambil daftar prodi per universitas.</li>
+                </ul>
+            </div>
+
+            <div>
+                <label for="snpmb_source" class="block text-sm font-medium text-gray-700 mb-1">Jalur data</label>
+                <select id="snpmb_source" name="source" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="all">Lengkap (SNBT + SNBP)</option>
+                    <option value="snbt">SNBT</option>
+                    <option value="snbp">SNBP</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Pilih Lengkap untuk mengambil gabungan SNBT dan SNBP.</p>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeModal('importSnpmbModal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark" onclick="this.disabled=true; this.innerText='Menarik Data...'; this.form.submit();">
+                    Tarik Data
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -256,7 +307,7 @@
 
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
-            ['createModal', 'editModal', 'subcategoryModal'].forEach(closeModal);
+            ['createModal', 'editModal', 'subcategoryModal', 'importSnpmbModal'].forEach(closeModal);
         }
     });
 </script>
