@@ -229,49 +229,53 @@
                     </div>
                 </div>
 
-                <div class="p-4 bg-gray-50 rounded-lg">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="rounded-xl border border-gray-200 bg-white p-5">
+                    @php($selectedTypePrice = old('type_price', 'paid'))
+                    <div class="mb-5">
+                        <h3 class="text-base font-semibold text-gray-800">Akses & Penjualan</h3>
+                        <p class="text-sm text-gray-500 mt-1">Atur apakah tes koran tampil di user dan bisa dibeli terpisah.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', true) ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">Tampilkan di user</span>
+                                <span class="block text-xs text-gray-500 mt-1">Jika mati, tes tidak muncul di katalog user.</span>
+                            </span>
+                        </label>
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale') ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">Dijual terpisah</span>
+                                <span class="block text-xs text-gray-500 mt-1">Jika mati, tes tampil tapi tidak bisa dibeli individual.</span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
-                            @php($selectedTypePrice = old('type_price', 'paid'))
+                            <label for="type_price" class="block text-sm font-medium text-gray-700 mb-2">Tipe Harga</label>
                             <select id="type_price" name="type_price"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary mb-3">
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="paid" @selected($selectedTypePrice === 'paid')>Berbayar</option>
                                 <option value="free_unconditional" @selected($selectedTypePrice === 'free_unconditional')>Gratis Tanpa Syarat</option>
                                 <option value="free_conditional" @selected($selectedTypePrice === 'free_conditional')>Gratis Bersyarat</option>
                             </select>
-                            <div id="price-wrapper">
-                                <input type="number" id="price" name="price" min="0" step="1"
-                                       value="{{ old('price', 0) }}"
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                       placeholder="0">
-                                <p class="text-xs text-gray-500 mt-1">Harga wajib diisi untuk tipe Berbayar.</p>
-                            </div>
-                            <div id="conditional-requirement-wrapper" class="mt-3 {{ $selectedTypePrice === 'free_conditional' ? '' : 'hidden' }}">
-                                <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
-                                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                          placeholder="Syarat akses gratis bersyarat">{{ old('conditional_requirement') }}</textarea>
-                            </div>
                         </div>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale') ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
-                                </label>
-                                <p class="text-xs text-gray-500 ml-6">Centang agar tes koran ini bisa dibeli secara individual.</p>
-                            </div>
-                            <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', true) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm font-medium text-gray-700">Tampilkan</span>
-                                </label>
-                                <p class="text-xs text-gray-500 ml-6">Centang untuk menampilkan tes koran di halaman user.</p>
-                            </div>
+                        <div id="price-wrapper">
+                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
+                            <input type="number" id="price" name="price" min="0" step="1"
+                                   value="{{ old('price', 0) }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                   placeholder="0">
                         </div>
                     </div>
-
-                    <div id="access-duration-wrapper" class="mt-6 {{ old('is_for_sale') ? '' : 'hidden' }}">
+                    <div id="conditional-requirement-wrapper" class="mt-4 {{ $selectedTypePrice === 'free_conditional' ? '' : 'hidden' }}">
+                        <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">Syarat Akses Gratis</label>
+                        <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                  placeholder="Syarat akses gratis bersyarat">{{ old('conditional_requirement') }}</textarea>
+                    </div>
+                    <div id="access-duration-wrapper" class="mt-4 {{ old('is_for_sale') ? '' : 'hidden' }}">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses Setelah Dibeli</label>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <select name="access_duration_unit" id="access_duration_unit"

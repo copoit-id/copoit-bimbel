@@ -100,69 +100,59 @@
                         placeholder="Masukkan deskripsi tryout...">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
                 </div>
 
-                <!-- Price & Display -->
-                <div class="p-4 bg-gray-50 rounded-lg">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Access & Sale -->
+                <div class="rounded-xl border border-gray-200 bg-white p-5">
+                    @php($selectedTypePrice = old('type_price', isset($tryout) ? ($tryout->type_price ?? 'paid') : 'paid'))
+                    <div class="mb-5">
+                        <h3 class="text-base font-semibold text-gray-800">Akses & Penjualan</h3>
+                        <p class="text-sm text-gray-500 mt-1">Atur apakah tryout tampil di user dan bisa dibeli terpisah.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', isset($tryout) ? $tryout->is_displayed : true) ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">Tampilkan di user</span>
+                                <span class="block text-xs text-gray-500 mt-1">Jika mati, tryout tidak muncul di katalog user.</span>
+                            </span>
+                        </label>
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">Dijual terpisah</span>
+                                <span class="block text-xs text-gray-500 mt-1">Jika mati, tryout tampil tapi tidak bisa dibeli individual.</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div id="price-type-wrapper">
-                            <label for="type_price" class="block text-sm font-medium text-gray-700 mb-2">
-                                Tipe Harga
-                                <x-ui.tooltip>Pilih Berbayar, Gratis, atau Gratis Bersyarat untuk akses individual.</x-ui.tooltip>
-                            </label>
+                            <label for="type_price" class="block text-sm font-medium text-gray-700 mb-2">Tipe Harga</label>
                             <select id="type_price" name="type_price"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                @php($selectedTypePrice = old('type_price', isset($tryout) ? ($tryout->type_price ?? 'paid') : 'paid'))
                                 <option value="paid" @selected($selectedTypePrice === 'paid')>Berbayar</option>
                                 <option value="free_unconditional" @selected($selectedTypePrice === 'free_unconditional')>Gratis Tanpa Syarat</option>
                                 <option value="free_conditional" @selected($selectedTypePrice === 'free_conditional')>Gratis Bersyarat</option>
                             </select>
                         </div>
                         <div id="price-wrapper">
-                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">
-                                Harga (Rp)
-                                <x-ui.tooltip>Wajib diisi jika tipe harga Berbayar.</x-ui.tooltip>
-                            </label>
+                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
                             <input type="number" id="price" name="price" min="0" step="1" inputmode="numeric"
                                 value="{{ old('price', isset($tryout) ? $tryout->price : 0) }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="0">
                         </div>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm font-medium text-gray-700 flex items-center">
-                                        Dijual Terpisah
-                                        <x-ui.tooltip>Centang agar tryout ini bisa dibeli secara individual.</x-ui.tooltip>
-                                    </span>
-                                </label>
-                            </div>
-                            <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', isset($tryout) ? $tryout->is_displayed : true) ? 'checked' : '' }} class="rounded border-gray-300 text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm font-medium text-gray-700 flex items-center">
-                                        Tampilkan
-                                        <x-ui.tooltip>Centang untuk menampilkan tryout di halaman user. Kosongkan untuk menyembunyikan.</x-ui.tooltip>
-                                    </span>
-                                </label>
-                            </div>
-                        </div>
                     </div>
 
-                    <div id="conditional-requirement-wrapper" class="mt-6 {{ old('type_price', isset($tryout) ? ($tryout->type_price ?? 'paid') : 'paid') === 'free_conditional' ? '' : 'hidden' }}">
-                        <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">
-                            Syarat Akses Gratis
-                            <x-ui.tooltip>Instruksi yang harus dipenuhi user sebelum admin menyetujui akses.</x-ui.tooltip>
-                        </label>
+                    <div id="conditional-requirement-wrapper" class="mt-4 {{ $selectedTypePrice === 'free_conditional' ? '' : 'hidden' }}">
+                        <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">Syarat Akses Gratis</label>
                         <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Contoh: follow Instagram, upload bukti, atau hubungi admin.">{{ old('conditional_requirement', isset($tryout) ? ($tryout->conditional_requirement ?? '') : '') }}</textarea>
                     </div>
 
-                    <div id="access-duration-wrapper" class="mt-6 {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? '' : 'hidden' }}">
-                        <label class="block text-sm font-medium text-gray-700 mb-3">
-                            Durasi Akses Setelah Dibeli
-                            <x-ui.tooltip>Dipakai untuk pembelian tryout terpisah. Jika tryout masuk paket, aksesnya mengikuti durasi paket.</x-ui.tooltip>
-                        </label>
+                    <div id="access-duration-wrapper" class="mt-4 {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? '' : 'hidden' }}">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses Setelah Dibeli</label>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <select name="access_duration_unit" id="access_duration_unit"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
