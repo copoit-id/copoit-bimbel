@@ -1,20 +1,21 @@
 @extends('admin.layout.admin')
-@section('title', 'Manajemen FAQ')
+@php($faqLabel = $clientBranding['faq_label'] ?? 'FAQ')
+@section('title', 'Manajemen ' . $faqLabel)
 @section('content')
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="" title="FAQ" />
+            <x-breadcrumb-item href="" title="{{ $faqLabel }}" />
         </x-slot>
     </x-breadcrumb>
     <a href="{{ route('admin.faq.create') }}"
         class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
         <i class="ri-add-line"></i>
-        Tambah FAQ
+        Tambah {{ $faqLabel }}
     </a>
 </div>
-<x-page-desc title="Manajemen FAQ" description="Kelola pertanyaan dan jawaban yang tampil di halaman bantuan." />
+<x-page-desc title="Manajemen {{ $faqLabel }}" description="Kelola pertanyaan dan jawaban yang tampil di halaman bantuan." />
 
 <div class="bg-white p-6 rounded-lg border border-border mt-6">
     <div class="relative overflow-x-auto">
@@ -51,7 +52,7 @@
                                 Edit
                             </a>
                             <form action="{{ route('admin.faq.destroy', $faq->id) }}" method="POST"
-                                onsubmit="return confirm('Hapus FAQ ini?');">
+                                onsubmit='return confirm(@js("Hapus {$faqLabel} ini?"));'>
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit"
@@ -65,7 +66,7 @@
                 @empty
                 <tr>
                     <td colspan="5" class="px-6 py-10 text-center text-gray-500">
-                        Belum ada data FAQ.
+                        Belum ada data {{ $faqLabel }}.
                     </td>
                 </tr>
                 @endforelse

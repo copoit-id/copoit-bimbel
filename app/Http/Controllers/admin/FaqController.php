@@ -48,7 +48,7 @@ class FaqController extends Controller
 
         return redirect()
             ->route('admin.faq.index')
-            ->with('success', 'FAQ berhasil ditambahkan.');
+            ->with('success', $this->faqLabel() . ' berhasil ditambahkan.');
     }
 
     public function edit(Faq $faq)
@@ -76,7 +76,7 @@ class FaqController extends Controller
 
         return redirect()
             ->route('admin.faq.index')
-            ->with('success', 'FAQ berhasil diperbarui.');
+            ->with('success', $this->faqLabel() . ' berhasil diperbarui.');
     }
 
     public function destroy(Faq $faq)
@@ -85,6 +85,11 @@ class FaqController extends Controller
 
         return redirect()
             ->route('admin.faq.index')
-            ->with('success', 'FAQ berhasil dihapus.');
+            ->with('success', $this->faqLabel() . ' berhasil dihapus.');
+    }
+
+    private function faqLabel(): string
+    {
+        return config('client.branding.faq_label', 'FAQ') ?: 'FAQ';
     }
 }

@@ -161,6 +161,17 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
+                    <input type="text" name="faq_label"
+                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Informasi" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan. Contoh: Informasi, Bantuan, atau FAQ.</p>
+                    @error('faq_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -689,8 +700,9 @@
         <div data-settings-panel="footer"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'footer' ? 'hidden' : '' }}">
             @php
+            $faqLabel = old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ'));
             $defaultFooterLinks = [
-                ['label' => 'FAQ', 'url' => '/user/bantuan'],
+                ['label' => $faqLabel, 'url' => '/user/bantuan'],
                 ['label' => 'Syarat dan Ketentuan', 'url' => '/terms-and-conditions'],
                 ['label' => 'Kebijakan Pembayaran', 'url' => '/payment-policy'],
                 ['label' => 'Refund Policy', 'url' => '/refund-policy'],

@@ -353,12 +353,13 @@
             </li>
             @endif
             @if($canFeatureView('faq'))
+            @php($faqLabel = $clientBranding['faq_label'] ?? 'FAQ')
             <li>
                 <a href="{{ route('admin.faq.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('admin.faq.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
                         class="ri-question-line text-[20px] {{ request()->routeIs('admin.faq.*') ? $iconActiveClass : $iconInactiveClass }}"></i>
-                    <span class="ms-3">FAQ</span>
+                    <span class="ms-3">{{ $faqLabel }}</span>
                 </a>
             </li>
             @endif

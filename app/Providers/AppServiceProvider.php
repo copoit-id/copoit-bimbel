@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
 
         $defaults = [
             'name' => 'Copoit Academy',
+            'faq_label' => 'FAQ',
             'logo' => $defaultAsset,
             'favicon' => null,
             'primary_color' => '#1C3259',
@@ -101,6 +102,7 @@ class AppServiceProvider extends ServiceProvider
 
         if ($clientProfile) {
             $defaults['name'] = $clientProfile->nama_bimbel ?: $defaults['name'];
+            $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
@@ -170,6 +172,17 @@ class AppServiceProvider extends ServiceProvider
             $planFeatures = PlanQuotaService::getDefaultPlanFeatures();
             $defaults['affiliate_menu_enabled'] = $planFeatures['affiliate_enabled'] ?? false;
         }
+
+        $defaults['footer_links'] = collect($defaults['footer_links'])
+            ->map(function (array $link) use ($defaults) {
+                if (($link['url'] ?? '') === '/user/bantuan' && ($link['label'] ?? '') === 'FAQ') {
+                    $link['label'] = $defaults['faq_label'];
+                }
+
+                return $link;
+            })
+            ->values()
+            ->all();
 
         $logoUrl = $this->makeBrandAssetUrl($defaults['logo'], $defaultAsset);
         $faviconUrl = $this->makeBrandAssetUrl($defaults['favicon'] ?? $defaults['logo'], $defaultAsset);

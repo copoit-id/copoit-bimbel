@@ -1,9 +1,10 @@
 @extends('user.layout.new-user')
 
-@section('title', 'Bantuan')
+@section('title', $clientBranding['faq_label'] ?? 'FAQ')
 
 @section('content')
 @php
+$faqLabel = $clientBranding['faq_label'] ?? 'FAQ';
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $whatsappNumber = preg_replace('/\D+/', '', (string) ($clientBranding['contact_whatsapp_number'] ?? ''));
 $contactUrl = $whatsappNumber !== ''
@@ -18,7 +19,7 @@ $contactTarget = $whatsappNumber !== '' ? '_blank' : '_self';
         <i class="ri-arrow-left-line text-xl text-gray-600"></i>
     </a>
     <div>
-        <h1 class="text-2xl font-bold text-gray-800">Bantuan</h1>
+        <h1 class="text-2xl font-bold text-gray-800">{{ $faqLabel }}</h1>
         <p class="text-gray-500 text-sm">Pertanyaan yang sering diajukan</p>
     </div>
 </div>
@@ -47,7 +48,7 @@ $contactTarget = $whatsappNumber !== '' ? '_blank' : '_self';
         <div class="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style="background-color: {{ $primaryColor }}10">
             <i class="ri-question-mark text-4xl" style="color: {{ $primaryColor }}"></i>
         </div>
-        <h3 class="font-semibold text-gray-700 mb-1">Belum ada FAQ</h3>
+        <h3 class="font-semibold text-gray-700 mb-1">Belum ada {{ $faqLabel }}</h3>
         <p class="text-gray-400 text-sm">Pertanyaan umum akan ditampilkan di sini.</p>
     </div>
     @endforelse

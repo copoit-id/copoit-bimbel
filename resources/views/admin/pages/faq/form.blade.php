@@ -1,16 +1,20 @@
 @extends('admin.layout.admin')
-@section('title', isset($faq) ? 'Edit FAQ' : 'Tambah FAQ')
+@php
+    $faqLabel = $clientBranding['faq_label'] ?? 'FAQ';
+    $pageTitle = isset($faq) ? 'Edit ' . $faqLabel : 'Tambah ' . $faqLabel;
+@endphp
+@section('title', $pageTitle)
 @section('content')
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="{{ route('admin.faq.index') }}" title="FAQ" />
-            <x-breadcrumb-item href="" title="{{ isset($faq) ? 'Edit FAQ' : 'Tambah FAQ' }}" />
+            <x-breadcrumb-item href="{{ route('admin.faq.index') }}" title="{{ $faqLabel }}" />
+            <x-breadcrumb-item href="" title="{{ $pageTitle }}" />
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="{{ isset($faq) ? 'Edit FAQ' : 'Tambah FAQ' }}"
+<x-page-desc title="{{ $pageTitle }}"
     description="Isi pertanyaan dan jawaban yang akan tampil di halaman bantuan." />
 
 <div class="bg-white p-6 rounded-lg border border-border mt-6">
@@ -65,7 +69,7 @@
             </a>
             <button type="submit" id="faqSubmitButton"
                 class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-                {{ isset($faq) ? 'Simpan Perubahan' : 'Simpan FAQ' }}
+                {{ isset($faq) ? 'Simpan Perubahan' : 'Simpan ' . $faqLabel }}
             </button>
         </div>
     </form>
@@ -136,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
             form.submit();
         } catch (error) {
             submitButton.disabled = false;
-            submitButton.textContent = @json(isset($faq) ? 'Simpan Perubahan' : 'Simpan FAQ');
+            submitButton.textContent = @json(isset($faq) ? 'Simpan Perubahan' : 'Simpan ' . $faqLabel);
             alert('Sesi admin tidak bisa diverifikasi. Silakan refresh halaman lalu coba simpan lagi.');
         }
     });
