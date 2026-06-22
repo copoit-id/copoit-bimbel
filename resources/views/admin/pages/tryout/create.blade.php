@@ -12,6 +12,43 @@
     $selectedScoringMethod = old('scoring_method', $storedScoringMethod ?? (isset($tryout) && $tryout->is_irt ? 'irt_utbk' : (isset($tryout) && $tryout->is_toefl ? 'toefl_itp' : 'normal')));
     $selectedAccessDurationUnit = old('access_duration_unit', $tryout->access_duration_unit ?? 'forever');
     $selectedAccessDurationValue = old('access_duration_value', $tryout->access_duration_value ?? 1);
+    $answerMode = old('answer_persistence_mode', $tryout->answer_persistence_mode ?? 'client_side');
+    $subtestDisplayMode = old('subtest_display_mode', $tryout->subtest_display_mode ?? 'per_subtest');
+    $hasOldInput = session()->hasOldInput();
+    $selectedTypePrice = old('type_price', $tryout->type_price ?? 'paid');
+    $isDisplayedChecked = old('is_displayed', $tryout->is_displayed ?? true);
+    $isForSaleChecked = old('is_for_sale', $tryout->is_for_sale ?? false);
+    $isActiveChecked = $hasOldInput ? (bool) old('is_active') : ($tryout->is_active ?? true);
+    $isCertificationChecked = $hasOldInput ? (bool) old('is_certification') : ($tryout->is_certification ?? false);
+    $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
+    $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
+    $securityOptions = [
+        'enable_anti_copy' => [
+            'label' => 'Anti Copy Soal',
+            'description' => 'Blok seleksi teks, klik kanan, dan shortcut copy/cut di halaman ujian.',
+            'default' => $securityDefaults['enable_anti_copy'] ?? true,
+            'available' => $securityDefaults['enable_anti_copy'] ?? true,
+        ],
+        'enable_tab_switch_detection' => [
+            'label' => 'Deteksi Pindah Tab',
+            'description' => 'Tampilkan alert dan hitung pelanggaran saat peserta keluar dari tab/window ujian.',
+            'default' => $securityDefaults['enable_tab_switch_detection'] ?? true,
+            'available' => $securityDefaults['enable_tab_switch_detection'] ?? true,
+        ],
+        'enable_webcam_check' => [
+            'label' => 'Webcam Check',
+            'description' => 'Wajibkan kamera aktif dan simpan snapshot kecil setiap 10 menit.',
+            'default' => $securityDefaults['enable_webcam_check'] ?? false,
+            'available' => $securityDefaults['enable_webcam_check'] ?? false,
+        ],
+        'enable_screen_check' => [
+            'label' => 'Screen Check',
+            'description' => 'Wajibkan screen sharing aktif dan simpan snapshot kecil setiap 10 menit.',
+            'default' => $securityDefaults['enable_screen_check'] ?? false,
+            'available' => $securityDefaults['enable_screen_check'] ?? false,
+        ],
+    ];
+    $securityOptions = array_filter($securityOptions, fn ($option) => $option['available']);
 @endphp
 <style>
     .tryout-toggle-input:checked + .tryout-toggle-track .tryout-toggle-knob {
@@ -102,7 +139,6 @@
 
                 <!-- Access & Sale -->
                 <div class="rounded-xl border border-gray-200 bg-white p-5">
-                    @php($selectedTypePrice = old('type_price', isset($tryout) ? ($tryout->type_price ?? 'paid') : 'paid'))
                     <div class="mb-5">
                         <h3 class="text-base font-semibold text-gray-800">Akses & Penjualan</h3>
                         <p class="text-sm text-gray-500 mt-1">Atur apakah tryout tampil di user dan bisa dibeli terpisah.</p>
@@ -110,14 +146,14 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                         <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <input type="checkbox" name="is_displayed" value="1" {{ old('is_displayed', isset($tryout) ? $tryout->is_displayed : true) ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                            <input type="checkbox" name="is_displayed" value="1" {{ $isDisplayedChecked ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
                             <span>
                                 <span class="block text-sm font-semibold text-gray-800">Tampilkan di user</span>
                                 <span class="block text-xs text-gray-500 mt-1">Jika mati, tryout tidak muncul di katalog user.</span>
                             </span>
                         </label>
                         <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                            <input type="checkbox" id="is_for_sale" name="is_for_sale" value="1" {{ $isForSaleChecked ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
                             <span>
                                 <span class="block text-sm font-semibold text-gray-800">Dijual terpisah</span>
                                 <span class="block text-xs text-gray-500 mt-1">Jika mati, tryout tampil tapi tidak bisa dibeli individual.</span>
@@ -151,7 +187,7 @@
                             placeholder="Contoh: follow Instagram, upload bukti, atau hubungi admin.">{{ old('conditional_requirement', isset($tryout) ? ($tryout->conditional_requirement ?? '') : '') }}</textarea>
                     </div>
 
-                    <div id="access-duration-wrapper" class="mt-4 {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? '' : 'hidden' }}">
+                    <div id="access-duration-wrapper" class="mt-4 {{ $isForSaleChecked ? '' : 'hidden' }}">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses Setelah Dibeli</label>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <select name="access_duration_unit" id="access_duration_unit"
@@ -207,9 +243,6 @@
                             Mode Penyimpanan Jawaban
                             <x-ui.tooltip>Hybrid cocok untuk live score per subtest, sementara Client Side mempertahankan perilaku lama.</x-ui.tooltip>
                         </label>
-                        @php
-                            $answerMode = old('answer_persistence_mode', isset($tryout) ? $tryout->answer_persistence_mode : 'client_side');
-                        @endphp
                         <select id="answer_persistence_mode" name="answer_persistence_mode"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             <option value="client_side" @selected($answerMode === 'client_side')>Client Side (simpan saat selesai tryout)</option>
@@ -222,9 +255,6 @@
                             Tampilan Multi Subtest
                             <x-ui.tooltip>Per Subtest mengikuti alur jeda dan pembatasan subtest. Gabung menampilkan navigasi semua soal sekaligus.</x-ui.tooltip>
                         </label>
-                        @php
-                            $subtestDisplayMode = old('subtest_display_mode', isset($tryout) ? $tryout->subtest_display_mode : 'per_subtest');
-                        @endphp
                         <select id="subtest_display_mode" name="subtest_display_mode"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             <option value="per_subtest" @selected($subtestDisplayMode === 'per_subtest')>Per Subtest (bertahap)</option>
@@ -235,12 +265,6 @@
 
                 <!-- Options -->
                 <div class="space-y-4">
-                    @php
-                        $hasOldInput = session()->hasOldInput();
-                        $isActiveChecked = $hasOldInput
-                            ? (bool) old('is_active')
-                            : (isset($tryout) ? (bool) $tryout->is_active : true);
-                    @endphp
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="is_active" name="is_active" value="1" {{
                             $isActiveChecked ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
@@ -257,7 +281,7 @@
 
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="is_certification" name="is_certification" value="1" {{
-                            (isset($tryout) && $tryout->is_certification) || old('is_certification') ? 'checked' : '' }}
+                            $isCertificationChecked ? 'checked' : '' }}
                             class="sr-only peer tryout-toggle-input">
                         <span
                             class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
@@ -272,7 +296,7 @@
 
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="show_discussion" name="show_discussion" value="1"
-                            {{ old('show_discussion', isset($tryout) ? (bool) $tryout->show_discussion : true) ? 'checked' : '' }}
+                            {{ $showDiscussionChecked ? 'checked' : '' }}
                             class="sr-only peer tryout-toggle-input">
                         <span
                             class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
@@ -287,7 +311,7 @@
 
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="show_leaderboard" name="show_leaderboard" value="1"
-                            {{ old('show_leaderboard', isset($tryout) ? (bool) $tryout->show_leaderboard : true) ? 'checked' : '' }}
+                            {{ $showLeaderboardChecked ? 'checked' : '' }}
                             class="sr-only peer tryout-toggle-input">
                         <span
                             class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
@@ -836,35 +860,6 @@
                         <h3 class="font-semibold text-gray-900">Keamanan Ujian</h3>
                         <p class="text-sm text-gray-500">Atur fitur pengawasan yang aktif saat peserta mengerjakan tryout.</p>
                     </div>
-                    @php
-                        $securityOptions = [
-                            'enable_anti_copy' => [
-                                'label' => 'Anti Copy Soal',
-                                'description' => 'Blok seleksi teks, klik kanan, dan shortcut copy/cut di halaman ujian.',
-                                'default' => $securityDefaults['enable_anti_copy'] ?? true,
-                                'available' => $securityDefaults['enable_anti_copy'] ?? true,
-                            ],
-                            'enable_tab_switch_detection' => [
-                                'label' => 'Deteksi Pindah Tab',
-                                'description' => 'Tampilkan alert dan hitung pelanggaran saat peserta keluar dari tab/window ujian.',
-                                'default' => $securityDefaults['enable_tab_switch_detection'] ?? true,
-                                'available' => $securityDefaults['enable_tab_switch_detection'] ?? true,
-                            ],
-                            'enable_webcam_check' => [
-                                'label' => 'Webcam Check',
-                                'description' => 'Wajibkan kamera aktif dan simpan snapshot kecil setiap 10 menit.',
-                                'default' => $securityDefaults['enable_webcam_check'] ?? false,
-                                'available' => $securityDefaults['enable_webcam_check'] ?? false,
-                            ],
-                            'enable_screen_check' => [
-                                'label' => 'Screen Check',
-                                'description' => 'Wajibkan screen sharing aktif dan simpan snapshot kecil setiap 10 menit.',
-                                'default' => $securityDefaults['enable_screen_check'] ?? false,
-                                'available' => $securityDefaults['enable_screen_check'] ?? false,
-                            ],
-                        ];
-                        $securityOptions = array_filter($securityOptions, fn ($option) => $option['available']);
-                    @endphp
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         @foreach($securityOptions as $field => $option)
                             @php
