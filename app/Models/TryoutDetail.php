@@ -15,6 +15,7 @@ class TryoutDetail extends Model
     protected $fillable = [
         'tryout_id',
         'type_subtest',
+        'material_category_id',
         'duration',
         'passing_score',
         'passing_type',
@@ -22,6 +23,7 @@ class TryoutDetail extends Model
 
     protected $casts = [
         'duration' => 'integer',
+        'material_category_id' => 'integer',
         'passing_score' => 'decimal:2',
         'passing_type' => 'string',
     ];
@@ -34,5 +36,10 @@ class TryoutDetail extends Model
     public function questions()
     {
         return $this->hasMany(Question::class, 'tryout_detail_id', 'tryout_detail_id');
+    }
+
+    public function materialCategory()
+    {
+        return $this->belongsTo(MaterialCategory::class, 'material_category_id', 'category_id');
     }
 }

@@ -168,7 +168,7 @@
                         <li>
                             <a href="{{ route('admin.material.material-category.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.material.material-category.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <span>Kategori Materi</span>
+                                <span>Kategori Subtest</span>
                             </a>
                         </li>
                         @if($canShowDestinationCategories)

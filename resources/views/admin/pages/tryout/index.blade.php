@@ -63,9 +63,14 @@
             data-name="{{ strtolower($tryout->name) }}" data-type="{{ strtoupper($tryout->type_tryout) }}"
             data-assessment="{{ $tryout->assessment_type ?? 'standard' }}"
             data-status="{{ $tryout->start_date > now() ? 'akan_datang' : ($tryout->end_date < now() ? 'selesai' : 'aktif') }}">
+            @php
+                $scoringLabel = $tryout->requiresIrtScoring()
+                    ? 'IRT UTBK'
+                    : ($tryout->is_toefl ? 'TOEFL ITP' : null);
+            @endphp
             <div class="flex items-center justify-between mb-3">
                 <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                    {{ strtoupper($tryout->type_tryout) }} {{ $tryout->is_toefl == 1 ? '- IRT' : '' }}
+                    {{ strtoupper($tryout->type_tryout) }} {{ $scoringLabel ? '- ' . $scoringLabel : '' }}
                 </span>
                 <div class="flex items-center gap-1">
                     @if($tryout->is_certification)

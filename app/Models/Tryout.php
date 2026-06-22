@@ -17,6 +17,8 @@ class Tryout extends Model
         'is_certification' => 'boolean',
         'is_toefl' => 'boolean',
         'is_irt' => 'boolean',
+        'material_category_id' => 'integer',
+        'scoring_method' => 'string',
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
         'is_displayed' => 'boolean',
@@ -39,7 +41,8 @@ class Tryout extends Model
 
     public function requiresIrtScoring(): bool
     {
-        return $this->type_tryout === 'utbk_full' && $this->is_irt;
+        return $this->type_tryout === 'utbk_full'
+            && ($this->scoring_method === 'irt_utbk' || $this->scoring_method === 'irt' || $this->is_irt);
     }
 
     public function hasReleasedUtbk(): bool
@@ -63,6 +66,11 @@ class Tryout extends Model
     public function tryoutDetails()
     {
         return $this->hasMany(TryoutDetail::class, 'tryout_id', 'tryout_id');
+    }
+
+    public function materialCategory()
+    {
+        return $this->belongsTo(MaterialCategory::class, 'material_category_id', 'category_id');
     }
 
     // Polymorphic relationship untuk detail packages

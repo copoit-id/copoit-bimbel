@@ -1,31 +1,32 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Kategori Materi')
+@section('title', 'Kategori Subtest')
 
 @section('content')
-<div class="container mx-auto px-4">
-    <div class="flex justify-between items-center mb-6">
+<div class="w-full max-w-full px-4">
+    <div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">Kategori Materi</h1>
-            <p class="text-gray-600">Kelola kategori utama dan kategori materi untuk materi pembelajaran</p>
+            <h1 class="text-2xl font-bold text-gray-800">Kategori Subtest</h1>
+            <p class="text-gray-600">Kelola kategori yang dipakai untuk materi pembelajaran, struktur tryout, subtest, dan kebutuhan lainnya.</p>
         </div>
-        <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2">
+        <button onclick="openModal('createModal')" class="w-full sm:w-auto justify-center bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2">
             <i class="ri-add-line"></i>
             Tambah Kategori Utama
         </button>
     </div>
 
     <!-- Categories Table -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="w-full">
+    <div class="bg-white rounded-lg shadow border border-gray-100">
+        <div class="w-full overflow-x-auto">
+        <table class="min-w-[980px] w-full">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                    <th class="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                    <th class="w-72 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icon</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                    <th class="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icon</th>
+                    <th class="w-28 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="w-72 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -52,22 +53,24 @@
                         @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div class="flex items-center justify-end gap-3">
                         <button onclick="openSubcategoryModal({{ $category->category_id }}, @js($category->name))"
-                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary hover:text-white transition mr-3 text-xs font-semibold"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary hover:text-white transition text-xs font-semibold"
                             title="Tambah Kategori Materi">
                             <i class="ri-add-line"></i>
                             Tambah Kategori Materi
                         </button>
-                        <button onclick="openEditModal({{ $category->category_id }}, @js($category->name), @js($category->description), @js($category->icon), {{ $category->order_number }}, {{ $category->is_active ? 'true' : 'false' }}, {{ $category->parent_id ?? 'null' }})" class="text-blue-600 hover:text-blue-900 mr-3" title="Edit">
+                        <button onclick="openEditModal({{ $category->category_id }}, @js($category->name), @js($category->description), @js($category->icon), {{ $category->order_number }}, {{ $category->is_active ? 'true' : 'false' }}, {{ $category->parent_id ?? 'null' }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900" title="Edit">
                             <i class="ri-edit-line text-lg"></i>
                         </button>
                         <form action="{{ route('admin.material.material-category.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori utama ini?')">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-900">
                                 <i class="ri-delete-bin-line text-lg"></i>
                             </button>
                         </form>
+                        </div>
                     </td>
                 </tr>
                 @foreach($category->children as $child)
@@ -78,9 +81,9 @@
                             <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
                                 <i class="ri-corner-down-right-line text-sm"></i>
                             </span>
-                            <div>
+                            <div class="min-w-0">
                                 <div class="text-sm font-medium text-gray-900">{{ $child->name }}</div>
-                                <div class="text-xs text-gray-500">Kategori Materi dari {{ $category->name }} · Order: {{ $child->order_number }}</div>
+                                <div class="text-xs text-gray-500 whitespace-normal">Kategori Materi dari {{ $category->name }} · Order: {{ $child->order_number }}</div>
                             </div>
                         </div>
                     </td>
@@ -100,16 +103,18 @@
                         @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onclick="openEditModal({{ $child->category_id }}, @js($child->name), @js($child->description), @js($child->icon), {{ $child->order_number }}, {{ $child->is_active ? 'true' : 'false' }}, {{ $child->parent_id ?? 'null' }})" class="text-blue-600 hover:text-blue-900 mr-3">
+                        <div class="flex items-center justify-end gap-3">
+                        <button onclick="openEditModal({{ $child->category_id }}, @js($child->name), @js($child->description), @js($child->icon), {{ $child->order_number }}, {{ $child->is_active ? 'true' : 'false' }}, {{ $child->parent_id ?? 'null' }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900">
                             <i class="ri-edit-line text-lg"></i>
                         </button>
                         <form action="{{ route('admin.material.material-category.destroy', $child) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori materi ini?')">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-900">
                                 <i class="ri-delete-bin-line text-lg"></i>
                             </button>
                         </form>
+                        </div>
                     </td>
                 </tr>
                 @endforeach
@@ -123,6 +128,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 

@@ -48,6 +48,16 @@ class MaterialCategory extends Model
         return $this->children()->active();
     }
 
+    public function tryouts(): HasMany
+    {
+        return $this->hasMany(Tryout::class, 'material_category_id', 'category_id');
+    }
+
+    public function tryoutDetails(): HasMany
+    {
+        return $this->hasMany(TryoutDetail::class, 'material_category_id', 'category_id');
+    }
+
     /**
      * Scope: Active categories
      */
@@ -67,6 +77,11 @@ class MaterialCategory extends Model
     public function scopeOrdered($query)
     {
         return $query->orderBy('order_number', 'asc');
+    }
+
+    public function scopeWithCode($query)
+    {
+        return $query->whereNotNull('code')->where('code', '!=', '');
     }
 
     public function getDisplayNameAttribute(): string

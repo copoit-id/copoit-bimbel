@@ -5,6 +5,11 @@
     $utbkSubtests = $utbkSubtests ?? [];
     $utbkSingleTypes = $utbkSingleTypes ?? [];
     $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
+    $tryoutTypeOptions = $tryoutTypeOptions ?? [];
+    $selectedTryoutType = old('type_tryout', $tryout->type_tryout ?? '');
+    $storedScoringMethod = isset($tryout) ? ($tryout->scoring_method ?? null) : null;
+    $storedScoringMethod = $storedScoringMethod === 'irt' ? 'irt_utbk' : $storedScoringMethod;
+    $selectedScoringMethod = old('scoring_method', $storedScoringMethod ?? (isset($tryout) && $tryout->is_irt ? 'irt_utbk' : (isset($tryout) && $tryout->is_toefl ? 'toefl_itp' : 'normal')));
     $selectedAccessDurationUnit = old('access_duration_unit', $tryout->access_duration_unit ?? 'forever');
     $selectedAccessDurationValue = old('access_duration_value', $tryout->access_duration_value ?? 1);
 @endphp
@@ -60,58 +65,11 @@
                         <select id="type_tryout" name="type_tryout" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             <option value="">Pilih Tipe</option>
-                            <option value="skd_full" {{ (isset($tryout) && $tryout->type_tryout === 'skd_full') ||
-                                old('type_tryout') === 'skd_full' ? 'selected' : '' }}>SKD Full (TWK + TIU + TKP)
-                            </option>
-                            @if($allowUtbkTypes)
-                            <option value="utbk_full" {{ (isset($tryout) && $tryout->type_tryout === 'utbk_full') ||
-                                old('type_tryout') === 'utbk_full' ? 'selected' : '' }}>UTBK TPS (Full)</option>
-                            @foreach($utbkSingleTypes as $typeKey => $singleConfig)
-                            <option value="{{ $typeKey }}" {{ (isset($tryout) && $tryout->type_tryout === $typeKey) ||
-                                old('type_tryout') === $typeKey ? 'selected' : '' }}>
-                                {{ 'UTBK - ' . $singleConfig['label'] }}
-                            </option>
+                            @foreach($tryoutTypeOptions as $typeKey => $option)
+                                <option value="{{ $typeKey }}" @selected($selectedTryoutType === $typeKey)>
+                                    {{ $option['label'] ?? \Illuminate\Support\Str::headline((string) $typeKey) }}
+                                </option>
                             @endforeach
-                            @endif
-                            <option value="twk" {{ (isset($tryout) && $tryout->type_tryout === 'twk') ||
-                                old('type_tryout') === 'twk' ? 'selected' : '' }}>TWK</option>
-                            <option value="tiu" {{ (isset($tryout) && $tryout->type_tryout === 'tiu') ||
-                                old('type_tryout') === 'tiu' ? 'selected' : '' }}>TIU</option>
-                            <option value="tkp" {{ (isset($tryout) && $tryout->type_tryout === 'tkp') ||
-                                old('type_tryout') === 'tkp' ? 'selected' : '' }}>TKP</option>
-                            <option value="tpa" {{ (isset($tryout) && $tryout->type_tryout === 'tpa') ||
-                                old('type_tryout') === 'tpa' ? 'selected' : '' }}>TPA</option>
-                            <option value="tbi" {{ (isset($tryout) && $tryout->type_tryout === 'tbi') ||
-                                old('type_tryout') === 'tbi' ? 'selected' : '' }}>TBI</option>
-                            <option value="certification" {{ (isset($tryout) && $tryout->type_tryout ===
-                                'certification') || old('type_tryout') === 'certification' ? 'selected' : ''
-                                }}>Certification Full (TOEFL ITP)</option>
-                            <option value="listening" {{ (isset($tryout) && $tryout->type_tryout === 'listening') ||
-                                old('type_tryout') === 'listening' ? 'selected' : '' }}>Listening</option>
-                            <option value="reading" {{ (isset($tryout) && $tryout->type_tryout === 'reading') ||
-                                old('type_tryout') === 'reading' ? 'selected' : '' }}>Reading</option>
-                            <option value="writing" {{ (isset($tryout) && $tryout->type_tryout === 'writing') ||
-                                old('type_tryout') === 'writing' ? 'selected' : '' }}>Writing</option>
-                            <option value="pppk_full" {{ (isset($tryout) && $tryout->type_tryout === 'pppk_full') ||
-                                old('type_tryout') === 'pppk_full' ? 'selected' : '' }}>PPPK Full</option>
-                            <option value="teknis" {{ (isset($tryout) && $tryout->type_tryout === 'teknis') ||
-                                old('type_tryout') === 'teknis' ? 'selected' : '' }}>Teknis</option>
-                            <option value="social culture" {{ (isset($tryout) && $tryout->type_tryout === 'social
-                                culture') || old('type_tryout') === 'social culture' ? 'selected' : '' }}>Sosial
-                                Kultural</option>
-                            <option value="interview" {{ (isset($tryout) && $tryout->type_tryout === 'interview') ||
-                                old('type_tryout') === 'interview' ? 'selected' : '' }}>Interview</option>
-                            <option value="word" {{ (isset($tryout) && $tryout->type_tryout === 'word') ||
-                                old('type_tryout') === 'word' ? 'selected' : '' }}>Microsoft Word</option>
-                            <option value="excel" {{ (isset($tryout) && $tryout->type_tryout === 'excel') ||
-                                old('type_tryout') === 'excel' ? 'selected' : '' }}>Microsoft Excel</option>
-                            <option value="ppt" {{ (isset($tryout) && $tryout->type_tryout === 'ppt') ||
-                                old('type_tryout') === 'ppt' ? 'selected' : '' }}>Microsoft PowerPoint</option>
-                            <option value="computer" {{ (isset($tryout) && $tryout->type_tryout === 'computer') ||
-                                old('type_tryout') === 'computer' ? 'selected' : '' }}>Computer Full (Word + Excel +
-                                PPT)</option>
-                            <option value="general" {{ (isset($tryout) && $tryout->type_tryout === 'general') ||
-                                old('type_tryout') === 'general' ? 'selected' : '' }}>General</option>
                         </select>
                     </div>
 
@@ -293,40 +251,19 @@
                         </span>
                     </label>
 
-                    <div class="flex flex-col gap-2 hidden" data-toefl-toggle>
-                        <label class="flex items-center gap-3">
-                            <input type="checkbox" id="is_toefl" name="is_toefl" value="1" {{ (isset($tryout) &&
-                                $tryout->is_toefl) || old('is_toefl') ? 'checked' : '' }} class="sr-only peer">
-                            <span
-                                class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
-                                <span
-                                    class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
-                            </span>
-                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                IRT TOEFL Scoring
-                                <x-ui.tooltip>Menggunakan penilaian IRT TOEFL.</x-ui.tooltip>
-                            </span>
+                    <div class="md:col-span-2">
+                        <label for="scoring_method" class="block text-sm font-medium text-gray-700 mb-2">
+                            Metode Scoring
+                            <x-ui.tooltip>Metode scoring disimpan di tryout. Field lama IRT/TOEFL tetap disinkronkan otomatis.</x-ui.tooltip>
                         </label>
+                        <select id="scoring_method" name="scoring_method"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="normal" @selected($selectedScoringMethod === 'normal')>Normal</option>
+                            <option value="irt_utbk" data-type="utbk_full" @selected($selectedScoringMethod === 'irt_utbk')>IRT UTBK</option>
+                            <option value="toefl_itp" data-type="certification,listening,reading,writing" @selected($selectedScoringMethod === 'toefl_itp')>TOEFL ITP</option>
+                        </select>
+                        <p id="scoringMethodNotice" class="hidden text-xs text-amber-600 mt-1"></p>
                     </div>
-
-                    @if($allowUtbkTypes)
-                    <div class="flex flex-col gap-2 hidden" data-irt-toggle>
-                        <label class="flex items-center gap-3">
-                            <input type="checkbox" id="is_irt" name="is_irt" value="1" {{
-                                old('is_irt', isset($tryout) ? (bool) $tryout->is_irt : true) ? 'checked' : '' }}
-                                class="sr-only peer">
-                            <span
-                                class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
-                                <span
-                                    class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
-                            </span>
-                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                IRT UTBK Scoring
-                                <x-ui.tooltip>Nilai dirilis otomatis setelah periode UTBK berakhir.</x-ui.tooltip>
-                            </span>
-                        </label>
-                    </div>
-                    @endif
                 </div>
 
                 <!-- Dynamic Configuration Sections -->
@@ -933,10 +870,8 @@
     function initTryoutForm(root = document) {
       const typeSelect = root.querySelector('#type_tryout');
       const configSections = root.querySelectorAll('.config-section');
-      const irtBlock = root.querySelector('[data-irt-toggle]');
-      const irtInput = irtBlock ? irtBlock.querySelector('#is_irt') : null;
-      const toeflBlock = root.querySelector('[data-toefl-toggle]');
-      const toeflInput = toeflBlock ? toeflBlock.querySelector('#is_toefl') : null;
+      const scoringMethodSelect = root.querySelector('#scoring_method');
+      const scoringMethodNotice = root.querySelector('#scoringMethodNotice');
       const answerModeSelect = root.querySelector('#answer_persistence_mode');
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
@@ -955,6 +890,8 @@
       'twk': 'general_config',
       'tiu': 'general_config',
       'tkp': 'general_config',
+      'tpa': 'general_config',
+      'tbi': 'general_config',
       'listening': 'general_config',
       'structure': 'general_config',
       'reading': 'general_config',
@@ -985,30 +922,45 @@
         }
       }
 
-      toggleIrtVisibility(selectedType);
-      toggleToeflVisibility(selectedType);
+      syncScoringMethod(selectedType);
       toggleUtbkSingleCards(selectedType);
     }
 
-    function toggleIrtVisibility(selectedType) {
-      if (!irtBlock || !irtInput) return;
-      if (selectedType === 'utbk_full') {
-        irtBlock.classList.remove('hidden');
-        irtInput.disabled = false;
-      } else {
-        irtBlock.classList.add('hidden');
-        irtInput.disabled = true;
-      }
-    }
+    function syncScoringMethod(selectedType) {
+      if (!scoringMethodSelect) return;
 
-    function toggleToeflVisibility(selectedType) {
-      if (!toeflBlock || !toeflInput) return;
-      if (selectedType === 'certification') {
-        toeflBlock.classList.remove('hidden');
-        toeflInput.disabled = false;
+      const optionRules = {
+        irt_utbk: ['utbk_full'],
+        toefl_itp: ['certification', 'listening', 'reading', 'writing']
+      };
+      const currentValue = scoringMethodSelect.value;
+      let currentIsAllowed = true;
+
+      Array.from(scoringMethodSelect.options).forEach(option => {
+        const requiredType = optionRules[option.value] || null;
+        const isAllowed = !requiredType || requiredType.includes(selectedType);
+        option.disabled = !isAllowed;
+
+        if (option.value === currentValue && !isAllowed) {
+          currentIsAllowed = false;
+        }
+      });
+
+      if (!currentIsAllowed) {
+        scoringMethodSelect.value = 'normal';
+      }
+
+      if (!scoringMethodNotice) return;
+
+      if (selectedType === 'utbk_full') {
+        scoringMethodNotice.textContent = 'IRT UTBK tersedia untuk UTBK TPS Full.';
+        scoringMethodNotice.classList.remove('hidden');
+      } else if (optionRules.toefl_itp.includes(selectedType)) {
+        scoringMethodNotice.textContent = 'TOEFL ITP tersedia untuk Certification Full dan section TOEFL.';
+        scoringMethodNotice.classList.remove('hidden');
       } else {
-        toeflBlock.classList.add('hidden');
-        toeflInput.disabled = true;
+        scoringMethodNotice.textContent = '';
+        scoringMethodNotice.classList.add('hidden');
       }
     }
 

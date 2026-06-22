@@ -109,11 +109,14 @@
         @forelse($pendingTryouts as $row)
             @php
                 $tryout = $row['tryout'];
+                $scoringLabel = $tryout->requiresIrtScoring()
+                    ? 'IRT UTBK'
+                    : ($tryout->is_toefl ? 'TOEFL ITP' : null);
             @endphp
             <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200">
                 <div class="flex items-center justify-between mb-3">
                     <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                        {{ strtoupper($tryout->type_tryout) }} {{ $tryout->is_toefl == 1 ? '- IRT' : '' }}
+                        {{ strtoupper($tryout->type_tryout) }} {{ $scoringLabel ? '- ' . $scoringLabel : '' }}
                     </span>
                     <span class="px-2 py-1 bg-amber-50 text-amber-700 rounded-full text-xs border border-amber-100">
                         {{ $row['pending_count'] }} belum dikoreksi

@@ -113,8 +113,12 @@ class MaterialCategoryController extends Controller
      */
     public function destroy(MaterialCategory $category)
     {
-        // Check if category or its children have materials
         $childIds = $category->children()->pluck('category_id');
+        $categoryIds = $childIds
+            ->push($category->category_id)
+            ->unique()
+            ->values();
+
         $hasMaterials = $category->materials()->exists()
             || MaterialCategory::query()
                 ->whereIn('category_id', $childIds)
@@ -124,6 +128,19 @@ class MaterialCategoryController extends Controller
         if ($hasMaterials) {
             return redirect()->route('admin.material.material-category.index')
                 ->with('error', 'Kategori tidak dapat dihapus karena masih memiliki materi.');
+        }
+
+        $hasTryoutUsage = MaterialCategory::query()
+            ->whereIn('category_id', $categoryIds)
+            ->where(function ($query) {
+                $query->whereHas('tryouts')
+                    ->orWhereHas('tryoutDetails');
+            })
+            ->exists();
+
+        if ($hasTryoutUsage) {
+            return redirect()->route('admin.material.material-category.index')
+                ->with('error', 'Kategori tidak dapat dihapus karena masih dipakai tryout atau subtest tryout.');
         }
 
         $category->delete();

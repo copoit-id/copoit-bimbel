@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\MaterialCategory;
 use App\Models\Package;
 use App\Models\Question;
 use App\Models\Tryout;
@@ -14,6 +15,7 @@ use App\Services\PurchaseAccessDuration;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -93,21 +95,56 @@ class TryoutController extends Controller
         'utbk_penalaran_matematika' => 'penalaran_matematika',
     ];
 
+    private const LEGACY_TRYOUT_TYPES = [
+        'tiu',
+        'twk',
+        'tkp',
+        'skd_full',
+        'general',
+        'tpa',
+        'tbi',
+        'certification',
+        'listening',
+        'reading',
+        'writing',
+        'pppk_full',
+        'teknis',
+        'social culture',
+        'management',
+        'interview',
+        'word',
+        'excel',
+        'ppt',
+        'computer',
+        'utbk_full',
+        'utbk_section',
+        'utbk_penalaran_umum',
+        'utbk_pengetahuan_umum',
+        'utbk_pengetahuan_kuantitatif',
+        'utbk_pemahaman_bacaan_menulis',
+        'utbk_literasi_bahasa_indonesia',
+        'utbk_literasi_bahasa_inggris',
+        'utbk_penalaran_matematika',
+    ];
+
     public function create()
     {
         $packages = Package::all();
         $allowUtbkTypes = $this->allowUtbkControls();
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
+        $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
     }
 
     public function store(Request $request)
     {
         $request->validate($this->tryoutValidationRules());
-        $isIrtEnabled = $this->shouldEnableIrt($request);
+        $scoringMethod = $this->normalizedScoringMethod($request);
+        $isIrtEnabled = $scoringMethod === 'irt_utbk';
+        $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
         try {
@@ -115,6 +152,7 @@ class TryoutController extends Controller
                 'name' => $request->name,
                 'description' => $request->description,
                 'type_tryout' => $request->type_tryout,
+                'material_category_id' => $this->categoryIdForCode($request->type_tryout),
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $this->normalizedAnswerPersistenceMode($request),
@@ -127,8 +165,9 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
-                'is_toefl' => $request->has('is_toefl'),
+                'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
+                'scoring_method' => $scoringMethod,
                 'is_for_sale' => $request->has('is_for_sale'),
                 'is_displayed' => $request->has('is_displayed'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
@@ -155,9 +194,10 @@ class TryoutController extends Controller
             $allowUtbkTypes = $this->allowUtbkControls($tryout->type_tryout);
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
+            $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -174,7 +214,9 @@ class TryoutController extends Controller
         }
 
         $request->validate($this->tryoutValidationRules($tryout->type_tryout));
-        $isIrtEnabled = $this->shouldEnableIrt($request);
+        $scoringMethod = $this->normalizedScoringMethod($request);
+        $isIrtEnabled = $scoringMethod === 'irt_utbk';
+        $isToeflEnabled = $scoringMethod === 'toefl_itp';
 
         try {
             $originalType = $tryout->type_tryout;
@@ -194,6 +236,7 @@ class TryoutController extends Controller
                 'name' => $request->name,
                 'description' => $request->description,
                 'type_tryout' => $request->type_tryout,
+                'material_category_id' => $this->categoryIdForCode($request->type_tryout),
                 'assessment_type' => $request->assessment_type,
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $this->normalizedAnswerPersistenceMode($request),
@@ -206,8 +249,9 @@ class TryoutController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
-                'is_toefl' => $request->has('is_toefl'),
+                'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
+                'scoring_method' => $scoringMethod,
                 'is_for_sale' => $request->has('is_for_sale'),
                 'is_displayed' => $request->has('is_displayed'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
@@ -436,6 +480,10 @@ class TryoutController extends Controller
                 $this->createSubtest($tryout->tryout_id, 'social culture', $request->duration_general ?? 60, $request->passing_score_general ?? 65, $request->input('passing_type_general', 'score'));
                 break;
 
+            case 'management':
+                $this->createSubtest($tryout->tryout_id, 'management', $request->duration_general ?? 60, $request->passing_score_general ?? 65, $request->input('passing_type_general', 'score'));
+                break;
+
             case 'interview':
                 $this->createSubtest($tryout->tryout_id, 'interview', $request->duration_general ?? 30, $request->passing_score_general ?? 70, $request->input('passing_type_general', 'score'));
                 break;
@@ -477,6 +525,7 @@ class TryoutController extends Controller
         TryoutDetail::create([
             'tryout_id' => $tryoutId,
             'type_subtest' => $type,
+            'material_category_id' => $this->categoryIdForCode($type),
             'duration' => $duration,
             'passing_score' => $passingScore,
             'passing_type' => $passingType,
@@ -488,6 +537,7 @@ class TryoutController extends Controller
         $detail = $tryout->tryoutDetails()->where('type_subtest', $type)->first();
         if ($detail) {
             $detail->update([
+                'material_category_id' => $this->categoryIdForCode($type),
                 'duration' => $duration,
                 'passing_score' => $passingScore,
                 'passing_type' => $passingType,
@@ -546,6 +596,9 @@ class TryoutController extends Controller
                 break;
             case 'social culture':
                 $this->updateOrCreateSubtest($tryout, 'social culture', $request->duration_general ?? 60, $request->passing_score_general ?? 65, $request->input('passing_type_general', 'score'));
+                break;
+            case 'management':
+                $this->updateOrCreateSubtest($tryout, 'management', $request->duration_general ?? 60, $request->passing_score_general ?? 65, $request->input('passing_type_general', 'score'));
                 break;
             case 'interview':
                 $this->updateOrCreateSubtest($tryout, 'interview', $request->duration_general ?? 30, $request->passing_score_general ?? 70, $request->input('passing_type_general', 'score'));
@@ -635,6 +688,7 @@ class TryoutController extends Controller
             'listening'         => 'Listening Test',
             'teknis'            => 'Tes Teknis',
             'social culture'    => 'Sosial-Kultural & Manajerial',
+            'management'        => 'Manajerial',
             'interview'         => 'Wawancara',
             'word'              => 'Microsoft Word',
             'excel'             => 'Microsoft Excel',
@@ -652,43 +706,30 @@ class TryoutController extends Controller
         return $map[$key] ?? Str::headline((string) $type);
     }
 
-    private function shouldEnableIrt(Request $request): bool
+    private function normalizedScoringMethod(Request $request): string
     {
-        return $request->type_tryout === 'utbk_full' && $request->boolean('is_irt');
+        $method = $request->input('scoring_method', 'normal');
+
+        if ($method === 'irt') {
+            $method = 'irt_utbk';
+        }
+
+        if ($method === 'irt_utbk' && $request->type_tryout !== 'utbk_full') {
+            return 'normal';
+        }
+
+        if ($method === 'toefl_itp' && ! in_array($request->type_tryout, ['certification', 'listening', 'reading', 'writing'], true)) {
+            return 'normal';
+        }
+
+        return in_array($method, ['normal', 'irt_utbk', 'toefl_itp'], true)
+            ? $method
+            : 'normal';
     }
 
     private function tryoutValidationRules(?string $currentType = null): array
     {
-        $typeOptions = [
-            'tiu',
-            'twk',
-            'tkp',
-            'skd_full',
-            'general',
-            'tpa',
-            'tbi',
-            'certification',
-            'listening',
-            'reading',
-            'writing',
-            'pppk_full',
-            'teknis',
-            'social culture',
-            'management',
-            'interview',
-            'word',
-            'excel',
-            'ppt',
-            'computer',
-        ];
-
-        if ($this->allowUtbkControls($currentType)) {
-            $typeOptions = array_merge(
-                $typeOptions,
-                ['utbk_full', 'utbk_section'],
-                array_keys(self::UTBK_SINGLE_TYPES)
-            );
-        }
+        $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -704,6 +745,7 @@ class TryoutController extends Controller
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
+            'scoring_method' => ['nullable', Rule::in(['normal', 'irt', 'irt_utbk', 'toefl_itp'])],
             'enable_anti_copy' => 'boolean',
             'enable_tab_switch_detection' => 'boolean',
             'enable_webcam_check' => 'boolean',
@@ -729,6 +771,7 @@ class TryoutController extends Controller
             'writing',
             'teknis',
             'social_culture',
+            'management',
             'interview',
             'word',
             'excel',
@@ -793,6 +836,80 @@ class TryoutController extends Controller
         }
 
         return $options;
+    }
+
+    private function getTryoutTypeOptions(bool $includeUtbk = true, ?string $currentType = null): array
+    {
+        $allowedCodes = collect(self::LEGACY_TRYOUT_TYPES);
+
+        if (! $includeUtbk) {
+            $allowedCodes = $allowedCodes->reject(fn ($code) => $this->isUtbkType($code));
+        }
+
+        if ($currentType !== 'utbk_section') {
+            $allowedCodes = $allowedCodes->reject(fn ($code) => $code === 'utbk_section');
+        }
+
+        if ($currentType) {
+            $allowedCodes->push($currentType);
+        }
+
+        $codes = $allowedCodes->unique()->values()->all();
+
+        if (! Schema::hasTable('material_categories') || ! Schema::hasColumn('material_categories', 'code')) {
+            return $this->fallbackTryoutTypeOptions($codes);
+        }
+
+        $categories = MaterialCategory::query()
+            ->with('parent')
+            ->withCode()
+            ->active()
+            ->whereIn('code', $codes)
+            ->ordered()
+            ->get()
+            ->mapWithKeys(function (MaterialCategory $category) {
+                return [
+                    $category->code => [
+                        'label' => $category->display_name,
+                        'category_id' => $category->category_id,
+                    ],
+                ];
+            })
+            ->all();
+
+        return $categories ?: $this->fallbackTryoutTypeOptions($codes);
+    }
+
+    private function fallbackTryoutTypeOptions(array $codes): array
+    {
+        $labels = [
+            'skd_full' => 'SKD Full (TWK + TIU + TKP)',
+            'utbk_full' => 'UTBK TPS (Full)',
+            'utbk_section' => 'UTBK Section',
+            'certification' => 'Certification Full (TOEFL ITP)',
+            'pppk_full' => 'PPPK Full',
+            'computer' => 'Computer Full (Word + Excel + PPT)',
+        ];
+
+        return collect($codes)
+            ->mapWithKeys(fn ($code) => [
+                $code => [
+                    'label' => $labels[$code] ?? $this->subtestLabel($code),
+                    'category_id' => null,
+                ],
+            ])
+            ->all();
+    }
+
+    private function categoryIdForCode(?string $code): ?int
+    {
+        if (! $code || ! Schema::hasTable('material_categories') || ! Schema::hasColumn('material_categories', 'code')) {
+            return null;
+        }
+
+        return MaterialCategory::query()
+            ->where('code', $code)
+            ->value('category_id');
     }
 
     private function allowUtbkControls(?string $currentType = null): bool
