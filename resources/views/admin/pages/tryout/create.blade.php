@@ -251,6 +251,36 @@
                         </span>
                     </label>
 
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" id="show_discussion" name="show_discussion" value="1"
+                            {{ old('show_discussion', isset($tryout) ? (bool) $tryout->show_discussion : true) ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <span
+                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span
+                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                        </span>
+                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            Tampilkan Pembahasan di User
+                            <x-ui.tooltip>Jika dimatikan, tombol pembahasan disembunyikan dan URL pembahasan akan ditolak.</x-ui.tooltip>
+                        </span>
+                    </label>
+
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" id="show_leaderboard" name="show_leaderboard" value="1"
+                            {{ old('show_leaderboard', isset($tryout) ? (bool) $tryout->show_leaderboard : true) ? 'checked' : '' }}
+                            class="sr-only peer">
+                        <span
+                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span
+                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                        </span>
+                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            Tampilkan Leaderboard di User
+                            <x-ui.tooltip>Jika dimatikan, tombol ranking disembunyikan dan URL ranking akan ditolak.</x-ui.tooltip>
+                        </span>
+                    </label>
+
                     <div class="md:col-span-2">
                         <label for="scoring_method" class="block text-sm font-medium text-gray-700 mb-2">
                             Metode Scoring

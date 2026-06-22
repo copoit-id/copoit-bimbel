@@ -101,7 +101,7 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
-                @if($package)
+                @if($package && $tryout->show_discussion)
                 <a href="{{ route('user.package.tryout.pembahasan', [$packageRouteId, $tryout->tryout_id, $attempt['attempt_token']]) }}"
                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
@@ -113,7 +113,7 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-eye-line mr-1.5"></i>Detail
                 </a>
-                @if($package)
+                @if($package && $tryout->show_leaderboard)
                 <a href="{{ route('user.package.tryout.ranking', ['id_package' => $packageRouteId, 'id_tryout' => $tryout->tryout_id]) }}"
                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
                     <i class="ri-trophy-line mr-1.5"></i>Rank

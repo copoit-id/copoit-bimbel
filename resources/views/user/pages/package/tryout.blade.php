@@ -68,13 +68,15 @@
                 </a>
                 @endif
 
+                @if($tryout->show_leaderboard)
                 <a href="{{ route('user.package.tryout.ranking', ['id_package' =>$package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
                     class="flex justify-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors">
                     <i class="ri-bar-chart-2-fill"></i>
                 </a>
+                @endif
             </div>
 
-            @if($lastAttempt && $lastAttempt->is_completed)
+            @if($tryout->show_discussion && $lastAttempt && $lastAttempt->is_completed)
             <div class="mt-3">
                 <a href="{{ route('user.package.tryout.pembahasan', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]) }}"
                     class="flex w-full justify-center bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors">

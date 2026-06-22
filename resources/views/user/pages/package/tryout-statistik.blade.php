@@ -302,15 +302,19 @@
         <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
     </a>
 
+    @if($tryout->show_discussion)
     <a href="{{ route('user.package.tryout.pembahasan', [$package->package_id, $tryout->tryout_id]) }}"
         class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
         <i class="ri-book-open-line mr-2"></i>Lihat Pembahasan
     </a>
+    @endif
 
+    @if($tryout->show_leaderboard)
     <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
         class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
         <i class="ri-trophy-line mr-2"></i>Lihat Ranking
     </a>
+    @endif
 
     <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
         class="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-center">

@@ -84,10 +84,12 @@
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                 <i class="ri-history-line mr-2"></i>Riwayat
             </a>
+            @if($tryout->show_leaderboard)
             <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                 <i class="ri-trophy-line mr-2"></i>Ranking
             </a>
+            @endif
             @else
             <a href="{{ route('user.event.index') }}"
                 class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -97,10 +99,12 @@
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                 <i class="ri-history-line mr-2"></i>Riwayat
             </a>
+            @if($tryout->show_leaderboard)
             <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                 <i class="ri-trophy-line mr-2"></i>Ranking
             </a>
+            @endif
             <a href="{{ route('user.dashboard.index') }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                 <i class="ri-home-2-line mr-2"></i>Dashboard

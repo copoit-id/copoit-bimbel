@@ -323,14 +323,18 @@
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-history-line mr-2"></i>Riwayat
                     </a>
+                    @if($tryout->show_leaderboard)
                     <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-trophy-line mr-2"></i>Ranking
                     </a>
+                    @endif
+                    @if($tryout->show_discussion)
                     <a href="{{ route('user.package.tryout.pembahasan', [$package->package_id, $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-book-open-line mr-2"></i>Pembahasan
                     </a>
+                    @endif
 
                     {{-- Certificate Download Button for Certification Full --}}
                     @if (

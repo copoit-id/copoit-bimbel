@@ -22,6 +22,8 @@ class Tryout extends Model
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
         'is_displayed' => 'boolean',
+        'show_discussion' => 'boolean',
+        'show_leaderboard' => 'boolean',
         'section_break_duration' => 'integer',
         'start_date' => 'datetime',
         'end_date' => 'datetime',

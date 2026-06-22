@@ -749,10 +749,12 @@
             <i class="ri-history-line mr-2"></i>Lihat Riwayat
         </a>
 
+        @if($tryout->show_leaderboard)
         <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
+        @endif
 
         @if($clientBranding['certificate_management_enabled'] ?? true)
         <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $token]) }}"

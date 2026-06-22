@@ -244,14 +244,18 @@
     <!-- Action Buttons -->
     <div class="flex flex-col sm:flex-row gap-3">
         @if($package)
+        @if($tryout->show_discussion)
         <a href="{{ route('user.package.tryout.pembahasan', [$package->package_id, $tryout->tryout_id, $latestAttemptToken]) }}"
             class="flex-1 bg-green-600 text-white text-center py-3 px-4 rounded-lg hover:bg-green-700 transition-colors">
             <i class="ri-book-open-line mr-2"></i>Lihat Pembahasan
         </a>
+        @endif
+        @if($tryout->show_leaderboard)
         <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
             class="flex-1 bg-yellow-600 text-white text-center py-3 px-4 rounded-lg hover:bg-yellow-700 transition-colors">
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
+        @endif
         <a href="{{ route('user.package.tryout', $package->package_id) }}"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout

@@ -2010,6 +2010,11 @@ class PackageController extends Controller
     public function rankingTryout($id_package, $id_tryout)
     {
         $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        if (! $tryout->show_leaderboard) {
+            return redirect()->route('user.package.my', ['tab' => 'tryouts'])
+                ->with('error', 'Leaderboard tryout ini tidak tersedia.');
+        }
+
         $package = null;
         $packageRouteId = $id_package;
 
@@ -2219,6 +2224,10 @@ class PackageController extends Controller
     {
         $package = Package::findOrFail($id_package);
         $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        if (! $tryout->show_discussion) {
+            return redirect()->route('user.package.tryout.riwayat', [$id_package, $id_tryout])
+                ->with('error', 'Pembahasan tryout ini tidak tersedia.');
+        }
 
         // Check access
         $hasAccess = UserPackageAcces::where('user_id', Auth::id())
