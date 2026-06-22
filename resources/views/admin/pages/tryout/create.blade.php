@@ -13,6 +13,12 @@
     $selectedAccessDurationUnit = old('access_duration_unit', $tryout->access_duration_unit ?? 'forever');
     $selectedAccessDurationValue = old('access_duration_value', $tryout->access_duration_value ?? 1);
 @endphp
+<style>
+    .tryout-toggle-input:checked + .tryout-toggle-track .tryout-toggle-knob {
+        transform: translateX(1.25rem);
+        border-color: #ffffff;
+    }
+</style>
 <div class="space-y-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
@@ -224,11 +230,11 @@
                     @endphp
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="is_active" name="is_active" value="1" {{
-                            $isActiveChecked ? 'checked' : '' }} class="sr-only peer">
+                            $isActiveChecked ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
                         <span
-                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
                             <span
-                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tryout Aktif
@@ -239,11 +245,11 @@
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="is_certification" name="is_certification" value="1" {{
                             (isset($tryout) && $tryout->is_certification) || old('is_certification') ? 'checked' : '' }}
-                            class="sr-only peer">
+                            class="sr-only peer tryout-toggle-input">
                         <span
-                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
                             <span
-                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Generate Sertifikat Otomatis
@@ -254,11 +260,11 @@
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="show_discussion" name="show_discussion" value="1"
                             {{ old('show_discussion', isset($tryout) ? (bool) $tryout->show_discussion : true) ? 'checked' : '' }}
-                            class="sr-only peer">
+                            class="sr-only peer tryout-toggle-input">
                         <span
-                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
                             <span
-                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tampilkan Pembahasan di User
@@ -269,11 +275,11 @@
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="show_leaderboard" name="show_leaderboard" value="1"
                             {{ old('show_leaderboard', isset($tryout) ? (bool) $tryout->show_leaderboard : true) ? 'checked' : '' }}
-                            class="sr-only peer">
+                            class="sr-only peer tryout-toggle-input">
                         <span
-                            class="relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
                             <span
-                                class="inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform peer-checked:translate-x-5 peer-checked:border-white"></span>
+                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tampilkan Leaderboard di User
