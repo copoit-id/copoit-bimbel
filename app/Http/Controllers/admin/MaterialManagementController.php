@@ -86,6 +86,8 @@ class MaterialManagementController extends Controller
             'order_number' => 'nullable|integer|min:0',
             'category_id' => 'nullable|exists:material_categories,category_id',
             'is_for_sale' => 'nullable',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string|max:1000',
             'is_displayed' => 'nullable',
             'price' => 'nullable|numeric|min:0',
             'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
@@ -116,8 +118,7 @@ class MaterialManagementController extends Controller
             $validated['thumbnail_url'] = Storage::url($thumbnailPath);
         }
 
-        // Handle is_for_sale checkbox (unchecked = not submitted)
-        $validated['is_for_sale'] = $request->boolean('is_for_sale');
+        $this->normalizeIndividualSale($validated, $request);
 
         // Handle is_displayed checkbox (unchecked = false)
         $validated['is_displayed'] = $request->boolean('is_displayed');
@@ -187,6 +188,8 @@ class MaterialManagementController extends Controller
             'is_active' => 'boolean',
             'category_id' => 'nullable|exists:material_categories,category_id',
             'is_for_sale' => 'nullable',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string|max:1000',
             'is_displayed' => 'nullable',
             'price' => 'nullable|numeric|min:0',
             'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
@@ -226,8 +229,7 @@ class MaterialManagementController extends Controller
         // Handle is_active
         $validated['is_active'] = $request->boolean('is_active', true);
 
-        // Handle is_for_sale checkbox (unchecked = not submitted)
-        $validated['is_for_sale'] = $request->boolean('is_for_sale');
+        $this->normalizeIndividualSale($validated, $request);
 
         // Handle is_displayed checkbox (unchecked = false)
         $validated['is_displayed'] = $request->boolean('is_displayed');
@@ -283,7 +285,7 @@ class MaterialManagementController extends Controller
 
     private function normalizeAccessDuration(array &$validated): void
     {
-        if (!($validated['is_for_sale'] ?? false) || (int) ($validated['price'] ?? 0) <= 0) {
+        if (!($validated['is_for_sale'] ?? false)) {
             $validated['access_duration_unit'] = 'forever';
             $validated['access_duration_value'] = null;
 
@@ -297,6 +299,31 @@ class MaterialManagementController extends Controller
             $unit,
             $validated['access_duration_value'] ?? null
         );
+    }
+
+    private function normalizeIndividualSale(array &$validated, Request $request): void
+    {
+        $isForSale = $request->boolean('is_for_sale');
+        $typePrice = $isForSale ? $request->input('type_price', 'paid') : 'paid';
+
+        if (! in_array($typePrice, ['paid', 'free_unconditional', 'free_conditional'], true)) {
+            $typePrice = 'paid';
+        }
+
+        if ($isForSale && $typePrice === 'paid') {
+            $request->validate(['price' => 'required|numeric|min:1']);
+        }
+
+        if ($isForSale && $typePrice === 'free_conditional') {
+            $request->validate(['conditional_requirement' => 'required|string|max:1000']);
+        }
+
+        $validated['is_for_sale'] = $isForSale;
+        $validated['type_price'] = $typePrice;
+        $validated['price'] = $isForSale && $typePrice === 'paid' ? (int) ($validated['price'] ?? 0) : 0;
+        $validated['conditional_requirement'] = $isForSale && $typePrice === 'free_conditional'
+            ? $request->input('conditional_requirement')
+            : null;
     }
 
     private function isGoogleDriveUrl(string $url): bool

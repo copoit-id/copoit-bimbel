@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasIndividualPricing;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,8 @@ use Illuminate\Support\Collection;
 
 class TesKoran extends Model
 {
+    use HasIndividualPricing;
+
     protected $fillable = [
         'name',
         'test_type',
@@ -23,6 +26,8 @@ class TesKoran extends Model
         'rows_count',
         'price',
         'is_for_sale',
+        'type_price',
+        'conditional_requirement',
         'is_displayed',
         'is_active',
         'access_duration_value',
@@ -33,6 +38,7 @@ class TesKoran extends Model
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
         'is_displayed' => 'boolean',
+        'type_price' => 'string',
         'column_duration_seconds' => 'integer',
         'duration_minutes' => 'integer',
         'columns_count' => 'integer',

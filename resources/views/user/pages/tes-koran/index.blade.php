@@ -56,7 +56,9 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($tesKorans as $tesKoran)
     @php
-    $isForSale = $tesKoran->is_for_sale && $tesKoran->price > 0;
+    $isForSale = $tesKoran->isIndividuallyAvailable();
+    $isPaid = $tesKoran->isPaidIndividualAccess();
+    $isFreeConditional = $tesKoran->isFreeConditionalIndividualAccess();
     @endphp
     <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
         <div class="flex items-start justify-between mb-4">
@@ -64,7 +66,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 <i class="ri-file-edit-line text-xl" style="color: {{ $primaryColor }}"></i>
             </div>
             <span class="px-2.5 py-1 {{ $isForSale ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700' }} text-xs rounded-full font-medium">
-                <i class="{{ $isForSale ? 'ri-shopping-cart-line' : 'ri-folder-fill' }} mr-0.5"></i>{{ $isForSale ? 'Dijual' : 'Paket' }}
+                <i class="{{ $isForSale ? ($isPaid ? 'ri-shopping-cart-line' : 'ri-gift-line') : 'ri-folder-fill' }} mr-0.5"></i>{{ $isForSale ? $tesKoran->price_type_label : 'Paket' }}
             </span>
         </div>
 
@@ -92,8 +94,10 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             </div>
             @if($isForSale)
             <div class="flex items-center text-sm text-gray-500">
-                <i class="ri-money-dollar-circle-line mr-2 text-gray-400"></i>
-                <span class="font-semibold" style="color: {{ $primaryColor }}">Rp {{ number_format($tesKoran->price, 0, ',', '.') }}</span>
+                <i class="{{ $isPaid ? 'ri-money-dollar-circle-line' : 'ri-gift-line' }} mr-2 text-gray-400"></i>
+                <span class="font-semibold" style="color: {{ $primaryColor }}">
+                    {{ $isPaid ? 'Rp ' . number_format($tesKoran->price, 0, ',', '.') : $tesKoran->price_type_label }}
+                </span>
             </div>
             @endif
         </div>
@@ -121,9 +125,10 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                     data-id="{{ $tesKoran->id }}"
                     data-name="{{ e($tesKoran->name) }}"
                     data-price="{{ (int) $tesKoran->price }}"
+                    data-price-type="{{ $tesKoran->priceType() }}"
                     class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
                     style="background-color: {{ $primaryColor }}">
-                <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
+                <i class="{{ $isPaid ? 'ri-shopping-cart-line' : ($isFreeConditional ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>{{ $isPaid ? 'Beli Sekarang' : ($isFreeConditional ? 'Ajukan Akses' : 'Akses Gratis') }}
             </button>
             @elseif($tesKoran->access_via_package)
             <a href="{{ route('user.package.detail', $tesKoran->access_via_package->package_id) }}"
@@ -158,7 +163,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
 <div id="purchaseModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-gray-800">Beli Tes Koran</h3>
+            <h3 id="purchaseModalTitle" class="text-lg font-bold text-gray-800">Beli Tes Koran</h3>
             <button type="button" id="closePurchaseModal" class="p-1 hover:bg-gray-100 rounded-lg">
                 <i class="ri-close-line text-xl"></i>
             </button>
@@ -167,7 +172,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             @csrf
             <input type="hidden" name="type" value="tes_koran">
             <input type="hidden" name="id" id="purchaseItemId">
-            <div class="mb-4">
+            <div id="voucherWrapper" class="mb-4">
                 <p class="text-sm text-gray-500">Tes</p>
                 <p id="purchaseItemName" class="font-semibold text-gray-800"></p>
             </div>
@@ -183,7 +188,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                        placeholder="CONTOH: HEMAT50">
             </div>
             @if($paymentMode === 'manual')
-            <div class="mb-4">
+            <div id="paymentProofWrapper" class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Bukti Pembayaran</label>
                 <input type="file" name="payment_proof" accept="image/*,.pdf" required
                        class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm">
@@ -192,7 +197,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             <x-legal-links class="mb-4" />
             <div class="flex gap-3">
                 <button type="button" id="cancelPurchase" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">Batal</button>
-                <button type="submit" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">Beli</button>
+                <button id="submitPurchaseBtn" type="submit" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">Beli</button>
             </div>
         </form>
     </div>
@@ -207,6 +212,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const itemId = document.getElementById('purchaseItemId');
     const itemName = document.getElementById('purchaseItemName');
     const itemPrice = document.getElementById('purchaseItemPrice');
+    const modalTitle = document.getElementById('purchaseModalTitle');
+    const voucherWrapper = document.getElementById('voucherWrapper');
+    const proofWrapper = document.getElementById('paymentProofWrapper');
+    const proofInput = proofWrapper?.querySelector('input[type="file"]');
+    const submitBtn = document.getElementById('submitPurchaseBtn');
 
     function closeModal() {
         modal.classList.add('hidden');
@@ -218,7 +228,14 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function () {
             itemId.value = this.dataset.id;
             itemName.textContent = this.dataset.name;
-            itemPrice.textContent = 'Rp ' + Number(this.dataset.price).toLocaleString('id-ID');
+            const priceType = this.dataset.priceType || 'paid';
+            const isPaid = priceType === 'paid';
+            modalTitle.textContent = isPaid ? 'Beli Tes Koran' : (priceType === 'free_conditional' ? 'Ajukan Akses Tes Koran' : 'Akses Gratis Tes Koran');
+            itemPrice.textContent = isPaid ? 'Rp ' + Number(this.dataset.price).toLocaleString('id-ID') : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
+            voucherWrapper?.classList.toggle('hidden', !isPaid);
+            proofWrapper?.classList.toggle('hidden', !isPaid);
+            if (proofInput) proofInput.required = isPaid;
+            submitBtn.textContent = isPaid ? 'Beli' : (priceType === 'free_conditional' ? 'Ajukan' : 'Aktifkan');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         });

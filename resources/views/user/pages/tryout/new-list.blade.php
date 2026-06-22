@@ -86,7 +86,9 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     $totalDuration = $tryout->getTotalDurationAttribute();
     $isCompleted = $userAnswer && $userAnswer->status === 'completed';
     $isInProgress = $userAnswer && $userAnswer->status === 'in_progress';
-    $isForSale = $tryout->is_for_sale && $tryout->price > 0;
+    $isForSale = $tryout->isIndividuallyAvailable();
+    $isPaid = $tryout->isPaidIndividualAccess();
+    $isFreeConditional = $tryout->isFreeConditionalIndividualAccess();
     @endphp
     <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
         <div class="flex items-start justify-between mb-4">
@@ -97,7 +99,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             <div class="flex items-center gap-1">
                 @if($isForSale)
                 <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                    <i class="ri-shopping-cart-line mr-0.5"></i>Dijual
+                    <i class="{{ $isPaid ? 'ri-shopping-cart-line' : 'ri-gift-line' }} mr-0.5"></i>{{ $tryout->price_type_label }}
                 </span>
                 @else
                 <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
@@ -120,8 +122,10 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             </div>
             @if($isForSale)
             <div class="flex items-center text-sm text-gray-500">
-                <i class="ri-money-dollar-circle-line mr-2 text-gray-400"></i>
-                <span class="font-semibold" style="color: {{ $primaryColor }}">Rp {{ number_format($tryout->price, 0, ',', '.') }}</span>
+                <i class="{{ $isPaid ? 'ri-money-dollar-circle-line' : 'ri-gift-line' }} mr-2 text-gray-400"></i>
+                <span class="font-semibold" style="color: {{ $primaryColor }}">
+                    {{ $isPaid ? 'Rp ' . number_format($tryout->price, 0, ',', '.') : $tryout->price_type_label }}
+                </span>
             </div>
             @endif
         </div>
@@ -149,10 +153,11 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                         data-id="{{ $tryout->tryout_id }}"
                         data-name="{{ e($tryout->name) }}"
                         data-price="{{ (int) $tryout->price }}"
+                        data-price-type="{{ $tryout->priceType() }}"
                         class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
-                    <i class="ri-shopping-cart-line mr-1"></i>
-                    Beli Sekarang
+                    <i class="{{ $isPaid ? 'ri-shopping-cart-line' : ($isFreeConditional ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>
+                    {{ $isPaid ? 'Beli Sekarang' : ($isFreeConditional ? 'Ajukan Akses' : 'Akses Gratis') }}
                 </button>
                 @endif
             @elseif($tryout->has_access)
@@ -187,7 +192,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
 <div id="tryoutPurchaseModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-gray-800">Beli Tryout</h3>
+            <h3 id="tryoutPurchaseModalTitle" class="text-lg font-bold text-gray-800">Beli Tryout</h3>
             <button type="button" id="closeTryoutPurchaseModal" class="p-1 hover:bg-gray-100 rounded-lg">
                 <i class="ri-close-line text-xl"></i>
             </button>
@@ -204,7 +209,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 <p class="text-sm text-gray-500">Harga</p>
                 <p id="tryoutPurchaseItemPrice" class="font-bold text-lg" style="color: {{ $primaryColor }}"></p>
             </div>
-            <div class="mb-4">
+            <div id="tryoutVoucherWrapper" class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Kode Voucher (opsional)</label>
                 <input type="text" name="discount_code"
                        class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm uppercase focus:outline-none focus:ring-2"
@@ -212,7 +217,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                        placeholder="CONTOH: HEMAT50">
             </div>
             @if($paymentMode === 'manual')
-            <div class="mb-4">
+            <div id="tryoutPaymentProofWrapper" class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Bukti Pembayaran</label>
                 <input type="file" name="payment_proof" accept="image/*,.pdf" required
                        class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm">
@@ -221,7 +226,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             <x-legal-links class="mb-4" />
             <div class="flex gap-3">
                 <button type="button" id="cancelTryoutPurchase" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">Batal</button>
-                <button type="submit" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">Beli</button>
+                <button id="tryoutSubmitPurchaseBtn" type="submit" class="flex-1 px-4 py-2.5 text-white rounded-xl font-medium" style="background-color: {{ $primaryColor }}">Beli</button>
             </div>
         </form>
     </div>
@@ -235,6 +240,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const itemId = document.getElementById('tryoutPurchaseItemId');
     const itemName = document.getElementById('tryoutPurchaseItemName');
     const itemPrice = document.getElementById('tryoutPurchaseItemPrice');
+    const modalTitle = document.getElementById('tryoutPurchaseModalTitle');
+    const voucherWrapper = document.getElementById('tryoutVoucherWrapper');
+    const proofWrapper = document.getElementById('tryoutPaymentProofWrapper');
+    const proofInput = proofWrapper?.querySelector('input[type="file"]');
+    const submitBtn = document.getElementById('tryoutSubmitPurchaseBtn');
 
     function closeModal() {
         modal.classList.add('hidden');
@@ -246,7 +256,14 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function () {
             itemId.value = this.dataset.id;
             itemName.textContent = this.dataset.name;
-            itemPrice.textContent = 'Rp ' + Number(this.dataset.price).toLocaleString('id-ID');
+            const priceType = this.dataset.priceType || 'paid';
+            const isPaid = priceType === 'paid';
+            modalTitle.textContent = isPaid ? 'Beli Tryout' : (priceType === 'free_conditional' ? 'Ajukan Akses Tryout' : 'Akses Gratis Tryout');
+            itemPrice.textContent = isPaid ? 'Rp ' + Number(this.dataset.price).toLocaleString('id-ID') : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
+            voucherWrapper?.classList.toggle('hidden', !isPaid);
+            proofWrapper?.classList.toggle('hidden', !isPaid);
+            if (proofInput) proofInput.required = isPaid;
+            submitBtn.textContent = isPaid ? 'Beli' : (priceType === 'free_conditional' ? 'Ajukan' : 'Aktifkan');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         });

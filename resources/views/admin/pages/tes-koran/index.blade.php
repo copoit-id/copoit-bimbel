@@ -40,9 +40,9 @@
 
             <div class="mt-5 flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2 flex-wrap">
-                    @if($tes->is_for_sale && $tes->price > 0)
+                    @if($tes->isIndividuallyAvailable())
                     <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                        Dijual
+                        {{ $tes->price_type_label }}
                     </span>
                     @endif
                     <span class="px-2.5 py-1 {{ $tes->is_active ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600' }} text-xs rounded-full font-medium">

@@ -25,6 +25,7 @@ class DashboardController extends Controller
         if (!$user) {
             // Get public packages for guest view (BE logic di BE)
             $publicPackages = Package::where('status', 'active')
+                ->where('is_displayed', true)
                 ->limit(3)
                 ->get();
             

@@ -58,6 +58,7 @@ class PackageController extends Controller
         }
         
         $packagesQuery = Package::where('status', 'active')
+            ->where('is_displayed', true)
             ->with(['detailPackages'])
             ->withCount(['materials', 'tryouts', 'tesKorans']);
 
@@ -143,7 +144,9 @@ class PackageController extends Controller
         }
         
         try {
-            $package = Package::findOrFail($package_id);
+            $package = Package::where('status', 'active')
+                ->where('is_displayed', true)
+                ->findOrFail($package_id);
 
             $existingAccess = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
@@ -351,7 +354,9 @@ class PackageController extends Controller
 
     public function previewDiscount(Request $request, $package_id)
     {
-        $package = Package::where('status', 'active')->findOrFail($package_id);
+        $package = Package::where('status', 'active')
+            ->where('is_displayed', true)
+            ->findOrFail($package_id);
 
         if ($package->type_price !== 'paid' || $package->price <= 0) {
             return response()->json([
@@ -2956,8 +2961,6 @@ class PackageController extends Controller
                 || $tryout->canUserAccess($user->id)
             );
             $tryout->access_via_package = $tryout->packages->first();
-            // Flag for individual sale
-            $tryout->is_for_sale = $tryout->is_for_sale && $tryout->price > 0;
         }
         
         return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort'));
@@ -2975,6 +2978,7 @@ class PackageController extends Controller
 
         $package = Package::with($relations)
             ->where('status', 'active')
+            ->where('is_displayed', true)
             ->findOrFail($package_id);
         
         // Check if user is logged in and has access

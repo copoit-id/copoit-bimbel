@@ -103,10 +103,23 @@
                 <!-- Price & Display -->
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
+                        <div id="price-type-wrapper">
+                            <label for="type_price" class="block text-sm font-medium text-gray-700 mb-2">
+                                Tipe Harga
+                                <x-ui.tooltip>Pilih Berbayar, Gratis, atau Gratis Bersyarat untuk akses individual.</x-ui.tooltip>
+                            </label>
+                            <select id="type_price" name="type_price"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                @php($selectedTypePrice = old('type_price', isset($tryout) ? ($tryout->type_price ?? 'paid') : 'paid'))
+                                <option value="paid" @selected($selectedTypePrice === 'paid')>Berbayar</option>
+                                <option value="free_unconditional" @selected($selectedTypePrice === 'free_unconditional')>Gratis Tanpa Syarat</option>
+                                <option value="free_conditional" @selected($selectedTypePrice === 'free_conditional')>Gratis Bersyarat</option>
+                            </select>
+                        </div>
+                        <div id="price-wrapper">
                             <label for="price" class="block text-sm font-medium text-gray-700 mb-2">
                                 Harga (Rp)
-                                <x-ui.tooltip>Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</x-ui.tooltip>
+                                <x-ui.tooltip>Wajib diisi jika tipe harga Berbayar.</x-ui.tooltip>
                             </label>
                             <input type="number" id="price" name="price" min="0" step="1" inputmode="numeric"
                                 value="{{ old('price', isset($tryout) ? $tryout->price : 0) }}"
@@ -133,6 +146,16 @@
                                 </label>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="conditional-requirement-wrapper" class="mt-6 {{ old('type_price', isset($tryout) ? ($tryout->type_price ?? 'paid') : 'paid') === 'free_conditional' ? '' : 'hidden' }}">
+                        <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">
+                            Syarat Akses Gratis
+                            <x-ui.tooltip>Instruksi yang harus dipenuhi user sebelum admin menyetujui akses.</x-ui.tooltip>
+                        </label>
+                        <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="Contoh: follow Instagram, upload bukti, atau hubungi admin.">{{ old('conditional_requirement', isset($tryout) ? ($tryout->conditional_requirement ?? '') : '') }}</textarea>
                     </div>
 
                     <div id="access-duration-wrapper" class="mt-6 {{ old('is_for_sale', isset($tryout) ? $tryout->is_for_sale : false) ? '' : 'hidden' }}">
@@ -1134,10 +1157,23 @@
     const durationUnit = root.querySelector('#access_duration_unit');
     const durationValue = root.querySelector('#access_duration_value');
     const saleCheckbox = root.querySelector('#is_for_sale');
+    const typePriceSelect = root.querySelector('#type_price');
+    const priceInput = root.querySelector('#price');
+    const priceWrapper = root.querySelector('#price-wrapper');
+    const requirementWrapper = root.querySelector('#conditional-requirement-wrapper');
+    const requirementInput = root.querySelector('#conditional_requirement');
     const durationWrapper = root.querySelector('#access-duration-wrapper');
     const syncAccessDuration = () => {
       if (!durationUnit || !durationValue) return;
       const isForSale = saleCheckbox?.checked ?? false;
+      const typePrice = typePriceSelect?.value || 'paid';
+      priceWrapper?.classList.toggle('hidden', !isForSale || typePrice !== 'paid');
+      if (priceInput) {
+        priceInput.disabled = !isForSale || typePrice !== 'paid';
+        if (typePrice !== 'paid') priceInput.value = 0;
+      }
+      requirementWrapper?.classList.toggle('hidden', !isForSale || typePrice !== 'free_conditional');
+      if (requirementInput) requirementInput.disabled = !isForSale || typePrice !== 'free_conditional';
       durationWrapper?.classList.toggle('hidden', !isForSale);
       durationUnit.disabled = !isForSale;
       durationValue.disabled = !isForSale || durationUnit.value === 'forever';
@@ -1145,6 +1181,7 @@
     syncAccessDuration();
     durationUnit?.addEventListener('change', syncAccessDuration);
     saleCheckbox?.addEventListener('change', syncAccessDuration);
+    typePriceSelect?.addEventListener('change', syncAccessDuration);
 
     typeSelect.__tryoutBound = true;
   }

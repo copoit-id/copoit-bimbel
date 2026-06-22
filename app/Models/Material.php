@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasIndividualPricing;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Material extends Model
 {
     use HasFactory;
+    use HasIndividualPricing;
 
     protected $primaryKey = 'material_id';
     protected $guarded = ['material_id'];
@@ -20,6 +22,7 @@ class Material extends Model
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
         'is_displayed' => 'boolean',
+        'type_price' => 'string',
         'metadata' => 'array',
         'duration_minutes' => 'integer',
         'order_number' => 'integer',
@@ -349,8 +352,8 @@ class Material extends Model
             return true;
         }
 
-        // Check via individual purchase (if material has price > 0)
-        if ($this->price > 0) {
+        // Check via individual purchase.
+        if ($this->isIndividuallyAvailable()) {
             $hasIndividualPurchase = \App\Models\IndividualPurchase::where('user_id', $userId)
                 ->where('purchasable_type', self::class)
                 ->where('purchasable_id', $this->material_id)

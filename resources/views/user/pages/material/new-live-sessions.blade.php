@@ -130,11 +130,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
                         <i class="ri-live-line mr-1"></i>Live Session
                     </span>
-                    @if($material->is_for_sale)
-                        <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ addslashes($material->title) }}')"
+                    @if($material->isIndividuallyAvailable())
+                        <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}')"
                                 class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
-                            <i class="ri-shopping-cart-line mr-1"></i>Beli
+                            <i class="{{ $material->isPaidIndividualAccess() ? 'ri-shopping-cart-line' : ($material->isFreeConditionalIndividualAccess() ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>{{ $material->isPaidIndividualAccess() ? 'Beli' : ($material->isFreeConditionalIndividualAccess() ? 'Ajukan' : 'Akses') }}
                         </button>
                     @else
                         <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500">
@@ -187,14 +187,14 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <form id="purchaseForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="space-y-4">
-                    <div>
+                    <div id="voucherWrapper">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Kode Voucher (opsional)</label>
                         <input type="text" name="discount_code"
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 uppercase focus:outline-none focus:ring-2"
                                style="--tw-ring-color: {{ $primaryColor }}"
                                placeholder="CONTOH: HEMAT50">
                     </div>
-                    <div>
+                    <div id="paymentProofWrapper">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Transfer <span class="text-red-500">*</span></label>
                         <input type="file" name="payment_proof" id="paymentProofInput" accept="image/*,.pdf" required
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
@@ -228,13 +228,22 @@ let selectedType = null;
 let selectedId = null;
 let selectedPrice = 0;
 
-function buyIndividual(type, id, price, name) {
+function buyIndividual(type, id, price, priceType, name) {
     selectedType = type;
     selectedId = id;
     selectedPrice = price;
     document.getElementById('purchaseTypeDisplay').textContent = type === 'material' ? 'Materi' : 'Tryout';
     document.getElementById('purchaseNameDisplay').textContent = name;
-    document.getElementById('purchasePriceDisplay').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(price);
+    const isPaid = priceType === 'paid';
+    document.getElementById('purchasePriceDisplay').textContent = isPaid
+        ? 'Rp ' + new Intl.NumberFormat('id-ID').format(price)
+        : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
+    document.getElementById('voucherWrapper')?.classList.toggle('hidden', !isPaid);
+    document.getElementById('paymentProofWrapper')?.classList.toggle('hidden', !isPaid);
+    const proofInput = document.getElementById('paymentProofInput');
+    if (proofInput) proofInput.required = isPaid;
+    const submitBtn = document.getElementById('submitPurchaseBtn');
+    if (submitBtn) submitBtn.textContent = isPaid ? 'Kirim Bukti Bayar' : (priceType === 'free_conditional' ? 'Ajukan Akses' : 'Aktifkan Akses');
     document.getElementById('purchaseError').classList.add('hidden');
     document.getElementById('purchaseModal').classList.remove('hidden');
     document.getElementById('purchaseModal').classList.add('flex');

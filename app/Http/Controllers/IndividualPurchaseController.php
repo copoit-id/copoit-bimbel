@@ -7,6 +7,10 @@ use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\TesKoran;
 use App\Models\Tryout;
+use App\Models\UserMaterialAccess;
+use App\Models\UserTryoutAccess;
+use App\Services\PurchaseAccessDuration;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -55,8 +59,7 @@ class IndividualPurchaseController extends Controller
                 : redirect()->back()->with('error', $message);
         }
 
-        // Check if item has price and is for sale (can be sold individually)
-        if (!$item->is_for_sale || !$item->price || $item->price <= 0) {
+        if (! ($item->is_displayed ?? true) || ! $item->isIndividuallyAvailable()) {
             $message = 'Item ini tidak dijual terpisah.';
             return $request->expectsJson()
                 ? response()->json(['success' => false, 'message' => $message], 400)
@@ -107,6 +110,26 @@ class IndividualPurchaseController extends Controller
             return $request->expectsJson()
                 ? response()->json(['success' => false, 'message' => $message], 400)
                 : redirect()->back()->with('error', $message);
+        }
+
+        if ($item->isFreeUnconditionalIndividualAccess()) {
+            $purchase = $this->createFreePurchase($item, $purchasableType, $id, $type, $userId, true);
+            $this->grantApprovedAccess($purchase);
+
+            $message = 'Akses gratis berhasil diaktifkan.';
+            return $request->expectsJson()
+                ? response()->json(['success' => true, 'message' => $message, 'reload' => true])
+                : redirect()->back()->with('success', $message);
+        }
+
+        if ($item->isFreeConditionalIndividualAccess()) {
+            $purchase = $this->createFreePurchase($item, $purchasableType, $id, $type, $userId, false);
+            $this->sendPurchaseNotificationToAdmin($purchase);
+
+            $message = 'Permintaan akses gratis bersyarat berhasil dikirim. Mohon tunggu verifikasi admin.';
+            return $request->expectsJson()
+                ? response()->json(['success' => true, 'message' => $message])
+                : redirect()->route('user.individual-purchase.history')->with('success', $message);
         }
 
         // Resolve optional voucher
@@ -203,6 +226,11 @@ class IndividualPurchaseController extends Controller
 
         if (!$item) {
             return redirect()->back()->with('error', 'Item tidak ditemukan.');
+        }
+
+        if (! $item->isPaidIndividualAccess()) {
+            return redirect()->route('user.individual-purchase.history')
+                ->with('error', 'Item ini tidak memerlukan pembayaran gateway.');
         }
 
         $discountCode = Discount::normalizeCode($request->input('discount_code'));
@@ -332,5 +360,70 @@ class IndividualPurchaseController extends Controller
                 'error' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function createFreePurchase(object $item, string $purchasableType, int $id, string $type, int $userId, bool $approved): IndividualPurchase
+    {
+        $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+        $approvedAt = $approved ? Carbon::now() : null;
+        $accessExpiresAt = $approved ? PurchaseAccessDuration::expiresAt($item, $approvedAt) : null;
+
+        return IndividualPurchase::create([
+            'user_id' => $userId,
+            'purchasable_type' => $purchasableType,
+            'purchasable_id' => $id,
+            'discount_amount' => 0,
+            'price' => 0,
+            'admin_fee' => 0,
+            'total_amount' => 0,
+            'payment_method' => $approved ? 'free_unconditional' : 'free_conditional',
+            'status' => $approved ? IndividualPurchase::STATUS_APPROVED : IndividualPurchase::STATUS_PENDING,
+            'transaction_id' => $transactionId,
+            'payment_details' => [
+                'conditional_requirement' => $item->conditional_requirement,
+            ],
+            'approved_at' => $approvedAt,
+            'access_expires_at' => $accessExpiresAt,
+        ]);
+    }
+
+    private function grantApprovedAccess(IndividualPurchase $purchase): void
+    {
+        $purchase->loadMissing('purchasable');
+        $approvedAt = $purchase->approved_at ?: Carbon::now();
+        $accessExpiresAt = $purchase->access_expires_at
+            ?: ($purchase->purchasable ? PurchaseAccessDuration::expiresAt($purchase->purchasable, $approvedAt) : null);
+
+        if ($purchase->purchasable_type === Material::class) {
+            UserMaterialAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'material_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        } elseif ($purchase->purchasable_type === Tryout::class) {
+            UserTryoutAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'tryout_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'status' => 'active',
+                    'assigned_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        }
+
+        $purchase->update([
+            'status' => IndividualPurchase::STATUS_APPROVED,
+            'approved_at' => $approvedAt,
+            'access_expires_at' => $accessExpiresAt,
+        ]);
     }
 }

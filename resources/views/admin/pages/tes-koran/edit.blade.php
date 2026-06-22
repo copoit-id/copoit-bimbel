@@ -246,9 +246,27 @@
                             <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga (Rp)</label>
                             <input type="number" id="price" name="price" min="0" step="1"
                                    value="{{ old('price', $tesKoran->price ?? 0) }}"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                   class="hidden"
                                    placeholder="0">
-                            <p class="text-xs text-gray-500 mt-1">Isi harga untuk menjual terpisah. Kosongkan atau 0 untuk tidak dijual terpisah.</p>
+                            @php($selectedTypePrice = old('type_price', $tesKoran->type_price ?? 'paid'))
+                            <select id="type_price" name="type_price"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary mb-3">
+                                <option value="paid" @selected($selectedTypePrice === 'paid')>Berbayar</option>
+                                <option value="free_unconditional" @selected($selectedTypePrice === 'free_unconditional')>Gratis Tanpa Syarat</option>
+                                <option value="free_conditional" @selected($selectedTypePrice === 'free_conditional')>Gratis Bersyarat</option>
+                            </select>
+                            <div id="price-wrapper">
+                                <input type="number" id="price_visible" min="0" step="1"
+                                       value="{{ old('price', $tesKoran->price ?? 0) }}"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                       placeholder="0">
+                                <p class="text-xs text-gray-500 mt-1">Harga wajib diisi untuk tipe Berbayar.</p>
+                            </div>
+                            <div id="conditional-requirement-wrapper" class="mt-3 {{ $selectedTypePrice === 'free_conditional' ? '' : 'hidden' }}">
+                                <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
+                                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                          placeholder="Syarat akses gratis bersyarat">{{ old('conditional_requirement', $tesKoran->conditional_requirement ?? '') }}</textarea>
+                            </div>
                         </div>
                         <div class="space-y-3">
                             <div>
@@ -326,21 +344,33 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const priceInput = document.getElementById('price');
+    const visiblePriceInput = document.getElementById('price_visible');
     const saleCheckbox = document.getElementById('is_for_sale');
+    const typePriceSelect = document.getElementById('type_price');
+    const priceWrapper = document.getElementById('price-wrapper');
+    const requirementWrapper = document.getElementById('conditional-requirement-wrapper');
+    const requirementInput = document.getElementById('conditional_requirement');
 
     function syncPriceInput() {
         if (!priceInput || !saleCheckbox) return;
+        const typePrice = typePriceSelect?.value || 'paid';
 
-        if (saleCheckbox.checked) {
+        priceWrapper?.classList.toggle('hidden', !saleCheckbox.checked || typePrice !== 'paid');
+        requirementWrapper?.classList.toggle('hidden', !saleCheckbox.checked || typePrice !== 'free_conditional');
+        if (requirementInput) requirementInput.disabled = !saleCheckbox.checked || typePrice !== 'free_conditional';
+
+        if (saleCheckbox.checked && typePrice === 'paid') {
             priceInput.disabled = false;
-            return;
+            priceInput.value = visiblePriceInput?.value || priceInput.value;
+        } else {
+            priceInput.value = 0;
+            priceInput.disabled = true;
         }
-
-        priceInput.value = 0;
-        priceInput.disabled = true;
     }
 
     saleCheckbox?.addEventListener('change', syncPriceInput);
+    visiblePriceInput?.addEventListener('input', () => { priceInput.value = visiblePriceInput.value; });
+    typePriceSelect?.addEventListener('change', syncPriceInput);
     syncPriceInput();
 
     const accessDurationUnit = document.getElementById('access_duration_unit');

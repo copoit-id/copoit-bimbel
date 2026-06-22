@@ -316,6 +316,11 @@ class User extends Authenticatable
 
     public function canAccessMaterial(int $materialId): bool
     {
+        $material = Material::find($materialId);
+        if ($material && $material->canUserAccess($this->id)) {
+            return true;
+        }
+
         // Check direct access
         $hasDirectAccess = $this->materialAccess()
             ->where('material_id', $materialId)
@@ -367,6 +372,11 @@ class User extends Authenticatable
      */
     public function canAccessTryout(int $tryoutId): bool
     {
+        $tryout = Tryout::find($tryoutId);
+        if ($tryout && $tryout->canUserAccess($this->id)) {
+            return true;
+        }
+
         // Check direct access
         $hasDirectAccess = $this->tryoutAccess()
             ->where('tryout_id', $tryoutId)

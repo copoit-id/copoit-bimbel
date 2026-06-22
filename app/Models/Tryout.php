@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasIndividualPricing;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Tryout extends Model
 {
     use HasFactory;
+    use HasIndividualPricing;
 
     protected $table = 'tryouts';
     protected $primaryKey = 'tryout_id';
@@ -22,6 +24,7 @@ class Tryout extends Model
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
         'is_displayed' => 'boolean',
+        'type_price' => 'string',
         'show_discussion' => 'boolean',
         'show_leaderboard' => 'boolean',
         'section_break_duration' => 'integer',
@@ -168,8 +171,8 @@ class Tryout extends Model
             return true;
         }
 
-        // Check via individual purchase (if tryout has price > 0)
-        if ($this->price > 0) {
+        // Check via individual purchase.
+        if ($this->isIndividuallyAvailable()) {
             $hasIndividualPurchase = \App\Models\IndividualPurchase::where('user_id', $userId)
                 ->where('purchasable_type', self::class)
                 ->where('purchasable_id', $this->tryout_id)

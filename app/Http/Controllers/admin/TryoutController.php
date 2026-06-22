@@ -143,6 +143,7 @@ class TryoutController extends Controller
     {
         $request->validate($this->tryoutValidationRules());
         $scoringMethod = $this->normalizedScoringMethod($request);
+        $saleData = $this->individualSaleData($request);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
@@ -168,13 +169,12 @@ class TryoutController extends Controller
                 'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
                 'scoring_method' => $scoringMethod,
-                'is_for_sale' => $request->has('is_for_sale'),
+                ...$saleData,
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
                 'results_released_at' => null,
-                'price' => $request->price ?? 0,
                 ...$this->accessDurationData($request),
             ]);
 
@@ -217,6 +217,7 @@ class TryoutController extends Controller
 
         $request->validate($this->tryoutValidationRules($tryout->type_tryout));
         $scoringMethod = $this->normalizedScoringMethod($request);
+        $saleData = $this->individualSaleData($request);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
 
@@ -254,13 +255,12 @@ class TryoutController extends Controller
                 'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
                 'scoring_method' => $scoringMethod,
-                'is_for_sale' => $request->has('is_for_sale'),
+                ...$saleData,
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
                 'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
-                'price' => $request->price ?? 0,
                 ...$this->accessDurationData($request),
             ]);
 
@@ -756,6 +756,9 @@ class TryoutController extends Controller
             'enable_tab_switch_detection' => 'boolean',
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
+            'is_for_sale' => 'boolean',
+            'type_price' => ['nullable', Rule::in(['paid', 'free_unconditional', 'free_conditional'])],
+            'conditional_requirement' => 'nullable|string',
             'price' => 'nullable|numeric|min:0',
             'access_duration_unit' => ['nullable', Rule::in(PurchaseAccessDuration::UNITS)],
             'access_duration_value' => 'nullable|integer|min:1|max:1200',
@@ -788,13 +791,22 @@ class TryoutController extends Controller
             $rules['passing_type_' . $field] = 'nullable|in:score,percentage';
         }
 
+        if (request()->boolean('is_for_sale')) {
+            $typePrice = request()->input('type_price', 'paid');
+
+            if ($typePrice === 'paid') {
+                $rules['price'] = 'required|numeric|min:1';
+            } elseif ($typePrice === 'free_conditional') {
+                $rules['conditional_requirement'] = 'required|string|max:1000';
+            }
+        }
+
         return $rules;
     }
 
     private function accessDurationData(Request $request): array
     {
-        $price = (int) $request->input('price', 0);
-        if (!$request->has('is_for_sale') || $price <= 0) {
+        if (!$request->has('is_for_sale')) {
             return [
                 'access_duration_unit' => 'forever',
                 'access_duration_value' => null,
@@ -809,6 +821,25 @@ class TryoutController extends Controller
                 $unit,
                 $request->input('access_duration_value')
             ),
+        ];
+    }
+
+    private function individualSaleData(Request $request): array
+    {
+        $isForSale = $request->boolean('is_for_sale');
+        $typePrice = $isForSale ? $request->input('type_price', 'paid') : 'paid';
+
+        if (! in_array($typePrice, ['paid', 'free_unconditional', 'free_conditional'], true)) {
+            $typePrice = 'paid';
+        }
+
+        return [
+            'is_for_sale' => $isForSale,
+            'type_price' => $typePrice,
+            'price' => $isForSale && $typePrice === 'paid' ? (int) $request->input('price', 0) : 0,
+            'conditional_requirement' => $isForSale && $typePrice === 'free_conditional'
+                ? $request->input('conditional_requirement')
+                : null,
         ];
     }
 

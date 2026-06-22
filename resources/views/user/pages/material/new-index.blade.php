@@ -130,12 +130,12 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>Lihat Materi
                 </a>
-            @elseif($material->is_for_sale)
+            @elseif($material->isIndividuallyAvailable())
                 {{-- Material for individual sale --}}
-                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price ?? 0 }}, '{{ addslashes($material->title) }}')"
+                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price ?? 0 }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}')"
                         class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
-                    <i class="ri-shopping-cart-line mr-1"></i>Beli Sekarang
+                    <i class="{{ $material->isPaidIndividualAccess() ? 'ri-shopping-cart-line' : ($material->isFreeConditionalIndividualAccess() ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>{{ $material->isPaidIndividualAccess() ? 'Beli Sekarang' : ($material->isFreeConditionalIndividualAccess() ? 'Ajukan Akses' : 'Akses Gratis') }}
                 </button>
             @else
                 {{-- Material not for sale, only available via package --}}
@@ -185,7 +185,7 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-xl p-4 mb-5">
+            <div id="paymentInstructionWrapper" class="bg-gray-50 rounded-xl p-4 mb-5">
                 <p class="text-sm font-medium text-gray-600 mb-3">Transfer ke rekening berikut:</p>
                 <div class="space-y-2">
                     <div class="flex justify-between">
@@ -213,14 +213,14 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
             <form id="purchaseForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="space-y-4">
-                    <div>
+                    <div id="voucherWrapper">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Kode Voucher (opsional)</label>
                         <input type="text" name="discount_code"
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 uppercase focus:outline-none focus:ring-2"
                                style="--tw-ring-color: {{ $primaryColor }}"
                                placeholder="CONTOH: HEMAT50">
                     </div>
-                    <div>
+                    <div id="paymentProofWrapper">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Transfer <span class="text-red-500">*</span></label>
                         <input type="file" name="payment_proof" id="paymentProofInput" accept="image/*,.pdf" required
                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
@@ -254,13 +254,23 @@ let selectedType = null;
 let selectedId = null;
 let selectedPrice = 0;
 
-function buyIndividual(type, id, price, name) {
+function buyIndividual(type, id, price, priceType, name) {
     selectedType = type;
     selectedId = id;
     selectedPrice = price;
     document.getElementById('purchaseTypeDisplay').textContent = type === 'material' ? 'Materi' : 'Tryout';
     document.getElementById('purchaseNameDisplay').textContent = name;
-    document.getElementById('purchasePriceDisplay').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(price);
+    const isPaid = priceType === 'paid';
+    document.getElementById('purchasePriceDisplay').textContent = isPaid
+        ? 'Rp ' + new Intl.NumberFormat('id-ID').format(price)
+        : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
+    document.getElementById('voucherWrapper')?.classList.toggle('hidden', !isPaid);
+    document.getElementById('paymentProofWrapper')?.classList.toggle('hidden', !isPaid);
+    document.getElementById('paymentInstructionWrapper')?.classList.toggle('hidden', !isPaid);
+    const proofInput = document.getElementById('paymentProofInput');
+    if (proofInput) proofInput.required = isPaid;
+    const submitBtn = document.getElementById('submitPurchaseBtn');
+    if (submitBtn) submitBtn.textContent = isPaid ? 'Kirim Bukti Bayar' : (priceType === 'free_conditional' ? 'Ajukan Akses' : 'Aktifkan Akses');
     document.getElementById('purchaseError').classList.add('hidden');
     document.getElementById('purchaseModal').classList.remove('hidden');
     document.getElementById('purchaseModal').classList.add('flex');

@@ -78,9 +78,9 @@
                         <i class="ri-award-line"></i>
                     </span>
                     @endif
-                    @if($tryout->is_for_sale)
+                    @if($tryout->isIndividuallyAvailable())
                     <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                        <i class="ri-shopping-cart-fill"></i>
+                        <i class="{{ $tryout->isPaidIndividualAccess() ? 'ri-shopping-cart-fill' : 'ri-gift-line' }}"></i>
                     </span>
                     @endif
                     <span class="px-2 py-1 {{ $tryout->is_displayed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500' }} rounded-full text-xs">

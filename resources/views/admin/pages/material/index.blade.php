@@ -83,13 +83,13 @@
                 <span class="px-2 py-0.5 {{ $material->is_displayed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500' }} text-xs rounded-full font-medium">
                     <i class="ri-{{ $material->is_displayed ? 'eye-line' : 'eye-off-line' }} mr-0.5"></i>{{ $material->is_displayed ? 'Tampil' : 'Hidden' }}
                 </span>
-                <span class="px-2 py-0.5 {{ $material->is_for_sale ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }} text-xs rounded-full font-medium">
-                    <i class="ri-{{ $material->is_for_sale ? 'shopping-cart-fill' : 'forbid-line' }} mr-0.5"></i>{{ $material->is_for_sale ? 'Dijual' : 'Paket' }}
+                <span class="px-2 py-0.5 {{ $material->isIndividuallyAvailable() ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }} text-xs rounded-full font-medium">
+                    <i class="ri-{{ $material->isIndividuallyAvailable() ? ($material->isPaidIndividualAccess() ? 'shopping-cart-fill' : 'gift-line') : 'forbid-line' }} mr-0.5"></i>{{ $material->isIndividuallyAvailable() ? $material->price_type_label : 'Paket' }}
                 </span>
             </div>
 
             <!-- Price -->
-            @if($material->is_for_sale && $material->price > 0)
+            @if($material->isPaidIndividualAccess())
             <div class="mb-2">
                 <span class="text-sm font-bold" style="color: var(--client-color-primary, #1C3259)">Rp {{ number_format($material->price, 0, ',', '.') }}</span>
             </div>

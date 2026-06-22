@@ -121,6 +121,19 @@
                             </select>
                         </div>
 
+                        <div class="flex items-center rounded-lg border border-gray-200 px-4 py-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="is_displayed" value="1"
+                                    {{ old('is_displayed', isset($package) ? ($package->is_displayed ?? true) : true) ? 'checked' : '' }}
+                                    class="rounded border-gray-300 text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm font-medium text-gray-700">
+                                    Tampilkan di halaman user
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="type_package" class="block text-sm font-medium text-gray-700 mb-2">Tipe Paket
                                 <span class="text-red-500">*</span></label>

@@ -29,6 +29,7 @@ class EventController extends Controller
         
         $package = Package::where('package_id', $package_id)
             ->where('status', 'active')
+            ->where('is_displayed', true)
             ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
             ->firstOrFail();
 

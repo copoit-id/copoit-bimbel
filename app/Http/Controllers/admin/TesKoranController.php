@@ -36,8 +36,7 @@ class TesKoranController extends Controller
         unset($validated['sheet_count'], $validated['custom_sheets']);
         $this->syncBaseSettingsFromFirstSheet($validated, $sheets);
 
-        $validated['price'] = (int) ($validated['price'] ?? 0);
-        $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
+        $this->normalizeIndividualSale($validated, $request);
         $validated['is_displayed'] = $request->boolean('is_displayed', true);
         $validated['direction'] = $this->directionForTestType($validated['test_type']);
         $validated['duration_minutes'] = $this->totalDurationMinutes($validated, $sheets);
@@ -66,8 +65,7 @@ class TesKoranController extends Controller
         unset($validated['sheet_count'], $validated['custom_sheets']);
         $this->syncBaseSettingsFromFirstSheet($validated, $sheets);
 
-        $validated['price'] = (int) ($validated['price'] ?? 0);
-        $validated['is_for_sale'] = $request->boolean('is_for_sale') && $validated['price'] > 0;
+        $this->normalizeIndividualSale($validated, $request);
         $validated['is_displayed'] = $request->boolean('is_displayed');
         $validated['is_active'] = $request->boolean('is_active');
         $validated['direction'] = $this->directionForTestType($validated['test_type']);
@@ -195,6 +193,8 @@ class TesKoranController extends Controller
             'custom_sheets' => 'boolean',
             'price' => 'nullable|integer|min:0',
             'is_for_sale' => 'boolean',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string|max:1000',
             'is_displayed' => 'boolean',
             'is_active' => 'boolean',
             'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
@@ -266,7 +266,7 @@ class TesKoranController extends Controller
 
     private function normalizeAccessDuration(array &$validated): void
     {
-        if (!($validated['is_for_sale'] ?? false) || (int) ($validated['price'] ?? 0) <= 0) {
+        if (!($validated['is_for_sale'] ?? false)) {
             $validated['access_duration_unit'] = 'forever';
             $validated['access_duration_value'] = null;
 
@@ -280,6 +280,31 @@ class TesKoranController extends Controller
             $unit,
             $validated['access_duration_value'] ?? null
         );
+    }
+
+    private function normalizeIndividualSale(array &$validated, Request $request): void
+    {
+        $isForSale = $request->boolean('is_for_sale');
+        $typePrice = $isForSale ? $request->input('type_price', 'paid') : 'paid';
+
+        if (! in_array($typePrice, ['paid', 'free_unconditional', 'free_conditional'], true)) {
+            $typePrice = 'paid';
+        }
+
+        if ($isForSale && $typePrice === 'paid') {
+            $request->validate(['price' => 'required|integer|min:1']);
+        }
+
+        if ($isForSale && $typePrice === 'free_conditional') {
+            $request->validate(['conditional_requirement' => 'required|string|max:1000']);
+        }
+
+        $validated['is_for_sale'] = $isForSale;
+        $validated['type_price'] = $typePrice;
+        $validated['price'] = $isForSale && $typePrice === 'paid' ? (int) ($validated['price'] ?? 0) : 0;
+        $validated['conditional_requirement'] = $isForSale && $typePrice === 'free_conditional'
+            ? $request->input('conditional_requirement')
+            : null;
     }
 
     private function totalDurationMinutes(array $validated, array $sheets = []): int

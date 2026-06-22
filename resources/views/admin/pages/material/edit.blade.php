@@ -95,8 +95,19 @@
                             <span class="ml-2 text-sm font-medium text-gray-700">Dijual Terpisah</span>
                         </label>
                         <p class="text-xs text-gray-500 mb-2">Centang untuk menampilkan materi ini di halaman user dan bisa dibeli individually.</p>
-                        <input type="number" name="price" value="{{ old('price', $material->price ?? 0) }}" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0">
-                        <p class="text-xs text-gray-500 mt-1">Harga dalam Rupiah (0 = gratis dalam paket).</p>
+                        @php($selectedTypePrice = old('type_price', $material->type_price ?? 'paid'))
+                        <select id="type_price" name="type_price" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary mb-2">
+                            <option value="paid" @selected($selectedTypePrice === 'paid')>Berbayar</option>
+                            <option value="free_unconditional" @selected($selectedTypePrice === 'free_unconditional')>Gratis Tanpa Syarat</option>
+                            <option value="free_conditional" @selected($selectedTypePrice === 'free_conditional')>Gratis Bersyarat</option>
+                        </select>
+                        <div id="price-wrapper">
+                            <input type="number" id="price" name="price" value="{{ old('price', $material->price ?? 0) }}" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0">
+                            <p class="text-xs text-gray-500 mt-1">Harga dalam Rupiah untuk tipe Berbayar.</p>
+                        </div>
+                        <div id="conditional-requirement-wrapper" class="mt-2 {{ $selectedTypePrice === 'free_conditional' ? '' : 'hidden' }}">
+                            <textarea id="conditional_requirement" name="conditional_requirement" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Syarat akses gratis bersyarat">{{ old('conditional_requirement', $material->conditional_requirement ?? '') }}</textarea>
+                        </div>
                     </div>
 
                     <div id="access-duration-wrapper" class="{{ old('is_for_sale', $material->is_for_sale) ? '' : 'hidden' }}">
@@ -225,10 +236,23 @@
     const accessDurationUnit = document.getElementById('access_duration_unit');
     const accessDurationValue = document.getElementById('access_duration_value');
     const saleCheckbox = document.getElementById('is_for_sale');
+    const typePriceSelect = document.getElementById('type_price');
+    const priceInput = document.getElementById('price');
+    const priceWrapper = document.getElementById('price-wrapper');
+    const requirementWrapper = document.getElementById('conditional-requirement-wrapper');
+    const requirementInput = document.getElementById('conditional_requirement');
     const accessDurationWrapper = document.getElementById('access-duration-wrapper');
     const syncAccessDuration = () => {
         if (!accessDurationUnit || !accessDurationValue) return;
         const isForSale = saleCheckbox?.checked ?? false;
+        const typePrice = typePriceSelect?.value || 'paid';
+        priceWrapper?.classList.toggle('hidden', !isForSale || typePrice !== 'paid');
+        if (priceInput) {
+            priceInput.disabled = !isForSale || typePrice !== 'paid';
+            if (typePrice !== 'paid') priceInput.value = 0;
+        }
+        requirementWrapper?.classList.toggle('hidden', !isForSale || typePrice !== 'free_conditional');
+        if (requirementInput) requirementInput.disabled = !isForSale || typePrice !== 'free_conditional';
         accessDurationWrapper?.classList.toggle('hidden', !isForSale);
         accessDurationUnit.disabled = !isForSale;
         accessDurationValue.disabled = !isForSale || accessDurationUnit.value === 'forever';
@@ -236,6 +260,7 @@
     syncAccessDuration();
     accessDurationUnit?.addEventListener('change', syncAccessDuration);
     saleCheckbox?.addEventListener('change', syncAccessDuration);
+    typePriceSelect?.addEventListener('change', syncAccessDuration);
 
     const materialCategoryTree = @json($materialCategoryTree);
     const selectedGoalCategoryId = Number(@json((int) ($selectedGoalCategoryId ?? 0)));

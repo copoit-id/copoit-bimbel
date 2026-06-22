@@ -13,6 +13,7 @@ class Package extends Model
     protected $primaryKey = 'package_id';
     protected $casts = [
         'is_active' => 'boolean',
+        'is_displayed' => 'boolean',
         'price' => 'decimal:0',
         'access_duration_value' => 'integer',
     ];

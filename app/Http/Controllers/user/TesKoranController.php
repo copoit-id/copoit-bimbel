@@ -40,7 +40,6 @@ class TesKoranController extends Controller
         foreach ($tesKorans as $tesKoran) {
             $tesKoran->has_access = $user ? $tesKoran->canUserAccess($user->id) : false;
             $tesKoran->access_via_package = $tesKoran->accessiblePackageForUser($user?->id);
-            $tesKoran->is_for_sale = $tesKoran->is_for_sale && $tesKoran->price > 0;
             $tesKoran->has_pending_purchase = $user ? $tesKoran->hasPendingPurchase($user->id) : false;
         }
 

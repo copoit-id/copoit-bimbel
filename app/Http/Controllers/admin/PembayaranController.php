@@ -459,7 +459,9 @@ class PembayaranController extends Controller
             ?? $purchase->purchasable?->name
             ?? 'N/A';
 
-        $paymentDetails = $purchase->payment_details ? json_decode($purchase->payment_details, true) : [];
+        $paymentDetails = is_array($purchase->payment_details)
+            ? $purchase->payment_details
+            : ($purchase->payment_details ? json_decode($purchase->payment_details, true) : []);
         $proofPath = $paymentDetails['proof_path'] ?? null;
 
         return view('admin.pages.individual-purchase.show', compact(

@@ -65,6 +65,7 @@ class PackageController extends Controller
                 'type_package' => 'required|in:' . implode(',', $packageTypes),
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
+                'is_displayed' => 'boolean',
                 'description' => 'nullable|string',
                 'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
@@ -90,6 +91,7 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            $validated['is_displayed'] = $request->boolean('is_displayed', true);
             $this->normalizeAccessDuration($validated);
 
             if ($request->type_price !== 'paid') {
@@ -150,6 +152,7 @@ class PackageController extends Controller
                 'type_package' => 'required|in:' . implode(',', $packageTypes),
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
+                'is_displayed' => 'boolean',
                 'description' => 'nullable|string',
                 'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
@@ -175,6 +178,7 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            $validated['is_displayed'] = $request->boolean('is_displayed');
             $this->normalizeAccessDuration($validated);
 
             if ($request->type_price !== 'paid') {

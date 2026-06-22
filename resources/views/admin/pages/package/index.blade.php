@@ -83,7 +83,7 @@
                         <i class="ri-book-marked-line me-1"></i>{{ $package->type_package }}
                     </p>
                     <!-- Status Badge -->
-                    <div class="h-full">
+                    <div class="h-full flex gap-2">
                         @if($package->status === 'active')
                         <div class=" bg-green-100 text-green-700 rounded-full px-4 py-1"><i
                                 class="ri-check-fill me-1"></i>Aktif</div>
@@ -91,6 +91,9 @@
                         <div class=" bg-gray-100 text-gray-700 rounded-full px-4 py-1"><i
                                 class="ri-close-fill me-1"></i>Tidak Aktif</div>
                         @endif
+                        <div class="{{ $package->is_displayed ?? true ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700' }} rounded-full px-4 py-1">
+                            <i class="ri-{{ $package->is_displayed ?? true ? 'eye-line' : 'eye-off-line' }} me-1"></i>{{ $package->is_displayed ?? true ? 'Tampil' : 'Hidden' }}
+                        </div>
                     </div>
 
                 </div>
