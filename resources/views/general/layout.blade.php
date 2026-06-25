@@ -41,7 +41,7 @@
                 @if($showLandingNav)
                 <a href="{{ route('landing') }}"
                     class="rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
-                    Landing Page
+                    Beranda
                 </a>
                 @endif
                 @if($showStatisticsNav)
@@ -90,7 +90,7 @@
             @if($showLandingNav)
             <a href="{{ route('landing') }}"
                 class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'bg-white' }}">
-                Landing Page
+                Beranda
             </a>
             @endif
             @if($showStatisticsNav)
