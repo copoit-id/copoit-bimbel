@@ -7,24 +7,146 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
+
+// Convert hex primary color to RGB for opacity adjustments
+$primaryHex = str_replace('#', '', $primaryColor);
+if (strlen($primaryHex) == 3) {
+    $r = hexdec(substr($primaryHex, 0, 1) . substr($primaryHex, 0, 1));
+    $g = hexdec(substr($primaryHex, 1, 1) . substr($primaryHex, 1, 1));
+    $b = hexdec(substr($primaryHex, 2, 1) . substr($primaryHex, 2, 1));
+} else {
+    $r = hexdec(substr($primaryHex, 0, 2));
+    $g = hexdec(substr($primaryHex, 2, 2));
+    $b = hexdec(substr($primaryHex, 4, 2));
+}
+$primaryRgb = "$r, $g, $b";
 @endphp
 
 <!-- Welcome Card -->
-<div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-800">
-                {{ $isGuest ? 'Selamat Datang!' : 'Halo, ' . $user->name }}
-            </h1>
-            <p class="text-gray-500 mt-1">
-                {{ $isGuest ? 'Mulai perjalanan belajarmu sekarang' : 'Tetap semangat belajar ya!' }}
-            </p>
+<div class="relative overflow-hidden rounded-[2rem] p-6 mb-6 border border-gray-100" style="background-color: rgba({{ $primaryRgb }}, 0.055); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.02);">
+    <!-- Ambient glowing mesh backdrops using the brand primary color to maintain brand consistency without clashing -->
+    <div class="absolute -left-16 -top-16 w-64 h-64 rounded-full blur-3xl pointer-events-none" style="background-color: {{ $primaryColor }}; opacity: 0.07;"></div>
+    <div class="absolute -right-16 -bottom-16 w-64 h-64 rounded-full blur-3xl pointer-events-none" style="background-color: {{ $primaryColor }}; opacity: 0.05;"></div>
+    
+    <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <!-- Left details -->
+        <div class="lg:col-span-7 flex flex-col justify-between">
+            <div class="space-y-6">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+                        Halo, {{ $isGuest ? 'Pejuang PTN' : $user->name }}! 👋
+                    </h1>
+                    <p class="text-gray-500 font-medium mt-1">Mau Belajar Apa Hari Ini?</p>
+                </div>
+
+                <!-- Inner Cards Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Target PTN Card -->
+                    <div class="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between relative overflow-hidden group min-h-[160px] shadow-[0_8px_30px_rgb(0,0,0,0.035)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
+                        <!-- Decorative university watermark -->
+                        <div class="absolute right-2 bottom-2 pointer-events-none" style="color: {{ $primaryColor }}; opacity: 0.06;">
+                            <i class="ri-bank-line text-8xl"></i>
+                        </div>
+                        
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-2 text-gray-500 font-semibold text-xs mb-3">
+                                <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15; color: {{ $primaryColor }};">
+                                    <i class="ri-graduation-cap-line text-sm"></i>
+                                </div>
+                                <span class="font-bold text-gray-600">Target PTN</span>
+                            </div>
+                            
+                            @php
+                                $targetUniversity = null;
+                                $targetMajor = null;
+                                if (!$isGuest) {
+                                    if ($user->participantDestinationCategory) {
+                                        $targetUniversity = $user->participantDestinationCategory->parent->name ?? $user->participantDestinationCategory->name;
+                                        $targetMajor = $user->participantDestinationCategory->parent ? $user->participantDestinationCategory->name : null;
+                                    } else {
+                                        $targetUniversity = $user->participant_destination_institution_name;
+                                        $targetMajor = $user->participant_destination_program_name;
+                                    }
+                                }
+                            @endphp
+
+                            <h3 class="font-extrabold text-gray-950 text-base leading-snug truncate">
+                                {{ $targetUniversity ?: 'Belum Memilih PTN' }}
+                            </h3>
+                            <p class="text-xs text-gray-500 font-semibold mt-0.5 truncate">
+                                {{ $targetMajor ?: 'Pilih jurusan impianmu' }}
+                            </p>
+                        </div>
+
+                        <div class="relative z-10 pt-4 mt-auto">
+                            @if($isGuest)
+                                <a href="{{ route('login') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-xl transition-opacity hover:opacity-90 shadow-sm shadow-emerald-500/20" style="background-color: {{ $primaryColor }}">
+                                    Masuk / Daftar
+                                </a>
+                            @else
+                                <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
+                                    Ubah Target
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Peluang Stack -->
+                    <div class="flex flex-col gap-3">
+                        <!-- SNBP Card -->
+                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <i class="ri-line-chart-line text-lg"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">SNBP</h4>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg">
+                                Tinggi
+                            </span>
+                        </div>
+
+                        <!-- SNBT Card -->
+                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                    <i class="ri-pulse-line text-lg"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">SNBT</h4>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
+                                Sedang
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        @if($isGuest)
-            <a href="{{ route('login') }}" class="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
-                Masuk / Daftar
-            </a>
-        @endif
+        
+        <!-- Right banner image -->
+        <div class="lg:col-span-5">
+            <div class="relative overflow-hidden rounded-2xl h-full min-h-[220px] flex flex-col justify-end p-6 text-white group border" style="border-color: {{ $primaryColor }}15;">
+                <!-- Image background -->
+                <img src="{{ asset('img/dashboard_statistics_banner.png') }}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Statistik PTN">
+                <!-- Dark/gradient overlay -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent"></div>
+                
+                <!-- Content over image -->
+                <div class="relative z-10 space-y-2">
+                    <a href="{{ route('statistics') }}" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm transition-all w-full justify-center sm:w-auto">
+                        Cek Statistik SNBP & SNBT
+                        <i class="ri-arrow-right-line text-sm"></i>
+                    </a>
+                    <p class="text-xs text-gray-200 font-medium">Temukan PTN terbaik yang sesuai dengan peluangmu</p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -417,6 +539,40 @@ $isGuest = !$user;
     @endif
 </div>
 @endif
+
+<!-- Section: Komunitas Belajar -->
+<div class="relative overflow-hidden rounded-[2rem] p-8 md:p-10 text-white mb-6" style="background: linear-gradient(135deg, {{ $primaryColor }} 0%, {{ $primaryColor }}dd 100%);">
+    <!-- Decorative light overlays -->
+    <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+    <div class="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/5 blur-2xl pointer-events-none"></div>
+
+    <div class="relative grid lg:grid-cols-12 gap-6 items-center z-10">
+        <!-- Left: Content details -->
+        <div class="lg:col-span-8 space-y-3.5">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white font-extrabold uppercase tracking-widest text-[10px] sm:text-xs">
+                <i class="ri-wechat-line text-sm"></i>
+                Support System Pejuang PTN
+            </div>
+            <h3 class="text-xl sm:text-2xl.5 font-black tracking-tight leading-tight">Komunitas Pejuang PTN {{ $clientBranding['name'] ?? 'Copoit Academy' }}</h3>
+            <p class="text-xs sm:text-sm text-slate-100/90 font-medium leading-relaxed max-w-2xl">
+                Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.
+            </p>
+        </div>
+
+        <!-- Right: CTA -->
+        <div class="lg:col-span-4 flex lg:justify-end">
+            <a href="https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="inline-flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-50 px-7 py-3.5 text-sm font-extrabold shadow-md hover:shadow-lg transition-all active:scale-98"
+               style="color: {{ $primaryColor }}">
+                <i class="ri-whatsapp-line text-lg text-emerald-500"></i>
+                Gabung Grup Sekarang
+            </a>
+        </div>
+    </div>
+</div>
+
 @section('styles')
 <style>
 .plan-description p { margin-bottom: 0.5rem; }
