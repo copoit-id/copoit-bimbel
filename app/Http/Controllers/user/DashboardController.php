@@ -135,7 +135,14 @@ class DashboardController extends Controller
             $user->participantDestinationCategory?->parent_id,
         ])->filter()->map(fn ($id) => (int) $id)->values();
 
-        $upcomingClassSessions = ClassSession::with(['class', 'schedule.attendanceSetting', 'schedule.destinationCategories'])
+        $upcomingClassSessions = ClassSession::with([
+            'class',
+            'schedule.attendanceSetting',
+            'schedule.destinationCategories',
+            'attendances' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }
+        ])
             ->where(function ($query) use ($destinationCategoryIds, $activePackageIds) {
                 if ($destinationCategoryIds->isNotEmpty()) {
                     $query->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
