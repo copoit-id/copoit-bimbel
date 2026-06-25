@@ -188,20 +188,11 @@
                         <div class="md:col-span-5">
                             <div class="grid grid-cols-4 gap-2">
                                 @php
-                                    $campusLogos = [
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Logo_Universitas_Indonesia.png', 'alt' => 'UI Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/3/30/Logo_UGM.svg', 'alt' => 'UGM Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/e/e9/Logo_Institut_Teknologi_Bandung.png', 'alt' => 'ITB Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Unpad-logo.png', 'alt' => 'Unpad Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/id/2/2d/Undip.png', 'alt' => 'Undip Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/c/c4/IPB_University.svg', 'alt' => 'IPB Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/c/c8/Airlangga_University_Logo.png', 'alt' => 'Unair Logo'],
-                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/0/07/Logo_ITS.png', 'alt' => 'ITS Logo']
-                                    ];
+                                    $logoStack = $landingItems('hero.logo_stack');
                                 @endphp
-                                @foreach($campusLogos as $logo)
-                                    <div class="aspect-square flex items-center justify-center p-1 rounded-full bg-white shadow-xs border border-slate-100" title="{{ $logo['alt'] }}">
-                                        <img class="h-6 w-6 object-contain" src="{{ $logo['src'] }}" alt="{{ $logo['alt'] }}">
+                                @foreach($logoStack as $logo)
+                                    <div class="aspect-square flex items-center justify-center p-1 rounded-full bg-white shadow-xs border border-slate-100" title="{{ data_get($logo, 'alt') }}">
+                                        <img class="h-6 w-6 object-contain" src="{{ $landingAsset(data_get($logo, 'src'), 'img/logo_kampus.png') }}" alt="{{ data_get($logo, 'alt') }}">
                                     </div>
                                 @endforeach
                             </div>
