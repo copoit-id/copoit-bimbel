@@ -26,6 +26,19 @@
 
         return asset($target);
     };
+
+    $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+    $primaryHex = str_replace('#', '', $primaryColor);
+    if (strlen($primaryHex) == 3) {
+        $r = hexdec(substr($primaryHex, 0, 1) . substr($primaryHex, 0, 1));
+        $g = hexdec(substr($primaryHex, 1, 1) . substr($primaryHex, 1, 1));
+        $b = hexdec(substr($primaryHex, 2, 1) . substr($primaryHex, 2, 1));
+    } else {
+        $r = hexdec(substr($primaryHex, 0, 2));
+        $g = hexdec(substr($primaryHex, 2, 2));
+        $b = hexdec(substr($primaryHex, 4, 2));
+    }
+    $primaryRgb = "$r, $g, $b";
 @endphp
 
 @section('title', $landingValue('meta.title', 'Persiapan Ujian UTBK SNBT & SNBP Terbaik'))
@@ -54,9 +67,9 @@
             background-image: linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
                               linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
         }
-        /* Grid blueprint background */
+        /* Grid blueprint background - smooth, premium sky-blue gradient transition */
         .bg-blueprint {
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #38bdf8 100%);
             position: relative;
         }
         .bg-blueprint::before {
@@ -64,8 +77,8 @@
             position: absolute;
             inset: 0;
             background-size: 28px 28px;
-            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.45) 1px, transparent 1px),
-                              linear-gradient(to bottom, rgba(255, 255, 255, 0.45) 1px, transparent 1px);
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
             pointer-events: none;
             z-index: 1;
         }
