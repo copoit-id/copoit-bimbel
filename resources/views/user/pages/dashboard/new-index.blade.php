@@ -74,44 +74,168 @@ $isGuest = !$user;
     </a>
 </div>
 
-@if(($unpaidInvoices ?? collect())->isNotEmpty() || ($upcomingClassSessions ?? collect())->isNotEmpty())
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    @if(($unpaidInvoices ?? collect())->isNotEmpty())
-    <div class="bg-white rounded-2xl p-6 border border-gray-100">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-gray-800">Pengingat Tagihan</h3>
-            <a href="{{ route('user.billing.index') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }}">Lihat semua</a>
-        </div>
-        <div class="space-y-3">
-            @foreach($unpaidInvoices as $invoice)
-            <div class="flex items-center justify-between rounded-xl bg-gray-50 p-4">
-                <div>
-                    <p class="font-semibold text-gray-800">{{ $invoice->title }}</p>
-                    <p class="text-xs text-gray-500">Jatuh tempo {{ $invoice->due_date->format('d M Y') }}</p>
-                </div>
-                <p class="font-bold text-gray-900">Rp {{ number_format((float) $invoice->amount, 0, ',', '.') }}</p>
-            </div>
-            @endforeach
-        </div>
-    </div>
-    @endif
+@php
+    $hasUnpaid = ($unpaidInvoices ?? collect())->isNotEmpty();
+    $hasSessions = ($upcomingClassSessions ?? collect())->isNotEmpty();
+@endphp
 
-    @if(($upcomingClassSessions ?? collect())->isNotEmpty())
-    <div class="bg-white rounded-2xl p-6 border border-gray-100">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-gray-800">Jadwal Terdekat</h3>
-            <a href="{{ route('user.class-schedule.index') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }}">Lihat semua</a>
-        </div>
-        <div class="space-y-3">
-            @foreach($upcomingClassSessions as $session)
-            <div class="rounded-xl bg-gray-50 p-4">
-                <p class="font-semibold text-gray-800">{{ $session->class->title ?? 'Kelas' }}</p>
-                <p class="text-sm text-gray-500">{{ $session->start_at->translatedFormat('l, d M Y H:i') }}</p>
+@if($hasUnpaid)
+<div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-red-50 text-red-500">
+                <i class="ri-wallet-3-line text-lg"></i>
             </div>
-            @endforeach
+            <div>
+                <h3 class="font-bold text-gray-800 text-lg">Pengingat Tagihan</h3>
+                <p class="text-xs text-gray-400">Harap selesaikan pembayaran sebelum jatuh tempo</p>
+            </div>
         </div>
+        <a href="{{ route('user.billing.index') }}" class="text-sm font-semibold hover:underline flex items-center gap-1 shrink-0" style="color: {{ $primaryColor }}">
+            Lihat semua <i class="ri-arrow-right-s-line text-base"></i>
+        </a>
     </div>
-    @endif
+    
+    <div class="space-y-3">
+        @foreach($unpaidInvoices as $invoice)
+        <div class="group flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/60 p-4 hover:bg-white hover:border-red-150 hover:shadow-lg hover:shadow-red-50/30 transition-all-300">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 group-hover:scale-105 transition-transform shrink-0">
+                    <i class="ri-error-warning-line text-lg"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-bold text-gray-800 text-sm leading-snug truncate group-hover:text-red-650 transition-colors">{{ $invoice->title }}</p>
+                    <p class="text-xs text-gray-450 mt-0.5">Jatuh tempo: <span class="font-semibold text-red-500">{{ $invoice->due_date->translatedFormat('d M Y') }}</span></p>
+                </div>
+            </div>
+            <div class="text-right flex flex-col items-end gap-1.5 shrink-0 ml-3">
+                <p class="font-extrabold text-gray-900 text-sm">Rp {{ number_format((float) $invoice->amount, 0, ',', '.') }}</p>
+                <a href="{{ route('user.billing.index') }}" class="px-3.5 py-1 text-[10px] font-bold text-white bg-red-500 hover:bg-red-650 rounded-lg transition-colors whitespace-nowrap">
+                    Bayar
+                </a>
+            </div>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
+@if($hasSessions)
+<div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
+                <i class="ri-calendar-todo-line text-lg"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-gray-800 text-lg">Jadwal Terdekat</h3>
+                <p class="text-xs text-gray-400">Ikuti kelas tepat waktu & jangan lupa absensi</p>
+            </div>
+        </div>
+        <a href="{{ route('user.class-schedule.index') }}" class="text-sm font-semibold hover:underline flex items-center gap-1 shrink-0" style="color: {{ $primaryColor }}">
+            Lihat semua <i class="ri-arrow-right-s-line text-base"></i>
+        </a>
+    </div>
+    
+    <div class="space-y-4">
+        @foreach($upcomingClassSessions as $session)
+        @php
+            $attendance = $session->attendances->first();
+            $setting = $session->schedule->attendanceSetting;
+            $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 15);
+            $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
+            $canAttend = now()->between($openAt, $closeAt) && !$attendance && $session->status === 'scheduled';
+        @endphp
+        <div class="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gray-50/60 border border-gray-100 hover:border-gray-200 hover:bg-white hover:shadow-lg hover:shadow-gray-150/30 transition-all-300">
+            <div class="flex items-center gap-4 min-w-0">
+                <!-- Date Badge -->
+                <div class="flex flex-col items-center justify-center w-14 h-14 shrink-0 rounded-xl bg-opacity-10 text-center" style="background-color: {{ $primaryColor }}15">
+                    <span class="text-[10px] font-bold uppercase tracking-wider" style="color: {{ $primaryColor }}">{{ $session->start_at->translatedFormat('M') }}</span>
+                    <span class="text-xl font-extrabold leading-none mt-1 text-gray-900">{{ $session->start_at->format('d') }}</span>
+                </div>
+                
+                <!-- Info -->
+                <div class="space-y-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- Destination Category tags -->
+                        @foreach($session->schedule->destinationCategories ?? [] as $cat)
+                        <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-gray-200 text-gray-655 uppercase tracking-wide">
+                            {{ $cat->name }}
+                        </span>
+                        @endforeach
+                        
+                        @if($session->meeting_url)
+                        <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-blue-50 text-blue-600 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                            Online
+                        </span>
+                        @else
+                        <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-amber-50 text-amber-600 flex items-center gap-1">
+                            Offline
+                        </span>
+                        @endif
+                    </div>
+                    
+                    <h4 class="font-bold text-gray-800 text-sm leading-snug group-hover:text-primary transition-colors truncate max-w-sm md:max-w-md">
+                        {{ $session->class->title ?? 'Kelas' }}
+                    </h4>
+                    
+                    <div class="flex items-center gap-2.5 text-xs text-gray-500 flex-wrap">
+                        <span class="flex items-center">
+                            <i class="ri-calendar-event-line mr-1 text-gray-400"></i>
+                            {{ $session->start_at->translatedFormat('l') }}
+                        </span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                        <span class="flex items-center">
+                            <i class="ri-time-line mr-1 text-gray-400"></i>
+                            {{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' - ' . $session->end_at->format('H:i') : '' }} WIB
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex items-center gap-2.5 self-start sm:self-center w-full sm:w-auto shrink-0 sm:justify-end">
+                @if($attendance)
+                    <span class="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 rounded-xl flex items-center gap-1 shrink-0">
+                        <i class="ri-checkbox-circle-fill text-base text-green-500"></i>
+                        Hadir
+                    </span>
+                @elseif($canAttend)
+                    @if(($setting?->mode ?? 'button') === 'button')
+                        <form method="POST" action="{{ route('user.class-schedule.attend', $session) }}" class="w-full sm:w-auto shrink-0">
+                            @csrf
+                            <button class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl hover:opacity-90 transition-opacity bg-primary shadow-sm whitespace-nowrap">
+                                Absen
+                            </button>
+                        </form>
+                    @else
+                        <a href="{{ route('user.class-schedule.index') }}" class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl hover:opacity-90 transition-opacity bg-primary shadow-sm text-center whitespace-nowrap shrink-0">
+                            Kirim Foto
+                        </a>
+                    @endif
+                @endif
+                
+                @if($session->meeting_url)
+                    @php
+                        $isLiveNow = now()->between($session->start_at->copy()->subMinutes(15), $session->end_at ?? $session->start_at->copy()->addHours(2));
+                    @endphp
+                    @if($isLiveNow)
+                        <a href="{{ $session->meeting_url }}" target="_blank" class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg shadow-blue-500/20 hover:scale-105 whitespace-nowrap shrink-0" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)">
+                            <i class="ri-video-chat-line text-base animate-bounce"></i>
+                            Masuk Kelas
+                        </a>
+                    @else
+                        <a href="{{ $session->meeting_url }}" target="_blank" class="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0">
+                            <i class="ri-link-m text-base"></i>
+                            Link
+                        </a>
+                    @endif
+                @endif
+            </div>
+        </div>
+        @endforeach
+    </div>
 </div>
 @endif
 

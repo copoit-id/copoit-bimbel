@@ -63,7 +63,7 @@
     @include('user.components.new-navbar')
     
     <main class="pt-20 pb-24 md:pb-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="@yield('container_width', 'max-w-7xl') mx-auto px-4 sm:px-6 lg:px-8">
             @yield('content')
         </div>
     </main>
