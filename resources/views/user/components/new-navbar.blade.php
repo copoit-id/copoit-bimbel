@@ -109,35 +109,46 @@ function isActive($route, $current) {
                         <i class="ri-arrow-down-s-line ml-1 text-gray-400"></i>
                     </a>
                     <div class="dropdown-menu">
-                        <a href="{{ route('user.material.index') }}" class="dropdown-item {{ isActive('user.material.index', $currentRoute) ? 'text-emerald-600' : '' }}">
+                        <a href="{{ route('user.material.index') }}" class="dropdown-item {{ isActive('user.material.index', $currentRoute) ? 'text-primary font-bold' : '' }}">
                             <i class="ri-apps-line"></i>Semua Materi
                         </a>
                         <div class="dropdown-divider"></div>
-                        <a href="{{ route('user.material.videos') }}" class="dropdown-item {{ isActive('user.material.videos', $currentRoute) ? 'text-emerald-600' : '' }}">
+                        <a href="{{ route('user.material.videos') }}" class="dropdown-item {{ isActive('user.material.videos', $currentRoute) ? 'text-primary font-bold' : '' }}">
                             <i class="ri-video-line"></i>Video
                         </a>
-                        <a href="{{ route('user.material.documents') }}" class="dropdown-item {{ isActive('user.material.documents', $currentRoute) ? 'text-emerald-600' : '' }}">
+                        <a href="{{ route('user.material.documents') }}" class="dropdown-item {{ isActive('user.material.documents', $currentRoute) ? 'text-primary font-bold' : '' }}">
                             <i class="ri-file-text-line"></i>Dokumen
                         </a>
-                        <a href="{{ route('user.material.live-sessions') }}" class="dropdown-item {{ isActive('user.material.live-sessions', $currentRoute) ? 'text-emerald-600' : '' }}">
+                        <a href="{{ route('user.material.live-sessions') }}" class="dropdown-item {{ isActive('user.material.live-sessions', $currentRoute) ? 'text-primary font-bold' : '' }}">
                             <i class="ri-live-line"></i>Live Session
                         </a>
                     </div>
                 </div>
                 
-                {{-- Tryout - Accessible by Guest & User --}}
-                <a href="{{ route('user.package.tryout.list') }}"
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
-                </a>
-
-                @if($tesKoranEnabled)
-                {{-- Tes Koran - Accessible by Guest & User --}}
-                <a href="{{ route('user.tes-koran.index') }}"
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.tes-koran', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-file-edit-line mr-1.5 {{ isActive('user.tes-koran', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tes Koran
-                </a>
-                @endif
+                {{-- Tryout with Dropdown - Accessible by Guest & User --}}
+                <div class="relative group">
+                    <a href="{{ route('user.package.tryout.list') }}" 
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.tes-kecermatan', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <i class="ri-file-list-3-line mr-1.5 {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.tes-kecermatan', $currentRoute) ? '' : 'text-gray-400' }}"></i>Tryout
+                        <i class="ri-arrow-down-s-line ml-1 text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="{{ route('user.package.tryout.list') }}" class="dropdown-item {{ isActive('user.package.tryout.list', $currentRoute) ? 'text-primary font-bold' : '' }}">
+                            <i class="ri-file-list-3-line"></i>Daftar Tryout
+                        </a>
+                        @if($tesKoranEnabled)
+                        <div class="dropdown-divider"></div>
+                        <a href="{{ route('user.tes-koran.index') }}" class="dropdown-item {{ isActive('user.tes-koran', $currentRoute) ? 'text-primary font-bold' : '' }}">
+                            <i class="ri-file-edit-line"></i>Tes Koran
+                        </a>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('user.tes-kecermatan.index'))
+                        <a href="{{ route('user.tes-kecermatan.index') }}" class="dropdown-item {{ isActive('user.tes-kecermatan', $currentRoute) ? 'text-primary font-bold' : '' }}">
+                            <i class="ri-pulse-line"></i>Tes Kecermatan
+                        </a>
+                        @endif
+                    </div>
+                </div>
                 
                 {{-- Paket (untuk semua user - berbayar & gratis) --}}
                 <a href="{{ route('user.package.index') }}" 
@@ -205,6 +216,11 @@ function isActive($route, $current) {
                             <p class="text-sm font-medium text-gray-900">{{ $user->name }}</p>
                             <p class="text-xs text-gray-500">{{ $user->email }}</p>
                         </div>
+                        @if($user && ($user->isAdmin() || $user->isSuperAdmin()))
+                        <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm font-semibold text-red-650 hover:bg-red-50 border-b border-gray-100">
+                            <i class="ri-shield-user-line mr-2"></i>Dashboard Admin
+                        </a>
+                        @endif
                         <a href="{{ route('user.profile.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-user-line mr-2"></i>Profil
                         </a>
