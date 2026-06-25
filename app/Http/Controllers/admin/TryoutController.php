@@ -181,10 +181,10 @@ class TryoutController extends Controller
             $this->createTryoutDetails($tryout, $request);
 
             return redirect()->route('admin.tryout.index')
-                ->with('success', 'Tryout "' . $tryout->name . '" berhasil ditambahkan');
+                ->with('success', 'Tryout "'.$tryout->name.'" berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menambahkan tryout: ' . $e->getMessage())
+                ->with('error', 'Gagal menambahkan tryout: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -310,7 +310,7 @@ class TryoutController extends Controller
                 ->with('success', 'Tryout berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal memperbarui tryout: ' . $e->getMessage())
+                ->with('error', 'Gagal memperbarui tryout: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -320,11 +320,12 @@ class TryoutController extends Controller
         try {
             $tryout = Tryout::findOrFail($id);
             $tryout->delete();
+
             return redirect()->route('admin.tryout.index')
                 ->with('success', 'Tryout berhasil dihapus');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menghapus tryout: ' . $e->getMessage());
+                ->with('error', 'Gagal menghapus tryout: '.$e->getMessage());
         }
     }
 
@@ -367,22 +368,22 @@ class TryoutController extends Controller
 
             return redirect()
                 ->route('admin.tryout.index', $request->query())
-                ->with('success', 'Tryout berhasil diclone ke "' . $clone->name . '". Clone dibuat nonaktif dan tidak ditampilkan agar bisa dicek dulu.');
+                ->with('success', 'Tryout berhasil diclone ke "'.$clone->name.'". Clone dibuat nonaktif dan tidak ditampilkan agar bisa dicek dulu.');
         } catch (\Exception $e) {
             return redirect()
                 ->route('admin.tryout.index', $request->query())
-                ->with('error', 'Gagal clone tryout: ' . $e->getMessage());
+                ->with('error', 'Gagal clone tryout: '.$e->getMessage());
         }
     }
 
     private function uniqueCloneName(string $name): string
     {
-        $baseName = $name . ' (Copy)';
+        $baseName = $name.' (Copy)';
         $candidate = $baseName;
         $counter = 2;
 
         while (Tryout::where('name', $candidate)->exists()) {
-            $candidate = $name . ' (Copy ' . $counter . ')';
+            $candidate = $name.' (Copy '.$counter.')';
             $counter++;
         }
 
@@ -399,7 +400,7 @@ class TryoutController extends Controller
                 'tryoutDetails.questions' => function ($query) {
                     $query->with('questionOptions')
                         ->orderBy('question_id');
-                }
+                },
             ])->findOrFail($id);
 
             // Tambahkan properti 'subtest_name' ke setiap detail
@@ -636,9 +637,9 @@ class TryoutController extends Controller
         $allowedTypes = array_keys(self::UTBK_SUBTESTS);
 
         foreach (self::UTBK_SUBTESTS as $type => $config) {
-            $durationField = 'duration_' . $type;
-            $passingField = 'passing_score_' . $type;
-            $passingTypeField = 'passing_type_' . $type;
+            $durationField = 'duration_'.$type;
+            $passingField = 'passing_score_'.$type;
+            $passingTypeField = 'passing_type_'.$type;
 
             $duration = $request->input($durationField, $config['default_duration']);
             $passing = $request->input($passingField, $config['default_passing']);
@@ -659,9 +660,9 @@ class TryoutController extends Controller
         }
 
         $defaults = self::UTBK_SUBTESTS[$slug] ?? ['default_duration' => 60, 'default_passing' => 65];
-        $durationField = 'duration_' . $slug;
-        $passingField = 'passing_score_' . $slug;
-        $passingTypeField = 'passing_type_' . $slug;
+        $durationField = 'duration_'.$slug;
+        $passingField = 'passing_score_'.$slug;
+        $passingTypeField = 'passing_type_'.$slug;
 
         $duration = $request->input($durationField, $defaults['default_duration']);
         $passing = $request->input($passingField, $defaults['default_passing']);
@@ -682,24 +683,24 @@ class TryoutController extends Controller
         $key = (string) Str::of((string) $type)->lower()->replaceMatches('/\s+/', ' ');
 
         $map = [
-            'twk'               => 'Tes Wawasan Kebangsaan',
-            'tiu'               => 'Tes Intelegensi Umum',
-            'tkp'               => 'Tes Karakteristik Pribadi',
-            'tpa'               => 'TPA',
-            'tbi'               => 'TBI',
-            'writing'           => 'Writing Test',
-            'reading'           => 'Reading Comprehension',
-            'listening'         => 'Listening Test',
-            'teknis'            => 'Tes Teknis',
-            'social culture'    => 'Sosial-Kultural & Manajerial',
-            'management'        => 'Manajerial',
-            'interview'         => 'Wawancara',
-            'word'              => 'Microsoft Word',
-            'excel'             => 'Microsoft Excel',
-            'ppt'               => 'Microsoft PowerPoint',
-            'penalaran_umum'    => 'Penalaran Umum',
-            'pengetahuan_umum'  => 'Pengetahuan & Pemahaman Umum',
-            'pengetahuan_kuantitatif'  => 'Pengetahuan Kuantitatif',
+            'twk' => 'Tes Wawasan Kebangsaan',
+            'tiu' => 'Tes Intelegensi Umum',
+            'tkp' => 'Tes Karakteristik Pribadi',
+            'tpa' => 'TPA',
+            'tbi' => 'TBI',
+            'writing' => 'Writing Test',
+            'reading' => 'Reading Comprehension',
+            'listening' => 'Listening Test',
+            'teknis' => 'Tes Teknis',
+            'social culture' => 'Sosial-Kultural & Manajerial',
+            'management' => 'Manajerial',
+            'interview' => 'Wawancara',
+            'word' => 'Microsoft Word',
+            'excel' => 'Microsoft Excel',
+            'ppt' => 'Microsoft PowerPoint',
+            'penalaran_umum' => 'Penalaran Umum',
+            'pengetahuan_umum' => 'Pengetahuan & Pemahaman Umum',
+            'pengetahuan_kuantitatif' => 'Pengetahuan Kuantitatif',
             'pemahaman_bacaan_menulis' => 'Pemahaman Bacaan & Menulis',
             'literasi_bahasa_indonesia' => 'Literasi Bahasa Indonesia',
             'literasi_bahasa_inggris' => 'Literasi Bahasa Inggris',
@@ -765,9 +766,9 @@ class TryoutController extends Controller
         ];
 
         foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
-            $rules['duration_' . $slug] = 'nullable|integer|min:1';
-            $rules['passing_score_' . $slug] = 'nullable|numeric|min:0|max:100';
-            $rules['passing_type_' . $slug] = 'nullable|in:score,percentage';
+            $rules['duration_'.$slug] = 'nullable|integer|min:1';
+            $rules['passing_score_'.$slug] = 'nullable|numeric|min:0|max:100';
+            $rules['passing_type_'.$slug] = 'nullable|in:score,percentage';
         }
 
         $passingTypeFields = [
@@ -788,7 +789,7 @@ class TryoutController extends Controller
         ];
 
         foreach ($passingTypeFields as $field) {
-            $rules['passing_type_' . $field] = 'nullable|in:score,percentage';
+            $rules['passing_type_'.$field] = 'nullable|in:score,percentage';
         }
 
         if (request()->boolean('is_for_sale')) {
@@ -806,7 +807,7 @@ class TryoutController extends Controller
 
     private function accessDurationData(Request $request): array
     {
-        if (!$request->has('is_for_sale')) {
+        if (! $request->has('is_for_sale')) {
             return [
                 'access_duration_unit' => 'forever',
                 'access_duration_value' => null,
@@ -897,18 +898,29 @@ class TryoutController extends Controller
             return $this->fallbackTryoutTypeOptions($codes);
         }
 
-        $categories = MaterialCategory::query()
+        $categoryCodesByType = collect($codes)
+            ->mapWithKeys(fn ($type) => [$type => $this->categoryCodeForTryoutType($type)]);
+        $categoriesByCode = MaterialCategory::query()
             ->with('parent')
             ->withCode()
             ->active()
-            ->whereIn('code', $codes)
+            ->whereIn('code', $categoryCodesByType->values()->unique()->all())
             ->ordered()
             ->get()
-            ->mapWithKeys(function (MaterialCategory $category) {
+            ->keyBy('code');
+        $categories = collect($codes)
+            ->mapWithKeys(function (string $type) use ($categoryCodesByType, $categoriesByCode) {
+                $category = $categoriesByCode->get($categoryCodesByType->get($type));
+
+                if (! $category) {
+                    return [];
+                }
+
                 return [
-                    $category->code => [
-                        'label' => $category->display_name,
+                    $type => [
+                        'label' => $this->tryoutOptionLabel($type, $category),
                         'category_id' => $category->category_id,
+                        'group' => $category->parent_id ? 'single' : $this->tryoutOptionGroup($type),
                     ],
                 ];
             })
@@ -933,9 +945,36 @@ class TryoutController extends Controller
                 $code => [
                     'label' => $labels[$code] ?? $this->subtestLabel($code),
                     'category_id' => null,
+                    'group' => $this->tryoutOptionGroup($code),
                 ],
             ])
             ->all();
+    }
+
+    private function tryoutOptionGroup(string $type): string
+    {
+        return in_array($type, ['skd_full', 'utbk_full', 'certification', 'pppk_full', 'computer'], true)
+            ? 'full'
+            : (in_array($type, ['tpa', 'tbi', 'general'], true) ? 'standalone' : 'single');
+    }
+
+    private function tryoutOptionLabel(string $type, MaterialCategory $category): string
+    {
+        if ($category->parent) {
+            return $category->display_name;
+        }
+
+        $subtestCounts = [
+            'skd_full' => 3,
+            'utbk_full' => 7,
+            'certification' => 3,
+            'pppk_full' => 4,
+            'computer' => 3,
+        ];
+
+        return isset($subtestCounts[$type])
+            ? "{$category->name} ({$subtestCounts[$type]} Subtest)"
+            : $category->name;
     }
 
     private function categoryIdForCode(?string $code): ?int
@@ -945,8 +984,13 @@ class TryoutController extends Controller
         }
 
         return MaterialCategory::query()
-            ->where('code', $code)
+            ->where('code', $this->categoryCodeForTryoutType($code))
             ->value('category_id');
+    }
+
+    private function categoryCodeForTryoutType(string $type): string
+    {
+        return self::UTBK_SINGLE_TYPES[$type] ?? $type;
     }
 
     private function allowUtbkControls(?string $currentType = null): bool
@@ -961,7 +1005,7 @@ class TryoutController extends Controller
 
     private function isUtbkType(?string $type): bool
     {
-        if (!$type) {
+        if (! $type) {
             return false;
         }
 
@@ -1087,7 +1131,7 @@ class TryoutController extends Controller
             ->values()
             ->all();
 
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $correctIds = $question->questionOptions()
                 ->where('is_correct', true)
                 ->pluck('question_option_id')
@@ -1169,6 +1213,7 @@ class TryoutController extends Controller
         }
 
         $weight = (float) ($question->default_weight ?? 1);
+
         return $detail->is_correct ? max(0, $weight) : 0;
     }
 
@@ -1202,6 +1247,7 @@ class TryoutController extends Controller
         }
 
         $weight = (float) ($question->default_weight ?? 1);
+
         return $detail->is_correct ? max(0, $weight) : 0;
     }
 
@@ -1306,6 +1352,7 @@ class TryoutController extends Controller
         $passingType = $detail?->passing_type ?? 'score';
         if ($passingType === 'percentage') {
             $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+
             return $percentage >= $passingScore;
         }
 
