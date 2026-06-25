@@ -54,6 +54,48 @@
             background-image: linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
                               linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
         }
+        /* Grid blueprint background */
+        .bg-blueprint {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+            position: relative;
+        }
+        .bg-blueprint::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-size: 28px 28px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.45) 1px, transparent 1px);
+            pointer-events: none;
+            z-index: 1;
+        }
+        /* Glassmorphism Card Style */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.65);
+            box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08), 
+                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        }
+        /* Underline decoration */
+        .highlight-underline {
+            position: relative;
+            display: inline-block;
+            z-index: 1;
+        }
+        .highlight-underline::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -6px;
+            width: 100%;
+            height: 10px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M0,2 C30,9 70,9 100,3 C70,5 30,4 0,2' fill='%23f59e0b'/%3E%3C/svg%3E");
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            z-index: -1;
+        }
         /* Custom text gradient */
         .text-gradient {
             background: linear-gradient(135deg, var(--client-color-primary, #1C3259) 20%, #4F46E5 100%);
@@ -70,70 +112,91 @@
 
 @section('content')
 <!-- Section 1: Hero / Pengenalan Platform -->
-<section class="relative overflow-hidden border-b border-slate-100 bg-grid-pattern bg-white py-16 sm:py-24">
-    <!-- Decorative background glow blobs -->
-    <div class="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/5 blur-3xl pointer-events-none"></div>
-    <div class="absolute top-1/2 left-10 h-72 w-72 rounded-full bg-indigo-500/5 blur-3xl pointer-events-none"></div>
+<section class="relative overflow-hidden bg-blueprint py-12 sm:py-16 md:py-20 px-4 sm:px-6 lg:px-8 border-b border-slate-200">
+    <div class="mx-auto max-w-7xl relative z-10">
+        <div class="grid lg:grid-cols-12 gap-6 items-stretch">
+            
+            <!-- Left Column: Content Card -->
+            <div class="lg:col-span-7 flex flex-col">
+                <div class="glass-card rounded-[2.5rem] p-8 sm:p-12 flex flex-col justify-between h-full shadow-lg border border-white/60">
+                    <div class="space-y-4">
+                        <div class="flex">
+                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-blue-50/90 text-blue-700 font-extrabold text-xs sm:text-sm border border-blue-100 shadow-xs">
+                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-red-105 text-red-550 shrink-0 bg-red-100 text-red-500">
+                                    <i class="ri-check-line text-xs font-black"></i>
+                                </span>
+                                {{ $landingValue('hero.badge', '100+ JALUR MASUK PTN TERPOPULER!') }}
+                            </div>
+                        </div>
 
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-        <div class="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-            <!-- Left Column: Content -->
-            <div class="lg:col-span-6 space-y-6 sm:space-y-8 text-center lg:text-left">
-                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/8 text-primary font-bold text-xs sm:text-sm border border-primary/15">
-                    <span class="relative flex h-2.5 w-2.5">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
-                    </span>
-                    {{ $landingValue('hero.badge', 'Bimbel Persiapan UTBK 2026 #1') }}
-                </div>
+                        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
+                            {!! str_replace('text-gradient', 'text-blue-600 highlight-underline', $landingValue('hero.title_html', 'SIAP TEMBUS <br><span class="text-blue-600 highlight-underline">PTN IMPIAN KAMU?</span>')) !!}
+                        </h1>
 
-                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight tracking-tight">
-                    {!! $landingValue('hero.title_html', 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?') !!}
-                </h1>
-
-                <p class="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed mx-auto lg:mx-0 font-medium">
-                    {{ $landingValue('hero.description', 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.') }}
-                </p>
-
-                <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                    <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
-                       class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white transition-all hover:bg-primary-hover shadow-md hover:shadow-lg active:scale-98">
-                        {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar Sekarang') }}
-                        <i class="ri-arrow-right-line text-lg"></i>
-                    </a>
-                    <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="inline-flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-8 py-4 text-base font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-98">
-                        <i class="ri-whatsapp-line text-lg text-emerald-500"></i>
-                        {{ $landingValue('hero.secondary_cta.label', 'Hubungi Admin') }}
-                    </a>
-                </div>
-
-                <!-- Avatar Stack featuring Campus Logos as requested -->
-                <div class="flex flex-col sm:flex-row items-center gap-4 pt-8 border-t border-slate-100 justify-center lg:justify-start">
-                    <div class="flex -space-x-2.5">
-                        @foreach($landingValue('hero.logo_stack', [
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'UI Logo'],
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'ITB Logo'],
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'UGM Logo'],
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'ITS Logo'],
-                        ]) as $logo)
-                            <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ $landingAsset($logo['src'] ?? null, 'img/logo_kampus.png') }}" alt="{{ $logo['alt'] ?? 'Campus Logo' }}">
-                        @endforeach
+                        <p class="text-sm sm:text-base text-slate-650 leading-relaxed font-medium mt-4">
+                            {{ $landingValue('hero.description', 'Copoit Academy memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.') }}
+                        </p>
                     </div>
-                    <p class="text-xs sm:text-sm font-semibold text-slate-650">
-                        {!! $landingValue('hero.social_proof_html', 'Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!') !!}
-                    </p>
+
+                    <div class="flex flex-col sm:flex-row gap-4 mt-6 pt-5 border-t border-slate-100/50">
+                        <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
+                           class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-blue-600 hover:bg-blue-750 px-6 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-[0_6px_20px_rgba(37,99,235,0.3)] hover:shadow-[0_8px_25px_rgba(37,99,235,0.4)] active:scale-98">
+                            {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}
+                            <i class="ri-arrow-right-line"></i>
+                        </a>
+                        <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="inline-flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-6 py-3.5 text-sm sm:text-base font-bold text-slate-700 transition-all active:scale-98">
+                            <i class="ri-whatsapp-line text-emerald-500 text-lg"></i>
+                            {{ $landingValue('hero.secondary_cta.label', 'Hubungi Admin') }}
+                        </a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Right Column: Raw Illustration with rounded corners as requested (No background box container, blobs or shadows) -->
-            <div class="lg:col-span-6 flex justify-center lg:justify-end">
-                <img src="{{ $landingAsset($landingValue('hero.image'), 'img/hero_study.png') }}"
-                     alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
-                     class="w-full max-w-[480px] aspect-square object-cover rounded-[32px]">
+            <!-- Right Column: Stacks of two cards -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <!-- Top Card: Illustration -->
+                <div class="glass-card rounded-[2.5rem] flex items-center justify-center shadow-lg border border-white/60 overflow-hidden aspect-[16/10] w-full">
+                    <img src="{{ $landingAsset($landingValue('hero.image'), 'img/hero_study.png') }}"
+                         alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
+                         class="w-full h-full object-cover">
+                </div>
+
+                <!-- Bottom Card: Partner / Campus Logos Stack -->
+                <div class="glass-card rounded-[2.5rem] p-6 sm:p-8 shadow-lg border border-white/60 flex-1 flex flex-col justify-center">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        <div class="md:col-span-7">
+                            <p class="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug uppercase tracking-wide">
+                                {!! strip_tags($landingValue('hero.social_proof_html', 'BERGABUNG BERSAMA 10.000+ PEJUANG UTBK & SNBP TAHUN INI!'), '<span><strong>') !!}
+                            </p>
+                        </div>
+                        <div class="md:col-span-5">
+                            <div class="grid grid-cols-4 gap-2">
+                                @php
+                                    $campusLogos = [
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Logo_Universitas_Indonesia.png', 'alt' => 'UI Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/3/30/Logo_UGM.svg', 'alt' => 'UGM Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/e/e9/Logo_Institut_Teknologi_Bandung.png', 'alt' => 'ITB Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Unpad-logo.png', 'alt' => 'Unpad Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/id/2/2d/Undip.png', 'alt' => 'Undip Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/c/c4/IPB_University.svg', 'alt' => 'IPB Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/c/c8/Airlangga_University_Logo.png', 'alt' => 'Unair Logo'],
+                                        ['src' => 'https://upload.wikimedia.org/wikipedia/commons/0/07/Logo_ITS.png', 'alt' => 'ITS Logo']
+                                    ];
+                                @endphp
+                                @foreach($campusLogos as $logo)
+                                    <div class="aspect-square flex items-center justify-center p-1 rounded-full bg-white shadow-xs border border-slate-100" title="{{ $logo['alt'] }}">
+                                        <img class="h-6 w-6 object-contain" src="{{ $logo['src'] }}" alt="{{ $logo['alt'] }}">
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
         </div>
     </div>
 </section>
