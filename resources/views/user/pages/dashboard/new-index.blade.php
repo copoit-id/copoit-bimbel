@@ -22,6 +22,13 @@ if (strlen($primaryHex) == 3) {
 $primaryRgb = "$r, $g, $b";
 @endphp
 
+<div class="mb-5 flex justify-start">
+    <a href="{{ url('/') }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-750 bg-white hover:bg-gray-50 rounded-xl border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.04)]">
+        <i class="ri-arrow-left-line text-sm text-gray-400"></i>
+        Kembali ke Landing Page
+    </a>
+</div>
+
 <!-- Welcome Card -->
 <div class="relative overflow-hidden rounded-[2rem] p-6 mb-6 border border-gray-100" style="background-color: rgba({{ $primaryRgb }}, 0.055); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.02);">
     <!-- Ambient glowing mesh backdrops using the brand primary color to maintain brand consistency without clashing -->
