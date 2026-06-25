@@ -150,68 +150,85 @@
         </div>
 
         <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto items-stretch">
-            @foreach($landingItems('program.cards') as $cardIndex => $card)
+            @forelse($landingPackages as $package)
                 @php
-                    $isFeaturedProgram = filled(data_get($card, 'badge')) || $cardIndex === 2;
-                    $programFeatures = data_get($card, 'features', []);
+                    $programFeatures = json_decode($package->features ?? '[]', true);
+                    $programFeatures = is_array($programFeatures) ? array_values(array_filter($programFeatures)) : [];
+                    $programThumbnail = $package->image
+                        ? \Illuminate\Support\Facades\Storage::url($package->image)
+                        : null;
+                    $isVideoThumbnail = $package->image
+                        && in_array(strtolower(pathinfo($package->image, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true);
+                    $priceLabel = match ($package->type_price) {
+                        'paid' => 'Rp ' . number_format($package->price, 0, ',', '.'),
+                        'free_conditional' => 'Gratis*',
+                        default => 'Gratis',
+                    };
+                    $ctaLabel = match ($package->type_price) {
+                        'paid' => 'Lihat Paket',
+                        'free_conditional' => 'Lihat Persyaratan',
+                        default => 'Ambil Paket',
+                    };
                 @endphp
-                <div class="{{ $isFeaturedProgram ? 'rounded-3xl border-2 border-amber-400 bg-gradient-to-b from-white to-amber-50/20 p-8 flex flex-col justify-between hover:shadow-lg transition-all duration-300 relative' : 'rounded-3xl border border-slate-200 bg-white p-8 flex flex-col justify-between hover:border-primary/20 transition-all duration-300 hover:shadow-md relative' }}">
-                    @if(filled(data_get($card, 'badge')))
-                        <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-md">{{ data_get($card, 'badge') }}</span>
-                    @endif
+                <article class="relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg">
+                    <div class="relative h-48 overflow-hidden bg-gradient-to-br from-primary/10 to-slate-100">
+                        @if($programThumbnail)
+                            @if($isVideoThumbnail)
+                                <video src="{{ $programThumbnail }}" class="h-full w-full object-cover" muted playsinline preload="metadata"></video>
+                            @else
+                                <img src="{{ $programThumbnail }}" alt="Thumbnail {{ $package->name }}" class="h-full w-full object-cover" loading="lazy">
+                            @endif
+                        @else
+                            <div class="flex h-full items-center justify-center">
+                                <i class="ri-book-open-line text-6xl text-primary/30"></i>
+                            </div>
+                        @endif
+                        <span class="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary shadow-sm backdrop-blur">
+                            {{ str_replace('_', ' ', $package->type_package) }}
+                        </span>
+                    </div>
 
-                    <div class="space-y-6">
-                        <div>
-                            <span class="text-xs font-bold {{ $isFeaturedProgram ? 'text-amber-600' : ($cardIndex === 0 ? 'text-slate-400' : 'text-primary') }} uppercase tracking-widest block mb-2">{{ data_get($card, 'eyebrow') }}</span>
-                            <h3 class="text-xl font-bold text-slate-800">{{ data_get($card, 'title') }}</h3>
-                            <div class="mt-4 flex flex-col">
-                                @if(filled(data_get($card, 'original_price')))
-                                    <span class="text-xs text-slate-400 font-bold line-through decoration-red-500 mb-0.5">{{ data_get($card, 'original_price') }}</span>
-                                @endif
-                                <div class="flex items-baseline gap-1">
-                                    <span class="text-3xl sm:text-4xl font-black text-slate-900">{{ data_get($card, 'price') }}</span>
-                                    @if(filled(data_get($card, 'price_note')))
-                                        <span class="text-2xs text-slate-400 font-bold uppercase tracking-wider">{{ data_get($card, 'price_note') }}</span>
+                    <div class="flex flex-1 flex-col justify-between p-7">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800">{{ $package->name }}</h3>
+                                <div class="mt-4 flex items-baseline gap-2">
+                                    <span class="text-3xl font-black text-slate-900">{{ $priceLabel }}</span>
+                                    @if($package->type_price === 'paid')
+                                        <span class="text-2xs font-bold uppercase tracking-wider text-slate-400">Sekali Bayar</span>
                                     @endif
                                 </div>
+                                <p class="mt-3 text-xs font-medium leading-relaxed text-slate-500">
+                                    {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: 'Paket pembelajaran lengkap untuk mendukung target belajarmu.'), 150) }}
+                                </p>
                             </div>
-                            <p class="text-xs text-slate-500 font-medium mt-3 leading-relaxed">{{ data_get($card, 'description') }}</p>
+
+                            @if($programFeatures !== [])
+                                <div class="h-px bg-slate-100"></div>
+
+                                <ul class="space-y-3 text-xs font-semibold text-slate-600 sm:text-sm">
+                                    @foreach(array_slice($programFeatures, 0, 5) as $feature)
+                                        <li class="flex items-start gap-2.5">
+                                            <i class="ri-checkbox-circle-fill mt-0.5 shrink-0 text-base text-primary"></i>
+                                            <span>{{ is_array($feature) ? data_get($feature, 'label', '') : $feature }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
                         </div>
 
-                        <div class="h-px bg-slate-100"></div>
-
-                        <ul class="space-y-3.5 text-xs sm:text-sm font-semibold text-slate-600">
-                            @foreach($programFeatures as $featureIndex => $feature)
-                                @php
-                                    $isDisabledFeature = data_get($feature, 'disabled', false) || ($cardIndex === 0 && $featureIndex >= 2) || ($cardIndex === 1 && $featureIndex === 3);
-                                @endphp
-                                <li class="flex items-center gap-2.5 {{ $isDisabledFeature ? 'text-slate-350 line-through' : '' }}">
-                                    <i class="{{ $isDisabledFeature ? 'ri-close-circle-fill text-slate-250' : 'ri-checkbox-circle-fill ' . ($isFeaturedProgram ? 'text-amber-500' : 'text-primary') }} text-base"></i>
-                                    @if(filled(data_get($feature, 'label_html')))
-                                        {!! data_get($feature, 'label_html') !!}
-                                    @else
-                                        {{ data_get($feature, 'label') }}
-                                    @endif
-                                </li>
-                            @endforeach
-
-                            @if(filled(data_get($card, 'highlight')))
-                                <li class="flex items-start gap-2.5 bg-amber-500/10 border border-amber-200/50 p-3 rounded-xl">
-                                    <i class="ri-award-fill text-amber-650 text-xl shrink-0 mt-0.5"></i>
-                                    <span class="text-xs font-bold text-amber-950 leading-normal">{{ data_get($card, 'highlight') }}</span>
-                                </li>
-                            @endif
-                        </ul>
-                    </div>
-
-                    <div class="pt-8">
-                        <a href="{{ data_get($card, 'cta.href', route('login')) }}"
-                           class="flex w-full items-center justify-center rounded-xl {{ $isFeaturedProgram ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold shadow-sm hover:shadow-md' : ($cardIndex === 0 ? 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold' : 'bg-primary hover:bg-primary-hover text-white font-bold') }} py-3.5 text-center text-xs sm:text-sm transition-all">
-                            {{ data_get($card, 'cta.label', 'Daftar') }}
+                        <a href="{{ route('user.package.detail', $package->package_id) }}"
+                           class="mt-8 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-center text-xs font-bold text-white transition-all hover:bg-primary-hover sm:text-sm">
+                            {{ $ctaLabel }}
+                            <i class="ri-arrow-right-line ml-2"></i>
                         </a>
                     </div>
+                </article>
+            @empty
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm font-medium text-slate-500">
+                    Program pilihan sedang disiapkan.
                 </div>
-            @endforeach
+            @endforelse
         </div>
     </div>
 </section>

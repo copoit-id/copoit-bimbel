@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\GeneralPage;
+use App\Models\Package;
 use Illuminate\Http\Request;
 
 class GeneralPageController extends Controller
@@ -26,6 +27,9 @@ class GeneralPageController extends Controller
             'page' => $page,
             'content' => $page->content ?? $defaultContent,
             'seo' => $page->seo ?? [],
+            'packages' => Package::query()
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
@@ -34,6 +38,8 @@ class GeneralPageController extends Controller
         $validated = $request->validate([
             'template_key' => ['required', 'string', 'max:255'],
             'content' => ['required', 'array'],
+            'content.program.package_ids' => ['nullable', 'array', 'max:3'],
+            'content.program.package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'seo' => ['nullable', 'array'],
             'seo.*' => ['nullable', 'string'],
             'landing_images.hero_image' => ['nullable', 'image', 'max:10240'],
@@ -101,32 +107,24 @@ class GeneralPageController extends Controller
         $content['meta']['title'] = trim((string) data_get($content, 'meta.title', ''));
 
         foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'faq', 'footer'] as $section) {
-            if (!isset($content[$section]) || !is_array($content[$section])) {
+            if (! isset($content[$section]) || ! is_array($content[$section])) {
                 $content[$section] = [];
             }
         }
+
+        $content['program']['package_ids'] = collect(data_get($content, 'program.package_ids', []))
+            ->map(fn ($packageId) => (int) $packageId)
+            ->filter()
+            ->unique()
+            ->take(3)
+            ->values()
+            ->all();
+        unset($content['program']['cards']);
 
         $content['hero']['logo_stack'] = array_values(array_filter(
             data_get($content, 'hero.logo_stack', []),
             fn ($item) => is_array($item) && (trim((string) ($item['src'] ?? '')) !== '' || trim((string) ($item['alt'] ?? '')) !== '')
         ));
-
-        $content['program']['cards'] = array_values(array_map(function (array $card) {
-            $card['features'] = array_values(array_filter(
-                data_get($card, 'features', []),
-                fn ($feature) => is_array($feature) && (
-                    trim((string) ($feature['label'] ?? '')) !== ''
-                    || trim((string) ($feature['label_html'] ?? '')) !== ''
-                )
-            ));
-
-            $card['cta'] = $this->cleanArray(data_get($card, 'cta', []));
-
-            return $card;
-        }, array_filter(
-            data_get($content, 'program.cards', []),
-            fn ($item) => is_array($item) && trim((string) ($item['title'] ?? '')) !== ''
-        )));
 
         $content['testimonials']['items'] = array_values(array_filter(
             data_get($content, 'testimonials.items', []),
@@ -153,5 +151,4 @@ class GeneralPageController extends Controller
             fn ($item) => $item !== null && $item !== ''
         );
     }
-
 }
