@@ -7,11 +7,28 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
+
+// Convert hex primary color to RGB for opacity adjustments
+$primaryHex = str_replace('#', '', $primaryColor);
+if (strlen($primaryHex) == 3) {
+    $r = hexdec(substr($primaryHex, 0, 1) . substr($primaryHex, 0, 1));
+    $g = hexdec(substr($primaryHex, 1, 1) . substr($primaryHex, 1, 1));
+    $b = hexdec(substr($primaryHex, 2, 1) . substr($primaryHex, 2, 1));
+} else {
+    $r = hexdec(substr($primaryHex, 0, 2));
+    $g = hexdec(substr($primaryHex, 2, 2));
+    $b = hexdec(substr($primaryHex, 4, 2));
+}
+$primaryRgb = "$r, $g, $b";
 @endphp
 
 <!-- Welcome Card -->
-<div class="rounded-[2rem] p-6 mb-6 border" style="background-color: {{ $primaryColor }}08; border-color: {{ $primaryColor }}15;">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+<div class="relative overflow-hidden rounded-[2rem] p-6 mb-6 border border-gray-100" style="background-color: rgba({{ $primaryRgb }}, 0.055); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.02);">
+    <!-- Ambient glowing mesh backdrops using the brand primary color to maintain brand consistency without clashing -->
+    <div class="absolute -left-16 -top-16 w-64 h-64 rounded-full blur-3xl pointer-events-none" style="background-color: {{ $primaryColor }}; opacity: 0.07;"></div>
+    <div class="absolute -right-16 -bottom-16 w-64 h-64 rounded-full blur-3xl pointer-events-none" style="background-color: {{ $primaryColor }}; opacity: 0.05;"></div>
+    
+    <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <!-- Left details -->
         <div class="lg:col-span-7 flex flex-col justify-between">
             <div class="space-y-6">
@@ -25,9 +42,9 @@ $isGuest = !$user;
                 <!-- Inner Cards Row -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Target PTN Card -->
-                    <div class="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between relative overflow-hidden group min-h-[160px]">
+                    <div class="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between relative overflow-hidden group min-h-[160px] shadow-[0_8px_30px_rgb(0,0,0,0.035)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
                         <!-- Decorative university watermark -->
-                        <div class="absolute right-2 bottom-2 pointer-events-none" style="color: {{ $primaryColor }}; opacity: 0.08;">
+                        <div class="absolute right-2 bottom-2 pointer-events-none" style="color: {{ $primaryColor }}; opacity: 0.06;">
                             <i class="ri-bank-line text-8xl"></i>
                         </div>
                         
@@ -36,7 +53,7 @@ $isGuest = !$user;
                                 <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15; color: {{ $primaryColor }};">
                                     <i class="ri-graduation-cap-line text-sm"></i>
                                 </div>
-                                <span>Target PTN</span>
+                                <span class="font-bold text-gray-600">Target PTN</span>
                             </div>
                             
                             @php
@@ -53,7 +70,7 @@ $isGuest = !$user;
                                 }
                             @endphp
 
-                            <h3 class="font-extrabold text-gray-900 text-base leading-snug truncate">
+                            <h3 class="font-extrabold text-gray-950 text-base leading-snug truncate">
                                 {{ $targetUniversity ?: 'Belum Memilih PTN' }}
                             </h3>
                             <p class="text-xs text-gray-500 font-semibold mt-0.5 truncate">
@@ -67,7 +84,7 @@ $isGuest = !$user;
                                     Masuk / Daftar
                                 </a>
                             @else
-                                <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}0d; border-color: {{ $primaryColor }}20;">
+                                <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
                                     Ubah Target
                                 </a>
                             @endif
@@ -77,9 +94,9 @@ $isGuest = !$user;
                     <!-- Peluang Stack -->
                     <div class="flex flex-col gap-3">
                         <!-- SNBP Card -->
-                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-shadow">
+                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-green-50 text-green-500 flex items-center justify-center shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                                     <i class="ri-line-chart-line text-lg"></i>
                                 </div>
                                 <div>
@@ -87,15 +104,15 @@ $isGuest = !$user;
                                     <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 text-xs font-bold text-green-700 bg-green-50 rounded-lg">
+                            <span class="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg">
                                 Tinggi
                             </span>
                         </div>
 
                         <!-- SNBT Card -->
-                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-shadow">
+                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                                     <i class="ri-pulse-line text-lg"></i>
                                 </div>
                                 <div>
@@ -103,7 +120,7 @@ $isGuest = !$user;
                                     <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 text-xs font-bold text-orange-700 bg-orange-50 rounded-lg">
+                            <span class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
                                 Sedang
                             </span>
                         </div>
