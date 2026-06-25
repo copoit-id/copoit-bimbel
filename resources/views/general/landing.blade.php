@@ -121,8 +121,8 @@
                 <div class="glass-card rounded-[2.5rem] p-8 sm:p-12 flex flex-col justify-between h-full shadow-lg border border-white/60">
                     <div class="space-y-4">
                         <div class="flex">
-                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-blue-50/90 text-blue-700 font-extrabold text-xs sm:text-sm border border-blue-100 shadow-xs">
-                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-red-105 text-red-550 shrink-0 bg-red-100 text-red-500">
+                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-primary/8 text-primary font-extrabold text-xs sm:text-sm border border-primary/15 shadow-xs">
+                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-500 shrink-0">
                                     <i class="ri-check-line text-xs font-black"></i>
                                 </span>
                                 {{ $landingValue('hero.badge', '100+ JALUR MASUK PTN TERPOPULER!') }}
@@ -130,7 +130,7 @@
                         </div>
 
                         <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
-                            {!! str_replace('text-gradient', 'text-blue-600 highlight-underline', $landingValue('hero.title_html', 'SIAP TEMBUS <br><span class="text-blue-600 highlight-underline">PTN IMPIAN KAMU?</span>')) !!}
+                            {!! str_replace('text-gradient', 'text-primary highlight-underline', $landingValue('hero.title_html', 'SIAP TEMBUS <br><span class="text-primary highlight-underline">PTN IMPIAN KAMU?</span>')) !!}
                         </h1>
 
                         <p class="text-sm sm:text-base text-slate-650 leading-relaxed font-medium mt-4">
@@ -140,7 +140,7 @@
 
                     <div class="flex flex-col sm:flex-row gap-4 mt-6 pt-5 border-t border-slate-100/50">
                         <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
-                           class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-blue-600 hover:bg-blue-750 px-6 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-[0_6px_20px_rgba(37,99,235,0.3)] hover:shadow-[0_8px_25px_rgba(37,99,235,0.4)] active:scale-98">
+                           class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary hover:bg-primary-hover px-6 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-md hover:shadow-lg active:scale-98">
                             {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}
                             <i class="ri-arrow-right-line"></i>
                         </a>
