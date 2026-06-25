@@ -55,7 +55,6 @@ class TryoutMaterialCategorySeeder extends Seeder
             ['code' => 'word', 'name' => 'Microsoft Word', 'parent' => 'computer', 'order_number' => 51],
             ['code' => 'excel', 'name' => 'Microsoft Excel', 'parent' => 'computer', 'order_number' => 52],
             ['code' => 'ppt', 'name' => 'Microsoft PowerPoint', 'parent' => 'computer', 'order_number' => 53],
-            ['code' => 'utbk_section', 'name' => 'UTBK Section', 'parent' => 'utbk_full', 'order_number' => 60],
             ['code' => 'penalaran_umum', 'name' => 'Penalaran Umum', 'parent' => 'utbk_full', 'order_number' => 61],
             ['code' => 'pengetahuan_umum', 'name' => 'Pengetahuan & Pemahaman Umum', 'parent' => 'utbk_full', 'order_number' => 62],
             ['code' => 'pengetahuan_kuantitatif', 'name' => 'Pengetahuan Kuantitatif', 'parent' => 'utbk_full', 'order_number' => 63],
@@ -63,13 +62,6 @@ class TryoutMaterialCategorySeeder extends Seeder
             ['code' => 'literasi_bahasa_indonesia', 'name' => 'Literasi Bahasa Indonesia', 'parent' => 'utbk_full', 'order_number' => 65],
             ['code' => 'literasi_bahasa_inggris', 'name' => 'Literasi Bahasa Inggris', 'parent' => 'utbk_full', 'order_number' => 66],
             ['code' => 'penalaran_matematika', 'name' => 'Penalaran Matematika', 'parent' => 'utbk_full', 'order_number' => 67],
-            ['code' => 'utbk_penalaran_umum', 'name' => 'UTBK - Penalaran Umum', 'parent' => 'utbk_full', 'order_number' => 71],
-            ['code' => 'utbk_pengetahuan_umum', 'name' => 'UTBK - Pengetahuan & Pemahaman Umum', 'parent' => 'utbk_full', 'order_number' => 72],
-            ['code' => 'utbk_pengetahuan_kuantitatif', 'name' => 'UTBK - Pengetahuan Kuantitatif', 'parent' => 'utbk_full', 'order_number' => 73],
-            ['code' => 'utbk_pemahaman_bacaan_menulis', 'name' => 'UTBK - Pemahaman Bacaan & Menulis', 'parent' => 'utbk_full', 'order_number' => 74],
-            ['code' => 'utbk_literasi_bahasa_indonesia', 'name' => 'UTBK - Literasi Bahasa Indonesia', 'parent' => 'utbk_full', 'order_number' => 75],
-            ['code' => 'utbk_literasi_bahasa_inggris', 'name' => 'UTBK - Literasi Bahasa Inggris', 'parent' => 'utbk_full', 'order_number' => 76],
-            ['code' => 'utbk_penalaran_matematika', 'name' => 'UTBK - Penalaran Matematika', 'parent' => 'utbk_full', 'order_number' => 77],
         ];
 
         foreach ($categories as $category) {
