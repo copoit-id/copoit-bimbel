@@ -2,7 +2,10 @@
 
 @php
     $value = fn (string $key, mixed $default = '') => old('content.' . $key, data_get($content, $key, $default));
-    $programCards = old('content.program.cards', data_get($content, 'program.cards', []));
+    $selectedPackageIds = collect(old('content.program.package_ids', data_get($content, 'program.package_ids', [])))
+        ->map(fn ($packageId) => (int) $packageId)
+        ->values()
+        ->all();
     $testimonials = old('content.testimonials.items', data_get($content, 'testimonials.items', []));
     $achievements = old('content.achievements.items', data_get($content, 'achievements.items', []));
     $faqs = old('content.faq.items', data_get($content, 'faq.items', []));
@@ -32,7 +35,7 @@
 
     <form action="{{ route('admin.general-pages.landing.update') }}" method="POST" enctype="multipart/form-data" class="space-y-5"
         x-data="landingPageEditor({
-            programCards: @js($programCards),
+            selectedPackageIds: @js($selectedPackageIds),
             testimonials: @js($testimonials),
             achievements: @js($achievements),
             faqs: @js($faqs),
@@ -142,88 +145,67 @@
                         <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Program</label>
                         <textarea name="content[program][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.description') }}</textarea>
                     </div>
-                    <div class="flex justify-end">
-                        <button type="button" @click="addProgramCard()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                            <i class="ri-add-line"></i>
-                            Tambah Program
-                        </button>
-                    </div>
-                    <div class="grid gap-5 xl:grid-cols-2">
-                        <template x-for="(card, cardIndex) in programCards" :key="card._key">
-                            <div class="rounded-lg border border-gray-200 p-4">
-                                <div class="mb-3 flex items-center justify-between gap-3">
-                                    <p class="font-semibold text-gray-900">Kartu <span x-text="cardIndex + 1"></span></p>
-                                    <button type="button" @click="removeProgramCard(cardIndex)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
-                                        <i class="ri-delete-bin-line"></i>
-                                        Hapus
-                                    </button>
-                                </div>
-                                <div class="space-y-3">
-                                    <div class="grid gap-3 md:grid-cols-2">
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">Badge</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][badge]`" x-model="card.badge" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">Eyebrow</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][eyebrow]`" x-model="card.eyebrow" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                    </div>
-                                    <label class="block">
-                                        <span class="mb-2 block text-sm font-medium text-gray-700">Nama Paket</span>
-                                        <input type="text" :name="`content[program][cards][${cardIndex}][title]`" x-model="card.title" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                    </label>
-                                    <div class="grid gap-3 md:grid-cols-3">
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">Harga Coret</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][original_price]`" x-model="card.original_price" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">Harga</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][price]`" x-model="card.price" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">Catatan Harga</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][price_note]`" x-model="card.price_note" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                    </div>
-                                    <textarea :name="`content[program][cards][${cardIndex}][description]`" x-model="card.description" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Deskripsi"></textarea>
-
-                                    <div class="rounded-lg bg-gray-50 p-3">
-                                        <div class="mb-3 flex items-center justify-between">
-                                            <p class="text-sm font-semibold text-gray-800">Fitur</p>
-                                            <button type="button" @click="addProgramFeature(card)" class="text-xs font-semibold text-primary hover:underline">Tambah Fitur</button>
-                                        </div>
-                                        <div class="space-y-2">
-                                            <template x-for="(feature, featureIndex) in card.features" :key="feature._key">
-                                                <div class="flex gap-2">
-                                                    <input type="text" :name="`content[program][cards][${cardIndex}][features][${featureIndex}][label]`" x-model="feature.label" class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Teks fitur">
-                                                    <button type="button" @click="removeProgramFeature(card, featureIndex)" class="rounded-lg border border-red-200 px-3 text-red-600 hover:bg-red-50">
-                                                        <i class="ri-close-line"></i>
-                                                    </button>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-
-                                    <label class="block">
-                                        <span class="mb-2 block text-sm font-medium text-gray-700">Highlight Box</span>
-                                        <input type="text" :name="`content[program][cards][${cardIndex}][highlight]`" x-model="card.highlight" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                    </label>
-                                    <div class="grid gap-3 md:grid-cols-2">
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">CTA Label</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][cta][label]`" x-model="card.cta.label" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                        <label class="block">
-                                            <span class="mb-2 block text-sm font-medium text-gray-700">CTA URL</span>
-                                            <input type="text" :name="`content[program][cards][${cardIndex}][cta][href]`" x-model="card.cta.href" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        </label>
-                                    </div>
-                                </div>
+                    <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                        <div class="flex items-start gap-3">
+                            <i class="ri-information-line mt-0.5 text-lg text-blue-600"></i>
+                            <div>
+                                <p class="text-sm font-semibold text-blue-900">Pilih maksimal 3 paket</p>
+                                <p class="mt-1 text-xs text-blue-700">Nama, harga, deskripsi, fitur, dan thumbnail pada landing page otomatis mengikuti data paket.</p>
                             </div>
-                        </template>
+                        </div>
                     </div>
+                    @error('content.program.package_ids')
+                        <p class="text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                    @error('content.program.package_ids.*')
+                        <p class="text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        @forelse($packages as $package)
+                            @php
+                                $thumbnailUrl = $package->image ? \Illuminate\Support\Facades\Storage::url($package->image) : null;
+                                $isVideoThumbnail = $package->image
+                                    && in_array(strtolower(pathinfo($package->image, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true);
+                                $isPubliclyAvailable = $package->status === 'active' && (bool) $package->is_displayed;
+                            @endphp
+                            <label class="relative overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-primary/40"
+                                :class="selectedPackageIds.includes({{ $package->package_id }}) ? 'ring-2 ring-primary border-primary' : ''">
+                                <div class="h-32 bg-gray-100">
+                                    @if($thumbnailUrl)
+                                        @if($isVideoThumbnail)
+                                            <video src="{{ $thumbnailUrl }}" class="h-full w-full object-cover" muted preload="metadata"></video>
+                                        @else
+                                            <img src="{{ $thumbnailUrl }}" alt="{{ $package->name }}" class="h-full w-full object-cover">
+                                        @endif
+                                    @else
+                                        <div class="flex h-full items-center justify-center text-gray-400">
+                                            <i class="ri-image-line text-4xl"></i>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="space-y-2 p-4">
+                                    <div class="flex items-start gap-3">
+                                        <input type="checkbox" name="content[program][package_ids][]" value="{{ $package->package_id }}"
+                                            x-model.number="selectedPackageIds"
+                                            :disabled="selectedPackageIds.length >= 3 && !selectedPackageIds.includes({{ $package->package_id }})"
+                                            class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-gray-900">{{ $package->name }}</p>
+                                            <p class="mt-1 text-sm font-bold text-primary">
+                                                {{ $package->type_price === 'paid' ? 'Rp ' . number_format($package->price, 0, ',', '.') : ($package->type_price === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis') }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    @unless($isPubliclyAvailable)
+                                        <p class="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Paket tidak akan tampil karena nonaktif atau hidden.</p>
+                                    @endunless
+                                </div>
+                            </label>
+                        @empty
+                            <p class="text-sm text-gray-500">Belum ada paket yang dapat dipilih.</p>
+                        @endforelse
+                    </div>
+                    <p class="text-sm text-gray-500"><span x-text="selectedPackageIds.length"></span>/3 paket dipilih</p>
                 </section>
 
                 <section x-show="tab === 'community'" class="space-y-5">
@@ -398,13 +380,15 @@
 
         Alpine.data('landingPageEditor', (initial) => ({
             tab: 'hero',
-            programCards: [],
+            selectedPackageIds: [],
             testimonials: [],
             achievements: [],
             faqs: [],
 
             init() {
-                this.programCards = this.withKeys(initial.programCards || [], this.normalizeProgramCard.bind(this));
+                this.selectedPackageIds = Array.isArray(initial.selectedPackageIds)
+                    ? initial.selectedPackageIds.map(Number)
+                    : [];
                 this.testimonials = this.withKeys(initial.testimonials || [], this.normalizeTestimonial.bind(this));
                 this.achievements = this.withKeys(initial.achievements || [], this.normalizeAchievement.bind(this));
                 this.faqs = this.withKeys(initial.faqs || [], this.normalizeFaq.bind(this));
@@ -416,36 +400,6 @@
 
             withKeys(items, normalizer) {
                 return Array.isArray(items) ? items.map((item) => normalizer(item)) : [];
-            },
-
-            normalizeProgramCard(item = {}) {
-                const card = {
-                    _key: this.makeKey(),
-                    badge: item.badge || '',
-                    eyebrow: item.eyebrow || '',
-                    title: item.title || '',
-                    original_price: item.original_price || '',
-                    price: item.price || '',
-                    price_note: item.price_note || '',
-                    description: item.description || '',
-                    highlight: item.highlight || '',
-                    cta: {
-                        label: item.cta?.label || '',
-                        href: item.cta?.href || '',
-                    },
-                    features: [],
-                };
-
-                card.features = this.withKeys(item.features || [], this.normalizeProgramFeature.bind(this));
-
-                return card;
-            },
-
-            normalizeProgramFeature(item = {}) {
-                return {
-                    _key: this.makeKey(),
-                    label: item.label || item.label_html || '',
-                };
             },
 
             normalizeTestimonial(item = {}) {
@@ -473,25 +427,6 @@
                     question: item.question || '',
                     answer: item.answer || '',
                 };
-            },
-
-            addProgramCard() {
-                this.programCards.push(this.normalizeProgramCard({
-                    title: 'Program Baru',
-                    cta: { label: 'Daftar Sekarang', href: '/login' },
-                }));
-            },
-
-            removeProgramCard(index) {
-                this.programCards.splice(index, 1);
-            },
-
-            addProgramFeature(card) {
-                card.features.push(this.normalizeProgramFeature());
-            },
-
-            removeProgramFeature(card, index) {
-                card.features.splice(index, 1);
             },
 
             addTestimonial() {

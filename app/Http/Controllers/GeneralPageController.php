@@ -4,9 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Article;
 use App\Models\GeneralPage;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
+use App\Models\Package;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class GeneralPageController extends Controller
 {
@@ -14,11 +15,27 @@ class GeneralPageController extends Controller
     {
         $page = GeneralPage::findActiveByKey('landing');
 
-        if (!$page) {
+        if (! $page) {
             return redirect()->route('login');
         }
 
         $content = $page->content ?: self::defaultLandingContent();
+        $selectedPackageIds = collect(data_get($content, 'program.package_ids', []))
+            ->map(fn ($packageId) => (int) $packageId)
+            ->filter()
+            ->unique()
+            ->take(3)
+            ->values();
+        $landingPackagesById = Package::query()
+            ->whereIn('package_id', $selectedPackageIds)
+            ->where('status', 'active')
+            ->where('is_displayed', true)
+            ->get()
+            ->keyBy('package_id');
+        $landingPackages = $selectedPackageIds
+            ->map(fn (int $packageId) => $landingPackagesById->get($packageId))
+            ->filter()
+            ->values();
 
         return view($this->resolveTemplateView('landing', $page, 'general.landing'), [
             'title' => $content['title'] ?? 'Landing Page',
@@ -26,6 +43,7 @@ class GeneralPageController extends Controller
             'content' => $content,
             'settings' => $page?->settings ?? [],
             'seo' => $page?->seo ?? [],
+            'landingPackages' => $landingPackages,
         ]);
     }
 
@@ -97,8 +115,9 @@ class GeneralPageController extends Controller
                     return $response->json();
                 }
             } catch (\Exception $e) {
-                logger()->error("Error fetching PTN list {$selectionPath} from SNPMB: " . $e->getMessage());
+                logger()->error("Error fetching PTN list {$selectionPath} from SNPMB: ".$e->getMessage());
             }
+
             return null;
         });
 
@@ -114,12 +133,12 @@ class GeneralPageController extends Controller
         abort_unless(GeneralPage::findActiveByKey('statistik-ptn'), 404);
 
         $ptnId = $request->query('ptn');
-        if (!$ptnId) {
+        if (! $ptnId) {
             return response()->json(['error' => 'Parameter ptn wajib diisi.'], 400);
         }
 
         // Validate parameter to prevent directory traversal or arbitrary requests
-        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $ptnId)) {
+        if (! preg_match('/^[a-zA-Z0-9_-]+$/', $ptnId)) {
             return response()->json(['error' => 'Parameter ptn tidak valid.'], 400);
         }
 
@@ -127,18 +146,19 @@ class GeneralPageController extends Controller
             ? 'https://snpmb.id/proxy-prodi-sb.php'
             : 'https://snpmb.id/proxy-prodi-sn.php';
 
-        $cacheKey = "snpmb_{$selectionPath}_prodi_list_" . $ptnId;
+        $cacheKey = "snpmb_{$selectionPath}_prodi_list_".$ptnId;
         $data = Cache::remember($cacheKey, 3600 * 6, function () use ($ptnId, $endpoint, $selectionPath) {
             try {
                 $response = Http::timeout(10)->get($endpoint, [
-                    'ptn' => $ptnId
+                    'ptn' => $ptnId,
                 ]);
                 if ($response->successful()) {
                     return $response->json();
                 }
             } catch (\Exception $e) {
-                logger()->error("Error fetching Prodi list {$selectionPath} for PTN {$ptnId} from SNPMB: " . $e->getMessage());
+                logger()->error("Error fetching Prodi list {$selectionPath} for PTN {$ptnId} from SNPMB: ".$e->getMessage());
             }
+
             return null;
         });
 
@@ -196,7 +216,7 @@ class GeneralPageController extends Controller
             return $defaultView;
         }
 
-        $templateView = 'general.templates.' . $pageKey . '.' . $templateKey;
+        $templateView = 'general.templates.'.$pageKey.'.'.$templateKey;
 
         return view()->exists($templateView) ? $templateView : $defaultView;
     }
@@ -233,65 +253,11 @@ class GeneralPageController extends Controller
                 'eyebrow' => 'Investasi Masa Depan',
                 'title' => 'Program Bimbingan Belajar Pilihan',
                 'description' => 'Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.',
-                'cards' => [
-                    [
-                        'eyebrow' => 'Akses Uji Coba',
-                        'title' => 'Free Trial',
-                        'price' => 'Rp 0',
-                        'description' => 'Coba simulasi ujian dan rasakan kemudahan menggunakan platform bimbingan kami.',
-                        'features' => [
-                            ['label' => 'Cek Daya Tampung PTN Se-Indonesia'],
-                            ['label' => '1x Latihan Tryout Ujian Mandiri'],
-                            ['label' => 'Rasionalisasi Rapor SNBP Penuh'],
-                            ['label' => 'Grup Tanya Jawab & Mentor Alumni'],
-                        ],
-                        'cta' => [
-                            'label' => 'Daftar Akun Gratis',
-                            'href' => route('login'),
-                        ],
-                    ],
-                    [
-                        'eyebrow' => 'Pemetaan Peluang',
-                        'title' => 'Silver Package',
-                        'original_price' => 'Rp 69.000',
-                        'price' => 'Rp 39.000',
-                        'price_note' => 'Sekali Bayar',
-                        'description' => 'Analisis mendalam nilai rapor untuk memperkuat persiapan masuk jalur SNBP.',
-                        'features' => [
-                            ['label' => 'Rasionalisasi Rapor SNBP Penuh'],
-                            ['label' => '3x Tryout UTBK Berskala Nasional'],
-                            ['label' => 'Pembahasan Lembar Soal & Kunci Jawaban'],
-                            ['label' => 'Pendampingan Konsultasi Jurusan Personal'],
-                        ],
-                        'cta' => [
-                            'label' => 'Upgrade ke Silver',
-                            'href' => route('login'),
-                        ],
-                    ],
-                    [
-                        'badge' => 'PILIHAN TERBAIK',
-                        'eyebrow' => 'Pendampingan Penuh',
-                        'title' => 'Gold Package',
-                        'original_price' => 'Rp 99.000',
-                        'price' => 'Rp 49.000',
-                        'price_note' => 'Sekali Bayar',
-                        'description' => 'Layanan bimbingan super komprehensif, didampingi secara langsung oleh mentor top PTN.',
-                        'features' => [
-                            ['label' => 'Rasionalisasi Peluang Rapor & Skor UTBK'],
-                            ['label_html' => 'Tryout UTBK Nasional <strong class="text-amber-600 font-bold">Unlimited</strong>'],
-                            ['label' => 'Premium Akses Asisten Pintar Kak AI 24 Jam'],
-                        ],
-                        'highlight' => 'Bimbingan & Konsultasi Jurusan 1-on-1 dengan Mentor Alumni UI/ITB/UGM',
-                        'cta' => [
-                            'label' => 'Upgrade ke Gold',
-                            'href' => route('login'),
-                        ],
-                    ],
-                ],
+                'package_ids' => [],
             ],
             'community' => [
                 'badge' => 'Support System Pejuang PTN',
-                'title' => 'Komunitas Pejuang PTN ' . config('client.branding.name', 'Copoit Academy'),
+                'title' => 'Komunitas Pejuang PTN '.config('client.branding.name', 'Copoit Academy'),
                 'description' => 'Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.',
                 'cta' => [
                     'label' => 'Gabung Grup Sekarang',
