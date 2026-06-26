@@ -312,13 +312,19 @@ $assetUrl = function (?string $path) {
         $totalDuration = $tryout->getTotalDurationAttribute();
         $packageId = $tryout->packages->first()?->package_id ?? ($tryoutPackageIds[$tryout->tryout_id] ?? null);
         $packageId = $packageId ?: 'free';
+        $tryoutIcon = $tryout->icon_class ?: 'ri-file-list-3-line';
+        $showThumbnail = ($tryout->user_card_display ?? 'icon') === 'thumbnail' && filled($tryout->thumbnail_url);
         @endphp
         <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
             <div class="flex items-start justify-between mb-4">
-                <div class="w-12 h-12 {{ $hasAttempts ? ($isInProgress ? 'bg-yellow-100' : 'bg-green-100') : 'bg-gray-100' }} rounded-xl flex items-center justify-center"
+                <div class="w-12 h-12 {{ $hasAttempts ? ($isInProgress ? 'bg-yellow-100' : 'bg-green-100') : 'bg-gray-100' }} rounded-xl flex items-center justify-center overflow-hidden"
                      style="{{ !$hasAttempts ? 'background-color: ' . $primaryColor . '20' : '' }}">
-                    <i class="ri-file-list-3-line text-xl {{ $hasAttempts ? ($isInProgress ? 'text-yellow-600' : 'text-green-600') : '' }}"
+                    @if($showThumbnail)
+                    <img src="{{ $tryout->thumbnail_url }}" alt="{{ $tryout->name }}" class="w-full h-full object-cover">
+                    @else
+                    <i class="{{ $tryoutIcon }} text-xl {{ $hasAttempts ? ($isInProgress ? 'text-yellow-600' : 'text-green-600') : '' }}"
                        style="{{ !$hasAttempts ? 'color: ' . $primaryColor : '' }}"></i>
+                    @endif
                 </div>
                 @if($isInProgress)
                 <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Sedang Dikerjakan</span>

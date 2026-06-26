@@ -16,6 +16,7 @@ use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -147,6 +148,17 @@ class TryoutController extends Controller
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
+        $cardDisplay = $request->input('user_card_display', 'icon');
+
+        if ($cardDisplay === 'thumbnail' && ! $request->hasFile('thumbnail')) {
+            return back()
+                ->withErrors(['thumbnail' => 'Thumbnail wajib diupload jika tampilan kartu user memakai thumbnail.'])
+                ->withInput();
+        }
+
+        $thumbnailUrl = $cardDisplay === 'thumbnail'
+            ? $this->storeTryoutThumbnail($request)
+            : null;
 
         try {
             $tryout = Tryout::create([
@@ -158,6 +170,9 @@ class TryoutController extends Controller
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $this->normalizedAnswerPersistenceMode($request),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
+                'user_card_display' => $cardDisplay,
+                'thumbnail_url' => $thumbnailUrl,
+                'icon_class' => 'ri-file-list-3-line',
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
@@ -233,6 +248,22 @@ class TryoutController extends Controller
             });
             $originalTypes = $tryout->tryoutDetails->pluck('type_subtest')->sort()->values();
             $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
+            $cardDisplay = $request->input('user_card_display', 'icon');
+            $thumbnailUrl = $tryout->thumbnail_url;
+
+            if ($cardDisplay === 'thumbnail') {
+                if ($request->hasFile('thumbnail')) {
+                    $this->deleteTryoutThumbnail($tryout->thumbnail_url);
+                    $thumbnailUrl = $this->storeTryoutThumbnail($request);
+                } elseif (blank($thumbnailUrl)) {
+                    return back()
+                        ->withErrors(['thumbnail' => 'Thumbnail wajib diupload jika tampilan kartu user memakai thumbnail.'])
+                        ->withInput();
+                }
+            } else {
+                $this->deleteTryoutThumbnail($tryout->thumbnail_url);
+                $thumbnailUrl = null;
+            }
 
             // Update master tryout fields
             $tryout->update([
@@ -244,6 +275,9 @@ class TryoutController extends Controller
                 'section_break_duration' => max(0, (int) $request->input('section_break_duration', 0)),
                 'answer_persistence_mode' => $this->normalizedAnswerPersistenceMode($request),
                 'subtest_display_mode' => $request->input('subtest_display_mode', 'per_subtest'),
+                'user_card_display' => $cardDisplay,
+                'thumbnail_url' => $thumbnailUrl,
+                'icon_class' => 'ri-file-list-3-line',
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
@@ -492,16 +526,6 @@ class TryoutController extends Controller
             case 'interview':
                 $this->createSubtest($tryout->tryout_id, 'interview', $request->duration_general ?? 30, $request->passing_score_general ?? 70, $request->input('passing_type_general', 'score'));
                 break;
-            case 'word':
-                $this->createSubtest($tryout->tryout_id, 'word', $request->duration_word ?? 30, $request->passing_score_word ?? 70, $request->input('passing_type_word', 'score'));
-                break;
-            case 'excel':
-                $this->createSubtest($tryout->tryout_id, 'excel', $request->duration_excel ?? 30, $request->passing_score_excel ?? 70, $request->input('passing_type_excel', 'score'));
-                break;
-            case 'ppt':
-                $this->createSubtest($tryout->tryout_id, 'ppt', $request->duration_ppt ?? 30, $request->passing_score_ppt ?? 70, $request->input('passing_type_ppt', 'score'));
-                break;
-
             case 'computer':
                 $this->createSubtest($tryout->tryout_id, 'word', $request->duration_word ?? 30, $request->passing_score_word ?? 70, $request->input('passing_type_word', 'score'));
                 $this->createSubtest($tryout->tryout_id, 'excel', $request->duration_excel ?? 30, $request->passing_score_excel ?? 70, $request->input('passing_type_excel', 'score'));
@@ -520,7 +544,18 @@ class TryoutController extends Controller
                 $this->createSubtest($tryout->tryout_id, 'ppt', $request->duration_ppt ?? 30, $request->passing_score_ppt ?? 70, $request->input('passing_type_ppt', 'score'));
                 break;
             default:
-                $this->createUtbkSingleSubtest($tryout, $request);
+                if ($this->getUtbkSlugForType($tryout->type_tryout)) {
+                    $this->createUtbkSingleSubtest($tryout, $request);
+                    break;
+                }
+
+                $this->createSubtest(
+                    $tryout->tryout_id,
+                    $tryout->type_tryout,
+                    $request->duration_general ?? 60,
+                    $request->passing_score_general ?? 60,
+                    $request->input('passing_type_general', 'score')
+                );
                 break;
         }
     }
@@ -627,7 +662,19 @@ class TryoutController extends Controller
                 $this->updateOrCreateSubtest($tryout, 'ppt', $request->duration_ppt ?? $request->duration_general ?? 30, $request->passing_score_ppt ?? $request->passing_score_general ?? 70, $request->input('passing_type_ppt', $request->input('passing_type_general', 'score')));
                 break;
             default:
-                $this->createUtbkSingleSubtest($tryout, $request, true);
+                if ($this->getUtbkSlugForType($tryout->type_tryout)) {
+                    $this->createUtbkSingleSubtest($tryout, $request, true);
+                    break;
+                }
+
+                $this->updateOrCreateSubtest(
+                    $tryout,
+                    $tryout->type_tryout,
+                    $request->duration_general ?? 60,
+                    $request->passing_score_general ?? 60,
+                    $request->input('passing_type_general', 'score')
+                );
+                $tryout->tryoutDetails()->where('type_subtest', '!=', $tryout->type_tryout)->delete();
                 break;
         }
     }
@@ -732,6 +779,26 @@ class TryoutController extends Controller
             : 'normal';
     }
 
+    private function storeTryoutThumbnail(Request $request): ?string
+    {
+        if (! $request->hasFile('thumbnail')) {
+            return null;
+        }
+
+        $path = $request->file('thumbnail')->store('tryouts/thumbnails', 'public');
+
+        return Storage::url($path);
+    }
+
+    private function deleteTryoutThumbnail(?string $thumbnailUrl): void
+    {
+        if (blank($thumbnailUrl) || ! Str::startsWith($thumbnailUrl, '/storage/')) {
+            return;
+        }
+
+        Storage::disk('public')->delete(Str::after($thumbnailUrl, '/storage/'));
+    }
+
     private function tryoutValidationRules(?string $currentType = null): array
     {
         $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
@@ -744,6 +811,8 @@ class TryoutController extends Controller
             'section_break_duration' => 'nullable|integer|min:0|max:3600',
             'answer_persistence_mode' => ['nullable', Rule::in(['client_side', 'hybrid_subtest'])],
             'subtest_display_mode' => ['nullable', Rule::in(['per_subtest', 'combined'])],
+            'user_card_display' => ['nullable', Rule::in(['icon', 'thumbnail'])],
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'is_certification' => 'boolean',
@@ -880,6 +949,15 @@ class TryoutController extends Controller
     {
         $allowedCodes = collect(self::LEGACY_TRYOUT_TYPES);
 
+        if (Schema::hasTable('material_categories') && Schema::hasColumn('material_categories', 'code')) {
+            $allowedCodes = $allowedCodes->merge(
+                MaterialCategory::query()
+                    ->withCode()
+                    ->active()
+                    ->pluck('code')
+            );
+        }
+
         if (! $includeUtbk) {
             $allowedCodes = $allowedCodes->reject(fn ($code) => $this->isUtbkType($code));
         }
@@ -891,6 +969,11 @@ class TryoutController extends Controller
         if ($currentType) {
             $allowedCodes->push($currentType);
         }
+
+        $canonicalUtbkSubtests = collect(array_values(self::UTBK_SINGLE_TYPES));
+        $allowedCodes = $allowedCodes->reject(
+            fn ($code) => $canonicalUtbkSubtests->contains($code) && $code !== $currentType
+        );
 
         $codes = $allowedCodes->unique()->values()->all();
 
@@ -1011,7 +1094,8 @@ class TryoutController extends Controller
 
         return $type === 'utbk_full'
             || $type === 'utbk_section'
-            || array_key_exists($type, self::UTBK_SINGLE_TYPES);
+            || array_key_exists($type, self::UTBK_SINGLE_TYPES)
+            || in_array($type, array_values(self::UTBK_SINGLE_TYPES), true);
     }
 
     private function recalculateTryoutPassedStatus(Tryout $tryout): void

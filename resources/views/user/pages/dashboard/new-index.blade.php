@@ -112,7 +112,7 @@ $primaryRgb = "$r, $g, $b";
                                 </div>
                             </div>
                             <span class="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg">
-                                Tinggi
+                                {{ $destinationKeketatan['snbp'] ?? 'Pilih Target' }}
                             </span>
                         </div>
 
@@ -128,7 +128,7 @@ $primaryRgb = "$r, $g, $b";
                                 </div>
                             </div>
                             <span class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
-                                Sedang
+                                {{ $destinationKeketatan['snbt'] ?? 'Pilih Target' }}
                             </span>
                         </div>
                     </div>
@@ -188,18 +188,18 @@ $primaryRgb = "$r, $g, $b";
         <h3 class="font-semibold text-gray-800 text-sm">Beli Paket</h3>
     </a>
 
-    <a href="{{ route('user.class-schedule.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
-            <i class="ri-calendar-check-line text-xl"></i>
+            <i class="ri-live-line text-xl"></i>
         </div>
-        <h3 class="font-semibold text-gray-800 text-sm">Jadwal Kelas</h3>
+        <h3 class="font-semibold text-gray-800 text-sm">Live Session</h3>
     </a>
 
-    <a href="{{ route('user.billing.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.material.documents') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
-            <i class="ri-bill-line text-xl"></i>
+            <i class="ri-file-text-line text-xl"></i>
         </div>
-        <h3 class="font-semibold text-gray-800 text-sm">Tagihan</h3>
+        <h3 class="font-semibold text-gray-800 text-sm">Dokumen</h3>
     </a>
 </div>
 

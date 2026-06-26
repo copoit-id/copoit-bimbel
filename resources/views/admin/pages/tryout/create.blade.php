@@ -14,6 +14,7 @@
     $selectedAccessDurationValue = old('access_duration_value', $tryout->access_duration_value ?? 1);
     $answerMode = old('answer_persistence_mode', $tryout->answer_persistence_mode ?? 'client_side');
     $subtestDisplayMode = old('subtest_display_mode', $tryout->subtest_display_mode ?? 'per_subtest');
+    $userCardDisplay = old('user_card_display', $tryout->user_card_display ?? 'icon');
     $hasOldInput = session()->hasOldInput();
     $selectedTypePrice = old('type_price', $tryout->type_price ?? 'paid');
     $isDisplayedChecked = old('is_displayed', $tryout->is_displayed ?? true);
@@ -85,7 +86,8 @@
     <div class="bg-white rounded-lg shadow border border-gray-200">
         <form
             action="{{ isset($tryout) ? route('admin.tryout.update', array_merge(request()->query(), ['tryout' => $tryout->tryout_id])) : route('admin.tryout.store') }}"
-            method="POST">
+            method="POST"
+            enctype="multipart/form-data">
             @csrf
             @if(isset($tryout))
             @method('PUT')
@@ -135,6 +137,47 @@
                     <textarea id="description" name="description" rows="4"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Masukkan deskripsi tryout...">{{ isset($tryout) ? $tryout->description : old('description') }}</textarea>
+                </div>
+
+                <div class="rounded-xl border border-gray-200 bg-white p-5">
+                    <div class="mb-5">
+                        <h3 class="text-base font-semibold text-gray-800">Tampilan Kartu User</h3>
+                        <p class="text-sm text-gray-500 mt-1">Icon memakai default sistem. Thumbnail hanya perlu diupload kalau mode thumbnail dipilih.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <input type="radio" name="user_card_display" value="icon" class="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                                @checked($userCardDisplay !== 'thumbnail')>
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">Icon Default</span>
+                                <span class="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                                    <i class="ri-file-list-3-line text-lg text-primary"></i>
+                                    Pakai icon default tryout.
+                                </span>
+                            </span>
+                        </label>
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <input type="radio" name="user_card_display" value="thumbnail" class="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                                @checked($userCardDisplay === 'thumbnail')>
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">Thumbnail</span>
+                                <span class="block mt-1 text-sm text-gray-500">Upload gambar untuk kartu tryout di user.</span>
+                            </span>
+                        </label>
+                    </div>
+                    <div id="tryoutThumbnailField" class="mt-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+                        <label for="thumbnail" class="block text-sm font-medium text-gray-700 mb-2">Upload Thumbnail</label>
+                        @if(isset($tryout) && filled($tryout->thumbnail_url))
+                            <div class="mb-3 h-28 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                <img src="{{ $tryout->thumbnail_url }}" alt="Thumbnail tryout saat ini" class="h-full w-full object-cover">
+                            </div>
+                            <p class="mb-2 text-xs text-gray-500">Kosongkan jika tidak ingin mengganti thumbnail.</p>
+                        @endif
+                        <input type="file" id="thumbnail" name="thumbnail" accept="image/*"
+                            data-has-current="{{ isset($tryout) && filled($tryout->thumbnail_url) ? '1' : '0' }}"
+                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, GIF, atau WEBP. Maksimal 2MB.</p>
+                    </div>
                 </div>
 
                 <!-- Access & Sale -->
@@ -919,6 +962,8 @@
       const answerModeSelect = root.querySelector('#answer_persistence_mode');
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
+      const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
+      const thumbnailInput = root.querySelector('#thumbnail');
       if (!typeSelect || typeSelect.__tryoutBound) return;
 
     const configSectionMap = {
@@ -951,7 +996,7 @@
 
     function showConfigSection() {
       const selectedType = String(typeSelect.value || '').trim();
-      const targetId = configSectionMap[selectedType];
+      const targetId = configSectionMap[selectedType] || (selectedType ? 'general_config' : null);
 
       configSections.forEach(section => {
         section.classList.add('hidden');
@@ -1117,11 +1162,23 @@
       answerModeNotice?.classList.toggle('hidden', !isCombinedView);
     }
 
+    function syncUserCardDisplay() {
+      const selectedMode = root.querySelector('input[name="user_card_display"]:checked')?.value || 'icon';
+      const useThumbnail = selectedMode === 'thumbnail';
+
+      tryoutThumbnailField?.classList.toggle('hidden', !useThumbnail);
+      if (thumbnailInput) {
+        thumbnailInput.disabled = !useThumbnail;
+        thumbnailInput.required = useThumbnail && thumbnailInput.dataset.hasCurrent !== '1';
+      }
+    }
+
     window.__tryoutChange = function () {
       showConfigSection();
       updateFieldNames();
       syncAllPassingScoreLimits();
       syncAnswerPersistenceAvailability();
+      syncUserCardDisplay();
     };
 
     window.__tryoutChange();
@@ -1135,6 +1192,10 @@
 
       if (event.target && event.target.matches('#subtest_display_mode')) {
         syncAnswerPersistenceAvailability();
+      }
+
+      if (event.target && event.target.matches('input[name="user_card_display"]')) {
+        syncUserCardDisplay();
       }
     });
     bindPassingScoreInputs();

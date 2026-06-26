@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\MaterialCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class MaterialCategoryController extends Controller
@@ -55,6 +56,8 @@ class MaterialCategoryController extends Controller
             $validated['order_number'] = MaterialCategory::max('order_number') + 1;
         }
 
+        $validated['code'] = $this->generateUniqueCode($validated['name']);
+
         MaterialCategory::create($validated);
 
         return redirect()->route('admin.material.material-category.index')
@@ -99,6 +102,10 @@ class MaterialCategoryController extends Controller
         }
 
         $validated['is_active'] = $request->boolean('is_active', true);
+
+        if (blank($category->code)) {
+            $validated['code'] = $this->generateUniqueCode($validated['name'], $category);
+        }
 
         $category->update($validated);
 
@@ -147,5 +154,24 @@ class MaterialCategoryController extends Controller
 
         return redirect()->route('admin.material.material-category.index')
             ->with('success', 'Kategori berhasil dihapus.');
+    }
+
+    private function generateUniqueCode(string $name, ?MaterialCategory $ignoreCategory = null): string
+    {
+        $baseCode = Str::of($name)->slug('_')->lower()->toString() ?: 'kategori';
+        $code = $baseCode;
+        $suffix = 2;
+
+        while (
+            MaterialCategory::query()
+                ->where('code', $code)
+                ->when($ignoreCategory, fn ($query) => $query->whereKeyNot($ignoreCategory->getKey()))
+                ->exists()
+        ) {
+            $code = "{$baseCode}_{$suffix}";
+            $suffix++;
+        }
+
+        return $code;
     }
 }
