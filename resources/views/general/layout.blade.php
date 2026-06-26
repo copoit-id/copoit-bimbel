@@ -41,7 +41,7 @@
                 @if($showLandingNav)
                 <a href="{{ route('landing') }}"
                     class="rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
-                    Beranda
+                    Home
                 </a>
                 @endif
                 @if($showStatisticsNav)
@@ -86,22 +86,30 @@
             </div>
         </div>
 
-        <nav class="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 text-sm font-medium text-slate-600 md:hidden">
+        <nav class="flex flex-wrap gap-1 border-t border-slate-100 px-4 py-2 text-sm font-medium text-slate-600 md:hidden">
             @if($showLandingNav)
             <a href="{{ route('landing') }}"
                 class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'bg-white' }}">
-                Beranda
+                Home
             </a>
             @endif
             @if($showStatisticsNav)
-            <a href="{{ route('statistics') }}"
-                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary text-white' : 'bg-white' }}">
-                Statistik SNBP
-            </a>
-            <a href="{{ route('statistics.snbt') }}"
-                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary text-white' : 'bg-white' }}">
-                Statistik SNBT
-            </a>
+            <details class="group relative shrink-0">
+                <summary class="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'bg-primary text-white' : 'bg-white' }}">
+                    Statistik PTN
+                    <i class="ri-arrow-down-s-line transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="absolute left-0 top-full z-50 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1 text-slate-700 shadow-lg">
+                    <a href="{{ route('statistics') }}"
+                        class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
+                        Statistik SNBP
+                    </a>
+                    <a href="{{ route('statistics.snbt') }}"
+                        class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
+                        Statistik SNBT
+                    </a>
+                </div>
+            </details>
             @endif
             @if($showArticlesNav)
             <a href="{{ route('articles.index') }}"

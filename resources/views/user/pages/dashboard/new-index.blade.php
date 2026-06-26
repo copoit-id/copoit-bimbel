@@ -25,7 +25,7 @@ $primaryRgb = "$r, $g, $b";
 <div class="mb-5 flex justify-start">
     <a href="{{ url('/') }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-750 bg-white hover:bg-gray-50 rounded-xl border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.04)]">
         <i class="ri-arrow-left-line text-sm text-gray-400"></i>
-        Kembali ke Landing Page
+        Kembali ke Home
     </a>
 </div>
 
