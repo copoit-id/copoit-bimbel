@@ -98,14 +98,14 @@ function isActive($route, $current) {
             <div class="hidden md:flex items-center gap-1">
                 <a href="{{ route('user.dashboard.index') }}" 
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.dashboard', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-home-5-line mr-1.5 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}"></i>Beranda
+                    <i class="ri-home-5-line mr-1.5 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}"></i>Dashboard
                 </a>
                 
                 {{-- Materi with Dropdown - Accessible by Guest & User --}}
                 <div class="relative group">
                     <a href="{{ route('user.material.index') }}" 
                        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center {{ isActive('user.material', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                        <i class="ri-book-open-line mr-1.5 {{ isActive('user.material', $currentRoute) ? '' : 'text-gray-400' }}"></i>Materi
+                        <i class="ri-book-open-line mr-1.5 {{ isActive('user.material', $currentRoute) ? '' : 'text-gray-400' }}"></i>Kelas & Materi
                         <i class="ri-arrow-down-s-line ml-1 text-gray-400"></i>
                     </a>
                     <div class="dropdown-menu">
@@ -262,13 +262,13 @@ function isActive($route, $current) {
     <div class="flex justify-around py-2">
         <a href="{{ route('user.dashboard.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.dashboard', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-home-5-line text-xl"></i>
-            <span class="text-xs mt-0.5">Beranda</span>
+            <span class="text-xs mt-0.5">Dashboard</span>
         </a>
         
         {{-- Materi - Accessible by Guest & User --}}
         <a href="{{ route('user.material.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.material', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.material', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-book-open-line text-xl"></i>
-            <span class="text-xs mt-0.5">Materi</span>
+            <span class="text-xs mt-0.5">Kelas</span>
         </a>
         
         {{-- Tryout - Accessible by Guest & User --}}

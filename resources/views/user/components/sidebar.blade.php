@@ -68,7 +68,7 @@
                     aria-controls="dropdown-materi"
                     data-collapse-toggle="dropdown-materi">
                     <i class="ri-book-open-line text-[20px] {{ request()->routeIs('user.material.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
-                    <span class="flex-1 ms-3 text-left">Materi</span>
+                    <span class="flex-1 ms-3 text-left">Kelas & Materi</span>
                     <svg class="w-3 h-3 transition-transform duration-200 {{ request()->routeIs('user.material.*') ? 'rotate-180' : '' }}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4" />
                     </svg>
