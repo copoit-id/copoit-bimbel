@@ -136,7 +136,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             @else
             {{-- User logged in but no access --}}
             @if($material->isIndividuallyAvailable())
-                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}')"
+                <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}', @js($material->conditional_requirement ?? ''))"
                         class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="{{ $material->isPaidIndividualAccess() ? 'ri-shopping-cart-line' : ($material->isFreeConditionalIndividualAccess() ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>{{ $material->isPaidIndividualAccess() ? 'Beli Sekarang' : ($material->isFreeConditionalIndividualAccess() ? 'Ajukan Akses' : 'Akses Gratis') }}
@@ -187,6 +187,10 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                     <span class="text-lg font-bold ml-2" id="purchasePriceDisplay" style="color: {{ $primaryColor }}"></span>
                 </div>
             </div>
+            <div id="conditionalRequirementWrapper" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+                <p class="text-sm font-semibold text-amber-900 mb-1">Syarat akses:</p>
+                <p id="conditionalRequirementText" class="text-sm text-amber-800 whitespace-pre-line"></p>
+            </div>
             <form id="purchaseForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="space-y-4">
@@ -206,6 +210,18 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                         <div id="proofPreview" class="mt-3 hidden">
                             <img id="proofImage" src="" alt="Preview" class="max-h-40 rounded-lg border border-gray-200">
                         </div>
+                    </div>
+                    <div id="conditionalProofWrapper" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Syarat <span class="text-red-500">*</span></label>
+                        <input type="file" name="requirement_proofs[]" id="conditionalProofInput" accept="image/*,.pdf,.mp4,.webm" multiple
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
+                               style="--tw-ring-color: {{ $primaryColor }}">
+                        <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, PDF, MP4, WEBM. Maks: 2MB/file</p>
+                        <label class="block text-sm font-medium text-gray-700 mt-3 mb-2">Catatan (opsional)</label>
+                        <textarea name="requirement_user_notes" rows="2"
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
+                                  style="--tw-ring-color: {{ $primaryColor }}"
+                                  placeholder="Tambahkan catatan untuk admin"></textarea>
                     </div>
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <p class="text-sm text-amber-800">
@@ -231,20 +247,27 @@ let selectedType = null;
 let selectedId = null;
 let selectedPrice = 0;
 
-function buyIndividual(type, id, price, priceType, name) {
+function buyIndividual(type, id, price, priceType, name, requirement = '') {
     selectedType = type;
     selectedId = id;
     selectedPrice = price;
     document.getElementById('purchaseTypeDisplay').textContent = type === 'material' ? 'Materi' : 'Tryout';
     document.getElementById('purchaseNameDisplay').textContent = name;
     const isPaid = priceType === 'paid';
+    const isConditional = priceType === 'free_conditional';
     document.getElementById('purchasePriceDisplay').textContent = isPaid
         ? 'Rp ' + new Intl.NumberFormat('id-ID').format(price)
         : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
     document.getElementById('voucherWrapper')?.classList.toggle('hidden', !isPaid);
     document.getElementById('paymentProofWrapper')?.classList.toggle('hidden', !isPaid);
+    document.getElementById('conditionalRequirementWrapper')?.classList.toggle('hidden', !isConditional);
+    document.getElementById('conditionalProofWrapper')?.classList.toggle('hidden', !isConditional);
+    const requirementText = document.getElementById('conditionalRequirementText');
+    if (requirementText) requirementText.textContent = requirement || 'Ikuti instruksi dari admin.';
     const proofInput = document.getElementById('paymentProofInput');
     if (proofInput) proofInput.required = isPaid;
+    const conditionalProofInput = document.getElementById('conditionalProofInput');
+    if (conditionalProofInput) conditionalProofInput.required = isConditional;
     const submitBtn = document.getElementById('submitPurchaseBtn');
     if (submitBtn) submitBtn.textContent = isPaid ? 'Kirim Bukti Bayar' : (priceType === 'free_conditional' ? 'Ajukan Akses' : 'Aktifkan Akses');
     document.getElementById('purchaseError').classList.add('hidden');

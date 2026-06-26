@@ -59,12 +59,12 @@
                         <p class="text-xs text-gray-500">Skor</p>
                         <p class="text-lg font-bold text-primary">{{ $userAnswer->score ?? '-' }}</p>
                     </div>
-                    <a href="{{ route('user.tryout.result', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm">
+                    <a href="{{ route('user.tryout.result', ['id_package' => $tryout->packages->first()?->package_id ?? 'free', 'id_tryout' => $tryout->tryout_id]) }}" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-sm">
                         Lihat Hasil
                     </a>
                 </div>
                 @else
-                <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}" class="block w-full py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-center">
+                <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 'free', 'id_tryout' => $tryout->tryout_id]) }}" class="block w-full py-2 bg-primary text-white rounded-lg hover:bg-primary-dark text-center">
                     {{ $userAnswer ? 'Lanjutkan' : 'Kerjakan' }}
                 </a>
                 @endif

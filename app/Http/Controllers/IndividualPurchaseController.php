@@ -123,7 +123,33 @@ class IndividualPurchaseController extends Controller
         }
 
         if ($item->isFreeConditionalIndividualAccess()) {
-            $purchase = $this->createFreePurchase($item, $purchasableType, $id, $type, $userId, false);
+            $validated = $request->validate([
+                'requirement_proofs' => 'required|array|min:1',
+                'requirement_proofs.*' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:2048',
+                'requirement_user_notes' => 'nullable|string|max:1000',
+            ], [
+                'requirement_proofs.required' => 'Bukti pemenuhan syarat wajib diunggah.',
+                'requirement_proofs.array' => 'Bukti pemenuhan syarat tidak valid.',
+                'requirement_proofs.min' => 'Minimal unggah 1 bukti syarat.',
+                'requirement_proofs.*.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
+                'requirement_proofs.*.max' => 'Ukuran setiap file maksimal 2MB.',
+            ]);
+
+            $proofPaths = collect($request->file('requirement_proofs', []))
+                ->map(fn (\Illuminate\Http\UploadedFile $proof) => $proof->store('conditional-proofs/individual', 'public'))
+                ->values()
+                ->all();
+
+            $purchase = $this->createFreePurchase(
+                $item,
+                $purchasableType,
+                $id,
+                $type,
+                $userId,
+                false,
+                $proofPaths,
+                $validated['requirement_user_notes'] ?? null
+            );
             $this->sendPurchaseNotificationToAdmin($purchase);
 
             $message = 'Permintaan akses gratis bersyarat berhasil dikirim. Mohon tunggu verifikasi admin.';
@@ -362,7 +388,16 @@ class IndividualPurchaseController extends Controller
         }
     }
 
-    private function createFreePurchase(object $item, string $purchasableType, int $id, string $type, int $userId, bool $approved): IndividualPurchase
+    private function createFreePurchase(
+        object $item,
+        string $purchasableType,
+        int $id,
+        string $type,
+        int $userId,
+        bool $approved,
+        array $requirementProofPaths = [],
+        ?string $requirementUserNotes = null
+    ): IndividualPurchase
     {
         $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
         $approvedAt = $approved ? Carbon::now() : null;
@@ -381,6 +416,8 @@ class IndividualPurchaseController extends Controller
             'transaction_id' => $transactionId,
             'payment_details' => [
                 'conditional_requirement' => $item->conditional_requirement,
+                'requirement_proof_paths' => $requirementProofPaths,
+                'requirement_user_notes' => $requirementUserNotes ? trim($requirementUserNotes) : null,
             ],
             'approved_at' => $approvedAt,
             'access_expires_at' => $accessExpiresAt,

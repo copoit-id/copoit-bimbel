@@ -89,12 +89,29 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     $isForSale = $tryout->isIndividuallyAvailable();
     $isPaid = $tryout->isPaidIndividualAccess();
     $isFreeConditional = $tryout->isFreeConditionalIndividualAccess();
+    $tryoutIcon = $tryout->icon_class ?: 'ri-file-list-3-line';
+    $showThumbnail = ($tryout->user_card_display ?? 'icon') === 'thumbnail' && filled($tryout->thumbnail_url);
     @endphp
     <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
+        @if($showThumbnail)
+        <div class="relative mb-4 h-40 w-full overflow-hidden rounded-xl bg-gray-100">
+            <img src="{{ $tryout->thumbnail_url }}" alt="{{ $tryout->name }}" class="h-full w-full object-cover">
+            <div class="absolute right-3 top-3">
+                @if($isForSale)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium shadow-sm">
+                    <i class="{{ $isPaid ? 'ri-shopping-cart-line' : 'ri-gift-line' }} mr-0.5"></i>{{ $tryout->price_type_label }}
+                </span>
+                @else
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium shadow-sm">
+                    <i class="ri-folder-fill mr-0.5"></i>Paket
+                </span>
+                @endif
+            </div>
+        </div>
+        @else
         <div class="flex items-start justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center"
-                 style="background-color: {{ $primaryColor }}20">
-                <i class="ri-file-list-3-line text-xl" style="color: {{ $primaryColor }}"></i>
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden" style="background-color: {{ $primaryColor }}20">
+                    <i class="{{ $tryoutIcon }} text-xl" style="color: {{ $primaryColor }}"></i>
             </div>
             <div class="flex items-center gap-1">
                 @if($isForSale)
@@ -108,6 +125,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 @endif
             </div>
         </div>
+        @endif
 
         <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $tryout->name }}</h3>
 
@@ -142,7 +160,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             @elseif($isForSale)
                 {{-- Tryout for individual sale --}}
                 @if($tryout->has_access)
-                <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 0, 'id_tryout' => $tryout->tryout_id]) }}"
+                <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 'free', 'id_tryout' => $tryout->tryout_id]) }}"
                    class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>Kerjakan

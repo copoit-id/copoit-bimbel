@@ -15,9 +15,18 @@
         }
         $userAttempts = $tryout->userAnswers->count();
         $lastAttempt = $tryout->userAnswers->sortByDesc('created_at')->first();
+        $tryoutIcon = $tryout->icon_class ?: 'ri-file-list-3-line';
+        $showThumbnail = ($tryout->user_card_display ?? 'icon') === 'thumbnail' && filled($tryout->thumbnail_url);
         @endphp
 
         <div class="bg-white px-5 py-5 shadow rounded-lg flex flex-col justify-between">
+            <div class="h-28 rounded-lg overflow-hidden mb-4 flex items-center justify-center bg-primary/10 text-primary">
+                @if($showThumbnail)
+                    <img src="{{ $tryout->thumbnail_url }}" alt="{{ $tryout->name }}" class="w-full h-full object-cover">
+                @else
+                    <i class="{{ $tryoutIcon }} text-5xl"></i>
+                @endif
+            </div>
             <div class="flex flex-col gap-1 mb-4">
                 <p class="text-lg font-bold text-black text-center mb-4">{{ $tryout->name }}</p>
                 <span class="flex items-center justify-between">

@@ -13,7 +13,10 @@ use App\Models\ClassSession;
 use App\Models\MaterialProgressLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
@@ -35,7 +38,11 @@ class DashboardController extends Controller
                 'recentAttempts' => collect(),
                 'stats' => [],
                 'expiringSoon' => collect(),
-                'publicPackages' => $publicPackages
+                'publicPackages' => $publicPackages,
+                'destinationKeketatan' => [
+                    'snbp' => 'Pilih Target',
+                    'snbt' => 'Pilih Target',
+                ],
             ]);
         }
 
@@ -209,6 +216,8 @@ class DashboardController extends Controller
             $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
         }
 
+        $destinationKeketatan = $this->destinationKeketatan($user);
+
         // Check if user wants new layout (default for now)
         return view('user.pages.dashboard.new-index', compact(
             'activePackages',
@@ -221,8 +230,183 @@ class DashboardController extends Controller
             'recentTryouts',
             'packageProgress',
             'unpaidInvoices',
-            'upcomingClassSessions'
+            'upcomingClassSessions',
+            'destinationKeketatan'
         ));
+    }
+
+    private function destinationKeketatan($user): array
+    {
+        $result = [
+            'snbp' => 'Pilih Target',
+            'snbt' => 'Pilih Target',
+        ];
+
+        [$institutionName, $programName, $externalProgramId] = $this->targetDestinationSnapshot($user);
+
+        if ($institutionName === '') {
+            return $result;
+        }
+
+        foreach (['snbp', 'snbt'] as $source) {
+            $result[$source] = $this->resolveKeketatanLabel(
+                $source,
+                $institutionName,
+                $programName,
+                $externalProgramId
+            ) ?? 'N/A';
+        }
+
+        return $result;
+    }
+
+    private function targetDestinationSnapshot($user): array
+    {
+        $institutionName = '';
+        $programName = '';
+
+        if ($user->participantDestinationCategory) {
+            $institutionName = (string) ($user->participantDestinationCategory->parent->name ?? $user->participantDestinationCategory->name);
+            $programName = $user->participantDestinationCategory->parent
+                ? (string) $user->participantDestinationCategory->name
+                : '';
+        } else {
+            $institutionName = (string) ($user->participant_destination_institution_name ?? '');
+            $programName = (string) ($user->participant_destination_program_name ?? '');
+        }
+
+        return [
+            trim($institutionName),
+            trim($programName),
+            trim((string) ($user->participant_destination_external_id ?? '')),
+        ];
+    }
+
+    private function resolveKeketatanLabel(string $source, string $institutionName, string $programName, string $externalProgramId): ?string
+    {
+        $ptn = $this->findOfficialInstitution($source, $institutionName);
+
+        if (! $ptn) {
+            return null;
+        }
+
+        $program = $this->findOfficialProgram($source, (string) $ptn['id_ptn'], $programName, $externalProgramId);
+
+        if (! $program) {
+            return null;
+        }
+
+        $history = is_array($program['history_daya_tampung'] ?? null) ? $program['history_daya_tampung'] : [];
+        $latest = ! empty($history) ? end($history) : null;
+        $quotaField = $source === 'snbt' ? 'daya_tampung_snbt' : 'daya_tampung_snbp';
+        $dayaTampung = (int) ($latest['daya_tampung'] ?? $program[$quotaField] ?? $program['daya_tampung'] ?? 0);
+        $peminat = (int) ($latest['peminat'] ?? $program['peminat'] ?? 0);
+
+        if ($dayaTampung <= 0 || $peminat <= 0) {
+            return 'N/A';
+        }
+
+        return number_format(($dayaTampung / $peminat) * 100, 2, ',', '.').'%';
+    }
+
+    private function findOfficialInstitution(string $source, string $institutionName): ?array
+    {
+        $target = $this->normalizeDestinationName($institutionName);
+
+        return collect($this->officialInstitutions($source))
+            ->first(function ($ptn) use ($target) {
+                $name = $this->normalizeDestinationName((string) ($ptn['nama'] ?? ''));
+
+                return $name === $target
+                    || Str::contains($name, $target)
+                    || Str::contains($target, $name);
+            });
+    }
+
+    private function findOfficialProgram(string $source, string $ptnId, string $programName, string $externalProgramId): ?array
+    {
+        $programs = collect($this->officialPrograms($source, $ptnId));
+        $externalProgramId = trim($externalProgramId);
+
+        if ($externalProgramId !== '') {
+            $byId = $programs->first(function ($program) use ($externalProgramId) {
+                return in_array($externalProgramId, array_filter([
+                    (string) ($program['id_prodi'] ?? ''),
+                    (string) ($program['kode_prodi'] ?? ''),
+                ]), true);
+            });
+
+            if ($byId) {
+                return $byId;
+            }
+        }
+
+        $target = $this->normalizeDestinationName($programName);
+
+        if ($target === '') {
+            return null;
+        }
+
+        return $programs->first(function ($program) use ($target) {
+            $name = $this->normalizeDestinationName(trim(implode(' ', array_filter([
+                $program['jenjang'] ?? null,
+                $program['nama'] ?? null,
+            ]))));
+
+            return $name === $target
+                || Str::contains($name, $target)
+                || Str::contains($target, $name);
+        });
+    }
+
+    private function officialInstitutions(string $source): array
+    {
+        $endpoint = $source === 'snbt'
+            ? 'https://snpmb.id/proxy-ptn-sb.php'
+            : 'https://snpmb.id/proxy-ptn-sn.php';
+
+        return Cache::remember("dashboard_snpmb_{$source}_ptn_list", 3600 * 6, function () use ($endpoint) {
+            try {
+                $response = Http::timeout(10)->get($endpoint);
+
+                return $response->successful() && is_array($response->json())
+                    ? $response->json()
+                    : [];
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                return [];
+            }
+        });
+    }
+
+    private function officialPrograms(string $source, string $ptnId): array
+    {
+        $endpoint = $source === 'snbt'
+            ? 'https://snpmb.id/proxy-prodi-sb.php'
+            : 'https://snpmb.id/proxy-prodi-sn.php';
+
+        return Cache::remember("dashboard_snpmb_{$source}_prodi_list_{$ptnId}", 3600 * 6, function () use ($endpoint, $ptnId) {
+            try {
+                $response = Http::timeout(10)->get($endpoint, ['ptn' => $ptnId]);
+
+                return $response->successful() && is_array($response->json())
+                    ? $response->json()
+                    : [];
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                return [];
+            }
+        });
+    }
+
+    private function normalizeDestinationName(string $value): string
+    {
+        return (string) Str::of($value)
+            ->lower()
+            ->replaceMatches('/\s+/', ' ')
+            ->trim();
     }
 
     private function calculateTotalScore(UserAnswer $userAnswer, string $type_subtest): float

@@ -1042,6 +1042,8 @@ class PackageController extends Controller
 
         // Get tryouts for this package with user attempts
         $tryouts = $package->tryouts()
+            ->where('tryouts.is_active', true)
+            ->where('tryouts.is_displayed', true)
             ->with([
                 'tryoutDetails.questions',
                 'userAnswers' => function ($query) {
@@ -2560,9 +2562,12 @@ class PackageController extends Controller
         $sort = $request->get('sort', 'latest');
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         
-        $packageRelations = ['package.materialsThroughDetail', 'package.tryouts'];
+        $packageRelations = [
+            'package.materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+            'package.tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+        ];
         if ($tesKoranEnabled) {
-            $packageRelations[] = 'package.tesKorans';
+            $packageRelations['package.tesKorans'] = fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true);
         }
 
         $activePackages = UserPackageAcces::where('user_id', $user->id)
@@ -2581,9 +2586,12 @@ class PackageController extends Controller
             ->all();
 
         $packageMaterialIds = \DB::table('detail_packages')
+            ->join('materials', 'detail_packages.detailable_id', '=', 'materials.material_id')
             ->whereIn('package_id', $accessiblePackageIds)
             ->where('detailable_type', \App\Models\Material::class)
-            ->pluck('detailable_id')
+            ->where('materials.is_active', true)
+            ->where('materials.is_displayed', true)
+            ->pluck('detail_packages.detailable_id')
             ->toArray();
 
         $directMaterialIds = UserMaterialAccess::where('user_id', $user->id)
@@ -2598,6 +2606,8 @@ class PackageController extends Controller
         $accessibleMaterialIds = array_values(array_unique(array_merge($packageMaterialIds, $directMaterialIds)));
 
         $myMaterials = \App\Models\Material::whereIn('material_id', $accessibleMaterialIds)
+            ->where('is_active', true)
+            ->where('is_displayed', true)
             ->with(['userAccess' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             }])
@@ -2616,6 +2626,8 @@ class PackageController extends Controller
                 $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
             })->orWhereIn('tryout_id', $directTryoutIds);
         })
+            ->where('is_active', true)
+            ->where('is_displayed', true)
             ->with([
                 'packages' => function ($query) use ($accessiblePackageIds) {
                     $query->whereIn('packages.package_id', $accessiblePackageIds);
@@ -2639,6 +2651,8 @@ class PackageController extends Controller
                         });
                 });
             })
+                ->where('is_active', true)
+                ->where('is_displayed', true)
                 ->with(['results' => function ($query) use ($user) {
                     $query->where('user_id', $user->id);
                 }])
@@ -2756,8 +2770,17 @@ class PackageController extends Controller
         $user = Auth::user();
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         $relations = $tesKoranEnabled
-            ? ['materialsThroughDetail.categories', 'tryouts', 'tesKorans']
-            : ['materialsThroughDetail.categories', 'tryouts'];
+            ? [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'materialsThroughDetail.categories',
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
+            ]
+            : [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'materialsThroughDetail.categories',
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+            ];
 
         $package = Package::with($relations)->findOrFail($packageId);
         
@@ -2973,8 +2996,21 @@ class PackageController extends Controller
     {
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
         $relations = $tesKoranEnabled
-            ? ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'tesKorans', 'detailPackages']
-            : ['materialsThroughDetail', 'tryouts.tryoutDetails', 'classes', 'detailPackages'];
+            ? [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tryouts.tryoutDetails',
+                'classes',
+                'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
+                'detailPackages',
+            ]
+            : [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tryouts.tryoutDetails',
+                'classes',
+                'detailPackages',
+            ];
 
         $package = Package::with($relations)
             ->where('status', 'active')

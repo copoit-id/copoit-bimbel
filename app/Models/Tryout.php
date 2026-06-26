@@ -36,6 +36,7 @@ class Tryout extends Model
         'assessment_type' => 'string',
         'answer_persistence_mode' => 'string',
         'subtest_display_mode' => 'string',
+        'user_card_display' => 'string',
         'enable_anti_copy' => 'boolean',
         'enable_tab_switch_detection' => 'boolean',
         'enable_webcam_check' => 'boolean',
