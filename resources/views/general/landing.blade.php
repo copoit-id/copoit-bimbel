@@ -91,6 +91,45 @@
             box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08), 
                         inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
         }
+        
+        /* Glassmorphism Card with Amber Shiny/Glossy Border */
+        @keyframes border-shine-amber {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        .glass-card-shiny-amber {
+            position: relative;
+            border: 1.5px solid transparent;
+            background: linear-gradient(rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.82)) padding-box,
+                        linear-gradient(135deg, 
+                            rgba(255, 255, 255, 0.95) 0%, 
+                            rgba(245, 158, 11, 0.25) 25%, 
+                            rgba(245, 158, 11, 0.85) 50%, 
+                            rgba(217, 119, 6, 0.85) 65%, 
+                            rgba(245, 158, 11, 0.25) 80%, 
+                            rgba(255, 255, 255, 0.95) 100%
+                        ) border-box;
+            background-size: 100% 100%, 200% 200%;
+            animation: border-shine-amber 5s ease infinite;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px -10px rgba(245, 158, 11, 0.12), 
+                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+                        box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card-shiny-amber:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px -12px rgba(245, 158, 11, 0.22), 
+                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        }
         /* Underline decoration */
         .highlight-underline {
             position: relative;
@@ -120,6 +159,20 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        /* Gold blink/pulse animation for badge icon */
+        @keyframes blink-gold {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+            }
+            50% {
+                transform: scale(1.15);
+                box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+            }
+        }
+        .animate-blink-gold {
+            animation: blink-gold 2s infinite ease-in-out;
+        }
     </style>
 @endpush
 
@@ -135,8 +188,8 @@
                     <div class="space-y-4">
                         <div class="flex">
                             <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-primary/8 text-primary font-extrabold text-xs sm:text-sm border border-primary/15 shadow-xs">
-                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-500 shrink-0">
-                                    <i class="ri-check-line text-xs font-black"></i>
+                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shrink-0 animate-blink-gold">
+                                    <i class="ri-medal-fill text-xs"></i>
                                 </span>
                                 {{ $landingValue('hero.badge', '100+ JALUR MASUK PTN TERPOPULER!') }}
                             </div>
@@ -178,7 +231,7 @@
                 </div>
 
                 <!-- Bottom Card: Partner / Campus Logos Stack -->
-                <div class="glass-card rounded-[2.5rem] p-6 sm:p-8 shadow-lg border border-white/60 flex-1 flex flex-col justify-center">
+                <div class="glass-card-shiny-amber rounded-[2.5rem] p-6 sm:p-8 shadow-lg flex-1 flex flex-col justify-center">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <div class="md:col-span-7">
                             <p class="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug uppercase tracking-wide">
