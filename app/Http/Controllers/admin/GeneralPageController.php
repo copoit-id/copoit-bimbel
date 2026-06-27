@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\GeneralPage;
 use App\Models\Package;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 
 class GeneralPageController extends Controller
 {
@@ -21,11 +22,11 @@ class GeneralPageController extends Controller
                 'is_active' => false,
             ]
         );
-        $defaultContent = \App\Http\Controllers\GeneralPageController::defaultLandingContent();
+        $content = \App\Http\Controllers\GeneralPageController::mergeLandingContentWithDefaults($page->content ?? []);
 
         return view('admin.pages.general.pages.landing', [
             'page' => $page,
-            'content' => $page->content ?? $defaultContent,
+            'content' => $content,
             'seo' => $page->seo ?? [],
             'packages' => Package::query()
                 ->orderBy('name')
@@ -45,11 +46,12 @@ class GeneralPageController extends Controller
             'landing_images.hero_image' => ['nullable', 'image', 'max:10240'],
             'landing_images.logo_stack.*.src' => ['nullable', 'image', 'max:10240'],
             'landing_images.testimonials.*.image' => ['nullable', 'image', 'max:10240'],
+            'landing_images.partners.*.logo' => ['nullable', 'image', 'max:10240'],
             'landing_images.seo_image' => ['nullable', 'image', 'max:10240'],
         ]);
 
-        $seo = $this->cleanArray($validated['seo'] ?? []);
-        $content = $validated['content'];
+        $seo = $this->cleanArray($request->input('seo', []));
+        $content = $request->input('content', []);
         $this->applyUploadedImages($request, $content, $seo);
         $content = $this->normalizeLandingContent($content);
         $existingPage = GeneralPage::query()->where('page_key', 'landing')->first();
@@ -65,9 +67,11 @@ class GeneralPageController extends Controller
             ]
         );
 
+        Artisan::call('view:clear');
+
         return redirect()
             ->route('admin.general-pages.landing.edit')
-            ->with('success', 'Landing page berhasil diperbarui.');
+            ->with('success', 'Landing page berhasil diperbarui pada ' . now()->format('d M Y H:i:s') . '.');
     }
 
     private function applyUploadedImages(Request $request, array &$content, array &$seo): void
@@ -92,6 +96,14 @@ class GeneralPageController extends Controller
             }
         }
 
+        foreach (data_get($request->file('landing_images', []), 'partners', []) as $index => $item) {
+            $file = data_get($item, 'logo');
+
+            if ($file) {
+                data_set($content, "partners.items.{$index}.logo", $this->storeLandingImage($file));
+            }
+        }
+
         if ($request->hasFile('landing_images.seo_image')) {
             $seo['image'] = $this->storeLandingImage($request->file('landing_images.seo_image'));
         }
@@ -106,7 +118,7 @@ class GeneralPageController extends Controller
     {
         $content['meta']['title'] = trim((string) data_get($content, 'meta.title', ''));
 
-        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'faq', 'footer'] as $section) {
+        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'partners', 'faq', 'footer'] as $section) {
             if (! isset($content[$section]) || ! is_array($content[$section])) {
                 $content[$section] = [];
             }
@@ -123,7 +135,7 @@ class GeneralPageController extends Controller
 
         $content['hero']['logo_stack'] = array_values(array_filter(
             data_get($content, 'hero.logo_stack', []),
-            fn ($item) => is_array($item) && (trim((string) ($item['src'] ?? '')) !== '' || trim((string) ($item['alt'] ?? '')) !== '')
+            fn ($item) => is_array($item) && trim((string) ($item['src'] ?? '')) !== ''
         ));
 
         $content['testimonials']['items'] = array_values(array_filter(
@@ -136,6 +148,11 @@ class GeneralPageController extends Controller
             fn ($item) => is_array($item) && trim((string) ($item['value'] ?? '')) !== ''
         ));
 
+        $content['partners']['items'] = array_values(array_filter(
+            data_get($content, 'partners.items', []),
+            fn ($item) => is_array($item) && (trim((string) ($item['name'] ?? '')) !== '' || trim((string) ($item['logo'] ?? '')) !== '')
+        ));
+
         $content['faq']['items'] = array_values(array_filter(
             data_get($content, 'faq.items', []),
             fn ($item) => is_array($item) && (trim((string) ($item['question'] ?? '')) !== '' || trim((string) ($item['answer'] ?? '')) !== '')
@@ -143,6 +160,7 @@ class GeneralPageController extends Controller
 
         return $content;
     }
+
 
     private function cleanArray(array $items): array
     {

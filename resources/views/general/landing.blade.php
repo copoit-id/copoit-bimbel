@@ -110,18 +110,19 @@
                     </a>
                 </div>
 
-                <!-- Avatar Stack featuring Campus Logos as requested -->
+                <!-- Logo grid featuring campus logos as requested -->
+                @php
+                    $heroLogoStack = $landingItems('hero.logo_stack');
+                    $heroLogoColumns = max(1, min(count($heroLogoStack), 6));
+                @endphp
                 <div class="flex flex-col sm:flex-row items-center gap-4 pt-8 border-t border-slate-100 justify-center lg:justify-start">
-                    <div class="flex -space-x-2.5">
-                        @foreach($landingValue('hero.logo_stack', [
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'UI Logo'],
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'ITB Logo'],
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'UGM Logo'],
-                            ['src' => 'img/logo_kampus.png', 'alt' => 'ITS Logo'],
-                        ]) as $logo)
-                            <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ $landingAsset($logo['src'] ?? null, 'img/logo_kampus.png') }}" alt="{{ $logo['alt'] ?? 'Campus Logo' }}">
-                        @endforeach
-                    </div>
+                    @if(count($heroLogoStack) > 0)
+                        <div class="grid gap-2" style="grid-template-columns: repeat({{ $heroLogoColumns }}, minmax(0, 2.25rem));">
+                            @foreach($heroLogoStack as $logo)
+                                <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ $landingAsset($logo['src'] ?? null, 'img/logo_kampus.png') }}" alt="{{ $logo['alt'] ?? 'Campus Logo' }}">
+                            @endforeach
+                        </div>
+                    @endif
                     <p class="text-xs sm:text-sm font-semibold text-slate-650">
                         {!! $landingValue('hero.social_proof_html', 'Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!') !!}
                     </p>
@@ -338,59 +339,27 @@
             </div>
         </div>
 
+        @if(count($landingItems('partners.items')) > 0)
         <!-- Part 2: Cooperating Institutions & Schools (Logo Lembaga yang Bekerjasama) -->
         <div class="space-y-12 border-t border-slate-100 pt-16">
             <div class="text-center">
-                <span class="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400">Lembaga & Sekolah Mitra Kerja Sama</span>
-                <p class="text-xs text-slate-400 font-medium mt-1">Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN</p>
+                <span class="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400">{{ $landingValue('partners.eyebrow', 'Lembaga & Sekolah Mitra Kerja Sama') }}</span>
+                <p class="text-xs text-slate-400 font-medium mt-1">{{ $landingValue('partners.description', 'Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN') }}</p>
                 <div class="mt-3.5 h-0.5 w-12 bg-primary/30 mx-auto rounded"></div>
             </div>
 
             <!-- Grid of Cooperating Schools (Lembaga Bekerjasama) -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6">
-                <!-- SMAN 8 Jakarta -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 8 Jakarta" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 8 Jakarta</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DKI Jakarta</p>
-                </div>
-
-                <!-- SMAN 3 Bandung -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 3 Bandung" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 3 Bandung</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">Jawa Barat</p>
-                </div>
-
-                <!-- SMAN 1 Yogyakarta -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 1 Yogyakarta" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 1 Yogya</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DI Yogyakarta</p>
-                </div>
-
-                <!-- SMAN 5 Surabaya -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 5 Surabaya" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 5 Surabaya</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">Jawa Timur</p>
-                </div>
-
-                <!-- SMA Labschool -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMA Labschool" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMA Labschool</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DKI Jakarta</p>
-                </div>
-
-                <!-- SMA Kristen Yusuf -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMA Kristen Yusuf" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMA K. Yusuf</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DKI Jakarta</p>
-                </div>
+                @foreach($landingItems('partners.items') as $partner)
+                    <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
+                        <img src="{{ $landingAsset(data_get($partner, 'logo'), 'img/logo_kampus.png') }}" alt="{{ data_get($partner, 'alt', 'Logo ' . data_get($partner, 'name', 'Mitra')) }}" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
+                        <p class="text-xs font-bold text-slate-800 leading-tight">{{ data_get($partner, 'name') }}</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">{{ data_get($partner, 'location') }}</p>
+                    </div>
+                @endforeach
             </div>
         </div>
+        @endif
     </div>
 </section>
 
@@ -442,23 +411,23 @@
 
         <!-- Services Menu Link -->
         <div class="md:col-span-3 space-y-4">
-            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">Navigasi</h4>
+            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">{{ $landingValue('footer.navigation_title', 'Navigasi') }}</h4>
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90 list-disc pl-5">
-                <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">Home Landing</a></li>
+                <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_landing_label', 'Home Landing') }}</a></li>
                 @if($showStatisticsNav)
-                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">Statistik PTN SNBP</a></li>
-                    <li><a href="{{ route('statistics.snbt') }}" class="hover:text-amber-300 transition-colors">Statistik PTN SNBT</a></li>
+                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_statistics_snbp_label', 'Statistik PTN SNBP') }}</a></li>
+                    <li><a href="{{ route('statistics.snbt') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_statistics_snbt_label', 'Statistik PTN SNBT') }}</a></li>
                 @endif
                 @if($showArticlesNav)
-                    <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">Insight & Artikel</a></li>
+                    <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_articles_label', 'Insight & Artikel') }}</a></li>
                 @endif
-                <li><a href="{{ route('login') }}" class="hover:text-amber-300 transition-colors">Daftar / Login Akun</a></li>
+                <li><a href="{{ route('login') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_login_label', 'Daftar / Login Akun') }}</a></li>
             </ul>
         </div>
 
         <!-- Contact Links -->
         <div class="md:col-span-3 space-y-4">
-            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">Hubungi Kami</h4>
+            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">{{ $landingValue('footer.contact_title', 'Hubungi Kami') }}</h4>
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90">
                 <li>
                     <a href="{{ $landingValue('footer.instagram_href', 'https://instagram.com/naufalacademy') }}" target="_blank" rel="noopener noreferrer"
@@ -486,10 +455,10 @@
     </div>
 
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs sm:text-sm font-semibold text-slate-300 text-center">
-        <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}. Hak cipta dilindungi undang-undang.</p>
+        <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}. {{ $landingValue('footer.copyright_suffix', 'Hak cipta dilindungi undang-undang.') }}</p>
         <div class="flex gap-4 justify-center">
-            <a href="#" class="hover:text-white">Syarat & Ketentuan</a>
-            <a href="#" class="hover:text-white">Kebijakan Privasi</a>
+            <a href="{{ $landingValue('footer.terms_href', '#') }}" class="hover:text-white">{{ $landingValue('footer.terms_label', 'Syarat & Ketentuan') }}</a>
+            <a href="{{ $landingValue('footer.privacy_href', '#') }}" class="hover:text-white">{{ $landingValue('footer.privacy_label', 'Kebijakan Privasi') }}</a>
         </div>
     </div>
 </footer>
