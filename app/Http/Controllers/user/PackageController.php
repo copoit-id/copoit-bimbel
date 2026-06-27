@@ -32,7 +32,7 @@ class PackageController extends Controller
 {
     public function index(Request $request)
     {
-        $tab = $request->get('tab', 'paid'); // paid or free
+        $tab = 'all';
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
         
@@ -62,12 +62,6 @@ class PackageController extends Controller
             ->with(['detailPackages'])
             ->withCount(['materials', 'tryouts', 'tesKorans']);
 
-        if ($tab === 'free') {
-            $packagesQuery->whereIn('type_price', ['free_unconditional', 'free_conditional']);
-        } else {
-            $packagesQuery->where('type_price', 'paid');
-        }
-
         if ($search !== '') {
             $packagesQuery->where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')
@@ -88,10 +82,10 @@ class PackageController extends Controller
         $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
         $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
 
-        if (Auth::check() && $tab === 'paid' && $paymentMode === 'manual' && $paymentUniqueCodeEnabled) {
+        if (Auth::check() && $paymentMode === 'manual' && $paymentUniqueCodeEnabled) {
             $reservedCodes = [];
 
-            foreach ($packages as $package) {
+            foreach ($packages->where('type_price', 'paid') as $package) {
                 $uniqueCode = Payment::generateManualUniqueCode($reservedCodes);
                 $reservedCodes[] = $uniqueCode;
                 $manualPaymentUniqueCodes[$package->package_id] = $uniqueCode;
@@ -107,17 +101,13 @@ class PackageController extends Controller
                 && $packages->contains(fn (Package $package) => $discount->appliesToPackage($package->package_id))
             )
             ->values();
-        $automaticDiscounts = $tab === 'paid'
-            ? Discount::query()
-                ->automaticAvailable()
-                ->with('tryout:tryout_id,name')
-                ->orderBy('created_at', 'desc')
-                ->get()
-            : collect();
+        $automaticDiscounts = Discount::query()
+            ->automaticAvailable()
+            ->with('tryout:tryout_id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
         $packageAutomaticDiscounts = $this->automaticDiscountsForPackages($packages, $automaticDiscounts);
-        $affiliateDiscountPreview = $tab === 'paid'
-            ? $this->affiliateDiscountPreview()
-            : [];
+        $affiliateDiscountPreview = $this->affiliateDiscountPreview();
         
         return view('user.pages.package.new-index', compact(
             'packages',

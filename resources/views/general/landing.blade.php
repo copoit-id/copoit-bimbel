@@ -218,13 +218,77 @@
                             @endif
                         </div>
 
-                        <a href="{{ route('user.package.detail', $package->package_id) }}"
-                           class="mt-8 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-center text-xs font-bold text-white transition-all hover:bg-primary-hover sm:text-sm">
-                            {{ $ctaLabel }}
-                            <i class="ri-arrow-right-line ml-2"></i>
-                        </a>
+                        @if($package->type_price === 'free_conditional')
+                            <button type="button"
+                                data-landing-modal-open="landing-conditional-package-{{ $package->package_id }}"
+                                class="mt-8 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-center text-xs font-bold text-white transition-all hover:bg-primary-hover sm:text-sm">
+                                {{ $ctaLabel }}
+                                <i class="ri-file-list-3-line ml-2"></i>
+                            </button>
+                        @else
+                            <a href="{{ route('user.package.detail', $package->package_id) }}"
+                               class="mt-8 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-center text-xs font-bold text-white transition-all hover:bg-primary-hover sm:text-sm">
+                                {{ $ctaLabel }}
+                                <i class="ri-arrow-right-line ml-2"></i>
+                            </a>
+                        @endif
                     </div>
                 </article>
+
+                @if($package->type_price === 'free_conditional')
+                    <div id="landing-conditional-package-{{ $package->package_id }}"
+                        class="fixed inset-0 z-50 hidden items-center justify-center bg-blue-950/25 px-4 py-8 backdrop-blur-[2px]"
+                        data-landing-modal>
+                        <div class="absolute inset-0" data-landing-modal-close="landing-conditional-package-{{ $package->package_id }}"></div>
+                        <div class="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                            <button type="button"
+                                class="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                                data-landing-modal-close="landing-conditional-package-{{ $package->package_id }}">
+                                <i class="ri-close-line text-xl"></i>
+                            </button>
+                            <div class="space-y-4 p-6">
+                                <div>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-primary">Syarat Paket Gratis</p>
+                                    <h3 class="mt-1 text-xl font-semibold text-gray-900">{{ $package->name }}</h3>
+                                    <p class="text-sm text-gray-500">Lengkapi bukti syarat untuk mengajukan akses gratis bersyarat.</p>
+                                </div>
+
+                                <div class="rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-gray-700">
+                                    <p class="mb-1 font-semibold text-blue-900">Detail Syarat</p>
+                                    <p class="whitespace-pre-line">{{ $package->conditional_requirement ?: 'Syarat belum ditentukan. Silakan hubungi admin.' }}</p>
+                                </div>
+
+                                <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
+                                    enctype="multipart/form-data" class="space-y-4">
+                                    @csrf
+                                    <div>
+                                        <label class="mb-2 block text-sm font-medium text-gray-700">Upload Bukti Syarat</label>
+                                        <input type="file" name="requirement_proofs[]" required multiple
+                                            accept=".jpg,.jpeg,.png,.pdf,.mp4,.webm"
+                                            class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                        <p class="mt-2 text-xs text-gray-500">Bisa pilih lebih dari satu file. Format: JPG, PNG, PDF, MP4, WEBM. Maks 2MB per file.</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="mb-2 block text-sm font-medium text-gray-700">Catatan untuk Admin <span class="font-normal text-gray-400">(opsional)</span></label>
+                                        <textarea name="requirement_user_notes" rows="3" maxlength="1000"
+                                            class="w-full resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                            placeholder="Contoh: Bukti ini dari akun Instagram saya, nama akun @..."></textarea>
+                                        <p class="mt-2 text-xs text-gray-500">Catatan ini akan terlihat oleh admin saat review pengajuan.</p>
+                                    </div>
+
+                                    <div class="flex items-center justify-end gap-3">
+                                        <button type="button"
+                                            class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                                            data-landing-modal-close="landing-conditional-package-{{ $package->package_id }}">Batal</button>
+                                        <button type="submit"
+                                            class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">Kirim Bukti</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             @empty
                 <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm font-medium text-slate-500">
                     Program pilihan sedang disiapkan.
@@ -470,4 +534,44 @@
     }
 @endphp
 @include('user.components.floating-whatsapp')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const openModal = (id) => {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.documentElement.classList.add('overflow-hidden');
+        };
+
+        const closeModal = (id) => {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+
+            if (!document.querySelector('[data-landing-modal]:not(.hidden)')) {
+                document.documentElement.classList.remove('overflow-hidden');
+            }
+        };
+
+        document.querySelectorAll('[data-landing-modal-open]').forEach((button) => {
+            button.addEventListener('click', () => openModal(button.dataset.landingModalOpen));
+        });
+
+        document.querySelectorAll('[data-landing-modal-close]').forEach((button) => {
+            button.addEventListener('click', () => closeModal(button.dataset.landingModalClose));
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+
+            document.querySelectorAll('[data-landing-modal]:not(.hidden)').forEach((modal) => {
+                closeModal(modal.id);
+            });
+        });
+    });
+</script>
 @endsection
