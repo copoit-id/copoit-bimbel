@@ -8,6 +8,7 @@
         ->all();
     $testimonials = old('content.testimonials.items', data_get($content, 'testimonials.items', []));
     $achievements = old('content.achievements.items', data_get($content, 'achievements.items', []));
+    $partners = old('content.partners.items', data_get($content, 'partners.items', []));
     $faqs = old('content.faq.items', data_get($content, 'faq.items', []));
     $logoStack = old('content.hero.logo_stack', data_get($content, 'hero.logo_stack', []));
     $seoValue = fn (string $key, mixed $default = '') => old('seo.' . $key, data_get($seo ?? [], $key, $default));
@@ -36,12 +37,25 @@
     <form action="{{ route('admin.general-pages.landing.update') }}" method="POST" enctype="multipart/form-data" class="space-y-5"
         x-data="landingPageEditor({
             selectedPackageIds: @js($selectedPackageIds),
+            logoStack: @js($logoStack),
             testimonials: @js($testimonials),
             achievements: @js($achievements),
+            partners: @js($partners),
             faqs: @js($faqs),
         })">
         @csrf
         @method('PUT')
+
+        @if($errors->any())
+            <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <p class="font-semibold">Landing page belum tersimpan. Periksa error berikut:</p>
+                <ul class="mt-2 list-disc space-y-1 pl-5">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="rounded-lg border border-gray-200 bg-white p-5">
             <div>
@@ -65,6 +79,7 @@
                         'community' => 'Komunitas',
                         'testimonials' => 'Testimoni',
                         'achievements' => 'Pencapaian',
+                        'partners' => 'Mitra',
                         'faq' => 'FAQ',
                         'footer' => 'Footer',
                         'advanced' => 'SEO',
@@ -115,23 +130,54 @@
                         <textarea name="content[hero][social_proof_html]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('hero.social_proof_html') }}</textarea>
                     </div>
                     <div>
-                        <p class="mb-3 text-sm font-medium text-gray-700">Logo Stack</p>
-                        <div class="grid gap-3 md:grid-cols-2">
-                            @for($i = 0; $i < 4; $i++)
-                            <div class="rounded-lg border border-gray-200 p-3">
-                                <x-admin-input name="content[hero][logo_stack][{{ $i }}][src]" label="Logo {{ $i + 1 }} Path" :value="data_get($logoStack, $i . '.src')" />
-                                <label class="mt-3 block">
-                                    <span class="mb-2 block text-sm font-medium text-gray-700">Upload Logo {{ $i + 1 }}</span>
-                                    <input type="file" name="landing_images[logo_stack][{{ $i }}][src]" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
-                                </label>
-                                @error("landing_images.logo_stack.{$i}.src")
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                                <div class="mt-3">
-                                    <x-admin-input name="content[hero][logo_stack][{{ $i }}][alt]" label="Logo {{ $i + 1 }} Alt" :value="data_get($logoStack, $i . '.alt')" />
-                                </div>
+                        <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-700">Logo Hero</p>
+                                <p class="mt-1 text-xs text-gray-500">Logo ini tampil di hero dekat teks social proof. Cukup upload gambar dan isi nama/alt logo.</p>
                             </div>
-                            @endfor
+                            <button type="button" @click="addLogo()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                                <i class="ri-add-line"></i>
+                                Tambah Logo Hero
+                            </button>
+                        </div>
+                        <div x-show="logoStack.length === 0" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                            <p class="text-sm font-semibold text-gray-700">Belum ada logo hero.</p>
+                            <p class="mt-1 text-xs text-gray-500">Klik tombol di bawah untuk menambahkan logo pertama.</p>
+                            <button type="button" @click="addLogo()" class="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                                <i class="ri-add-line"></i>
+                                Tambah Logo Hero
+                            </button>
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <template x-for="(item, index) in logoStack" :key="item._key">
+                                <div class="rounded-lg border border-gray-200 p-3">
+                                    <div class="mb-3 flex items-center justify-between gap-3">
+                                        <p class="font-semibold text-gray-900">Logo <span x-text="index + 1"></span></p>
+                                        <button type="button" @click="removeLogo(index)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+                                            <i class="ri-delete-bin-line"></i>
+                                            Hapus
+                                        </button>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <input type="hidden" :name="`content[hero][logo_stack][${index}][src]`" x-model="item.src">
+                                        <template x-if="item.src">
+                                            <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                                <img :src="assetUrl(item.src)" :alt="item.alt || 'Logo hero'" class="h-12 w-12 rounded-lg object-contain bg-white p-1">
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-gray-800">Logo tersimpan</p>
+                                                    <p class="truncate text-xs text-gray-500" x-text="item.src"></p>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <label class="block">
+                                            <span class="mb-2 block text-sm font-medium text-gray-700">Upload Logo</span>
+                                            <input type="file" :name="`landing_images[logo_stack][${index}][src]`" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                                            <span class="mt-1 block text-xs text-gray-500">Upload gambar untuk logo baru. Sistem akan menyimpan path otomatis.</span>
+                                        </label>
+                                        <input type="text" :name="`content[hero][logo_stack][${index}][alt]`" x-model="item.alt" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Nama/Alt logo">
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </section>
@@ -286,6 +332,45 @@
                     </div>
                 </section>
 
+                <section x-show="tab === 'partners'" class="space-y-5">
+                    <div class="grid gap-5 lg:grid-cols-2">
+                        <x-admin-input name="content[partners][eyebrow]" label="Eyebrow" :value="$value('partners.eyebrow')" />
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Mitra</label>
+                        <textarea name="content[partners][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('partners.description') }}</textarea>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="button" @click="addPartner()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                            <i class="ri-add-line"></i>
+                            Tambah Mitra
+                        </button>
+                    </div>
+                    <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                        <template x-for="(item, index) in partners" :key="item._key">
+                            <div class="rounded-lg border border-gray-200 p-4">
+                                <div class="mb-3 flex items-center justify-between gap-3">
+                                    <p class="font-semibold text-gray-900">Mitra <span x-text="index + 1"></span></p>
+                                    <button type="button" @click="removePartner(index)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+                                        <i class="ri-delete-bin-line"></i>
+                                        Hapus
+                                    </button>
+                                </div>
+                                <div class="space-y-3">
+                                    <input type="text" :name="`content[partners][items][${index}][name]`" x-model="item.name" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Nama mitra/sekolah">
+                                    <input type="text" :name="`content[partners][items][${index}][location]`" x-model="item.location" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Lokasi">
+                                    <input type="text" :name="`content[partners][items][${index}][logo]`" x-model="item.logo" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Logo Path/URL">
+                                    <label class="block">
+                                        <span class="mb-2 block text-sm font-medium text-gray-700">Upload Logo</span>
+                                        <input type="file" :name="`landing_images[partners][${index}][logo]`" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                                    </label>
+                                    <input type="text" :name="`content[partners][items][${index}][alt]`" x-model="item.alt" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Alt logo">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </section>
+
                 <section x-show="tab === 'faq'" class="space-y-5">
                     <div class="grid gap-5 lg:grid-cols-2">
                         <x-admin-input name="content[faq][eyebrow]" label="Eyebrow" :value="$value('faq.eyebrow')" />
@@ -317,12 +402,24 @@
                 <section x-show="tab === 'footer'" class="space-y-5">
                     <div class="grid gap-5 lg:grid-cols-2">
                         <x-admin-input name="content[footer][tagline]" label="Tagline" :value="$value('footer.tagline')" />
+                        <x-admin-input name="content[footer][navigation_title]" label="Judul Navigasi" :value="$value('footer.navigation_title')" />
+                        <x-admin-input name="content[footer][nav_landing_label]" label="Label Home Landing" :value="$value('footer.nav_landing_label')" />
+                        <x-admin-input name="content[footer][nav_statistics_snbp_label]" label="Label Statistik SNBP" :value="$value('footer.nav_statistics_snbp_label')" />
+                        <x-admin-input name="content[footer][nav_statistics_snbt_label]" label="Label Statistik SNBT" :value="$value('footer.nav_statistics_snbt_label')" />
+                        <x-admin-input name="content[footer][nav_articles_label]" label="Label Artikel" :value="$value('footer.nav_articles_label')" />
+                        <x-admin-input name="content[footer][nav_login_label]" label="Label Login" :value="$value('footer.nav_login_label')" />
+                        <x-admin-input name="content[footer][contact_title]" label="Judul Kontak" :value="$value('footer.contact_title')" />
                         <x-admin-input name="content[footer][instagram_label]" label="Instagram Label" :value="$value('footer.instagram_label')" />
                         <x-admin-input name="content[footer][instagram_href]" label="Instagram URL" :value="$value('footer.instagram_href')" />
                         <x-admin-input name="content[footer][whatsapp_label]" label="WhatsApp Label" :value="$value('footer.whatsapp_label')" />
                         <x-admin-input name="content[footer][whatsapp_href]" label="WhatsApp URL" :value="$value('footer.whatsapp_href')" />
                         <x-admin-input name="content[footer][email_label]" label="Email Label" :value="$value('footer.email_label')" />
                         <x-admin-input name="content[footer][email_href]" label="Email URL" :value="$value('footer.email_href')" />
+                        <x-admin-input name="content[footer][terms_label]" label="Label Syarat" :value="$value('footer.terms_label')" />
+                        <x-admin-input name="content[footer][terms_href]" label="URL Syarat" :value="$value('footer.terms_href')" />
+                        <x-admin-input name="content[footer][privacy_label]" label="Label Privasi" :value="$value('footer.privacy_label')" />
+                        <x-admin-input name="content[footer][privacy_href]" label="URL Privasi" :value="$value('footer.privacy_href')" />
+                        <x-admin-input name="content[footer][copyright_suffix]" label="Teks Copyright" :value="$value('footer.copyright_suffix')" />
                     </div>
                     <textarea name="content[footer][description]" rows="4" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('footer.description') }}</textarea>
                 </section>
@@ -381,16 +478,20 @@
         Alpine.data('landingPageEditor', (initial) => ({
             tab: 'hero',
             selectedPackageIds: [],
+            logoStack: [],
             testimonials: [],
             achievements: [],
+            partners: [],
             faqs: [],
 
             init() {
                 this.selectedPackageIds = Array.isArray(initial.selectedPackageIds)
                     ? initial.selectedPackageIds.map(Number)
                     : [];
+                this.logoStack = this.withKeys(initial.logoStack || [], this.normalizeLogo.bind(this));
                 this.testimonials = this.withKeys(initial.testimonials || [], this.normalizeTestimonial.bind(this));
                 this.achievements = this.withKeys(initial.achievements || [], this.normalizeAchievement.bind(this));
+                this.partners = this.withKeys(initial.partners || [], this.normalizePartner.bind(this));
                 this.faqs = this.withKeys(initial.faqs || [], this.normalizeFaq.bind(this));
             },
 
@@ -398,8 +499,32 @@
                 return Date.now().toString(36) + Math.random().toString(36).slice(2);
             },
 
+            assetUrl(path) {
+                if (!path) {
+                    return '';
+                }
+
+                if (/^(https?:)?\/\//.test(path) || path.startsWith('/')) {
+                    return path;
+                }
+
+                if (path.startsWith('general/landing/')) {
+                    return `/storage/${path}`;
+                }
+
+                return `/${path}`;
+            },
+
             withKeys(items, normalizer) {
                 return Array.isArray(items) ? items.map((item) => normalizer(item)) : [];
+            },
+
+            normalizeLogo(item = {}) {
+                return {
+                    _key: this.makeKey(),
+                    src: item.src || '',
+                    alt: item.alt || '',
+                };
             },
 
             normalizeTestimonial(item = {}) {
@@ -418,6 +543,16 @@
                     value: item.value || '',
                     label: item.label || '',
                     description: item.description || '',
+                };
+            },
+
+            normalizePartner(item = {}) {
+                return {
+                    _key: this.makeKey(),
+                    name: item.name || '',
+                    location: item.location || '',
+                    logo: item.logo || '',
+                    alt: item.alt || '',
                 };
             },
 
@@ -443,6 +578,22 @@
 
             removeAchievement(index) {
                 this.achievements.splice(index, 1);
+            },
+
+            addLogo() {
+                this.logoStack.push(this.normalizeLogo());
+            },
+
+            removeLogo(index) {
+                this.logoStack.splice(index, 1);
+            },
+
+            addPartner() {
+                this.partners.push(this.normalizePartner());
+            },
+
+            removePartner(index) {
+                this.partners.splice(index, 1);
             },
 
             addFaq() {

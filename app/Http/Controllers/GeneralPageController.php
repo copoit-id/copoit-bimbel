@@ -19,7 +19,7 @@ class GeneralPageController extends Controller
             return redirect()->route('login');
         }
 
-        $content = $page->content ?: self::defaultLandingContent();
+        $content = self::mergeLandingContentWithDefaults($page->content ?: []);
         $selectedPackageIds = collect(data_get($content, 'program.package_ids', []))
             ->map(fn ($packageId) => (int) $packageId)
             ->filter()
@@ -316,6 +316,48 @@ class GeneralPageController extends Controller
                     ],
                 ],
             ],
+            'partners' => [
+                'eyebrow' => 'Lembaga & Sekolah Mitra Kerja Sama',
+                'description' => 'Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN',
+                'items' => [
+                    [
+                        'logo' => 'img/logo_kampus.png',
+                        'alt' => 'Logo SMAN 8 Jakarta',
+                        'name' => 'SMAN 8 Jakarta',
+                        'location' => 'DKI Jakarta',
+                    ],
+                    [
+                        'logo' => 'img/logo_kampus.png',
+                        'alt' => 'Logo SMAN 3 Bandung',
+                        'name' => 'SMAN 3 Bandung',
+                        'location' => 'Jawa Barat',
+                    ],
+                    [
+                        'logo' => 'img/logo_kampus.png',
+                        'alt' => 'Logo SMAN 1 Yogyakarta',
+                        'name' => 'SMAN 1 Yogya',
+                        'location' => 'DI Yogyakarta',
+                    ],
+                    [
+                        'logo' => 'img/logo_kampus.png',
+                        'alt' => 'Logo SMAN 5 Surabaya',
+                        'name' => 'SMAN 5 Surabaya',
+                        'location' => 'Jawa Timur',
+                    ],
+                    [
+                        'logo' => 'img/logo_kampus.png',
+                        'alt' => 'Logo SMA Labschool',
+                        'name' => 'SMA Labschool',
+                        'location' => 'DKI Jakarta',
+                    ],
+                    [
+                        'logo' => 'img/logo_kampus.png',
+                        'alt' => 'Logo SMA Kristen Yusuf',
+                        'name' => 'SMA K. Yusuf',
+                        'location' => 'DKI Jakarta',
+                    ],
+                ],
+            ],
             'faq' => [
                 'eyebrow' => 'Pertanyaan Umum',
                 'title' => 'FAQ (Frequently Asked Questions)',
@@ -345,12 +387,24 @@ class GeneralPageController extends Controller
             'footer' => [
                 'tagline' => 'Platform Sukses Tembus PTN Impian',
                 'description' => 'Penyedia layanan bimbingan belajar, tryout IRT online nasional, pendampingan konsultasi jurusan, serta rasionalisasi rapor seleksi SNBP/SNBT terpercaya di Indonesia.',
+                'navigation_title' => 'Navigasi',
+                'nav_landing_label' => 'Home Landing',
+                'nav_statistics_snbp_label' => 'Statistik PTN SNBP',
+                'nav_statistics_snbt_label' => 'Statistik PTN SNBT',
+                'nav_articles_label' => 'Insight & Artikel',
+                'nav_login_label' => 'Daftar / Login Akun',
+                'contact_title' => 'Hubungi Kami',
                 'instagram_label' => '@naufalacademy',
                 'instagram_href' => 'https://instagram.com/naufalacademy',
                 'whatsapp_label' => '+62 856-1078-411',
                 'whatsapp_href' => 'https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya',
                 'email_label' => 'team.naufalacademy@gmail.com',
                 'email_href' => 'mailto:team.naufalacademy@gmail.com',
+                'terms_label' => 'Syarat & Ketentuan',
+                'terms_href' => '#',
+                'privacy_label' => 'Kebijakan Privasi',
+                'privacy_href' => '#',
+                'copyright_suffix' => 'Hak cipta dilindungi undang-undang.',
             ],
             'sections' => [
                 'testimonials' => [
@@ -361,5 +415,31 @@ class GeneralPageController extends Controller
                 ],
             ],
         ];
+    }
+
+    public static function mergeLandingContentWithDefaults(array $content): array
+    {
+        return self::mergeMissingLandingDefaults(self::defaultLandingContent(), $content);
+    }
+
+    private static function mergeMissingLandingDefaults(array $defaults, array $content): array
+    {
+        foreach ($defaults as $key => $defaultValue) {
+            if (! array_key_exists($key, $content)) {
+                $content[$key] = $defaultValue;
+                continue;
+            }
+
+            if (
+                is_array($defaultValue)
+                && is_array($content[$key])
+                && ! array_is_list($defaultValue)
+                && ! array_is_list($content[$key])
+            ) {
+                $content[$key] = self::mergeMissingLandingDefaults($defaultValue, $content[$key]);
+            }
+        }
+
+        return $content;
     }
 }
