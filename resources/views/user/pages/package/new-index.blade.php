@@ -44,22 +44,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
     </div>
 </div>
 
-<!-- Tabs -->
-<div class="bg-white rounded-2xl p-2 mb-6 border border-gray-100 inline-flex">
-    <a href="{{ route('user.package.index', array_merge(request()->only(['search', 'sort']), ['tab' => 'paid'])) }}"
-       class="px-6 py-2.5 rounded-xl font-medium transition-all {{ $tab === 'paid' ? 'text-white' : 'text-gray-600 hover:bg-gray-50' }}"
-       style="{{ $tab === 'paid' ? 'background-color: ' . $primaryColor : '' }}">
-        <i class="ri-vip-crown-line mr-2"></i>Berbayar
-    </a>
-    <a href="{{ route('user.package.index', array_merge(request()->only(['search', 'sort']), ['tab' => 'free'])) }}"
-       class="px-6 py-2.5 rounded-xl font-medium transition-all {{ $tab === 'free' ? 'text-white' : 'text-gray-600 hover:bg-gray-50' }}"
-       style="{{ $tab === 'free' ? 'background-color: ' . $primaryColor : '' }}">
-        <i class="ri-gift-line mr-2"></i>Gratis
-    </a>
-</div>
-
 <form method="GET" action="{{ route('user.package.index') }}" class="bg-white border border-gray-100 rounded-xl p-3 mb-6 flex flex-col md:flex-row gap-3">
-    <input type="hidden" name="tab" value="{{ $tab }}">
     <div class="flex-1">
         <label for="package-search" class="sr-only">Cari paket</label>
         <div class="relative">
@@ -85,7 +70,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
     </div>
 </form>
 
-@if($tab === 'paid' && ($affiliateDiscountPreview || $publicDiscounts->isNotEmpty()))
+@if($affiliateDiscountPreview || $publicDiscounts->isNotEmpty())
 <div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100 shadow-sm">
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2.5">
@@ -258,7 +243,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
             </div>
             @endif
 
-            @if($tab === 'paid')
+            @if($package->type_price === 'paid')
             <div class="absolute top-3 right-3 flex flex-col items-end gap-1">
                 <!-- Crossed out original price -->
                 <div x-show="hasAnyDiscountFor({{ $package->package_id }}, {{ $package->price }})" 
@@ -280,8 +265,8 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                 </template>
             </div>
             @else
-            <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
-                GRATIS
+            <div class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold {{ $package->type_price === 'free_conditional' ? 'bg-amber-500' : 'bg-green-500' }} text-white">
+                {{ $package->type_price === 'free_conditional' ? 'GRATIS BERSYARAT' : 'GRATIS' }}
             </div>
             @endif
         </div>
@@ -323,19 +308,19 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                        style="background-color: {{ $primaryColor }}">
                         <i class="ri-play-circle-line"></i><span>Mulai</span>
                     </a>
-                    @elseif($tab === 'free' && $package->type_price === 'free_conditional' && $isPendingConditional)
+                    @elseif($package->type_price === 'free_conditional' && $isPendingConditional)
                     <button type="button" disabled
                             class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 cursor-not-allowed">
                         <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
                     </button>
-                    @elseif($tab === 'free' && $package->type_price === 'free_conditional')
+                    @elseif($package->type_price === 'free_conditional')
                     <button type="button"
                             onclick="openConditionalModal({{ $package->package_id }}, @js($package->name), @js($package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.'))"
                             class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                             style="background-color: {{ $primaryColor }}">
                         <i class="ri-file-upload-line"></i><span>Kirim Syarat</span>
                     </button>
-                    @elseif($tab === 'free')
+                    @elseif($package->type_price === 'free_unconditional')
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="claim-form flex-1 flex">
                         @csrf
                         <button type="submit"
@@ -370,7 +355,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
             <i class="ri-inbox-line text-4xl" style="color: {{ $primaryColor }}"></i>
         </div>
         <h3 class="font-semibold text-gray-700 mb-1">Belum ada paket</h3>
-        <p class="text-gray-400 text-sm">Paket {{ $tab === 'paid' ? 'berbayar' : 'gratis' }} akan segera tersedia.</p>
+        <p class="text-gray-400 text-sm">Paket akan segera tersedia.</p>
     </div>
     @endforelse
 </div>
