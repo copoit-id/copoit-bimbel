@@ -1,8 +1,15 @@
-@extends('user.layout.new-user')
+@php
+    $useGeneralLayout = request('layout') === 'landing' || (!auth()->check() && request()->routeIs('user.package.tryout.list'));
+@endphp
+@extends($useGeneralLayout ? 'general.layout' : 'user.layout.new-user')
 
 @section('title', 'Tryout')
 
 @section('content')
+@if($useGeneralLayout)
+<div class="mx-auto max-w-7xl px-4 pt-32 pb-16 sm:px-6 sm:pt-40 lg:px-8 bg-gray-50 min-h-screen">
+@endif
+
 @php
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
@@ -324,6 +331,10 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
     <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada tryout</h3>
     <p class="text-gray-400 text-sm mb-6">Tryout akan segera tersedia.</p>
+</div>
+@endif
+
+@if($useGeneralLayout)
 </div>
 @endif
 @endsection

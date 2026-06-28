@@ -12,6 +12,9 @@
     $showStatisticsNav = (bool) $generalNavPages->get('statistik-ptn', false);
     $showArticlesNav = (bool) $generalNavPages->get('artikel', false);
     $homeRoute = $showLandingNav ? route('landing') : route('login');
+    $showTryoutNav = \Illuminate\Support\Facades\Route::has('user.package.tryout.list');
+    $showMaterialNav = \Illuminate\Support\Facades\Route::has('user.material.index');
+    $showPackageNav = \Illuminate\Support\Facades\Route::has('user.package.index');
 @endphp
 
 <head>
@@ -69,6 +72,24 @@
                     Artikel
                 </a>
                 @endif
+                @if($showTryoutNav)
+                <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
+                    class="rounded-lg px-3 py-2 hover:bg-slate-100 {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'bg-primary text-white' : '' }}">
+                    Try Out
+                </a>
+                @endif
+                @if($showMaterialNav)
+                <a href="{{ route('user.material.index', ['layout' => 'landing']) }}"
+                    class="rounded-lg px-3 py-2 hover:bg-slate-100 {{ request()->routeIs('user.material.*') ? 'bg-primary text-white' : '' }}">
+                    Kelas & Materi
+                </a>
+                @endif
+                @if($showPackageNav)
+                <a href="{{ route('user.package.index', ['layout' => 'landing']) }}"
+                    class="rounded-lg px-3 py-2 hover:bg-slate-100 {{ request()->routeIs('user.package.index', 'user.package.detail') ? 'bg-primary text-white' : '' }}">
+                    Paket
+                </a>
+                @endif
             </nav>
 
             <div class="flex items-center gap-2">
@@ -115,6 +136,24 @@
             <a href="{{ route('articles.index') }}"
                 class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'bg-primary text-white' : 'bg-white' }}">
                 Artikel
+            </a>
+            @endif
+            @if($showTryoutNav)
+            <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
+                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'bg-primary text-white' : 'bg-white' }}">
+                Try Out
+            </a>
+            @endif
+            @if($showMaterialNav)
+            <a href="{{ route('user.material.index', ['layout' => 'landing']) }}"
+                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('user.material.*') ? 'bg-primary text-white' : 'bg-white' }}">
+                Kelas & Materi
+            </a>
+            @endif
+            @if($showPackageNav)
+            <a href="{{ route('user.package.index', ['layout' => 'landing']) }}"
+                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('user.package.index', 'user.package.detail') ? 'bg-primary text-white' : 'bg-white' }}">
+                Paket
             </a>
             @endif
         </nav>
