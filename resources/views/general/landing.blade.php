@@ -206,14 +206,19 @@
 
                     <div class="flex flex-col sm:flex-row gap-4 mt-8">
                         <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
-                           class="inline-flex items-center justify-center gap-2.5 rounded-full bg-primary hover:bg-primary-hover px-8 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] active:scale-98">
-                            {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}
-                            <i class="ri-arrow-right-line"></i>
+                           class="relative overflow-hidden group inline-flex items-center justify-center gap-2.5 rounded-full bg-primary px-8 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.6),inset_0_1.5px_2px_rgba(255,255,255,0.5),inset_0_-3px_5px_rgba(0,0,0,0.2)] hover:shadow-[0_12px_25px_-5px_rgba(37,99,235,0.7),inset_0_1.5px_2px_rgba(255,255,255,0.7),inset_0_-3px_5px_rgba(0,0,0,0.25)] active:scale-98">
+                            <!-- Top Shiny Effect -->
+                            <div class="absolute inset-x-[25%] top-0 h-1/3 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.4)_0%,transparent_50%)] pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity"></div>
+                            <!-- Bottom Shiny Effect -->
+                            <div class="absolute inset-x-[25%] bottom-0 h-1/3 bg-[radial-gradient(ellipse_at_bottom,rgba(255,255,255,0.3)_0%,transparent_50%)] pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity"></div>
+                            
+                            <span class="relative z-10">{{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}</span>
+                            <i class="relative z-10 ri-arrow-right-line text-lg"></i>
                         </a>
                         <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}"
                            target="_blank"
                            rel="noopener noreferrer"
-                           class="inline-flex items-center justify-center gap-2.5 rounded-full border border-primary text-primary hover:bg-primary/5 px-8 py-3.5 text-sm sm:text-base font-bold transition-all active:scale-98">
+                           class="relative inline-flex items-center justify-center gap-2.5 rounded-full border border-white/80 bg-white/40 backdrop-blur-md px-8 py-3.5 text-sm sm:text-base font-bold text-slate-800 transition-all shadow-[0_8px_20px_-6px_rgba(0,0,0,0.08),inset_0_2px_2px_rgba(255,255,255,0.9)] hover:bg-white/60 hover:shadow-[0_12px_25px_-8px_rgba(0,0,0,0.12),inset_0_2px_3px_rgba(255,255,255,1)] active:scale-98">
                             {{ $landingValue('hero.secondary_cta.label', 'Hubungi Admin') }}
                         </a>
                     </div>
