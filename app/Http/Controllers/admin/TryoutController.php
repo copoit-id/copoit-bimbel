@@ -1115,12 +1115,36 @@ class TryoutController extends Controller
 
     private function allowUtbkControls(?string $currentType = null): bool
     {
-        return $this->utbkEnabled() || $this->isUtbkType($currentType);
+        return $this->utbkEnabled()
+            || $this->isUtbkType($currentType)
+            || $this->hasActiveUtbkCategory();
     }
 
     private function utbkEnabled(): bool
     {
         return (bool) config('client.branding.utbk_enabled', true);
+    }
+
+    private function hasActiveUtbkCategory(): bool
+    {
+        if (! Schema::hasTable('material_categories') || ! Schema::hasColumn('material_categories', 'code')) {
+            return false;
+        }
+
+        return MaterialCategory::query()
+            ->withCode()
+            ->active()
+            ->whereIn('code', $this->utbkCategoryCodes())
+            ->exists();
+    }
+
+    private function utbkCategoryCodes(): array
+    {
+        return array_values(array_unique(array_merge(
+            ['utbk_full', 'utbk_section'],
+            array_keys(self::UTBK_SINGLE_TYPES),
+            array_values(self::UTBK_SINGLE_TYPES),
+        )));
     }
 
     private function isUtbkType(?string $type): bool
