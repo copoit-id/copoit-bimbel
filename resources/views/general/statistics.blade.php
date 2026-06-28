@@ -28,6 +28,15 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #cbd5e1;
     }
+    @media (min-width: 768px) {
+        .ptn-prodi-table {
+            min-width: 920px;
+        }
+        .ptn-prodi-grid {
+            display: grid;
+            grid-template-columns: 86px minmax(230px, 1.5fr) 86px 96px 96px minmax(240px, 1.2fr);
+        }
+    }
 </style>
 @endpush
 
@@ -274,14 +283,17 @@
 
                     <!-- Prodi List Grid / Table -->
                     <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <div class="ptn-prodi-table">
                         
                         <!-- Table Head (Desktop) -->
-                        <div class="hidden md:grid grid-cols-12 gap-4 bg-slate-50/50 px-6 py-3 border-b border-slate-100 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                            <div class="col-span-2">Kode</div>
-                            <div class="col-span-4">Program Studi</div>
-                            <div class="col-span-2 text-center">Kuota (2025)</div>
-                            <div class="col-span-2 text-center">Peminat Terbaru</div>
-                            <div class="col-span-2 text-center">Keketatan</div>
+                        <div class="hidden md:grid ptn-prodi-grid gap-4 bg-slate-50/50 px-6 py-3 border-b border-slate-100 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                            <div>Kode</div>
+                            <div>Program Studi</div>
+                            <div class="text-center">Kuota (2025)</div>
+                            <div class="text-center">Peminat Terbaru</div>
+                            <div class="text-center">Keketatan</div>
+                            <div class="text-center">Mapel Pendukung</div>
                         </div>
 
                         <!-- Table Body Rows -->
@@ -291,15 +303,15 @@
                                     
                                     <!-- Row Content Trigger -->
                                     <button @click="openProdiDetail(prodi)"
-                                            class="w-full text-left px-5 py-3.5 grid grid-cols-1 md:grid-cols-12 gap-2.5 md:gap-4 items-center focus:outline-none select-none group">
+                                            class="w-full text-left px-5 py-3.5 grid grid-cols-1 ptn-prodi-grid gap-2.5 md:gap-4 items-center focus:outline-none select-none group">
                                         
                                         <!-- Code -->
-                                        <div class="col-span-1 md:col-span-2">
+                                        <div>
                                             <span class="text-xs font-mono font-medium text-slate-400 bg-slate-50/70 border border-slate-200/50 px-1.5 py-0.5 rounded" x-text="prodi.kode_prodi"></span>
                                         </div>
 
                                         <!-- Name & Jenjang Badge -->
-                                        <div class="col-span-1 md:col-span-4 space-y-1.5">
+                                        <div class="space-y-1.5 min-w-0">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-sm font-semibold text-slate-800 leading-snug group-hover:text-primary transition-colors" x-text="prodi.nama"></span>
                                             </div>
@@ -312,24 +324,39 @@
                                         </div>
 
                                         <!-- Daya Tampung -->
-                                        <div class="col-span-1 md:col-span-2 text-left md:text-center flex md:block justify-between items-center text-xs">
+                                        <div class="text-left md:text-center flex md:block justify-between items-center text-xs">
                                             <span class="text-slate-400 font-medium md:hidden">Kuota 2025:</span>
                                             <span class="font-semibold text-slate-700 text-sm" x-text="prodi.latest_daya_tampung"></span>
                                         </div>
 
                                         <!-- Peminat -->
-                                        <div class="col-span-1 md:col-span-2 text-left md:text-center flex md:block justify-between items-center text-xs">
+                                        <div class="text-left md:text-center flex md:block justify-between items-center text-xs">
                                             <span class="text-slate-400 font-medium md:hidden">Peminat terbaru:</span>
                                             <span class="font-semibold text-slate-600 text-sm" x-text="prodi.latest_peminat || '0'"></span>
                                         </div>
 
                                         <!-- Keketatan badge -->
-                                        <div class="col-span-1 md:col-span-2 text-left md:text-center flex md:block justify-between items-center">
+                                        <div class="text-left md:text-center flex md:block justify-between items-center">
                                             <span class="text-slate-400 font-medium md:hidden">Keketatan:</span>
                                             <span :class="getKeketatanLabel(prodi.keketatan).class"
                                                   class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium leading-none"
                                                   x-text="getKeketatanLabel(prodi.keketatan).text">
                                             </span>
+                                        </div>
+
+                                        <!-- Supporting Subjects -->
+                                        <div class="text-left md:text-center flex md:block justify-between items-start gap-3 min-w-0">
+                                            <span class="text-slate-400 font-medium md:hidden text-xs">Mapel pendukung:</span>
+                                            <template x-if="(prodi.mapel_pendukung || []).length > 0">
+                                                <div class="flex flex-wrap justify-end md:justify-center gap-1">
+                                                    <template x-for="mapel in prodi.mapel_pendukung" :key="mapel">
+                                                        <span class="inline-flex items-center rounded bg-amber-50 border border-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 leading-tight" x-text="mapel"></span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="(prodi.mapel_pendukung || []).length === 0">
+                                                <span class="text-xs font-medium text-slate-300">-</span>
+                                            </template>
                                         </div>
                                     </button>
 
@@ -342,6 +369,8 @@
                             <i class="ri-survey-line text-4xl mb-1.5 block"></i>
                             <p class="text-xs font-semibold">Tidak ditemukan program studi</p>
                             <p class="text-[11px] mt-0.5 text-slate-400">Sesuaikan kata kunci pencarian program studi Anda.</p>
+                        </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -398,6 +427,21 @@
             <!-- Body (Scrollable content) -->
             <div class="overflow-y-auto custom-scrollbar py-5 space-y-6 flex-1 pr-1">
                 <div class="space-y-6">
+                    <template x-if="(selectedProdi?.mapel_pendukung || []).length > 0">
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                <i class="ri-book-open-line"></i>
+                                Mapel Rapor Pendukung
+                            </h4>
+                            <div class="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="mapel in selectedProdi?.mapel_pendukung" :key="mapel">
+                                        <span class="inline-flex items-center rounded-lg bg-white border border-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800" x-text="mapel"></span>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                     
                     <!-- Stats Table History -->
                     <div class="space-y-3">

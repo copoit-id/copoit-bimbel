@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\GeneralPage;
 use App\Models\Package;
+use App\Models\PtnSupportingSubject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 class GeneralPageController extends Controller
 {
@@ -166,7 +168,40 @@ class GeneralPageController extends Controller
             return response()->json(['error' => 'Gagal mengambil data Program Studi dari server pusat.'], 502);
         }
 
-        return response()->json($data);
+        return response()->json($this->appendSupportingSubjectsToProdiList($data));
+    }
+
+    private function appendSupportingSubjectsToProdiList(array $prodiList): array
+    {
+        if (! Schema::hasTable('ptn_supporting_subjects')) {
+            return $prodiList;
+        }
+
+        $kodeProdiList = collect($prodiList)
+            ->pluck('kode_prodi')
+            ->map(fn ($kodeProdi) => (string) $kodeProdi)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($kodeProdiList->isEmpty()) {
+            return $prodiList;
+        }
+
+        $subjectsByKode = PtnSupportingSubject::query()
+            ->whereIn('kode_prodi', $kodeProdiList)
+            ->get(['kode_prodi', 'mapel_pendukung'])
+            ->keyBy('kode_prodi');
+
+        return collect($prodiList)
+            ->map(function (array $prodi) use ($subjectsByKode): array {
+                $subject = $subjectsByKode->get((string) ($prodi['kode_prodi'] ?? ''));
+
+                $prodi['mapel_pendukung'] = $subject?->mapel_pendukung ?? [];
+
+                return $prodi;
+            })
+            ->all();
     }
 
     public function articles()
