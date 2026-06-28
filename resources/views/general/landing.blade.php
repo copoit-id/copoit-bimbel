@@ -178,16 +178,16 @@
 
 @section('content')
 <!-- Section 1: Hero / Pengenalan Platform -->
-<section class="relative overflow-hidden bg-blueprint py-12 sm:py-16 md:py-20 px-4 sm:px-6 lg:px-8 border-b border-slate-200">
+<section class="relative overflow-hidden pt-32 pb-16 sm:pt-40 sm:pb-24 lg:pt-48 lg:pb-32 px-4 sm:px-6 lg:px-8 border-b border-slate-200" style="background-image: url('{{ asset('img/landing/hero/bg.png') }}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
     <div class="mx-auto max-w-7xl relative z-10">
         <div class="grid lg:grid-cols-12 gap-6 items-stretch">
             
             <!-- Left Column: Content Card -->
-            <div class="lg:col-span-7 flex flex-col">
-                <div class="glass-card rounded-[2.5rem] p-8 sm:p-12 flex flex-col justify-between h-full shadow-lg border border-white/60">
+            <div class="lg:col-span-7 flex flex-col justify-center">
+                <div class="p-4 sm:p-8 flex flex-col justify-between h-full">
                     <div class="space-y-4">
                         <div class="flex">
-                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-primary/8 text-primary font-extrabold text-xs sm:text-sm border border-primary/15 shadow-xs">
+                            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/40 backdrop-blur-md border border-white/60 text-slate-800 font-extrabold text-xs sm:text-sm shadow-sm">
                                 <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white shrink-0 animate-blink-gold">
                                     <i class="ri-medal-fill text-xs"></i>
                                 </span>
@@ -204,17 +204,16 @@
                         </p>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row gap-4 mt-6 pt-5 border-t border-slate-100/50">
+                    <div class="flex flex-col sm:flex-row gap-4 mt-8">
                         <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
-                           class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary hover:bg-primary-hover px-6 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-md hover:shadow-lg active:scale-98">
+                           class="inline-flex items-center justify-center gap-2.5 rounded-full bg-primary hover:bg-primary-hover px-8 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] active:scale-98">
                             {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}
                             <i class="ri-arrow-right-line"></i>
                         </a>
                         <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}"
                            target="_blank"
                            rel="noopener noreferrer"
-                           class="inline-flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-6 py-3.5 text-sm sm:text-base font-bold text-slate-700 transition-all active:scale-98">
-                            <i class="ri-whatsapp-line text-emerald-500 text-lg"></i>
+                           class="inline-flex items-center justify-center gap-2.5 rounded-full border border-primary text-primary hover:bg-primary/5 px-8 py-3.5 text-sm sm:text-base font-bold transition-all active:scale-98">
                             {{ $landingValue('hero.secondary_cta.label', 'Hubungi Admin') }}
                         </a>
                     </div>
@@ -222,30 +221,31 @@
             </div>
 
             <!-- Right Column: Stacks of two cards -->
-            <div class="lg:col-span-5 flex flex-col gap-6">
+            <div class="lg:col-span-5 flex flex-col items-center justify-center relative mt-8 lg:mt-0">
                 <!-- Top Card: Illustration -->
-                <div class="glass-card rounded-[2.5rem] flex items-center justify-center shadow-lg border border-white/60 overflow-hidden aspect-[16/10] w-full">
-                    <img src="{{ $landingAsset($landingValue('hero.image'), 'img/hero_study.png') }}"
+                <div class="flex items-center justify-center w-full relative z-10 animate-float-slow">
+                    <img src="{{ asset('img/landing/hero/grafis.png') }}"
                          alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
-                         class="w-full h-full object-cover">
+                         class="w-[125%] md:w-[140%] max-w-none h-auto object-contain scale-110 lg:scale-125 origin-center">
                 </div>
 
                 <!-- Bottom Card: Partner / Campus Logos Stack -->
-                <div class="glass-card-shiny-amber rounded-[2.5rem] p-6 sm:p-8 shadow-lg flex-1 flex flex-col justify-center">
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                        <div class="md:col-span-7">
-                            <p class="text-xs sm:text-sm font-extrabold text-slate-800 leading-snug uppercase tracking-wide">
-                                {!! strip_tags($landingValue('hero.social_proof_html', 'BERGABUNG BERSAMA 10.000+ PEJUANG UTBK & SNBP TAHUN INI!'), '<span><strong>') !!}
-                            </p>
+                <div class="w-full max-w-sm rounded-3xl bg-white/40 backdrop-blur-md border border-white/60 p-4 shadow-lg flex flex-col justify-center relative z-20 mt-2 sm:mt-4 mx-auto">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-white/60 flex items-center justify-center shadow-sm">
+                            <i class="ri-team-line text-slate-700 text-xl"></i>
                         </div>
-                        <div class="md:col-span-5">
-                            <div class="grid grid-cols-4 gap-2">
+                        <div class="flex flex-col gap-2">
+                            <p class="text-xs sm:text-sm font-bold text-slate-800 leading-snug tracking-tight">
+                                {!! strip_tags($landingValue('hero.social_proof_html', 'Bergabung Bersama Lebih Dari 100.000+ Pejuang PTN!'), '<span><strong>') !!}
+                            </p>
+                            <div class="flex flex-wrap justify-start gap-2">
                                 @php
                                     $logoStack = $landingItems('hero.logo_stack');
                                 @endphp
                                 @foreach($logoStack as $logo)
-                                    <div class="aspect-square flex items-center justify-center p-1 rounded-full bg-white shadow-xs border border-slate-100" title="{{ data_get($logo, 'alt') }}">
-                                        <img class="h-6 w-6 object-contain" src="{{ $landingAsset(data_get($logo, 'src'), 'img/logo_kampus.png') }}" alt="{{ data_get($logo, 'alt') }}">
+                                    <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-slate-100" title="{{ data_get($logo, 'alt') }}">
+                                        <img class="h-5 w-5 object-contain" src="{{ $landingAsset(data_get($logo, 'src'), 'img/logo_kampus.png') }}" alt="{{ data_get($logo, 'alt') }}">
                                     </div>
                                 @endforeach
                             </div>

@@ -26,46 +26,48 @@
 </head>
 
 <body class="min-h-screen bg-slate-50 text-slate-900">
-    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-            <a href="{{ $homeRoute }}" class="flex min-w-0 items-center gap-3">
+    <header class="absolute top-4 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 flex justify-center">
+        <div class="w-full max-w-5xl rounded-full bg-white/40 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-between px-4 py-2.5">
+            <a href="{{ $homeRoute }}" class="flex items-center gap-3">
                 <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
-                    class="h-10 w-10 rounded-lg object-contain">
-                <div class="min-w-0">
-                    <p class="truncate text-sm font-bold text-slate-950 sm:text-base">{{ $clientBranding['name'] }}</p>
-                    <p class="hidden text-xs text-slate-500 sm:block">Informasi dan artikel</p>
+                    class="h-9 w-9 rounded-lg object-contain">
+                <div class="hidden sm:block">
+                    <p class="text-sm font-bold text-slate-900 leading-tight">{{ $clientBranding['name'] }}</p>
+                    <p class="text-[10px] text-slate-600 font-medium">Informasi dan artikel</p>
                 </div>
             </a>
 
-            <nav class="hidden items-center gap-1 text-sm font-medium text-slate-600 md:flex">
+            <nav class="hidden items-center gap-6 text-sm font-medium text-slate-800 md:flex">
                 @if($showLandingNav)
                 <a href="{{ route('landing') }}"
-                    class="rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
+                    class="hover:text-primary transition-colors {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'text-primary' : '' }}">
                     Home
                 </a>
                 @endif
                 @if($showStatisticsNav)
                 <div class="group relative">
                     <button type="button"
-                        class="rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
+                        class="hover:text-primary transition-colors flex items-center gap-1 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'text-primary' : '' }}">
                         Statistik PTN
-                        <i class="ri-arrow-down-s-line align-middle"></i>
                     </button>
-                    <div class="invisible absolute left-0 top-full z-50 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1 text-slate-700 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+                    <div class="invisible absolute left-1/2 -translate-x-1/2 top-full z-50 mt-4 w-44 rounded-xl border border-white/60 bg-white/80 backdrop-blur-md p-2 text-slate-700 opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-hover:mt-2">
                         <a href="{{ route('statistics') }}"
-                            class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
+                            class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/50' }}">
                             Statistik SNBP
                         </a>
                         <a href="{{ route('statistics.snbt') }}"
-                            class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
+                            class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/50' }}">
                             Statistik SNBT
                         </a>
                     </div>
                 </div>
                 @endif
+                <a href="#" class="hover:text-primary transition-colors">Try Out</a>
+                <a href="#" class="hover:text-primary transition-colors">Kelas & Materi</a>
+                <a href="#program" class="hover:text-primary transition-colors">Paket</a>
                 @if($showArticlesNav)
                 <a href="{{ route('articles.index') }}"
-                    class="rounded-lg px-3 py-2 {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
+                    class="hover:text-primary transition-colors {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'text-primary' : '' }}">
                     Artikel
                 </a>
                 @endif
@@ -74,50 +76,22 @@
             <div class="flex items-center gap-2">
                 @auth
                     <a href="{{ route('user.dashboard.index') }}"
-                        class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        class="rounded-full border border-slate-300 bg-transparent px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-white/50 transition-colors">
                         Dashboard
                     </a>
                 @else
                     <a href="{{ route('login') }}"
-                        class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        class="rounded-full border border-slate-300 bg-transparent px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-white/50 transition-colors">
                         Login
                     </a>
                 @endauth
             </div>
+            
+            <!-- Mobile Menu Button (Optional, can keep it simple or implement a hamburger) -->
+            <button class="md:hidden text-slate-800 p-2">
+                <i class="ri-menu-line text-xl"></i>
+            </button>
         </div>
-
-        <nav class="flex flex-wrap gap-1 border-t border-slate-100 px-4 py-2 text-sm font-medium text-slate-600 md:hidden">
-            @if($showLandingNav)
-            <a href="{{ route('landing') }}"
-                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'bg-white' }}">
-                Home
-            </a>
-            @endif
-            @if($showStatisticsNav)
-            <details class="group relative shrink-0">
-                <summary class="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'bg-primary text-white' : 'bg-white' }}">
-                    Statistik PTN
-                    <i class="ri-arrow-down-s-line transition-transform group-open:rotate-180"></i>
-                </summary>
-                <div class="absolute left-0 top-full z-50 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1 text-slate-700 shadow-lg">
-                    <a href="{{ route('statistics') }}"
-                        class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
-                        Statistik SNBP
-                    </a>
-                    <a href="{{ route('statistics.snbt') }}"
-                        class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-slate-50' }}">
-                        Statistik SNBT
-                    </a>
-                </div>
-            </details>
-            @endif
-            @if($showArticlesNav)
-            <a href="{{ route('articles.index') }}"
-                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'bg-primary text-white' : 'bg-white' }}">
-                Artikel
-            </a>
-            @endif
-        </nav>
     </header>
 
     <main>
