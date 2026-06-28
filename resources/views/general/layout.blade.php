@@ -69,28 +69,28 @@
                     </div>
                 </div>
                 @endif
+                @if($showArticlesNav)
+                <a href="{{ route('articles.index') }}"
+                    class="hover:text-primary transition-colors {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'text-primary' : '' }}">
+                    Artikel
+                </a>
+                @endif
                 @if($showTryoutNav)
-                <a href="{{ route('user.package.tryout.list') }}"
+                <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'text-primary' : '' }}">
                     Try Out
                 </a>
                 @endif
                 @if($showMaterialNav)
-                <a href="{{ route('user.material.index') }}"
+                <a href="{{ route('user.material.index', ['layout' => 'landing']) }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('user.material.*') ? 'text-primary' : '' }}">
                     Kelas & Materi
                 </a>
                 @endif
                 @if($showPackageNav)
-                <a href="{{ route('user.package.index') }}"
+                <a href="{{ route('user.package.index', ['layout' => 'landing']) }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('user.package.index', 'user.package.detail') ? 'text-primary' : '' }}">
                     Paket
-                </a>
-                @endif
-                @if($showArticlesNav)
-                <a href="{{ route('articles.index') }}"
-                    class="hover:text-primary transition-colors {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'text-primary' : '' }}">
-                    Artikel
                 </a>
                 @endif
             </nav>
@@ -139,28 +139,28 @@
                         </div>
                     </details>
                     @endif
+                    @if($showArticlesNav)
+                    <a href="{{ route('articles.index') }}"
+                        class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
+                        Artikel
+                    </a>
+                    @endif
                     @if($showTryoutNav)
-                    <a href="{{ route('user.package.tryout.list') }}"
+                    <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
                         Try Out
                     </a>
                     @endif
                     @if($showMaterialNav)
-                    <a href="{{ route('user.material.index') }}"
+                    <a href="{{ route('user.material.index', ['layout' => 'landing']) }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('user.material.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
                         Kelas & Materi
                     </a>
                     @endif
                     @if($showPackageNav)
-                    <a href="{{ route('user.package.index') }}"
+                    <a href="{{ route('user.package.index', ['layout' => 'landing']) }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('user.package.index', 'user.package.detail') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
                         Paket
-                    </a>
-                    @endif
-                    @if($showArticlesNav)
-                    <a href="{{ route('articles.index') }}"
-                        class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                        Artikel
                     </a>
                     @endif
                 </div>
