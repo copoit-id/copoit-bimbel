@@ -1,8 +1,15 @@
-@extends('user.layout.new-user')
+@php
+    $useGeneralLayout = request('layout') === 'landing' || (!auth()->check() && request()->routeIs('user.package.index'));
+@endphp
+@extends($useGeneralLayout ? 'general.layout' : 'user.layout.new-user')
 
 @section('title', 'Paket')
 
 @section('content')
+@if($useGeneralLayout)
+<div class="mx-auto max-w-7xl px-4 pt-32 pb-16 sm:px-6 sm:pt-40 lg:px-8 bg-gray-50 min-h-screen">
+@endif
+
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $paymentMode = $clientBranding['payment_mode'] ?? 'gateway';
@@ -571,6 +578,9 @@ setTimeout(() => {
     document.getElementById('errorToast')?.remove();
 }, 3000);
 </script>
+@endif
+@if($useGeneralLayout)
+</div>
 @endif
 @endsection
 

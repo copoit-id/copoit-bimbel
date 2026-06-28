@@ -1,8 +1,15 @@
-@extends('user.layout.new-user')
+@php
+    $useGeneralLayout = request('layout') === 'landing' || (!auth()->check() && request()->routeIs('user.material.index'));
+@endphp
+@extends($useGeneralLayout ? 'general.layout' : 'user.layout.new-user')
 
 @section('title', 'Materi Pembelajaran')
 
 @section('content')
+@if($useGeneralLayout)
+<div class="mx-auto max-w-7xl px-4 pt-32 pb-16 sm:px-6 sm:pt-40 lg:px-8 bg-gray-50 min-h-screen">
+@endif
+
 @php
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
@@ -263,6 +270,9 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
         </div>
     </div>
 </div>
+@if($useGeneralLayout)
+</div>
+@endif
 @endsection
 
 @push('scripts')
