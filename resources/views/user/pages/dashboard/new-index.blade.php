@@ -8,6 +8,7 @@ $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
 $showStatisticsDashboard = $showStatisticsDashboard ?? false;
+$showLandingDashboard = $showLandingDashboard ?? false;
 
 // Convert hex primary color to RGB for opacity adjustments
 $primaryHex = str_replace('#', '', $primaryColor);
@@ -568,6 +569,7 @@ $primaryRgb = "$r, $g, $b";
 </div>
 @endif
 
+@if($showLandingDashboard)
 <!-- Section: Komunitas Belajar -->
 <div class="relative overflow-hidden rounded-[2rem] p-8 md:p-10 text-white mb-6" style="background: linear-gradient(135deg, {{ $primaryColor }} 0%, {{ $primaryColor }}dd 100%);">
     <!-- Decorative light overlays -->
@@ -600,6 +602,7 @@ $primaryRgb = "$r, $g, $b";
         </div>
     </div>
 </div>
+@endif
 
 @section('styles')
 <style>

@@ -26,6 +26,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $showStatisticsDashboard = $this->showStatisticsDashboard();
+        $showLandingDashboard = $this->showLandingDashboard();
 
         // If no user, just show guest view with public packages
         if (!$user) {
@@ -47,6 +48,7 @@ class DashboardController extends Controller
                     'snbt' => 'Pilih Target',
                 ],
                 'showStatisticsDashboard' => $showStatisticsDashboard,
+                'showLandingDashboard' => $showLandingDashboard,
             ]);
         }
 
@@ -241,17 +243,28 @@ class DashboardController extends Controller
             'unpaidInvoices',
             'upcomingClassSessions',
             'destinationKeketatan',
-            'showStatisticsDashboard'
+            'showStatisticsDashboard',
+            'showLandingDashboard'
         ));
     }
 
     private function showStatisticsDashboard(): bool
     {
+        return $this->isGeneralPageActive('statistik-ptn');
+    }
+
+    private function showLandingDashboard(): bool
+    {
+        return $this->isGeneralPageActive('landing');
+    }
+
+    private function isGeneralPageActive(string $pageKey): bool
+    {
         if (! Schema::hasTable('general_pages')) {
             return false;
         }
 
-        return (bool) GeneralPage::findActiveByKey('statistik-ptn');
+        return (bool) GeneralPage::findActiveByKey($pageKey);
     }
 
     private function destinationKeketatan($user): array
