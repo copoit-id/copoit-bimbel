@@ -10,6 +10,9 @@ $isGuest = !Auth::check();
 $publicDiscounts = $publicDiscounts ?? collect();
 $packageAutomaticDiscount = $packageAutomaticDiscount ?? null;
 $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
+$tryoutCount = $package->tryouts->count();
+$tesKoranCount = $tesKoranEnabled ? $package->tesKorans->count() : 0;
+$classCount = $package->classes->count();
 @endphp
 
 <!-- Header -->
@@ -81,50 +84,62 @@ $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
                 
                 <!-- Stats -->
                 <div class="flex flex-wrap gap-4">
+                    @if($totalVideos > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-video-line" style="color: {{ $primaryColor }}"></i>
                         </div>
                         <span>{{ $totalVideos }} Video</span>
                     </div>
+                    @endif
+                    @if($totalDocuments > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-file-text-line" style="color: {{ $primaryColor }}"></i>
                         </div>
                         <span>{{ $totalDocuments }} Dokumen</span>
                     </div>
+                    @endif
+                    @if($totalLiveSessions > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>
                         </div>
                         <span>{{ $totalLiveSessions }} Live Session</span>
                     </div>
+                    @endif
+                    @if($tryoutCount > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-file-list-3-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $package->tryouts->count() }} Tryout</span>
+                        <span>{{ $tryoutCount }} Tryout</span>
                     </div>
-                    @if($tesKoranEnabled)
+                    @endif
+                    @if($tesKoranCount > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-file-edit-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $package->tesKorans->count() }} Tes Koran</span>
+                        <span>{{ $tesKoranCount }} Tes Koran</span>
                     </div>
                     @endif
+                    @if($classCount > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-group-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $package->classes->count() }} Kelas</span>
+                        <span>{{ $classCount }} Kelas</span>
                     </div>
+                    @endif
+                    @if($totalMaterials > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-book-3-line" style="color: {{ $primaryColor }}"></i>
                         </div>
                         <span>{{ $totalMaterials }} Materi</span>
                     </div>
+                    @endif
                 </div>
             </div>
             
