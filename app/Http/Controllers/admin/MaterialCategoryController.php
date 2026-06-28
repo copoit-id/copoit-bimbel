@@ -57,6 +57,7 @@ class MaterialCategoryController extends Controller
         }
 
         $validated['code'] = $this->generateUniqueCode($validated['name']);
+        $validated['is_active'] = true;
 
         MaterialCategory::create($validated);
 
