@@ -950,6 +950,8 @@ class TryoutController extends Controller
         $allowedCodes = collect(self::LEGACY_TRYOUT_TYPES);
 
         if (Schema::hasTable('material_categories') && Schema::hasColumn('material_categories', 'code')) {
+            $this->ensureMaterialCategoryCodes();
+
             $allowedCodes = $allowedCodes->merge(
                 MaterialCategory::query()
                     ->withCode()
@@ -1010,6 +1012,41 @@ class TryoutController extends Controller
             ->all();
 
         return $categories ?: $this->fallbackTryoutTypeOptions($codes);
+    }
+
+    private function ensureMaterialCategoryCodes(): void
+    {
+        MaterialCategory::query()
+            ->where(function ($query) {
+                $query->whereNull('code')
+                    ->orWhere('code', '');
+            })
+            ->orderBy('category_id')
+            ->get(['category_id', 'name'])
+            ->each(function (MaterialCategory $category) {
+                $category->forceFill([
+                    'code' => $this->uniqueMaterialCategoryCode($category->name, $category->category_id),
+                ])->save();
+            });
+    }
+
+    private function uniqueMaterialCategoryCode(string $name, ?int $ignoreCategoryId = null): string
+    {
+        $baseCode = Str::of($name)->slug('_')->lower()->toString() ?: 'kategori';
+        $code = $baseCode;
+        $suffix = 2;
+
+        while (
+            MaterialCategory::query()
+                ->where('code', $code)
+                ->when($ignoreCategoryId, fn ($query) => $query->whereKeyNot($ignoreCategoryId))
+                ->exists()
+        ) {
+            $code = "{$baseCode}_{$suffix}";
+            $suffix++;
+        }
+
+        return $code;
     }
 
     private function fallbackTryoutTypeOptions(array $codes): array
