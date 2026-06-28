@@ -210,6 +210,7 @@
                 </div>
                 <div>
                     <label class="flex items-center">
+                        <input type="hidden" name="is_active" value="0">
                         <input type="checkbox" name="is_active" id="editIsActive" value="1" class="rounded border-gray-300 text-primary focus:ring-primary">
                         <span class="ml-2 text-sm text-gray-700">Aktif</span>
                     </label>

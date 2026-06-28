@@ -102,7 +102,7 @@ class MaterialCategoryController extends Controller
                 ->withInput();
         }
 
-        $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['is_active'] = $request->boolean('is_active');
 
         if (blank($category->code)) {
             $validated['code'] = $this->generateUniqueCode($validated['name'], $category);
