@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             TryoutMaterialCategorySeeder::class,
+            PtnSupportingSubjectSeeder::class,
             CompleteSystemSeeder::class,
         ]);
     }
