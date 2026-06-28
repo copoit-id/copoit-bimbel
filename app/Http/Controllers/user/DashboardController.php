@@ -10,12 +10,14 @@ use App\Models\UserAnswer;
 use App\Models\Package;
 use App\Models\BillInvoice;
 use App\Models\ClassSession;
+use App\Models\GeneralPage;
 use App\Models\MaterialProgressLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class DashboardController extends Controller
@@ -23,6 +25,8 @@ class DashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $showStatisticsDashboard = $this->showStatisticsDashboard();
+        $showLandingDashboard = $this->showLandingDashboard();
 
         // If no user, just show guest view with public packages
         if (!$user) {
@@ -43,6 +47,8 @@ class DashboardController extends Controller
                     'snbp' => 'Pilih Target',
                     'snbt' => 'Pilih Target',
                 ],
+                'showStatisticsDashboard' => $showStatisticsDashboard,
+                'showLandingDashboard' => $showLandingDashboard,
             ]);
         }
 
@@ -216,7 +222,12 @@ class DashboardController extends Controller
             $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
         }
 
-        $destinationKeketatan = $this->destinationKeketatan($user);
+        $destinationKeketatan = $showStatisticsDashboard
+            ? $this->destinationKeketatan($user)
+            : [
+                'snbp' => 'Pilih Target',
+                'snbt' => 'Pilih Target',
+            ];
 
         // Check if user wants new layout (default for now)
         return view('user.pages.dashboard.new-index', compact(
@@ -231,8 +242,29 @@ class DashboardController extends Controller
             'packageProgress',
             'unpaidInvoices',
             'upcomingClassSessions',
-            'destinationKeketatan'
+            'destinationKeketatan',
+            'showStatisticsDashboard',
+            'showLandingDashboard'
         ));
+    }
+
+    private function showStatisticsDashboard(): bool
+    {
+        return $this->isGeneralPageActive('statistik-ptn');
+    }
+
+    private function showLandingDashboard(): bool
+    {
+        return $this->isGeneralPageActive('landing');
+    }
+
+    private function isGeneralPageActive(string $pageKey): bool
+    {
+        if (! Schema::hasTable('general_pages')) {
+            return false;
+        }
+
+        return (bool) GeneralPage::findActiveByKey($pageKey);
     }
 
     private function destinationKeketatan($user): array

@@ -7,6 +7,8 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
+$showStatisticsDashboard = $showStatisticsDashboard ?? false;
+$showLandingDashboard = $showLandingDashboard ?? false;
 
 // Convert hex primary color to RGB for opacity adjustments
 $primaryHex = str_replace('#', '', $primaryColor);
@@ -30,6 +32,7 @@ $primaryRgb = "$r, $g, $b";
 </div>
 
 <!-- Welcome Card -->
+@if($showStatisticsDashboard)
 <div class="relative overflow-hidden rounded-[2rem] p-6 mb-6 border border-gray-100" style="background-color: rgba({{ $primaryRgb }}, 0.055); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.02);">
     <!-- Ambient glowing mesh backdrops using the brand primary color to maintain brand consistency without clashing -->
     <div class="absolute -left-16 -top-16 w-64 h-64 rounded-full blur-3xl pointer-events-none" style="background-color: {{ $primaryColor }}; opacity: 0.07;"></div>
@@ -156,6 +159,25 @@ $primaryRgb = "$r, $g, $b";
         </div>
     </div>
 </div>
+@else
+<div class="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">
+                {{ $isGuest ? 'Selamat Datang!' : 'Halo, ' . $user->name }}
+            </h1>
+            <p class="text-gray-500 mt-1">
+                {{ $isGuest ? 'Mulai perjalanan belajarmu sekarang' : 'Tetap semangat belajar ya!' }}
+            </p>
+        </div>
+        @if($isGuest)
+            <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                Masuk / Daftar
+            </a>
+        @endif
+    </div>
+</div>
+@endif
 
 @if(!$isGuest)
 <!-- Akses Cepat -->
@@ -547,6 +569,7 @@ $primaryRgb = "$r, $g, $b";
 </div>
 @endif
 
+@if($showLandingDashboard)
 <!-- Section: Komunitas Belajar -->
 <div class="relative overflow-hidden rounded-[2rem] p-8 md:p-10 text-white mb-6" style="background: linear-gradient(135deg, {{ $primaryColor }} 0%, {{ $primaryColor }}dd 100%);">
     <!-- Decorative light overlays -->
@@ -579,6 +602,7 @@ $primaryRgb = "$r, $g, $b";
         </div>
     </div>
 </div>
+@endif
 
 @section('styles')
 <style>
