@@ -1,6 +1,4 @@
 *
 !private/
 !public/
-!imports/
-!imports/DATA_MAPEL_RAPOR_PENDUKUNG.xlsx
 !.gitignore

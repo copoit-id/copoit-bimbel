@@ -9,7 +9,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class PtnSupportingSubjectSeeder extends Seeder
 {
-    private const SOURCE_FILE = 'imports/DATA_MAPEL_RAPOR_PENDUKUNG.xlsx';
+    private const SOURCE_FILE = 'DATA_MAPEL_RAPOR_PENDUKUNG.xlsx';
 
     public function run(): void
     {
@@ -19,7 +19,7 @@ class PtnSupportingSubjectSeeder extends Seeder
             return;
         }
 
-        $path = storage_path('app/'.self::SOURCE_FILE);
+        $path = database_path('data/'.self::SOURCE_FILE);
         if (! file_exists($path)) {
             $this->command?->warn("Skipping PTN supporting subject import: file not found at {$path}.");
 
