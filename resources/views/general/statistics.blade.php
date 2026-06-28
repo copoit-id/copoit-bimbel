@@ -11,7 +11,6 @@
 @endphp
 
 @push('styles')
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <style>
     /* Custom scrollbar for PTN list */
     .custom-scrollbar::-webkit-scrollbar {
@@ -41,7 +40,7 @@
 @endpush
 
 @section('content')
-<section class="relative overflow-hidden bg-slate-950 py-14 text-white sm:py-16">
+<section class="relative overflow-hidden bg-slate-950 pt-32 pb-14 text-white sm:pt-40 sm:pb-16">
     <!-- Background overlay patterns -->
     <div class="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]"></div>
     <div class="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/10 blur-3xl"></div>

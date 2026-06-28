@@ -3,7 +3,7 @@
 @section('title', 'Artikel')
 
 @section('content')
-<section class="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-br from-white via-white to-primary/5 py-16 sm:py-20">
+<section class="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-br from-white via-white to-primary/5 pt-32 pb-16 sm:pt-40 sm:pb-20">
     <!-- Decorative background elements -->
     <div class="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl"></div>
     <div class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl"></div>

@@ -44,7 +44,6 @@
 @section('title', $landingValue('meta.title', 'Persiapan Ujian UTBK SNBT & SNBP Terbaik'))
 
 @push('styles')
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         /* Custom floating and pulse animations for premium feel */
         @keyframes float-slow {

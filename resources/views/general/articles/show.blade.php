@@ -3,7 +3,6 @@
 @section('title', $article->title)
 
 @push('styles')
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <style>
     .article-content {
         font-size: 1.05rem;
@@ -123,7 +122,7 @@
 
 @section('content')
 <article class="bg-white">
-    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl px-4 pt-32 pb-12 sm:pt-40 sm:pb-16 lg:px-8">
         <div class="grid grid-cols-1 gap-10 lg:grid-cols-12">
             
             <!-- Main Content Column (Left) -->
