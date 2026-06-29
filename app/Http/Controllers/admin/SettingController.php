@@ -59,6 +59,7 @@ class SettingController extends Controller
             'footer_links' => [],
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
+            'ai_discussion_feature_enabled' => false,
             'ai_discussion_settings' => [],
             'participant_destination_api_enabled' => false,
         ]);
@@ -291,7 +292,8 @@ class SettingController extends Controller
                 ->with('active_tab', 'ai');
         }
 
-        $aiDiscussionSettingsResult = $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings']);
+        $aiDiscussionFeatureEnabled = (bool) config('client.branding.ai_discussion_feature_enabled', false);
+        $aiDiscussionSettingsResult = $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], $aiDiscussionFeatureEnabled);
         if (!empty($aiDiscussionSettingsResult['errors'])) {
             return back()
                 ->withErrors($aiDiscussionSettingsResult['errors'])
@@ -565,7 +567,7 @@ class SettingController extends Controller
             ->all();
     }
 
-    private function buildAiDiscussionSettings(Request $request, ClientProfile $profile, array $sharedAiSettings): array
+    private function buildAiDiscussionSettings(Request $request, ClientProfile $profile, array $sharedAiSettings, bool $featureEnabled): array
     {
         $existing = is_array($profile->ai_discussion_settings ?? null)
             ? $profile->ai_discussion_settings
@@ -592,7 +594,7 @@ class SettingController extends Controller
 
         return [
             'settings' => [
-                'enabled' => $request->boolean('ai_discussion_enabled'),
+                'enabled' => $featureEnabled && $request->boolean('ai_discussion_enabled'),
                 'credential_mode' => $credentialMode,
                 'model' => $model,
                 'providers' => [

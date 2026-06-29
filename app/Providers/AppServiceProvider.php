@@ -90,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
             'tes_koran_enabled' => true,
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
+            'ai_discussion_feature_enabled' => false,
             'ai_discussion_settings' => [],
             'admin_assistant_enabled' => false,
             'class_schedule_menu_enabled' => false,
@@ -152,6 +153,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['footer_twitter'] = $clientProfile->footer_twitter ?? $defaults['footer_twitter'];
             $defaults['footer_youtube'] = $clientProfile->footer_youtube ?? $defaults['footer_youtube'];
             $defaults['ai_question_generator_settings'] = $clientProfile->ai_question_generator_settings ?: $defaults['ai_question_generator_settings'];
+            $defaults['ai_discussion_feature_enabled'] = (bool) ($clientProfile->ai_discussion_feature_enabled ?? $defaults['ai_discussion_feature_enabled']);
             $defaults['ai_discussion_settings'] = $clientProfile->ai_discussion_settings ?: $defaults['ai_discussion_settings'];
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
             $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);

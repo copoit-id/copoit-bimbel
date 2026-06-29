@@ -7,7 +7,8 @@
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
         $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
-        $aiDiscussionEnabled = (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
+        $aiDiscussionEnabled = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
+            && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
     @endphp

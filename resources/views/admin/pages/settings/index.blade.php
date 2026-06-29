@@ -21,6 +21,7 @@
     @php
     $settingErrorKeys = $errors->keys();
     $aiGeneratorEnabled = (bool) ($branding['ai_question_generator_enabled'] ?? false);
+    $aiDiscussionFeatureEnabled = (bool) ($branding['ai_discussion_feature_enabled'] ?? false);
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
@@ -992,6 +993,7 @@
             </div>
             @endif
 
+            @if($aiDiscussionFeatureEnabled)
             <div class="border-t border-gray-100 pt-6 space-y-5">
                 <div>
                     <p class="font-semibold text-gray-900">Diskusi AI di Pembahasan</p>
@@ -1083,6 +1085,13 @@
                 </div>
                 @endif
             </div>
+            @else
+            <div class="border-t border-gray-100 pt-6">
+                <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                    Diskusi AI pembahasan belum diaktifkan oleh super admin. Fitur ini default mati.
+                </div>
+            </div>
+            @endif
         </div>
 
         <div class="flex items-center justify-end gap-3">

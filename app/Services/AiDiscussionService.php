@@ -14,7 +14,8 @@ class AiDiscussionService
 {
     public function isEnabled(): bool
     {
-        return (bool) ($this->settings()['enabled'] ?? false);
+        return (bool) config('client.branding.ai_discussion_feature_enabled', false)
+            && (bool) ($this->settings()['enabled'] ?? false);
     }
 
     public function chat(string $message, array $context): array
