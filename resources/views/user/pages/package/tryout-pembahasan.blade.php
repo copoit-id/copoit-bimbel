@@ -7,6 +7,9 @@
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
         $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+        $aiDiscussionEnabled = (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
+        $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
+        $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -652,6 +655,47 @@
                 </div>
             </div>
             @endif
+
+            @if($aiDiscussionEnabled)
+            <div class="ai-discussion mt-4 rounded-xl border border-gray-200 bg-white p-3"
+                data-question-id="{{ $question->question_id }}">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <i class="ri-robot-2-line text-lg"></i>
+                        </span>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Diskusi dengan AI</p>
+                            <p class="text-xs text-gray-500">Tanyakan langkah, konsep, atau kenapa jawabanmu salah.</p>
+                        </div>
+                    </div>
+                    <button type="button"
+                        class="ai-discussion-toggle inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                        <i class="ri-message-3-line"></i>
+                        Buka
+                    </button>
+                </div>
+                <div class="ai-discussion-body mt-3 hidden space-y-3">
+                    <div class="ai-discussion-messages max-h-72 space-y-2 overflow-y-auto rounded-lg bg-gray-50 p-3 text-sm">
+                        <div class="max-w-[90%] rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-700">
+                            Mau bahas bagian mana dari soal ini?
+                        </div>
+                    </div>
+                    <form class="ai-discussion-form flex flex-col gap-2 sm:flex-row">
+                        <input type="text"
+                            class="ai-discussion-input min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            maxlength="1200"
+                            placeholder="Contoh: jelaskan kenapa opsi B benar">
+                        <button type="submit"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
+                            <i class="ri-send-plane-2-line"></i>
+                            Kirim
+                        </button>
+                    </form>
+                    <p class="ai-discussion-error hidden text-xs text-red-600"></p>
+                </div>
+            </div>
+            @endif
         </div>
         @endforeach
 
@@ -739,31 +783,40 @@
 
     <!-- Action Buttons -->
     <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="{{ route('user.package.tryout', $package->package_id) }}"
-            class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
-        </a>
+        @if($package)
+            <a href="{{ route('user.package.tryout', $package->package_id) }}"
+                class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
+                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+            </a>
+        @else
+            <a href="{{ route('user.event.index') }}"
+                class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
+                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
+            </a>
+        @endif
 
+        @if($package)
         <a href="{{ route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id]) }}"
             class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
             <i class="ri-history-line mr-2"></i>Lihat Riwayat
         </a>
+        @endif
 
-        @if($tryout->show_leaderboard)
+        @if($package && $tryout->show_leaderboard)
         <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
         @endif
 
-        @if($clientBranding['certificate_management_enabled'] ?? true)
+        @if($package && ($clientBranding['certificate_management_enabled'] ?? true))
         <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $token]) }}"
             class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
             <i class="ri-award-line mr-2"></i>Preview Sertifikat
         </a>
         @endif
 
-        <a href="{{ route('user.tryout.lobby', [$package->package_id, $tryout->tryout_id]) }}"
+        <a href="{{ route('user.tryout.lobby', [$packageRouteId, $tryout->tryout_id]) }}"
             class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center">
             <i class="ri-refresh-line mr-2"></i>Coba Lagi
         </a>
@@ -808,6 +861,89 @@
             setDiscussionQuestion(button.dataset.questionTarget || 'all');
         });
     });
+
+    const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
+    const csrfToken = @json(csrf_token());
+
+    document.querySelectorAll('.ai-discussion').forEach((wrapper) => {
+        const toggle = wrapper.querySelector('.ai-discussion-toggle');
+        const body = wrapper.querySelector('.ai-discussion-body');
+        const form = wrapper.querySelector('.ai-discussion-form');
+        const input = wrapper.querySelector('.ai-discussion-input');
+        const messages = wrapper.querySelector('.ai-discussion-messages');
+        const error = wrapper.querySelector('.ai-discussion-error');
+        const submitButton = form?.querySelector('button[type="submit"]');
+
+        toggle?.addEventListener('click', () => {
+            const isHidden = body.classList.toggle('hidden');
+            toggle.innerHTML = isHidden
+                ? '<i class="ri-message-3-line"></i> Buka'
+                : '<i class="ri-close-line"></i> Tutup';
+            if (!isHidden) {
+                input?.focus();
+            }
+        });
+
+        form?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const message = (input.value || '').trim();
+            if (!message) {
+                return;
+            }
+
+            appendAiDiscussionMessage(messages, message, 'user');
+            input.value = '';
+            error?.classList.add('hidden');
+            submitButton.disabled = true;
+            const loadingBubble = appendAiDiscussionMessage(messages, 'AI sedang menyusun jawaban...', 'loading');
+
+            try {
+                const response = await fetch(aiDiscussionEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({
+                        question_id: wrapper.dataset.questionId,
+                        message,
+                    }),
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Diskusi AI gagal diproses.');
+                }
+
+                loadingBubble.remove();
+                appendAiDiscussionMessage(messages, data.message || 'AI tidak mengembalikan jawaban.', 'ai');
+            } catch (err) {
+                loadingBubble.remove();
+                if (error) {
+                    error.textContent = err.message || 'Diskusi AI gagal diproses.';
+                    error.classList.remove('hidden');
+                }
+            } finally {
+                submitButton.disabled = false;
+                messages.scrollTop = messages.scrollHeight;
+            }
+        });
+    });
+
+    function appendAiDiscussionMessage(messages, text, type) {
+        const bubble = document.createElement('div');
+        const isUser = type === 'user';
+        bubble.className = [
+            'max-w-[92%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-line',
+            isUser ? 'ml-auto bg-primary text-white' : 'bg-white border border-gray-200 text-gray-700',
+            type === 'loading' ? 'text-gray-500 italic' : '',
+        ].join(' ');
+        bubble.textContent = text;
+        messages.appendChild(bubble);
+        messages.scrollTop = messages.scrollHeight;
+        return bubble;
+    }
     
     // Cek apakah ada essay yang menunggu koreksi AI
     const pendingEssays = document.querySelectorAll('.essay-pending-ai');

@@ -261,6 +261,12 @@
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
         </a>
         @else
+        @if($tryout->show_discussion)
+        <a href="{{ route('user.package.tryout.pembahasan', ['free', $tryout->tryout_id, $latestAttemptToken]) }}"
+            class="flex-1 bg-green-600 text-white text-center py-3 px-4 rounded-lg hover:bg-green-700 transition-colors">
+            <i class="ri-book-open-line mr-2"></i>Lihat Pembahasan
+        </a>
+        @endif
         <a href="{{ route('user.event.index') }}"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event

@@ -90,19 +90,21 @@
                 <i class="ri-trophy-line mr-2"></i>Ranking
             </a>
             @endif
+            @if($tryout->show_discussion)
+            <a href="{{ route('user.package.tryout.pembahasan', [$packageRouteId, $tryout->tryout_id, $attemptToken]) }}"
+                class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+                <i class="ri-book-open-line mr-2"></i>Pembahasan
+            </a>
+            @endif
             @else
             <a href="{{ route('user.event.index') }}"
                 class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
                 <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
             </a>
-            <a href="{{ route('user.package.tryout.riwayat', [$packageRouteId, $tryout->tryout_id]) }}"
+            @if($tryout->show_discussion)
+            <a href="{{ route('user.package.tryout.pembahasan', [$packageRouteId, $tryout->tryout_id, $attemptToken]) }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                <i class="ri-history-line mr-2"></i>Riwayat
-            </a>
-            @if($tryout->show_leaderboard)
-            <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
-                class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                <i class="ri-trophy-line mr-2"></i>Ranking
+                <i class="ri-book-open-line mr-2"></i>Pembahasan
             </a>
             @endif
             <a href="{{ route('user.dashboard.index') }}"

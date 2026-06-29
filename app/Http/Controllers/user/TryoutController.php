@@ -2179,9 +2179,11 @@ class TryoutController extends Controller
         $tryout = Tryout::findOrFail($id_tryout);
 
         // Get all completed/pending user answers untuk tryout ini dengan attempt_token yang sama
+        $requestedAttemptToken = trim((string) request('attempt', ''));
         $userAnswers = UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->whereIn('status', ['completed', 'pending_release'])
+            ->when($requestedAttemptToken !== '', fn ($query) => $query->where('attempt_token', $requestedAttemptToken))
             ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
             ->orderBy('created_at', 'desc')
             ->get();

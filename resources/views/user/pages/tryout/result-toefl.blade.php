@@ -153,11 +153,25 @@
 
     <!-- Action Buttons -->
     <div class="flex gap-4 justify-center">
+        @if($package)
         <a href="{{ route('user.package.tryout', $package->package_id) }}"
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali
         </a>
-        @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
+        @else
+        <a href="{{ route('user.event.index') }}"
+            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
+        </a>
+        @endif
+        @if($tryout->show_discussion)
+        <a href="{{ route('user.package.tryout.pembahasan', [request()->route('id_package') ?? ($package->package_id ?? 'free'), $tryout->tryout_id, $latestAttemptToken]) }}"
+            class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+            <i class="ri-book-open-line"></i>
+            Pembahasan
+        </a>
+        @endif
+        @if($package && ($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
         <a href="{{ route('user.certificate.preview', ['package_id' => request()->route('id_package'), 'tryout_id' => $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
             class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
             <i class="ri-award-line"></i>
@@ -165,7 +179,7 @@
         </a>
         @endif
 
-        @if($tryout->is_toefl == 1 && $tryout->show_leaderboard)
+        @if($package && $tryout->is_toefl == 1 && $tryout->show_leaderboard)
         <a href="{{ route('user.package.tryout.ranking', ['id_package' => request()->route('id_package'), 'id_tryout' => $tryout->tryout_id]) }}"
             class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
             <i class="ri-trophy-line"></i>
