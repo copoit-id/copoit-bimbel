@@ -38,7 +38,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">{{ $class->title }}</td>
-                    <td class="px-6 py-4 text-center">{{ $class->mentor ?? '-' }}</td>
+                    <td class="px-6 py-4 text-center">{{ $class->tentor?->name ?? $class->mentor ?? '-' }}</td>
                     <td class="px-6 py-4 text-center">
                         @if($class->status == 'upcoming')
                         <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">Akan Datang</span>

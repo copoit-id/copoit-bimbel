@@ -30,6 +30,28 @@
                 <input type="text" name="title" value="{{ old('title') }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: Kelas UTBK Senin Malam">
             </div>
 
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Kelas</label>
+                <select name="class_id" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <option value="">Kelas Umum</option>
+                    @foreach($classes as $class)
+                        <option value="{{ $class->class_id }}" @selected(old('class_id') == $class->class_id)>{{ $class->title }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Tentor</label>
+                <select name="tentor_id" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <option value="">Ikuti tentor dari kelas</option>
+                    @foreach($tentors as $tentor)
+                        <option value="{{ $tentor->id }}" @selected(old('tentor_id') == $tentor->id)>
+                            {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
             <!-- Hari Mingguan -->
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Hari Pelaksanaan</label>

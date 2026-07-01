@@ -45,6 +45,7 @@
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
+        || request()->routeIs('admin.tentors.*')
         || ($canShowClassScheduleMenu && request()->routeIs('admin.class-schedules.*'))
         || ($canShowClassScheduleMenu && request()->routeIs('admin.class-attendance.*'))
         || request()->routeIs('admin.tes-koran.*')
@@ -117,6 +118,14 @@
                             <a href="{{ route('admin.class.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                                 <span>Manajemen Kelas</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if($canFeatureView('tentor'))
+                        <li>
+                            <a href="{{ route('admin.tentors.index') }}"
+                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tentors.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                                <span>Manajemen Tentor</span>
                             </a>
                         </li>
                         @endif

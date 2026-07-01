@@ -32,6 +32,7 @@ use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
+use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
@@ -531,6 +532,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
     Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
     Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
+    Route::resource('tentor', TentorController::class)
+        ->except(['show'])
+        ->names('tentors')
+        ->parameters(['tentor' => 'tentor']);
     Route::resource('jadwal-kelas', ClassScheduleController::class)
         ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
         ->names('class-schedules')

@@ -17,6 +17,10 @@
                 Kategori tujuan:
                 {{ $classSchedule->destinationCategories->map(fn($category) => $category->display_name)->implode(', ') ?: '-' }}
             </p>
+            @php($tentorName = $classSchedule->tentor?->name ?? $classSchedule->class?->tentor?->name ?? $classSchedule->class?->mentor)
+            @if($tentorName)
+                <p class="mt-1 text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
+            @endif
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ route('admin.class-schedules.edit', $classSchedule) }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">

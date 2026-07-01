@@ -15,6 +15,7 @@ use App\Models\Material;
 use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\TesKoran;
+use App\Models\Tentor;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use Illuminate\Http\Request;
@@ -247,7 +248,7 @@ class PackageController extends Controller
             $package = Package::where('package_id', $package_id)->firstOrFail();
 
             // Get all classes with their package relationship status
-            $classes = ClassModel::with(['detailPackages' => function ($query) use ($package_id) {
+            $classes = ClassModel::with(['tentor', 'detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
                 ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = classes.class_id AND package_id = ?) DESC", [ClassModel::class, $package_id])
@@ -269,8 +270,9 @@ class PackageController extends Controller
     {
         try {
             $package = Package::where('package_id', $package_id)->first();
+            $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
 
-            return view('admin.pages.package.class.create', compact('package'));
+            return view('admin.pages.package.class.create', compact('package', 'tentors'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Data tidak ditemukan');
@@ -284,23 +286,26 @@ class PackageController extends Controller
             'schedule_time' => 'required|date',
             'zoom_link' => 'nullable|url',
             'drive_link' => 'nullable|url',
+            'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
         ]);
 
         try {
+            $tentor = $request->filled('tentor_id') ? Tentor::find($request->integer('tentor_id')) : null;
             $class = ClassModel::create([
                 'package_id' => $package_id,
                 'title' => $request->title,
                 'schedule_time' => $request->schedule_time,
                 'zoom_link' => $request->zoom_link,
                 'drive_link' => $request->drive_link,
-                'mentor' => $request->mentor,
+                'tentor_id' => $tentor?->id,
+                'mentor' => $tentor?->name ?: $request->mentor,
                 'status' => $request->status
             ]);
 
             return redirect()->route('admin.package.class.index', $package_id)
-                ->with('success', 'Kelas "' . $class->name . '" berhasil ditambahkan');
+                ->with('success', 'Kelas "' . $class->title . '" berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
                 ->with('error', 'Gagal menambahkan kelas: ' . $e->getMessage())

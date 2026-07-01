@@ -24,6 +24,10 @@
                         <p class="text-sm text-gray-500">{{ $session->start_at->translatedFormat('l, d M Y') }}</p>
                         <h2 class="text-lg font-bold text-gray-900">{{ $session->class->title ?? 'Kelas' }}</h2>
                         <p class="text-sm text-gray-600">{{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' - ' . $session->end_at->format('H:i') : '' }}</p>
+                        @php($tentorName = $session->tentor?->name ?? $session->schedule?->tentor?->name ?? $session->class?->tentor?->name ?? $session->class?->mentor)
+                        @if($tentorName)
+                            <p class="mt-1 text-sm text-gray-500">Tentor: {{ $tentorName }}</p>
+                        @endif
                         @if($session->meeting_url)
                             <a href="{{ $session->meeting_url }}" target="_blank" class="mt-2 inline-flex text-sm font-medium text-primary hover:underline">Buka meeting</a>
                         @endif
