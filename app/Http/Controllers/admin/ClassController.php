@@ -86,13 +86,14 @@ class ClassController extends Controller
         try {
             $class = ClassModel::findOrFail($id);
             $tentor = $request->filled('tentor_id') ? Tentor::find($request->integer('tentor_id')) : null;
+            $mentorName = $tentor?->name ?: ($request->has('mentor') ? $request->input('mentor') : $class->mentor);
             $class->update([
                 'title' => $request->title,
                 'schedule_time' => $request->schedule_time,
                 'zoom_link' => $request->zoom_link,
                 'drive_link' => $request->drive_link,
                 'tentor_id' => $tentor?->id,
-                'mentor' => $tentor?->name ?: $request->mentor,
+                'mentor' => $mentorName,
                 'status' => $request->status
             ]);
 

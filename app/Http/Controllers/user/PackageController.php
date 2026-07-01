@@ -988,7 +988,8 @@ class PackageController extends Controller
         }
 
         // Get classes for this package
-        $classes = ClassModel::whereHas('detailPackages', function ($query) use ($id_package) {
+        $classes = ClassModel::with('tentor')
+            ->whereHas('detailPackages', function ($query) use ($id_package) {
             $query->where('package_id', $id_package);
         })->orderBy('schedule_time', 'desc')->get();
 

@@ -34,6 +34,8 @@
     $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
         && $canFeatureView('class')
         && $adminRouteExists('admin.class-schedules.index');
+    $canShowTentorMenu = $canFeatureView('tentor')
+        && $adminRouteExists('admin.tentors.index');
     $canShowRecurringBillMenu = ($clientBranding['recurring_bill_menu_enabled'] ?? false)
         && $adminRouteExists('admin.recurring-bills.index');
     $isMaterialManagementActive = request()->routeIs('admin.material.index')
@@ -45,7 +47,7 @@
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
-        || request()->routeIs('admin.tentors.*')
+        || ($canShowTentorMenu && request()->routeIs('admin.tentors.*'))
         || ($canShowClassScheduleMenu && request()->routeIs('admin.class-schedules.*'))
         || ($canShowClassScheduleMenu && request()->routeIs('admin.class-attendance.*'))
         || request()->routeIs('admin.tes-koran.*')
@@ -121,7 +123,7 @@
                             </a>
                         </li>
                         @endif
-                        @if($canFeatureView('tentor'))
+                        @if($canShowTentorMenu)
                         <li>
                             <a href="{{ route('admin.tentors.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tentors.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">

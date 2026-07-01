@@ -32,7 +32,7 @@
                         <p>Pukul 10:00 WIB</p>
                     </td>
                     <td class="px-6 py-4 text-center">{{ $class->title }}</td>
-                    <td class="px-6 py-4 text-center">{{ $class->mentor }}</td>
+                    <td class="px-6 py-4 text-center">{{ $class->tentor?->name ?? $class->mentor ?? '-' }}</td>
 
                     <td class="px-6 py-4">
                         <div class="flex justify-center">

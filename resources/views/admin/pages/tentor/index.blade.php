@@ -3,78 +3,114 @@
 @section('title', 'Manajemen Tentor')
 
 @section('content')
-<div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">Manajemen Tentor</h1>
-            <p class="text-sm text-gray-500">Kelola data tentor untuk assignment kelas dan jadwal.</p>
-        </div>
-        <a href="{{ route('admin.tentors.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-            <i class="ri-add-line"></i>
-            Tambah Tentor
-        </a>
-    </div>
+<div class="flex justify-between items-center">
+    <x-breadcrumb>
+        <x-slot name="items">
+            <x-breadcrumb-item href="" title="Manajemen Tentor" />
+        </x-slot>
+    </x-breadcrumb>
+    <x-btn title="Tambah Tentor" route="{{ route('admin.tentors.create') }}" icon="ri-add-fill"></x-btn>
+</div>
 
-    <div class="rounded-lg border border-gray-200 bg-white p-4">
-        <form method="GET" action="{{ route('admin.tentors.index') }}" class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
+<div class="package-bimbel bg-white p-8 rounded-lg border border-border">
+    <x-page-desc title="Manajemen Tentor" description="Kelola data tentor untuk assignment kelas dan jadwal."></x-page-desc>
+
+    @if (session('success'))
+        <div class="mt-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+            <i class="ri-checkbox-circle-line text-lg"></i>
+            <span>{{ session('success') }}</span>
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
+            <i class="ri-error-warning-line text-lg"></i>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
+
+    <form method="GET" action="{{ route('admin.tentors.index') }}" class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div class="relative">
-                <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" name="search" value="{{ request('search') }}" class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Cari nama, email, nomor HP, atau bidang">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari tentor..."
+                    class="w-full sm:w-72 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
             </div>
-            <select name="status" class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                <option value="">Semua status</option>
+
+            <select name="status"
+                class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                <option value="">Semua Status</option>
                 <option value="active" @selected(request('status') === 'active')>Aktif</option>
                 <option value="inactive" @selected(request('status') === 'inactive')>Nonaktif</option>
             </select>
-            <button class="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Filter</button>
-        </form>
-    </div>
 
-    <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table class="w-full text-left text-sm text-gray-600">
-            <thead class="bg-gray-50 text-xs uppercase text-gray-700">
+            <button type="submit"
+                class="px-4 py-2 text-white bg-primary rounded-lg hover:bg-primary/90">
+                <i class="ri-filter-3-line"></i> Filter
+            </button>
+
+            <a href="{{ route('admin.tentors.index') }}"
+                class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50">
+                <i class="ri-refresh-line"></i> Reset
+            </a>
+        </div>
+
+        <div class="text-sm text-gray-500">
+            Halaman ini: <span class="font-medium text-gray-700">{{ $tentors->count() }} Tentor</span>
+            <span class="mx-1 text-gray-300">•</span>
+            Total: <span class="font-medium text-gray-700">{{ $tentors->total() }} Tentor</span>
+        </div>
+    </form>
+
+    <div class="relative overflow-x-auto mt-4">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                    <th class="px-4 py-3">Tentor</th>
-                    <th class="px-4 py-3">Kontak</th>
-                    <th class="px-4 py-3">Bidang</th>
-                    <th class="px-4 py-3 text-center">Assignment</th>
-                    <th class="px-4 py-3 text-center">Status</th>
-                    <th class="px-4 py-3 text-right">Aksi</th>
+                    <th scope="col" class="px-6 py-3">Tentor</th>
+                    <th scope="col" class="px-6 py-3">Kontak</th>
+                    <th scope="col" class="px-6 py-3">Bidang</th>
+                    <th scope="col" class="px-6 py-3 text-center">Assignment</th>
+                    <th scope="col" class="px-6 py-3 text-center">Status</th>
+                    <th scope="col" class="px-6 py-3 text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($tentors as $tentor)
-                    <tr class="border-t border-gray-100 hover:bg-gray-50">
-                        <td class="px-4 py-3">
+                    <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
+                        <td class="px-6 py-4">
                             <p class="font-semibold text-gray-900">{{ $tentor->name }}</p>
                             @if($tentor->bio)
                                 <p class="mt-1 max-w-md truncate text-xs text-gray-500">{{ $tentor->bio }}</p>
                             @endif
                         </td>
-                        <td class="px-4 py-3">
-                            <p>{{ $tentor->email ?: '-' }}</p>
+                        <td class="px-6 py-4">
+                            <p class="text-gray-700">{{ $tentor->email ?: '-' }}</p>
                             <p class="text-xs text-gray-500">{{ $tentor->phone ?: '-' }}</p>
                         </td>
-                        <td class="px-4 py-3">{{ $tentor->expertise ?: '-' }}</td>
-                        <td class="px-4 py-3 text-center">
-                            <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                        <td class="px-6 py-4">{{ $tentor->expertise ?: '-' }}</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
                                 {{ $tentor->classes_count }} kelas / {{ $tentor->schedules_count }} jadwal
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-center">
-                            <span class="rounded-full px-2 py-1 text-xs font-medium {{ $tentor->is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600' }}">
-                                {{ $tentor->is_active ? 'Aktif' : 'Nonaktif' }}
-                            </span>
+                        <td class="px-6 py-4 text-center">
+                            @if($tentor->is_active)
+                                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>
+                            @else
+                                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Nonaktif</span>
+                            @endif
                         </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-end gap-3">
-                                <a href="{{ route('admin.tentors.edit', array_merge(request()->query(), ['tentor' => $tentor->id])) }}" class="text-gray-500 hover:text-primary" title="Edit tentor">
+                        <td class="px-6 py-4">
+                            <div class="flex justify-center items-center gap-2">
+                                <a href="{{ route('admin.tentors.edit', array_merge(request()->query(), ['tentor' => $tentor->id])) }}"
+                                    class="text-gray-500 hover:text-yellow-500" title="Edit tentor">
                                     <i class="ri-edit-line text-xl"></i>
                                 </a>
-                                <form method="POST" action="{{ route('admin.tentors.destroy', $tentor) }}" onsubmit="return confirm('Yakin ingin menghapus tentor ini?');">
+                                <form method="POST" action="{{ route('admin.tentors.destroy', $tentor) }}" class="inline"
+                                    onsubmit="return confirm('Yakin ingin menghapus tentor ini?');">
                                     @csrf
                                     @method('DELETE')
-                                    <button class="text-gray-500 hover:text-red-600" title="Hapus tentor">
+                                    <button class="text-gray-500 hover:text-red-500" title="Hapus tentor">
                                         <i class="ri-delete-bin-line text-xl"></i>
                                     </button>
                                 </form>
@@ -83,9 +119,14 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-10 text-center text-gray-500">
-                            Belum ada tentor.
-                            <a href="{{ route('admin.tentors.create') }}" class="font-medium text-primary hover:underline">Tambah tentor pertama</a>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center">
+                                <i class="ri-user-star-line text-4xl text-gray-300 mb-2"></i>
+                                <p>Belum ada tentor tersedia</p>
+                                <a href="{{ route('admin.tentors.create') }}" class="text-primary hover:underline mt-2">
+                                    Tambah tentor pertama
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 @endforelse
@@ -93,6 +134,10 @@
         </table>
     </div>
 
-    {{ $tentors->links() }}
+    @if($tentors->hasPages())
+        <div class="flex justify-center mt-4">
+            {{ $tentors->links() }}
+        </div>
+    @endif
 </div>
 @endsection
