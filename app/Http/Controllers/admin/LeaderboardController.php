@@ -24,10 +24,14 @@ class LeaderboardController extends Controller
     public function index()
     {
         // Get all tryouts with their packages and participant counts - GROUP BY tryout
-        $tryouts = Tryout::with(['tryoutDetails', 'packages'])
+        $tryouts = Tryout::with([
+            'tryoutDetails' => fn ($query) => $query->withCount('questions'),
+            'packages',
+        ])
             ->get()
             ->map(function ($tryout) {
-                $tryoutDetail = $tryout->tryoutDetails->first();
+                $totalQuestions = (int) $tryout->tryoutDetails->sum('questions_count');
+                $totalDuration = (int) $tryout->tryoutDetails->sum('duration');
 
                 // Count total participants across all packages for this tryout
                 $participantCount = UserAnswer::where('tryout_id', $tryout->tryout_id)
@@ -53,8 +57,8 @@ class LeaderboardController extends Controller
                     'package_id' => $allPackages->first()->package_id, // Use first package for routing
                     'name' => $tryout->name,
                     'description' => $tryout->description,
-                    'total_questions' => $tryoutDetail ? $tryoutDetail->questions()->count() : 0,
-                    'duration' => $tryoutDetail ? $tryoutDetail->duration : 0,
+                    'total_questions' => $totalQuestions,
+                    'duration' => $totalDuration,
                     'participant_count' => $participantCount,
                     'package_name' => $combinedPackageName,
                     'package_count' => count($packageNames),
@@ -76,12 +80,14 @@ class LeaderboardController extends Controller
     public function show($package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
-        $tryout = Tryout::findOrFail($tryout_id);
+        $tryout = Tryout::with([
+            'tryoutDetails' => fn ($query) => $query->withCount('questions'),
+        ])->findOrFail($tryout_id);
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter(request(), $destinationCategories);
 
         // Get tryout details
-        $tryoutDetail = $tryout->tryoutDetails()->first();
+        $tryoutDetail = $tryout->tryoutDetails->first();
         if (!$tryoutDetail) {
             return redirect()->route('admin.leaderboard.index')
                 ->with('error', 'Tryout belum memiliki detail soal');
@@ -108,8 +114,8 @@ class LeaderboardController extends Controller
             'average_score' => round($averageScore ?? 0, 1),
             'highest_score' => $highestScore ?? 0,
             'pass_rate' => round($passRate, 1),
-            'total_questions' => $tryoutDetail->questions()->count(),
-            'duration' => $tryoutDetail->duration
+            'total_questions' => (int) $tryout->tryoutDetails->sum('questions_count'),
+            'duration' => (int) $tryout->tryoutDetails->sum('duration')
         ];
 
         return view('admin.pages.leaderboard.show', compact(
