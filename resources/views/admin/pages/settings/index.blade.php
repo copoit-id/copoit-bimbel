@@ -21,6 +21,7 @@
     @php
     $settingErrorKeys = $errors->keys();
     $aiGeneratorEnabled = (bool) ($branding['ai_question_generator_enabled'] ?? false);
+    $aiDiscussionFeatureEnabled = (bool) ($branding['ai_discussion_feature_enabled'] ?? false);
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
@@ -71,14 +72,21 @@
     'ai_gemini_base_url',
     'ai_gemini_timeout',
     'ai_question_default_model',
-    'ai_question_models_json'
+    'ai_question_models_json',
+    'ai_discussion_enabled',
+    'ai_discussion_credential_mode',
+    'ai_discussion_model',
+    'ai_discussion_openai_api_key',
+    'ai_discussion_openai_base_url',
+    'ai_discussion_openai_timeout',
+    'ai_discussion_gemini_api_key',
+    'ai_discussion_gemini_base_url',
+    'ai_discussion_gemini_timeout',
+    'ai_discussion_max_output_tokens',
+    'ai_discussion_instruction'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'ai';
     }
-    }
-
-    if (!$aiGeneratorEnabled && $activeSettingsTab === 'ai') {
-    $activeSettingsTab = 'identity';
     }
 
     $aiSettings = old('ai_question_generator_settings', $profile->ai_question_generator_settings ?? ($branding['ai_question_generator_settings'] ?? []));
@@ -90,6 +98,11 @@
     ];
     $aiModelsJson = old('ai_question_models_json', json_encode($aiModels, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     $aiDefaultModel = old('ai_question_default_model', $aiSettings['default_model'] ?? ($aiModels[0]['id'] ?? 'gemini-2.5-flash'));
+    $aiDiscussionSettings = old('ai_discussion_settings', $profile->ai_discussion_settings ?? ($branding['ai_discussion_settings'] ?? []));
+    $aiDiscussionProviders = is_array($aiDiscussionSettings['providers'] ?? null) ? $aiDiscussionSettings['providers'] : [];
+    $aiDiscussionEnabled = (bool) old('ai_discussion_enabled', $aiDiscussionSettings['enabled'] ?? false);
+    $aiDiscussionCredentialMode = old('ai_discussion_credential_mode', $aiDiscussionSettings['credential_mode'] ?? 'shared');
+    $aiDiscussionModel = old('ai_discussion_model', $aiDiscussionSettings['model'] ?? $aiDefaultModel);
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
@@ -134,12 +147,10 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Footer
                 </button>
-                @if($aiGeneratorEnabled)
-                    <button type="button" data-settings-tab="ai"
-                        class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                        AI Soal
-                    </button>
-                @endif
+                <button type="button" data-settings-tab="ai"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    AI
+                </button>
             </div>
         </div>
 
@@ -885,15 +896,15 @@
             </div>
         </div>
 
-        @if($aiGeneratorEnabled)
         <div data-settings-panel="ai"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'ai' ? 'hidden' : '' }}">
             <div>
-                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Generator Soal AI</p>
-                <h2 class="text-xl font-semibold text-gray-900">API & Model Generator</h2>
-                <p class="text-gray-500 text-sm">Atur API key provider dan daftar model yang bisa dipilih admin saat generate soal.</p>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pengaturan AI</p>
+                <h2 class="text-xl font-semibold text-gray-900">API, Model & Diskusi Pembahasan</h2>
+                <p class="text-gray-500 text-sm">Atur API key provider, model generator soal, dan chat AI yang tampil di pembahasan user.</p>
             </div>
 
+            @if($aiGeneratorEnabled)
             <div id="ai-generator-settings-fields" class="space-y-6">
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
@@ -976,8 +987,112 @@
                     @error('admin_password')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
+            @else
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Fitur generator soal AI tidak aktif untuk role admin saat ini, tetapi diskusi AI pembahasan tetap bisa diatur di bawah.
+            </div>
+            @endif
+
+            @if($aiDiscussionFeatureEnabled)
+            <div class="border-t border-gray-100 pt-6 space-y-5">
+                <div>
+                    <p class="font-semibold text-gray-900">Diskusi AI di Pembahasan</p>
+                    <p class="text-sm text-gray-500">User bisa bertanya ke AI pada tiap soal di halaman pembahasan tryout.</p>
+                </div>
+
+                <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                    <input type="hidden" name="ai_discussion_enabled" value="0">
+                    <input type="checkbox" name="ai_discussion_enabled" value="1"
+                        class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                        {{ $aiDiscussionEnabled ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Aktifkan diskusi AI per soal</p>
+                        <p class="text-xs text-gray-500">Chat hanya tampil kalau pembahasan tryout aktif dan user punya akses paket.</p>
+                    </div>
+                </label>
+
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Mode API</label>
+                        <select name="ai_discussion_credential_mode"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                            <option value="shared" {{ $aiDiscussionCredentialMode === 'shared' ? 'selected' : '' }}>Pakai API AI Soal</option>
+                            <option value="custom" {{ $aiDiscussionCredentialMode === 'custom' ? 'selected' : '' }}>API khusus pembahasan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Model Chat</label>
+                        <input type="text" name="ai_discussion_model" value="{{ $aiDiscussionModel }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="gemini-2.5-flash">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Maks. Token Jawaban</label>
+                        <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000"
+                            value="{{ old('ai_discussion_max_output_tokens', $aiDiscussionSettings['max_output_tokens'] ?? 700) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">OpenAI khusus pembahasan</p>
+                            <p class="text-xs text-gray-500">Dipakai hanya jika Mode API memilih API khusus.</p>
+                        </div>
+                        <input type="password" name="ai_discussion_openai_api_key" autocomplete="new-password"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="{{ filled($aiDiscussionProviders['openai']['api_key'] ?? null) ? 'Sudah tersimpan - isi untuk mengganti' : 'sk-...' }}">
+                        <input type="url" name="ai_discussion_openai_base_url"
+                            value="{{ old('ai_discussion_openai_base_url', $aiDiscussionProviders['openai']['base_url'] ?? 'https://api.openai.com/v1') }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        <input type="number" name="ai_discussion_openai_timeout" min="5" max="300"
+                            value="{{ old('ai_discussion_openai_timeout', $aiDiscussionProviders['openai']['timeout'] ?? 90) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">Gemini khusus pembahasan</p>
+                            <p class="text-xs text-gray-500">Dipakai hanya jika Mode API memilih API khusus.</p>
+                        </div>
+                        <input type="password" name="ai_discussion_gemini_api_key" autocomplete="new-password"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                            placeholder="{{ filled($aiDiscussionProviders['gemini']['api_key'] ?? null) ? 'Sudah tersimpan - isi untuk mengganti' : 'AIza...' }}">
+                        <input type="url" name="ai_discussion_gemini_base_url"
+                            value="{{ old('ai_discussion_gemini_base_url', $aiDiscussionProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta') }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        <input type="number" name="ai_discussion_gemini_timeout" min="5" max="300"
+                            value="{{ old('ai_discussion_gemini_timeout', $aiDiscussionProviders['gemini']['timeout'] ?? 90) }}"
+                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Instruksi Tambahan Tutor AI</label>
+                    <textarea name="ai_discussion_instruction" rows="4"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: jangan langsung beri jawaban akhir, arahkan siswa dengan petunjuk bertahap.">{{ old('ai_discussion_instruction', $aiDiscussionSettings['instruction'] ?? '') }}</textarea>
+                </div>
+
+                @if(!$aiGeneratorEnabled)
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Admin</label>
+                    <input type="password" name="ai_admin_password" autocomplete="current-password"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Wajib diisi kalau mengganti API key AI pembahasan">
+                    @error('admin_password')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                </div>
+                @endif
+            </div>
+            @else
+            <div class="border-t border-gray-100 pt-6">
+                <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                    Diskusi AI pembahasan belum diaktifkan oleh super admin. Fitur ini default mati.
+                </div>
+            </div>
+            @endif
         </div>
-        @endif
 
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"

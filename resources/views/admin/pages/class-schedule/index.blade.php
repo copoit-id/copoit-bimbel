@@ -66,6 +66,13 @@
                                         @endif
                                     </span>
                                 @endif
+                                @php($tentorName = $schedule->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor)
+                                @if($tentorName)
+                                    <span class="text-[11px] text-gray-500 flex items-center gap-1">
+                                        <i class="ri-user-star-line"></i>
+                                        {{ $tentorName }}
+                                    </span>
+                                @endif
                             </div>
 
                             <!-- Actions -->
@@ -117,7 +124,13 @@
                     <tbody>
                         @foreach($otherSchedules as $schedule)
                             <tr class="border-t border-gray-100 hover:bg-gray-50">
-                                <td class="px-4 py-3 font-semibold text-gray-900">{{ $schedule->title }}</td>
+                                <td class="px-4 py-3">
+                                    <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
+                                    @php($tentorName = $schedule->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor)
+                                    @if($tentorName)
+                                        <p class="text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">
                                     {{ $schedule->destinationCategories->map(fn($category) => $category->display_name)->implode(', ') ?: '-' }}
                                 </td>

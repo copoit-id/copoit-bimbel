@@ -39,6 +39,7 @@ class ClassScheduleService
                 ],
                 [
                     'class_id' => $schedule->class_id,
+                    'tentor_id' => $schedule->tentor_id ?: $schedule->class?->tentor_id,
                     'end_at' => $endAt,
                     'status' => 'scheduled',
                     'meeting_url' => $schedule->meeting_url ?: $schedule->class?->zoom_link,

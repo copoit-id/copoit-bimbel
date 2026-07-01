@@ -25,7 +25,7 @@ class UserClassScheduleController extends Controller
             ->active()
             ->pluck('package_id');
 
-        $sessions = ClassSession::with(['class', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'attendances' => function ($query) use ($user) {
+        $sessions = ClassSession::with(['class.tentor', 'tentor', 'schedule.tentor', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'attendances' => function ($query) use ($user) {
             $query->where('user_id', $user->id);
         }])
             ->where(function ($query) use ($destinationCategoryIds, $packageIds) {

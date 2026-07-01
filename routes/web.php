@@ -32,6 +32,7 @@ use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
+use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
@@ -217,6 +218,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->name('user.package.tryout.pembahasan.ai-chat');
     });
 
     Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');
@@ -530,6 +532,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
     Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
     Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
+    Route::resource('tentor', TentorController::class)
+        ->except(['show'])
+        ->names('tentors')
+        ->parameters(['tentor' => 'tentor']);
     Route::resource('jadwal-kelas', ClassScheduleController::class)
         ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
         ->names('class-schedules')

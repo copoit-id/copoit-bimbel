@@ -60,6 +60,10 @@ return [
             'label' => 'Kelas',
             'routes' => ['admin.class.'],
         ],
+        'tentor' => [
+            'label' => 'Manajemen Tentor',
+            'routes' => ['admin.tentors.'],
+        ],
         'certification' => [
             'label' => 'Sertifikasi',
             'routes' => ['admin.certification.'],

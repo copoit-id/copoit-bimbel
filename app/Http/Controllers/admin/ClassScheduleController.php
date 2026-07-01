@@ -7,6 +7,7 @@ use App\Models\ClassModel;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\ParticipantDestinationCategory;
+use App\Models\Tentor;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\ClassScheduleService;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +19,7 @@ class ClassScheduleController extends Controller
 {
     public function index(): View
     {
-        $schedules = ClassSchedule::with(['class', 'attendanceSetting', 'destinationCategories.parent'])->get();
+        $schedules = ClassSchedule::with(['class.tentor', 'tentor', 'attendanceSetting', 'destinationCategories.parent'])->get();
 
         $weeklySchedules = [];
         for ($i = 1; $i <= 7; $i++) {
@@ -38,6 +39,7 @@ class ClassScheduleController extends Controller
     public function create(Request $request): View
     {
         $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
+        $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
         $destinationCategories = ParticipantDestinationCategory::query()
             ->active()
             ->with('parent')
@@ -47,7 +49,7 @@ class ClassScheduleController extends Controller
             ->get();
         $preselectedDay = $request->query('day_of_week', 1);
 
-        return view('admin.pages.class-schedule.create', compact('classes', 'destinationCategories', 'preselectedDay'));
+        return view('admin.pages.class-schedule.create', compact('classes', 'tentors', 'destinationCategories', 'preselectedDay'));
     }
 
     public function store(Request $request, ClassScheduleService $scheduleService): RedirectResponse
@@ -79,6 +81,7 @@ class ClassScheduleController extends Controller
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,class_id'],
+            'tentor_id' => ['nullable', 'exists:tentors,id'],
             'title' => ['required', 'string', 'max:255'],
             'schedule_type' => ['required', 'in:single,recurring'],
             'frequency' => ['nullable', 'required_if:schedule_type,recurring', 'in:daily,weekly,monthly'],
@@ -100,6 +103,7 @@ class ClassScheduleController extends Controller
 
         $schedule = ClassSchedule::create([
             'class_id' => $validated['class_id'],
+            'tentor_id' => $validated['tentor_id'] ?? null,
             'title' => $validated['title'],
             'schedule_type' => $validated['schedule_type'],
             'frequency' => $validated['schedule_type'] === 'recurring' ? ($validated['frequency'] ?? null) : null,
@@ -132,7 +136,7 @@ class ClassScheduleController extends Controller
 
     public function show(Request $request, ClassSchedule $classSchedule, ClassAttendanceParticipantService $participantService): View
     {
-        $classSchedule->load(['class', 'attendanceSetting', 'destinationCategories.parent']);
+        $classSchedule->load(['class.tentor', 'tentor', 'attendanceSetting', 'destinationCategories.parent']);
         $sessionOptions = $classSchedule->sessions()
             ->orderByDesc('session_date')
             ->limit(120)
@@ -169,7 +173,7 @@ class ClassScheduleController extends Controller
         $participants = collect();
         $attendances = collect();
         if ($selectedSession) {
-            $selectedSession->load(['class.packages', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
+            $selectedSession->load(['class.packages', 'tentor', 'schedule.tentor', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
             $participants = $participantService->participants($selectedSession);
             $attendances = $selectedSession->attendances->keyBy('user_id');
         }
@@ -185,7 +189,13 @@ class ClassScheduleController extends Controller
 
     public function edit(ClassSchedule $classSchedule): View
     {
-        $classSchedule->load(['attendanceSetting', 'destinationCategories']);
+        $classSchedule->load(['class', 'tentor', 'attendanceSetting', 'destinationCategories']);
+        $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
+        $tentors = Tentor::query()
+            ->where('is_active', true)
+            ->orWhere('id', $classSchedule->tentor_id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'expertise']);
         $destinationCategories = ParticipantDestinationCategory::query()
             ->active()
             ->with('parent')
@@ -195,7 +205,7 @@ class ClassScheduleController extends Controller
             ->get();
         $preselectedDay = $classSchedule->day_of_week ?: 1;
 
-        return view('admin.pages.class-schedule.edit', compact('classSchedule', 'destinationCategories', 'preselectedDay'));
+        return view('admin.pages.class-schedule.edit', compact('classSchedule', 'classes', 'tentors', 'destinationCategories', 'preselectedDay'));
     }
 
     public function update(Request $request, ClassSchedule $classSchedule, ClassScheduleService $scheduleService): RedirectResponse
@@ -215,6 +225,7 @@ class ClassScheduleController extends Controller
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,class_id'],
+            'tentor_id' => ['nullable', 'exists:tentors,id'],
             'title' => ['required', 'string', 'max:255'],
             'schedule_type' => ['required', 'in:single,recurring'],
             'frequency' => ['nullable', 'required_if:schedule_type,recurring', 'in:daily,weekly,monthly'],
@@ -237,6 +248,7 @@ class ClassScheduleController extends Controller
         DB::transaction(function () use ($request, $validated, $classSchedule, $scheduleService): void {
             $classSchedule->update([
                 'class_id' => $validated['class_id'],
+                'tentor_id' => $validated['tentor_id'] ?? null,
                 'title' => $validated['title'],
                 'schedule_type' => $validated['schedule_type'],
                 'frequency' => $validated['schedule_type'] === 'recurring' ? ($validated['frequency'] ?? null) : null,

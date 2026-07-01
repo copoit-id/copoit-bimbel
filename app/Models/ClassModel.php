@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClassModel extends Model
 {
@@ -16,6 +18,11 @@ class ClassModel extends Model
     protected $casts = [
         'schedule_time' => 'datetime',
     ];
+
+    public function tentor(): BelongsTo
+    {
+        return $this->belongsTo(Tentor::class, 'tentor_id');
+    }
 
     // Polymorphic relationship untuk detail packages
     public function detailPackages()
@@ -36,12 +43,12 @@ class ClassModel extends Model
             ->withTimestamps();
     }
 
-    public function schedules()
+    public function schedules(): HasMany
     {
         return $this->hasMany(ClassSchedule::class, 'class_id', 'class_id');
     }
 
-    public function sessions()
+    public function sessions(): HasMany
     {
         return $this->hasMany(ClassSession::class, 'class_id', 'class_id');
     }

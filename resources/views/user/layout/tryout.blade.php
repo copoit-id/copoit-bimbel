@@ -42,7 +42,6 @@
         @yield('content')
     </div>
     @include('user.components.footer')
-    @include('user.components.floating-whatsapp')
     @include('components.flash-alert')
 
     {{-- jquery --}}

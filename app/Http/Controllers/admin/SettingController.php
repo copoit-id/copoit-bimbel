@@ -59,6 +59,8 @@ class SettingController extends Controller
             'footer_links' => [],
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
+            'ai_discussion_feature_enabled' => false,
+            'ai_discussion_settings' => [],
             'participant_destination_api_enabled' => false,
         ]);
 
@@ -132,6 +134,17 @@ class SettingController extends Controller
             'ai_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
             'ai_question_default_model' => ['nullable', 'string', 'max:120'],
             'ai_question_models_json' => ['nullable', 'string'],
+            'ai_discussion_enabled' => ['nullable', 'boolean'],
+            'ai_discussion_credential_mode' => ['nullable', 'in:shared,custom'],
+            'ai_discussion_model' => ['nullable', 'string', 'max:120'],
+            'ai_discussion_openai_api_key' => ['nullable', 'string', 'max:1000'],
+            'ai_discussion_openai_base_url' => ['nullable', 'url', 'max:255'],
+            'ai_discussion_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
+            'ai_discussion_gemini_api_key' => ['nullable', 'string', 'max:1000'],
+            'ai_discussion_gemini_base_url' => ['nullable', 'url', 'max:255'],
+            'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
+            'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
+            'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
             'ai_admin_password' => ['nullable', 'string'],
         ];
 
@@ -279,7 +292,17 @@ class SettingController extends Controller
                 ->with('active_tab', 'ai');
         }
 
+        $aiDiscussionFeatureEnabled = (bool) config('client.branding.ai_discussion_feature_enabled', false);
+        $aiDiscussionSettingsResult = $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], $aiDiscussionFeatureEnabled);
+        if (!empty($aiDiscussionSettingsResult['errors'])) {
+            return back()
+                ->withErrors($aiDiscussionSettingsResult['errors'])
+                ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key', 'ai_discussion_openai_api_key', 'ai_discussion_gemini_api_key']))
+                ->with('active_tab', 'ai');
+        }
+
         $sensitiveChanged = $sensitiveChanged || (bool) ($aiSettingsResult['sensitive_changed'] ?? false);
+        $sensitiveChanged = $sensitiveChanged || (bool) ($aiDiscussionSettingsResult['sensitive_changed'] ?? false);
 
         if ($sensitiveChanged) {
             if (!$request->filled('admin_password') && $request->filled('ai_admin_password')) {
@@ -301,6 +324,8 @@ class SettingController extends Controller
                         'smtp_app_password',
                         'ai_openai_api_key',
                         'ai_gemini_api_key',
+                        'ai_discussion_openai_api_key',
+                        'ai_discussion_gemini_api_key',
                         'ai_admin_password',
                         ...$sensitiveKeys,
                     ]))
@@ -373,6 +398,7 @@ class SettingController extends Controller
         $validated['enable_utbk_types'] = false;
         unset($validated['ai_question_generator_enabled']);
         $validated['ai_question_generator_settings'] = $aiSettingsResult['settings'];
+        $validated['ai_discussion_settings'] = $aiDiscussionSettingsResult['settings'];
         unset(
             $validated['ai_openai_api_key'],
             $validated['ai_openai_base_url'],
@@ -382,6 +408,17 @@ class SettingController extends Controller
             $validated['ai_gemini_timeout'],
             $validated['ai_question_default_model'],
             $validated['ai_question_models_json'],
+            $validated['ai_discussion_enabled'],
+            $validated['ai_discussion_credential_mode'],
+            $validated['ai_discussion_model'],
+            $validated['ai_discussion_openai_api_key'],
+            $validated['ai_discussion_openai_base_url'],
+            $validated['ai_discussion_openai_timeout'],
+            $validated['ai_discussion_gemini_api_key'],
+            $validated['ai_discussion_gemini_base_url'],
+            $validated['ai_discussion_gemini_timeout'],
+            $validated['ai_discussion_max_output_tokens'],
+            $validated['ai_discussion_instruction'],
             $validated['ai_admin_password']
         );
         $validated['payment_mode'] = $validated['payment_mode'] ?? 'gateway';
@@ -528,6 +565,61 @@ class SettingController extends Controller
             ->unique('id')
             ->values()
             ->all();
+    }
+
+    private function buildAiDiscussionSettings(Request $request, ClientProfile $profile, array $sharedAiSettings, bool $featureEnabled): array
+    {
+        $existing = is_array($profile->ai_discussion_settings ?? null)
+            ? $profile->ai_discussion_settings
+            : [];
+        $existingProviders = $existing['providers'] ?? [];
+        $credentialMode = $request->input('ai_discussion_credential_mode', $existing['credential_mode'] ?? 'shared');
+        $credentialMode = in_array($credentialMode, ['shared', 'custom'], true) ? $credentialMode : 'shared';
+
+        $openAiKey = trim((string) $request->input('ai_discussion_openai_api_key', ''));
+        $geminiKey = trim((string) $request->input('ai_discussion_gemini_api_key', ''));
+        $existingOpenAiKey = (string) ($existingProviders['openai']['api_key'] ?? '');
+        $existingGeminiKey = (string) ($existingProviders['gemini']['api_key'] ?? '');
+        $sensitiveChanged = $credentialMode === 'custom' && (
+            ($openAiKey !== '' && !hash_equals($existingOpenAiKey, $openAiKey))
+            || ($geminiKey !== '' && !hash_equals($existingGeminiKey, $geminiKey))
+        );
+
+        $sharedModel = (string) ($sharedAiSettings['default_model'] ?? 'gemini-2.5-flash');
+        $model = trim((string) $request->input('ai_discussion_model', $existing['model'] ?? $sharedModel));
+
+        if ($model === '') {
+            $model = $sharedModel;
+        }
+
+        return [
+            'settings' => [
+                'enabled' => $featureEnabled && $request->boolean('ai_discussion_enabled'),
+                'credential_mode' => $credentialMode,
+                'model' => $model,
+                'providers' => [
+                    'openai' => [
+                        'api_key' => $credentialMode === 'custom'
+                            ? ($openAiKey !== '' ? $openAiKey : ($existingProviders['openai']['api_key'] ?? null))
+                            : null,
+                        'base_url' => trim((string) $request->input('ai_discussion_openai_base_url', $existingProviders['openai']['base_url'] ?? 'https://api.openai.com/v1')),
+                        'timeout' => max(5, min(300, (int) $request->input('ai_discussion_openai_timeout', $existingProviders['openai']['timeout'] ?? 90))),
+                    ],
+                    'gemini' => [
+                        'api_key' => $credentialMode === 'custom'
+                            ? ($geminiKey !== '' ? $geminiKey : ($existingProviders['gemini']['api_key'] ?? null))
+                            : null,
+                        'base_url' => trim((string) $request->input('ai_discussion_gemini_base_url', $existingProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta')),
+                        'timeout' => max(5, min(300, (int) $request->input('ai_discussion_gemini_timeout', $existingProviders['gemini']['timeout'] ?? 90))),
+                    ],
+                ],
+                'max_output_tokens' => max(200, min(2000, (int) $request->input('ai_discussion_max_output_tokens', $existing['max_output_tokens'] ?? 700))),
+                'instruction' => trim((string) $request->input('ai_discussion_instruction', $existing['instruction'] ?? '')),
+                'models' => $sharedAiSettings['models'] ?? $this->defaultAiQuestionModels(),
+            ],
+            'sensitive_changed' => $sensitiveChanged,
+            'errors' => [],
+        ];
     }
 
     private function defaultAiQuestionModels(): array

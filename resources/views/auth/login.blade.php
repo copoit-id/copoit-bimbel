@@ -18,6 +18,11 @@
 
 <body class="bg-gray-50">
     @include('components.flash-alert')
+    @php
+        $backToDashboardUrl = \App\Models\GeneralPage::findActiveByKey('landing')
+            ? route('landing')
+            : route('user.dashboard.index');
+    @endphp
     {{-- Announcement Modal - Hidden --}}
     {{-- <div id="announcement-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-announcement-close></div>
@@ -143,6 +148,14 @@
                 <a href="{{ route('public.payment-policy') }}" class="hover:text-primary hover:underline">Kebijakan Pembayaran</a>
                 <span class="mx-1">•</span>
                 <a href="{{ route('public.refund-policy') }}" class="hover:text-primary hover:underline">Refund Policy</a>
+            </div>
+
+            <div class="text-center">
+                <a href="{{ $backToDashboardUrl }}"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-primary transition-colors">
+                    <i class="ri-arrow-left-line text-sm"></i>
+                    <span>Back to dashboard</span>
+                </a>
             </div>
         </div>
     </div>

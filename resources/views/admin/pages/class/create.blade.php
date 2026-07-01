@@ -50,12 +50,18 @@
                     </div>
                 </div>
 
-                <!-- Mentor -->
+                <!-- Tentor -->
                 <div>
-                    <label for="mentor" class="block text-sm font-medium text-gray-700 mb-2">Mentor/Instruktur</label>
-                    <input type="text" id="mentor" name="mentor" value="{{ old('mentor') }}"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="Nama mentor atau instruktur">
+                    <label for="tentor_id" class="block text-sm font-medium text-gray-700 mb-2">Tentor</label>
+                    <select id="tentor_id" name="tentor_id"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="">Pilih tentor</option>
+                        @foreach($tentors as $tentor)
+                            <option value="{{ $tentor->id }}" @selected(old('tentor_id') == $tentor->id)>
+                                {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <!-- Links -->

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
+use App\Models\Tentor;
 use App\Models\Tryout;
 use Illuminate\Http\Request;
 
@@ -11,13 +12,14 @@ class ClassController extends Controller
 {
     public function index()
     {
-        $classes = ClassModel::orderBy('schedule_time', 'desc')->paginate(10);
+        $classes = ClassModel::with('tentor')->orderBy('schedule_time', 'desc')->paginate(10);
         return view('admin.pages.class.index', compact('classes'));
     }
 
     public function create()
     {
-        return view('admin.pages.class.create');
+        $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
+        return view('admin.pages.class.create', compact('tentors'));
     }
 
     public function store(Request $request)
@@ -27,17 +29,21 @@ class ClassController extends Controller
             'schedule_time' => 'required|date',
             'zoom_link' => 'nullable|url',
             'drive_link' => 'nullable|url',
+            'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
         ]);
 
         try {
+            $tentor = $request->filled('tentor_id') ? Tentor::find($request->integer('tentor_id')) : null;
+
             ClassModel::create([
                 'title' => $request->title,
                 'schedule_time' => $request->schedule_time,
                 'zoom_link' => $request->zoom_link,
                 'drive_link' => $request->drive_link,
-                'mentor' => $request->mentor,
+                'tentor_id' => $tentor?->id,
+                'mentor' => $tentor?->name ?: $request->mentor,
                 'status' => $request->status
             ]);
 
@@ -53,8 +59,12 @@ class ClassController extends Controller
     public function edit($id)
     {
         try {
-            $class = ClassModel::findOrFail($id);
-            return view('admin.pages.class.edit', compact('class'));
+            $class = ClassModel::with('tentor')->findOrFail($id);
+            $tentors = Tentor::active()
+                ->orWhere('id', $class->tentor_id)
+                ->orderBy('name')
+                ->get(['id', 'name', 'expertise']);
+            return view('admin.pages.class.edit', compact('class', 'tentors'));
         } catch (\Exception $e) {
             return redirect()->route('admin.class.index')
                 ->with('error', 'Kelas tidak ditemukan');
@@ -68,18 +78,22 @@ class ClassController extends Controller
             'schedule_time' => 'required|date',
             'zoom_link' => 'nullable|url',
             'drive_link' => 'nullable|url',
+            'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
         ]);
 
         try {
             $class = ClassModel::findOrFail($id);
+            $tentor = $request->filled('tentor_id') ? Tentor::find($request->integer('tentor_id')) : null;
+            $mentorName = $tentor?->name ?: ($request->has('mentor') ? $request->input('mentor') : $class->mentor);
             $class->update([
                 'title' => $request->title,
                 'schedule_time' => $request->schedule_time,
                 'zoom_link' => $request->zoom_link,
                 'drive_link' => $request->drive_link,
-                'mentor' => $request->mentor,
+                'tentor_id' => $tentor?->id,
+                'mentor' => $mentorName,
                 'status' => $request->status
             ]);
 

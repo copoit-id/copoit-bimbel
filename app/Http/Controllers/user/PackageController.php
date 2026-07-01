@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
+use App\Services\AiDiscussionService;
 use App\Services\AffiliateService;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
@@ -987,7 +988,8 @@ class PackageController extends Controller
         }
 
         // Get classes for this package
-        $classes = ClassModel::whereHas('detailPackages', function ($query) use ($id_package) {
+        $classes = ClassModel::with('tentor')
+            ->whereHas('detailPackages', function ($query) use ($id_package) {
             $query->where('package_id', $id_package);
         })->orderBy('schedule_time', 'desc')->get();
 
@@ -2245,26 +2247,33 @@ class PackageController extends Controller
 
     public function pembahasanTryout($id_package, $id_tryout, $token)
     {
-        $package = Package::findOrFail($id_package);
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
         $tryout = \App\Models\Tryout::findOrFail($id_tryout);
         if (! $tryout->show_discussion) {
-            return redirect()->route('user.package.tryout.riwayat', [$id_package, $id_tryout])
+            $redirectRoute = $isFreeTryout
+                ? route('user.tryout.result', [$id_package, $id_tryout, 'attempt' => $token])
+                : route('user.package.tryout.riwayat', [$id_package, $id_tryout]);
+
+            return redirect($redirectRoute)
                 ->with('error', 'Pembahasan tryout ini tidak tersedia.');
         }
 
         // Check access
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        if (!$isFreeTryout) {
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
 
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
         }
 
         // Get user's latest completed answers for this tryout
@@ -2498,8 +2507,10 @@ class PackageController extends Controller
         }
 
         $token = $token;
+        $packageRouteId = $isFreeTryout ? 'free' : $package->package_id;
         return view('user.pages.package.tryout-pembahasan', compact(
             'package',
+            'packageRouteId',
             'tryout',
             'tryoutDetails',
             'latestUserAnswers',
@@ -2508,6 +2519,86 @@ class PackageController extends Controller
             'overallStats',
             'subtestSummaries'
         ));
+    }
+
+    public function chatPembahasanAi(Request $request, $id_package, $id_tryout, $token, AiDiscussionService $aiDiscussionService)
+    {
+        $validated = $request->validate([
+            'question_id' => ['required', 'integer'],
+            'message' => ['required', 'string', 'max:1200'],
+        ]);
+
+        if (!$aiDiscussionService->isEnabled()) {
+            return response()->json([
+                'message' => 'Diskusi AI belum diaktifkan admin.',
+            ], 403);
+        }
+
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+
+        if (!$tryout->show_discussion) {
+            return response()->json([
+                'message' => 'Pembahasan tryout ini tidak tersedia.',
+            ], 403);
+        }
+
+        if (!$isFreeTryout) {
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki akses ke paket ini.',
+                ], 403);
+            }
+        }
+
+        $userAnswers = \App\Models\UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('status', 'completed')
+            ->where('attempt_token', $token)
+            ->with('tryoutDetail')
+            ->latest()
+            ->get();
+
+        if ($userAnswers->isEmpty()) {
+            return response()->json([
+                'message' => 'Data pengerjaan tidak ditemukan.',
+            ], 404);
+        }
+
+        $question = \App\Models\Question::with(['questionOptions', 'tryoutDetail'])
+            ->where('question_id', $validated['question_id'])
+            ->whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
+            ->firstOrFail();
+
+        $answerDetail = \App\Models\UserAnswerDetail::with('questionOption')
+            ->whereIn('user_answer_id', $userAnswers->pluck('user_answer_id'))
+            ->where('question_id', $question->question_id)
+            ->first();
+
+        try {
+            $result = $aiDiscussionService->chat($validated['message'], [
+                'tryout_name' => $tryout->name,
+                'subtest_name' => $this->getSubtestName($question->tryoutDetail?->type_subtest),
+                'question' => $question,
+                'answer_detail' => $answerDetail,
+            ]);
+        } catch (\RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json($result);
     }
 
     private function getSubtestName($type)
