@@ -1,6 +1,7 @@
 @extends('user.layout.user')
 
-@section('title', 'Live Session')
+<?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
+@section('title', $liveSessionLabel)
 
 @section('content')
 <div class="max-w-7xl mx-auto">
@@ -9,14 +10,14 @@
         <nav class="flex items-center text-sm text-gray-500">
             <a href="{{ route('user.material.index') }}" class="hover:text-primary">Materi</a>
             <i class="ri-arrow-right-s-line mx-2"></i>
-            <span class="text-gray-900">Live Session</span>
+            <span class="text-gray-900">{{ $liveSessionLabel }}</span>
         </nav>
     </div>
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Live Session</h1>
+            <h1 class="text-2xl font-bold text-gray-900">{{ $liveSessionLabel }}</h1>
             <p class="text-gray-600 mt-1">Ikuti kelas online dan webinar dengan pengajar</p>
         </div>
     </div>
@@ -53,7 +54,7 @@
                         </span>
                         @else
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            <i class="ri-live-line mr-1"></i>Live Session
+                            <i class="ri-live-line mr-1"></i>{{ $liveSessionLabel }}
                         </span>
                         @endif
                     </div>
@@ -75,8 +76,8 @@
         <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
             <i class="ri-live-line text-4xl text-gray-400"></i>
         </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-1">Tidak ada live session</h3>
-        <p class="text-gray-500">Anda belum memiliki akses ke live session.</p>
+        <h3 class="text-lg font-medium text-gray-900 mb-1">Tidak ada {{ strtolower($liveSessionLabel) }}</h3>
+        <p class="text-gray-500">Anda belum memiliki akses ke {{ strtolower($liveSessionLabel) }}.</p>
     </div>
     @endif
 </div>

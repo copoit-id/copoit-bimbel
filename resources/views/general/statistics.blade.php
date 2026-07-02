@@ -47,7 +47,7 @@
     <div class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary/10 blur-3xl"></div>
 
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-        <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary-light border border-primary/20">
+        <span class="inline-flex items-center gap-1 rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white border border-white/20">
             <i class="ri-line-chart-line"></i>
             Analisis Daya Tampung & Keketatan {{ $selectionLabel }}
         </span>

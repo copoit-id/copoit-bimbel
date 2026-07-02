@@ -91,13 +91,41 @@
 
         <!-- Payment Proof -->
         <div class="bg-white rounded-xl border border-gray-100 p-6">
-            <h3 class="font-semibold text-gray-800 mb-4">Bukti Pembayaran</h3>
-            @if($proofPath)
-            <div class="border border-gray-200 rounded-lg overflow-hidden max-w-md">
-                <img src="{{ asset('storage/' . $proofPath) }}" alt="Bukti Pembayaran" class="w-full object-contain max-h-96">
+            @php
+                $proofPaths = collect($paymentDetails['requirement_proof_paths'] ?? [])
+                    ->when($paymentDetails['proof_path'] ?? null, fn ($paths, $path) => $paths->push($path))
+                    ->filter()
+                    ->unique()
+                    ->values();
+                $isConditional = ($purchase->payment_method ?? null) === 'free_conditional';
+            @endphp
+            <h3 class="font-semibold text-gray-800 mb-4">{{ $isConditional ? 'Bukti Persyaratan' : 'Bukti Pembayaran' }}</h3>
+            @if($isConditional && !empty($paymentDetails['conditional_requirement']))
+            <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 whitespace-pre-line">{{ $paymentDetails['conditional_requirement'] }}</div>
+            @endif
+            @if(!empty($paymentDetails['requirement_user_notes']))
+            <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 whitespace-pre-line">{{ $paymentDetails['requirement_user_notes'] }}</div>
+            @endif
+            @if($proofPaths->isNotEmpty())
+            <div class="grid gap-3 sm:grid-cols-2">
+                @foreach($proofPaths as $proofIndex => $path)
+                @php
+                    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                    $isImage = in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+                @endphp
+                <a href="{{ asset('storage/' . $path) }}" target="_blank" class="block rounded-lg border border-gray-200 overflow-hidden hover:border-primary">
+                    @if($isImage)
+                    <img src="{{ asset('storage/' . $path) }}" alt="Bukti {{ $proofIndex + 1 }}" class="w-full object-contain max-h-72 bg-gray-50">
+                    @else
+                    <div class="p-4 text-sm text-primary">
+                        <i class="ri-attachment-line mr-1"></i>Buka Bukti {{ $proofIndex + 1 }}
+                    </div>
+                    @endif
+                </a>
+                @endforeach
             </div>
             @else
-            <p class="text-sm text-gray-400 italic">Tidak ada bukti pembayaran</p>
+            <p class="text-sm text-gray-400 italic">{{ $isConditional ? 'Tidak ada bukti persyaratan' : 'Tidak ada bukti pembayaran' }}</p>
             @endif
         </div>
     </div>

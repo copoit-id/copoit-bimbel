@@ -230,7 +230,7 @@
                 </div>
 
                 <div class="rounded-xl border border-gray-200 bg-white p-5">
-                    @php($selectedTypePrice = old('type_price', 'paid'))
+                    <?php $selectedTypePrice = old('type_price', 'paid'); ?>
                     <div class="mb-5">
                         <h3 class="text-base font-semibold text-gray-800">Akses & Penjualan</h3>
                         <p class="text-sm text-gray-500 mt-1">Atur apakah tes koran tampil di user dan bisa dibeli terpisah.</p>

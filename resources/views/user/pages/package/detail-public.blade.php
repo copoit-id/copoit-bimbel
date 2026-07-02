@@ -105,7 +105,7 @@ $classCount = $package->classes->count();
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $totalLiveSessions }} Live Session</span>
+                        <span>{{ $totalLiveSessions }} {{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}</span>
                     </div>
                     @endif
                     @if($tryoutCount > 0)

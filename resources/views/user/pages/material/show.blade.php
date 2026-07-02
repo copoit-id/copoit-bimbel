@@ -42,7 +42,7 @@
                         <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-800 to-indigo-900 text-white">
                             <div class="text-center px-6">
                                 <i class="ri-live-line text-6xl mb-4"></i>
-                                <h2 class="text-2xl font-bold mb-2">Live Session</h2>
+                                <h2 class="text-2xl font-bold mb-2">{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}</h2>
                                 <a href="{{ $material->content_url }}" target="_blank" rel="noopener"
                                    class="inline-flex items-center px-5 py-3 bg-white text-purple-900 rounded-xl font-semibold hover:bg-gray-100">
                                     <i class="ri-video-chat-line mr-2"></i>Masuk Sesi

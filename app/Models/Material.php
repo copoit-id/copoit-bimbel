@@ -184,7 +184,7 @@ class Material extends Model
         return match ($this->type) {
             'video' => 'Video',
             'document' => 'Dokumen',
-            'live_session' => 'Live Session',
+            'live_session' => config('client.branding.live_session_label', 'Kelas Belajar'),
             default => 'Materi',
         };
     }

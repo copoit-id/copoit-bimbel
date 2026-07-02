@@ -3056,14 +3056,25 @@ class PackageController extends Controller
         };
 
         $tryouts = $tryoutsQuery->get();
+        $pendingIndividualTryoutIds = $user
+            ? \App\Models\IndividualPurchase::query()
+                ->where('user_id', $user->id)
+                ->where('purchasable_type', \App\Models\Tryout::class)
+                ->where('status', \App\Models\IndividualPurchase::STATUS_PENDING)
+                ->pluck('purchasable_id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
 
         // Mark each tryout with access status
         foreach ($tryouts as $tryout) {
             $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
-            $tryout->has_access = $user && (
-                !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds))
-                || $tryout->canUserAccess($user->id)
-            );
+            $tryout->has_package_access = $user && !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
+            $tryout->has_access = $user && ($tryout->has_package_access || $tryout->canUserAccess($user->id));
+            $tryout->is_pending_individual = $user && in_array((int) $tryout->tryout_id, $pendingIndividualTryoutIds, true);
+            $tryout->route_package_id = $tryout->has_package_access
+                ? collect($tryoutPackageIds)->first(fn ($packageId) => in_array($packageId, $accessiblePackageIds))
+                : 'free';
             $tryout->access_via_package = $tryout->packages->first();
         }
         

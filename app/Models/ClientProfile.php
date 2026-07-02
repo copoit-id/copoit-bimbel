@@ -11,6 +11,7 @@ class ClientProfile extends Model
     protected $fillable = [
         'nama_bimbel',
         'faq_label',
+        'live_session_label',
         'logo',
         'favicon',
         'warna_primary',

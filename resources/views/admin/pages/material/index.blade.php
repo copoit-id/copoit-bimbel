@@ -43,7 +43,7 @@
         </a>
         <a href="{{ route('admin.material.index', ['type' => 'live_session']) }}"
            class="px-4 py-2 rounded-lg text-sm font-medium {{ request('type') == 'live_session' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
-            <i class="ri-live-line mr-1"></i>Live Session
+            <i class="ri-live-line mr-1"></i>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}
         </a>
     </div>
 

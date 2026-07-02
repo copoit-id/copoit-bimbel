@@ -92,7 +92,7 @@
                     </li>
                     <li>
                         <a href="{{ route('user.material.live-sessions') }}" class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.material.live-sessions') ? $dropdownLinkActive : $dropdownLinkInactive }}">
-                            <i class="ri-live-line text-[16px] mr-2"></i>Live Session
+                            <i class="ri-live-line text-[16px] mr-2"></i>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}
                         </a>
                     </li>
                 </ul>

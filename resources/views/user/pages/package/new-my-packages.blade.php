@@ -183,49 +183,43 @@ $assetUrl = function (?string $path) {
         @php
         $userAccess = $material->userAccess->first();
         @endphp
-        <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all group flex flex-col h-full">
-            <div class="flex items-start gap-4">
-                <div class="w-14 h-14 bg-red-100 text-red-500 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden bg-red-100 text-red-500">
                     @if($material->thumbnail_url)
                     <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="96" height="96" class="w-full h-full object-cover">
                     @else
-                    <i class="{{ $material->type_icon }} text-2xl"></i>
+                    <i class="{{ $material->type_icon }} text-xl"></i>
                     @endif
                 </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ $material->type_label }}</span>
-                        @if($material->duration_minutes)
-                        <span class="text-xs text-gray-400">{{ $material->formatted_duration }}</span>
-                        @endif
-                    </div>
-                    <h3 class="font-medium text-gray-800 text-sm line-clamp-2">{{ $material->title }}</h3>
-                    <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
-                </div>
-            </div>
-            
-            <div class="mt-auto pt-3 border-t flex items-center justify-between">
                 @if($userAccess && $userAccess->is_completed)
-                <span class="text-xs flex items-center gap-1" style="color: {{ $primaryColor }}">
-                    <i class="ri-check-line"></i>Selesai
-                </span>
-                @elseif($userAccess && $userAccess->is_in_progress)
-                <div class="flex items-center gap-2 flex-1">
-                    <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full" style="width: {{ $userAccess->progress_percentage }}%; background-color: {{ $primaryColor }}"></div>
-                    </div>
-                    <span class="text-xs text-gray-500">{{ $userAccess->progress_percentage }}%</span>
-                </div>
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Sudah Ditonton</span>
                 @else
-                <span class="text-xs text-gray-400">Belum dimulai</span>
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Akses Aktif</span>
                 @endif
-                
-                <a href="{{ route('user.material.show', $material->material_id) }}" 
-                   class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
-                   style="background-color: {{ $primaryColor }}">
-                    <i class="ri-play-circle-line mr-1"></i>Lihat
-                </a>
             </div>
+
+            <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $material->title }}</h3>
+
+            <div class="space-y-2 mb-4">
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-video-line mr-2 text-gray-400"></i>
+                    <span>{{ $material->type_label }}</span>
+                </div>
+                @if($material->duration_minutes)
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-time-line mr-2 text-gray-400"></i>
+                    <span>{{ $material->formatted_duration }}</span>
+                </div>
+                @endif
+                <p class="text-sm text-gray-400 line-clamp-2">{{ $material->description ?? 'Tidak ada deskripsi' }}</p>
+            </div>
+
+            <a href="{{ route('user.material.show', $material->material_id) }}"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity mt-auto"
+               style="background-color: {{ $primaryColor }}">
+                <i class="ri-play-circle-line mr-1"></i>{{ $userAccess && $userAccess->is_completed ? 'Tonton Lagi' : 'Tonton' }}
+            </a>
         </div>
         @endforeach
     </div>

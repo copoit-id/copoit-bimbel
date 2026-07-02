@@ -139,11 +139,18 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
                 </a>
             @elseif($material->isIndividuallyAvailable())
                 {{-- Material for individual sale --}}
+                @if($material->is_pending_individual ?? false)
+                <button disabled
+                        class="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
+                    <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
+                </button>
+                @else
                 <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price ?? 0 }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}', @js($material->conditional_requirement ?? ''))"
                         class="w-full py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="{{ $material->isPaidIndividualAccess() ? 'ri-shopping-cart-line' : ($material->isFreeConditionalIndividualAccess() ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>{{ $material->isPaidIndividualAccess() ? 'Beli Sekarang' : ($material->isFreeConditionalIndividualAccess() ? 'Ajukan Akses' : 'Akses Gratis') }}
                 </button>
+                @endif
             @else
                 {{-- Material not for sale, only available via package --}}
                 <div class="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">

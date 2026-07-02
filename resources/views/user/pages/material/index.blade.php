@@ -78,7 +78,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
             <i class="ri-live-line text-3xl"></i>
         </div>
         <div class="flex-1">
-            <h3 class="font-semibold text-gray-800">Live Session</h3>
+            <h3 class="font-semibold text-gray-800">{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}</h3>
             <p class="text-sm text-gray-500">{{ $accessibleLiveSessions ?? 0}} sesi live</p>
         </div>
         <i class="ri-arrow-right-line text-gray-400 group-hover:translate-x-1 transition-transform"></i>

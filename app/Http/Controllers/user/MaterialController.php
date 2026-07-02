@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\MaterialCategory;
 use App\Models\MaterialProgressLog;
@@ -53,10 +54,12 @@ class MaterialController extends Controller
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
         $materials = $materialsQuery->paginate(12)->withQueryString();
+        $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         // Mark each material with access status
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
+            $material->is_pending_individual = in_array((int) $material->material_id, $pendingMaterialIds, true);
             $material->access_via_package = $material->packages->first();
         }
 
@@ -121,9 +124,11 @@ class MaterialController extends Controller
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
         $materials = $materialsQuery->paginate(12)->withQueryString();
+        $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
+            $material->is_pending_individual = in_array((int) $material->material_id, $pendingMaterialIds, true);
             $material->access_via_package = $material->packages->first();
         }
 
@@ -164,9 +169,11 @@ class MaterialController extends Controller
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
         $materials = $materialsQuery->paginate(12)->withQueryString();
+        $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
+            $material->is_pending_individual = in_array((int) $material->material_id, $pendingMaterialIds, true);
             $material->access_via_package = $material->packages->first();
         }
 
@@ -207,9 +214,11 @@ class MaterialController extends Controller
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
         $materials = $materialsQuery->paginate(12)->withQueryString();
+        $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         foreach ($materials as $material) {
             $material->has_access = $user && $material->canUserAccess($user->id);
+            $material->is_pending_individual = in_array((int) $material->material_id, $pendingMaterialIds, true);
             $material->access_via_package = $material->packages->first();
         }
 
@@ -469,6 +478,21 @@ class MaterialController extends Controller
             ->toArray();
         
         return array_unique(array_merge($directAccessIds, $packageAccessIds));
+    }
+
+    private function getPendingIndividualMaterialIds($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        return IndividualPurchase::query()
+            ->where('user_id', $user->id)
+            ->where('purchasable_type', Material::class)
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->pluck('purchasable_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     private function applyMaterialFilters($query, string $search, string $sort): void

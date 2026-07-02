@@ -39,7 +39,7 @@
     </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'live']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'live' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
-        <i class="ri-live-line mr-1"></i>Live Session
+        <i class="ri-live-line mr-1"></i>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}
         <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'live' ? 'bg-white/20' : 'bg-gray-100' }}">
             {{ $tab === 'live' ? $items->count() : '' }}
         </span>

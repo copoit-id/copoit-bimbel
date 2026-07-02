@@ -450,7 +450,7 @@ class IndividualPurchaseController extends Controller
                     'tryout_id' => $purchase->purchasable_id,
                 ],
                 [
-                    'status' => 'active',
+                    'status' => 'not_started',
                     'assigned_at' => now(),
                     'expires_at' => $accessExpiresAt,
                 ]
