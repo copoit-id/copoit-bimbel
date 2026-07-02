@@ -18,6 +18,7 @@ $styles = [
 ];
 
 $style = $styles[$type];
+$topClass = session('admin_login_as') ? 'top-[72px]' : 'top-4';
 @endphp
 
 <div 
@@ -30,7 +31,7 @@ $style = $styles[$type];
     x-transition:leave="transition ease-in duration-200"
     x-transition:leave-start="opacity-100 translate-y-0"
     x-transition:leave-end="opacity-0 translate-y-2"
-    class="fixed top-6 right-6 z-50 max-w-sm w-full shadow-lg rounded-lg p-4 border {{ $style['bg'] }} {{ $style['border'] }} {{ $style['text'] }}"
+    class="fixed {{ $topClass }} right-4 sm:right-6 z-[100000] max-w-sm w-[calc(100%-2rem)] sm:w-full shadow-lg rounded-lg p-4 border {{ $style['bg'] }} {{ $style['border'] }} {{ $style['text'] }}"
     role="alert"
 >
     <div class="flex items-center justify-between">

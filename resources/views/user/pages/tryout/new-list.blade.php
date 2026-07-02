@@ -95,6 +95,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     $isInProgress = $userAnswer && $userAnswer->status === 'in_progress';
     $isForSale = $tryout->isIndividuallyAvailable();
     $isPaid = $tryout->isPaidIndividualAccess();
+    $isFreeUnconditional = $tryout->isFreeUnconditionalIndividualAccess();
     $isFreeConditional = $tryout->isFreeConditionalIndividualAccess();
     $isPendingIndividual = (bool) ($tryout->is_pending_individual ?? false);
     $routePackageId = $tryout->route_package_id ?? ($tryout->packages->first()?->package_id ?? 'free');
@@ -159,13 +160,20 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
 
         <div class="mt-auto w-full">
             @if(!$user)
-                {{-- Guest - perlu login --}}
+                @if($tryout->access_via_package)
+                <a href="{{ route('user.package.detail', $tryout->access_via_package->package_id) }}"
+	                   class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+	                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+	                    <i class="ri-shopping-bag-line mr-1"></i>Dapatkan Paket
+	                </a>
+                @else
                 <a href="{{ route('login') }}"
                    class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
                    style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
                     <i class="ri-login-box-line mr-1"></i>
                     Masuk untuk Akses
                 </a>
+                @endif
             @elseif($isForSale)
                 {{-- Tryout for individual sale --}}
                 @if($tryout->has_access)
@@ -174,13 +182,24 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>Kerjakan
                 </a>
-                @elseif($isPendingIndividual)
-                <button disabled class="w-full py-2.5 rounded-xl text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
-                    <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
-                </button>
-                @else
-                <button type="button"
-                        data-buy-tryout
+	                @elseif($isPendingIndividual)
+	                <button disabled class="w-full py-2.5 rounded-xl text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
+	                    <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
+	                </button>
+	                @elseif($isFreeUnconditional)
+	                <form action="{{ route('user.individual-purchase.buy') }}" method="POST" class="w-full">
+	                    @csrf
+	                    <input type="hidden" name="type" value="tryout">
+	                    <input type="hidden" name="id" value="{{ $tryout->tryout_id }}">
+	                    <button type="submit"
+	                            class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
+	                            style="background-color: {{ $primaryColor }}">
+	                        <i class="ri-gift-line mr-1"></i>Klaim Gratis
+	                    </button>
+	                </form>
+	                @else
+	                <button type="button"
+	                        data-buy-tryout
                         data-id="{{ $tryout->tryout_id }}"
                         data-name="{{ e($tryout->name) }}"
                         data-price="{{ (int) $tryout->price }}"
@@ -192,22 +211,22 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                     {{ $isPaid ? 'Beli Sekarang' : ($isFreeConditional ? 'Ajukan Akses' : 'Akses Gratis') }}
                 </button>
                 @endif
-            @elseif($tryout->has_access)
-                {{-- User has access via package - arahkan ke paket saya --}}
-                <a href="{{ route('user.package.my') }}?tab=tryouts"
-                   class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
-                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-                    <i class="ri-folder-open-line mr-1"></i>Lihat di Paket Saya
-                </a>
+	            @elseif($tryout->has_access)
+	                {{-- User has access via package/direct access - bisa langsung kerjakan --}}
+	                <a href="{{ route('user.tryout.lobby', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
+	                   class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+	                   style="background-color: {{ $primaryColor }}">
+	                    <i class="ri-play-circle-line mr-1"></i>Kerjakan
+	                </a>
             @else
                 {{-- User doesn't have access --}}
-                @if($tryout->access_via_package)
-                <a href="{{ route('user.package.my') }}?tab=packages"
-                   class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
-                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
-                    <i class="ri-shopping-bag-line mr-1"></i>
-                    Dapatkan Akses
-                </a>
+	                @if($tryout->access_via_package)
+	                <a href="{{ route('user.package.detail', $tryout->access_via_package->package_id) }}"
+	                   class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 transition-colors"
+	                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+	                    <i class="ri-shopping-bag-line mr-1"></i>
+	                    Dapatkan Paket
+	                </a>
                 @else
                 <button disabled class="flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
                     <i class="ri-lock-line mr-1"></i>
