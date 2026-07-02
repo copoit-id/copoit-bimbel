@@ -1,5 +1,5 @@
 @extends('admin.layout.admin')
-@php($faqLabel = $clientBranding['faq_label'] ?? 'FAQ')
+<?php $faqLabel = $clientBranding['faq_label'] ?? 'FAQ'; ?>
 @section('title', 'Manajemen ' . $faqLabel)
 @section('content')
 

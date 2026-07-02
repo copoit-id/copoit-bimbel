@@ -17,7 +17,7 @@
                 Kategori tujuan:
                 {{ $classSchedule->destinationCategories->map(fn($category) => $category->display_name)->implode(', ') ?: '-' }}
             </p>
-            @php($tentorName = $classSchedule->tentor?->name ?? $classSchedule->class?->tentor?->name ?? $classSchedule->class?->mentor)
+            <?php $tentorName = $classSchedule->tentor?->name ?? $classSchedule->class?->tentor?->name ?? $classSchedule->class?->mentor; ?>
             @if($tentorName)
                 <p class="mt-1 text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
             @endif
@@ -95,8 +95,8 @@
                 </thead>
                 <tbody>
                     @forelse($participants as $participant)
-                        @php($attendance = $attendances->get($participant->id))
-                        @php($badge = $statusBadges[$attendance?->status ?? ''] ?? ['label' => 'Belum absen', 'class' => 'bg-gray-100 text-gray-600'])
+                        <?php $attendance = $attendances->get($participant->id); ?>
+                        <?php $badge = $statusBadges[$attendance?->status ?? ''] ?? ['label' => 'Belum absen', 'class' => 'bg-gray-100 text-gray-600']; ?>
                         <tr class="border-t border-gray-100 hover:bg-gray-50">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-900">{{ $participant->name }}</p>

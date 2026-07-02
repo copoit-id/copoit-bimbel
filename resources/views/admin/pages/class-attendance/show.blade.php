@@ -28,7 +28,7 @@
             </thead>
             <tbody>
                 @forelse($participants as $participant)
-                    @php($attendance = $attendances->get($participant->id))
+                    <?php $attendance = $attendances->get($participant->id); ?>
                     <tr class="border-t border-gray-100">
                         <td class="px-4 py-3">
                             <p class="font-medium text-gray-900">{{ $participant->name }}</p>
