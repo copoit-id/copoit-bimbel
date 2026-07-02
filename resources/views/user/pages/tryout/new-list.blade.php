@@ -176,7 +176,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 </a>
                 @elseif($isPendingIndividual)
                 <button disabled class="w-full py-2.5 rounded-xl text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
-                    <i class="ri-time-line mr-1"></i>Menunggu Persetujuan Admin
+                    <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
                 </button>
                 @else
                 <button type="button"

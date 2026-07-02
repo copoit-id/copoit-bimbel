@@ -142,7 +142,7 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
                 @if($material->is_pending_individual ?? false)
                 <button disabled
                         class="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
-                    <i class="ri-time-line mr-1"></i>Menunggu Persetujuan Admin
+                    <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
                 </button>
                 @else
                 <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $material->price ?? 0 }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}', @js($material->conditional_requirement ?? ''))"

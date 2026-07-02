@@ -318,7 +318,7 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                     @elseif($package->type_price === 'free_conditional' && $isPendingConditional)
                     <button type="button" disabled
                             class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 cursor-not-allowed">
-                        <i class="ri-time-line"></i><span>Menunggu Persetujuan Admin</span>
+                        <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
                     </button>
                     @elseif($package->type_price === 'free_conditional')
                     <button type="button"

@@ -164,7 +164,7 @@ $classCount = $package->classes->count();
                     @elseif($package->type_price === 'free_conditional' && $isPendingConditional)
                     <button type="button" disabled
                             class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 cursor-not-allowed">
-                        <i class="ri-time-line"></i><span>Menunggu Persetujuan Admin</span>
+                        <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
                     </button>
                     @elseif($package->type_price === 'free_conditional')
                     <button type="button"

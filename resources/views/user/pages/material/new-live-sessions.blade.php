@@ -135,7 +135,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 @if($material->is_pending_individual ?? false)
                 <button disabled
                         class="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
-                    <i class="ri-time-line mr-1"></i>Menunggu Persetujuan Admin
+                    <i class="ri-time-line mr-1"></i>Menunggu Verifikasi
                 </button>
                 @else
                 <button onclick="buyIndividual('material', {{ $material->material_id }}, {{ $displayPrice }}, '{{ $material->priceType() }}', '{{ addslashes($material->title) }}', @js($material->conditional_requirement ?? ''))"
