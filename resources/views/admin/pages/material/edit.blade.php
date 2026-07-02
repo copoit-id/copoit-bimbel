@@ -68,7 +68,7 @@
                         <select name="type" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" onchange="updatePlaceholder()">
                             <option value="video" {{ old('type', $material->type) == 'video' ? 'selected' : '' }}>Video</option>
                             <option value="document" {{ old('type', $material->type) == 'document' ? 'selected' : '' }}>Dokumen/PDF</option>
-                            <option value="live_session" {{ old('type', $material->type) == 'live_session' ? 'selected' : '' }}>Live Session</option>
+                            <option value="live_session" {{ old('type', $material->type) == 'live_session' ? 'selected' : '' }}>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}</option>
                         </select>
                     </div>
 
@@ -90,7 +90,7 @@
                     </div>
 
                     <div class="md:col-span-2 rounded-xl border border-gray-200 bg-white p-5">
-                        @php($selectedTypePrice = old('type_price', $material->type_price ?? 'paid'))
+                        <?php $selectedTypePrice = old('type_price', $material->type_price ?? 'paid'); ?>
                         <div class="mb-4">
                             <h3 class="text-base font-semibold text-gray-800">Akses & Penjualan</h3>
                             <p class="text-sm text-gray-500 mt-1">Atur apakah materi tampil di user dan bisa dibeli terpisah.</p>
@@ -237,7 +237,7 @@
                 break;
             case 'live_session':
                 urlInput.placeholder = 'https://zoom.us/j/...';
-                hint.textContent = 'Masukkan URL live session (Zoom, Google Meet, dll)';
+                hint.textContent = @js('Masukkan URL ' . strtolower($clientBranding['live_session_label'] ?? 'kelas belajar') . ' (Zoom, Google Meet, dll)');
                 break;
         }
     }

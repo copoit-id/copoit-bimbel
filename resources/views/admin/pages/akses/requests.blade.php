@@ -17,7 +17,7 @@
         'packages', 'package' => 'Paket',
         'videos', 'video' => 'Video',
         'documents', 'document' => 'Dokumen',
-        'live', 'live_session' => 'Live Session',
+        'live', 'live_session' => $clientBranding['live_session_label'] ?? 'Kelas Belajar',
         'tryouts', 'tryout' => 'Tryout',
         'tes_koran' => 'Tes Koran',
         default => 'Item',
@@ -75,9 +75,15 @@
                         $paymentDetails = is_array($accessRequest->payment_details)
                             ? $accessRequest->payment_details
                             : (json_decode($accessRequest->payment_details ?? '[]', true) ?: []);
-                        $proofPaths = collect([$paymentDetails['proof_path'] ?? null])->filter()->values();
-                        $noteText = $paymentDetails['proof_name'] ?? null;
-                        $amountText = 'Rp ' . number_format((float) $accessRequest->total_amount, 0, ',', '.');
+                        $proofPaths = collect($paymentDetails['requirement_proof_paths'] ?? [])
+                            ->when($paymentDetails['proof_path'] ?? null, fn ($paths, $proofPath) => $paths->push($proofPath))
+                            ->filter()
+                            ->unique()
+                            ->values();
+                        $noteText = $paymentDetails['requirement_user_notes'] ?? ($paymentDetails['proof_name'] ?? null);
+                        $amountText = ($accessRequest->payment_method ?? null) === 'free_conditional'
+                            ? 'Gratis bersyarat'
+                            : 'Rp ' . number_format((float) $accessRequest->total_amount, 0, ',', '.');
                     }
                 @endphp
                 <tr>

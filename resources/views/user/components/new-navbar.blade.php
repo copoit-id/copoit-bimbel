@@ -3,6 +3,7 @@ $user = auth()->user();
 $currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $faqLabel = $clientBranding['faq_label'] ?? 'FAQ';
+$liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
@@ -120,7 +121,7 @@ function isActive($route, $current) {
                             <i class="ri-file-text-line"></i>Dokumen
                         </a>
                         <a href="{{ route('user.material.live-sessions') }}" class="dropdown-item {{ isActive('user.material.live-sessions', $currentRoute) ? 'text-primary font-bold' : '' }}">
-                            <i class="ri-live-line"></i>Live Session
+                            <i class="ri-live-line"></i>{{ $liveSessionLabel }}
                         </a>
                     </div>
                 </div>

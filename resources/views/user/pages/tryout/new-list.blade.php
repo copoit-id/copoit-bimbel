@@ -96,6 +96,8 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     $isForSale = $tryout->isIndividuallyAvailable();
     $isPaid = $tryout->isPaidIndividualAccess();
     $isFreeConditional = $tryout->isFreeConditionalIndividualAccess();
+    $isPendingIndividual = (bool) ($tryout->is_pending_individual ?? false);
+    $routePackageId = $tryout->route_package_id ?? ($tryout->packages->first()?->package_id ?? 'free');
     $tryoutIcon = $tryout->icon_class ?: 'ri-file-list-3-line';
     $showThumbnail = ($tryout->user_card_display ?? 'icon') === 'thumbnail' && filled($tryout->thumbnail_url);
     @endphp
@@ -167,11 +169,15 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
             @elseif($isForSale)
                 {{-- Tryout for individual sale --}}
                 @if($tryout->has_access)
-                <a href="{{ route('user.tryout.lobby', ['id_package' => $tryout->packages->first()?->package_id ?? 'free', 'id_tryout' => $tryout->tryout_id]) }}"
+                <a href="{{ route('user.tryout.lobby', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
                    class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
                     <i class="ri-play-circle-line mr-1"></i>Kerjakan
                 </a>
+                @elseif($isPendingIndividual)
+                <button disabled class="w-full py-2.5 rounded-xl text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
+                    <i class="ri-time-line mr-1"></i>Menunggu Persetujuan Admin
+                </button>
                 @else
                 <button type="button"
                         data-buy-tryout
@@ -179,6 +185,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                         data-name="{{ e($tryout->name) }}"
                         data-price="{{ (int) $tryout->price }}"
                         data-price-type="{{ $tryout->priceType() }}"
+                        data-requirement="{{ e($tryout->conditional_requirement ?? '') }}"
                         class="w-full py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity"
                         style="background-color: {{ $primaryColor }}">
                     <i class="{{ $isPaid ? 'ri-shopping-cart-line' : ($isFreeConditional ? 'ri-time-line' : 'ri-gift-line') }} mr-1"></i>
@@ -234,6 +241,10 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 <p class="text-sm text-gray-500">Harga</p>
                 <p id="tryoutPurchaseItemPrice" class="font-bold text-lg" style="color: {{ $primaryColor }}"></p>
             </div>
+            <div id="tryoutConditionalRequirementWrapper" class="hidden mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p class="text-sm font-semibold text-amber-900 mb-1">Persyaratan</p>
+                <p id="tryoutConditionalRequirementText" class="text-sm text-amber-800 whitespace-pre-line"></p>
+            </div>
             <div id="tryoutVoucherWrapper" class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Kode Voucher (opsional)</label>
                 <input type="text" name="discount_code"
@@ -248,6 +259,19 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                        class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm">
             </div>
             @endif
+            <div id="tryoutConditionalProofWrapper" class="hidden mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti Persyaratan</label>
+                <input type="file" name="requirement_proofs[]" accept="image/*,.pdf,.mp4,.webm" multiple
+                       class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm">
+                <p class="text-xs text-gray-500 mt-1">Format JPG, PNG, PDF, MP4, atau WEBM. Maksimal 2MB per file.</p>
+            </div>
+            <div id="tryoutConditionalNotesWrapper" class="hidden mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Catatan (opsional)</label>
+                <textarea name="requirement_user_notes" rows="3"
+                          class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2"
+                          style="--tw-ring-color: {{ $primaryColor }}"
+                          placeholder="Tambahkan keterangan untuk admin"></textarea>
+            </div>
             <x-legal-links class="mb-4" />
             <div class="flex gap-3">
                 <button type="button" id="cancelTryoutPurchase" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-medium">Batal</button>
@@ -269,6 +293,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const voucherWrapper = document.getElementById('tryoutVoucherWrapper');
     const proofWrapper = document.getElementById('tryoutPaymentProofWrapper');
     const proofInput = proofWrapper?.querySelector('input[type="file"]');
+    const conditionalRequirementWrapper = document.getElementById('tryoutConditionalRequirementWrapper');
+    const conditionalRequirementText = document.getElementById('tryoutConditionalRequirementText');
+    const conditionalProofWrapper = document.getElementById('tryoutConditionalProofWrapper');
+    const conditionalProofInput = conditionalProofWrapper?.querySelector('input[type="file"]');
+    const conditionalNotesWrapper = document.getElementById('tryoutConditionalNotesWrapper');
     const submitBtn = document.getElementById('tryoutSubmitPurchaseBtn');
 
     function closeModal() {
@@ -283,11 +312,19 @@ document.addEventListener('DOMContentLoaded', function () {
             itemName.textContent = this.dataset.name;
             const priceType = this.dataset.priceType || 'paid';
             const isPaid = priceType === 'paid';
+            const isConditional = priceType === 'free_conditional';
             modalTitle.textContent = isPaid ? 'Beli Tryout' : (priceType === 'free_conditional' ? 'Ajukan Akses Tryout' : 'Akses Gratis Tryout');
             itemPrice.textContent = isPaid ? 'Rp ' + Number(this.dataset.price).toLocaleString('id-ID') : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
             voucherWrapper?.classList.toggle('hidden', !isPaid);
             proofWrapper?.classList.toggle('hidden', !isPaid);
             if (proofInput) proofInput.required = isPaid;
+            conditionalRequirementWrapper?.classList.toggle('hidden', !isConditional);
+            conditionalProofWrapper?.classList.toggle('hidden', !isConditional);
+            conditionalNotesWrapper?.classList.toggle('hidden', !isConditional);
+            if (conditionalRequirementText) {
+                conditionalRequirementText.textContent = this.dataset.requirement || 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.';
+            }
+            if (conditionalProofInput) conditionalProofInput.required = isConditional;
             submitBtn.textContent = isPaid ? 'Beli' : (priceType === 'free_conditional' ? 'Ajukan' : 'Aktifkan');
             modal.classList.remove('hidden');
             modal.classList.add('flex');

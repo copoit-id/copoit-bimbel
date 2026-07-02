@@ -75,8 +75,15 @@ class IndividualPurchaseController extends Controller
             ?? 'N/A';
 
         // Decode payment proof
-        $paymentDetails = $purchase->payment_details ? json_decode($purchase->payment_details, true) : [];
-        $proofPath = $paymentDetails['proof_path'] ?? null;
+        $paymentDetails = is_array($purchase->payment_details)
+            ? $purchase->payment_details
+            : ($purchase->payment_details ? json_decode($purchase->payment_details, true) : []);
+        $proofPaths = collect($paymentDetails['requirement_proof_paths'] ?? [])
+            ->when($paymentDetails['proof_path'] ?? null, fn ($paths, $proofPath) => $paths->push($proofPath))
+            ->filter()
+            ->unique()
+            ->values();
+        $proofPath = $proofPaths->first();
 
         return view('admin.pages.individual-purchase.show', compact(
             'purchase',
@@ -126,7 +133,7 @@ class IndividualPurchaseController extends Controller
                         'tryout_id' => $purchase->purchasable_id,
                     ],
                     [
-                        'status' => 'active',
+                        'status' => 'not_started',
                         'assigned_at' => now(),
                         'expires_at' => $accessExpiresAt,
                     ]

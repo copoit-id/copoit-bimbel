@@ -91,7 +91,7 @@
                     {!! $landingValue('hero.title_html', 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?') !!}
                 </h1>
 
-                <p class="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed mx-auto lg:mx-0 font-medium">
+                <p class="text-base sm:text-lg text-slate-600 max-w-xl lg:max-w-lg leading-relaxed mx-auto lg:mx-0 font-medium">
                     {{ $landingValue('hero.description', 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.') }}
                 </p>
 

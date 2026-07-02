@@ -33,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         $defaults = [
             'name' => 'Copoit Academy',
             'faq_label' => 'FAQ',
+            'live_session_label' => 'Kelas Belajar',
             'logo' => $defaultAsset,
             'favicon' => null,
             'primary_color' => '#1C3259',
@@ -105,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
         if ($clientProfile) {
             $defaults['name'] = $clientProfile->nama_bimbel ?: $defaults['name'];
             $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
+            $defaults['live_session_label'] = $clientProfile->live_session_label ?: $defaults['live_session_label'];
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];

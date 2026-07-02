@@ -183,6 +183,17 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
+                    <input type="text" name="live_session_label"
+                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
+                    @error('live_session_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

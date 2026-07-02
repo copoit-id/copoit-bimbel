@@ -105,7 +105,7 @@ $classCount = $package->classes->count();
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>
                         </div>
-                        <span>{{ $totalLiveSessions }} Live Session</span>
+                        <span>{{ $totalLiveSessions }} {{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}</span>
                     </div>
                     @endif
                     @if($tryoutCount > 0)
@@ -164,7 +164,7 @@ $classCount = $package->classes->count();
                     @elseif($package->type_price === 'free_conditional' && $isPendingConditional)
                     <button type="button" disabled
                             class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 cursor-not-allowed">
-                        <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
+                        <i class="ri-time-line"></i><span>Menunggu Persetujuan Admin</span>
                     </button>
                     @elseif($package->type_price === 'free_conditional')
                     <button type="button"

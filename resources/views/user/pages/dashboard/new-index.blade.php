@@ -9,6 +9,21 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
 $showStatisticsDashboard = $showStatisticsDashboard ?? false;
 $showLandingDashboard = $showLandingDashboard ?? false;
+$activePackages = collect($activePackages ?? []);
+$recentTryouts = collect($recentTryouts ?? []);
+$publicPackages = collect($publicPackages ?? []);
+$unpaidInvoices = collect($unpaidInvoices ?? []);
+$upcomingClassSessions = collect($upcomingClassSessions ?? []);
+$packageProgress = $packageProgress ?? [];
+$destinationKeketatan = $destinationKeketatan ?? [
+    'snbp' => 'Pilih Target',
+    'snbt' => 'Pilih Target',
+];
+$totalAnswered = $totalAnswered ?? 0;
+$totalCorrect = $totalCorrect ?? 0;
+$accuracyPercent = $accuracyPercent ?? 0;
+$hasUnpaid = $unpaidInvoices->isNotEmpty();
+$hasSessions = $upcomingClassSessions->isNotEmpty();
 
 // Convert hex primary color to RGB for opacity adjustments
 $primaryHex = str_replace('#', '', $primaryColor);
@@ -181,7 +196,8 @@ $primaryRgb = "$r, $g, $b";
 
 @if(!$isGuest)
 <!-- Akses Cepat -->
-<div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+<?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-video-line text-xl"></i>
@@ -194,6 +210,13 @@ $primaryRgb = "$r, $g, $b";
             <i class="ri-file-list-3-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Tryout</h3>
+    </a>
+
+    <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-live-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">{{ $liveSessionLabel }}</h3>
     </a>
     
     <a href="{{ route('user.package.my') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
@@ -209,28 +232,9 @@ $primaryRgb = "$r, $g, $b";
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Beli Paket</h3>
     </a>
-
-    <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
-            <i class="ri-live-line text-xl"></i>
-        </div>
-        <h3 class="font-semibold text-gray-800 text-sm">Live Session</h3>
-    </a>
-
-    <a href="{{ route('user.material.documents') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
-            <i class="ri-file-text-line text-xl"></i>
-        </div>
-        <h3 class="font-semibold text-gray-800 text-sm">Dokumen</h3>
-    </a>
 </div>
 
-@php
-    $hasUnpaid = ($unpaidInvoices ?? collect())->isNotEmpty();
-    $hasSessions = ($upcomingClassSessions ?? collect())->isNotEmpty();
-@endphp
-
-@if($hasUnpaid)
+<?php if ($hasUnpaid): ?>
 <div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-2.5">
@@ -248,7 +252,7 @@ $primaryRgb = "$r, $g, $b";
     </div>
     
     <div class="space-y-3">
-        @foreach($unpaidInvoices as $invoice)
+        <?php foreach ($unpaidInvoices as $invoice): ?>
         <div class="group flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/60 p-4 hover:bg-white hover:border-red-150 hover:shadow-lg hover:shadow-red-50/30 transition-all-300">
             <div class="flex items-center gap-3 min-w-0">
                 <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 group-hover:scale-105 transition-transform shrink-0">
@@ -266,12 +270,12 @@ $primaryRgb = "$r, $g, $b";
                 </a>
             </div>
         </div>
-        @endforeach
+        <?php endforeach; ?>
     </div>
 </div>
-@endif
+<?php endif; ?>
 
-@if($hasSessions)
+<?php if ($hasSessions): ?>
 <div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-2.5">
@@ -289,14 +293,14 @@ $primaryRgb = "$r, $g, $b";
     </div>
     
     <div class="space-y-4">
-        @foreach($upcomingClassSessions as $session)
-        @php
+        <?php foreach ($upcomingClassSessions as $session): ?>
+        <?php
             $attendance = $session->attendances->first();
             $setting = $session->schedule->attendanceSetting;
             $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 15);
             $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
             $canAttend = now()->between($openAt, $closeAt) && !$attendance && $session->status === 'scheduled';
-        @endphp
+        ?>
         <div class="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gray-50/60 border border-gray-100 hover:border-gray-200 hover:bg-white hover:shadow-lg hover:shadow-gray-150/30 transition-all-300">
             <div class="flex items-center gap-4 min-w-0">
                 <!-- Date Badge -->
@@ -309,22 +313,22 @@ $primaryRgb = "$r, $g, $b";
                 <div class="space-y-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <!-- Destination Category tags -->
-                        @foreach($session->schedule->destinationCategories ?? [] as $cat)
+                        <?php foreach (($session->schedule?->destinationCategories ?? collect()) as $cat): ?>
                         <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-gray-200 text-gray-655 uppercase tracking-wide">
                             {{ $cat->name }}
                         </span>
-                        @endforeach
+                        <?php endforeach; ?>
                         
-                        @if($session->meeting_url)
+                        <?php if ($session->meeting_url): ?>
                         <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-blue-50 text-blue-600 flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                             Online
                         </span>
-                        @else
+                        <?php else: ?>
                         <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-amber-50 text-amber-600 flex items-center gap-1">
                             Offline
                         </span>
-                        @endif
+                        <?php endif; ?>
                     </div>
                     
                     <h4 class="font-bold text-gray-800 text-sm leading-snug group-hover:text-primary transition-colors truncate max-w-sm md:max-w-md">
@@ -347,48 +351,48 @@ $primaryRgb = "$r, $g, $b";
             
             <!-- Actions -->
             <div class="flex items-center gap-2.5 self-start sm:self-center w-full sm:w-auto shrink-0 sm:justify-end">
-                @if($attendance)
+                <?php if ($attendance): ?>
                     <span class="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 rounded-xl flex items-center gap-1 shrink-0">
                         <i class="ri-checkbox-circle-fill text-base text-green-500"></i>
                         Hadir
                     </span>
-                @elseif($canAttend)
-                    @if(($setting?->mode ?? 'button') === 'button')
+                <?php elseif ($canAttend): ?>
+                    <?php if (($setting?->mode ?? 'button') === 'button'): ?>
                         <form method="POST" action="{{ route('user.class-schedule.attend', $session) }}" class="w-full sm:w-auto shrink-0">
                             @csrf
                             <button class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl hover:opacity-90 transition-opacity bg-primary shadow-sm whitespace-nowrap">
                                 Absen
                             </button>
                         </form>
-                    @else
+                    <?php else: ?>
                         <a href="{{ route('user.class-schedule.index') }}" class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl hover:opacity-90 transition-opacity bg-primary shadow-sm text-center whitespace-nowrap shrink-0">
                             Kirim Foto
                         </a>
-                    @endif
-                @endif
+                    <?php endif; ?>
+                <?php endif; ?>
                 
-                @if($session->meeting_url)
-                    @php
+                <?php if ($session->meeting_url): ?>
+                    <?php
                         $isLiveNow = now()->between($session->start_at->copy()->subMinutes(15), $session->end_at ?? $session->start_at->copy()->addHours(2));
-                    @endphp
-                    @if($isLiveNow)
+                    ?>
+                    <?php if ($isLiveNow): ?>
                         <a href="{{ $session->meeting_url }}" target="_blank" class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg shadow-blue-500/20 hover:scale-105 whitespace-nowrap shrink-0" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)">
                             <i class="ri-video-chat-line text-base animate-bounce"></i>
                             Masuk Kelas
                         </a>
-                    @else
+                    <?php else: ?>
                         <a href="{{ $session->meeting_url }}" target="_blank" class="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0">
                             <i class="ri-link-m text-base"></i>
                             Link
                         </a>
-                    @endif
-                @endif
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
         </div>
-        @endforeach
+        <?php endforeach; ?>
     </div>
 </div>
-@endif
+<?php endif; ?>
 
 <!-- Stats Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -401,7 +405,7 @@ $primaryRgb = "$r, $g, $b";
         
         @if($activePackages->count() > 0)
         <div class="space-y-4">
-            @foreach($activePackages->take(3) as $access)
+            <?php foreach ($activePackages->take(3) as $access): ?>
             @php
             $pkg = $access->package;
             $progress = $packageProgress[$pkg->package_id] ?? 0;
@@ -423,7 +427,7 @@ $primaryRgb = "$r, $g, $b";
                     <i class="ri-arrow-right-line"></i>
                 </a>
             </div>
-            @endforeach
+            <?php endforeach; ?>
         </div>
         @else
         <div class="text-center py-8">
@@ -469,7 +473,7 @@ $primaryRgb = "$r, $g, $b";
     </div>
     
     <div class="space-y-3">
-        @foreach($recentTryouts as $attempt)
+        <?php foreach ($recentTryouts as $attempt): ?>
         <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0" style="background-color: {{ $primaryColor }}">
@@ -487,7 +491,7 @@ $primaryRgb = "$r, $g, $b";
                 </span>
             </div>
         </div>
-        @endforeach
+        <?php endforeach; ?>
     </div>
 </div>
 @endif
@@ -499,7 +503,7 @@ $primaryRgb = "$r, $g, $b";
     
     @if($publicPackages->count() > 0)
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @foreach($publicPackages as $pkg)
+        <?php foreach ($publicPackages as $pkg): ?>
         <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full">
             <!-- Package Image/Header -->
             <div class="h-32 relative overflow-hidden shrink-0" style="background: linear-gradient(135deg, {{ $primaryColor }}20 0%, {{ $primaryColor }}10 100%);">
@@ -543,12 +547,12 @@ $primaryRgb = "$r, $g, $b";
                 @php $pkgFeatureList = json_decode($pkg->features, true); @endphp
                 @if(!empty($pkgFeatureList))
                 <div class="space-y-1.5 mb-4">
-                    @foreach ($pkgFeatureList as $feature)
+                    <?php foreach ($pkgFeatureList as $feature): ?>
                     <div class="flex items-center text-sm text-gray-600">
                         <i class="ri-checkbox-circle-fill mr-2 text-green"></i>
                         <span>{{ $feature }}</span>
                     </div>
-                    @endforeach
+                    <?php endforeach; ?>
                 </div>
                 @endif
                 @endif
@@ -561,7 +565,7 @@ $primaryRgb = "$r, $g, $b";
                 </a>
             </div>
         </div>
-        @endforeach
+        <?php endforeach; ?>
     </div>
     @else
     <p class="text-gray-400 text-center py-8">Belum ada paket tersedia</p>
