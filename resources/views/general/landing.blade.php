@@ -28,6 +28,8 @@
     };
 
     $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+    $heroDescription = $landingValue('hero.description', 'Belajar UTBK/SNBT lebih terarah dengan materi, tryout IRT nasional, Kak AI, dan bimbingan mentor alumni.');
+    $heroDescriptionDesktop = \Illuminate\Support\Str::limit($heroDescription, 125);
     $primaryHex = str_replace('#', '', $primaryColor);
     if (strlen($primaryHex) == 3) {
         $r = hexdec(substr($primaryHex, 0, 1) . substr($primaryHex, 0, 1));
@@ -183,7 +185,7 @@
             
             <!-- Left Column: Content Card -->
             <div class="lg:col-span-7 flex flex-col justify-center">
-                <div class="p-4 sm:p-8 flex flex-col justify-between h-full">
+                <div class="p-4 sm:p-8 flex flex-col justify-center h-full">
                     <div class="space-y-4">
                         <div class="flex">
                             <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/40 backdrop-blur-md border border-white/60 text-slate-800 font-extrabold text-xs sm:text-sm shadow-sm">
@@ -198,12 +200,13 @@
                             {!! str_replace('text-gradient', 'text-primary highlight-underline', $landingValue('hero.title_html', 'SIAP TEMBUS <br><span class="text-primary highlight-underline">PTN IMPIAN KAMU?</span>')) !!}
                         </h1>
 
-                        <p class="text-sm sm:text-base text-slate-650 leading-relaxed font-medium mt-4">
-                            {{ $landingValue('hero.description', 'Copoit Academy memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.') }}
+                        <p class="text-sm sm:text-base text-slate-650 leading-relaxed font-medium mt-4 sm:max-w-xl lg:max-w-lg">
+                            <span class="sm:hidden">{{ $heroDescription }}</span>
+                            <span class="hidden sm:inline">{{ $heroDescriptionDesktop }}</span>
                         </p>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row gap-4 mt-8">
+                    <div class="flex flex-col sm:flex-row gap-4 mt-3 sm:mt-4">
                         <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
                            class="relative overflow-hidden group inline-flex items-center justify-center gap-2.5 rounded-full bg-primary px-8 py-3.5 text-sm sm:text-base font-bold text-white transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.6),inset_0_1.5px_2px_rgba(255,255,255,0.5),inset_0_-3px_5px_rgba(0,0,0,0.2)] hover:shadow-[0_12px_25px_-5px_rgba(37,99,235,0.7),inset_0_1.5px_2px_rgba(255,255,255,0.7),inset_0_-3px_5px_rgba(0,0,0,0.25)] active:scale-98">
                             <!-- Top Shiny Effect -->

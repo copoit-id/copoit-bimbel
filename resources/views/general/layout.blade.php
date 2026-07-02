@@ -53,10 +53,11 @@
                 @endif
                 @if($showStatisticsNav)
                 <div class="group relative">
-                    <button type="button"
-                        class="hover:text-primary transition-colors flex items-center gap-1 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'text-primary' : '' }}">
-                        Statistik PTN
-                    </button>
+	                    <button type="button"
+	                        class="hover:text-primary transition-colors flex items-center gap-1 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'text-primary' : '' }}">
+	                        Statistik PTN
+	                        <i class="ri-arrow-down-s-line text-base transition-transform group-hover:rotate-180"></i>
+	                    </button>
                     <div class="invisible absolute left-1/2 -translate-x-1/2 top-full z-50 mt-4 w-44 rounded-xl border border-white/60 bg-white/80 backdrop-blur-md p-2 text-slate-700 opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-hover:mt-2">
                         <a href="{{ route('statistics') }}"
                             class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/50' }}">

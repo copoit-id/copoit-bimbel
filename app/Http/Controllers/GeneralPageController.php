@@ -265,7 +265,7 @@ class GeneralPageController extends Controller
             'hero' => [
                 'badge' => 'Bimbel Persiapan UTBK 2026 #1',
                 'title_html' => 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?',
-                'description' => 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.',
+                'description' => 'Belajar UTBK/SNBT lebih terarah dengan materi, tryout IRT nasional, Kak AI, dan bimbingan mentor alumni.',
                 'primary_cta' => [
                     'label' => 'Mulai Belajar Sekarang',
                     'href' => route('login'),
