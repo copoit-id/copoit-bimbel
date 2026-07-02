@@ -149,7 +149,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 </button>
                 @endif
             @else
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500">
+                <div class="flex w-full items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
                     <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
                 </div>
             @endif

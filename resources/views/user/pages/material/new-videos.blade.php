@@ -102,11 +102,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 </div>
                 @endif
 
-                @if($userAccess && $userAccess->is_completed)
-                <div class="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow" style="background-color: {{ $primaryColor }}">
-                    <i class="ri-check-line text-white"></i>
-                </div>
-                @elseif(!$user)
+                @if(!$user)
                 <div class="absolute top-2 right-2 px-2 py-1 bg-black/70 text-white text-xs rounded flex items-center gap-1">
                     <i class="ri-lock-line"></i>Login
                 </div>
@@ -131,19 +127,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 </a>
             </div>
             @elseif($isAccessible)
-            <div class="mt-3 flex items-center justify-between">
-                <span class="text-xs {{ $userAccess?->is_completed ? 'text-emerald-600' : 'text-yellow-600' }}" style="{{ $userAccess?->is_completed ? 'color: ' . $primaryColor : '' }}">
-                    {{ $userAccess?->is_completed ? 'Selesai ditonton' : ($userAccess?->is_in_progress ? 'Sedang ditonton' : 'Akses aktif') }}
-                </span>
-                @if($userAccess && !$userAccess->is_completed)
-                <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-red-400 rounded-full" style="width: {{ $userAccess->progress_percentage }}%"></div>
-                </div>
-                @else
-                <a href="{{ route('user.material.show', $material->material_id) }}" class="px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
-                    Lihat
+            <div class="mt-3">
+                <a href="{{ route('user.material.show', $material->material_id) }}" class="flex w-full items-center justify-center py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                    <i class="ri-play-circle-line mr-1"></i>
+                    {{ $userAccess?->is_completed ? 'Tonton Lagi' : 'Tonton' }}
                 </a>
-                @endif
             </div>
             @else
             {{-- User logged in but no access --}}

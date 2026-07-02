@@ -113,8 +113,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                         Detail <i class="ri-arrow-right-line ml-1"></i>
                     </a>
                     @elseif($isAccessible && $userAccess && $userAccess->is_in_progress)
-                    <span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
-                        <i class="ri-time-line mr-1"></i>Sedang dibaca
+                    <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                        <i class="ri-live-line mr-1"></i>Akses aktif
                     </span>
                     <a href="{{ route('user.material.show', $material->material_id) }}" class="text-purple-500 text-sm font-medium hover:translate-x-1 transition-transform flex items-center">
                         Detail <i class="ri-arrow-right-line ml-1"></i>
@@ -145,8 +145,8 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
                 </button>
                 @endif
             @else
-                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-500">
-                            <i class="ri-package-line mr-1"></i>Paket
+                        <div class="flex w-full items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
+                            <i class="ri-package-line mr-1"></i>Tersedia dalam Paket
                         </div>
                     @endif
                     @endif
