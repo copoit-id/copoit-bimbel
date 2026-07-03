@@ -73,14 +73,31 @@ class TryoutController extends Controller
             ->paginate(10);
 
         $tryouts->getCollection()->each(function ($tryout) {
+            $tryout->card_total_questions = $tryout->tryoutDetails->sum(function ($detail) {
+                return $detail->questions->count();
+            });
+            $tryout->card_total_duration = $tryout->tryoutDetails->sum('duration');
+            $tryout->card_subtest_count = $tryout->tryoutDetails->count();
+            $status = $this->resolveTryoutCardStatus($tryout);
+            $tryout->card_status_key = $status['key'];
+            $tryout->card_status_label = $status['label'];
+            $tryout->card_status_class = $status['class'];
+
             $tryout->tryoutDetails->each(function ($detail) {
                 $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
             });
         });
 
         $packages = Package::all();
+        $typeOptions = Tryout::query()
+            ->select('type_tryout')
+            ->distinct()
+            ->orderBy('type_tryout')
+            ->pluck('type_tryout')
+            ->mapWithKeys(fn ($type) => [$type => $this->formatTryoutType($type)])
+            ->all();
 
-        return view('admin.pages.tryout.index', compact('tryouts', 'packages'));
+        return view('admin.pages.tryout.index', compact('tryouts', 'packages', 'typeOptions'));
     }
 
     private const UTBK_SINGLE_TYPES = [
@@ -119,7 +136,7 @@ class TryoutController extends Controller
                 'is_certification' => $request->has('is_certification'),
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
-                'is_active' => $request->has('is_active'),
+                'is_active' => $request->boolean('is_active', true),
                 'is_premium' => $request->has('is_premium'),
                 'allow_calculator' => $request->boolean('allow_calculator'),
                 'is_toefl' => $request->has('is_toefl'),
@@ -189,7 +206,7 @@ class TryoutController extends Controller
                 'is_certification' => $request->has('is_certification'),
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
-                'is_active' => $request->has('is_active'),
+                'is_active' => $request->boolean('is_active', true),
                 'is_premium' => $request->has('is_premium'),
                 'allow_calculator' => $request->boolean('allow_calculator'),
                 'is_toefl' => $request->has('is_toefl'),
@@ -287,6 +304,50 @@ class TryoutController extends Controller
                 ->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
         }
+    }
+
+    private function resolveTryoutCardStatus(Tryout $tryout): array
+    {
+        if (! $tryout->is_active) {
+            return [
+                'key' => 'nonaktif',
+                'label' => 'Nonaktif',
+                'class' => 'bg-red-100 text-red-700',
+            ];
+        }
+
+        $now = now();
+
+        if ($tryout->start_date && $tryout->start_date->gt($now)) {
+            return [
+                'key' => 'akan_datang',
+                'label' => 'Akan Datang',
+                'class' => 'bg-yellow-100 text-yellow-700',
+            ];
+        }
+
+        if ($tryout->end_date && $tryout->end_date->lt($now)) {
+            return [
+                'key' => 'selesai',
+                'label' => 'Selesai',
+                'class' => 'bg-gray-100 text-gray-700',
+            ];
+        }
+
+        return [
+            'key' => 'aktif',
+            'label' => 'Aktif',
+            'class' => 'bg-green-100 text-green-700',
+        ];
+    }
+
+    private function formatTryoutType(?string $type): string
+    {
+        if (! $type) {
+            return 'Unknown';
+        }
+
+        return strtoupper(str_replace('_', ' ', $type));
     }
 
     private function createTryoutDetails($tryout, $request)

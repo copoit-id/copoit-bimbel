@@ -112,7 +112,115 @@ class LaporanController extends Controller
         ]);
     }
 
+    public function exportTryoutExcel($id)
+    {
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $headers = [
+            'Nama Peserta',
+            'Email',
+            'Attempt Token',
+            'Status',
+            'Skor',
+            'Benar',
+            'Salah',
+            'Kosong',
+            'Mulai',
+            'Selesai',
+        ];
+
+        $sheet->fromArray([$tryout->name], null, 'A1');
+        $sheet->fromArray([
+            'Peserta: ' . $statistics['total_participants'],
+            'Selesai: ' . $statistics['completed_participants'],
+            'Rata-rata: ' . $statistics['average_score'],
+            'Skor tertinggi: ' . $statistics['highest_score'],
+        ], null, 'A2');
+        $sheet->fromArray($headers, null, 'A4');
+        $sheet->getStyle('A1:A2')->getFont()->setBold(true);
+        $sheet->getStyle('A4:J4')->getFont()->setBold(true);
+
+        $row = 5;
+        foreach ($participants as $participant) {
+            foreach ($participant['attempts'] as $attempt) {
+                $sheet->fromArray([
+                    $participant['user']->name ?? 'User',
+                    $participant['user']->email ?? '-',
+                    $attempt->attempt_token,
+                    $attempt->attempt_status_label,
+                    round($attempt->raw_score ?? 0, 1),
+                    $attempt->total_correct ?? 0,
+                    $attempt->total_wrong ?? 0,
+                    $attempt->total_unanswered ?? 0,
+                    $attempt->started_at ? Carbon::parse($attempt->started_at)->format('d M Y H:i') : '-',
+                    $attempt->finished_at ? Carbon::parse($attempt->finished_at)->format('d M Y H:i') : '-',
+                ], null, 'A' . $row);
+                $row++;
+            }
+        }
+
+        foreach (range('A', 'J') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = sprintf(
+            'laporan-tryout-%s-%s.xlsx',
+            $tryout->tryout_id,
+            Carbon::now()->format('Ymd_His')
+        );
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function exportTryoutPdf($id)
+    {
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
+
+        $html = view('admin.pages.laporan.export-detail-pdf', [
+            'tryout' => $tryout,
+            'statistics' => $statistics,
+            'participants' => $participants,
+        ])->render();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $filename = sprintf(
+            'laporan-tryout-%s-%s.pdf',
+            $tryout->tryout_id,
+            Carbon::now()->format('Ymd_His')
+        );
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
     public function show($id)
+    {
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
+
+        $leaderboardPackageId = optional($tryout->packages->first())->package_id
+            ?? optional($tryout->directPackage)->package_id;
+
+        return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
+    }
+
+    private function getTryoutDetailReport($id): array
     {
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
@@ -166,6 +274,8 @@ class LaporanController extends Controller
                         return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
                     });
                     $attempt->raw_score = $rawScore;
+                    $attempt->attempt_status = $this->resolveAttemptStatus($userAnswers, $attempt->attempt_status);
+                    $attempt->attempt_status_label = $this->formatAttemptStatus($attempt->attempt_status);
 
                     return $attempt;
                 });
@@ -197,10 +307,7 @@ class LaporanController extends Controller
             ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
             : 0;
 
-        $leaderboardPackageId = optional($tryout->packages->first())->package_id
-            ?? optional($tryout->directPackage)->package_id;
-
-        return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
+        return [$tryout, $statistics, $participants];
     }
 
     public function attemptDetail($tryoutId, $attemptToken)
@@ -285,6 +392,37 @@ class LaporanController extends Controller
         ][$type] ?? ucfirst(str_replace('_', ' ', $type));
     }
 
+    private function formatAttemptStatus(?string $status): string
+    {
+        return [
+            'completed' => 'Selesai',
+            'pending_release' => 'Menunggu Rilis',
+            'in_progress' => 'Sedang Dikerjakan',
+            'abandoned' => 'Ditinggalkan',
+        ][$status] ?? ucfirst((string) $status);
+    }
+
+    private function resolveAttemptStatus($userAnswers, ?string $fallback): string
+    {
+        if ($userAnswers->isEmpty()) {
+            return (string) $fallback;
+        }
+
+        if ($userAnswers->contains(fn (UserAnswer $answer) => $answer->status === 'pending_release')) {
+            return 'pending_release';
+        }
+
+        if ($userAnswers->every(fn (UserAnswer $answer) => $answer->status === 'completed')) {
+            return 'completed';
+        }
+
+        if ($userAnswers->contains(fn (UserAnswer $answer) => $answer->status === 'in_progress')) {
+            return 'in_progress';
+        }
+
+        return (string) ($userAnswers->sortByDesc('created_at')->first()->status ?? $fallback);
+    }
+
     private function buildTryoutReportQuery()
     {
         return Tryout::with([
@@ -309,19 +447,31 @@ class LaporanController extends Controller
                 $tryout->userAnswers()->where('status', 'completed')->avg('score') ?? 0,
                 1
             );
-            $tryout->completion_rate = $tryout->total_attempts > 0
-                ? round(($tryout->completed_attempts / $tryout->total_attempts) * 100)
-                : 0;
             $tryout->total_questions = $tryout->tryoutDetails->sum('questions_count');
             $tryout->total_duration = $tryout->tryoutDetails->sum('duration');
             $tryout->leaderboard_package_id = optional($tryout->packages->first())->package_id
                 ?? optional($tryout->directPackage)->package_id;
 
-            // Count unique participants (distinct user_id with completed status)
-            $tryout->unique_participants = \App\Models\UserAnswer::where('tryout_id', $tryout->tryout_id)
+            $tryout->total_attempts = \App\Models\UserAnswer::where('tryout_id', $tryout->tryout_id)
+                ->select('user_id', 'attempt_token')
+                ->groupBy('user_id', 'attempt_token')
+                ->get()
+                ->count();
+
+            $tryout->completed_attempts = \App\Models\UserAnswer::where('tryout_id', $tryout->tryout_id)
                 ->where('status', 'completed')
+                ->select('user_id', 'attempt_token')
+                ->groupBy('user_id', 'attempt_token')
+                ->get()
+                ->count();
+
+            $tryout->unique_participants = \App\Models\UserAnswer::where('tryout_id', $tryout->tryout_id)
                 ->distinct('user_id')
                 ->count('user_id');
+
+            $tryout->completion_rate = $tryout->total_attempts > 0
+                ? round(($tryout->completed_attempts / $tryout->total_attempts) * 100)
+                : 0;
 
             return $tryout;
         });

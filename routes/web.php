@@ -335,6 +335,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/', [LaporanController::class, 'index'])->name('index');
         Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
         Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
+        Route::get('/{id}/export/excel', [LaporanController::class, 'exportTryoutExcel'])->name('show.export-excel');
+        Route::get('/{id}/export/pdf', [LaporanController::class, 'exportTryoutPdf'])->name('show.export-pdf');
         Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
         Route::get('/{id}', [LaporanController::class, 'show'])->name('show');
     });

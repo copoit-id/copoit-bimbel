@@ -26,10 +26,16 @@
             <i class="ri-eye-line"></i>
             Preview Tryout
         </a>
-        <button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
-            <i class="ri-download-line"></i>
-            Download Laporan
-        </button>
+        <a href="{{ route('admin.laporan.show.export-excel', $tryout->tryout_id) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
+            <i class="ri-file-excel-line"></i>
+            Excel
+        </a>
+        <a href="{{ route('admin.laporan.show.export-pdf', $tryout->tryout_id) }}"
+            class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
+            <i class="ri-file-pdf-line"></i>
+            PDF
+        </a>
     </div>
 </div>
 <x-page-desc title="{{ $tryout->name }}"></x-page-desc>
@@ -169,6 +175,9 @@
                                     <td class="px-4 py-3 text-center">
                                         <p class="font-medium text-gray-800">{{ $attemptFinished ? $attemptFinished->translatedFormat('d M Y') : '-' }}</p>
                                         <p class="text-xs text-gray-500">{{ $attemptFinished ? $attemptFinished->format('H:i') : '' }}</p>
+                                        @if(($attempt->attempt_status ?? null) !== 'completed')
+                                        <p class="text-[11px] text-amber-600 mt-1">{{ $attempt->attempt_status_label }}</p>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"

@@ -28,16 +28,14 @@
                     <select id="type-filter"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">{{ __('Semua Tipe') }}</option>
-                        <option value="TIU">TIU</option>
-                        <option value="TWK">TWK</option>
-                        <option value="TKP">TKP</option>
-                        <option value="SKD_FULL">SKD Full</option>
-                        <option value="GENERAL">General</option>
-                        <option value="CERTIFICATION">Certification</option>
+                        @foreach($typeOptions as $type => $label)
+                        <option value="{{ strtoupper($type) }}">{{ $label }}</option>
+                        @endforeach
                     </select>
                     <select id="status-filter"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">{{ __('Semua Status') }}</option>
+                        <option value="nonaktif">{{ __('Nonaktif') }}</option>
                         <option value="akan_datang">{{ __('Akan Datang') }}</option>
                         <option value="aktif">{{ __('Aktif') }}</option>
                         <option value="selesai">{{ __('Selesai') }}</option>
@@ -60,10 +58,10 @@
         <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200 h-full flex flex-col"
             data-name="{{ strtolower($tryout->name) }}" data-type="{{ strtoupper($tryout->type_tryout) }}"
             data-assessment="{{ $tryout->assessment_type ?? 'standard' }}"
-            data-status="{{ $tryout->start_date > now() ? 'akan_datang' : ($tryout->end_date < now() ? 'selesai' : 'aktif') }}">
+            data-status="{{ $tryout->card_status_key }}">
             <div class="flex items-center justify-between mb-3">
                 <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                    {{ strtoupper($tryout->type_tryout) }} {{ $tryout->is_toefl == 1 ? '- IRT' : '' }}
+                    {{ strtoupper(str_replace('_', ' ', $tryout->type_tryout)) }} {{ $tryout->is_toefl == 1 ? '- TOEFL' : '' }}
                 </span>
                 @if($tryout->is_premium)
                 <span class="px-2 py-1 bg-rose-100 text-rose-700 rounded-full text-xs">
@@ -90,15 +88,15 @@
             <div class="flex flex-col gap-1 mb-4">
                 <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Total Soal') }}:</p>
-                    <p class="font-light">{{ $tryout->total_questions ?? 0 }} {{ __('Soal') }}</p>
+                    <p class="font-light">{{ $tryout->card_total_questions }} {{ __('Soal') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Durasi') }}:</p>
-                    <p class="font-light">{{ $tryout->total_duration ?? 0 }} {{ __('Menit') }}</p>
+                    <p class="font-light">{{ $tryout->card_total_duration }} {{ __('Menit') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Subtest') }}:</p>
-                    <p class="font-light">{{ $tryout->tryoutDetails->count() }} {{ __('Bagian') }}</p>
+                    <p class="font-light">{{ $tryout->card_subtest_count }} {{ __('Bagian') }}</p>
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Urutan') }}:</p>
@@ -106,14 +104,9 @@
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Status') }}:</p>
-                    @if($tryout->start_date > now())
-                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">{{ __('Akan Datang') }}</span>
-                    @elseif($tryout->end_date < now()) <span
-                    class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{{ __('Selesai') }}
-                </span>
-                @else
-                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{{ __('Aktif') }}</span>
-                @endif
+                    <span class="px-2 py-1 {{ $tryout->card_status_class }} rounded-full text-xs">
+                        {{ __($tryout->card_status_label) }}
+                    </span>
                 </span>
             </div>
 
@@ -325,7 +318,7 @@
             const matchesStatus = !selectedStatus || tryoutStatus === selectedStatus;
 
             if (matchesSearch && matchesType && matchesStatus) {
-                card.style.display = 'block';
+                card.style.display = '';
                 visibleCount++;
             } else {
                 card.style.display = 'none';

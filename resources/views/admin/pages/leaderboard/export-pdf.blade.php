@@ -63,14 +63,20 @@
                 @php
                     $score = round($ranking->raw_score ?? 0);
                     $maxScore = round($ranking->max_score ?? 0);
-                    $status = $ranking->is_passed ? 'Lulus' : 'Tidak Lulus';
+                    $status = match ($ranking->status ?? null) {
+                        'completed' => $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
+                        'pending_release' => 'Menunggu Rilis',
+                        'in_progress' => 'Sedang Dikerjakan',
+                        'abandoned' => 'Ditinggalkan',
+                        default => ucfirst((string) ($ranking->status ?? '-')),
+                    };
                 @endphp
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
-                    <td class="text-center">{{ $score }}</td>
-                    <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
+                    <td class="text-center">{{ ($ranking->status ?? null) === 'completed' ? $score : '-' }}</td>
+                    <td class="text-center">{{ ($ranking->status ?? null) === 'completed' && $maxScore > 0 ? $maxScore : '-' }}</td>
                     <td class="text-center">{{ $status }}</td>
                     <td class="text-center">
                         {{ $ranking->finished_at ? $ranking->finished_at->format('H:i') : '-' }}
@@ -81,7 +87,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
+                    <td colspan="8" class="text-center">Belum ada peserta yang mengakses tryout ini</td>
                 </tr>
             @endforelse
         </tbody>

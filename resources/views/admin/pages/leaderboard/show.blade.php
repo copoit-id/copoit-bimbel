@@ -31,6 +31,7 @@
             <div>
                 <p class="text-sm text-gray-600">Total Peserta</p>
                 <p class="text-2xl font-bold text-dark">{{ $statistics['total_participants'] }}</p>
+                <p class="text-xs text-gray-500">{{ $statistics['completed_participants'] }} selesai</p>
             </div>
             <i class="ri-group-line text-3xl text-dark"></i>
         </div>
@@ -103,26 +104,27 @@
                 $rawScore = round($ranking->raw_score ?? 0);
                 $maxScore = round($ranking->max_score ?? 0);
                 $bgClass = '';
-                if($rank == 1) $bgClass = 'bg-yellow-50/50';
-                elseif($rank == 2) $bgClass = 'bg-gray-50/50';
-                elseif($rank == 3) $bgClass = 'bg-orange-50/50';
+                $isCompleted = ($ranking->status ?? null) === 'completed';
+                if($isCompleted && $rank == 1) $bgClass = 'bg-yellow-50/50';
+                elseif($isCompleted && $rank == 2) $bgClass = 'bg-gray-50/50';
+                elseif($isCompleted && $rank == 3) $bgClass = 'bg-orange-50/50';
                 @endphp
                 <tr class="bg-white border-b border-dashed border-gray-200 text-grey3 {{ $bgClass }}">
                     <td class="py-3 px-4">
                         <div class="flex items-center gap-3">
-                            @if($rank == 1)
+                            @if($isCompleted && $rank == 1)
                             <div class="relative">
                                 <i class="ri-medal-fill text-3xl text-yellow-500"></i>
                                 <span
                                     class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-white">1</span>
                             </div>
-                            @elseif($rank == 2)
+                            @elseif($isCompleted && $rank == 2)
                             <div class="relative">
                                 <i class="ri-medal-fill text-3xl text-gray-400"></i>
                                 <span
                                     class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-white">2</span>
                             </div>
-                            @elseif($rank == 3)
+                            @elseif($isCompleted && $rank == 3)
                             <div class="relative">
                                 <i class="ri-medal-fill text-3xl text-orange-500"></i>
                                 <span
@@ -149,8 +151,8 @@
 
                     <td class="px-6 py-4 text-center">
                         <div class="flex justify-center items-center">
-                            <span class="text-2xl font-bold text-gray-800">{{ $rawScore }}</span>
-                            @if($maxScore > 0)
+                            <span class="text-2xl font-bold {{ $isCompleted ? 'text-gray-800' : 'text-gray-400' }}">{{ $isCompleted ? $rawScore : '-' }}</span>
+                            @if($isCompleted && $maxScore > 0)
                             <span class="text-sm text-gray-500 ml-1">/ {{ $maxScore }}</span>
                             @endif
                         </div>
@@ -186,7 +188,13 @@
 
                     <td class="px-6 py-4">
                         <div class="flex justify-center items-center">
-                            @if($ranking->is_passed)
+                            @if(($ranking->status ?? null) === 'in_progress')
+                            <span
+                                class="px-4 py-1 border border-amber-700 bg-amber-100 text-amber-700 rounded-full text-sm">Sedang Dikerjakan</span>
+                            @elseif(($ranking->status ?? null) === 'pending_release')
+                            <span
+                                class="px-4 py-1 border border-blue-700 bg-blue-100 text-blue-700 rounded-full text-sm">Menunggu Rilis</span>
+                            @elseif($ranking->is_passed)
                             <span
                                 class="px-4 py-1 border border-green-700 bg-green-100 text-green-700 rounded-full text-sm">Lulus</span>
                             @else
@@ -201,7 +209,7 @@
                     <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                         <div class="flex flex-col items-center">
                             <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
-                            <p>Belum ada peserta yang menyelesaikan tryout ini</p>
+                            <p>Belum ada peserta yang mengakses tryout ini</p>
                         </div>
                     </td>
                 </tr>

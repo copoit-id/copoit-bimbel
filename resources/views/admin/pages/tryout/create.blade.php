@@ -148,7 +148,7 @@
                         <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Tanggal Mulai') }} <span
                                 class="text-red-500">*</span></label>
                         <input type="datetime-local" id="start_date" name="start_date"
-                            value="{{ isset($tryout) ? $tryout->start_date->format('Y-m-d\TH:i') : old('start_date') }}"
+                            value="{{ old('start_date', isset($tryout) && $tryout->start_date ? $tryout->start_date->format('Y-m-d\TH:i') : '') }}"
                             required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     </div>
@@ -157,7 +157,7 @@
                         <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">{{ __('Tanggal Selesai') }} <span
                                 class="text-red-500">*</span></label>
                         <input type="datetime-local" id="end_date" name="end_date"
-                            value="{{ isset($tryout) ? $tryout->end_date->format('Y-m-d\TH:i') : old('end_date') }}"
+                            value="{{ old('end_date', isset($tryout) && $tryout->end_date ? $tryout->end_date->format('Y-m-d\TH:i') : '') }}"
                             required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     </div>
@@ -179,8 +179,9 @@
                 <!-- Options -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="flex items-center">
-                        <input type="checkbox" id="is_active" name="is_active" value="1" {{ (isset($tryout) &&
-                            $tryout->is_active) || old('is_active') ? 'checked' : '' }}
+                        <input type="hidden" name="is_active" value="0">
+                        <input type="checkbox" id="is_active" name="is_active" value="1"
+                            {{ old('is_active', isset($tryout) ? (bool) $tryout->is_active : true) ? 'checked' : '' }}
                         class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary
                         focus:ring-2">
                         <label for="is_active" class="ml-2 text-sm font-medium text-gray-700">
