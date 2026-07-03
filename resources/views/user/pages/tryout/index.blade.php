@@ -1325,7 +1325,8 @@
             function showSaveIndicator(success, msg) {
                 const div = document.createElement('div');
                 div.className =
-                    `fixed top-4 right-4 z-[999] px-4 py-2 rounded shadow-lg text-white transition-opacity duration-500 ${success ? 'bg-green' : 'bg-red'}`;
+                    `fixed top-4 right-4 px-4 py-2 rounded shadow-lg text-white transition-opacity duration-500 ${success ? 'bg-green' : 'bg-red'}`;
+                div.style.zIndex = '2147483647';
                 div.textContent = msg;
                 document.body.appendChild(div);
                 setTimeout(() => {
