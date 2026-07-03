@@ -212,21 +212,21 @@ class EssayReviewController extends Controller
                             case 'twk':
                             case 'tiu':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 5 : 0);
                                 break;
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $w > 0 ? min($w, 1) : 1;
+                                $totalScore += $w > 0 ? $w : 1;
                                 break;
                             case 'writing':
                             case 'reading':
                             case 'listening':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 10 : 0);
                                 break;
                             default:
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 1 : 0);
                                 break;
                         }
                     }
@@ -294,7 +294,7 @@ class EssayReviewController extends Controller
                             break;
                         case 'tkp':
                             $maxWeight = (float) ($question->questionOptions->max('weight') ?? 0);
-                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
                             break;
                         case 'writing':
                         case 'reading':

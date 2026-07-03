@@ -869,7 +869,7 @@ class TryoutController extends Controller
                             case 'twk':
                             case 'tiu':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 5 : 0);
                                 break;
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
@@ -879,11 +879,11 @@ class TryoutController extends Controller
                             case 'reading':
                             case 'listening':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 10 : 0);
                                 break;
                             default:
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 1 : 0);
                                 break;
                         }
                     }
@@ -935,9 +935,8 @@ class TryoutController extends Controller
                     switch ($type_subtest) {
                         case 'twk':
                         case 'tiu':
-                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
-                            $weightValue = (float) ($weight ?? 0);
-                            $total += $weightValue > 0 ? $weightValue : 5;
+                            $maxWeight = (float) ($options->max('weight') ?? 0);
+                            $total += $maxWeight > 0 ? $maxWeight : 5;
                             break;
                         case 'tkp':
                             $maxWeight = (float) ($options->max('weight') ?? 0);
@@ -946,14 +945,12 @@ class TryoutController extends Controller
                         case 'writing':
                         case 'reading':
                         case 'listening':
-                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
-                            $weightValue = (float) ($weight ?? 0);
-                            $total += $weightValue > 0 ? $weightValue : 10;
+                            $maxWeight = (float) ($options->max('weight') ?? 0);
+                            $total += $maxWeight > 0 ? $maxWeight : 10;
                             break;
                         default:
-                            $weight = $options->where('is_correct', true)->pluck('weight')->first();
-                            $weightValue = (float) ($weight ?? 0);
-                            $total += $weightValue > 0 ? $weightValue : 1;
+                            $maxWeight = (float) ($options->max('weight') ?? 0);
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
                             break;
                     }
                     break;

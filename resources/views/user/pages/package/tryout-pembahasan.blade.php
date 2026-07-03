@@ -152,13 +152,21 @@
                 switch($detail->subtest_type) {
                 case 'twk':
                 case 'tiu':
-                $scoreEarned = $isCorrect ? 5 : 0;
+                $weight = (float) ($selectedOption->weight ?? 0);
+                $scoreEarned = $weight > 0 ? $weight : ($isCorrect ? 5 : 0);
                 break;
                 case 'tkp':
                 $scoreEarned = $selectedOption->weight ?? 0;
                 break;
+                case 'writing':
+                case 'reading':
+                case 'listening':
+                $weight = (float) ($selectedOption->weight ?? 0);
+                $scoreEarned = $weight > 0 ? $weight : ($isCorrect ? 10 : 0);
+                break;
                 default:
-                $scoreEarned = $selectedOption->weight ?? ($isCorrect ? 1 : 0);
+                $weight = (float) ($selectedOption->weight ?? 0);
+                $scoreEarned = $weight > 0 ? $weight : ($isCorrect ? 1 : 0);
                 break;
                 }
                 }

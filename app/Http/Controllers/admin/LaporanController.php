@@ -521,7 +521,7 @@ class LaporanController extends Controller
                             case 'twk':
                             case 'tiu':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 5) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 5 : 0);
                                 break;
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
@@ -531,11 +531,11 @@ class LaporanController extends Controller
                             case 'reading':
                             case 'listening':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 10) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 10 : 0);
                                 break;
                             default:
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $detail->is_correct ? ($w > 0 ? $w : 1) : 0;
+                                $totalScore += $w > 0 ? $w : ($detail->is_correct ? 1 : 0);
                                 break;
                         }
                     }
