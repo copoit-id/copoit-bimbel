@@ -21,10 +21,6 @@
 @endphp
 <div class="dashboard">
     <x-page-desc title="{{ __('Paket') }}" description="{{ __('Pilihan paket gratis hingga berbayar') }}"></x-page-desc>
-    <div class="flex justify-end mt-4">
-        <a href="{{ route('user.package.riwayatPembelian') }}" class="text-blue-600 underline">{{ __('Riwayat Pembelian') }}</a>
-    </div>
-
     <!-- Tryout List -->
     @if(!$hasFreeTryouts && !$hasPremiumTryouts)
         <div class="text-center py-8 mt-6">
