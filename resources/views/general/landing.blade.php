@@ -29,7 +29,6 @@
 
     $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     $heroDescription = $landingValue('hero.description', 'Belajar UTBK/SNBT lebih terarah dengan materi, tryout IRT nasional, Kak AI, dan bimbingan mentor alumni.');
-    $heroDescriptionDesktop = \Illuminate\Support\Str::limit($heroDescription, 125);
     $primaryHex = str_replace('#', '', $primaryColor);
     if (strlen($primaryHex) == 3) {
         $r = hexdec(substr($primaryHex, 0, 1) . substr($primaryHex, 0, 1));
@@ -200,9 +199,8 @@
                             {!! str_replace('text-gradient', 'text-primary highlight-underline', $landingValue('hero.title_html', 'SIAP TEMBUS <br><span class="text-primary highlight-underline">PTN IMPIAN KAMU?</span>')) !!}
                         </h1>
 
-                        <p class="text-sm sm:text-base text-slate-650 leading-relaxed font-medium mt-4 sm:max-w-xl lg:max-w-lg">
-                            <span class="sm:hidden">{{ $heroDescription }}</span>
-                            <span class="hidden sm:inline">{{ $heroDescriptionDesktop }}</span>
+                        <p class="max-w-lg text-sm sm:text-base text-slate-650 leading-relaxed font-medium mt-4">
+                            {{ $heroDescription }}
                         </p>
                     </div>
 
