@@ -157,9 +157,9 @@
             @endif
 
             @else
-            <a href="{{ route('user.event.index') }}"
+            <a href="{{ route('user.package.index') }}"
                 class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Event') }}
+                <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Tryout') }}
             </a>
             @endif
             <a href="{{ route('user.tryout.lobby', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"

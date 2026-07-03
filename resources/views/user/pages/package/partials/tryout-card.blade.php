@@ -43,11 +43,11 @@
                 <p class="font-medium">{{ __('Dikerjakan') }}:</p>
                 <p class="font-light">{{ $userAttempts }} {{ __('Kali') }}</p>
             </span>
-            @if($lastAttempt)
+            @if($lastAttempt && $tryout->last_attempt_score !== null)
                 <span class="flex items-center justify-between">
                     <p class="font-medium">{{ __('Skor Terakhir') }}:</p>
-                    <p class="font-light {{ $lastAttempt->percentage >= 70 ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($lastAttempt->percentage ?? 0, 1) }}%
+                    <p class="font-light {{ $tryout->last_attempt_is_passed ? 'text-green-600' : 'text-red-600' }}">
+                        {{ number_format($tryout->last_attempt_score, 0) }}@if($tryout->last_attempt_max_score)/{{ number_format($tryout->last_attempt_max_score, 0) }}@endif
                     </p>
                 </span>
             @endif

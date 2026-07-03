@@ -190,9 +190,9 @@
             <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Tryout') }}
         </a>
         @else
-        <a href="{{ route('user.event.index') }}"
+        <a href="{{ route('user.package.index') }}"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
-            <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Event') }}
+            <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali ke Tryout') }}
         </a>
         @endif
     </div>

@@ -34,6 +34,7 @@ class PackageController extends Controller
                 'userAnswers' => function ($query) {
                     $query->where('user_id', Auth::id());
                 },
+                'userAnswers.tryoutDetail',
             ])
             ->orderBy('ordering')
             ->orderBy('tryout_id')
@@ -44,6 +45,7 @@ class PackageController extends Controller
             $tryout->setRelation('primaryPackage', $primaryPackage);
             return $tryout;
         });
+        $tryouts = $this->hydrateLastAttemptScores($tryouts);
 
         $practiceStats = $this->practiceProgress->getStatsForUser(Auth::id());
         $premiumAccessQuery = UserTryoutAccess::where('user_id', Auth::id())
@@ -473,10 +475,15 @@ class PackageController extends Controller
             })
             ->orderBy('tryouts.ordering')
             ->orderBy('tryouts.tryout_id')
-            ->with(['tryoutDetails.questions', 'userAnswers' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }])
+            ->with([
+                'tryoutDetails.questions',
+                'userAnswers' => function ($query) {
+                    $query->where('user_id', Auth::id());
+                },
+                'userAnswers.tryoutDetail',
+            ])
             ->get();
+        $tryouts = $this->hydrateLastAttemptScores($tryouts);
 
         $premiumAccessQuery = UserTryoutAccess::where('user_id', Auth::id())
             ->where('status', 'active')
@@ -493,6 +500,80 @@ class PackageController extends Controller
         $practiceStats = $this->practiceProgress->getStatsForUser(Auth::id());
 
         return view('user.pages.package.tryout', compact('package', 'tryouts', 'premiumAccessIds', 'practiceStats'));
+    }
+
+    private function hydrateLastAttemptScores($tryouts)
+    {
+        return $tryouts->map(function ($tryout) {
+            $attemptGroups = $tryout->userAnswers
+                ->where('status', 'completed')
+                ->groupBy('attempt_token');
+
+            if ($attemptGroups->isEmpty()) {
+                $tryout->last_attempt_score = null;
+                $tryout->last_attempt_max_score = null;
+                $tryout->last_attempt_is_passed = false;
+                return $tryout;
+            }
+
+            $latestAttempt = $attemptGroups
+                ->sortByDesc(function ($answers) {
+                    $latestDate = $answers->max('finished_at') ?? $answers->max('created_at');
+                    return $latestDate ? Carbon::parse($latestDate)->timestamp : 0;
+                })
+                ->first();
+
+            $tryout->last_attempt_score = $this->calculateAttemptRawScore($tryout, $latestAttempt);
+            $tryout->last_attempt_max_score = $this->calculateAttemptMaxScore($tryout, $latestAttempt);
+            $tryout->last_attempt_is_passed = $this->isAttemptPassed($latestAttempt, $tryout->tryoutDetails->count());
+
+            return $tryout;
+        });
+    }
+
+    private function calculateAttemptRawScore(Tryout $tryout, $userAnswers): float
+    {
+        if ($userAnswers->isEmpty()) {
+            return 0.0;
+        }
+
+        if ($tryout->requiresIrtScoring()) {
+            return (float) ($userAnswers->first()->utbk_total_score ?? 0);
+        }
+
+        if ($tryout->is_toefl) {
+            $toeflTotal = $userAnswers->first()->toefl_total_score ?? null;
+            if ($toeflTotal !== null) {
+                return (float) $toeflTotal;
+            }
+        }
+
+        return (float) $userAnswers->sum(function ($userAnswer) {
+            return $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest ?? null);
+        });
+    }
+
+    private function calculateAttemptMaxScore(Tryout $tryout, $userAnswers): ?float
+    {
+        if ($userAnswers->isEmpty()) {
+            return null;
+        }
+
+        if ($tryout->requiresIrtScoring()) {
+            return 1000.0;
+        }
+
+        if ($tryout->is_toefl) {
+            return 677.0;
+        }
+
+        return (float) $userAnswers->sum(function ($userAnswer) {
+            $type = $userAnswer->tryoutDetail->type_subtest ?? null;
+
+            return $type
+                ? $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type)
+                : 0;
+        });
     }
 
     public function riwayatTryout($id_package, $id_tryout)

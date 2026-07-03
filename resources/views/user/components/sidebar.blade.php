@@ -13,6 +13,7 @@
     $dropdownLinkInactive = $sidebarPrimary ? 'text-white/80 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100';
     $emptyTextClass = $sidebarPrimary ? 'text-white/70' : 'text-gray-500';
     $secondaryColor = $clientBranding['secondary_color'] ?? '#F3F3F3';
+    $isPackageActive = request()->routeIs('user.package.*') || request()->routeIs('user.tryout.*');
     if ($sidebarPrimary) {
         $emptyCtaClasses = 'block w-full py-2 px-3 text-xs text-center text-primary rounded-lg hover:opacity-90 transition-colors duration-200';
         $emptyCtaStyle = "background-color: {$secondaryColor}; border: none;";
@@ -38,9 +39,9 @@
             </li>
             <li>
                 <a href="{{ route('user.package.index') }}"
-                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    class="flex items-center py-2 px-4 {{ $isPackageActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i
-                        class="ri-store-3-line text-[20px] {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                        class="ri-store-3-line text-[20px] {{ $isPackageActive ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
                     <span class="ms-3">{{ __('Paket Tryout') }}</span>
                 </a>
             </li>

@@ -153,9 +153,9 @@
 
     <!-- Action Buttons -->
     <div class="flex gap-4 justify-center">
-        <a href="{{ route('user.package.tryout', $package->package_id) }}"
+        <a href="{{ $package ? route('user.package.tryout', $package->package_id) : route('user.package.index') }}"
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <i class="ri-arrow-left-line mr-2"></i>{{ __('Kembali') }}
+            <i class="ri-arrow-left-line mr-2"></i>{{ $package ? __('Kembali') : __('Kembali ke Tryout') }}
         </a>
         @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
         <a href="{{ route('user.certificate.preview', ['package_id' => request()->route('id_package'), 'tryout_id' => $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
