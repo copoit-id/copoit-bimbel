@@ -11,11 +11,13 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button class="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">
+        <button type="button" data-print-answer
+            class="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">
             <i class="ri-printer-line"></i>
             Cetak
         </button>
-        <button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+        <button type="button" data-print-answer
+            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
             <i class="ri-download-2-line"></i>
             Unduh PDF
         </button>
@@ -192,6 +194,10 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-print-answer]').forEach(button => {
+            button.addEventListener('click', () => window.print());
+        });
+
         const searchInput = document.getElementById('answer-search');
         const rows = document.querySelectorAll('.answer-row');
 

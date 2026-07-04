@@ -75,6 +75,7 @@
         @forelse($participants as $index => $participant)
         @php
             $user = $participant['user'];
+            $userMissing = $user->is_missing ?? false;
             $lastFinished = $participant['last_finished'] ? Carbon::parse($participant['last_finished']) : null;
         @endphp
         <div class="rounded-2xl border border-border bg-white transition data-[hidden=true]:hidden"
@@ -91,7 +92,7 @@
                     <div>
                         <p class="font-semibold text-gray-900">{{ $user->name ?? 'User' }}</p>
                         <p class="text-sm text-gray-500">{{ $user->email ?? '-' }}</p>
-                        <p class="text-xs text-gray-400 mt-1">ID: {{ $user->id }}</p>
+                        <p class="text-xs text-gray-400 mt-1">ID: {{ $user->id ?? '-' }}</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-3 text-sm">
@@ -111,11 +112,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    @unless($userMissing)
                     <a href="{{ route('admin.user.report', $user->id) }}"
                         class="px-4 py-2 text-sm border border-gray-200 rounded-full text-gray-600 hover:bg-gray-50 flex items-center gap-2 font-semibold">
                         <i class="ri-line-chart-line text-base"></i>
                         Profil User
                     </a>
+                    @endunless
                     <button type="button" data-participant-toggle data-target="participant-attempts-{{ $index }}"
                         class="px-4 py-2 text-sm rounded-full border border-primary/50 text-primary font-semibold flex items-center gap-2 hover:bg-primary hover:text-white transition">
                         <i class="ri-list-check-2 text-base"></i>

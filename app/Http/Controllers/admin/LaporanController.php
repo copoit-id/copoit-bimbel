@@ -7,6 +7,7 @@ use App\Models\Tryout;
 use App\Models\UserAnswer;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use stdClass;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Dompdf\Dompdf;
@@ -147,9 +148,9 @@ class LaporanController extends Controller
         foreach ($participants as $participant) {
             foreach ($participant['attempts'] as $attempt) {
                 $sheet->fromArray([
-                    $participant['user']->name ?? 'User',
-                    $participant['user']->email ?? '-',
-                    $attempt->attempt_token,
+                    $participant['user']->name,
+                    $participant['user']->email,
+                    $attempt->attempt_token ?: '-',
                     $attempt->attempt_status_label,
                     round($attempt->raw_score ?? 0, 1),
                     $attempt->total_correct ?? 0,
@@ -282,9 +283,10 @@ class LaporanController extends Controller
 
                 $sortedAttempts = $attempts->sortByDesc('finished_at')->values();
                 $latest = $sortedAttempts->first();
+                $user = $latest->user ?: $this->missingUserPlaceholder($latest->user_id);
 
                 return [
-                    'user' => $latest->user,
+                    'user' => $user,
                     'total_attempts' => $attempts->count(),
                     'latest_score' => round($latest->raw_score ?? 0, 1),
                     'last_finished' => $latest->finished_at,
@@ -328,7 +330,8 @@ class LaporanController extends Controller
             abort(404);
         }
 
-        $user = $attemptAnswers->first()->user;
+        $firstAnswer = $attemptAnswers->first();
+        $user = $firstAnswer->user ?: $this->missingUserPlaceholder($firstAnswer->user_id);
         $overallStats = [
             'correct' => $attemptAnswers->sum('correct_answers'),
             'wrong' => $attemptAnswers->sum('wrong_answers'),
@@ -390,6 +393,16 @@ class LaporanController extends Controller
             'excel' => 'Microsoft Excel',
             'ppt' => 'Microsoft PowerPoint',
         ][$type] ?? ucfirst(str_replace('_', ' ', $type));
+    }
+
+    private function missingUserPlaceholder($userId): stdClass
+    {
+        return (object) [
+            'id' => $userId,
+            'name' => $userId ? "User Terhapus #{$userId}" : 'User Terhapus',
+            'email' => '-',
+            'is_missing' => true,
+        ];
     }
 
     private function formatAttemptStatus(?string $status): string
