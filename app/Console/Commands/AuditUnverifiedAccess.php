@@ -16,7 +16,8 @@ class AuditUnverifiedAccess extends Command
     protected $signature = 'payment:audit-unverified-access
         {--email= : Filter by user email}
         {--limit=200 : Maximum rows per section}
-        {--json : Output JSON instead of tables}';
+        {--json : Output JSON instead of tables}
+        {--include-legacy-progress : Include old material/tryout progress records that are no longer treated as paid access}';
 
     protected $description = 'Audit active access records that do not have a verified payment or approved purchase.';
 
@@ -111,10 +112,7 @@ class AuditUnverifiedAccess extends Command
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
             })
             ->when($email, fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('email', $email)))
-            ->where(function ($query) {
-                $query->where('access_type', 'subscription')
-                    ->orWhereIn('access_type', ['purchased', 'paid']);
-            })
+            ->whereIn('access_type', $this->directAccessTypesForAudit())
             ->latest()
             ->limit($limit)
             ->get()
@@ -149,10 +147,7 @@ class AuditUnverifiedAccess extends Command
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
             })
             ->when($email, fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('email', $email)))
-            ->where(function ($query) {
-                $query->where('access_type', 'subscription')
-                    ->orWhereIn('access_type', ['purchased', 'paid']);
-            })
+            ->whereIn('access_type', $this->directAccessTypesForAudit())
             ->latest()
             ->limit($limit)
             ->get()
@@ -193,6 +188,17 @@ class AuditUnverifiedAccess extends Command
         }
 
         return 'review';
+    }
+
+    private function directAccessTypesForAudit(): array
+    {
+        $types = ['purchased', 'paid'];
+
+        if ($this->option('include-legacy-progress')) {
+            $types[] = 'subscription';
+        }
+
+        return $types;
     }
 
     private function hasApprovedIndividualPurchase(int $userId, string $purchasableType, int $purchasableId): bool
