@@ -168,12 +168,6 @@
                 <span class="text-gray-600">Nominal:</span>
                 <span class="font-medium">Rp {{ number_format($payment->total_amount, 0, ',', '.') }}</span>
             </div>
-            <div class="flex justify-between">
-                <span class="text-gray-600">Konfirmasi Gateway:</span>
-                <span class="px-2 py-1 {{ $payment->gatewayConfirmationClass() }} rounded-full text-xs font-medium">
-                    {{ $payment->gatewayConfirmationLabel() }}
-                </span>
-            </div>
             @if($payment->gatewayReference())
             <div class="flex justify-between gap-4">
                 <span class="text-gray-600">Ref Gateway:</span>

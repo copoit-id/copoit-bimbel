@@ -150,8 +150,6 @@ class PembayaranController extends Controller
                 'expired' => 'bg-gray-100 text-gray-700',
                 default => 'bg-gray-100 text-gray-700',
             },
-            'gateway_confirmation_label' => $payment->gatewayConfirmationLabel(),
-            'gateway_confirmation_class' => $payment->gatewayConfirmationClass(),
             'detail_route' => route('admin.pembayaran.show', $payment->payment_id),
             'confirm_route' => route('admin.pembayaran.confirm', $payment->payment_id),
             'created_at' => $payment->created_at,
@@ -187,12 +185,6 @@ class PembayaranController extends Controller
                     IndividualPurchase::STATUS_REJECTED => 'bg-red-100 text-red-700',
                     default => 'bg-gray-100 text-gray-700',
                 },
-                'gateway_confirmation_label' => $purchase->payment_method === 'manual'
-                    ? ($purchase->status === IndividualPurchase::STATUS_APPROVED ? 'Dikonfirmasi Admin' : 'Menunggu Admin')
-                    : 'Tidak Tersedia',
-                'gateway_confirmation_class' => $purchase->status === IndividualPurchase::STATUS_APPROVED
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-700',
                 'detail_route' => route('admin.pembayaran.item.show', $purchase->id),
                 'confirm_route' => route('admin.pembayaran.item.confirm', $purchase->id),
                 'created_at' => $purchase->created_at,

@@ -1900,9 +1900,15 @@ class PackageController extends Controller
         if ($payment->payment_method === 'ipaymu') {
             try {
                 $result = app(IpaymuGateway::class)->checkTransaction($payment);
+                $payment->refresh();
+
+                if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu - admin check');
+                }
 
                 return response()->json([
                     'payment_status' => $payment->status,
+                    'gateway_confirmation' => $payment->gatewayConfirmationLabel(),
                     'ipaymu_result' => $result,
                 ]);
             } catch (\Exception $e) {

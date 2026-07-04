@@ -213,10 +213,56 @@ class IpaymuGateway
             'transactionId' => $ipaymuTransactionId,
         ]);
 
+        $payload = $response->json() ?: [];
+        $details['ipaymu_check'] = $payload;
+        $details['ipaymu_checked_at'] = now()->toDateTimeString();
+
+        if ($response->successful() && $this->isPaidTransactionPayload($payload)) {
+            $payment->update([
+                'status' => Payment::STATUS_SUCCESS,
+                'paid_at' => $payment->paid_at ?: Carbon::now(),
+                'payment_details' => json_encode($details),
+            ]);
+        } elseif ($response->successful() && $this->isFailedTransactionPayload($payload)) {
+            $payment->update([
+                'status' => Payment::STATUS_FAILED,
+                'payment_details' => json_encode($details),
+            ]);
+        } else {
+            $payment->update(['payment_details' => json_encode($details)]);
+        }
+
         return [
             'success' => $response->successful(),
-            'data' => $response->json(),
+            'paid' => $response->successful() && $this->isPaidTransactionPayload($payload),
+            'data' => $payload,
         ];
+    }
+
+    private function isPaidTransactionPayload(array $payload): bool
+    {
+        return collect($this->statusValues($payload))
+            ->contains(fn (string $status) => in_array($status, ['berhasil', 'success', 'paid', 'settlement', 'complete', 'completed', '1'], true));
+    }
+
+    private function isFailedTransactionPayload(array $payload): bool
+    {
+        return collect($this->statusValues($payload))
+            ->contains(fn (string $status) => in_array($status, ['expired', 'expire', 'cancel', 'cancelled', 'failed', 'failure', '0', '2'], true));
+    }
+
+    private function statusValues(array $payload): array
+    {
+        $values = [];
+        $statusKeys = ['status', 'status_code', 'transaction_status', 'payment_status', 'paymentstatus'];
+
+        array_walk_recursive($payload, function ($value, $key) use (&$values, $statusKeys) {
+            if (in_array(strtolower((string) $key), $statusKeys, true)) {
+                $values[] = strtolower((string) $value);
+            }
+        });
+
+        return $values;
     }
 
     private function post(string $path, array $payload)

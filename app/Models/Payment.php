@@ -115,14 +115,9 @@ class Payment extends Model
 
         if ($this->payment_method === 'ipaymu') {
             $webhook = $details['ipaymu_webhook'] ?? null;
-            $status = strtolower((string) (
-                $webhook['status']
-                ?? $webhook['status_code']
-                ?? $webhook['transaction_status']
-                ?? ''
-            ));
+            $check = $details['ipaymu_check'] ?? null;
 
-            return in_array($status, ['berhasil', 'success', 'paid', 'settlement', '1'], true);
+            return $this->hasPaidStatus($webhook) || $this->hasPaidStatus($check);
         }
 
         if ($this->payment_method === 'interactive_qris') {
@@ -178,6 +173,25 @@ class Payment extends Model
             ?? $details['invoice_id']
             ?? $details['external_id']
             ?? $this->transaction_id;
+    }
+
+    private function hasPaidStatus(mixed $payload): bool
+    {
+        if (!is_array($payload)) {
+            return false;
+        }
+
+        $statuses = [];
+        $statusKeys = ['status', 'status_code', 'transaction_status', 'payment_status', 'paymentstatus'];
+
+        array_walk_recursive($payload, function ($value, $key) use (&$statuses, $statusKeys) {
+            if (in_array(strtolower((string) $key), $statusKeys, true)) {
+                $statuses[] = strtolower((string) $value);
+            }
+        });
+
+        return collect($statuses)
+            ->contains(fn (string $status) => in_array($status, ['berhasil', 'success', 'paid', 'settlement', 'complete', 'completed', '1'], true));
     }
 
     // Status constants
