@@ -27,13 +27,15 @@ class IpaymuGateway
 
         $transactionId = 'IPAYMU-' . $package->package_id . '-' . Auth::id() . '-' . time();
         $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
         $user = Auth::user();
 
         $payload = [
             'account' => $va,
             'product' => [Str::limit($package->name, 80, '')],
             'qty' => [1],
-            'price' => [$amount],
+            'price' => [$totalAmount],
             'description' => ['Pembelian ' . $package->name],
             'notifyUrl' => route('webhook.ipaymu'),
             'returnUrl' => route('user.package.payment.success'),
@@ -88,7 +90,9 @@ class IpaymuGateway
                 'discount_amount' => $discountData['discount_amount'],
                 'amount' => $amount,
                 'admin_fee' => 0,
-                'total_amount' => $amount,
+                'unique_code' => $uniqueCode,
+                'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                'total_amount' => $totalAmount,
                 'status' => Payment::STATUS_PENDING,
                 'payment_method' => 'ipaymu',
                 'payment_details' => json_encode([
@@ -97,6 +101,8 @@ class IpaymuGateway
                     'redirect_url' => $redirectUrl,
                     'external_id' => $transactionId,
                     'base_amount' => (int) $package->price,
+                    'payable_amount' => $amount,
+                    'unique_code' => $uniqueCode,
                     'discount_code' => $discountData['discount_code'],
                     'discount_amount' => $discountData['discount_amount'],
                     'response' => $responseData,
@@ -113,6 +119,15 @@ class IpaymuGateway
                 'message' => 'Error koneksi ke iPaymu: ' . $e->getMessage(),
             ];
         }
+    }
+
+    private function paymentUniqueCodeFor(int $amount): ?int
+    {
+        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+            return null;
+        }
+
+        return Payment::generateManualUniqueCode();
     }
 
     public function handleWebhook(Request $request): ?Payment

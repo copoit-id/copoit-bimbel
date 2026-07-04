@@ -368,8 +368,8 @@
                     class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
                     {{ (int) $paymentUniqueCodeEnabled === 1 ? 'checked' : '' }}>
                 <div>
-                    <p class="font-semibold text-gray-900">Aktifkan kode unik manual</p>
-                    <p class="text-xs text-gray-500">Jika aktif, tagihan manual ditambah 3 digit unik agar admin lebih mudah mencocokkan transfer.</p>
+                    <p class="font-semibold text-gray-900">Aktifkan kode unik pembayaran</p>
+                    <p class="text-xs text-gray-500">Jika aktif, tagihan paket ditambah 3 digit unik untuk membantu pencocokan pembayaran.</p>
                 </div>
             </label>
             <div id="payment-manual-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">

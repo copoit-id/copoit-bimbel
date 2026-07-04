@@ -641,6 +641,9 @@ class PackageController extends Controller
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
         $baseUrl = rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/');
+        $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::withHeaders([
@@ -648,7 +651,7 @@ class PackageController extends Controller
                 'Content-Type' => 'application/json',
             ])->post($baseUrl . '/v2/invoices', [
                         'external_id' => $transactionId,
-                        'amount' => $discountData['payable_amount'],
+                        'amount' => $totalAmount,
                         'description' => 'Pembelian ' . $package->name,
                         'invoice_duration' => 86400, // 24 hours
                         'customer' => [
@@ -676,9 +679,11 @@ class PackageController extends Controller
                     'discount_code' => $discountData['discount_code'],
                     'original_amount' => (int) $package->price,
                     'discount_amount' => $discountData['discount_amount'],
-                    'amount' => $discountData['payable_amount'],
+                    'amount' => $amount,
                     'admin_fee' => 0,
-                    'total_amount' => $discountData['payable_amount'],
+                    'unique_code' => $uniqueCode,
+                    'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                    'total_amount' => $totalAmount,
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'xendit',
                     'payment_details' => json_encode([
@@ -686,6 +691,8 @@ class PackageController extends Controller
                         'invoice_url' => $invoiceData['invoice_url'],
                         'external_id' => $transactionId,
                         'base_amount' => (int) $package->price,
+                        'payable_amount' => $amount,
+                        'unique_code' => $uniqueCode,
                         'discount_code' => $discountData['discount_code'],
                         'discount_amount' => $discountData['discount_amount'],
                     ]),
@@ -729,6 +736,9 @@ class PackageController extends Controller
         }
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
+        $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::withHeaders([
@@ -738,12 +748,12 @@ class PackageController extends Controller
             ])->post($snapUrl, [
                         'transaction_details' => [
                             'order_id' => $transactionId,
-                            'gross_amount' => (int) round($discountData['payable_amount']),
+                            'gross_amount' => $totalAmount,
                         ],
                         'item_details' => [
                             [
                                 'id' => (string) $package->package_id,
-                                'price' => (int) round($discountData['payable_amount']),
+                                'price' => $totalAmount,
                                 'quantity' => 1,
                                 'name' => Str::limit($package->name, 50, ''),
                             ],
@@ -770,9 +780,11 @@ class PackageController extends Controller
                     'discount_code' => $discountData['discount_code'],
                     'original_amount' => (int) $package->price,
                     'discount_amount' => $discountData['discount_amount'],
-                    'amount' => $discountData['payable_amount'],
+                    'amount' => $amount,
                     'admin_fee' => 0,
-                    'total_amount' => $discountData['payable_amount'],
+                    'unique_code' => $uniqueCode,
+                    'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                    'total_amount' => $totalAmount,
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'midtrans',
                     'payment_details' => json_encode([
@@ -780,6 +792,8 @@ class PackageController extends Controller
                         'redirect_url' => $data['redirect_url'] ?? null,
                         'external_id' => $transactionId,
                         'base_amount' => (int) $package->price,
+                        'payable_amount' => $amount,
+                        'unique_code' => $uniqueCode,
                         'discount_code' => $discountData['discount_code'],
                         'discount_amount' => $discountData['discount_amount'],
                     ]),
@@ -808,6 +822,15 @@ class PackageController extends Controller
                 'message' => 'Error koneksi ke Midtrans: ' . $e->getMessage(),
             ];
         }
+    }
+
+    private function paymentUniqueCodeFor(int $amount): ?int
+    {
+        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+            return null;
+        }
+
+        return Payment::generateManualUniqueCode();
     }
 
     private function grantFreeAccess(Package $package): void

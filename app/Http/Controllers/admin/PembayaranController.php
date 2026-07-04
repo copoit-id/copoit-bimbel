@@ -294,8 +294,16 @@ class PembayaranController extends Controller
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
+        $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
+        $manualPaymentUniqueCode = $paymentUniqueCodeEnabled
+            ? Payment::generateManualUniqueCode()
+            : null;
 
-        return view('admin.pages.pembayaran.manual-create', compact('packages'));
+        return view('admin.pages.pembayaran.manual-create', compact(
+            'packages',
+            'paymentUniqueCodeEnabled',
+            'manualPaymentUniqueCode'
+        ));
     }
 
     public function storeManual(Request $request)
@@ -305,6 +313,7 @@ class PembayaranController extends Controller
             'package_id' => 'required|exists:packages,package_id',
             'amount' => 'required|numeric|min:0',
             'payment_method' => 'required|string|max:50',
+            'payment_unique_code' => 'nullable|integer|min:1|max:999',
             'notes' => 'nullable|string|max:500',
         ], [
             'email.exists' => 'Email user tidak ditemukan.',
@@ -324,16 +333,40 @@ class PembayaranController extends Controller
             $transactionId = 'MANUAL-' . Str::upper(Str::random(10));
         }
 
+        $amount = (int) $validated['amount'];
+        $useUniqueCode = (bool) config('client.branding.payment_unique_code_enabled', true)
+            && $amount > 0
+            && strtolower((string) $validated['payment_method']) === 'manual';
+        $uniqueCode = $useUniqueCode ? (int) ($validated['payment_unique_code'] ?? 0) : 0;
+
+        if ($useUniqueCode && $uniqueCode <= 0) {
+            $uniqueCode = Payment::generateManualUniqueCode();
+        }
+
+        if ($useUniqueCode && !Payment::isManualUniqueCodeAvailable($uniqueCode)) {
+            return redirect()->route('admin.pembayaran.manual.create')
+                ->withInput()
+                ->with('error', 'Kode unik sudah dipakai hari ini. Silakan buka ulang halaman tambah pembayaran.');
+        }
+
+        $totalAmount = $amount + ($useUniqueCode ? $uniqueCode : 0);
+
         Payment::create([
             'transaction_id' => $transactionId,
             'user_id' => $user->id,
             'package_id' => $package->package_id,
-            'amount' => $validated['amount'],
+            'amount' => $amount,
             'admin_fee' => 0,
-            'total_amount' => $validated['amount'],
+            'unique_code' => $useUniqueCode ? $uniqueCode : null,
+            'unique_code_date' => $useUniqueCode ? now()->toDateString() : null,
+            'total_amount' => $totalAmount,
             'status' => 'pending',
             'payment_method' => $validated['payment_method'],
-            'payment_details' => json_encode(['manual' => true]),
+            'payment_details' => json_encode([
+                'manual' => true,
+                'base_amount' => $amount,
+                'unique_code' => $useUniqueCode ? $uniqueCode : null,
+            ]),
             'notes' => $validated['notes'] ?? ('Manual entry by ' . Auth::user()->name),
         ]);
 

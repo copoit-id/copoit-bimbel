@@ -58,7 +58,6 @@ class Payment extends Model
     public static function generateManualUniqueCode(array $reservedCodes = []): int
     {
         $usedCodes = self::query()
-            ->where('payment_method', 'manual')
             ->where('status', self::STATUS_PENDING)
             ->whereDate('unique_code_date', now()->toDateString())
             ->whereNotNull('unique_code')
@@ -69,7 +68,7 @@ class Payment extends Model
         $blockedCodes = array_unique(array_merge($usedCodes, array_map('intval', $reservedCodes)));
 
         if (count($blockedCodes) >= 999) {
-            throw new RuntimeException('Kode unik pembayaran manual hari ini sudah habis.');
+            throw new RuntimeException('Kode unik pembayaran hari ini sudah habis.');
         }
 
         for ($attempt = 0; $attempt < 20; $attempt++) {
@@ -86,13 +85,12 @@ class Payment extends Model
             }
         }
 
-        throw new RuntimeException('Kode unik pembayaran manual hari ini sudah habis.');
+        throw new RuntimeException('Kode unik pembayaran hari ini sudah habis.');
     }
 
     public static function isManualUniqueCodeAvailable(int $code): bool
     {
         return !self::query()
-            ->where('payment_method', 'manual')
             ->where('status', self::STATUS_PENDING)
             ->whereDate('unique_code_date', now()->toDateString())
             ->where('unique_code', $code)
