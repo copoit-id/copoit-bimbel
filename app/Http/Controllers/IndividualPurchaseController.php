@@ -218,81 +218,21 @@ class IndividualPurchaseController extends Controller
         }
 
         // For gateway payment, redirect to payment
-        $redirectUrl = route('user.individual-purchase.gateway', [
-            'type' => $type,
-            'id' => $id,
-            'discount_code' => $discountCode ?: null,
-        ]);
+        // Individual gateway purchase is not integrated yet. Do not create an
+        // unreachable pending purchase that blocks the user from paying again.
+        $message = 'Pembayaran gateway untuk pembelian satuan belum tersedia. Silakan hubungi admin atau beli melalui paket.';
 
         return $request->expectsJson()
-            ? response()->json(['success' => true, 'redirect_url' => $redirectUrl])
-            : redirect()->away($redirectUrl);
+            ? response()->json(['success' => false, 'message' => $message], 422)
+            : redirect()->back()->with('error', $message);
     }
 
     public function gatewayRedirect(Request $request, string $type, int $id)
     {
-        if (!in_array($type, ['material', 'tryout', 'tes_koran'], true)) {
-            abort(404);
-        }
-
-        // Placeholder for gateway integration
-        // For now, create pending purchase and redirect to history
-        $userId = Auth::id();
-
-        if ($type === 'material') {
-            $item = Material::find($id);
-            $purchasableType = Material::class;
-        } elseif ($type === 'tryout') {
-            $item = Tryout::find($id);
-            $purchasableType = Tryout::class;
-        } else {
-            $item = TesKoran::find($id);
-            $purchasableType = TesKoran::class;
-        }
-
-        if (!$item) {
-            return redirect()->back()->with('error', 'Item tidak ditemukan.');
-        }
-
-        if (! $item->isPaidIndividualAccess()) {
-            return redirect()->route('user.individual-purchase.history')
-                ->with('error', 'Item ini tidak memerlukan pembayaran gateway.');
-        }
-
-        $discountCode = Discount::normalizeCode($request->input('discount_code'));
-        $discountData = $this->resolveIndividualDiscount($discountCode, $item, $type, $userId);
-
-        if ($discountData['error']) {
-            return redirect()->back()->with('error', $discountData['error']);
-        }
-
-        $discount = $discountData['discount'];
-        $discountAmount = $discountData['discount_amount'];
-        $totalAmount = max(0, (int) $item->price - $discountAmount);
-
-        $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
-
-        $purchase = IndividualPurchase::create([
-            'user_id' => $userId,
-            'purchasable_type' => $purchasableType,
-            'purchasable_id' => $id,
-            'discount_id' => $discount?->id,
-            'discount_code' => $discount?->code,
-            'discount_amount' => $discountAmount,
-            'price' => $item->price,
-            'admin_fee' => 0,
-            'total_amount' => $totalAmount,
-            'payment_method' => 'gateway',
-            'status' => IndividualPurchase::STATUS_PENDING,
-            'transaction_id' => $transactionId,
-        ]);
-
-        $this->sendPurchaseNotificationToAdmin($purchase);
-
-        // TODO: Integrate with Xendit/Midtrans here
+        abort_unless(in_array($type, ['material', 'tryout', 'tes_koran'], true), 404);
 
         return redirect()->route('user.individual-purchase.history')
-            ->with('success', 'Silakan selesaikan pembayaran.');
+            ->with('error', 'Pembayaran gateway untuk pembelian satuan belum tersedia. Silakan hubungi admin atau beli melalui paket.');
     }
 
     public function history()
@@ -438,6 +378,9 @@ class IndividualPurchaseController extends Controller
                     'material_id' => $purchase->purchasable_id,
                 ],
                 [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
                     'status' => 'in_progress',
                     'started_at' => now(),
                     'expires_at' => $accessExpiresAt,
@@ -450,8 +393,10 @@ class IndividualPurchaseController extends Controller
                     'tryout_id' => $purchase->purchasable_id,
                 ],
                 [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
                     'status' => 'not_started',
-                    'assigned_at' => now(),
                     'expires_at' => $accessExpiresAt,
                 ]
             );

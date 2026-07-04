@@ -269,15 +269,20 @@ class MaterialController extends Controller
                 ->with('error', 'Anda tidak memiliki akses ke materi ini.');
         }
         
-        // Get or create user access
+        // Get or create progress access. If the access comes from a package,
+        // keep it tied to the package so it cannot outlive the package access.
+        $packageAccess = $this->activePackageAccessForMaterial($user->id, (int) $materialId);
         $userAccess = UserMaterialAccess::firstOrCreate(
             ['user_id' => $user->id, 'material_id' => $materialId],
             [
                 'access_type' => 'subscription',
-                'access_source' => 'direct',
+                'access_source' => $packageAccess ? 'package' : 'direct',
+                'source_id' => $packageAccess?->package_id,
                 'status' => 'not_started',
+                'expires_at' => $packageAccess?->end_date,
             ]
         );
+        $this->syncPackageMaterialProgressAccess($userAccess, $packageAccess);
 
         $wasNotStarted = $userAccess->status === 'not_started';
         $userAccess->markAsStarted();
@@ -325,14 +330,18 @@ class MaterialController extends Controller
             return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
         
-        // Get or create user access
+        // Get or create progress access.
+        $packageAccess = $this->activePackageAccessForMaterial($user->id, (int) $materialId);
         $userAccess = UserMaterialAccess::firstOrCreate(
             ['user_id' => $user->id, 'material_id' => $materialId],
             [
                 'access_type' => 'subscription',
-                'access_source' => 'direct',
+                'access_source' => $packageAccess ? 'package' : 'direct',
+                'source_id' => $packageAccess?->package_id,
+                'expires_at' => $packageAccess?->end_date,
             ]
         );
+        $this->syncPackageMaterialProgressAccess($userAccess, $packageAccess);
         
         // Mark as started
         $userAccess->markAsStarted();
@@ -373,14 +382,18 @@ class MaterialController extends Controller
         
         $percentage = min(100, round(($validated['progress_seconds'] / $validated['total_duration']) * 100));
         
-        // Get or create user access
+        // Get or create progress access.
+        $packageAccess = $this->activePackageAccessForMaterial($user->id, (int) $materialId);
         $userAccess = UserMaterialAccess::firstOrCreate(
             ['user_id' => $user->id, 'material_id' => $materialId],
             [
                 'access_type' => 'subscription',
-                'access_source' => 'direct',
+                'access_source' => $packageAccess ? 'package' : 'direct',
+                'source_id' => $packageAccess?->package_id,
+                'expires_at' => $packageAccess?->end_date,
             ]
         );
+        $this->syncPackageMaterialProgressAccess($userAccess, $packageAccess);
         
         // Update progress
         $userAccess->updateProgress($percentage);
@@ -419,14 +432,18 @@ class MaterialController extends Controller
             return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
         
-        // Get or create user access
+        // Get or create progress access.
+        $packageAccess = $this->activePackageAccessForMaterial($user->id, (int) $materialId);
         $userAccess = UserMaterialAccess::firstOrCreate(
             ['user_id' => $user->id, 'material_id' => $materialId],
             [
                 'access_type' => 'subscription',
-                'access_source' => 'direct',
+                'access_source' => $packageAccess ? 'package' : 'direct',
+                'source_id' => $packageAccess?->package_id,
+                'expires_at' => $packageAccess?->end_date,
             ]
         );
+        $this->syncPackageMaterialProgressAccess($userAccess, $packageAccess);
         
         // Mark as completed
         $userAccess->markAsCompleted();
@@ -457,7 +474,13 @@ class MaterialController extends Controller
     {
         // Direct access
         $directAccessIds = $user->materialAccess()
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where('status', '!=', 'not_started')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->pluck('material_id')
             ->toArray();
         
@@ -493,6 +516,43 @@ class MaterialController extends Controller
             ->pluck('purchasable_id')
             ->map(fn ($id) => (int) $id)
             ->all();
+    }
+
+    private function activePackageAccessForMaterial(int $userId, int $materialId): ?\App\Models\UserPackageAcces
+    {
+        $packageId = DB::table('detail_packages')
+            ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
+            ->where('detail_packages.detailable_type', Material::class)
+            ->where('detail_packages.detailable_id', $materialId)
+            ->where('user_package_access.user_id', $userId)
+            ->where('user_package_access.status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('user_package_access.end_date')
+                    ->orWhere('user_package_access.end_date', '>', now());
+            })
+            ->orderByDesc('user_package_access.created_at')
+            ->value('user_package_access.package_id');
+
+        if (!$packageId) {
+            return null;
+        }
+
+        return \App\Models\UserPackageAcces::where('user_id', $userId)
+            ->where('package_id', $packageId)
+            ->first();
+    }
+
+    private function syncPackageMaterialProgressAccess(UserMaterialAccess $userAccess, ?\App\Models\UserPackageAcces $packageAccess): void
+    {
+        if (!$packageAccess || $userAccess->access_type !== 'subscription') {
+            return;
+        }
+
+        $userAccess->forceFill([
+            'access_source' => 'package',
+            'source_id' => $packageAccess->package_id,
+            'expires_at' => $packageAccess->end_date,
+        ])->save();
     }
 
     private function applyMaterialFilters($query, string $search, string $sort): void

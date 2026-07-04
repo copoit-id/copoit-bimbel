@@ -936,6 +936,8 @@ class PackageController extends Controller
             ->firstOrFail();
 
         if ($payment->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS');
+
             return response()->json([
                 'success' => true,
                 'paid' => true,
@@ -1656,37 +1658,8 @@ class PackageController extends Controller
 
     public function paymentSuccess()
     {
-        // TEMPORARY: Auto-activate pending payments for development testing
-        if (config('app.env') === 'local' || config('app.env') === 'production') {
-            $this->activatePendingPayments(Auth::id());
-        }
-
         return redirect()->route('user.package.riwayatPembelian')
-            ->with('success', 'Pembayaran berhasil! Akses paket akan diaktifkan setelah konfirmasi.');
-    }
-
-    /**
-     * TEMPORARY: Activate pending payments for development testing
-     */
-    private function activatePendingPayments($userId)
-    {
-        try {
-            $pendingPayments = Payment::where('user_id', $userId)
-                ->where('status', 'pending')
-                ->where('created_at', '>', now()->subHours(2)) // Only payments from last 2 hours
-                ->get();
-
-            foreach ($pendingPayments as $payment) {
-                // Update payment status
-                $payment->update([
-                    'status' => 'success',
-                    'paid_at' => Carbon::now()
-                ]);
-
-                $this->ensureUserPackageAccess($payment, 'Auto-activated for development testing');
-            }
-        } catch (\Exception $e) {
-        }
+            ->with('success', 'Terima kasih. Akses paket akan aktif setelah pembayaran dikonfirmasi oleh payment gateway.');
     }
 
     public function paymentFailed()
@@ -1798,6 +1771,10 @@ class PackageController extends Controller
 
     private function ensureUserPackageAccess(Payment $payment, string $notes): void
     {
+        if ($payment->status !== Payment::STATUS_SUCCESS) {
+            throw new \RuntimeException('Cannot grant package access before payment is successful.');
+        }
+
         $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
             ->where('package_id', $payment->package_id)
             ->where('status', 'active')
@@ -2676,6 +2653,8 @@ class PackageController extends Controller
             ->toArray();
 
         $directMaterialIds = UserMaterialAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where('status', '!=', 'not_started')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -2695,6 +2674,8 @@ class PackageController extends Controller
             ->get();
 
         $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());

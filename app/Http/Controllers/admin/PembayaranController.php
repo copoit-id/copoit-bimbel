@@ -501,6 +501,9 @@ class PembayaranController extends Controller
                         'material_id' => $purchase->purchasable_id,
                     ],
                     [
+                        'access_type' => 'purchased',
+                        'access_source' => 'direct',
+                        'source_id' => $purchase->id,
                         'status' => 'in_progress',
                         'started_at' => now(),
                         'expires_at' => $accessExpiresAt,
@@ -513,8 +516,10 @@ class PembayaranController extends Controller
                         'tryout_id' => $purchase->purchasable_id,
                     ],
                     [
+                        'access_type' => 'purchased',
+                        'access_source' => 'direct',
+                        'source_id' => $purchase->id,
                         'status' => 'not_started',
-                        'assigned_at' => now(),
                         'expires_at' => $accessExpiresAt,
                     ]
                 );

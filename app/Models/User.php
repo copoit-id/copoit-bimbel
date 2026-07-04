@@ -324,6 +324,8 @@ class User extends Authenticatable
         // Check direct access
         $hasDirectAccess = $this->materialAccess()
             ->where('material_id', $materialId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where('status', '!=', 'not_started')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -380,6 +382,8 @@ class User extends Authenticatable
         // Check direct access
         $hasDirectAccess = $this->tryoutAccess()
             ->where('tryout_id', $tryoutId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where(function ($q) {
                 $q->whereNull('expires_at')
                   ->orWhere('expires_at', '>', now());
