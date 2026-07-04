@@ -150,6 +150,7 @@
                     <th scope="col" class="px-4 py-3 min-w-[120px]">Jumlah</th>
                     <th scope="col" class="px-4 py-3 min-w-[130px]">Metode</th>
                     <th scope="col" class="px-4 py-3 min-w-[110px]">Status</th>
+                    <th scope="col" class="px-4 py-3 min-w-[170px]">Konfirmasi Gateway</th>
                     <th scope="col" class="px-4 py-3 min-w-[110px]">Tanggal</th>
                     <th scope="col" class="px-4 py-3 min-w-[150px]">Aksi</th>
                 </tr>
@@ -188,6 +189,11 @@
                     <td class="px-4 py-4">
                         <span class="px-2 py-1 {{ $payment['status_class'] }} rounded-full text-xs">
                             {{ $payment['status_label'] }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <span class="px-2 py-1 {{ $payment['gateway_confirmation_class'] }} rounded-full text-xs">
+                            {{ $payment['gateway_confirmation_label'] }}
                         </span>
                     </td>
                     <td class="px-4 py-4">{{ $payment['created_at']->format('d M Y') }}</td>

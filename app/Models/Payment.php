@@ -28,6 +28,7 @@ class Payment extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'paid_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     public function user()
@@ -95,6 +96,88 @@ class Payment extends Model
             ->whereDate('unique_code_date', now()->toDateString())
             ->where('unique_code', $code)
             ->exists();
+    }
+
+    public function paymentDetailsArray(): array
+    {
+        if (is_array($this->payment_details)) {
+            return $this->payment_details;
+        }
+
+        return $this->payment_details
+            ? (json_decode($this->payment_details, true) ?: [])
+            : [];
+    }
+
+    public function hasGatewayConfirmation(): bool
+    {
+        $details = $this->paymentDetailsArray();
+
+        if ($this->payment_method === 'ipaymu') {
+            $webhook = $details['ipaymu_webhook'] ?? null;
+            $status = strtolower((string) (
+                $webhook['status']
+                ?? $webhook['status_code']
+                ?? $webhook['transaction_status']
+                ?? ''
+            ));
+
+            return in_array($status, ['berhasil', 'success', 'paid', 'settlement', '1'], true);
+        }
+
+        if ($this->payment_method === 'interactive_qris') {
+            return !empty($details['qris_paid_status']);
+        }
+
+        if ($this->payment_method === 'manual') {
+            return (bool) $this->confirmed_at || (bool) $this->confirmed_by;
+        }
+
+        return false;
+    }
+
+    public function gatewayConfirmationStatus(): string
+    {
+        if ($this->status === self::STATUS_PENDING) {
+            return 'waiting';
+        }
+
+        if (in_array($this->status, [self::STATUS_FAILED, self::STATUS_EXPIRED], true)) {
+            return 'failed';
+        }
+
+        return $this->hasGatewayConfirmation() ? 'confirmed' : 'unverified';
+    }
+
+    public function gatewayConfirmationLabel(): string
+    {
+        return match ($this->gatewayConfirmationStatus()) {
+            'confirmed' => $this->payment_method === 'manual' ? 'Dikonfirmasi Admin' : 'Terverifikasi Gateway',
+            'waiting' => 'Menunggu Gateway',
+            'failed' => 'Gagal/Expired',
+            default => 'Belum Ada Bukti Gateway',
+        };
+    }
+
+    public function gatewayConfirmationClass(): string
+    {
+        return match ($this->gatewayConfirmationStatus()) {
+            'confirmed' => 'bg-green-100 text-green-700',
+            'waiting' => 'bg-yellow-100 text-yellow-700',
+            'failed' => 'bg-red-100 text-red-700',
+            default => 'bg-orange-100 text-orange-700',
+        };
+    }
+
+    public function gatewayReference(): ?string
+    {
+        $details = $this->paymentDetailsArray();
+
+        return $details['ipaymu_transaction_id']
+            ?? $details['qris_invoiceid']
+            ?? $details['invoice_id']
+            ?? $details['external_id']
+            ?? $this->transaction_id;
     }
 
     // Status constants

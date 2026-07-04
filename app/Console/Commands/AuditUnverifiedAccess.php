@@ -97,8 +97,8 @@ class AuditUnverifiedAccess extends Command
                     'notes' => $access->notes,
                     'matching_success_payment' => $matchingPayment?->transaction_id,
                     'matching_payment_method' => $matchingPayment?->payment_method,
-                    'gateway_confirmed' => $matchingPayment ? $this->hasGatewayConfirmation($matchingPayment) : false,
-                    'gateway_reference' => $matchingPayment ? $this->gatewayReference($matchingPayment) : null,
+                    'gateway_confirmed' => $matchingPayment?->hasGatewayConfirmation() ?? false,
+                    'gateway_reference' => $matchingPayment?->gatewayReference(),
                 ];
             })
             ->values()
@@ -202,55 +202,6 @@ class AuditUnverifiedAccess extends Command
         }
 
         return $types;
-    }
-
-    private function hasGatewayConfirmation(Payment $payment): bool
-    {
-        $details = $this->paymentDetails($payment);
-
-        if ($payment->payment_method === 'ipaymu') {
-            $webhook = $details['ipaymu_webhook'] ?? null;
-            $status = strtolower((string) (
-                $webhook['status']
-                ?? $webhook['status_code']
-                ?? $webhook['transaction_status']
-                ?? ''
-            ));
-
-            return in_array($status, ['berhasil', 'success', 'paid', 'settlement', '1'], true);
-        }
-
-        if ($payment->payment_method === 'interactive_qris') {
-            return !empty($details['qris_paid_status']);
-        }
-
-        if ($payment->payment_method === 'manual') {
-            return (bool) $payment->confirmed_at || (bool) $payment->confirmed_by;
-        }
-
-        return false;
-    }
-
-    private function gatewayReference(Payment $payment): ?string
-    {
-        $details = $this->paymentDetails($payment);
-
-        return $details['ipaymu_transaction_id']
-            ?? $details['qris_invoiceid']
-            ?? $details['invoice_id']
-            ?? $details['external_id']
-            ?? null;
-    }
-
-    private function paymentDetails(Payment $payment): array
-    {
-        if (is_array($payment->payment_details)) {
-            return $payment->payment_details;
-        }
-
-        return $payment->payment_details
-            ? (json_decode($payment->payment_details, true) ?: [])
-            : [];
     }
 
     private function hasApprovedIndividualPurchase(int $userId, string $purchasableType, int $purchasableId): bool
