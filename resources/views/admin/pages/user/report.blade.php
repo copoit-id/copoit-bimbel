@@ -11,7 +11,8 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+        <button type="button" data-download-report
+            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
             <i class="ri-download-line"></i>
             Download Laporan
         </button>
@@ -130,6 +131,8 @@
 
 @section('scripts')
 <script>
-    console.log('User report detail ready');
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelector('[data-download-report]')?.addEventListener('click', () => window.print());
+    });
 </script>
 @endsection

@@ -34,6 +34,8 @@ class LaporanController extends Controller
 
     public function exportExcel()
     {
+        $this->prepareDownloadRuntime();
+
         $tryouts = $this->buildTryoutReportQuery()->get();
         $this->hydrateTryoutReport($tryouts);
 
@@ -90,6 +92,8 @@ class LaporanController extends Controller
 
     public function exportPdf()
     {
+        $this->prepareDownloadRuntime();
+
         $tryouts = $this->buildTryoutReportQuery()->get();
         $this->hydrateTryoutReport($tryouts);
 
@@ -115,7 +119,9 @@ class LaporanController extends Controller
 
     public function exportTryoutExcel($id)
     {
-        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
+        $this->prepareDownloadRuntime();
+
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id, false);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -183,7 +189,9 @@ class LaporanController extends Controller
 
     public function exportTryoutPdf($id)
     {
-        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
+        $this->prepareDownloadRuntime();
+
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id, false);
 
         $html = view('admin.pages.laporan.export-detail-pdf', [
             'tryout' => $tryout,
@@ -221,7 +229,7 @@ class LaporanController extends Controller
         return view('admin.pages.laporan.show', compact('tryout', 'statistics', 'participants', 'leaderboardPackageId'));
     }
 
-    private function getTryoutDetailReport($id): array
+    private function getTryoutDetailReport($id, bool $withCalculatedScores = true): array
     {
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
@@ -251,8 +259,13 @@ class LaporanController extends Controller
                 SUM(correct_answers) as total_correct,
                 SUM(wrong_answers) as total_wrong,
                 SUM(unanswered) as total_unanswered,
+                SUM(score) as total_score,
                 AVG(score) as average_score,
-                MAX(status) as attempt_status
+                MAX(status) as attempt_status,
+                SUM(CASE WHEN status = 'pending_release' THEN 1 ELSE 0 END) as pending_release_count,
+                SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_count,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+                COUNT(*) as subtest_count
             ")
             ->where('tryout_id', $tryout->tryout_id)
             ->groupBy('user_id', 'tryout_id', 'attempt_token')
@@ -260,22 +273,31 @@ class LaporanController extends Controller
             ->with('user')
             ->get();
 
-        $answersByAttempt = UserAnswer::where('tryout_id', $tryout->tryout_id)
-            ->whereIn('user_id', $attemptSummaries->pluck('user_id')->unique())
-            ->whereIn('attempt_token', $attemptSummaries->pluck('attempt_token')->unique())
-            ->with(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption'])
-            ->get()
-            ->groupBy(['user_id', 'attempt_token']);
+        $answersByAttempt = collect();
+
+        if ($withCalculatedScores && $attemptSummaries->isNotEmpty()) {
+            $answersByAttempt = UserAnswer::where('tryout_id', $tryout->tryout_id)
+                ->whereIn('user_id', $attemptSummaries->pluck('user_id')->unique())
+                ->whereIn('attempt_token', $attemptSummaries->pluck('attempt_token')->unique())
+                ->with(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption'])
+                ->get()
+                ->groupBy(['user_id', 'attempt_token']);
+        }
 
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) use ($answersByAttempt) {
-                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt) {
-                    $userAnswers = $answersByAttempt[$attempt->user_id][$attempt->attempt_token] ?? collect();
-                    $rawScore = $userAnswers->sum(function ($answer) {
-                        return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
-                    });
-                    $attempt->raw_score = $rawScore;
-                    $attempt->attempt_status = $this->resolveAttemptStatus($userAnswers, $attempt->attempt_status);
+            ->map(function ($attempts) use ($answersByAttempt, $withCalculatedScores) {
+                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt, $withCalculatedScores) {
+                    if ($withCalculatedScores) {
+                        $userAnswers = $answersByAttempt[$attempt->user_id][$attempt->attempt_token] ?? collect();
+                        $attempt->raw_score = $userAnswers->sum(function ($answer) {
+                            return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
+                        });
+                        $attempt->attempt_status = $this->resolveAttemptStatus($userAnswers, $attempt->attempt_status);
+                    } else {
+                        $attempt->raw_score = (float) ($attempt->total_score ?? $attempt->average_score ?? 0);
+                        $attempt->attempt_status = $this->resolveAttemptStatusFromSummary($attempt);
+                    }
+
                     $attempt->attempt_status_label = $this->formatAttemptStatus($attempt->attempt_status);
 
                     return $attempt;
@@ -310,6 +332,12 @@ class LaporanController extends Controller
             : 0;
 
         return [$tryout, $statistics, $participants];
+    }
+
+    private function prepareDownloadRuntime(): void
+    {
+        @set_time_limit(120);
+        @ini_set('memory_limit', '512M');
     }
 
     public function attemptDetail($tryoutId, $attemptToken)
@@ -413,6 +441,24 @@ class LaporanController extends Controller
             'in_progress' => 'Sedang Dikerjakan',
             'abandoned' => 'Ditinggalkan',
         ][$status] ?? ucfirst((string) $status);
+    }
+
+    private function resolveAttemptStatusFromSummary($attempt): string
+    {
+        if ((int) ($attempt->pending_release_count ?? 0) > 0) {
+            return 'pending_release';
+        }
+
+        if ((int) ($attempt->subtest_count ?? 0) > 0
+            && (int) ($attempt->completed_count ?? 0) === (int) ($attempt->subtest_count ?? 0)) {
+            return 'completed';
+        }
+
+        if ((int) ($attempt->in_progress_count ?? 0) > 0) {
+            return 'in_progress';
+        }
+
+        return (string) ($attempt->attempt_status ?? 'unknown');
     }
 
     private function resolveAttemptStatus($userAnswers, ?string $fallback): string
