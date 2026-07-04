@@ -249,6 +249,23 @@ class PackageController extends Controller
 
                     $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
                     if ($paymentMode === 'manual') {
+                        $pendingManualPayment = $this->pendingPackagePayment($package, ['manual']);
+                        if ($pendingManualPayment) {
+                            $message = 'Bukti pembayaran untuk paket ini masih menunggu verifikasi admin.';
+
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => $message,
+                                    'redirect_url' => route('user.package.riwayatPembelian'),
+                                ]);
+                            }
+
+                            return redirect()
+                                ->route('user.package.riwayatPembelian')
+                                ->with('info', $message);
+                        }
+
                         $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
                         $rules = [
                             'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
@@ -312,6 +329,23 @@ class PackageController extends Controller
                             'success' => true,
                             'message' => 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.'
                         ]);
+                    }
+
+                    $pendingGatewayPayment = $this->reusablePendingPackageGatewayPayment($package);
+                    if ($pendingGatewayPayment) {
+                        $redirectUrl = $this->pendingGatewayPaymentRedirectUrl($pendingGatewayPayment);
+
+                        if ($redirectUrl) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Anda masih memiliki tagihan pending untuk paket ini. Silakan lanjutkan pembayaran sebelumnya.',
+                                    'redirect_url' => $redirectUrl,
+                                ]);
+                            }
+
+                            return redirect()->away($redirectUrl);
+                        }
                     }
 
                     $paymentResponse = $this->createPayment($package, $discountData);
@@ -395,6 +429,74 @@ class PackageController extends Controller
         }
 
         return $this->createXenditPayment($package, $discountData);
+    }
+
+    private function pendingPackagePayment(Package $package, array $methods): ?Payment
+    {
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('package_id', $package->package_id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', $methods)
+            ->latest()
+            ->first();
+    }
+
+    private function reusablePendingPackageGatewayPayment(Package $package): ?Payment
+    {
+        $pendingPayments = Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('package_id', $package->package_id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', ['xendit', 'midtrans', 'ipaymu', 'interactive_qris'])
+            ->latest()
+            ->get();
+
+        foreach ($pendingPayments as $payment) {
+            if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                continue;
+            }
+
+            if ($this->pendingGatewayPaymentRedirectUrl($payment)) {
+                return $payment;
+            }
+        }
+
+        return null;
+    }
+
+    private function pendingGatewayPaymentRedirectUrl(Payment $payment): ?string
+    {
+        $details = $payment->paymentDetailsArray();
+
+        return match ($payment->payment_method) {
+            'interactive_qris' => route('user.package.payment.qris.show', $payment->transaction_id),
+            'xendit' => $details['invoice_url'] ?? null,
+            'midtrans', 'ipaymu' => $details['redirect_url'] ?? null,
+            default => null,
+        };
+    }
+
+    private function pendingGatewayPaymentIsExpired(Payment $payment): bool
+    {
+        $details = $payment->paymentDetailsArray();
+        $expiresAt = $details['expires_at']
+            ?? $details['expiry_date']
+            ?? $details['expiration_date']
+            ?? null;
+
+        if ($expiresAt) {
+            return Carbon::parse($expiresAt)->isPast();
+        }
+
+        $createdAt = $payment->created_at ?: Carbon::now();
+
+        if ($payment->payment_method === 'interactive_qris') {
+            return $createdAt->copy()->addMinutes(30)->isPast();
+        }
+
+        return $createdAt->copy()->addDay()->isPast();
     }
 
     private function resolveDiscount(Request $request, Package $package): array

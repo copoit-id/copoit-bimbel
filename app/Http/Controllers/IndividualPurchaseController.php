@@ -84,18 +84,20 @@ class IndividualPurchaseController extends Controller
                 : redirect()->back()->with('error', $message);
         }
 
-        // Check if already has pending purchase
-        $pendingPurchase = IndividualPurchase::where('user_id', $userId)
-            ->where('purchasable_type', $purchasableType)
-            ->where('purchasable_id', $id)
-            ->where('status', 'pending')
-            ->first();
+        $pendingPurchase = $this->reusablePendingPurchase($userId, $purchasableType, $id);
 
         if ($pendingPurchase) {
-            $message = 'Anda sudah memiliki permintaan pembelian yang pending.';
+            $message = $pendingPurchase->payment_method === 'manual'
+                ? 'Bukti pembayaran untuk item ini masih menunggu verifikasi admin.'
+                : 'Anda masih memiliki tagihan pending untuk item ini. Silakan lanjutkan pembayaran sebelumnya.';
+
             return $request->expectsJson()
-                ? response()->json(['success' => false, 'message' => $message], 400)
-                : redirect()->back()->with('error', $message);
+                ? response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'redirect_url' => route('user.individual-purchase.history'),
+                ])
+                : redirect()->route('user.individual-purchase.history')->with('info', $message);
         }
 
         // Check access via package
@@ -243,6 +245,48 @@ class IndividualPurchaseController extends Controller
             ->get();
 
         return view('user.pages.individual-purchase.history', compact('purchases'));
+    }
+
+    private function reusablePendingPurchase(int $userId, string $purchasableType, int $purchasableId): ?IndividualPurchase
+    {
+        $pendingPurchases = IndividualPurchase::query()
+            ->where('user_id', $userId)
+            ->where('purchasable_type', $purchasableType)
+            ->where('purchasable_id', $purchasableId)
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->latest()
+            ->get();
+
+        foreach ($pendingPurchases as $purchase) {
+            if ($this->pendingPurchaseIsExpired($purchase)) {
+                $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
+                $details['auto_rejected_reason'] = 'Pending payment expired before completion.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_REJECTED,
+                    'payment_details' => $details,
+                ]);
+
+                continue;
+            }
+
+            return $purchase;
+        }
+
+        return null;
+    }
+
+    private function pendingPurchaseIsExpired(IndividualPurchase $purchase): bool
+    {
+        $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
+        $expiresAt = $details['expires_at']
+            ?? $details['expired_at']
+            ?? $details['expiry_date']
+            ?? $details['expiration_date']
+            ?? null;
+
+        return $expiresAt ? Carbon::parse($expiresAt)->isPast() : false;
     }
 
     private function resolveIndividualDiscount(?string $code, $item, string $type, int $userId): array
