@@ -2187,7 +2187,16 @@ class PackageController extends Controller
 
         if ($payment) {
             try {
-                if ($payment->status === Payment::STATUS_PENDING) {
+                if ($payment->status === Payment::STATUS_PENDING && $ipaymuGateway->requestHasPaidStatus($request)) {
+                    $details = $payment->paymentDetailsArray();
+                    $details['ipaymu_return'] = $request->all();
+                    $payment->update([
+                        'status' => Payment::STATUS_SUCCESS,
+                        'paid_at' => Carbon::now(),
+                        'payment_details' => json_encode($details),
+                    ]);
+                    $payment->refresh();
+                } elseif ($payment->status === Payment::STATUS_PENDING) {
                     $ipaymuGateway->checkTransaction($payment);
                     $payment->refresh();
                 }
@@ -2207,7 +2216,16 @@ class PackageController extends Controller
 
         if ($individualPurchase) {
             try {
-                if ($individualPurchase->status === IndividualPurchase::STATUS_PENDING) {
+                if ($individualPurchase->status === IndividualPurchase::STATUS_PENDING && $ipaymuGateway->requestHasPaidStatus($request)) {
+                    $details = $this->paymentDetailsArray($individualPurchase->payment_details);
+                    $details['ipaymu_return'] = $request->all();
+                    $individualPurchase->update([
+                        'status' => IndividualPurchase::STATUS_APPROVED,
+                        'approved_at' => Carbon::now(),
+                        'payment_details' => $details,
+                    ]);
+                    $individualPurchase->refresh();
+                } elseif ($individualPurchase->status === IndividualPurchase::STATUS_PENDING) {
                     $ipaymuGateway->checkIndividualTransaction($individualPurchase);
                     $individualPurchase->refresh();
                 }

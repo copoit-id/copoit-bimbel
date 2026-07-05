@@ -222,7 +222,7 @@ class IpaymuGateway
         return Payment::generateManualUniqueCode();
     }
 
-    public function handleWebhook(Request $request): ?Payment
+    public function handleWebhook(Request $request): Payment|IndividualPurchase|null
     {
         $referenceId = (string) ($request->input('reference_id')
             ?: $request->input('referenceId')
@@ -264,15 +264,12 @@ class IpaymuGateway
             return null;
         }
 
-        $status = Str::lower((string) ($request->input('status')
-            ?: $request->input('status_code')
-            ?: $request->input('transaction_status')
-            ?: ''));
+        $statusValues = $this->statusValues($request->all());
 
         $details = $this->detailsArray($payable->payment_details);
         $details['ipaymu_webhook'] = $request->all();
 
-        if (in_array($status, ['berhasil', 'success', 'paid', 'settlement', '1'], true)) {
+        if ($this->hasPaidStatusValue($statusValues)) {
             if ($payable instanceof Payment) {
                 $payable->update([
                     'status' => Payment::STATUS_SUCCESS,
@@ -290,16 +287,16 @@ class IpaymuGateway
             return $payable->fresh();
         }
 
-        if (in_array($status, ['expired', 'expire', 'cancel', 'cancelled', 'failed', 'failure', '0', '2'], true)) {
+        if ($this->hasFailedStatusValue($statusValues)) {
             if ($payable instanceof Payment) {
                 $payable->update([
-                    'status' => in_array($status, ['expired', 'expire'], true)
+                    'status' => $this->hasExpiredStatusValue($statusValues)
                         ? Payment::STATUS_EXPIRED
                         : Payment::STATUS_FAILED,
                     'payment_details' => json_encode($details),
                 ]);
             } else {
-                $details['auto_rejected_reason'] = in_array($status, ['expired', 'expire'], true)
+                $details['auto_rejected_reason'] = $this->hasExpiredStatusValue($statusValues)
                     ? 'Gateway payment expired before completion.'
                     : 'Gateway payment failed or cancelled.';
                 $details['auto_rejected_at'] = now()->toDateTimeString();
@@ -424,24 +421,84 @@ class IpaymuGateway
 
     private function isPaidTransactionPayload(array $payload): bool
     {
-        return collect($this->statusValues($payload))
-            ->contains(fn (string $status) => in_array($status, ['berhasil', 'success', 'paid', 'settlement', 'complete', 'completed', '1'], true));
+        return $this->hasPaidStatusValue($this->statusValues($payload));
     }
 
     private function isFailedTransactionPayload(array $payload): bool
     {
-        return collect($this->statusValues($payload))
-            ->contains(fn (string $status) => in_array($status, ['expired', 'expire', 'cancel', 'cancelled', 'failed', 'failure', '0', '2'], true));
+        return $this->hasFailedStatusValue($this->statusValues($payload));
+    }
+
+    public function requestHasPaidStatus(Request $request): bool
+    {
+        return $this->hasPaidStatusValue($this->statusValues($request->all()));
+    }
+
+    private function hasPaidStatusValue(array $values): bool
+    {
+        return collect($values)
+            ->contains(fn (string $status) => in_array($status, [
+                'berhasil',
+                'sukses',
+                'success',
+                'paid',
+                'settlement',
+                'settled',
+                'capture',
+                'complete',
+                'completed',
+                'lunas',
+                '1',
+            ], true));
+    }
+
+    private function hasFailedStatusValue(array $values): bool
+    {
+        return collect($values)
+            ->contains(fn (string $status) => in_array($status, [
+                'expired',
+                'expire',
+                'cancel',
+                'canceled',
+                'cancelled',
+                'failed',
+                'failure',
+                'deny',
+                'denied',
+                '-1',
+                '2',
+                '3',
+            ], true));
+    }
+
+    private function hasExpiredStatusValue(array $values): bool
+    {
+        return collect($values)
+            ->contains(fn (string $status) => in_array($status, ['expired', 'expire', '2'], true));
     }
 
     private function statusValues(array $payload): array
     {
         $values = [];
-        $statusKeys = ['status', 'status_code', 'transaction_status', 'payment_status', 'paymentstatus'];
+        $statusKeys = [
+            'status',
+            'status_code',
+            'statuscode',
+            'transaction_status',
+            'transactionstatus',
+            'payment_status',
+            'paymentstatus',
+            'status_trx',
+            'statustrx',
+            'trx_status',
+            'trxstatus',
+            'payment_status_desc',
+            'paymentstatusdesc',
+        ];
 
         array_walk_recursive($payload, function ($value, $key) use (&$values, $statusKeys) {
             if (in_array(strtolower((string) $key), $statusKeys, true)) {
-                $values[] = strtolower((string) $value);
+                $values[] = Str::lower(trim((string) $value));
             }
         });
 
