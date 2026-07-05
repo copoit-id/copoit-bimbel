@@ -61,7 +61,12 @@ return [
     'ipaymu' => [
         'api_key' => env('IPAYMU_API_KEY'),
         'va' => env('IPAYMU_VA'),
-        'base_url' => env('IPAYMU_BASE_URL', 'https://sandbox.ipaymu.com/api/v2'),
+        'base_url' => env(
+            'IPAYMU_BASE_URL',
+            env('IPAYMU_IS_PRODUCTION', false)
+                ? env('IPAYMU_PRODUCTION_URL', 'https://my.ipaymu.com/api/v2')
+                : env('IPAYMU_SANDBOX_URL', 'https://sandbox.ipaymu.com/api/v2')
+        ),
     ],
 
     'recaptcha' => [
