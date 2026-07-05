@@ -245,7 +245,7 @@ class AppServiceProvider extends ServiceProvider
     private function applyDynamicPaymentConfiguration(array $branding): void
     {
         $gateway = $branding['payment_gateway'] ?: config('payment_gateways.default', 'xendit');
-        $mode = $branding['payment_gateway_mode'] ?: (env('MIDTRANS_IS_PRODUCTION') ? 'production' : 'sandbox');
+        $mode = Str::lower(trim((string) ($branding['payment_gateway_mode'] ?: (env('MIDTRANS_IS_PRODUCTION') ? 'production' : 'sandbox'))));
         $mode = $mode === 'production' ? 'production' : 'sandbox';
 
         $midtransSnapUrl = $mode === 'production'
@@ -260,6 +260,10 @@ class AppServiceProvider extends ServiceProvider
         $ipaymuBaseUrl = $mode === 'production'
             ? config('payment_gateways.gateways.ipaymu.production_url', 'https://my.ipaymu.com/api/v2')
             : config('payment_gateways.gateways.ipaymu.sandbox_url', 'https://sandbox.ipaymu.com/api/v2');
+
+        if ($mode === 'production' && Str::contains($ipaymuBaseUrl, 'sandbox.ipaymu.com')) {
+            $ipaymuBaseUrl = 'https://my.ipaymu.com/api/v2';
+        }
 
         config([
             'services.payment_gateway' => $gateway,
