@@ -461,7 +461,7 @@
                         </div>
                         <div>
                             <p class="text-xs uppercase text-gray-500">iPaymu Base URL</p>
-                            <p id="ipaymu-base-url">https://sandbox.ipaymu.com/api/v2</p>
+                            <p id="ipaymu-base-url">https://sandbox.ipaymu.com</p>
                         </div>
                     </div>
                     <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis mengikuti mode sandbox/production. InterActive QRIS saat ini adalah API live/production.</p>
@@ -1185,14 +1185,14 @@
                 midtransSnap: 'https://app.sandbox.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.sandbox.midtrans.com/v2',
                 interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
-                ipaymuBase: 'https://sandbox.ipaymu.com/api/v2'
+                ipaymuBase: 'https://sandbox.ipaymu.com'
             },
             production: {
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.midtrans.com/v2',
                 interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
-                ipaymuBase: 'https://api.ipaymu.com/api/v2'
+                ipaymuBase: 'https://my.ipaymu.com'
             }
         };
 

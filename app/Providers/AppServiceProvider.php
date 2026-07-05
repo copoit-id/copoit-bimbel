@@ -258,11 +258,11 @@ class AppServiceProvider extends ServiceProvider
 
         $xenditBaseUrl = 'https://api.xendit.co';
         $ipaymuBaseUrl = $mode === 'production'
-            ? config('payment_gateways.gateways.ipaymu.production_url', 'https://api.ipaymu.com/api/v2')
-            : config('payment_gateways.gateways.ipaymu.sandbox_url', 'https://sandbox.ipaymu.com/api/v2');
+            ? config('payment_gateways.gateways.ipaymu.production_url', 'https://my.ipaymu.com')
+            : config('payment_gateways.gateways.ipaymu.sandbox_url', 'https://sandbox.ipaymu.com');
 
         if ($mode === 'production' && Str::contains($ipaymuBaseUrl, 'sandbox.ipaymu.com')) {
-            $ipaymuBaseUrl = 'https://api.ipaymu.com/api/v2';
+            $ipaymuBaseUrl = 'https://my.ipaymu.com';
         }
 
         config([
