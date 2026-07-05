@@ -321,31 +321,56 @@ class IpaymuGateway
             throw new RuntimeException('Payment bukan iPaymu.');
         }
 
-        $details = json_decode($payment->payment_details ?? '{}', true);
-        $ipaymuTransactionId = $details['ipaymu_transaction_id'] ?? null;
+        $details = $this->detailsArray($payment->payment_details);
+        $lookupPayloads = $this->transactionLookupPayloads($details);
 
-        if (!$ipaymuTransactionId) {
+        if (empty($lookupPayloads)) {
             return [
                 'success' => false,
-                'message' => 'Transaction ID iPaymu tidak ditemukan.',
+                'message' => 'ID transaksi/session iPaymu tidak ditemukan.',
             ];
         }
 
-        $response = $this->post('/transaction', [
-            'transactionId' => $ipaymuTransactionId,
-        ]);
+        $successful = false;
+        $paid = false;
+        $failed = false;
+        $payload = [];
+        $attempts = [];
 
-        $payload = $response->json() ?: [];
+        foreach ($lookupPayloads as $lookupPayload) {
+            $response = $this->post('/transaction', $lookupPayload);
+            $currentPayload = $response->json() ?: [];
+
+            $attempts[] = [
+                'request' => $lookupPayload,
+                'http_status' => $response->status(),
+                'response' => $currentPayload,
+            ];
+
+            $successful = $successful || $response->successful();
+            $payload = $currentPayload;
+
+            if ($response->successful() && $this->isPaidTransactionPayload($currentPayload)) {
+                $paid = true;
+                break;
+            }
+
+            if ($response->successful() && $this->isFailedTransactionPayload($currentPayload)) {
+                $failed = true;
+            }
+        }
+
         $details['ipaymu_check'] = $payload;
+        $details['ipaymu_check_attempts'] = $attempts;
         $details['ipaymu_checked_at'] = now()->toDateTimeString();
 
-        if ($response->successful() && $this->isPaidTransactionPayload($payload)) {
+        if ($paid) {
             $payment->update([
                 'status' => Payment::STATUS_SUCCESS,
                 'paid_at' => $payment->paid_at ?: Carbon::now(),
                 'payment_details' => json_encode($details),
             ]);
-        } elseif ($response->successful() && $this->isFailedTransactionPayload($payload)) {
+        } elseif ($failed) {
             $payment->update([
                 'status' => Payment::STATUS_FAILED,
                 'payment_details' => json_encode($details),
@@ -355,9 +380,10 @@ class IpaymuGateway
         }
 
         return [
-            'success' => $response->successful(),
-            'paid' => $response->successful() && $this->isPaidTransactionPayload($payload),
+            'success' => $successful,
+            'paid' => $paid,
             'data' => $payload,
+            'attempts' => $attempts,
         ];
     }
 
@@ -368,30 +394,55 @@ class IpaymuGateway
         }
 
         $details = $this->detailsArray($purchase->payment_details);
-        $ipaymuTransactionId = $details['ipaymu_transaction_id'] ?? null;
+        $lookupPayloads = $this->transactionLookupPayloads($details);
 
-        if (!$ipaymuTransactionId) {
+        if (empty($lookupPayloads)) {
             return [
                 'success' => false,
-                'message' => 'Transaction ID iPaymu tidak ditemukan.',
+                'message' => 'ID transaksi/session iPaymu tidak ditemukan.',
             ];
         }
 
-        $response = $this->post('/transaction', [
-            'transactionId' => $ipaymuTransactionId,
-        ]);
+        $successful = false;
+        $paid = false;
+        $failed = false;
+        $payload = [];
+        $attempts = [];
 
-        $payload = $response->json() ?: [];
+        foreach ($lookupPayloads as $lookupPayload) {
+            $response = $this->post('/transaction', $lookupPayload);
+            $currentPayload = $response->json() ?: [];
+
+            $attempts[] = [
+                'request' => $lookupPayload,
+                'http_status' => $response->status(),
+                'response' => $currentPayload,
+            ];
+
+            $successful = $successful || $response->successful();
+            $payload = $currentPayload;
+
+            if ($response->successful() && $this->isPaidTransactionPayload($currentPayload)) {
+                $paid = true;
+                break;
+            }
+
+            if ($response->successful() && $this->isFailedTransactionPayload($currentPayload)) {
+                $failed = true;
+            }
+        }
+
         $details['ipaymu_check'] = $payload;
+        $details['ipaymu_check_attempts'] = $attempts;
         $details['ipaymu_checked_at'] = now()->toDateTimeString();
 
-        if ($response->successful() && $this->isPaidTransactionPayload($payload)) {
+        if ($paid) {
             $purchase->update([
                 'status' => IndividualPurchase::STATUS_APPROVED,
                 'approved_at' => $purchase->approved_at ?: Carbon::now(),
                 'payment_details' => $details,
             ]);
-        } elseif ($response->successful() && $this->isFailedTransactionPayload($payload)) {
+        } elseif ($failed) {
             $details['auto_rejected_reason'] = 'Gateway payment failed or expired.';
             $details['auto_rejected_at'] = now()->toDateTimeString();
 
@@ -404,9 +455,10 @@ class IpaymuGateway
         }
 
         return [
-            'success' => $response->successful(),
-            'paid' => $response->successful() && $this->isPaidTransactionPayload($payload),
+            'success' => $successful,
+            'paid' => $paid,
             'data' => $payload,
+            'attempts' => $attempts,
         ];
     }
 
@@ -417,6 +469,52 @@ class IpaymuGateway
         }
 
         return $details ? (json_decode($details, true) ?: []) : [];
+    }
+
+    private function transactionLookupPayloads(array $details): array
+    {
+        $payloads = [];
+        $transactionId = $details['ipaymu_transaction_id']
+            ?? $details['transaction_id']
+            ?? $details['trx_id']
+            ?? null;
+        $sessionId = $details['session_id']
+            ?? $details['sessionId']
+            ?? $details['SessionID']
+            ?? $this->sessionIdFromRedirectUrl((string) ($details['redirect_url'] ?? ''));
+        $referenceId = $details['external_id'] ?? $details['reference_id'] ?? null;
+
+        if ($transactionId) {
+            $payloads[] = ['transactionId' => $transactionId];
+        }
+
+        if ($sessionId) {
+            $payloads[] = ['sessionId' => $sessionId];
+            $payloads[] = ['transactionId' => $sessionId];
+        }
+
+        if ($referenceId) {
+            $payloads[] = ['referenceId' => $referenceId];
+            $payloads[] = ['transactionId' => $referenceId];
+        }
+
+        return collect($payloads)
+            ->unique(fn (array $payload) => json_encode($payload))
+            ->values()
+            ->all();
+    }
+
+    private function sessionIdFromRedirectUrl(string $redirectUrl): ?string
+    {
+        if ($redirectUrl === '') {
+            return null;
+        }
+
+        if (preg_match('~#/([^/?#]+)~', $redirectUrl, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     private function isPaidTransactionPayload(array $payload): bool

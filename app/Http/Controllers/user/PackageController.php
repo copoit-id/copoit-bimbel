@@ -342,6 +342,19 @@ class PackageController extends Controller
 
                     $pendingGatewayPayment = $this->reusablePendingPackageGatewayPayment($package);
                     if ($pendingGatewayPayment) {
+                        if ($pendingGatewayPayment->status === Payment::STATUS_SUCCESS) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Pembayaran sudah berhasil. Akses paket sudah aktif.',
+                                    'redirect_url' => route('user.package.my'),
+                                ]);
+                            }
+
+                            return redirect()->route('user.package.my')
+                                ->with('success', 'Pembayaran sudah berhasil. Akses paket sudah aktif.');
+                        }
+
                         $redirectUrl = $this->pendingGatewayPaymentRedirectUrl($pendingGatewayPayment);
 
                         if ($redirectUrl) {
@@ -440,6 +453,46 @@ class PackageController extends Controller
         return $this->createXenditPayment($package, $discountData);
     }
 
+    private function syncPendingIpaymuPayment(Payment $payment): Payment
+    {
+        if ($payment->payment_method !== 'ipaymu' || $payment->status !== Payment::STATUS_PENDING) {
+            return $payment;
+        }
+
+        try {
+            $result = app(IpaymuGateway::class)->checkTransaction($payment);
+            $payment->refresh();
+
+            if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu sync');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $payment;
+    }
+
+    private function syncPendingIpaymuIndividualPurchase(IndividualPurchase $purchase): IndividualPurchase
+    {
+        if ($purchase->payment_method !== 'ipaymu' || $purchase->status !== IndividualPurchase::STATUS_PENDING) {
+            return $purchase;
+        }
+
+        try {
+            $result = app(IpaymuGateway::class)->checkIndividualTransaction($purchase);
+            $purchase->refresh();
+
+            if (($result['paid'] ?? false) && $purchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via iPaymu sync');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $purchase;
+    }
+
     private function pendingPackagePayment(Package $package, array $methods): ?Payment
     {
         return Payment::query()
@@ -465,6 +518,14 @@ class PackageController extends Controller
             ->latest()
             ->get()
             ->filter(function (Payment $payment) {
+                if ($payment->payment_method === 'ipaymu') {
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+
+                    if ($payment->status !== Payment::STATUS_PENDING) {
+                        return false;
+                    }
+                }
+
                 if ($payment->payment_method === 'manual') {
                     return true;
                 }
@@ -491,6 +552,18 @@ class PackageController extends Controller
             ->get();
 
         foreach ($pendingPayments as $payment) {
+            if ($payment->payment_method === 'ipaymu') {
+                $payment = $this->syncPendingIpaymuPayment($payment);
+
+                if ($payment->status === Payment::STATUS_SUCCESS) {
+                    return $payment;
+                }
+
+                if ($payment->status !== Payment::STATUS_PENDING) {
+                    continue;
+                }
+            }
+
             if ($this->pendingGatewayPaymentIsExpired($payment)) {
                 $payment->update(['status' => Payment::STATUS_EXPIRED]);
                 continue;
@@ -1045,6 +1118,10 @@ class PackageController extends Controller
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function (Payment $payment) {
+                if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method === 'ipaymu') {
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+                }
+
                 $actionUrl = null;
                 $actionLabel = null;
 
@@ -1087,6 +1164,10 @@ class PackageController extends Controller
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function (IndividualPurchase $purchase) {
+                if ($purchase->status === IndividualPurchase::STATUS_PENDING && $purchase->payment_method === 'ipaymu') {
+                    $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+                }
+
                 $item = $purchase->purchasable;
                 $subtitle = match (class_basename($purchase->purchasable_type)) {
                     'Material' => 'Materi',
