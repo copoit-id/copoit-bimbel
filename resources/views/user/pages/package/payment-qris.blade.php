@@ -6,14 +6,16 @@
 @php
     $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     $expiresAt = !empty($paymentDetails['expires_at']) ? \Carbon\Carbon::parse($paymentDetails['expires_at']) : null;
-    $isExpired = $payment->status === \App\Models\Payment::STATUS_EXPIRED || ($expiresAt && $expiresAt->isPast());
+    $isExpired = in_array($payment->status, [\App\Models\Payment::STATUS_EXPIRED, \App\Models\IndividualPurchase::STATUS_REJECTED], true)
+        || ($expiresAt && $expiresAt->isPast());
+    $paymentTitle = $paymentTitle ?? ($payment->package->name ?? 'Paket');
 @endphp
 
 <div class="max-w-3xl mx-auto px-4 py-8">
     <div class="mb-6 flex items-center justify-between gap-3">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Pembayaran QRIS</h1>
-            <p class="text-sm text-gray-500">Scan QR berikut untuk menyelesaikan pembelian paket.</p>
+            <p class="text-sm text-gray-500">Scan QR berikut untuk menyelesaikan pembayaran.</p>
         </div>
         <a href="{{ route('user.package.riwayatPembelian') }}" class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
             Riwayat
@@ -46,7 +48,7 @@
         </div>
 
         <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-semibold text-gray-900">{{ $payment->package->name ?? 'Paket' }}</h2>
+            <h2 class="text-lg font-semibold text-gray-900">{{ $paymentTitle }}</h2>
             <dl class="mt-5 space-y-4 text-sm">
                 <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
                     <dt class="text-gray-500">Nominal</dt>

@@ -5,6 +5,25 @@
 @section('content')
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+
+$statusMeta = function ($item) {
+    if ($item->status === 'pending') {
+        return [
+            'label' => $item->payment_method === 'manual' ? 'On Review' : 'Menunggu Pembayaran',
+            'class' => 'bg-yellow-100 text-yellow-700',
+        ];
+    }
+
+    if (in_array($item->status, ['success', 'approved'], true)) {
+        return ['label' => 'Berhasil', 'class' => 'bg-green-100 text-green-700'];
+    }
+
+    if ($item->status === 'expired') {
+        return ['label' => 'Expired', 'class' => 'bg-red-100 text-red-700'];
+    }
+
+    return ['label' => 'Gagal', 'class' => 'bg-red-100 text-red-700'];
+};
 @endphp
 
 <!-- Header -->
@@ -14,7 +33,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     </a>
     <div>
         <h1 class="text-2xl font-bold text-gray-800">Riwayat Pembelian</h1>
-        <p class="text-gray-500 text-sm">Daftar paket yang pernah kamu beli</p>
+        <p class="text-gray-500 text-sm">Daftar paket, materi, tryout, dan tes koran yang pernah kamu beli</p>
     </div>
 </div>
 
@@ -28,41 +47,32 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     </a>
 </div>
 
-@if($payments->count() > 0)
+@if($histories->count() > 0)
 <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
     <div class="divide-y divide-gray-100">
-        @foreach($payments as $payment)
+        @foreach($histories as $item)
+        @php($meta = $statusMeta($item))
         <div class="p-5 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" style="background-color: {{ $primaryColor }}">
-                    <i class="ri-shopping-bag-line text-xl"></i>
+                    <i class="{{ $item->type === 'package' ? 'ri-shopping-bag-line' : 'ri-file-list-3-line' }} text-xl"></i>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-800">{{ $payment->package->name ?? 'Paket' }}</h4>
-                    <p class="text-sm text-gray-400">{{ $payment->created_at->format('d M Y, H:i') }}</p>
-                    <p class="text-xs text-gray-400 mt-1">{{ $payment->transaction_id }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ $item->subtitle }}</p>
+                    <h4 class="font-medium text-gray-800">{{ $item->title }}</h4>
+                    <p class="text-sm text-gray-400">{{ $item->created_at->format('d M Y, H:i') }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ $item->transaction_id }}</p>
                 </div>
             </div>
             <div class="text-right">
-                <p class="font-semibold text-gray-800">{{ $payment->formatted_amount }}</p>
-                <span class="px-2.5 py-1 text-xs rounded-full font-medium mt-1 inline-block
-                    @if($payment->status == 'success') bg-green-100 text-green-700
-                    @elseif($payment->status == 'pending') bg-yellow-100 text-yellow-700
-                    @else bg-red-100 text-red-700 @endif">
-                    @if($payment->status == 'pending')
-                        @if($payment->payment_method == 'manual')
-                            On Review
-                        @else
-                            Pending
-                        @endif
-                    @else
-                        {{ ucfirst($payment->status) }}
-                    @endif
+                <p class="font-semibold text-gray-800">Rp {{ number_format($item->amount, 0, ',', '.') }}</p>
+                <span class="px-2.5 py-1 text-xs rounded-full font-medium mt-1 inline-block {{ $meta['class'] }}">
+                    {{ $meta['label'] }}
                 </span>
-                @if($payment->status === 'pending' && $payment->payment_method === 'interactive_qris')
-                    <a href="{{ route('user.package.payment.qris.show', $payment->transaction_id) }}"
+                @if($item->action_url)
+                    <a href="{{ $item->action_url }}"
                         class="mt-2 inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                        Lihat QRIS
+                        {{ $item->action_label }}
                     </a>
                 @endif
             </div>
@@ -72,7 +82,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 </div>
 
 <div class="mt-6">
-    {{ $payments->links() }}
+    {{ $histories->links() }}
 </div>
 @else
 <div class="text-center py-16">

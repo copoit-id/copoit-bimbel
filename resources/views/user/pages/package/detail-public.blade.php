@@ -166,6 +166,19 @@ $classCount = $package->classes->count();
                             class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 cursor-not-allowed">
                         <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
                     </button>
+                    @elseif($pendingPackagePayment && $pendingPackagePayment->payment_method === 'manual')
+                    <button type="button" disabled
+                            class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 cursor-not-allowed">
+                        <i class="ri-time-line"></i><span>On Review</span>
+                    </button>
+                    @elseif($pendingPackagePayment)
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form space-y-3">
+                        @csrf
+                        <button type="submit"
+                                class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
+                            <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
+                        </button>
+                    </form>
                     @elseif($package->type_price === 'free_conditional')
                     <button type="button"
                             onclick="openConditionalModal({{ $package->package_id }}, @js($package->name), @js($package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.'))"

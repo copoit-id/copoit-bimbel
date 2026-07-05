@@ -5,16 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\Discount;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
+use App\Models\Payment;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\UserMaterialAccess;
 use App\Models\UserTryoutAccess;
+use App\Services\Payments\IpaymuGateway;
 use App\Services\PurchaseAccessDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class IndividualPurchaseController extends Controller
 {
@@ -87,6 +91,7 @@ class IndividualPurchaseController extends Controller
         $pendingPurchase = $this->reusablePendingPurchase($userId, $purchasableType, $id);
 
         if ($pendingPurchase) {
+            $redirectUrl = $this->pendingGatewayPurchaseRedirectUrl($pendingPurchase);
             $message = $pendingPurchase->payment_method === 'manual'
                 ? 'Bukti pembayaran untuk item ini masih menunggu verifikasi admin.'
                 : 'Anda masih memiliki tagihan pending untuk item ini. Silakan lanjutkan pembayaran sebelumnya.';
@@ -95,9 +100,11 @@ class IndividualPurchaseController extends Controller
                 ? response()->json([
                     'success' => true,
                     'message' => $message,
-                    'redirect_url' => route('user.individual-purchase.history'),
+                    'redirect_url' => $redirectUrl ?: route('user.package.riwayatPembelian'),
                 ])
-                : redirect()->route('user.individual-purchase.history')->with('info', $message);
+                : ($redirectUrl
+                    ? redirect()->away($redirectUrl)
+                    : redirect()->route('user.package.riwayatPembelian')->with('info', $message));
         }
 
         // Check access via package
@@ -157,7 +164,7 @@ class IndividualPurchaseController extends Controller
             $message = 'Permintaan akses gratis bersyarat berhasil dikirim. Mohon tunggu verifikasi admin.';
             return $request->expectsJson()
                 ? response()->json(['success' => true, 'message' => $message])
-                : redirect()->route('user.individual-purchase.history')->with('success', $message);
+                : redirect()->route('user.package.riwayatPembelian')->with('success', $message);
         }
 
         // Resolve optional voucher
@@ -178,6 +185,36 @@ class IndividualPurchaseController extends Controller
         $discount = $discountData['discount'];
         $discountAmount = $discountData['discount_amount'];
         $totalAmount = max(0, (int) $item->price - $discountAmount);
+
+        if ($totalAmount <= 0) {
+            $purchase = IndividualPurchase::create([
+                'user_id' => $userId,
+                'purchasable_type' => $purchasableType,
+                'purchasable_id' => $id,
+                'discount_id' => $discount?->id,
+                'discount_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
+                'price' => $item->price,
+                'admin_fee' => 0,
+                'total_amount' => 0,
+                'payment_method' => 'discount',
+                'status' => IndividualPurchase::STATUS_APPROVED,
+                'transaction_id' => 'IND-DISC-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time(),
+                'payment_details' => [
+                    'base_amount' => (int) $item->price,
+                    'discount_code' => $discount?->code,
+                    'discount_amount' => $discountAmount,
+                ],
+                'approved_at' => Carbon::now(),
+                'access_expires_at' => PurchaseAccessDuration::expiresAt($item, Carbon::now()),
+            ]);
+
+            $this->grantApprovedAccess($purchase);
+
+            return $request->expectsJson()
+                ? response()->json(['success' => true, 'message' => 'Pembelian berhasil. Akses sudah aktif.', 'reload' => true])
+                : redirect()->route('user.package.riwayatPembelian')->with('success', 'Pembelian berhasil. Akses sudah aktif.');
+        }
 
         // For manual payment, require payment proof
         $paymentMode = config('client.branding.payment_mode', 'gateway');
@@ -216,35 +253,37 @@ class IndividualPurchaseController extends Controller
             $message = 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.';
             return $request->expectsJson()
                 ? response()->json(['success' => true, 'message' => $message])
-                : redirect()->route('user.individual-purchase.history')->with('success', $message);
+                : redirect()->route('user.package.riwayatPembelian')->with('success', $message);
         }
 
-        // For gateway payment, redirect to payment
-        // Individual gateway purchase is not integrated yet. Do not create an
-        // unreachable pending purchase that blocks the user from paying again.
-        $message = 'Pembayaran gateway untuk pembelian satuan belum tersedia. Silakan hubungi admin atau beli melalui paket.';
+        $paymentResponse = $this->createGatewayPurchase($item, $purchasableType, $id, $type, $userId, $discount, $discountAmount, $totalAmount);
+
+        if ($paymentResponse['success'] ?? false) {
+            return $request->expectsJson()
+                ? response()->json([
+                    'success' => true,
+                    'message' => 'Silakan selesaikan pembayaran.',
+                    'redirect_url' => $paymentResponse['redirect_url'],
+                ])
+                : redirect()->away($paymentResponse['redirect_url']);
+        }
 
         return $request->expectsJson()
-            ? response()->json(['success' => false, 'message' => $message], 422)
-            : redirect()->back()->with('error', $message);
+            ? response()->json(['success' => false, 'message' => $paymentResponse['message'] ?? 'Gagal membuat pembayaran.'], 422)
+            : redirect()->back()->with('error', $paymentResponse['message'] ?? 'Gagal membuat pembayaran.');
     }
 
     public function gatewayRedirect(Request $request, string $type, int $id)
     {
         abort_unless(in_array($type, ['material', 'tryout', 'tes_koran'], true), 404);
 
-        return redirect()->route('user.individual-purchase.history')
-            ->with('error', 'Pembayaran gateway untuk pembelian satuan belum tersedia. Silakan hubungi admin atau beli melalui paket.');
+        return redirect()->route('user.package.riwayatPembelian')
+            ->with('info', 'Cek riwayat pembelian untuk melanjutkan pembayaran yang masih pending.');
     }
 
     public function history()
     {
-        $purchases = IndividualPurchase::where('user_id', Auth::id())
-            ->with('purchasable')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return view('user.pages.individual-purchase.history', compact('purchases'));
+        return redirect()->route('user.package.riwayatPembelian');
     }
 
     private function reusablePendingPurchase(int $userId, string $purchasableType, int $purchasableId): ?IndividualPurchase
@@ -286,7 +325,312 @@ class IndividualPurchaseController extends Controller
             ?? $details['expiration_date']
             ?? null;
 
-        return $expiresAt ? Carbon::parse($expiresAt)->isPast() : false;
+        if ($expiresAt) {
+            return Carbon::parse($expiresAt)->isPast();
+        }
+
+        if (in_array($purchase->payment_method, ['xendit', 'midtrans', 'ipaymu'], true)) {
+            return ($purchase->created_at ?: now())->copy()->addDay()->isPast();
+        }
+
+        if ($purchase->payment_method === 'interactive_qris') {
+            return ($purchase->created_at ?: now())->copy()->addMinutes(30)->isPast();
+        }
+
+        return false;
+    }
+
+    private function pendingGatewayPurchaseRedirectUrl(IndividualPurchase $purchase): ?string
+    {
+        $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
+
+        return match ($purchase->payment_method) {
+            'interactive_qris' => route('user.package.payment.qris.show', $purchase->transaction_id),
+            'xendit' => $details['invoice_url'] ?? null,
+            'midtrans', 'ipaymu' => $details['redirect_url'] ?? null,
+            default => null,
+        };
+    }
+
+    private function createGatewayPurchase(object $item, string $purchasableType, int $id, string $type, int $userId, ?Discount $discount, int $discountAmount, int $totalAmount): array
+    {
+        $gateway = strtolower((string) config('services.payment_gateway', 'xendit'));
+
+        return match ($gateway) {
+            'midtrans' => $this->createMidtransPurchase($item, $purchasableType, $id, $type, $userId, $discount, $discountAmount, $totalAmount),
+            'ipaymu' => $this->createIpaymuPurchase($item, $purchasableType, $id, $type, $userId, $discount, $discountAmount, $totalAmount),
+            'interactive_qris' => $this->createInteractiveQrisPurchase($item, $purchasableType, $id, $type, $userId, $discount, $discountAmount, $totalAmount),
+            default => $this->createXenditPurchase($item, $purchasableType, $id, $type, $userId, $discount, $discountAmount, $totalAmount),
+        };
+    }
+
+    private function createXenditPurchase(object $item, string $purchasableType, int $id, string $type, int $userId, ?Discount $discount, int $discountAmount, int $totalAmount): array
+    {
+        $secretKey = config('services.xendit.secret_key');
+
+        if (!$secretKey) {
+            return ['success' => false, 'message' => 'Xendit secret key tidak dikonfigurasi.'];
+        }
+
+        $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
+        $payableTotal = $totalAmount + ($uniqueCode ?? 0);
+        $transactionId = 'IND-XENDIT-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+        $itemName = $item->title ?? $item->name ?? 'Item';
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
+                'Content-Type' => 'application/json',
+            ])->post(rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/') . '/v2/invoices', [
+                'external_id' => $transactionId,
+                'amount' => $payableTotal,
+                'description' => 'Pembelian ' . $itemName,
+                'invoice_duration' => 86400,
+                'customer' => [
+                    'given_names' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                ],
+                'success_redirect_url' => route('user.package.payment.success'),
+                'failure_redirect_url' => route('user.package.payment.failed'),
+            ]);
+
+            if (!$response->successful()) {
+                return ['success' => false, 'message' => $response->json('message') ?: 'Gagal membuat pembayaran Xendit.'];
+            }
+
+            $invoiceData = $response->json();
+            $purchase = IndividualPurchase::create([
+                'user_id' => $userId,
+                'purchasable_type' => $purchasableType,
+                'purchasable_id' => $id,
+                'discount_id' => $discount?->id,
+                'discount_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
+                'price' => $item->price,
+                'admin_fee' => 0,
+                'total_amount' => $payableTotal,
+                'payment_method' => 'xendit',
+                'status' => IndividualPurchase::STATUS_PENDING,
+                'transaction_id' => $transactionId,
+                'payment_details' => [
+                    'invoice_id' => $invoiceData['id'] ?? null,
+                    'invoice_url' => $invoiceData['invoice_url'] ?? null,
+                    'external_id' => $transactionId,
+                    'expires_at' => now()->addDay()->toDateTimeString(),
+                    'base_amount' => (int) $item->price,
+                    'payable_amount' => $totalAmount,
+                    'unique_code' => $uniqueCode,
+                    'discount_code' => $discount?->code,
+                    'discount_amount' => $discountAmount,
+                    'purchase_type' => $type,
+                ],
+            ]);
+
+            return ['success' => true, 'redirect_url' => $invoiceData['invoice_url'], 'purchase' => $purchase];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error koneksi ke Xendit: ' . $e->getMessage()];
+        }
+    }
+
+    private function createMidtransPurchase(object $item, string $purchasableType, int $id, string $type, int $userId, ?Discount $discount, int $discountAmount, int $totalAmount): array
+    {
+        $serverKey = config('services.midtrans.server_key');
+
+        if (!$serverKey) {
+            return ['success' => false, 'message' => 'Midtrans server key tidak dikonfigurasi.'];
+        }
+
+        $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
+        $payableTotal = $totalAmount + ($uniqueCode ?? 0);
+        $transactionId = 'IND-MIDTRANS-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+        $itemName = $item->title ?? $item->name ?? 'Item';
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->post(config('services.midtrans.snap_url', 'https://app.sandbox.midtrans.com/snap/v1/transactions'), [
+                'transaction_details' => [
+                    'order_id' => $transactionId,
+                    'gross_amount' => $payableTotal,
+                ],
+                'item_details' => [[
+                    'id' => (string) $id,
+                    'price' => $payableTotal,
+                    'quantity' => 1,
+                    'name' => Str::limit($itemName, 50, ''),
+                ]],
+                'customer_details' => [
+                    'first_name' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                ],
+                'callbacks' => [
+                    'finish' => route('user.package.payment.success'),
+                    'error' => route('user.package.payment.failed'),
+                    'pending' => route('user.package.riwayatPembelian'),
+                ],
+            ]);
+
+            if (!$response->successful()) {
+                return ['success' => false, 'message' => $response->json('error_messages.0') ?: 'Gagal membuat pembayaran Midtrans.'];
+            }
+
+            $data = $response->json();
+            $purchase = IndividualPurchase::create([
+                'user_id' => $userId,
+                'purchasable_type' => $purchasableType,
+                'purchasable_id' => $id,
+                'discount_id' => $discount?->id,
+                'discount_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
+                'price' => $item->price,
+                'admin_fee' => 0,
+                'total_amount' => $payableTotal,
+                'payment_method' => 'midtrans',
+                'status' => IndividualPurchase::STATUS_PENDING,
+                'transaction_id' => $transactionId,
+                'payment_details' => [
+                    'snap_token' => $data['token'] ?? null,
+                    'redirect_url' => $data['redirect_url'] ?? null,
+                    'external_id' => $transactionId,
+                    'expires_at' => now()->addDay()->toDateTimeString(),
+                    'base_amount' => (int) $item->price,
+                    'payable_amount' => $totalAmount,
+                    'unique_code' => $uniqueCode,
+                    'discount_code' => $discount?->code,
+                    'discount_amount' => $discountAmount,
+                    'purchase_type' => $type,
+                ],
+            ]);
+
+            return ['success' => true, 'redirect_url' => $data['redirect_url'], 'purchase' => $purchase];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error koneksi ke Midtrans: ' . $e->getMessage()];
+        }
+    }
+
+    private function createIpaymuPurchase(object $item, string $purchasableType, int $id, string $type, int $userId, ?Discount $discount, int $discountAmount, int $totalAmount): array
+    {
+        $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
+        $purchase = IndividualPurchase::create([
+            'user_id' => $userId,
+            'purchasable_type' => $purchasableType,
+            'purchasable_id' => $id,
+            'discount_id' => $discount?->id,
+            'discount_code' => $discount?->code,
+            'discount_amount' => $discountAmount,
+            'price' => $item->price,
+            'admin_fee' => 0,
+            'total_amount' => $totalAmount + ($uniqueCode ?? 0),
+            'payment_method' => 'ipaymu',
+            'status' => IndividualPurchase::STATUS_PENDING,
+            'transaction_id' => 'IND-IPAYMU-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time(),
+            'payment_details' => [
+                'base_amount' => (int) $item->price,
+                'payable_amount' => $totalAmount,
+                'unique_code' => $uniqueCode,
+                'discount_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
+                'purchase_type' => $type,
+            ],
+        ]);
+
+        $response = app(IpaymuGateway::class)->createIndividualPurchasePayment($purchase, $item, $type);
+
+        if (!($response['success'] ?? false)) {
+            $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
+            $details['auto_rejected_reason'] = $response['message'] ?? 'Gagal membuat pembayaran iPaymu.';
+            $details['auto_rejected_at'] = now()->toDateTimeString();
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_REJECTED,
+                'payment_details' => $details,
+            ]);
+        }
+
+        return $response + ['purchase' => $purchase];
+    }
+
+    private function createInteractiveQrisPurchase(object $item, string $purchasableType, int $id, string $type, int $userId, ?Discount $discount, int $discountAmount, int $totalAmount): array
+    {
+        $apiKey = config('services.interactive_qris.api_key');
+        $merchantId = config('services.interactive_qris.mid');
+
+        if (!$apiKey || !$merchantId) {
+            return ['success' => false, 'message' => 'Credential InterActive QRIS belum dikonfigurasi.'];
+        }
+
+        $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
+        $payableTotal = $totalAmount + ($uniqueCode ?? 0);
+        $transactionId = 'IND-QRIS-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+
+        try {
+            $response = Http::timeout(20)->get(rtrim(config('services.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'), '/') . '/show_qris.php', [
+                'do' => 'create-invoice',
+                'apikey' => $apiKey,
+                'mID' => $merchantId,
+                'cliTrxNumber' => $transactionId,
+                'cliTrxAmount' => $payableTotal,
+                'useTip' => config('services.interactive_qris.use_tip', false) ? 'yes' : 'no',
+            ]);
+
+            if (!$response->successful()) {
+                return ['success' => false, 'message' => 'Gagal membuat invoice InterActive QRIS.'];
+            }
+
+            $payload = $response->json();
+            if (($payload['status'] ?? null) !== 'success') {
+                return ['success' => false, 'message' => $payload['data']['qris_status'] ?? 'InterActive QRIS menolak pembuatan invoice.'];
+            }
+
+            $data = $payload['data'] ?? [];
+            $requestDate = Carbon::parse($data['qris_request_date'] ?? now());
+            $purchase = IndividualPurchase::create([
+                'user_id' => $userId,
+                'purchasable_type' => $purchasableType,
+                'purchasable_id' => $id,
+                'discount_id' => $discount?->id,
+                'discount_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
+                'price' => $item->price,
+                'admin_fee' => 0,
+                'total_amount' => $payableTotal,
+                'payment_method' => 'interactive_qris',
+                'status' => IndividualPurchase::STATUS_PENDING,
+                'transaction_id' => $transactionId,
+                'payment_details' => [
+                    'qris_content' => $data['qris_content'] ?? null,
+                    'qris_request_date' => $requestDate->toDateTimeString(),
+                    'qris_invoiceid' => $data['qris_invoiceid'] ?? null,
+                    'qris_nmid' => $data['qris_nmid'] ?? null,
+                    'expires_at' => $requestDate->copy()->addMinutes(30)->toDateTimeString(),
+                    'external_id' => $transactionId,
+                    'base_amount' => (int) $item->price,
+                    'payable_amount' => $totalAmount,
+                    'unique_code' => $uniqueCode,
+                    'discount_code' => $discount?->code,
+                    'discount_amount' => $discountAmount,
+                    'purchase_type' => $type,
+                ],
+            ]);
+
+            return [
+                'success' => true,
+                'redirect_url' => route('user.package.payment.qris.show', $transactionId),
+                'purchase' => $purchase,
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error koneksi ke InterActive QRIS: ' . $e->getMessage()];
+        }
+    }
+
+    private function paymentUniqueCodeFor(int $amount): ?int
+    {
+        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+            return null;
+        }
+
+        return Payment::generateManualUniqueCode();
     }
 
     private function resolveIndividualDiscount(?string $code, $item, string $type, int $userId): array

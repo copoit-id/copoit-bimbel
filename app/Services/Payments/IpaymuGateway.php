@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Models\Package;
 use App\Models\Payment;
+use App\Models\IndividualPurchase;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,8 +39,8 @@ class IpaymuGateway
             'price' => [$totalAmount],
             'description' => ['Pembelian ' . $package->name],
             'notifyUrl' => route('webhook.ipaymu'),
-            'returnUrl' => route('user.package.payment.success'),
-            'cancelUrl' => route('user.package.payment.failed'),
+            'returnUrl' => route('user.package.payment.success', ['transaction_id' => $transactionId]),
+            'cancelUrl' => route('user.package.payment.failed', ['transaction_id' => $transactionId]),
             'buyerName' => $user?->name,
             'buyerEmail' => $user?->email,
             'buyerPhone' => $this->buyerPhone($user),
@@ -121,6 +122,97 @@ class IpaymuGateway
         }
     }
 
+    public function createIndividualPurchasePayment(IndividualPurchase $purchase, object $item, string $type): array
+    {
+        $apiKey = config('services.ipaymu.api_key');
+        $va = config('services.ipaymu.va');
+
+        if (!$apiKey || !$va) {
+            return [
+                'success' => false,
+                'message' => 'Credential iPaymu belum dikonfigurasi.',
+            ];
+        }
+
+        $transactionId = $purchase->transaction_id;
+        $amount = (int) $purchase->total_amount;
+        $user = Auth::user();
+        $itemName = $item->title ?? $item->name ?? 'Item';
+
+        $payload = [
+            'account' => $va,
+            'product' => [Str::limit($itemName, 80, '')],
+            'qty' => [1],
+            'price' => [$amount],
+            'description' => ['Pembelian ' . $itemName],
+            'notifyUrl' => route('webhook.ipaymu'),
+            'returnUrl' => route('user.package.payment.success', ['transaction_id' => $transactionId]),
+            'cancelUrl' => route('user.package.payment.failed', ['transaction_id' => $transactionId]),
+            'buyerName' => $user?->name,
+            'buyerEmail' => $user?->email,
+            'buyerPhone' => $this->buyerPhone($user),
+            'referenceId' => $transactionId,
+            'expired' => 24,
+            'expiredType' => 'hours',
+        ];
+
+        try {
+            $response = $this->post('/payment', $payload);
+
+            if (!$response->successful()) {
+                return [
+                    'success' => false,
+                    'message' => $response->json('Message') ?: $response->json('message') ?: 'Gagal membuat pembayaran iPaymu.',
+                ];
+            }
+
+            $data = $response->json();
+            if (!$this->isSuccessResponse($data)) {
+                return [
+                    'success' => false,
+                    'message' => $data['Message'] ?? $data['message'] ?? 'iPaymu menolak pembuatan pembayaran.',
+                ];
+            }
+
+            $responseData = $data['Data'] ?? $data['data'] ?? [];
+            $redirectUrl = $responseData['Url']
+                ?? $responseData['url']
+                ?? $responseData['PaymentUrl']
+                ?? $responseData['payment_url']
+                ?? null;
+
+            if (!$redirectUrl) {
+                return [
+                    'success' => false,
+                    'message' => 'iPaymu tidak mengembalikan URL pembayaran.',
+                ];
+            }
+
+            $details = $this->detailsArray($purchase->payment_details);
+            $purchase->update([
+                'payment_details' => array_merge($details, [
+                    'session_id' => $responseData['SessionID'] ?? $responseData['sessionId'] ?? $responseData['session_id'] ?? null,
+                    'ipaymu_transaction_id' => $responseData['TransactionId'] ?? $responseData['transactionId'] ?? $responseData['trx_id'] ?? null,
+                    'redirect_url' => $redirectUrl,
+                    'external_id' => $transactionId,
+                    'expires_at' => now()->addDay()->toDateTimeString(),
+                    'response' => $responseData,
+                    'purchase_type' => $type,
+                ]),
+            ]);
+
+            return [
+                'success' => true,
+                'redirect_url' => $redirectUrl,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Error koneksi ke iPaymu: ' . $e->getMessage(),
+            ];
+        }
+    }
+
     private function paymentUniqueCodeFor(int $amount): ?int
     {
         if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
@@ -141,21 +233,34 @@ class IpaymuGateway
         $payment = $referenceId !== ''
             ? Payment::where('transaction_id', $referenceId)->first()
             : null;
+        $individualPurchase = null;
 
-        if (!$payment) {
+        if (!$payment && $referenceId !== '') {
+            $individualPurchase = IndividualPurchase::where('transaction_id', $referenceId)->first();
+        }
+
+        if (!$payment && !$individualPurchase) {
             $transactionId = (string) ($request->input('trx_id')
                 ?: $request->input('transaction_id')
                 ?: $request->input('sid')
                 ?: '');
 
-            $payment = $transactionId !== ''
-                ? Payment::where('payment_method', 'ipaymu')
+            if ($transactionId !== '') {
+                $payment = Payment::where('payment_method', 'ipaymu')
                     ->where('payment_details', 'like', '%' . $transactionId . '%')
-                    ->first()
-                : null;
+                    ->first();
+
+                if (!$payment) {
+                    $individualPurchase = IndividualPurchase::where('payment_method', 'ipaymu')
+                        ->where('payment_details', 'like', '%' . $transactionId . '%')
+                        ->first();
+                }
+            }
         }
 
-        if (!$payment) {
+        $payable = $payment ?: $individualPurchase;
+
+        if (!$payable) {
             return null;
         }
 
@@ -164,33 +269,53 @@ class IpaymuGateway
             ?: $request->input('transaction_status')
             ?: ''));
 
-        $details = json_decode($payment->payment_details ?? '{}', true);
+        $details = $this->detailsArray($payable->payment_details);
         $details['ipaymu_webhook'] = $request->all();
 
         if (in_array($status, ['berhasil', 'success', 'paid', 'settlement', '1'], true)) {
-            $payment->update([
-                'status' => Payment::STATUS_SUCCESS,
-                'paid_at' => Carbon::now(),
-                'payment_details' => json_encode($details),
-            ]);
+            if ($payable instanceof Payment) {
+                $payable->update([
+                    'status' => Payment::STATUS_SUCCESS,
+                    'paid_at' => Carbon::now(),
+                    'payment_details' => json_encode($details),
+                ]);
+            } else {
+                $payable->update([
+                    'status' => IndividualPurchase::STATUS_APPROVED,
+                    'approved_at' => Carbon::now(),
+                    'payment_details' => $details,
+                ]);
+            }
 
-            return $payment->fresh();
+            return $payable->fresh();
         }
 
         if (in_array($status, ['expired', 'expire', 'cancel', 'cancelled', 'failed', 'failure', '0', '2'], true)) {
-            $payment->update([
-                'status' => in_array($status, ['expired', 'expire'], true)
-                    ? Payment::STATUS_EXPIRED
-                    : Payment::STATUS_FAILED,
-                'payment_details' => json_encode($details),
-            ]);
+            if ($payable instanceof Payment) {
+                $payable->update([
+                    'status' => in_array($status, ['expired', 'expire'], true)
+                        ? Payment::STATUS_EXPIRED
+                        : Payment::STATUS_FAILED,
+                    'payment_details' => json_encode($details),
+                ]);
+            } else {
+                $details['auto_rejected_reason'] = in_array($status, ['expired', 'expire'], true)
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed or cancelled.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
 
-            return $payment->fresh();
+                $payable->update([
+                    'status' => IndividualPurchase::STATUS_REJECTED,
+                    'payment_details' => $details,
+                ]);
+            }
+
+            return $payable->fresh();
         }
 
-        $payment->update(['payment_details' => json_encode($details)]);
+        $payable->update(['payment_details' => $payable instanceof Payment ? json_encode($details) : $details]);
 
-        return $payment->fresh();
+        return $payable->fresh();
     }
 
     public function checkTransaction(Payment $payment): array
@@ -237,6 +362,64 @@ class IpaymuGateway
             'paid' => $response->successful() && $this->isPaidTransactionPayload($payload),
             'data' => $payload,
         ];
+    }
+
+    public function checkIndividualTransaction(IndividualPurchase $purchase): array
+    {
+        if ($purchase->payment_method !== 'ipaymu') {
+            throw new RuntimeException('Pembelian bukan iPaymu.');
+        }
+
+        $details = $this->detailsArray($purchase->payment_details);
+        $ipaymuTransactionId = $details['ipaymu_transaction_id'] ?? null;
+
+        if (!$ipaymuTransactionId) {
+            return [
+                'success' => false,
+                'message' => 'Transaction ID iPaymu tidak ditemukan.',
+            ];
+        }
+
+        $response = $this->post('/transaction', [
+            'transactionId' => $ipaymuTransactionId,
+        ]);
+
+        $payload = $response->json() ?: [];
+        $details['ipaymu_check'] = $payload;
+        $details['ipaymu_checked_at'] = now()->toDateTimeString();
+
+        if ($response->successful() && $this->isPaidTransactionPayload($payload)) {
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_APPROVED,
+                'approved_at' => $purchase->approved_at ?: Carbon::now(),
+                'payment_details' => $details,
+            ]);
+        } elseif ($response->successful() && $this->isFailedTransactionPayload($payload)) {
+            $details['auto_rejected_reason'] = 'Gateway payment failed or expired.';
+            $details['auto_rejected_at'] = now()->toDateTimeString();
+
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_REJECTED,
+                'payment_details' => $details,
+            ]);
+        } else {
+            $purchase->update(['payment_details' => $details]);
+        }
+
+        return [
+            'success' => $response->successful(),
+            'paid' => $response->successful() && $this->isPaidTransactionPayload($payload),
+            'data' => $payload,
+        ];
+    }
+
+    private function detailsArray(mixed $details): array
+    {
+        if (is_array($details)) {
+            return $details;
+        }
+
+        return $details ? (json_decode($details, true) ?: []) : [];
     }
 
     private function isPaidTransactionPayload(array $payload): bool

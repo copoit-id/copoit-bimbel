@@ -229,6 +229,9 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
     @php
     $isOwned = in_array((int) $package->package_id, $userOwnedPackageIds);
     $isPendingConditional = in_array((int) $package->package_id, $pendingConditionalPackageIds ?? [], true);
+    $pendingPackagePayment = ($pendingPackagePaymentsByPackage ?? collect())->get((int) $package->package_id);
+    $isPendingManualPayment = $pendingPackagePayment && $pendingPackagePayment->payment_method === 'manual';
+    $isPendingGatewayPayment = $pendingPackagePayment && $pendingPackagePayment->payment_method !== 'manual';
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col">
         <!-- Package Image/Header -->
@@ -320,6 +323,19 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                             class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 cursor-not-allowed">
                         <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
                     </button>
+                    @elseif($isPendingManualPayment)
+                    <button type="button" disabled
+                            class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 cursor-not-allowed">
+                        <i class="ri-time-line"></i><span>On Review</span>
+                    </button>
+                    @elseif($isPendingGatewayPayment)
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1 flex flex-col gap-2" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
+                        @csrf
+                        <button type="button" onclick="handleBuy({{ $package->package_id }}, {{ $package->price }}, @js($package->name))"
+                                class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
+                            <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
+                        </button>
+                    </form>
                     @elseif($package->type_price === 'free_conditional')
                     <button type="button"
                             onclick="openConditionalModal({{ $package->package_id }}, @js($package->name), @js($package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.'))"
