@@ -1192,7 +1192,7 @@
                 midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.midtrans.com/v2',
                 interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
-                ipaymuBase: 'https://my.ipaymu.com/api/v2'
+                ipaymuBase: 'https://api.ipaymu.com/api/v2'
             }
         };
 
