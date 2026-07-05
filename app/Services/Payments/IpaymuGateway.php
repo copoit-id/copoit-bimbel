@@ -32,7 +32,7 @@ class IpaymuGateway
         $totalAmount = $amount + ($uniqueCode ?? 0);
         $user = Auth::user();
 
-        $payload = [
+        $payload = $this->cleanPayload([
             'account' => $va,
             'product' => [Str::limit($package->name, 80, '')],
             'qty' => [1],
@@ -42,12 +42,12 @@ class IpaymuGateway
             'returnUrl' => route('user.package.payment.success', ['transaction_id' => $transactionId]),
             'cancelUrl' => route('user.package.payment.failed', ['transaction_id' => $transactionId]),
             'buyerName' => $user?->name,
-            'buyerEmail' => $user?->email,
+            'buyerEmail' => $this->buyerEmail($user),
             'buyerPhone' => $this->buyerPhone($user),
             'referenceId' => $transactionId,
             'expired' => 24,
             'expiredType' => 'hours',
-        ];
+        ]);
 
         try {
             $response = $this->post('/api/v2/payment', $payload);
@@ -140,7 +140,7 @@ class IpaymuGateway
         $user = Auth::user();
         $itemName = $item->title ?? $item->name ?? 'Item';
 
-        $payload = [
+        $payload = $this->cleanPayload([
             'account' => $va,
             'product' => [Str::limit($itemName, 80, '')],
             'qty' => [1],
@@ -150,12 +150,12 @@ class IpaymuGateway
             'returnUrl' => route('user.package.payment.success', ['transaction_id' => $transactionId]),
             'cancelUrl' => route('user.package.payment.failed', ['transaction_id' => $transactionId]),
             'buyerName' => $user?->name,
-            'buyerEmail' => $user?->email,
+            'buyerEmail' => $this->buyerEmail($user),
             'buyerPhone' => $this->buyerPhone($user),
             'referenceId' => $transactionId,
             'expired' => 24,
             'expiredType' => 'hours',
-        ];
+        ]);
 
         try {
             $response = $this->post('/api/v2/payment', $payload);
@@ -655,6 +655,53 @@ class IpaymuGateway
         }
 
         return $httpStatus ? "HTTP {$httpStatus}: {$message}" : $message;
+    }
+
+    private function cleanPayload(array $payload): array
+    {
+        return array_filter($payload, fn ($value) => $value !== null && $value !== '');
+    }
+
+    private function buyerEmail($user): ?string
+    {
+        $email = Str::lower(trim((string) ($user?->email ?? '')));
+
+        if ($email === '') {
+            return null;
+        }
+
+        if ($this->userLooksLikeMerchant($user)) {
+            return null;
+        }
+
+        $merchantEmails = collect([
+            config('client.branding.smtp_email'),
+            config('client.branding.smtp_notification_email'),
+            config('client.branding.footer_email'),
+            config('mail.from.address'),
+            config('seeders.super_admin.email'),
+            config('seeders.prod_admin.email'),
+        ])
+            ->filter()
+            ->map(fn ($value) => Str::lower(trim((string) $value)))
+            ->all();
+
+        return in_array($email, $merchantEmails, true) ? null : $email;
+    }
+
+    private function userLooksLikeMerchant($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        $role = Str::lower((string) ($user->role ?? ''));
+
+        if (in_array($role, ['admin', 'super_admin', 'superadmin'], true)) {
+            return true;
+        }
+
+        return method_exists($user, 'isAdmin') && $user->isAdmin();
     }
 
     private function buyerPhone($user): string
