@@ -175,7 +175,8 @@ $classCount = $package->classes->count();
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form space-y-3">
                         @csrf
                         <button type="submit"
-                                class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
+                                class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold text-white hover:opacity-90 transition-opacity"
+                                style="background-color: {{ $primaryColor }}">
                             <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
                         </button>
                     </form>

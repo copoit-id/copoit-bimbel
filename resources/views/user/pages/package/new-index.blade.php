@@ -332,7 +332,8 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                     <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="buy-form flex-1 flex flex-col gap-2" data-package-id="{{ $package->package_id }}" data-price="{{ $package->price }}">
                         @csrf
                         <button type="button" onclick="handleBuy({{ $package->package_id }}, {{ $package->price }}, @js($package->name))"
-                                class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
+                                class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
+                                style="background-color: {{ $primaryColor }}">
                             <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
                         </button>
                     </form>

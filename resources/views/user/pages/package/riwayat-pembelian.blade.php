@@ -71,7 +71,8 @@ $statusMeta = function ($item) {
                 </span>
                 @if($item->action_url)
                     <a href="{{ $item->action_url }}"
-                        class="mt-2 inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                        class="mt-2 inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90 {{ $item->action_label === 'Lanjutkan Pembayaran' ? 'text-white' : 'border border-gray-200 text-gray-700 hover:bg-gray-50' }}"
+                        @if($item->action_label === 'Lanjutkan Pembayaran') style="background-color: {{ $primaryColor }}" @endif>
                         {{ $item->action_label }}
                     </a>
                 @endif
