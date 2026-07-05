@@ -493,6 +493,58 @@ class PackageController extends Controller
         return $purchase;
     }
 
+    private function pendingIpaymuPaymentUsesCurrentGateway(Payment $payment): bool
+    {
+        if ($payment->payment_method !== 'ipaymu') {
+            return true;
+        }
+
+        $details = $payment->paymentDetailsArray();
+        $paymentBaseUrl = rtrim((string) ($details['gateway_base_url'] ?? ''), '/');
+        $currentBaseUrl = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        return $paymentBaseUrl !== '' && $paymentBaseUrl === $currentBaseUrl;
+    }
+
+    private function expireStaleIpaymuPayment(Payment $payment): void
+    {
+        $details = $payment->paymentDetailsArray();
+        $details['auto_expired_reason'] = 'Gateway iPaymu configuration changed before payment completion.';
+        $details['auto_expired_at'] = now()->toDateTimeString();
+        $details['current_gateway_base_url'] = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        $payment->update([
+            'status' => Payment::STATUS_EXPIRED,
+            'payment_details' => json_encode($details),
+        ]);
+    }
+
+    private function pendingIpaymuIndividualPurchaseUsesCurrentGateway(IndividualPurchase $purchase): bool
+    {
+        if ($purchase->payment_method !== 'ipaymu') {
+            return true;
+        }
+
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $paymentBaseUrl = rtrim((string) ($details['gateway_base_url'] ?? ''), '/');
+        $currentBaseUrl = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        return $paymentBaseUrl !== '' && $paymentBaseUrl === $currentBaseUrl;
+    }
+
+    private function rejectStaleIpaymuIndividualPurchase(IndividualPurchase $purchase): void
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $details['auto_rejected_reason'] = 'Gateway iPaymu configuration changed before payment completion.';
+        $details['auto_rejected_at'] = now()->toDateTimeString();
+        $details['current_gateway_base_url'] = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        $purchase->update([
+            'status' => IndividualPurchase::STATUS_REJECTED,
+            'payment_details' => $details,
+        ]);
+    }
+
     private function pendingPackagePayment(Package $package, array $methods): ?Payment
     {
         return Payment::query()
@@ -519,6 +571,17 @@ class PackageController extends Controller
             ->get()
             ->filter(function (Payment $payment) {
                 if ($payment->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+
+                        if ($payment->status !== Payment::STATUS_PENDING) {
+                            return false;
+                        }
+
+                        $this->expireStaleIpaymuPayment($payment);
+                        return false;
+                    }
+
                     $payment = $this->syncPendingIpaymuPayment($payment);
 
                     if ($payment->status !== Payment::STATUS_PENDING) {
@@ -553,6 +616,20 @@ class PackageController extends Controller
 
         foreach ($pendingPayments as $payment) {
             if ($payment->payment_method === 'ipaymu') {
+                if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+
+                    if ($payment->status === Payment::STATUS_SUCCESS) {
+                        return $payment;
+                    }
+
+                    if ($payment->status === Payment::STATUS_PENDING) {
+                        $this->expireStaleIpaymuPayment($payment);
+                    }
+
+                    continue;
+                }
+
                 $payment = $this->syncPendingIpaymuPayment($payment);
 
                 if ($payment->status === Payment::STATUS_SUCCESS) {
@@ -1119,7 +1196,16 @@ class PackageController extends Controller
             ->get()
             ->map(function (Payment $payment) {
                 if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method === 'ipaymu') {
-                    $payment = $this->syncPendingIpaymuPayment($payment);
+                    if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+
+                        if ($payment->status === Payment::STATUS_PENDING) {
+                            $this->expireStaleIpaymuPayment($payment);
+                            $payment->refresh();
+                        }
+                    } else {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+                    }
                 }
 
                 $actionUrl = null;
@@ -1165,7 +1251,16 @@ class PackageController extends Controller
             ->get()
             ->map(function (IndividualPurchase $purchase) {
                 if ($purchase->status === IndividualPurchase::STATUS_PENDING && $purchase->payment_method === 'ipaymu') {
-                    $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+                    if (!$this->pendingIpaymuIndividualPurchaseUsesCurrentGateway($purchase)) {
+                        $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+
+                        if ($purchase->status === IndividualPurchase::STATUS_PENDING) {
+                            $this->rejectStaleIpaymuIndividualPurchase($purchase);
+                            $purchase->refresh();
+                        }
+                    } else {
+                        $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+                    }
                 }
 
                 $item = $purchase->purchasable;
