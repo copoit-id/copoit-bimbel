@@ -50,12 +50,12 @@ class IpaymuGateway
         ];
 
         try {
-            $response = $this->post('/payment', $payload);
+            $response = $this->post('/api/v2/payment', $payload);
 
             if (!$response->successful()) {
                 return [
                     'success' => false,
-                    'message' => $response->json('Message') ?: $response->json('message') ?: 'Gagal membuat pembayaran iPaymu.',
+                    'message' => $this->responseMessage($response->json() ?: [], 'Gagal membuat pembayaran iPaymu.', $response->status()),
                 ];
             }
 
@@ -63,7 +63,7 @@ class IpaymuGateway
             if (!$this->isSuccessResponse($data)) {
                 return [
                     'success' => false,
-                    'message' => $data['Message'] ?? $data['message'] ?? 'iPaymu menolak pembuatan pembayaran.',
+                    'message' => $this->responseMessage($data, 'iPaymu menolak pembuatan pembayaran.'),
                 ];
             }
 
@@ -158,12 +158,12 @@ class IpaymuGateway
         ];
 
         try {
-            $response = $this->post('/payment', $payload);
+            $response = $this->post('/api/v2/payment', $payload);
 
             if (!$response->successful()) {
                 return [
                     'success' => false,
-                    'message' => $response->json('Message') ?: $response->json('message') ?: 'Gagal membuat pembayaran iPaymu.',
+                    'message' => $this->responseMessage($response->json() ?: [], 'Gagal membuat pembayaran iPaymu.', $response->status()),
                 ];
             }
 
@@ -171,7 +171,7 @@ class IpaymuGateway
             if (!$this->isSuccessResponse($data)) {
                 return [
                     'success' => false,
-                    'message' => $data['Message'] ?? $data['message'] ?? 'iPaymu menolak pembuatan pembayaran.',
+                    'message' => $this->responseMessage($data, 'iPaymu menolak pembuatan pembayaran.'),
                 ];
             }
 
@@ -340,7 +340,7 @@ class IpaymuGateway
         $attempts = [];
 
         foreach ($lookupPayloads as $lookupPayload) {
-            $response = $this->post('/transaction', $lookupPayload);
+            $response = $this->post('/api/v2/transaction', $lookupPayload);
             $currentPayload = $response->json() ?: [];
 
             $attempts[] = [
@@ -412,7 +412,7 @@ class IpaymuGateway
         $attempts = [];
 
         foreach ($lookupPayloads as $lookupPayload) {
-            $response = $this->post('/transaction', $lookupPayload);
+            $response = $this->post('/api/v2/transaction', $lookupPayload);
             $currentPayload = $response->json() ?: [];
 
             $attempts[] = [
@@ -630,6 +630,31 @@ class IpaymuGateway
         $status = (string) ($data['Status'] ?? $data['status'] ?? '');
 
         return in_array($status, ['200', '201', 'success', 'Success'], true);
+    }
+
+    private function responseMessage(array $payload, string $fallback, ?int $httpStatus = null): string
+    {
+        $message = $payload['Message']
+            ?? $payload['message']
+            ?? $payload['StatusDesc']
+            ?? $payload['statusDesc']
+            ?? $payload['Description']
+            ?? $payload['description']
+            ?? $payload['Data']['Message']
+            ?? $payload['data']['message']
+            ?? null;
+
+        if (is_array($message)) {
+            $message = collect($message)->flatten()->filter()->implode(' ');
+        }
+
+        $message = trim((string) $message);
+
+        if ($message === '') {
+            $message = $fallback;
+        }
+
+        return $httpStatus ? "HTTP {$httpStatus}: {$message}" : $message;
     }
 
     private function buyerPhone($user): string
