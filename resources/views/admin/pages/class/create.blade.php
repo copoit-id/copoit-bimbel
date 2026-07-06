@@ -6,9 +6,9 @@
     <div class="flex justify-between items-center">
         <div>
             <h2 class="text-2xl font-bold">Tambah Kelas</h2>
-            <p class="text-gray-500">Buat jadwal kelas baru</p>
+            <p class="text-gray-500">Buat jadwal kelas live/Zoom baru</p>
         </div>
-        <a href="{{ route('admin.class.index') }}"
+        <a href="{{ route('admin.class-schedules.index', ['tab' => 'zoom']) }}"
             class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center gap-2">
             <i class="ri-arrow-left-line"></i>
             Kembali
@@ -97,7 +97,7 @@
             </div>
 
             <div class="flex items-center justify-end px-6 py-5 space-x-2 border-t border-gray-200">
-                <a href="{{ route('admin.class.index') }}"
+                <a href="{{ route('admin.class-schedules.index', ['tab' => 'zoom']) }}"
                     class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
                     Batal
                 </a>
@@ -114,7 +114,6 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Set default schedule time to current date + 1 hour
         const scheduleInput = document.getElementById('schedule_time');
         if (!scheduleInput.value) {
             const now = new Date();

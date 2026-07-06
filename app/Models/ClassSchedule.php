@@ -12,6 +12,7 @@ class ClassSchedule extends Model
 
     protected $fillable = [
         'class_id',
+        'study_group_id',
         'tentor_id',
         'title',
         'schedule_type',
@@ -39,6 +40,11 @@ class ClassSchedule extends Model
     public function class(): BelongsTo
     {
         return $this->belongsTo(ClassModel::class, 'class_id', 'class_id');
+    }
+
+    public function studyGroup(): BelongsTo
+    {
+        return $this->belongsTo(StudyGroup::class);
     }
 
     public function tentor(): BelongsTo

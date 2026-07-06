@@ -13,6 +13,7 @@ class ClassSession extends Model
     protected $fillable = [
         'class_schedule_id',
         'class_id',
+        'study_group_id',
         'tentor_id',
         'session_date',
         'start_at',
@@ -37,6 +38,11 @@ class ClassSession extends Model
     public function class(): BelongsTo
     {
         return $this->belongsTo(ClassModel::class, 'class_id', 'class_id');
+    }
+
+    public function studyGroup(): BelongsTo
+    {
+        return $this->belongsTo(StudyGroup::class);
     }
 
     public function tentor(): BelongsTo

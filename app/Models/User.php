@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
@@ -151,6 +152,12 @@ class User extends Authenticatable
     public function classAttendances()
     {
         return $this->hasMany(ClassAttendance::class, 'user_id');
+    }
+
+    public function studyGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(StudyGroup::class, 'study_group_user')
+            ->withTimestamps();
     }
 
     public function participantDestinationCategory(): BelongsTo

@@ -25,20 +25,27 @@ class UserClassScheduleController extends Controller
             ->active()
             ->pluck('package_id');
 
-        $sessions = ClassSession::with(['class.tentor', 'tentor', 'schedule.tentor', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'attendances' => function ($query) use ($user) {
+        $sessions = ClassSession::with(['class.tentor', 'studyGroup.users', 'tentor', 'schedule.tentor', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'attendances' => function ($query) use ($user) {
             $query->where('user_id', $user->id);
         }])
-            ->where(function ($query) use ($destinationCategoryIds, $packageIds) {
-                if ($destinationCategoryIds->isNotEmpty()) {
-                    $query->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
-                        $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
-                    });
-                }
+            ->where(function ($query) use ($user, $destinationCategoryIds, $packageIds) {
+                $query->whereHas('studyGroup.users', fn ($userQuery) => $userQuery->where('users.id', $user->id));
 
-                $query->orWhere(function ($fallbackQuery) use ($packageIds) {
-                    $fallbackQuery
-                        ->whereDoesntHave('schedule.destinationCategories')
-                        ->whereHas('class.packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $packageIds));
+                $query->orWhere(function ($legacyQuery) use ($destinationCategoryIds, $packageIds) {
+                    $legacyQuery->whereDoesntHave('studyGroup.users')
+                        ->where(function ($legacyAccessQuery) use ($destinationCategoryIds, $packageIds) {
+                            if ($destinationCategoryIds->isNotEmpty()) {
+                                $legacyAccessQuery->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
+                                    $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
+                                });
+                            }
+
+                            $legacyAccessQuery->orWhere(function ($fallbackQuery) use ($packageIds) {
+                                $fallbackQuery
+                                    ->whereDoesntHave('schedule.destinationCategories')
+                                    ->whereHas('class.packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $packageIds));
+                            });
+                        });
                 });
             })
             ->whereDate('session_date', '>=', now()->subDay()->toDateString())
@@ -90,12 +97,16 @@ class UserClassScheduleController extends Controller
 
     private function canAccessSession(Request $request, ClassSession $session): bool
     {
-        $session->loadMissing('schedule.destinationCategories');
+        $session->loadMissing('studyGroup.users', 'schedule.destinationCategories');
         $user = $request->user()->loadMissing('participantDestinationCategory');
         $destinationCategoryIds = collect([
             $user->participant_destination_category_id,
             $user->participantDestinationCategory?->parent_id,
         ])->filter()->map(fn ($id) => (int) $id);
+
+        if ($session->studyGroup?->users?->isNotEmpty()) {
+            return $session->studyGroup->users->contains('id', $user->id);
+        }
 
         if ($session->schedule->destinationCategories->isNotEmpty()) {
             return $session->schedule->destinationCategories
