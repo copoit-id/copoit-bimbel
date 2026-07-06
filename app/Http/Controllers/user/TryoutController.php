@@ -1212,6 +1212,8 @@ class TryoutController extends Controller
                 return 'TPA';
             case 'tbi':
                 return 'TBI';
+            case 'tob':
+                return 'TOB';
             case 'writing':
                 return 'Writing Test';
             case 'reading':

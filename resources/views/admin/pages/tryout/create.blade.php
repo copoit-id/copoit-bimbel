@@ -981,6 +981,7 @@
       'tkp': 'general_config',
       'tpa': 'general_config',
       'tbi': 'general_config',
+      'tob': 'general_config',
       'listening': 'general_config',
       'structure': 'general_config',
       'reading': 'general_config',

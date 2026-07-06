@@ -11,6 +11,7 @@ use App\Services\PurchaseAccessDuration;
 use App\Models\ClassModel;
 use App\Models\DetailPackage;
 use App\Models\Package;
+use App\Models\MaterialCategory;
 use App\Models\Material;
 use App\Models\Question;
 use App\Models\QuestionOption;
@@ -19,6 +20,9 @@ use App\Models\Tentor;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 Carbon::setLocale('id');
 class PackageController extends Controller
@@ -488,8 +492,9 @@ class PackageController extends Controller
         try {
             $package = Package::where('package_id', $packageId)->firstOrFail();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
+            $tryoutTypeOptions = $this->packageTryoutTypeOptions();
 
-            return view('admin.pages.package.tryout.create', compact('package', 'securityDefaults'));
+            return view('admin.pages.package.tryout.create', compact('package', 'securityDefaults', 'tryoutTypeOptions'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
@@ -500,7 +505,7 @@ class PackageController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'required|string',
-            'type_tryout' => 'required|in:tiu,twk,tkp,skd_full,general,tpa,tbi,certification',
+            'type_tryout' => ['required', Rule::in(array_keys($this->packageTryoutTypeOptions()))],
             'duration_total' => 'required|integer|min:1',
             'passing_score_total' => 'required|numeric|min:0|max:100',
             'passing_type_twk' => 'nullable|in:score,percentage',
@@ -613,7 +618,7 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_tkp,
                 'passing_type' => $request->input('passing_type_tkp', 'score'),
             ]);
-        } else if ($tryout && in_array($tryout->type_tryout, ['general', 'tpa', 'tbi'], true)) {
+        } else if ($tryout) {
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
                 'type_subtest' => $tryout->type_tryout,
@@ -625,6 +630,37 @@ class PackageController extends Controller
 
         return redirect()->route('admin.package.tryout.index', $package_id)
             ->with('success', 'Tryout "' . $tryout->name . '" berhasil ditambahkan');
+    }
+
+    private function packageTryoutTypeOptions(): array
+    {
+        $options = collect([
+            'tiu' => 'TIU (Tes Intelegensi Umum)',
+            'twk' => 'TWK (Tes Wawasan Kebangsaan)',
+            'tkp' => 'TKP (Tes Karakteristik Pribadi)',
+            'tpa' => 'TPA',
+            'tbi' => 'TBI',
+            'tob' => 'TOB',
+            'skd_full' => 'SKD Full (TWK + TIU + TKP)',
+            'general' => 'General',
+            'certification' => 'Certification',
+        ]);
+
+        if (Schema::hasTable('material_categories') && Schema::hasColumn('material_categories', 'code')) {
+            $dynamicOptions = MaterialCategory::query()
+                ->with('parent')
+                ->withCode()
+                ->active()
+                ->ordered()
+                ->get()
+                ->mapWithKeys(fn (MaterialCategory $category) => [
+                    $category->code => $category->display_name ?: Str::headline($category->code),
+                ]);
+
+            $options = $options->merge($dynamicOptions);
+        }
+
+        return $options->filter()->all();
     }
 
     public function indexSoal($package_id, $tryout_detail_id)
