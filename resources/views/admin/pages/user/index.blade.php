@@ -5,7 +5,7 @@
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold">Manajemen Users</h2>
+            <h2 class="text-2xl font-bold">Manajemen User</h2>
             <p class="text-gray-500">Kelola pengguna dan akses sistem</p>
         </div>
         <div class="flex gap-2">
@@ -68,6 +68,11 @@
         </div>
     @endif
 
+    @include('admin.pages.user.partials.management-tabs', [
+        'activeManagementTab' => $activeRole,
+        'roleOptions' => $roleOptions,
+    ])
+
     <form id="bulk-delete-form" action="{{ route('admin.user.bulk-destroy') }}" method="POST" class="hidden">
         @csrf
         @method('DELETE')
@@ -81,14 +86,6 @@
                         class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
-
-                <select id="role-filter"
-                    class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Semua Role</option>
-                    @foreach(($roleOptions ?? []) as $slug => $name)
-                    <option value="{{ $slug }}">{{ $name }}</option>
-                    @endforeach
-                </select>
 
                 <select id="status-filter"
                     class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -107,7 +104,7 @@
                 <div id="user-count" class="text-sm text-gray-500">
                     Halaman ini: <span class="font-medium text-gray-700 current-count">{{ $users->count() }} User</span>
                     <span class="mx-1 text-gray-300">•</span>
-                    Total: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
+                    Total {{ $roleOptions[$activeRole] ?? 'User' }}: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
                 </div>
                 <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
                     class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
@@ -261,7 +258,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const searchInput = document.getElementById('user-search');
-            const roleFilter = document.getElementById('role-filter');
             const statusFilter = document.getElementById('status-filter');
             const resetButton = document.getElementById('reset-filters');
             const userCount = document.getElementById('user-count');
@@ -280,21 +276,18 @@
 
             function applyFilters() {
                 const q = (searchInput.value || '').toLowerCase().trim();
-                const role = roleFilter.value;
                 const status = statusFilter.value;
 
                 let visible = 0;
                 rows.forEach(row => {
                     const name = getText(row, 'data-name');
                     const email = getText(row, 'data-email');
-                    const r = row.getAttribute('data-role') || '';
                     const s = row.getAttribute('data-status') || '';
 
                     const matchesSearch = !q || name.includes(q) || email.includes(q);
-                    const matchesRole = !role || r === role;
                     const matchesStatus = !status || s === status;
 
-                    const show = matchesSearch && matchesRole && matchesStatus;
+                    const show = matchesSearch && matchesStatus;
                     row.style.display = show ? '' : 'none';
                     if (show) visible++;
                 });
@@ -312,7 +305,6 @@
 
             function resetFilters() {
                 searchInput.value = '';
-                roleFilter.value = '';
                 statusFilter.value = '';
                 applyFilters();
             }
@@ -348,7 +340,6 @@
             }
 
             searchInput.addEventListener('input', applyFilters);
-            roleFilter.addEventListener('change', applyFilters);
             statusFilter.addEventListener('change', applyFilters);
             resetButton.addEventListener('click', resetFilters);
 

@@ -47,14 +47,14 @@
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.class.*')
-        || ($canShowTentorMenu && request()->routeIs('admin.tentors.*'))
-        || ($canShowClassScheduleMenu && request()->routeIs('admin.class-schedules.*'))
-        || ($canShowClassScheduleMenu && request()->routeIs('admin.class-attendance.*'))
         || request()->routeIs('admin.tes-koran.*')
         || $isMaterialManagementActive;
+    $isClassScheduleActive = $canShowClassScheduleMenu
+        && (request()->routeIs('admin.class-schedules.*') || request()->routeIs('admin.class-attendance.*'));
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
     $isUserActive = request()->routeIs('admin.user.*')
-        || request()->routeIs('admin.akses.*');
+        || request()->routeIs('admin.akses.*')
+        || ($canShowTentorMenu && request()->routeIs('admin.tentors.*'));
     $isReportActive = request()->routeIs('admin.leaderboard.*')
         || request()->routeIs('admin.laporan.*')
         || request()->routeIs('admin.essay-review.*')
@@ -123,22 +123,6 @@
                             </a>
                         </li>
                         @endif
-                        @if($canShowTentorMenu)
-                        <li>
-                            <a href="{{ route('admin.tentors.index') }}"
-                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tentors.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <span>Manajemen Tentor</span>
-                            </a>
-                        </li>
-                        @endif
-                        @if($canShowClassScheduleMenu)
-                        <li>
-                            <a href="{{ route('admin.class-schedules.index') }}"
-                                class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class-schedules.*') || request()->routeIs('admin.class-attendance.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <span>Jadwal & Absensi</span>
-                            </a>
-                        </li>
-                        @endif
                         <li>
                             <a href="{{ route('admin.material.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -156,6 +140,15 @@
                     </ul>
                 </details>
             </li>
+            @if($canShowClassScheduleMenu)
+            <li>
+                <a href="{{ route('admin.class-schedules.index') }}"
+                    class="flex items-center py-2 px-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-calendar-check-line text-[20px] {{ $isClassScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i>
+                    <span class="ms-3">Jadwal & Absensi</span>
+                </a>
+            </li>
+            @endif
             @if($canFeatureView('question_bank'))
             <li>
                 <a href="{{ route('admin.question-bank.index') }}"
@@ -198,7 +191,7 @@
                     <summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isUserActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;">
                         <span class="flex items-center">
                             <i class="ri-user-2-line text-[20px] {{ $isUserActive ? $iconActiveClass : $iconInactiveClass }}"></i>
-                            <span class="ms-3">User</span>
+                            <span class="ms-3">Manajemen User</span>
                         </span>
                         <i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isUserActive ? $iconActiveClass : $iconInactiveClass }}"></i>
                     </summary>
@@ -207,7 +200,7 @@
                         <li>
                             <a href="{{ route('admin.user.index') }}"
                                 class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.user.*') && !request()->routeIs('admin.user.login-as-page') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
-                                <span>Manajemen Users</span>
+                                <span>Manajemen User</span>
                             </a>
                         </li>
                         @endif

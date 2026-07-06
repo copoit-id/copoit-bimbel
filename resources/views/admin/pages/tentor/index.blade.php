@@ -6,11 +6,17 @@
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="" title="Manajemen Tentor" />
+            <x-breadcrumb-item href="{{ route('admin.user.index') }}" title="Manajemen User" />
+            <x-breadcrumb-item href="" title="Tentor" />
         </x-slot>
     </x-breadcrumb>
     <x-btn title="Tambah Tentor" route="{{ route('admin.tentors.create') }}" icon="ri-add-fill"></x-btn>
 </div>
+
+@include('admin.pages.user.partials.management-tabs', [
+    'activeManagementTab' => 'tentor',
+    'roleOptions' => $roleOptions ?? [],
+])
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
     <x-page-desc title="Manajemen Tentor" description="Kelola data tentor untuk assignment kelas dan jadwal."></x-page-desc>

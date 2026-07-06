@@ -76,23 +76,31 @@
                             </div>
 
                             <!-- Actions -->
-                            <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2 text-xs">
-                                <div class="flex items-center gap-3">
-                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
-                                        <i class="ri-eye-line"></i> Absen
+                            <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2 text-xs">
+                                <div class="flex items-center gap-1.5">
+                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                        title="Absen" aria-label="Absen">
+                                        <i class="ri-eye-line text-base"></i>
+                                        <span class="sr-only">Absen</span>
                                     </a>
-                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
-                                        <i class="ri-edit-line"></i> Edit
+                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                        title="Edit" aria-label="Edit">
+                                        <i class="ri-edit-line text-base"></i>
+                                        <span class="sr-only">Edit</span>
                                     </a>
+                                    <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');" class="inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                            title="Hapus" aria-label="Hapus">
+                                            <i class="ri-delete-bin-line text-base"></i>
+                                            <span class="sr-only">Hapus</span>
+                                        </button>
+                                    </form>
                                 </div>
-                                
-                                <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');" class="inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-gray-400 hover:text-red-600 flex items-center gap-0.5 transition-colors">
-                                        <i class="ri-delete-bin-line"></i> Hapus
-                                    </button>
-                                </form>
                             </div>
                         </div>
                     @empty
@@ -140,14 +148,31 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
-                                <td class="px-4 py-3 flex items-center gap-3">
-                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-primary hover:underline">Absen</a>
-                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="text-gray-600 hover:text-primary hover:underline">Edit</a>
-                                    <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin?');" class="inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="text-red-600 hover:underline">Hapus</button>
-                                    </form>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-1.5">
+                                        <a href="{{ route('admin.class-schedules.show', $schedule) }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                            title="Absen" aria-label="Absen">
+                                            <i class="ri-eye-line text-base"></i>
+                                            <span class="sr-only">Absen</span>
+                                        </a>
+                                        <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                            title="Edit" aria-label="Edit">
+                                            <i class="ri-edit-line text-base"></i>
+                                            <span class="sr-only">Edit</span>
+                                        </a>
+                                        <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin?');" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                title="Hapus" aria-label="Hapus">
+                                                <i class="ri-delete-bin-line text-base"></i>
+                                                <span class="sr-only">Hapus</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
