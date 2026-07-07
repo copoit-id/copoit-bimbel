@@ -121,7 +121,7 @@ class LaporanController extends Controller
     {
         $this->prepareDownloadRuntime();
 
-        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id, false);
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -135,6 +135,8 @@ class LaporanController extends Controller
             'Benar',
             'Salah',
             'Kosong',
+            'Total Soal',
+            'Durasi',
             'Mulai',
             'Selesai',
         ];
@@ -148,7 +150,7 @@ class LaporanController extends Controller
         ], null, 'A2');
         $sheet->fromArray($headers, null, 'A4');
         $sheet->getStyle('A1:A2')->getFont()->setBold(true);
-        $sheet->getStyle('A4:J4')->getFont()->setBold(true);
+        $sheet->getStyle('A4:L4')->getFont()->setBold(true);
 
         $row = 5;
         foreach ($participants as $participant) {
@@ -162,14 +164,16 @@ class LaporanController extends Controller
                     $attempt->total_correct ?? 0,
                     $attempt->total_wrong ?? 0,
                     $attempt->total_unanswered ?? 0,
-                    $attempt->started_at ? Carbon::parse($attempt->started_at)->format('d M Y H:i') : '-',
-                    $attempt->finished_at ? Carbon::parse($attempt->finished_at)->format('d M Y H:i') : '-',
+                    $attempt->question_count ?? 0,
+                    $attempt->duration_label ?? '-',
+                    $attempt->started_label ?? '-',
+                    $attempt->finished_label ?? '-',
                 ], null, 'A' . $row);
                 $row++;
             }
         }
 
-        foreach (range('A', 'J') as $column) {
+        foreach (range('A', 'L') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -191,7 +195,7 @@ class LaporanController extends Controller
     {
         $this->prepareDownloadRuntime();
 
-        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id, false);
+        [$tryout, $statistics, $participants] = $this->getTryoutDetailReport($id);
 
         $html = view('admin.pages.laporan.export-detail-pdf', [
             'tryout' => $tryout,
@@ -278,7 +282,6 @@ class LaporanController extends Controller
         if ($withCalculatedScores && $attemptSummaries->isNotEmpty()) {
             $answersByAttempt = UserAnswer::where('tryout_id', $tryout->tryout_id)
                 ->whereIn('user_id', $attemptSummaries->pluck('user_id')->unique())
-                ->whereIn('attempt_token', $attemptSummaries->pluck('attempt_token')->unique())
                 ->with(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption'])
                 ->get()
                 ->groupBy(['user_id', 'attempt_token']);
@@ -298,6 +301,7 @@ class LaporanController extends Controller
                         $attempt->attempt_status = $this->resolveAttemptStatusFromSummary($attempt);
                     }
 
+                    $this->hydrateAttemptDisplayFields($attempt);
                     $attempt->attempt_status_label = $this->formatAttemptStatus($attempt->attempt_status);
 
                     return $attempt;
@@ -338,6 +342,23 @@ class LaporanController extends Controller
     {
         @set_time_limit(120);
         @ini_set('memory_limit', '512M');
+    }
+
+    private function hydrateAttemptDisplayFields($attempt): void
+    {
+        $startedAt = $attempt->started_at ? Carbon::parse($attempt->started_at) : null;
+        $finishedAt = $attempt->finished_at ? Carbon::parse($attempt->finished_at) : null;
+
+        $attempt->question_count = (int) ($attempt->total_correct ?? 0)
+            + (int) ($attempt->total_wrong ?? 0)
+            + (int) ($attempt->total_unanswered ?? 0);
+        $attempt->duration_label = ($startedAt && $finishedAt)
+            ? $startedAt->diffForHumans($finishedAt, true)
+            : '-';
+        $attempt->started_label = $startedAt ? $startedAt->format('d M Y H:i') : '-';
+        $attempt->finished_label = $finishedAt ? $finishedAt->format('d M Y H:i') : '-';
+        $attempt->finished_date_label = $finishedAt ? $finishedAt->translatedFormat('d M Y') : '-';
+        $attempt->finished_time_label = $finishedAt ? $finishedAt->format('H:i') : '';
     }
 
     public function attemptDetail($tryoutId, $attemptToken)

@@ -68,6 +68,8 @@
                 <th class="text-center">Benar</th>
                 <th class="text-center">Salah</th>
                 <th class="text-center">Kosong</th>
+                <th class="text-center">Total Soal</th>
+                <th class="text-center">Durasi</th>
                 <th class="text-center">Mulai</th>
                 <th class="text-center">Selesai</th>
             </tr>
@@ -84,13 +86,15 @@
                         <td class="text-center">{{ $attempt->total_correct ?? 0 }}</td>
                         <td class="text-center">{{ $attempt->total_wrong ?? 0 }}</td>
                         <td class="text-center">{{ $attempt->total_unanswered ?? 0 }}</td>
-                        <td class="text-center">{{ $attempt->started_at ? \Carbon\Carbon::parse($attempt->started_at)->format('d M Y H:i') : '-' }}</td>
-                        <td class="text-center">{{ $attempt->finished_at ? \Carbon\Carbon::parse($attempt->finished_at)->format('d M Y H:i') : '-' }}</td>
+                        <td class="text-center">{{ $attempt->question_count ?? 0 }}</td>
+                        <td class="text-center">{{ $attempt->duration_label ?? '-' }}</td>
+                        <td class="text-center">{{ $attempt->started_label ?? '-' }}</td>
+                        <td class="text-center">{{ $attempt->finished_label ?? '-' }}</td>
                     </tr>
                 @endforeach
             @empty
                 <tr>
-                    <td colspan="10" class="text-center">Belum ada peserta untuk tryout ini</td>
+                    <td colspan="12" class="text-center">Belum ada peserta untuk tryout ini</td>
                 </tr>
             @endforelse
         </tbody>
