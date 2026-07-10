@@ -95,6 +95,36 @@
                 </div>
 
                 <div class="rounded-lg border border-gray-200 p-4">
+                    <h3 class="mb-4 font-semibold text-gray-900">Pre & Post Test</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="pre_test_tryout_id" class="block text-sm font-medium text-gray-700 mb-2">Pre Test</label>
+                            <select id="pre_test_tryout_id" name="pre_test_tryout_id"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Tidak pakai pre test</option>
+                                @foreach($preOptions as $option)
+                                <option value="{{ $option->tryout_id }}" @selected(old('pre_test_tryout_id') == $option->tryout_id)>
+                                    {{ $option->name }}
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="post_test_tryout_id" class="block text-sm font-medium text-gray-700 mb-2">Post Test</label>
+                            <select id="post_test_tryout_id" name="post_test_tryout_id"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Tidak pakai post test</option>
+                                @foreach($postOptions as $option)
+                                <option value="{{ $option->tryout_id }}" @selected(old('post_test_tryout_id') == $option->tryout_id)>
+                                    {{ $option->name }}
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 p-4">
                     <h3 class="mb-4 font-semibold text-gray-900">Akses Mandiri</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label class="flex items-center gap-2 text-sm text-gray-700">
