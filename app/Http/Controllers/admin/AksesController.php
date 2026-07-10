@@ -27,6 +27,7 @@ class AksesController extends Controller
     {
         $tab = $request->get('tab', 'packages');
         $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
+        $canUseStudyGroupAccess = $this->canUseStudyGroupAccess($request);
 
         if ($tab === 'tes_koran' && !$canManageTesKoran) {
             $tab = 'packages';
@@ -67,7 +68,8 @@ class AksesController extends Controller
 
         return view('admin.pages.akses.index', compact(
             'tab',
-            'items'
+            'items',
+            'canUseStudyGroupAccess'
         ));
     }
 
@@ -184,16 +186,19 @@ class AksesController extends Controller
             $user->has_access = $user->access_status === 'active';
         }
 
-        $studyGroups = StudyGroup::query()
-            ->where('is_active', true)
-            ->with(['users' => function ($query) {
-                $query->where('status', 'aktif')->orderBy('name');
-            }])
-            ->orderBy('name')
-            ->get();
+        $canUseStudyGroupAccess = $this->canUseStudyGroupAccess($request);
+        $studyGroups = $canUseStudyGroupAccess
+            ? StudyGroup::query()
+                ->where('is_active', true)
+                ->with(['users' => function ($query) {
+                    $query->where('status', 'aktif')->orderBy('name');
+                }])
+                ->orderBy('name')
+                ->get()
+            : collect();
         
         return view('admin.pages.akses.manage', compact(
-            'type', 'item', 'usersWithAccess', 'allUsers', 'search', 'studyGroups'
+            'type', 'item', 'usersWithAccess', 'allUsers', 'search', 'studyGroups', 'canUseStudyGroupAccess'
         ));
     }
 
@@ -239,6 +244,8 @@ class AksesController extends Controller
 
     public function grantStudyGroup(Request $request)
     {
+        abort_unless($this->canUseStudyGroupAccess($request), 404);
+
         $request->validate([
             'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,class,classes,tryout,tryouts,tes_koran',
             'item_id' => 'required|integer',
@@ -326,6 +333,12 @@ class AksesController extends Controller
                 ->exists(),
             default => true,
         };
+    }
+
+    private function canUseStudyGroupAccess(Request $request): bool
+    {
+        return (bool) config('client.branding.class_schedule_menu_enabled', false)
+            && ($request->user()?->hasPermission('class', 'view') ?? false);
     }
 
     private function grantAccessToUser(string $normalizedType, int $userId, int $itemId, Request $request): void

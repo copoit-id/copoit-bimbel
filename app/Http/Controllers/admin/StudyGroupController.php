@@ -15,6 +15,8 @@ class StudyGroupController extends Controller
 {
     public function index(): View
     {
+        $this->abortIfStudyGroupHidden();
+
         $studyGroups = StudyGroup::query()
             ->with('tentor')
             ->withCount(['users', 'schedules'])
@@ -26,6 +28,8 @@ class StudyGroupController extends Controller
 
     public function create(): View
     {
+        $this->abortIfStudyGroupHidden();
+
         return view('admin.pages.study-group.create', [
             'studyGroup' => null,
             'tentors' => $this->tentorOptions(),
@@ -36,6 +40,8 @@ class StudyGroupController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->abortIfStudyGroupHidden();
+
         $validated = $this->validatedData($request);
 
         DB::transaction(function () use ($request, $validated): void {
@@ -54,6 +60,8 @@ class StudyGroupController extends Controller
 
     public function edit(StudyGroup $studyGroup): View
     {
+        $this->abortIfStudyGroupHidden();
+
         $selectedUserIds = $studyGroup->users()
             ->pluck('users.id')
             ->map(fn ($id) => (int) $id)
@@ -69,6 +77,8 @@ class StudyGroupController extends Controller
 
     public function update(Request $request, StudyGroup $studyGroup): RedirectResponse
     {
+        $this->abortIfStudyGroupHidden();
+
         $validated = $this->validatedData($request);
 
         DB::transaction(function () use ($request, $studyGroup, $validated): void {
@@ -87,6 +97,8 @@ class StudyGroupController extends Controller
 
     public function destroy(StudyGroup $studyGroup): RedirectResponse
     {
+        $this->abortIfStudyGroupHidden();
+
         if ($studyGroup->schedules()->exists()) {
             return back()->with('error', 'Rombel masih dipakai di jadwal kelas. Nonaktifkan rombel jika tidak digunakan lagi.');
         }
@@ -108,6 +120,11 @@ class StudyGroupController extends Controller
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => ['integer', 'exists:users,id'],
         ]);
+    }
+
+    private function abortIfStudyGroupHidden(): void
+    {
+        abort_unless((bool) config('client.branding.class_schedule_menu_enabled', false), 404);
     }
 
     private function tentorOptions(?int $currentTentorId = null)

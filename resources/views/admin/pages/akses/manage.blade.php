@@ -111,10 +111,12 @@
                         class="access-panel-tab rounded-md bg-white px-3 py-1.5 text-sm font-medium text-primary shadow-sm">
                     Mandiri
                 </button>
+                @if($canUseStudyGroupAccess)
                 <button type="button" data-access-panel-tab="rombel"
                         class="access-panel-tab rounded-md px-3 py-1.5 text-sm font-medium text-gray-500">
                     Rombel
                 </button>
+                @endif
             </div>
             
             <div id="access_panel_mandiri">
@@ -190,6 +192,7 @@
         @endif
         </div>
 
+        @if($canUseStudyGroupAccess)
         <div id="access_panel_rombel" class="hidden p-4">
             <div class="mb-3 flex items-center gap-2">
                 <i class="ri-group-line text-primary"></i>
@@ -223,6 +226,7 @@
                 <i class="ri-group-line mr-1"></i>Beri Akses ke Anggota Terpilih
             </button>
         </div>
+        @endif
     </div>
 </div>
 
@@ -238,6 +242,7 @@ if (type === 'classe') type = 'class';
 
 const itemId = '{{ $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id }}';
 const csrfToken = '{{ csrf_token() }}';
+const canUseStudyGroupAccess = @json($canUseStudyGroupAccess);
 const studyGroups = @json($studyGroups->map(fn ($group) => [
     'id' => $group->id,
     'name' => $group->name,
@@ -253,7 +258,7 @@ document.querySelectorAll('[data-access-panel-tab]').forEach((button) => {
         const activeTab = button.dataset.accessPanelTab;
         document.getElementById('access_panel_mandiri').classList.toggle('hidden', activeTab !== 'mandiri');
         document.getElementById('access_panel_mandiri_list').classList.toggle('hidden', activeTab !== 'mandiri');
-        document.getElementById('access_panel_rombel').classList.toggle('hidden', activeTab !== 'rombel');
+        document.getElementById('access_panel_rombel')?.classList.toggle('hidden', activeTab !== 'rombel');
 
         document.querySelectorAll('[data-access-panel-tab]').forEach((tabButton) => {
             const isActive = tabButton.dataset.accessPanelTab === activeTab;
@@ -330,6 +335,11 @@ document.getElementById('study_group_select')?.addEventListener('change', functi
 });
 
 function grantStudyGroupAccess() {
+    if (!canUseStudyGroupAccess) {
+        alert('Akses via rombel sedang tidak aktif.');
+        return;
+    }
+
     const groupId = document.getElementById('study_group_select').value;
     const accessType = document.getElementById('rombel_access_type').value;
     const userIds = Array.from(document.querySelectorAll('input[name="rombel_user_ids[]"]:checked')).map((input) => input.value);

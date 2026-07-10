@@ -34,7 +34,8 @@
     $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
         && $canFeatureView('class')
         && $adminRouteExists('admin.class-schedules.index');
-    $canShowStudyGroupMenu = $canFeatureView('class')
+    $canShowStudyGroupMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
+        && $canFeatureView('class')
         && $adminRouteExists('admin.study-groups.index');
     $canShowTentorMenu = $canFeatureView('tentor')
         && $adminRouteExists('admin.tentors.index');
