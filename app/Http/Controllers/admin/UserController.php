@@ -11,6 +11,7 @@ use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -61,7 +62,8 @@ class UserController extends Controller
             ->values()
             ->all();
         $roleOptions = $this->getRoleOptions();
-        $fields = $this->exportUserFields($userColumns);
+        $packageColumns = $this->exportPackageColumns();
+        $fields = $this->exportUserFields($userColumns, $packageColumns);
         $tempFile = tempnam(sys_get_temp_dir(), 'users-export-');
 
         $this->writeUsersXlsx($tempFile, $fields, $userColumns, $roleOptions);
@@ -202,7 +204,7 @@ class UserController extends Controller
             ->with('success', 'User berhasil diperbarui');
     }
 
-    private function exportUserFields(array $userColumns): array
+    private function exportUserFields(array $userColumns, array $packageColumns = []): array
     {
         $labels = [
             'name' => 'Nama Lengkap',
@@ -227,14 +229,40 @@ class UserController extends Controller
                 'type' => 'column',
             ]);
 
-        return $fields->merge([
+        $fields = $fields->merge([
             ['key' => 'role_label', 'label' => 'Label Role', 'type' => 'computed'],
             ['key' => 'participant_destination_display', 'label' => 'Tujuan Peserta', 'type' => 'computed'],
             ['key' => 'participant_destination_category_name', 'label' => 'Kategori Tujuan', 'type' => 'computed'],
             ['key' => 'participant_destination_parent_name', 'label' => 'Kategori Induk Tujuan', 'type' => 'computed'],
             ['key' => 'referred_by_name', 'label' => 'Nama Referrer', 'type' => 'computed'],
             ['key' => 'referred_by_email', 'label' => 'Email Referrer', 'type' => 'computed'],
-        ])->values()->all();
+        ]);
+
+        foreach ($packageColumns as $package) {
+            $fields->push([
+                'key' => 'package_' . $package['id'],
+                'label' => $package['name'],
+                'type' => 'computed',
+            ]);
+        }
+
+        return $fields->values()->all();
+    }
+
+    private function exportPackageColumns(): array
+    {
+        if (!Schema::hasTable('packages')) {
+            return [];
+        }
+
+        return DB::table('packages')
+            ->orderBy('name')
+            ->get(['package_id', 'name'])
+            ->map(fn ($package) => [
+                'id' => (int) $package->package_id,
+                'name' => (string) $package->name,
+            ])
+            ->all();
     }
 
     private function writeUsersXlsx(string $targetPath, array $fields, array $userColumns, array $roleOptions): void
@@ -266,9 +294,13 @@ class UserController extends Controller
             ->leftJoin('users as referrers', 'referrers.id', '=', 'users.referred_by_user_id')
             ->where('users.role', '!=', 'super_admin')
             ->chunkById(1000, function ($users) use ($sheet, $fields, $roleOptions, &$rowNumber) {
+                $packageIdsByUserId = $this->exportPackageIdsByUserId(
+                    $users->pluck('chunk_id')->map(fn ($id) => (int) $id)->all()
+                );
+
                 foreach ($users as $user) {
                     $this->writeXlsxRow($sheet, $rowNumber, array_map(
-                        fn (array $field) => $this->exportUserFieldValue($user, $field['key'], $roleOptions),
+                        fn (array $field) => $this->exportUserFieldValue($user, $field['key'], $roleOptions, $packageIdsByUserId),
                         $fields
                     ));
                     $rowNumber++;
@@ -291,8 +323,33 @@ class UserController extends Controller
         @unlink($sheetPath);
     }
 
-    private function exportUserFieldValue(object $user, string $key, array $roleOptions): string
+    private function exportPackageIdsByUserId(array $userIds): array
     {
+        if (empty($userIds)) {
+            return [];
+        }
+
+        return DB::table('user_package_access')
+            ->whereIn('user_package_access.user_id', $userIds)
+            ->orderBy('user_package_access.user_id')
+            ->get([
+                'user_package_access.user_id',
+                'user_package_access.package_id',
+            ])
+            ->groupBy('user_id')
+            ->map(fn ($rows) => $rows->pluck('package_id')->map(fn ($id) => (int) $id)->flip()->all())
+            ->all();
+    }
+
+    private function exportUserFieldValue(object $user, string $key, array $roleOptions, array $packageIdsByUserId = []): string
+    {
+        if (str_starts_with($key, 'package_')) {
+            $packageId = (int) str_replace('package_', '', $key);
+            $packageIds = $packageIdsByUserId[(int) $user->chunk_id] ?? [];
+
+            return array_key_exists($packageId, $packageIds) ? 'Ya' : '';
+        }
+
         return match ($key) {
             'role_label' => $roleOptions[$user->role] ?? str($user->role ?? '')->headline()->toString(),
             'participant_destination_display' => $this->exportDestinationDisplay($user),
