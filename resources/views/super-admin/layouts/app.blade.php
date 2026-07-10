@@ -9,6 +9,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    @stack('styles')
 </head>
 <body class="bg-gray-50">
     @include('super-admin.components.navbar')

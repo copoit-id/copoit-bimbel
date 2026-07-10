@@ -63,7 +63,7 @@
                     @php $maximum = max(1, $dailyUsage->max('total_tokens')); @endphp
                     <div class="grid grid-cols-[90px_1fr_100px] items-center gap-3 text-sm">
                         <span class="text-gray-500">{{ \Carbon\Carbon::parse($day->usage_date)->format('d M') }}</span>
-                        <div class="h-2 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-primary" style="width: {{ ($day->total_tokens / $maximum) * 100 }}%"></div></div>
+                        <div class="h-1 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-primary" style="width: {{ ($day->total_tokens / $maximum) * 100 }}%"></div></div>
                         <span class="text-right font-medium text-gray-700">{{ $formatToken($day->total_tokens) }}</span>
                     </div>
                 @empty
@@ -84,19 +84,61 @@
         </div>
     </div>
 
+    <div class="grid gap-6 xl:grid-cols-2">
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div class="mb-4"><h3 class="font-semibold text-gray-900">Soal dengan konsumsi tertinggi</h3><p class="text-sm text-gray-500">Akumulasi chat AI per soal.</p></div>
-        <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="border-b text-left text-xs uppercase text-gray-500"><tr><th class="pb-3 pr-4">Soal</th><th class="pb-3 pr-4 text-right">Chat</th><th class="pb-3 pr-4 text-right">Input</th><th class="pb-3 pr-4 text-right">Output</th><th class="pb-3 text-right">Total</th></tr></thead><tbody class="divide-y divide-gray-100">
+        <div class="overflow-x-auto rounded-xl border border-gray-100"><table class="ai-usage-table min-w-full text-sm"><thead><tr><th>Soal</th><th class="text-right">Chat</th><th class="text-right">Input</th><th class="text-right">Output</th><th class="text-right">Total</th></tr></thead><tbody class="divide-y divide-gray-100">
             @forelse($byQuestion as $row)<tr><td class="max-w-xl py-3 pr-4 text-gray-700">{{ \Illuminate\Support\Str::limit(trim(strip_tags($row->question?->question_text ?? 'Soal telah dihapus')), 120) }}</td><td class="py-3 pr-4 text-right">{{ $formatToken($row->request_count) }}</td><td class="py-3 pr-4 text-right">{{ $formatToken($row->input_tokens) }}</td><td class="py-3 pr-4 text-right">{{ $formatToken($row->output_tokens) }}</td><td class="py-3 text-right font-semibold">{{ $formatToken($row->total_tokens) }}</td></tr>@empty<tr><td colspan="5" class="py-8 text-center text-gray-500">Belum ada data.</td></tr>@endforelse
         </tbody></table></div>
     </div>
 
     <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div class="mb-4"><h3 class="font-semibold text-gray-900">Pengguna dengan konsumsi tertinggi</h3><p class="text-sm text-gray-500">Akumulasi token per siswa pada periode terpilih.</p></div>
+        <div class="overflow-x-auto rounded-xl border border-gray-100"><table class="ai-usage-table min-w-full text-sm"><thead><tr><th>Pengguna</th><th class="text-right">Chat</th><th class="text-right">Input</th><th class="text-right">Output</th><th class="text-right">Total</th></tr></thead><tbody class="divide-y divide-gray-100">
+            @forelse($byUser as $row)<tr><td class="py-3 pr-4"><p class="font-medium text-gray-800">{{ $row->user?->name ?? 'Pengguna dihapus' }}</p><p class="text-xs text-gray-500">{{ $row->user?->email ?? '-' }}</p></td><td class="py-3 pr-4 text-right">{{ $formatToken($row->request_count) }}</td><td class="py-3 pr-4 text-right">{{ $formatToken($row->input_tokens) }}</td><td class="py-3 pr-4 text-right">{{ $formatToken($row->output_tokens) }}</td><td class="py-3 text-right font-semibold">{{ $formatToken($row->total_tokens) }}</td></tr>@empty<tr><td colspan="5" class="py-8 text-center text-gray-500">Belum ada data.</td></tr>@endforelse
+        </tbody></table></div>
+    </div>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div class="mb-4"><h3 class="font-semibold text-gray-900">Riwayat penggunaan</h3><p class="text-sm text-gray-500">Satu baris adalah satu tanya-jawab AI pada satu soal.</p></div>
-        <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="border-b text-left text-xs uppercase text-gray-500"><tr><th class="pb-3 pr-4">Waktu</th><th class="pb-3 pr-4">Siswa & soal</th><th class="pb-3 pr-4">Pertanyaan siswa</th><th class="pb-3 pr-4">Model</th><th class="pb-3 text-right">Token (I/O/Total)</th></tr></thead><tbody class="divide-y divide-gray-100">
+        <div class="overflow-x-auto rounded-xl border border-gray-100"><table class="ai-usage-table min-w-full text-sm"><thead><tr><th>Waktu</th><th>Siswa & soal</th><th>Pertanyaan siswa</th><th>Model</th><th class="text-right">Token (I/O/Total)</th></tr></thead><tbody class="divide-y divide-gray-100">
             @forelse($logs as $log)<tr class="align-top"><td class="whitespace-nowrap py-3 pr-4 text-gray-500">{{ $log->created_at->format('d M Y H:i') }}</td><td class="max-w-xs py-3 pr-4"><p class="font-medium text-gray-800">{{ $log->user?->name ?? 'Pengguna dihapus' }}</p><p class="mt-1 text-xs text-gray-500">{{ \Illuminate\Support\Str::limit(trim(strip_tags($log->question?->question_text ?? 'Soal telah dihapus')), 70) }}</p></td><td class="max-w-sm py-3 pr-4 text-gray-600">{{ \Illuminate\Support\Str::limit($log->user_message, 120) }}</td><td class="py-3 pr-4"><span class="rounded bg-gray-100 px-2 py-1 text-xs">{{ strtoupper($log->provider) }}</span><p class="mt-1 text-xs text-gray-500">{{ $log->model }}</p></td><td class="whitespace-nowrap py-3 text-right font-medium">{{ $formatToken($log->input_tokens) }} / {{ $formatToken($log->output_tokens) }} / {{ $formatToken($log->total_tokens) }}<p class="mt-1 text-xs font-normal text-gray-500">{{ number_format(($log->response_time_ms ?? 0) / 1000, 2, ',', '.') }} dtk</p></td></tr>@empty<tr><td colspan="5" class="py-8 text-center text-gray-500">Belum ada riwayat penggunaan AI.</td></tr>@endforelse
         </tbody></table></div>
         <div class="mt-4">{{ $logs->links() }}</div>
     </div>
 </div>
 @endsection
+
+@push('styles')
+<style>
+    .ai-usage-table thead {
+        background: linear-gradient(90deg, #f8fafc, #f1f5f9);
+    }
+
+    .ai-usage-table thead th {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .ai-usage-table tbody tr {
+        transition: background-color 150ms ease;
+    }
+
+    .ai-usage-table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .ai-usage-table tbody td:first-child,
+    .ai-usage-table thead th:first-child { padding-left: 1rem; }
+
+    .ai-usage-table tbody td:last-child,
+    .ai-usage-table thead th:last-child { padding-right: 1rem; }
+</style>
+@endpush

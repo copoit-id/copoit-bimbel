@@ -57,6 +57,15 @@ class AiUsageController extends Controller
             ->limit(10)
             ->get();
 
+        $byUser = (clone $baseQuery)
+            ->select('user_id')
+            ->selectRaw('COUNT(*) as request_count, SUM(input_tokens) as input_tokens, SUM(output_tokens) as output_tokens, SUM(total_tokens) as total_tokens')
+            ->with('user:id,name,email')
+            ->groupBy('user_id')
+            ->orderByDesc('total_tokens')
+            ->limit(10)
+            ->get();
+
         $dailyUsage = (clone $baseQuery)
             ->selectRaw('DATE(created_at) as usage_date, SUM(total_tokens) as total_tokens, COUNT(*) as request_count')
             ->groupBy(DB::raw('DATE(created_at)'))
@@ -77,7 +86,7 @@ class AiUsageController extends Controller
         $models = AiDiscussionUsageLog::query()->distinct()->orderBy('model')->pluck('model');
 
         return view('super-admin.ai-usage.index', compact(
-            'month', 'summary', 'monthlyLimit', 'usedTokens', 'byQuestion',
+            'month', 'summary', 'monthlyLimit', 'usedTokens', 'byQuestion', 'byUser',
             'dailyUsage', 'logs', 'providers', 'models'
         ));
     }
