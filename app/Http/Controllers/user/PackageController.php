@@ -3263,6 +3263,23 @@ class PackageController extends Controller
             return $detail;
         });
 
+        // Riwayat percakapan disimpan per attempt dan per soal agar siswa dapat
+        // membacanya kembali ketika membuka halaman pembahasan di lain waktu.
+        $aiDiscussionHistoryByQuestion = AiDiscussionUsageLog::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->whereIn('question_id', $questions->pluck('question_id'))
+            ->orderBy('created_at')
+            ->get(['question_id', 'user_message', 'assistant_message', 'created_at'])
+            ->groupBy('question_id')
+            ->map(fn ($messages) => $messages->map(fn ($message) => [
+                'user_message' => $message->user_message,
+                'assistant_message' => $message->assistant_message,
+                'created_at' => optional($message->created_at)->toIso8601String(),
+            ])->values())
+            ->all();
+
         $pendingReviewCount = $allAnswerDetails->filter(function ($detail) {
             $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
             return !empty($meta['pending_review']);
@@ -3429,6 +3446,7 @@ class PackageController extends Controller
             'latestUserAnswers',
             'token',
             'allAnswerDetails',
+            'aiDiscussionHistoryByQuestion',
             'overallStats',
             'subtestSummaries'
         ));

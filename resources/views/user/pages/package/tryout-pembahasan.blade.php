@@ -864,6 +864,7 @@
     });
 
     const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
+    const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
     const csrfToken = @json(csrf_token());
 
     document.querySelectorAll('.ai-discussion').forEach((wrapper) => {
@@ -874,6 +875,15 @@
         const messages = wrapper.querySelector('.ai-discussion-messages');
         const error = wrapper.querySelector('.ai-discussion-error');
         const submitButton = form?.querySelector('button[type="submit"]');
+
+        const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
+        if (history.length > 0) {
+            messages.innerHTML = '';
+            history.forEach((entry) => {
+                appendAiDiscussionMessage(messages, entry.user_message, 'user');
+                appendAiDiscussionMessage(messages, entry.assistant_message, 'ai');
+            });
+        }
 
         toggle?.addEventListener('click', () => {
             const isHidden = body.classList.toggle('hidden');
@@ -935,15 +945,72 @@
     function appendAiDiscussionMessage(messages, text, type) {
         const bubble = document.createElement('div');
         const isUser = type === 'user';
+        const isAiResponse = type === 'ai';
         bubble.className = [
-            'max-w-[92%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-line',
+            'max-w-[92%] rounded-lg px-3 py-2 text-sm leading-relaxed',
             isUser ? 'ml-auto bg-primary text-white' : 'bg-white border border-gray-200 text-gray-700',
             type === 'loading' ? 'text-gray-500 italic' : '',
         ].join(' ');
-        bubble.textContent = text;
+
+        // Respons model berupa Markdown. Format elemen yang umum digunakan,
+        // tetapi escape semua HTML terlebih dahulu agar respons tetap aman.
+        if (isAiResponse) {
+            bubble.classList.add('ai-discussion-markdown');
+            bubble.innerHTML = formatAiDiscussionMarkdown(text);
+        } else {
+            bubble.classList.add('whitespace-pre-line');
+            bubble.textContent = text;
+        }
         messages.appendChild(bubble);
         messages.scrollTop = messages.scrollHeight;
         return bubble;
+    }
+
+    function formatAiDiscussionMarkdown(text) {
+        const escapeHtml = (value) => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const inline = (value) => escapeHtml(value)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+            .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+        const output = [];
+        let listType = null;
+        const closeList = () => {
+            if (listType) output.push(`</${listType}>`);
+            listType = null;
+        };
+
+        String(text || '').replace(/\r\n/g, '\n').split('\n').forEach((line) => {
+            const bullet = line.match(/^\s*[-*•]\s+(.+)$/);
+            const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+            const heading = line.match(/^\s{0,3}#{1,3}\s+(.+)$/);
+
+            if (bullet || ordered) {
+                const nextType = bullet ? 'ul' : 'ol';
+                if (listType && listType !== nextType) closeList();
+                if (!listType) {
+                    listType = nextType;
+                    output.push(`<${listType}>`);
+                }
+                output.push(`<li>${inline((bullet || ordered)[1])}</li>`);
+                return;
+            }
+
+            closeList();
+            if (heading) output.push(`<p class="ai-discussion-heading">${inline(heading[1])}</p>`);
+            else if (line.trim() === '') output.push('<div class="h-2"></div>');
+            else output.push(`<p>${inline(line)}</p>`);
+        });
+        closeList();
+
+        return output.join('');
     }
     
     // Cek apakah ada essay yang menunggu koreksi AI
@@ -1040,6 +1107,20 @@
     .card-pembahasan:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .ai-discussion-markdown p + p { margin-top: 0.4rem; }
+    .ai-discussion-markdown .ai-discussion-heading { font-weight: 700; color: #111827; }
+    .ai-discussion-markdown ul,
+    .ai-discussion-markdown ol { margin: 0.4rem 0; padding-left: 1.25rem; }
+    .ai-discussion-markdown ul { list-style: disc; }
+    .ai-discussion-markdown ol { list-style: decimal; }
+    .ai-discussion-markdown li + li { margin-top: 0.2rem; }
+    .ai-discussion-markdown code {
+        border-radius: 0.25rem;
+        background: #f3f4f6;
+        padding: 0.1rem 0.25rem;
+        font-size: 0.85em;
     }
 
     /* Color definitions */
