@@ -15,6 +15,7 @@ use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
+use App\Models\AiDiscussionUsageLog;
 use App\Models\UserAnswer;
 use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
@@ -3509,6 +3510,21 @@ class PackageController extends Controller
                 'message' => $exception->getMessage(),
             ], 422);
         }
+
+        AiDiscussionUsageLog::create([
+            'user_id' => Auth::id(),
+            'tryout_id' => $tryout->tryout_id,
+            'question_id' => $question->question_id,
+            'attempt_token' => $token,
+            'provider' => $result['provider'],
+            'model' => $result['model'],
+            'input_tokens' => $result['usage']['input'],
+            'output_tokens' => $result['usage']['output'],
+            'total_tokens' => $result['usage']['total'],
+            'response_time_ms' => $result['response_time_ms'],
+            'user_message' => $validated['message'],
+            'assistant_message' => $result['message'],
+        ]);
 
         return response()->json($result);
     }

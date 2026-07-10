@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ClientProfile;
+use App\Models\AiDiscussionUsageLog;
 use App\Models\Question;
 use App\Models\UserAnswerDetail;
 use Illuminate\Http\Client\RequestException;
@@ -31,17 +32,31 @@ class AiDiscussionService
         }
 
         $settings = $this->settings();
+        $monthlyLimit = max(0, (int) ($settings['monthly_token_limit'] ?? 0));
+        if ($monthlyLimit > 0) {
+            $usedThisMonth = (int) AiDiscussionUsageLog::query()
+                ->where('created_at', '>=', now()->startOfMonth())
+                ->sum('total_tokens');
+
+            if ($usedThisMonth >= $monthlyLimit) {
+                throw new RuntimeException('Kuota token Diskusi AI bulan ini sudah habis.');
+            }
+        }
+
         $model = (string) ($settings['model'] ?? $this->defaultModel());
         $provider = $this->providerForModel($model, $settings);
 
-        $content = $provider === 'gemini'
+        $startedAt = hrtime(true);
+        $response = $provider === 'gemini'
             ? $this->chatWithGemini($message, $context, $model, $settings)
             : $this->chatWithOpenAi($message, $context, $model, $settings);
 
         return [
-            'message' => trim($content),
+            'message' => trim($response['message']),
             'model' => $model,
             'provider' => $provider,
+            'usage' => $response['usage'],
+            'response_time_ms' => (int) round((hrtime(true) - $startedAt) / 1_000_000),
         ];
     }
 
@@ -60,7 +75,7 @@ class AiDiscussionService
             : [];
     }
 
-    private function chatWithOpenAi(string $message, array $context, string $model, array $settings): string
+    private function chatWithOpenAi(string $message, array $context, string $model, array $settings): array
     {
         $provider = $this->providerSettings('openai', $settings);
         $apiKey = $provider['api_key'] ?? config('services.openai.api_key');
@@ -98,10 +113,13 @@ class AiDiscussionService
             throw new RuntimeException('Gagal menghubungi OpenAI: ' . Str::limit((string) $error, 240));
         }
 
-        return $this->extractOpenAiOutputText($response);
+        return [
+            'message' => $this->extractOpenAiOutputText($response),
+            'usage' => $this->normalizeUsage($response['usage'] ?? [], 'input_tokens', 'output_tokens', 'total_tokens'),
+        ];
     }
 
-    private function chatWithGemini(string $message, array $context, string $model, array $settings): string
+    private function chatWithGemini(string $message, array $context, string $model, array $settings): array
     {
         $provider = $this->providerSettings('gemini', $settings);
         $apiKey = $provider['api_key'] ?? config('services.gemini.api_key');
@@ -142,7 +160,19 @@ class AiDiscussionService
             throw new RuntimeException('Gagal menghubungi Gemini: ' . Str::limit((string) $error, 240));
         }
 
-        return $this->extractGeminiOutputText($response);
+        return [
+            'message' => $this->extractGeminiOutputText($response),
+            'usage' => $this->normalizeUsage($response['usageMetadata'] ?? [], 'promptTokenCount', 'candidatesTokenCount', 'totalTokenCount'),
+        ];
+    }
+
+    private function normalizeUsage(array $usage, string $inputKey, string $outputKey, string $totalKey): array
+    {
+        $input = max(0, (int) ($usage[$inputKey] ?? 0));
+        $output = max(0, (int) ($usage[$outputKey] ?? 0));
+        $total = max(0, (int) ($usage[$totalKey] ?? ($input + $output)));
+
+        return compact('input', 'output', 'total');
     }
 
     private function systemPrompt(array $settings): string
