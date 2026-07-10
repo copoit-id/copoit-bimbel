@@ -12,7 +12,7 @@
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="{{ $canManageTesKoran ? 'Kelola Akses User - Paket, Materi, Tryout & Tes Koran' : 'Kelola Akses User - Paket, Materi & Tryout' }}"></x-page-desc>
+<x-page-desc title="{{ $canManageTesKoran ? 'Kelola Akses User - Paket, Materi, Kelas, Tryout & Tes Koran' : 'Kelola Akses User - Paket, Materi, Kelas & Tryout' }}"></x-page-desc>
 
 <!-- Tabs Navigation -->
 <div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex flex-wrap gap-1">
@@ -44,6 +44,13 @@
             {{ $tab === 'live' ? $items->count() : '' }}
         </span>
     </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'classes']) }}"
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'classes' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-video-on-line mr-1"></i>Kelas Zoom
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'classes' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'classes' ? $items->count() : '' }}
+        </span>
+    </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'tryouts']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tryouts' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
@@ -66,7 +73,7 @@
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
     @forelse($items as $item)
     @php
-    $itemId = $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id;
+    $itemId = $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id;
     $itemName = $item->name ?? $item->title ?? 'Unknown';
     $userCount = $item->user_access_count ?? $item->userAccess->count() ?? 0;
     $pendingCount = (int) ($item->pending_requests_count ?? 0);
@@ -77,6 +84,7 @@
         'videos' => 'ri-video-line',
         'documents' => 'ri-file-text-line',
         'live' => 'ri-live-line',
+        'classes' => 'ri-video-on-line',
         'tryouts' => 'ri-file-list-3-line',
         'tes_koran' => 'ri-file-edit-line',
         default => 'ri-apps-line',
@@ -88,6 +96,7 @@
         'videos' => 'bg-red-100 text-red-600',
         'documents' => 'bg-green-100 text-green-600',
         'live' => 'bg-purple-100 text-purple-600',
+        'classes' => 'bg-cyan-100 text-cyan-600',
         'tryouts' => 'bg-orange-100 text-orange-600',
         'tes_koran' => 'bg-emerald-100 text-emerald-600',
         default => 'bg-gray-100 text-gray-600',

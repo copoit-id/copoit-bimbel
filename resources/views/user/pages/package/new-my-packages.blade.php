@@ -56,6 +56,10 @@ $assetUrl = function (?string $path) {
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'documents' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-text-line mr-1"></i>Dokumen
     </a>
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'classes'])) }}"
+       class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'classes' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-video-on-line mr-1"></i>Kelas Zoom
+    </a>
     <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'tryouts'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'tryouts' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
@@ -287,6 +291,70 @@ $assetUrl = function (?string $path) {
         </div>
         <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada dokumen</h3>
         <p class="text-gray-400 text-sm mb-6">Dokumen pembelajaran akan muncul di sini setelah kamu memiliki akses.</p>
+        <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+            <i class="ri-store-3-line mr-2"></i>Lihat Paket
+        </a>
+    </div>
+    @endif
+
+{{-- ==================== TAB: CLASSES ==================== --}}
+@elseif($currentTab === 'classes')
+    @if($myClasses->count() > 0)
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach($myClasses as $class)
+        @php
+        $userAccess = $class->userAccess->first();
+        $isExpired = $userAccess && $userAccess->expires_at && $userAccess->expires_at->isPast();
+        @endphp
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-cyan-100 text-cyan-600">
+                    <i class="ri-video-on-line text-xl"></i>
+                </div>
+                <span class="px-2.5 py-1 {{ $isExpired ? 'bg-red-100 text-red-700' : 'bg-cyan-100 text-cyan-700' }} text-xs rounded-full font-medium">
+                    {{ $isExpired ? 'Akses Habis' : 'Akses Aktif' }}
+                </span>
+            </div>
+
+            <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $class->title }}</h3>
+
+            <div class="space-y-2 mb-4">
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-calendar-line mr-2 text-gray-400"></i>
+                    <span>{{ $class->schedule_time ? $class->schedule_time->format('d M Y H:i') : 'Jadwal belum diatur' }}</span>
+                </div>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-user-star-line mr-2 text-gray-400"></i>
+                    <span>{{ $class->tentor?->name ?? $class->mentor ?? 'Mentor belum diatur' }}</span>
+                </div>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="ri-time-line mr-2 text-gray-400"></i>
+                    <span>{{ $userAccess?->expires_at ? 'Aktif sampai ' . $userAccess->expires_at->format('d M Y') : 'Lifetime' }}</span>
+                </div>
+            </div>
+
+            <div class="mt-auto grid grid-cols-2 gap-2">
+                <a href="{{ route('user.class.zoom', $class->class_id) }}" target="_blank"
+                   class="py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $primaryColor }}">
+                    <i class="ri-video-on-line mr-1"></i>Zoom
+                </a>
+                <a href="{{ route('user.class.material', $class->class_id) }}" target="_blank"
+                   class="py-2.5 text-center rounded-xl text-sm font-medium border-2 hover:opacity-90 transition-colors"
+                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                    <i class="ri-folder-open-line mr-1"></i>Materi
+                </a>
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @else
+    <div class="text-center py-16">
+        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="ri-video-on-line text-4xl text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada kelas Zoom</h3>
+        <p class="text-gray-400 text-sm mb-6">Kelas Zoom akan muncul di sini setelah kamu memiliki akses.</p>
         <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
             <i class="ri-store-3-line mr-2"></i>Lihat Paket
         </a>

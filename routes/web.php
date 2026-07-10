@@ -627,6 +627,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::get('/manage', [AksesController::class, 'manage'])->name('manage');
         Route::get('/pengajuan', [AksesController::class, 'requests'])->name('requests.index');
         Route::post('/grant', [AksesController::class, 'grant'])->name('grant');
+        Route::post('/grant-rombel', [AksesController::class, 'grantStudyGroup'])->name('grant-study-group');
         Route::post('/revoke', [AksesController::class, 'revoke'])->name('revoke');
         
         // Legacy routes for backward compatibility

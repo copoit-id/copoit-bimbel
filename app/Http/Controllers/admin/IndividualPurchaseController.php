@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClassModel;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\User;
+use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use App\Models\UserTryoutAccess;
 use App\Services\PurchaseAccessDuration;
@@ -30,6 +32,7 @@ class IndividualPurchaseController extends Controller
         $status = $request->get('status', 'pending'); // 'pending', 'approved', 'rejected', 'all'
 
         $purchasableType = match ($type) {
+            'class' => ClassModel::class,
             'tryout' => Tryout::class,
             'tes_koran' => TesKoran::class,
             default => Material::class,
@@ -125,6 +128,21 @@ class IndividualPurchaseController extends Controller
                         'access_source' => 'direct',
                         'source_id' => $purchase->id,
                         'status' => 'in_progress',
+                        'started_at' => now(),
+                        'expires_at' => $accessExpiresAt,
+                    ]
+                );
+            } elseif ($purchase->purchasable_type === ClassModel::class) {
+                UserClassAccess::updateOrCreate(
+                    [
+                        'user_id' => $purchase->user_id,
+                        'class_id' => $purchase->purchasable_id,
+                    ],
+                    [
+                        'access_type' => 'purchased',
+                        'access_source' => 'direct',
+                        'source_id' => $purchase->id,
+                        'status' => 'active',
                         'started_at' => now(),
                         'expires_at' => $accessExpiresAt,
                     ]

@@ -139,6 +139,11 @@ class User extends Authenticatable
         return $this->hasMany(UserMaterialAccess::class, 'user_id');
     }
 
+    public function classAccess()
+    {
+        return $this->hasMany(UserClassAccess::class, 'user_id');
+    }
+
     public function materialProgressLogs()
     {
         return $this->hasMany(MaterialProgressLog::class, 'user_id');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClassModel;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\Payment;
@@ -11,6 +12,7 @@ use App\Models\Tryout;
 use App\Models\UserPackageAcces;
 use App\Models\User;
 use App\Models\Package;
+use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use App\Models\UserTryoutAccess;
 use Carbon\Carbon;
@@ -39,7 +41,7 @@ class PembayaranController extends Controller
         $productType = $request->get('product_type', 'all');
         $summaryMetric = $request->get('summary_metric', 'count');
         $search = trim((string) $request->get('search', ''));
-        $allowedProductTypes = ['all', 'package', 'material', 'tryout'];
+        $allowedProductTypes = ['all', 'package', 'material', 'class', 'tryout'];
         $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
 
         if ($canManageTesKoran) {
@@ -82,6 +84,7 @@ class PembayaranController extends Controller
 
         $individualTypes = [
             Material::class => 'material',
+            ClassModel::class => 'class',
             Tryout::class => 'tryout',
         ];
 
@@ -114,7 +117,7 @@ class PembayaranController extends Controller
                             ->orWhere('email', 'like', "%{$search}%")
                         )
                         ->orWhereHasMorph('purchasable', array_keys($individualTypes), function ($itemQuery, string $type) use ($search) {
-                            if ($type === Material::class) {
+                            if ($type === Material::class || $type === ClassModel::class) {
                                 $itemQuery->where('title', 'like', "%{$search}%");
                                 return;
                             }
@@ -166,6 +169,7 @@ class PembayaranController extends Controller
                 'user_email' => $purchase->user->email ?? 'No email',
                 'item_name' => $purchase->purchasable?->title ?? $purchase->purchasable?->name ?? 'N/A',
                 'item_type' => match ($itemType) {
+                    'ClassModel' => 'Kelas Zoom',
                     'Tryout' => 'Tryout',
                     'TesKoran' => 'Tes Koran',
                     default => 'Materi',
@@ -230,6 +234,7 @@ class PembayaranController extends Controller
             'all' => 'Semua Produk',
             'package' => 'Paket',
             'material' => 'Materi',
+            'class' => 'Kelas Zoom',
             'tryout' => 'Tryout',
         ];
 
@@ -538,6 +543,21 @@ class PembayaranController extends Controller
                         'access_source' => 'direct',
                         'source_id' => $purchase->id,
                         'status' => 'in_progress',
+                        'started_at' => now(),
+                        'expires_at' => $accessExpiresAt,
+                    ]
+                );
+            } elseif ($purchase->purchasable_type === ClassModel::class) {
+                UserClassAccess::updateOrCreate(
+                    [
+                        'user_id' => $purchase->user_id,
+                        'class_id' => $purchase->purchasable_id,
+                    ],
+                    [
+                        'access_type' => 'purchased',
+                        'access_source' => 'direct',
+                        'source_id' => $purchase->id,
+                        'status' => 'active',
                         'started_at' => now(),
                         'expires_at' => $accessExpiresAt,
                     ]

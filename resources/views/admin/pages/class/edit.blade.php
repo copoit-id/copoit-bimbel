@@ -107,6 +107,54 @@
                     </select>
                 </div>
 
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <h3 class="mb-4 font-semibold text-gray-900">Akses Mandiri</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" name="is_displayed" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" {{ old('is_displayed', $class->is_displayed ?? true) ? 'checked' : '' }}>
+                            Tampilkan kelas
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" name="is_for_sale" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" {{ old('is_for_sale', $class->is_for_sale ?? false) ? 'checked' : '' }}>
+                            Bisa dibeli/diakses mandiri
+                        </label>
+                        <div>
+                            <label for="type_price" class="block text-sm font-medium text-gray-700 mb-2">Tipe Harga</label>
+                            <select id="type_price" name="type_price" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="paid" {{ old('type_price', $class->type_price ?? 'paid') === 'paid' ? 'selected' : '' }}>Berbayar</option>
+                                <option value="free_unconditional" {{ old('type_price', $class->type_price ?? 'paid') === 'free_unconditional' ? 'selected' : '' }}>Gratis</option>
+                                <option value="free_conditional" {{ old('type_price', $class->type_price ?? 'paid') === 'free_conditional' ? 'selected' : '' }}>Gratis Bersyarat</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga</label>
+                            <input type="number" id="price" name="price" value="{{ old('price', $class->price ?? 0) }}" min="0"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label for="access_duration_unit" class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses</label>
+                            <select id="access_duration_unit" name="access_duration_unit" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                @php($durationUnit = old('access_duration_unit', $class->access_duration_unit ?? 'forever'))
+                                <option value="forever" {{ $durationUnit === 'forever' ? 'selected' : '' }}>Selamanya</option>
+                                <option value="day" {{ $durationUnit === 'day' ? 'selected' : '' }}>Hari</option>
+                                <option value="week" {{ $durationUnit === 'week' ? 'selected' : '' }}>Minggu</option>
+                                <option value="month" {{ $durationUnit === 'month' ? 'selected' : '' }}>Bulan</option>
+                                <option value="year" {{ $durationUnit === 'year' ? 'selected' : '' }}>Tahun</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="access_duration_value" class="block text-sm font-medium text-gray-700 mb-2">Jumlah Durasi</label>
+                            <input type="number" id="access_duration_value" name="access_duration_value" value="{{ old('access_duration_value', $class->access_duration_value) }}" min="1"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">Syarat Akses Gratis Bersyarat</label>
+                        <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">{{ old('conditional_requirement', $class->conditional_requirement) }}</textarea>
+                    </div>
+                </div>
+
             </div>
 
             <div class="flex items-center justify-end px-6 py-5 space-x-2 border-t border-gray-200">

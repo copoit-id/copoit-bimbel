@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Discount;
+use App\Models\ClassModel;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\Payment;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\UserMaterialAccess;
+use App\Models\UserClassAccess;
 use App\Models\UserTryoutAccess;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\PurchaseAccessDuration;
@@ -35,7 +37,7 @@ class IndividualPurchaseController extends Controller
         }
 
         $request->validate([
-            'type' => 'required|in:material,tryout,tes_koran',
+            'type' => 'required|in:material,class,tryout,tes_koran',
             'id' => 'required|integer',
             'discount_code' => 'nullable|string|max:50',
         ]);
@@ -48,6 +50,9 @@ class IndividualPurchaseController extends Controller
         if ($type === 'material') {
             $item = Material::find($id);
             $purchasableType = Material::class;
+        } elseif ($type === 'class') {
+            $item = ClassModel::find($id);
+            $purchasableType = ClassModel::class;
         } elseif ($type === 'tryout') {
             $item = Tryout::find($id);
             $purchasableType = Tryout::class;
@@ -111,6 +116,7 @@ class IndividualPurchaseController extends Controller
         if ($item->canUserAccess($userId)) {
             $itemLabel = match ($type) {
                 'material' => 'materi',
+                'class' => 'kelas',
                 'tryout' => 'tryout',
                 default => 'tes koran',
             };
@@ -275,7 +281,7 @@ class IndividualPurchaseController extends Controller
 
     public function gatewayRedirect(Request $request, string $type, int $id)
     {
-        abort_unless(in_array($type, ['material', 'tryout', 'tes_koran'], true), 404);
+        abort_unless(in_array($type, ['material', 'class', 'tryout', 'tes_koran'], true), 404);
 
         return redirect()->route('user.package.riwayatPembelian')
             ->with('info', 'Cek riwayat pembelian untuk melanjutkan pembayaran yang masih pending.');
@@ -655,6 +661,7 @@ class IndividualPurchaseController extends Controller
 
         $itemId = match ($type) {
             'material' => (int) $item->material_id,
+            'class' => (int) $item->class_id,
             'tryout' => (int) $item->tryout_id,
             'tes_koran' => (int) $item->id,
         };
@@ -770,6 +777,21 @@ class IndividualPurchaseController extends Controller
                     'access_source' => 'direct',
                     'source_id' => $purchase->id,
                     'status' => 'in_progress',
+                    'started_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        } elseif ($purchase->purchasable_type === ClassModel::class) {
+            UserClassAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'class_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'active',
                     'started_at' => now(),
                     'expires_at' => $accessExpiresAt,
                 ]
