@@ -49,8 +49,13 @@ class UserController extends Controller
                 'id',
                 'password',
                 'remember_token',
+                'reset_token',
+                'reset_token_expires',
+                'password_reset_token',
+                'password_reset_expires_at',
                 'referred_by_user_id',
                 'participant_destination_category_id',
+                'participant_destination_source',
                 'participant_destination_external_id',
             ], true))
             ->values()
@@ -209,7 +214,6 @@ class UserController extends Controller
             'admin_expires_at' => 'Akses Admin Berakhir',
             'affiliate_code' => 'Kode Affiliate',
             'referred_at' => 'Direferensikan Pada',
-            'participant_destination_source' => 'Sumber Tujuan',
             'participant_destination_institution_name' => 'Nama Institusi Tujuan',
             'participant_destination_program_name' => 'Nama Program Tujuan',
             'created_at' => 'Dibuat Pada',
