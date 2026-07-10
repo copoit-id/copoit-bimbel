@@ -233,6 +233,21 @@
 @endsection
 
 @section('scripts')
+@php
+    $studyGroupsPayload = $studyGroups->map(function ($group) {
+        return [
+            'id' => $group->id,
+            'name' => $group->name,
+            'users' => $group->users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ];
+            })->values(),
+        ];
+    })->values();
+@endphp
 <script>
 const rawType = '{{ $type }}';
 // Normalize type to match what controller expects
@@ -243,15 +258,7 @@ if (type === 'classe') type = 'class';
 const itemId = '{{ $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id }}';
 const csrfToken = '{{ csrf_token() }}';
 const canUseStudyGroupAccess = @json($canUseStudyGroupAccess);
-const studyGroups = @json($studyGroups->map(fn ($group) => [
-    'id' => $group->id,
-    'name' => $group->name,
-    'users' => $group->users->map(fn ($user) => [
-        'id' => $user->id,
-        'name' => $user->name,
-        'email' => $user->email,
-    ])->values(),
-])->values());
+const studyGroups = {{ \Illuminate\Support\Js::from($studyGroupsPayload) }};
 
 document.querySelectorAll('[data-access-panel-tab]').forEach((button) => {
     button.addEventListener('click', () => {
