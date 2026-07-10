@@ -552,6 +552,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::resource('class', ClassController::class);
     Route::resource('certification', CertificationController::class);
     Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
+    Route::get('/user/export/excel', [UserController::class, 'exportExcel'])->name('user.export-excel');
     Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
     Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
     Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');

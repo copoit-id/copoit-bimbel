@@ -12,9 +12,12 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use App\Rules\SafeName;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use ZipArchive;
 
 class UserController extends Controller
 {
@@ -36,6 +39,34 @@ class UserController extends Controller
             ->withQueryString();
 
         return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole'));
+    }
+
+    public function exportExcel(): BinaryFileResponse
+    {
+        $filename = 'data-user-lengkap-' . now()->format('Ymd_His') . '.xlsx';
+        $userColumns = collect(Schema::getColumnListing('users'))
+            ->reject(fn (string $column) => in_array($column, [
+                'id',
+                'password',
+                'remember_token',
+                'referred_by_user_id',
+                'participant_destination_category_id',
+                'participant_destination_external_id',
+            ], true))
+            ->values()
+            ->all();
+        $roleOptions = $this->getRoleOptions();
+        $fields = $this->exportUserFields($userColumns);
+        $tempFile = tempnam(sys_get_temp_dir(), 'users-export-');
+
+        $this->writeUsersXlsx($tempFile, $fields, $userColumns, $roleOptions);
+
+        return response()
+            ->download($tempFile, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'no-store, no-cache',
+            ])
+            ->deleteFileAfterSend(true);
     }
 
     public function loginAsPage()
@@ -164,6 +195,223 @@ class UserController extends Controller
 
         return redirect()->route('admin.user.index', $request->query())
             ->with('success', 'User berhasil diperbarui');
+    }
+
+    private function exportUserFields(array $userColumns): array
+    {
+        $labels = [
+            'name' => 'Nama Lengkap',
+            'email' => 'Email',
+            'email_verified_at' => 'Email Terverifikasi Pada',
+            'username' => 'Username',
+            'role' => 'Role',
+            'status' => 'Status',
+            'admin_expires_at' => 'Akses Admin Berakhir',
+            'affiliate_code' => 'Kode Affiliate',
+            'referred_at' => 'Direferensikan Pada',
+            'participant_destination_source' => 'Sumber Tujuan',
+            'participant_destination_institution_name' => 'Nama Institusi Tujuan',
+            'participant_destination_program_name' => 'Nama Program Tujuan',
+            'created_at' => 'Dibuat Pada',
+            'updated_at' => 'Diperbarui Pada',
+        ];
+
+        $fields = collect($userColumns)
+            ->map(fn (string $column) => [
+                'key' => $column,
+                'label' => $labels[$column] ?? str($column)->replace('_', ' ')->headline()->toString(),
+                'type' => 'column',
+            ]);
+
+        return $fields->merge([
+            ['key' => 'role_label', 'label' => 'Label Role', 'type' => 'computed'],
+            ['key' => 'participant_destination_display', 'label' => 'Tujuan Peserta', 'type' => 'computed'],
+            ['key' => 'participant_destination_category_name', 'label' => 'Kategori Tujuan', 'type' => 'computed'],
+            ['key' => 'participant_destination_parent_name', 'label' => 'Kategori Induk Tujuan', 'type' => 'computed'],
+            ['key' => 'referred_by_name', 'label' => 'Nama Referrer', 'type' => 'computed'],
+            ['key' => 'referred_by_email', 'label' => 'Email Referrer', 'type' => 'computed'],
+        ])->values()->all();
+    }
+
+    private function writeUsersXlsx(string $targetPath, array $fields, array $userColumns, array $roleOptions): void
+    {
+        $sheetPath = tempnam(sys_get_temp_dir(), 'users-sheet-');
+        $sheet = fopen($sheetPath, 'w');
+
+        fwrite($sheet, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+        fwrite($sheet, '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetData>');
+        $this->writeXlsxRow($sheet, 1, array_column($fields, 'label'), true);
+
+        $selects = array_map(
+            fn (string $column) => 'users.' . $column . ' as ' . $column,
+            $userColumns
+        );
+
+        $rowNumber = 2;
+        User::query()
+            ->select([
+                'users.id as chunk_id',
+                ...$selects,
+                'destination_categories.name as participant_destination_category_name',
+                'destination_parent_categories.name as participant_destination_parent_name',
+                'referrers.name as referred_by_name',
+                'referrers.email as referred_by_email',
+            ])
+            ->leftJoin('participant_destination_categories as destination_categories', 'destination_categories.id', '=', 'users.participant_destination_category_id')
+            ->leftJoin('participant_destination_categories as destination_parent_categories', 'destination_parent_categories.id', '=', 'destination_categories.parent_id')
+            ->leftJoin('users as referrers', 'referrers.id', '=', 'users.referred_by_user_id')
+            ->where('users.role', '!=', 'super_admin')
+            ->chunkById(1000, function ($users) use ($sheet, $fields, $roleOptions, &$rowNumber) {
+                foreach ($users as $user) {
+                    $this->writeXlsxRow($sheet, $rowNumber, array_map(
+                        fn (array $field) => $this->exportUserFieldValue($user, $field['key'], $roleOptions),
+                        $fields
+                    ));
+                    $rowNumber++;
+                }
+            }, 'users.id', 'chunk_id');
+
+        fwrite($sheet, '</sheetData></worksheet>');
+        fclose($sheet);
+
+        $zip = new ZipArchive();
+        $zip->open($targetPath, ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypesXml());
+        $zip->addFromString('_rels/.rels', $this->xlsxRootRelsXml());
+        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbookXml());
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $this->xlsxWorkbookRelsXml());
+        $zip->addFromString('xl/styles.xml', $this->xlsxStylesXml());
+        $zip->addFile($sheetPath, 'xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        @unlink($sheetPath);
+    }
+
+    private function exportUserFieldValue(object $user, string $key, array $roleOptions): string
+    {
+        return match ($key) {
+            'role_label' => $roleOptions[$user->role] ?? str($user->role ?? '')->headline()->toString(),
+            'participant_destination_display' => $this->exportDestinationDisplay($user),
+            default => $this->exportCell($user->{$key} ?? null),
+        };
+    }
+
+    private function exportDestinationDisplay(object $user): string
+    {
+        $categoryName = trim((string) ($user->participant_destination_category_name ?? ''));
+        $parentName = trim((string) ($user->participant_destination_parent_name ?? ''));
+
+        if ($categoryName !== '') {
+            return $parentName !== '' ? $parentName . ' - ' . $categoryName : $categoryName;
+        }
+
+        $institutionName = trim((string) ($user->participant_destination_institution_name ?? ''));
+        $programName = trim((string) ($user->participant_destination_program_name ?? ''));
+
+        if ($institutionName === '' && $programName === '') {
+            return '';
+        }
+
+        return $programName !== '' ? $institutionName . ' - ' . $programName : $institutionName;
+    }
+
+    private function exportCell(mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            $value = $value->format('Y-m-d H:i:s');
+        }
+
+        if (is_bool($value)) {
+            $value = $value ? '1' : '0';
+        }
+
+        $value = (string) ($value ?? '');
+
+        if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
+    private function writeXlsxRow($handle, int $rowNumber, array $values, bool $isHeader = false): void
+    {
+        fwrite($handle, '<row r="' . $rowNumber . '">');
+
+        foreach (array_values($values) as $index => $value) {
+            $cellReference = $this->excelColumnName($index + 1) . $rowNumber;
+            $style = $isHeader ? ' s="1"' : '';
+            fwrite($handle, '<c r="' . $cellReference . '" t="inlineStr"' . $style . '><is><t>' . $this->escapeXml($this->exportCell($value)) . '</t></is></c>');
+        }
+
+        fwrite($handle, '</row>');
+    }
+
+    private function excelColumnName(int $number): string
+    {
+        $name = '';
+
+        while ($number > 0) {
+            $number--;
+            $name = chr(65 + ($number % 26)) . $name;
+            $number = intdiv($number, 26);
+        }
+
+        return $name;
+    }
+
+    private function escapeXml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    }
+
+    private function xlsxContentTypesXml(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            . '</Types>';
+    }
+
+    private function xlsxRootRelsXml(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            . '</Relationships>';
+    }
+
+    private function xlsxWorkbookXml(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheets><sheet name="Data User" sheetId="1" r:id="rId1"/></sheets>'
+            . '</workbook>';
+    }
+
+    private function xlsxWorkbookRelsXml(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            . '</Relationships>';
+    }
+
+    private function xlsxStylesXml(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            . '<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
+            . '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            . '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+            . '</styleSheet>';
     }
 
     private function getRoleOptions(): array

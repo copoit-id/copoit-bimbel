@@ -9,6 +9,11 @@
             <p class="text-gray-500">Kelola pengguna dan akses sistem</p>
         </div>
         <div class="flex gap-2">
+            <a href="{{ route('admin.user.export-excel') }}"
+                class="bg-white text-green border border-green px-4 py-2 rounded-lg hover:bg-green/5 flex items-center gap-2">
+                <i class="ri-file-excel-2-line"></i>
+                Export Excel
+            </a>
             <a href="{{ route('admin.user.import') }}"
                 class="bg-green text-white px-4 py-2 rounded-lg hover:bg-green/90 flex items-center gap-2">
                 <i class="ri-upload-line"></i>
