@@ -11,6 +11,7 @@
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
+        $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -687,6 +688,12 @@
                             class="ai-discussion-input min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                             maxlength="1200"
                             placeholder="Contoh: jelaskan kenapa opsi B benar">
+                        <button type="button"
+                            class="ai-discussion-voice inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Tanya dengan suara">
+                            <i class="ri-mic-line text-lg"></i>
+                            <span class="sr-only">Tanya dengan suara</span>
+                        </button>
                         <button type="submit"
                             class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
                             <i class="ri-send-plane-2-line"></i>
@@ -864,6 +871,7 @@
     });
 
     const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
+    const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
     const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
     const csrfToken = @json(csrf_token());
 
@@ -875,6 +883,7 @@
         const messages = wrapper.querySelector('.ai-discussion-messages');
         const error = wrapper.querySelector('.ai-discussion-error');
         const submitButton = form?.querySelector('button[type="submit"]');
+        const voiceButton = wrapper.querySelector('.ai-discussion-voice');
 
         const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
         if (history.length > 0) {
@@ -883,6 +892,41 @@
                 appendAiDiscussionMessage(messages, entry.user_message, 'user');
                 appendAiDiscussionMessage(messages, entry.assistant_message, 'ai');
             });
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            voiceButton?.setAttribute('disabled', 'disabled');
+            voiceButton?.setAttribute('title', 'Input suara belum didukung browser ini.');
+        } else if (voiceButton) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'id-ID';
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            voiceButton.addEventListener('click', () => {
+                error?.classList.add('hidden');
+                recognition.start();
+            });
+
+            recognition.onstart = () => {
+                voiceButton.disabled = true;
+                voiceButton.innerHTML = '<i class="ri-record-circle-line animate-pulse text-lg text-red-500"></i>';
+            };
+            recognition.onresult = (event) => {
+                input.value = event.results[0][0].transcript;
+                form.requestSubmit();
+            };
+            recognition.onerror = () => {
+                if (error) {
+                    error.textContent = 'Suara belum terbaca. Coba lagi atau ketik pertanyaanmu.';
+                    error.classList.remove('hidden');
+                }
+            };
+            recognition.onend = () => {
+                voiceButton.disabled = false;
+                voiceButton.innerHTML = '<i class="ri-mic-line text-lg"></i><span class="sr-only">Tanya dengan suara</span>';
+            };
         }
 
         toggle?.addEventListener('click', () => {
@@ -928,7 +972,9 @@
                 }
 
                 loadingBubble.remove();
-                appendAiDiscussionMessage(messages, data.message || 'AI tidak mengembalikan jawaban.', 'ai');
+                const aiMessage = data.message || 'AI tidak mengembalikan jawaban.';
+                appendAiDiscussionMessage(messages, aiMessage, 'ai');
+                playAiDiscussionAudio(aiMessage);
             } catch (err) {
                 loadingBubble.remove();
                 if (error) {
@@ -957,6 +1003,13 @@
         if (isAiResponse) {
             bubble.classList.add('ai-discussion-markdown');
             bubble.innerHTML = formatAiDiscussionMarkdown(text);
+
+            const replay = document.createElement('button');
+            replay.type = 'button';
+            replay.className = 'mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline';
+            replay.innerHTML = '<i class="ri-volume-up-line"></i> Dengarkan lagi';
+            replay.addEventListener('click', () => playAiDiscussionAudio(text));
+            bubble.appendChild(replay);
         } else {
             bubble.classList.add('whitespace-pre-line');
             bubble.textContent = text;
@@ -964,6 +1017,40 @@
         messages.appendChild(bubble);
         messages.scrollTop = messages.scrollHeight;
         return bubble;
+    }
+
+    async function playAiDiscussionAudio(text) {
+        try {
+            const response = await fetch(aiSpeechEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'audio/mpeg, application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ text }),
+            });
+            if (!response.ok) throw new Error('TTS gagal');
+            const audioUrl = URL.createObjectURL(await response.blob());
+            const audio = new Audio(audioUrl);
+            audio.onended = () => URL.revokeObjectURL(audioUrl);
+            await audio.play();
+            return;
+        } catch (_) {
+            speakAiDiscussionResponseFallback(text);
+        }
+    }
+
+    function speakAiDiscussionResponseFallback(text) {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const spokenText = String(text)
+            .replace(/[*#`_]/g, '')
+            .replace(/\n+/g, '. ');
+        const utterance = new SpeechSynthesisUtterance(spokenText);
+        utterance.lang = 'id-ID';
+        utterance.rate = 0.96;
+        window.speechSynthesis.speak(utterance);
     }
 
     function formatAiDiscussionMarkdown(text) {

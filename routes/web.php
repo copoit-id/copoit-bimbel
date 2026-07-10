@@ -219,6 +219,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->name('user.package.tryout.pembahasan.ai-chat');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->name('user.package.tryout.pembahasan.ai-speech');
     });
 
     Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');

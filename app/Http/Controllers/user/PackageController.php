@@ -3547,6 +3547,47 @@ class PackageController extends Controller
         return response()->json($result);
     }
 
+    public function speakPembahasanAi(Request $request, $id_package, $id_tryout, $token)
+    {
+        $data = $request->validate([
+            'text' => ['required', 'string', 'max:4096'],
+        ]);
+
+        abort_unless(UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $token)
+            ->where('status', 'completed')
+            ->exists(), 404);
+
+        $apiKey = (string) config('services.openai.api_key');
+        if ($apiKey === '') {
+            return response()->json(['message' => 'Suara AI belum dikonfigurasi.'], 422);
+        }
+
+        try {
+            $response = Http::withToken($apiKey)
+                ->accept('audio/mpeg')
+                ->timeout((int) config('services.openai.timeout', 90))
+                ->post(rtrim((string) config('services.openai.base_url'), '/') . '/audio/speech', [
+                    'model' => 'tts-1-hd',
+                    'voice' => 'nova',
+                    'input' => strip_tags($data['text']),
+                    'response_format' => 'mp3',
+                ]);
+        } catch (\Throwable $exception) {
+            return response()->json(['message' => 'Suara AI tidak dapat dibuat.'], 422);
+        }
+
+        if (! $response->successful()) {
+            return response()->json(['message' => 'Suara AI tidak dapat dibuat.'], 422);
+        }
+
+        return response($response->body(), 200, [
+            'Content-Type' => 'audio/mpeg',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     private function getSubtestName($type)
     {
         switch ($type) {
