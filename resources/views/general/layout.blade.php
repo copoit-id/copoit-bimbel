@@ -15,12 +15,16 @@
     $showTryoutNav = \Illuminate\Support\Facades\Route::has('user.package.tryout.list');
     $showMaterialNav = \Illuminate\Support\Facades\Route::has('user.material.index');
     $showPackageNav = \Illuminate\Support\Facades\Route::has('user.package.index');
+    $pageTitle = trim($__env->yieldContent('title', ''));
+    $documentTitle = $pageTitle !== ''
+        ? $pageTitle . ' - ' . $clientBranding['name']
+        : $clientBranding['name'];
 @endphp
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'General') - {{ $clientBranding['name'] }}</title>
+    <title>{{ $documentTitle }}</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     @vite('resources/css/app.css')
     @include('components.branding-styles')
