@@ -83,18 +83,16 @@
 
     <div class="grid gap-6 xl:grid-cols-3">
         <div class="rounded-xl border border-gray-200 bg-white p-5 xl:col-span-2">
-            <div class="mb-4"><h3 class="font-semibold text-gray-900">Pemakaian harian</h3><p class="text-sm text-gray-500">Total token untuk periode terpilih.</p></div>
-            <div class="space-y-3">
-                @forelse($dailyUsage as $day)
-                    @php $maximum = max(1, $dailyUsage->max('total_tokens')); @endphp
-                    <div class="grid grid-cols-[90px_1fr_100px] items-center gap-3 text-sm">
-                        <span class="text-gray-500">{{ \Carbon\Carbon::parse($day->usage_date)->format('d M') }}</span>
-                        <div class="h-1 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-primary" style="width: {{ ($day->total_tokens / $maximum) * 100 }}%"></div></div>
-                        <span class="text-right font-medium text-gray-700">{{ $formatToken($day->total_tokens) }}</span>
-                    </div>
-                @empty
-                    <p class="py-8 text-center text-sm text-gray-500">Belum ada penggunaan AI pada periode ini.</p>
-                @endforelse
+            <div class="mb-4"><h3 class="font-semibold text-gray-900">Ringkasan pemakaian</h3><p class="text-sm text-gray-500">Bandingkan konsumsi token berdasarkan rentang waktu.</p></div>
+            <div class="grid gap-3 sm:grid-cols-2">
+                @foreach($periodUsage as $period)
+                <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-slate-50 to-white p-4">
+                    <p class="text-sm font-semibold text-gray-700">{{ $period['label'] }}</p>
+                    <p class="mt-2 text-2xl font-bold text-gray-900">{{ $formatToken($period['total_tokens']) }}</p>
+                    <p class="mt-1 text-xs text-gray-500">token · {{ $formatToken($period['request_count']) }} chat</p>
+                    <p class="mt-3 border-t border-gray-100 pt-2 text-xs text-gray-400">{{ $period['description'] }}</p>
+                </div>
+                @endforeach
             </div>
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5">

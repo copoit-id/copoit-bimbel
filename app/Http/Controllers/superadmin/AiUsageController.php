@@ -25,15 +25,27 @@ class AiUsageController extends Controller
         }
         $periodEnd = $periodStart->copy()->endOfMonth();
 
-        $baseQuery = AiDiscussionUsageLog::query()
-            ->whereBetween('created_at', [$periodStart, $periodEnd]);
+        $allUsageQuery = AiDiscussionUsageLog::query();
+        $baseQuery = (clone $allUsageQuery)->whereBetween('created_at', [$periodStart, $periodEnd]);
 
         if ($request->filled('provider')) {
             $baseQuery->where('provider', $request->string('provider')->toString());
+            $allUsageQuery->where('provider', $request->string('provider')->toString());
         }
         if ($request->filled('model')) {
             $baseQuery->where('model', $request->string('model')->toString());
+            $allUsageQuery->where('model', $request->string('model')->toString());
         }
+
+        $periodUsage = collect([
+            ['label' => 'Hari ini', 'description' => now()->translatedFormat('d M Y'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfDay())],
+            ['label' => 'Minggu ini', 'description' => now()->startOfWeek()->translatedFormat('d M') . ' – ' . now()->endOfWeek()->translatedFormat('d M'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfWeek())],
+            ['label' => 'Bulan ini', 'description' => now()->translatedFormat('F Y'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfMonth())],
+            ['label' => 'Total', 'description' => 'Sejak awal penggunaan', 'query' => fn () => clone $allUsageQuery],
+        ])->map(function ($period) {
+            $stats = $period['query']()->selectRaw('COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens')->first();
+            return ['label' => $period['label'], 'description' => $period['description'], 'request_count' => $stats->request_count, 'total_tokens' => $stats->total_tokens];
+        });
 
         $summary = (clone $baseQuery)->selectRaw('
             COUNT(*) as request_count,
@@ -91,7 +103,7 @@ class AiUsageController extends Controller
 
         return view('super-admin.ai-usage.index', compact(
             'month', 'summary', 'monthlyLimit', 'usedTokens', 'byQuestion', 'byUser',
-            'dailyUsage', 'logs', 'providers', 'models', 'gatewayClients'
+            'dailyUsage', 'periodUsage', 'logs', 'providers', 'models', 'gatewayClients'
         ));
     }
 
