@@ -864,10 +864,10 @@ class TryoutController extends Controller
             $totalQuestions += Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
         }
 
-        // Get user's previous attempts
-        $attempts = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->count();
+        $attempts = $tryout->completedAttemptCountForUser(Auth::id());
+        $remainingAttempts = $tryout->remainingAttemptsForUser(Auth::id());
+        $hasInProgressAttempt = $tryout->hasInProgressAttemptForUser(Auth::id());
+        $isAttemptLimitReached = $tryout->hasReachedAttemptLimitForUser(Auth::id()) && ! $hasInProgressAttempt;
 
         ActivityLogger::log('tryout_lobby_opened', 'success', Auth::user(), [
             'package_id' => $id_package,
@@ -883,7 +883,10 @@ class TryoutController extends Controller
             'tryoutDetails',
             'totalDuration',
             'totalQuestions',
-            'effectiveProctoringSettings'
+            'effectiveProctoringSettings',
+            'remainingAttempts',
+            'hasInProgressAttempt',
+            'isAttemptLimitReached'
         ));
     }
 
@@ -980,6 +983,17 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Tryout belum memiliki soal');
         }
 
+        $existingUserAnswer = UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('status', 'in_progress')
+            ->first();
+
+        if (! $existingUserAnswer && $tryout->hasReachedAttemptLimitForUser(Auth::id())) {
+            return redirect()
+                ->route('user.tryout.lobby', [$package ? $package->package_id : 'free', $tryout->tryout_id])
+                ->with('error', 'Batas pengerjaan tryout ini sudah habis.');
+        }
+
         if ($number > $allQuestions->count()) {
             return $this->finishTryout(request(), $id_package, $id_tryout);
         }
@@ -1005,12 +1019,6 @@ class TryoutController extends Controller
         }
 
         // Get or create user answer sessions untuk SKD Full
-        // Cek apakah sudah ada attempt_token untuk tryout ini
-        $existingUserAnswer = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->where('status', 'in_progress')
-            ->first();
-
         $attemptToken = $existingUserAnswer ? $existingUserAnswer->attempt_token : Str::uuid()->toString();
 
         // Untuk SKD Full: buat UserAnswer terpisah untuk setiap subtest dengan token yang sama
@@ -1212,6 +1220,8 @@ class TryoutController extends Controller
                 return 'TPA';
             case 'tbi':
                 return 'TBI';
+            case 'tob':
+                return 'TOB';
             case 'writing':
                 return 'Writing Test';
             case 'reading':

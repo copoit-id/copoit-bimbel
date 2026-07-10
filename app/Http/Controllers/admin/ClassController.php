@@ -13,6 +13,7 @@ class ClassController extends Controller
     public function index()
     {
         $classes = ClassModel::with('tentor')->orderBy('schedule_time', 'desc')->paginate(10);
+
         return view('admin.pages.class.index', compact('classes'));
     }
 
@@ -47,7 +48,7 @@ class ClassController extends Controller
                 'status' => $request->status
             ]);
 
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('success', 'Kelas berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
@@ -66,7 +67,7 @@ class ClassController extends Controller
                 ->get(['id', 'name', 'expertise']);
             return view('admin.pages.class.edit', compact('class', 'tentors'));
         } catch (\Exception $e) {
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('error', 'Kelas tidak ditemukan');
         }
     }
@@ -97,7 +98,7 @@ class ClassController extends Controller
                 'status' => $request->status
             ]);
 
-            return redirect()->route('admin.class.index', $request->query())
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('success', 'Kelas berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()
@@ -111,7 +112,7 @@ class ClassController extends Controller
         try {
             $class = ClassModel::findOrFail($id);
             $class->delete();
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('success', 'Kelas berhasil dihapus');
         } catch (\Exception $e) {
             return redirect()->back()
@@ -174,4 +175,5 @@ class ClassController extends Controller
         return redirect()->route('admin.class.assessments', $class->class_id)
             ->with('success', ucfirst(str_replace('_', ' ', $assessmentType)) . ' berhasil dihapus.');
     }
+
 }

@@ -13,11 +13,10 @@
                     • {{ substr($classSchedule->start_time, 0, 5) }}{{ $classSchedule->end_time ? ' - ' . substr($classSchedule->end_time, 0, 5) : '' }}
                 @endif
             </p>
-            <p class="mt-1 text-xs text-gray-500">
-                Kategori tujuan:
-                {{ $classSchedule->destinationCategories->map(fn($category) => $category->display_name)->implode(', ') ?: '-' }}
-            </p>
-            <?php $tentorName = $classSchedule->tentor?->name ?? $classSchedule->class?->tentor?->name ?? $classSchedule->class?->mentor; ?>
+            @if($classSchedule->studyGroup)
+                <p class="mt-1 text-xs text-gray-500">Rombel: {{ $classSchedule->studyGroup->name }}</p>
+            @endif
+            <?php $tentorName = $classSchedule->tentor?->name ?? $classSchedule->studyGroup?->tentor?->name ?? $classSchedule->class?->tentor?->name ?? $classSchedule->class?->mentor; ?>
             @if($tentorName)
                 <p class="mt-1 text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
             @endif
@@ -29,7 +28,7 @@
             <form method="POST" action="{{ route('admin.class-schedules.generate', $classSchedule) }}">
                 @csrf
                 <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                    Generate Absen
+                    Generate Sesi
                 </button>
             </form>
         </div>
@@ -45,7 +44,7 @@
                             {{ $option->session_date->translatedFormat('D, d M Y') }} • {{ $option->start_at->format('H:i') }}
                         </option>
                     @empty
-                        <option value="">Belum ada sesi absen</option>
+                        <option value="">Belum ada sesi kelas</option>
                     @endforelse
                 </select>
             </form>
@@ -133,7 +132,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada peserta pada kategori tujuan jadwal ini.</td>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada peserta untuk rombel ini.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -141,7 +140,7 @@
         </div>
     @else
         <div class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500">
-            Belum ada sesi absen untuk jadwal ini. Klik <span class="font-semibold text-gray-700">Generate Absen</span> untuk membuat sesi berdasarkan jadwal.
+            Belum ada sesi kelas untuk jadwal ini. Klik <span class="font-semibold text-gray-700">Generate Sesi</span> untuk membuat sesi berdasarkan jadwal.
         </div>
     @endif
 

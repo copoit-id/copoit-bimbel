@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\Tentor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,9 @@ class TentorController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('admin.pages.tentor.index', compact('tentors'));
+        $roleOptions = $this->getRoleOptions();
+
+        return view('admin.pages.tentor.index', compact('tentors', 'roleOptions'));
     }
 
     public function create(): View
@@ -84,5 +87,14 @@ class TentorController extends Controller
             'bio' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['nullable', 'boolean'],
         ]);
+    }
+
+    private function getRoleOptions(): array
+    {
+        return Role::query()
+            ->whereNotIn('slug', ['super_admin'])
+            ->orderBy('name')
+            ->pluck('name', 'slug')
+            ->toArray();
     }
 }

@@ -14,6 +14,7 @@ class ClassAttendanceParticipantService
     {
         $session->loadMissing([
             'class.packages',
+            'studyGroup.users',
             'schedule.destinationCategories.children',
         ]);
 
@@ -27,7 +28,18 @@ class ClassAttendanceParticipantService
                 ->get(['id', 'name', 'email', 'participant_destination_category_id']);
         }
 
+        $studyGroupUsers = $session->studyGroup?->users ?? collect();
+        if ($studyGroupUsers->isNotEmpty()) {
+            return $studyGroupUsers
+                ->sortBy('name')
+                ->values();
+        }
+
         $packageIds = $session->class?->packages()->pluck('packages.package_id') ?? collect();
+
+        if ($packageIds->isEmpty()) {
+            return collect();
+        }
 
         return UserPackageAcces::query()
             ->with('user:id,name,email')

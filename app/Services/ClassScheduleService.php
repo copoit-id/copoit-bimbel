@@ -11,7 +11,7 @@ class ClassScheduleService
 {
     public function generateSessions(ClassSchedule $schedule, int $daysAhead = 60): int
     {
-        $schedule->loadMissing('class');
+        $schedule->loadMissing(['class', 'studyGroup']);
 
         $start = $schedule->start_date->copy()->startOfDay();
         $end = $schedule->end_date
@@ -39,7 +39,8 @@ class ClassScheduleService
                 ],
                 [
                     'class_id' => $schedule->class_id,
-                    'tentor_id' => $schedule->tentor_id ?: $schedule->class?->tentor_id,
+                    'study_group_id' => $schedule->study_group_id,
+                    'tentor_id' => $schedule->tentor_id ?: $schedule->studyGroup?->tentor_id ?: $schedule->class?->tentor_id,
                     'end_at' => $endAt,
                     'status' => 'scheduled',
                     'meeting_url' => $schedule->meeting_url ?: $schedule->class?->zoom_link,

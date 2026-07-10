@@ -16,8 +16,8 @@ return [
             'label' => 'iPaymu',
             'type' => 'redirect',
             'handler' => \App\Services\Payments\IpaymuGateway::class,
-            'sandbox_url' => env('IPAYMU_SANDBOX_URL', 'https://sandbox.ipaymu.com/api/v2'),
-            'production_url' => env('IPAYMU_PRODUCTION_URL', 'https://my.ipaymu.com/api/v2'),
+            'sandbox_url' => env('IPAYMU_SANDBOX_URL', 'https://sandbox.ipaymu.com'),
+            'production_url' => env('IPAYMU_PRODUCTION_URL', 'https://my.ipaymu.com'),
         ],
         'interactive_qris' => [
             'label' => 'InterActive QRIS',

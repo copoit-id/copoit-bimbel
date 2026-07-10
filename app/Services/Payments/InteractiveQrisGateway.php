@@ -25,6 +25,8 @@ class InteractiveQrisGateway
 
         $transactionId = 'QRIS-' . $package->package_id . '-' . Auth::id() . '-' . time();
         $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::timeout(20)->get($this->endpoint('show_qris.php'), [
@@ -32,7 +34,7 @@ class InteractiveQrisGateway
                 'apikey' => $apiKey,
                 'mID' => $merchantId,
                 'cliTrxNumber' => $transactionId,
-                'cliTrxAmount' => $amount,
+                'cliTrxAmount' => $totalAmount,
                 'useTip' => config('services.interactive_qris.use_tip', false) ? 'yes' : 'no',
             ]);
 
@@ -64,7 +66,9 @@ class InteractiveQrisGateway
                 'discount_amount' => $discountData['discount_amount'],
                 'amount' => $amount,
                 'admin_fee' => 0,
-                'total_amount' => $amount,
+                'unique_code' => $uniqueCode,
+                'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                'total_amount' => $totalAmount,
                 'status' => Payment::STATUS_PENDING,
                 'payment_method' => 'interactive_qris',
                 'payment_details' => json_encode([
@@ -75,6 +79,8 @@ class InteractiveQrisGateway
                     'expires_at' => $requestDate->copy()->addMinutes(30)->toDateTimeString(),
                     'external_id' => $transactionId,
                     'base_amount' => (int) $package->price,
+                    'payable_amount' => $amount,
+                    'unique_code' => $uniqueCode,
                     'discount_code' => $discountData['discount_code'],
                     'discount_amount' => $discountData['discount_amount'],
                 ]),
@@ -90,6 +96,15 @@ class InteractiveQrisGateway
                 'message' => 'Error koneksi ke InterActive QRIS: ' . $e->getMessage(),
             ];
         }
+    }
+
+    private function paymentUniqueCodeFor(int $amount): ?int
+    {
+        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+            return null;
+        }
+
+        return Payment::generateManualUniqueCode();
     }
 
     public function checkPayment(Payment $payment): array

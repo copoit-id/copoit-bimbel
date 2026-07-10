@@ -368,8 +368,8 @@
                     class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
                     {{ (int) $paymentUniqueCodeEnabled === 1 ? 'checked' : '' }}>
                 <div>
-                    <p class="font-semibold text-gray-900">Aktifkan kode unik manual</p>
-                    <p class="text-xs text-gray-500">Jika aktif, tagihan manual ditambah 3 digit unik agar admin lebih mudah mencocokkan transfer.</p>
+                    <p class="font-semibold text-gray-900">Aktifkan kode unik pembayaran</p>
+                    <p class="text-xs text-gray-500">Jika aktif, tagihan paket ditambah 3 digit unik untuk membantu pencocokan pembayaran.</p>
                 </div>
             </label>
             <div id="payment-manual-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -461,7 +461,7 @@
                         </div>
                         <div>
                             <p class="text-xs uppercase text-gray-500">iPaymu Base URL</p>
-                            <p id="ipaymu-base-url">https://sandbox.ipaymu.com/api/v2</p>
+                            <p id="ipaymu-base-url">https://sandbox.ipaymu.com</p>
                         </div>
                     </div>
                     <p class="text-xs text-gray-500 mt-2">URL ditentukan otomatis mengikuti mode sandbox/production. InterActive QRIS saat ini adalah API live/production.</p>
@@ -1185,14 +1185,14 @@
                 midtransSnap: 'https://app.sandbox.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.sandbox.midtrans.com/v2',
                 interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
-                ipaymuBase: 'https://sandbox.ipaymu.com/api/v2'
+                ipaymuBase: 'https://sandbox.ipaymu.com'
             },
             production: {
                 xenditBase: 'https://api.xendit.co',
                 midtransSnap: 'https://app.midtrans.com/snap/v1/transactions',
                 midtransStatus: 'https://api.midtrans.com/v2',
                 interactiveQrisBase: 'https://qris.interactive.co.id/restapi/qris',
-                ipaymuBase: 'https://my.ipaymu.com/api/v2'
+                ipaymuBase: 'https://my.ipaymu.com'
             }
         };
 

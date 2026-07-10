@@ -28,6 +28,7 @@ class Payment extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'paid_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     public function user()
@@ -58,7 +59,6 @@ class Payment extends Model
     public static function generateManualUniqueCode(array $reservedCodes = []): int
     {
         $usedCodes = self::query()
-            ->where('payment_method', 'manual')
             ->where('status', self::STATUS_PENDING)
             ->whereDate('unique_code_date', now()->toDateString())
             ->whereNotNull('unique_code')
@@ -69,7 +69,7 @@ class Payment extends Model
         $blockedCodes = array_unique(array_merge($usedCodes, array_map('intval', $reservedCodes)));
 
         if (count($blockedCodes) >= 999) {
-            throw new RuntimeException('Kode unik pembayaran manual hari ini sudah habis.');
+            throw new RuntimeException('Kode unik pembayaran hari ini sudah habis.');
         }
 
         for ($attempt = 0; $attempt < 20; $attempt++) {
@@ -86,17 +86,112 @@ class Payment extends Model
             }
         }
 
-        throw new RuntimeException('Kode unik pembayaran manual hari ini sudah habis.');
+        throw new RuntimeException('Kode unik pembayaran hari ini sudah habis.');
     }
 
     public static function isManualUniqueCodeAvailable(int $code): bool
     {
         return !self::query()
-            ->where('payment_method', 'manual')
             ->where('status', self::STATUS_PENDING)
             ->whereDate('unique_code_date', now()->toDateString())
             ->where('unique_code', $code)
             ->exists();
+    }
+
+    public function paymentDetailsArray(): array
+    {
+        if (is_array($this->payment_details)) {
+            return $this->payment_details;
+        }
+
+        return $this->payment_details
+            ? (json_decode($this->payment_details, true) ?: [])
+            : [];
+    }
+
+    public function hasGatewayConfirmation(): bool
+    {
+        $details = $this->paymentDetailsArray();
+
+        if ($this->payment_method === 'ipaymu') {
+            $webhook = $details['ipaymu_webhook'] ?? null;
+            $check = $details['ipaymu_check'] ?? null;
+
+            return $this->hasPaidStatus($webhook) || $this->hasPaidStatus($check);
+        }
+
+        if ($this->payment_method === 'interactive_qris') {
+            return !empty($details['qris_paid_status']);
+        }
+
+        if ($this->payment_method === 'manual') {
+            return (bool) $this->confirmed_at || (bool) $this->confirmed_by;
+        }
+
+        return false;
+    }
+
+    public function gatewayConfirmationStatus(): string
+    {
+        if ($this->status === self::STATUS_PENDING) {
+            return 'waiting';
+        }
+
+        if (in_array($this->status, [self::STATUS_FAILED, self::STATUS_EXPIRED], true)) {
+            return 'failed';
+        }
+
+        return $this->hasGatewayConfirmation() ? 'confirmed' : 'unverified';
+    }
+
+    public function gatewayConfirmationLabel(): string
+    {
+        return match ($this->gatewayConfirmationStatus()) {
+            'confirmed' => $this->payment_method === 'manual' ? 'Dikonfirmasi Admin' : 'Terverifikasi Gateway',
+            'waiting' => 'Menunggu Gateway',
+            'failed' => 'Gagal/Expired',
+            default => 'Belum Ada Bukti Gateway',
+        };
+    }
+
+    public function gatewayConfirmationClass(): string
+    {
+        return match ($this->gatewayConfirmationStatus()) {
+            'confirmed' => 'bg-green-100 text-green-700',
+            'waiting' => 'bg-yellow-100 text-yellow-700',
+            'failed' => 'bg-red-100 text-red-700',
+            default => 'bg-orange-100 text-orange-700',
+        };
+    }
+
+    public function gatewayReference(): ?string
+    {
+        $details = $this->paymentDetailsArray();
+
+        return $details['ipaymu_transaction_id']
+            ?? $details['qris_invoiceid']
+            ?? $details['invoice_id']
+            ?? $details['external_id']
+            ?? $this->transaction_id;
+    }
+
+    private function hasPaidStatus(mixed $payload): bool
+    {
+        if (!is_array($payload)) {
+            return false;
+        }
+
+        $statuses = [];
+        $statusKeys = ['status', 'status_code', 'transaction_status', 'payment_status', 'paymentstatus'];
+
+        array_walk_recursive($payload, function ($value, $key) use (&$statuses, $statusKeys) {
+            if (in_array(strtolower((string) $key), $statusKeys, true)) {
+                $statuses[] = strtolower((string) $value);
+            }
+        });
+
+        return collect($statuses)
+            ->contains(fn (string $status) => in_array($status, ['berhasil', 'success', 'paid', 'settlement', 'complete', 'completed', '1'], true));
     }
 
     // Status constants

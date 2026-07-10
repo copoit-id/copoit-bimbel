@@ -341,6 +341,8 @@ class Material extends Model
         // Check via direct user access
         $hasDirectAccess = $this->userAccess()
             ->where('user_id', $userId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where('status', '!=', 'not_started')
             ->where(function ($q) {
                 $q->whereNull('expires_at')

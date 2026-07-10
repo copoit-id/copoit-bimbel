@@ -6,11 +6,42 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 font-sans tracking-tight">Jadwal Mingguan</h1>
-            <p class="text-sm text-gray-500">Kelola jadwal rutin mingguan untuk kegiatan bimbingan belajar.</p>
+            <h1 class="text-2xl font-bold text-gray-900 font-sans tracking-tight">Jadwal & Absensi</h1>
+            <p class="text-sm text-gray-500">Kelola jadwal rutin, jadwal sekali jalan, dan kelas Zoom lama.</p>
         </div>
+        @if($activeTab === 'zoom')
+            <x-btn title="Tambah Kelas Zoom" route="{{ route('admin.class.create') }}" icon="ri-add-fill"></x-btn>
+        @else
+            <x-btn title="Tambah Jadwal" route="{{ route('admin.class-schedules.create') }}" icon="ri-add-fill"></x-btn>
+        @endif
     </div>
 
+    <div class="flex justify-start border-b border-gray-200 overflow-x-auto">
+        <a href="{{ route('admin.class-schedules.index', ['tab' => 'schedules']) }}"
+            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'schedules' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
+            Jadwal & Absensi
+        </a>
+        <a href="{{ route('admin.class-schedules.index', ['tab' => 'zoom']) }}"
+            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'zoom' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
+            Kelas Zoom
+        </a>
+    </div>
+
+    @if (session('success'))
+        <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+            <i class="ri-checkbox-circle-line text-lg"></i>
+            <span>{{ session('success') }}</span>
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
+            <i class="ri-error-warning-line text-lg"></i>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
+
+    @if($activeTab === 'schedules')
     <!-- Weekly Grid Timetable -->
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-7">
         @php
@@ -57,16 +88,13 @@
                                         Online Meeting
                                     </a>
                                 @endif
-                                @if($schedule->destinationCategories->isNotEmpty())
+                                @if($schedule->studyGroup)
                                     <span class="text-[11px] text-gray-500 flex items-center gap-1">
-                                        <i class="ri-focus-3-line"></i>
-                                        {{ $schedule->destinationCategories->map(fn($category) => $category->display_name)->take(2)->implode(', ') }}
-                                        @if($schedule->destinationCategories->count() > 2)
-                                            +{{ $schedule->destinationCategories->count() - 2 }}
-                                        @endif
+                                        <i class="ri-group-line"></i>
+                                        {{ $schedule->studyGroup->name }}
                                     </span>
                                 @endif
-                                <?php $tentorName = $schedule->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
                                 @if($tentorName)
                                     <span class="text-[11px] text-gray-500 flex items-center gap-1">
                                         <i class="ri-user-star-line"></i>
@@ -76,23 +104,31 @@
                             </div>
 
                             <!-- Actions -->
-                            <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2 text-xs">
-                                <div class="flex items-center gap-3">
-                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
-                                        <i class="ri-eye-line"></i> Absen
+                            <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2 text-xs">
+                                <div class="flex items-center gap-1.5">
+                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                        title="Absen" aria-label="Absen">
+                                        <i class="ri-eye-line text-base"></i>
+                                        <span class="sr-only">Absen</span>
                                     </a>
-                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="text-gray-500 hover:text-primary font-medium flex items-center gap-0.5">
-                                        <i class="ri-edit-line"></i> Edit
+                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                        title="Edit" aria-label="Edit">
+                                        <i class="ri-edit-line text-base"></i>
+                                        <span class="sr-only">Edit</span>
                                     </a>
+                                    <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');" class="inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                            title="Hapus" aria-label="Hapus">
+                                            <i class="ri-delete-bin-line text-base"></i>
+                                            <span class="sr-only">Hapus</span>
+                                        </button>
+                                    </form>
                                 </div>
-                                
-                                <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');" class="inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-gray-400 hover:text-red-600 flex items-center gap-0.5 transition-colors">
-                                        <i class="ri-delete-bin-line"></i> Hapus
-                                    </button>
-                                </form>
                             </div>
                         </div>
                     @empty
@@ -115,7 +151,6 @@
                     <thead class="bg-gray-50 text-xs uppercase text-gray-700">
                         <tr>
                             <th class="px-4 py-3">Jadwal</th>
-                            <th class="px-4 py-3">Kategori Tujuan</th>
                             <th class="px-4 py-3">Tipe</th>
                             <th class="px-4 py-3">Jam</th>
                             <th class="px-4 py-3">Aksi</th>
@@ -126,13 +161,13 @@
                             <tr class="border-t border-gray-100 hover:bg-gray-50">
                                 <td class="px-4 py-3">
                                     <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
-                                    <?php $tentorName = $schedule->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                    <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
                                     @if($tentorName)
                                         <p class="text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
                                     @endif
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ $schedule->destinationCategories->map(fn($category) => $category->display_name)->implode(', ') ?: '-' }}
+                                    @if($schedule->studyGroup)
+                                        <p class="text-xs text-gray-500">Rombel: {{ $schedule->studyGroup->name }}</p>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
@@ -140,20 +175,129 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
-                                <td class="px-4 py-3 flex items-center gap-3">
-                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}" class="text-primary hover:underline">Absen</a>
-                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="text-gray-600 hover:text-primary hover:underline">Edit</a>
-                                    <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin?');" class="inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="text-red-600 hover:underline">Hapus</button>
-                                    </form>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-1.5">
+                                        <a href="{{ route('admin.class-schedules.show', $schedule) }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                            title="Absen" aria-label="Absen">
+                                            <i class="ri-eye-line text-base"></i>
+                                            <span class="sr-only">Absen</span>
+                                        </a>
+                                        <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                            title="Edit" aria-label="Edit">
+                                            <i class="ri-edit-line text-base"></i>
+                                            <span class="sr-only">Edit</span>
+                                        </a>
+                                        <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin?');" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                title="Hapus" aria-label="Hapus">
+                                                <i class="ri-delete-bin-line text-base"></i>
+                                                <span class="sr-only">Hapus</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
+        </div>
+    @endif
+    @else
+        <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
+            <x-page-desc title="Kelas Zoom" description="Data kelas live/Zoom lama. Jadwal rutin dan sekali jalan baru tetap dikelola dari tab Jadwal & Absensi."></x-page-desc>
+
+            <div class="relative overflow-x-auto mt-4">
+                <table class="w-full text-sm text-left rtl:text-right text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Tanggal & Waktu</th>
+                            <th scope="col" class="px-6 py-3 text-center">Judul</th>
+                            <th scope="col" class="px-6 py-3 text-center">Mentor</th>
+                            <th scope="col" class="px-6 py-3 text-center">Status</th>
+                            <th scope="col" class="px-6 py-3 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($liveClasses as $class)
+                            <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
+                                <td class="px-6 py-4">
+                                    <div>
+                                        <p class="font-semibold">
+                                            {{ \Carbon\Carbon::parse($class->schedule_time)->translatedFormat('l, d F Y') }}
+                                        </p>
+                                        <p>Pukul {{ \Carbon\Carbon::parse($class->schedule_time)->format('H:i') }} WIB</p>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center">{{ $class->title }}</td>
+                                <td class="px-6 py-4 text-center">{{ $class->tentor?->name ?? $class->mentor ?? '-' }}</td>
+                                <td class="px-6 py-4 text-center">
+                                    @if($class->status == 'upcoming')
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">Akan Datang</span>
+                                    @elseif($class->status == 'completed')
+                                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Selesai</span>
+                                    @else
+                                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Dibatalkan</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex justify-center items-center gap-2">
+                                        <a href="{{ route('admin.class.assessments', $class->class_id) }}"
+                                            class="text-gray-500 hover:text-primary" title="Kelola Pre/Post Test">
+                                            <i class="ri-file-list-3-line text-xl"></i>
+                                        </a>
+                                        @if($class->zoom_link)
+                                            <a href="{{ $class->zoom_link }}" target="_blank" class="text-gray-500 hover:text-primary" title="Buka Zoom">
+                                                <i class="ri-video-on-line text-xl"></i>
+                                            </a>
+                                        @endif
+                                        @if($class->drive_link)
+                                            <a href="{{ $class->drive_link }}" target="_blank" class="text-gray-500 hover:text-blue-600" title="Buka Materi">
+                                                <i class="ri-folder-line text-xl"></i>
+                                            </a>
+                                        @endif
+                                        <a href="{{ route('admin.class.edit', array_merge(request()->query(), ['class' => $class->class_id, 'tab' => 'zoom'])) }}"
+                                            class="text-gray-500 hover:text-yellow-500" title="Edit">
+                                            <i class="ri-edit-line text-xl"></i>
+                                        </a>
+                                        <form action="{{ route('admin.class.destroy', $class->class_id) }}" method="POST" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-gray-500 hover:text-red-500"
+                                                title="Hapus" onclick="return confirm('Yakin ingin menghapus kelas ini?')">
+                                                <i class="ri-delete-bin-line text-xl"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                    <div class="flex flex-col items-center">
+                                        <i class="ri-video-chat-line text-4xl text-gray-300 mb-2"></i>
+                                        <p>Belum ada kelas Zoom tersedia</p>
+                                        <a href="{{ route('admin.class.create') }}" class="text-primary hover:underline mt-2">
+                                            Buat kelas Zoom baru
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if($liveClasses->hasPages())
+                <div class="flex justify-center mt-4">
+                    {{ $liveClasses->links() }}
+                </div>
+            @endif
         </div>
     @endif
 </div>

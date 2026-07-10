@@ -52,19 +52,11 @@
                     <select id="type_tryout" name="type_tryout" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">Pilih Tipe Tryout</option>
-                        <option value="tiu" {{ old('type_tryout')=='tiu' ? 'selected' : '' }}>TIU (Tes Intelegensi Umum)
-                        </option>
-                        <option value="twk" {{ old('type_tryout')=='twk' ? 'selected' : '' }}>TWK (Tes Wawasan
-                            Kebangsaan)</option>
-                        <option value="tkp" {{ old('type_tryout')=='tkp' ? 'selected' : '' }}>TKP (Tes Karakteristik
-                            Pribadi)</option>
-                        <option value="tpa" {{ old('type_tryout')=='tpa' ? 'selected' : '' }}>TPA</option>
-                        <option value="tbi" {{ old('type_tryout')=='tbi' ? 'selected' : '' }}>TBI</option>
-                        <option value="skd_full" {{ old('type_tryout')=='skd_full' ? 'selected' : '' }}>SKD Full (TWK +
-                            TIU + TKP)</option>
-                        <option value="general" {{ old('type_tryout')=='general' ? 'selected' : '' }}>General</option>
-                        <option value="certification" {{ old('type_tryout')=='certification' ? 'selected' : '' }}>
-                            Certification</option>
+                        @foreach(($tryoutTypeOptions ?? []) as $typeKey => $typeLabel)
+                            <option value="{{ $typeKey }}" @selected(old('type_tryout') === $typeKey)>
+                                {{ $typeLabel }}
+                            </option>
+                        @endforeach
                     </select>
                 </div>
             </div>
@@ -480,10 +472,14 @@
                 case 'general':
                 case 'tpa':
                 case 'tbi':
+                case 'tob':
                     showDurationField('general-duration', 'duration_general', 60, 'passing_score_general', 65);
                     break;
                 case 'certification':
                     showDurationField('certification-duration', 'duration_certification', 120, 'passing_score_certification', 70);
+                    break;
+                default:
+                    showDurationField('general-duration', 'duration_general', 60, 'passing_score_general', 65);
                     break;
             }
 

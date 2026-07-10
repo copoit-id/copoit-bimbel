@@ -13,7 +13,7 @@
 </div>
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
-    <x-page-desc title="Manajemen Kelas" description="Kelola semua kelas yang tersedia"></x-page-desc>
+    <x-page-desc title="Manajemen Kelas" description="Kelola kelas live/Zoom lama. Jadwal rutin dan sekali jalan baru ada di menu Jadwal & Absensi."></x-page-desc>
 
     <div class="relative overflow-x-auto mt-4">
         <table class="w-full text-sm text-left rtl:text-right text-gray-500">

@@ -65,7 +65,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada peserta pada kategori tujuan jadwal ini.</td>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada peserta untuk rombel ini.</td>
                     </tr>
                 @endforelse
             </tbody>

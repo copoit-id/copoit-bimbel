@@ -14,20 +14,28 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use App\Rules\SafeName;
+use Illuminate\View\View;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request): View
     {
+        $roleOptions = $this->getRoleOptions();
+        $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
+
+        if (!array_key_exists((string) $activeRole, $roleOptions)) {
+            $activeRole = array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions);
+        }
+
         $users = User::query()
             ->with('participantDestinationCategory.parent')
             ->where('role', '!=', 'super_admin')
+            ->when($activeRole, fn ($query) => $query->where('role', $activeRole))
             ->orderByDesc('created_at')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
-        $roleOptions = $this->getRoleOptions();
-
-        return view('admin.pages.user.index', compact('users', 'roleOptions'));
+        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole'));
     }
 
     public function loginAsPage()
@@ -95,7 +103,7 @@ class UserController extends Controller
             $user->roles()->syncWithoutDetaching([$role->id]);
         }
 
-        return redirect()->route('admin.user.index')->with('success', 'User created successfully.');
+        return redirect()->route('admin.user.index', ['role' => $user->role])->with('success', 'User created successfully.');
     }
 
     public function show($id)

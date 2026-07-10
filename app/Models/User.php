@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
@@ -151,6 +152,12 @@ class User extends Authenticatable
     public function classAttendances()
     {
         return $this->hasMany(ClassAttendance::class, 'user_id');
+    }
+
+    public function studyGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(StudyGroup::class, 'study_group_user')
+            ->withTimestamps();
     }
 
     public function participantDestinationCategory(): BelongsTo
@@ -324,6 +331,8 @@ class User extends Authenticatable
         // Check direct access
         $hasDirectAccess = $this->materialAccess()
             ->where('material_id', $materialId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where('status', '!=', 'not_started')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -380,6 +389,8 @@ class User extends Authenticatable
         // Check direct access
         $hasDirectAccess = $this->tryoutAccess()
             ->where('tryout_id', $tryoutId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where(function ($q) {
                 $q->whereNull('expires_at')
                   ->orWhere('expires_at', '>', now());

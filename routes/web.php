@@ -31,6 +31,7 @@ use App\Http\Controllers\admin\QuestionBankController;
 use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\admin\StudyGroupController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
@@ -536,6 +537,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         ->except(['show'])
         ->names('tentors')
         ->parameters(['tentor' => 'tentor']);
+    Route::resource('rombel', StudyGroupController::class)
+        ->except(['show'])
+        ->names('study-groups')
+        ->parameters(['rombel' => 'studyGroup']);
     Route::resource('jadwal-kelas', ClassScheduleController::class)
         ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
         ->names('class-schedules')

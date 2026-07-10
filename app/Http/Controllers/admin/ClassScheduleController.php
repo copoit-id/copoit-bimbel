@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
-use App\Models\ParticipantDestinationCategory;
+use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\ClassScheduleService;
@@ -17,9 +17,10 @@ use Illuminate\View\View;
 
 class ClassScheduleController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $schedules = ClassSchedule::with(['class.tentor', 'tentor', 'attendanceSetting', 'destinationCategories.parent'])->get();
+        $activeTab = $request->query('tab', 'schedules');
+        $schedules = ClassSchedule::with(['class.tentor', 'studyGroup.tentor', 'tentor', 'attendanceSetting', 'destinationCategories.parent'])->get();
 
         $weeklySchedules = [];
         for ($i = 1; $i <= 7; $i++) {
@@ -33,23 +34,25 @@ class ClassScheduleController extends Controller
             return $s->schedule_type !== 'recurring' || $s->frequency !== 'weekly';
         });
 
-        return view('admin.pages.class-schedule.index', compact('weeklySchedules', 'otherSchedules'));
+        $liveClasses = ClassModel::with('tentor')
+            ->orderBy('schedule_time', 'desc')
+            ->paginate(10, ['*'], 'kelas_page')
+            ->withQueryString();
+
+        return view('admin.pages.class-schedule.index', compact('activeTab', 'weeklySchedules', 'otherSchedules', 'liveClasses'));
     }
 
     public function create(Request $request): View
     {
         $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
-        $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
-        $destinationCategories = ParticipantDestinationCategory::query()
-            ->active()
-            ->with('parent')
-            ->orderBy('parent_id')
-            ->orderBy('sort_order')
+        $studyGroups = StudyGroup::query()
+            ->where('is_active', true)
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'tentor_id']);
+        $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
         $preselectedDay = $request->query('day_of_week', 1);
 
-        return view('admin.pages.class-schedule.create', compact('classes', 'tentors', 'destinationCategories', 'preselectedDay'));
+        return view('admin.pages.class-schedule.create', compact('classes', 'studyGroups', 'tentors', 'preselectedDay'));
     }
 
     public function store(Request $request, ClassScheduleService $scheduleService): RedirectResponse
@@ -81,6 +84,7 @@ class ClassScheduleController extends Controller
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,class_id'],
+            'study_group_id' => ['nullable', 'exists:study_groups,id'],
             'tentor_id' => ['nullable', 'exists:tentors,id'],
             'title' => ['required', 'string', 'max:255'],
             'schedule_type' => ['required', 'in:single,recurring'],
@@ -96,13 +100,14 @@ class ClassScheduleController extends Controller
             'attendance_mode' => ['required', 'in:button,photo'],
             'open_minutes_before' => ['required', 'integer', 'min:0', 'max:1440'],
             'close_minutes_after' => ['required', 'integer', 'min:0', 'max:1440'],
-            'destination_category_ids' => ['required', 'array', 'min:1'],
+            'destination_category_ids' => ['nullable', 'array'],
             'destination_category_ids.*' => ['integer', 'exists:participant_destination_categories,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         $schedule = ClassSchedule::create([
             'class_id' => $validated['class_id'],
+            'study_group_id' => $validated['study_group_id'] ?? null,
             'tentor_id' => $validated['tentor_id'] ?? null,
             'title' => $validated['title'],
             'schedule_type' => $validated['schedule_type'],
@@ -125,7 +130,7 @@ class ClassScheduleController extends Controller
             'close_minutes_after' => $validated['close_minutes_after'],
             'allow_admin_override' => true,
         ]);
-        $schedule->destinationCategories()->sync($validated['destination_category_ids']);
+        $schedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
 
         $scheduleService->generateSessions($schedule);
 
@@ -136,7 +141,7 @@ class ClassScheduleController extends Controller
 
     public function show(Request $request, ClassSchedule $classSchedule, ClassAttendanceParticipantService $participantService): View
     {
-        $classSchedule->load(['class.tentor', 'tentor', 'attendanceSetting', 'destinationCategories.parent']);
+        $classSchedule->load(['class.tentor', 'studyGroup.tentor', 'studyGroup.users', 'tentor', 'attendanceSetting', 'destinationCategories.parent']);
         $sessionOptions = $classSchedule->sessions()
             ->orderByDesc('session_date')
             ->limit(120)
@@ -173,7 +178,7 @@ class ClassScheduleController extends Controller
         $participants = collect();
         $attendances = collect();
         if ($selectedSession) {
-            $selectedSession->load(['class.packages', 'tentor', 'schedule.tentor', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
+            $selectedSession->load(['class.packages', 'studyGroup.users', 'tentor', 'schedule.tentor', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
             $participants = $participantService->participants($selectedSession);
             $attendances = $selectedSession->attendances->keyBy('user_id');
         }
@@ -191,21 +196,19 @@ class ClassScheduleController extends Controller
     {
         $classSchedule->load(['class', 'tentor', 'attendanceSetting', 'destinationCategories']);
         $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
+        $studyGroups = StudyGroup::query()
+            ->where('is_active', true)
+            ->orWhere('id', $classSchedule->study_group_id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'tentor_id']);
         $tentors = Tentor::query()
             ->where('is_active', true)
             ->orWhere('id', $classSchedule->tentor_id)
             ->orderBy('name')
             ->get(['id', 'name', 'expertise']);
-        $destinationCategories = ParticipantDestinationCategory::query()
-            ->active()
-            ->with('parent')
-            ->orderBy('parent_id')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
         $preselectedDay = $classSchedule->day_of_week ?: 1;
 
-        return view('admin.pages.class-schedule.edit', compact('classSchedule', 'classes', 'tentors', 'destinationCategories', 'preselectedDay'));
+        return view('admin.pages.class-schedule.edit', compact('classSchedule', 'classes', 'studyGroups', 'tentors', 'preselectedDay'));
     }
 
     public function update(Request $request, ClassSchedule $classSchedule, ClassScheduleService $scheduleService): RedirectResponse
@@ -225,6 +228,7 @@ class ClassScheduleController extends Controller
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,class_id'],
+            'study_group_id' => ['nullable', 'exists:study_groups,id'],
             'tentor_id' => ['nullable', 'exists:tentors,id'],
             'title' => ['required', 'string', 'max:255'],
             'schedule_type' => ['required', 'in:single,recurring'],
@@ -240,7 +244,7 @@ class ClassScheduleController extends Controller
             'attendance_mode' => ['required', 'in:button,photo'],
             'open_minutes_before' => ['required', 'integer', 'min:0', 'max:1440'],
             'close_minutes_after' => ['required', 'integer', 'min:0', 'max:1440'],
-            'destination_category_ids' => ['required', 'array', 'min:1'],
+            'destination_category_ids' => ['nullable', 'array'],
             'destination_category_ids.*' => ['integer', 'exists:participant_destination_categories,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -248,6 +252,7 @@ class ClassScheduleController extends Controller
         DB::transaction(function () use ($request, $validated, $classSchedule, $scheduleService): void {
             $classSchedule->update([
                 'class_id' => $validated['class_id'],
+                'study_group_id' => $validated['study_group_id'] ?? null,
                 'tentor_id' => $validated['tentor_id'] ?? null,
                 'title' => $validated['title'],
                 'schedule_type' => $validated['schedule_type'],
@@ -273,7 +278,7 @@ class ClassScheduleController extends Controller
                 ]
             );
 
-            $classSchedule->destinationCategories()->sync($validated['destination_category_ids']);
+            $classSchedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
             $classSchedule->sessions()
                 ->where('start_at', '>=', now())
                 ->whereDoesntHave('attendances')
@@ -301,7 +306,7 @@ class ClassScheduleController extends Controller
 
         return redirect()
             ->route('admin.class-schedules.show', $classSchedule)
-            ->with('success', "Generate absen selesai. Data absen baru: {$created}.");
+            ->with('success', "Generate sesi kelas selesai. Sesi baru: {$created}.");
     }
 
     public function updateSession(Request $request, ClassSession $session): RedirectResponse
@@ -313,6 +318,6 @@ class ClassScheduleController extends Controller
 
         $session->update($validated);
 
-        return back()->with('success', 'Data absen berhasil diperbarui.');
+        return back()->with('success', 'Data sesi kelas berhasil diperbarui.');
     }
 }

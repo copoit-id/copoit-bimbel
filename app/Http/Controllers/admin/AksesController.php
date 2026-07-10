@@ -344,11 +344,12 @@ class AksesController extends Controller
     {
         $material = Material::findOrFail($materialId);
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
+        $accessType = $request->access_type === 'paid' ? 'purchased' : 'free';
 
         UserMaterialAccess::create([
             'user_id' => $userId,
             'material_id' => $materialId,
-            'access_type' => $request->access_type,
+            'access_type' => $accessType,
             'access_source' => 'direct',
             'status' => 'in_progress',
             'started_at' => $startDate,
@@ -362,14 +363,14 @@ class AksesController extends Controller
     {
         $tryout = Tryout::findOrFail($tryoutId);
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
+        $accessType = $request->access_type === 'paid' ? 'purchased' : 'free';
 
         UserTryoutAccess::create([
             'user_id' => $userId,
             'tryout_id' => $tryoutId,
-            'access_type' => $request->access_type,
+            'access_type' => $accessType,
             'access_source' => 'direct',
             'status' => 'not_started',
-            'assigned_at' => $startDate,
             'expires_at' => $request->end_date
                 ? Carbon::parse($request->end_date)
                 : PurchaseAccessDuration::expiresAt($tryout, $startDate),

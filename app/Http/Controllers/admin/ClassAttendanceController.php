@@ -14,7 +14,7 @@ class ClassAttendanceController extends Controller
 {
     public function show(ClassSession $session, ClassAttendanceParticipantService $participantService): View
     {
-        $session->load(['class.packages', 'schedule.attendanceSetting', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
+        $session->load(['class.packages', 'studyGroup.users', 'schedule.attendanceSetting', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
         $participants = $participantService->participants($session);
         $attendances = $session->attendances->keyBy('user_id');
 

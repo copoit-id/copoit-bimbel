@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndividualPurchase;
+use App\Models\Material;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Discount;
@@ -11,6 +13,7 @@ use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
 use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
 use App\Models\UserMaterialAccess;
@@ -79,6 +82,11 @@ class PackageController extends Controller
 
         $packages = $packagesQuery->get();
 
+        $pendingPackagePaymentsByPackage = collect();
+        if (Auth::check()) {
+            $pendingPackagePaymentsByPackage = $this->pendingPackagePaymentsForPackages($packages->pluck('package_id')->all());
+        }
+
         $manualPaymentUniqueCodes = [];
         $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
         $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
@@ -115,6 +123,7 @@ class PackageController extends Controller
             'tab',
             'userOwnedPackageIds',
             'pendingConditionalPackageIds',
+            'pendingPackagePaymentsByPackage',
             'manualPaymentUniqueCodes',
             'publicDiscounts',
             'packageAutomaticDiscounts',
@@ -249,6 +258,23 @@ class PackageController extends Controller
 
                     $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
                     if ($paymentMode === 'manual') {
+                        $pendingManualPayment = $this->pendingPackagePayment($package, ['manual']);
+                        if ($pendingManualPayment) {
+                            $message = 'Bukti pembayaran untuk paket ini masih menunggu verifikasi admin.';
+
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => $message,
+                                    'redirect_url' => route('user.package.riwayatPembelian'),
+                                ]);
+                            }
+
+                            return redirect()
+                                ->route('user.package.riwayatPembelian')
+                                ->with('info', $message);
+                        }
+
                         $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
                         $rules = [
                             'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
@@ -312,6 +338,36 @@ class PackageController extends Controller
                             'success' => true,
                             'message' => 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.'
                         ]);
+                    }
+
+                    $pendingGatewayPayment = $this->reusablePendingPackageGatewayPayment($package);
+                    if ($pendingGatewayPayment) {
+                        if ($pendingGatewayPayment->status === Payment::STATUS_SUCCESS) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Pembayaran sudah berhasil. Akses paket sudah aktif.',
+                                    'redirect_url' => route('user.package.my'),
+                                ]);
+                            }
+
+                            return redirect()->route('user.package.my')
+                                ->with('success', 'Pembayaran sudah berhasil. Akses paket sudah aktif.');
+                        }
+
+                        $redirectUrl = $this->pendingGatewayPaymentRedirectUrl($pendingGatewayPayment);
+
+                        if ($redirectUrl) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Anda masih memiliki tagihan pending untuk paket ini. Silakan lanjutkan pembayaran sebelumnya.',
+                                    'redirect_url' => $redirectUrl,
+                                ]);
+                            }
+
+                            return redirect()->away($redirectUrl);
+                        }
                     }
 
                     $paymentResponse = $this->createPayment($package, $discountData);
@@ -395,6 +451,240 @@ class PackageController extends Controller
         }
 
         return $this->createXenditPayment($package, $discountData);
+    }
+
+    private function syncPendingIpaymuPayment(Payment $payment): Payment
+    {
+        if ($payment->payment_method !== 'ipaymu' || $payment->status !== Payment::STATUS_PENDING) {
+            return $payment;
+        }
+
+        try {
+            $result = app(IpaymuGateway::class)->checkTransaction($payment);
+            $payment->refresh();
+
+            if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu sync');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $payment;
+    }
+
+    private function syncPendingIpaymuIndividualPurchase(IndividualPurchase $purchase): IndividualPurchase
+    {
+        if ($purchase->payment_method !== 'ipaymu' || $purchase->status !== IndividualPurchase::STATUS_PENDING) {
+            return $purchase;
+        }
+
+        try {
+            $result = app(IpaymuGateway::class)->checkIndividualTransaction($purchase);
+            $purchase->refresh();
+
+            if (($result['paid'] ?? false) && $purchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via iPaymu sync');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $purchase;
+    }
+
+    private function pendingIpaymuPaymentUsesCurrentGateway(Payment $payment): bool
+    {
+        if ($payment->payment_method !== 'ipaymu') {
+            return true;
+        }
+
+        $details = $payment->paymentDetailsArray();
+        $paymentBaseUrl = rtrim((string) ($details['gateway_base_url'] ?? ''), '/');
+        $currentBaseUrl = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        return $paymentBaseUrl !== '' && $paymentBaseUrl === $currentBaseUrl;
+    }
+
+    private function expireStaleIpaymuPayment(Payment $payment): void
+    {
+        $details = $payment->paymentDetailsArray();
+        $details['auto_expired_reason'] = 'Gateway iPaymu configuration changed before payment completion.';
+        $details['auto_expired_at'] = now()->toDateTimeString();
+        $details['current_gateway_base_url'] = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        $payment->update([
+            'status' => Payment::STATUS_EXPIRED,
+            'payment_details' => json_encode($details),
+        ]);
+    }
+
+    private function pendingIpaymuIndividualPurchaseUsesCurrentGateway(IndividualPurchase $purchase): bool
+    {
+        if ($purchase->payment_method !== 'ipaymu') {
+            return true;
+        }
+
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $paymentBaseUrl = rtrim((string) ($details['gateway_base_url'] ?? ''), '/');
+        $currentBaseUrl = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        return $paymentBaseUrl !== '' && $paymentBaseUrl === $currentBaseUrl;
+    }
+
+    private function rejectStaleIpaymuIndividualPurchase(IndividualPurchase $purchase): void
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $details['auto_rejected_reason'] = 'Gateway iPaymu configuration changed before payment completion.';
+        $details['auto_rejected_at'] = now()->toDateTimeString();
+        $details['current_gateway_base_url'] = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        $purchase->update([
+            'status' => IndividualPurchase::STATUS_REJECTED,
+            'payment_details' => $details,
+        ]);
+    }
+
+    private function pendingPackagePayment(Package $package, array $methods): ?Payment
+    {
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('package_id', $package->package_id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', $methods)
+            ->latest()
+            ->first();
+    }
+
+    private function pendingPackagePaymentsForPackages(array $packageIds)
+    {
+        if (empty($packageIds)) {
+            return collect();
+        }
+
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('package_id', $packageIds)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', ['manual', 'xendit', 'midtrans', 'ipaymu', 'interactive_qris'])
+            ->latest()
+            ->get()
+            ->filter(function (Payment $payment) {
+                if ($payment->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+
+                        if ($payment->status !== Payment::STATUS_PENDING) {
+                            return false;
+                        }
+
+                        $this->expireStaleIpaymuPayment($payment);
+                        return false;
+                    }
+
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+
+                    if ($payment->status !== Payment::STATUS_PENDING) {
+                        return false;
+                    }
+                }
+
+                if ($payment->payment_method === 'manual') {
+                    return true;
+                }
+
+                if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                    $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                    return false;
+                }
+
+                return (bool) $this->pendingGatewayPaymentRedirectUrl($payment);
+            })
+            ->unique('package_id')
+            ->keyBy('package_id');
+    }
+
+    private function reusablePendingPackageGatewayPayment(Package $package): ?Payment
+    {
+        $pendingPayments = Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('package_id', $package->package_id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', ['xendit', 'midtrans', 'ipaymu', 'interactive_qris'])
+            ->latest()
+            ->get();
+
+        foreach ($pendingPayments as $payment) {
+            if ($payment->payment_method === 'ipaymu') {
+                if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+
+                    if ($payment->status === Payment::STATUS_SUCCESS) {
+                        return $payment;
+                    }
+
+                    if ($payment->status === Payment::STATUS_PENDING) {
+                        $this->expireStaleIpaymuPayment($payment);
+                    }
+
+                    continue;
+                }
+
+                $payment = $this->syncPendingIpaymuPayment($payment);
+
+                if ($payment->status === Payment::STATUS_SUCCESS) {
+                    return $payment;
+                }
+
+                if ($payment->status !== Payment::STATUS_PENDING) {
+                    continue;
+                }
+            }
+
+            if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                continue;
+            }
+
+            if ($this->pendingGatewayPaymentRedirectUrl($payment)) {
+                return $payment;
+            }
+        }
+
+        return null;
+    }
+
+    private function pendingGatewayPaymentRedirectUrl(Payment $payment): ?string
+    {
+        $details = $payment->paymentDetailsArray();
+
+        return match ($payment->payment_method) {
+            'interactive_qris' => route('user.package.payment.qris.show', $payment->transaction_id),
+            'xendit' => $details['invoice_url'] ?? null,
+            'midtrans', 'ipaymu' => $details['redirect_url'] ?? null,
+            default => null,
+        };
+    }
+
+    private function pendingGatewayPaymentIsExpired(Payment $payment): bool
+    {
+        $details = $payment->paymentDetailsArray();
+        $expiresAt = $details['expires_at']
+            ?? $details['expiry_date']
+            ?? $details['expiration_date']
+            ?? null;
+
+        if ($expiresAt) {
+            return Carbon::parse($expiresAt)->isPast();
+        }
+
+        $createdAt = $payment->created_at ?: Carbon::now();
+
+        if ($payment->payment_method === 'interactive_qris') {
+            return $createdAt->copy()->addMinutes(30)->isPast();
+        }
+
+        return $createdAt->copy()->addDay()->isPast();
     }
 
     private function resolveDiscount(Request $request, Package $package): array
@@ -641,6 +931,9 @@ class PackageController extends Controller
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
         $baseUrl = rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/');
+        $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::withHeaders([
@@ -648,7 +941,7 @@ class PackageController extends Controller
                 'Content-Type' => 'application/json',
             ])->post($baseUrl . '/v2/invoices', [
                         'external_id' => $transactionId,
-                        'amount' => $discountData['payable_amount'],
+                        'amount' => $totalAmount,
                         'description' => 'Pembelian ' . $package->name,
                         'invoice_duration' => 86400, // 24 hours
                         'customer' => [
@@ -676,9 +969,11 @@ class PackageController extends Controller
                     'discount_code' => $discountData['discount_code'],
                     'original_amount' => (int) $package->price,
                     'discount_amount' => $discountData['discount_amount'],
-                    'amount' => $discountData['payable_amount'],
+                    'amount' => $amount,
                     'admin_fee' => 0,
-                    'total_amount' => $discountData['payable_amount'],
+                    'unique_code' => $uniqueCode,
+                    'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                    'total_amount' => $totalAmount,
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'xendit',
                     'payment_details' => json_encode([
@@ -686,6 +981,8 @@ class PackageController extends Controller
                         'invoice_url' => $invoiceData['invoice_url'],
                         'external_id' => $transactionId,
                         'base_amount' => (int) $package->price,
+                        'payable_amount' => $amount,
+                        'unique_code' => $uniqueCode,
                         'discount_code' => $discountData['discount_code'],
                         'discount_amount' => $discountData['discount_amount'],
                     ]),
@@ -729,6 +1026,9 @@ class PackageController extends Controller
         }
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
+        $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::withHeaders([
@@ -738,12 +1038,12 @@ class PackageController extends Controller
             ])->post($snapUrl, [
                         'transaction_details' => [
                             'order_id' => $transactionId,
-                            'gross_amount' => (int) round($discountData['payable_amount']),
+                            'gross_amount' => $totalAmount,
                         ],
                         'item_details' => [
                             [
                                 'id' => (string) $package->package_id,
-                                'price' => (int) round($discountData['payable_amount']),
+                                'price' => $totalAmount,
                                 'quantity' => 1,
                                 'name' => Str::limit($package->name, 50, ''),
                             ],
@@ -770,9 +1070,11 @@ class PackageController extends Controller
                     'discount_code' => $discountData['discount_code'],
                     'original_amount' => (int) $package->price,
                     'discount_amount' => $discountData['discount_amount'],
-                    'amount' => $discountData['payable_amount'],
+                    'amount' => $amount,
                     'admin_fee' => 0,
-                    'total_amount' => $discountData['payable_amount'],
+                    'unique_code' => $uniqueCode,
+                    'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                    'total_amount' => $totalAmount,
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'midtrans',
                     'payment_details' => json_encode([
@@ -780,6 +1082,8 @@ class PackageController extends Controller
                         'redirect_url' => $data['redirect_url'] ?? null,
                         'external_id' => $transactionId,
                         'base_amount' => (int) $package->price,
+                        'payable_amount' => $amount,
+                        'unique_code' => $uniqueCode,
                         'discount_code' => $discountData['discount_code'],
                         'discount_amount' => $discountData['discount_amount'],
                     ]),
@@ -808,6 +1112,15 @@ class PackageController extends Controller
                 'message' => 'Error koneksi ke Midtrans: ' . $e->getMessage(),
             ];
         }
+    }
+
+    private function paymentUniqueCodeFor(int $amount): ?int
+    {
+        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+            return null;
+        }
+
+        return Payment::generateManualUniqueCode();
     }
 
     private function grantFreeAccess(Package $package): void
@@ -875,14 +1188,344 @@ class PackageController extends Controller
         $access->save();
     }
 
-    public function riwayatPembelian()
+    public function riwayatPembelian(Request $request)
     {
         $payments = Payment::where('user_id', Auth::id())
             ->with('package')
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->get()
+            ->map(function (Payment $payment) {
+                if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
 
-        return view('user.pages.package.riwayat-pembelian', compact('payments'));
+                        if ($payment->status === Payment::STATUS_PENDING) {
+                            $this->expireStaleIpaymuPayment($payment);
+                            $payment->refresh();
+                        }
+                    } else {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+                    }
+                }
+
+                $actionUrl = null;
+                $actionLabel = null;
+
+                if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method !== 'manual') {
+                    if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                        $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                        $payment->refresh();
+                    } else {
+                        $actionUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
+                        $actionLabel = 'Lanjutkan Pembayaran';
+                    }
+                }
+
+                if (
+                    $payment->status === Payment::STATUS_EXPIRED
+                    && $payment->package
+                    && $payment->package->status === 'active'
+                    && $payment->package->is_displayed
+                ) {
+                    $actionUrl = route('user.package.detail', $payment->package_id);
+                    $actionLabel = 'Checkout Ulang';
+                }
+
+                return (object) [
+                    'type' => 'package',
+                    'title' => $payment->package->name ?? 'Paket',
+                    'subtitle' => 'Paket',
+                    'transaction_id' => $payment->transaction_id,
+                    'amount' => (float) $payment->total_amount,
+                    'status' => $payment->status,
+                    'payment_method' => $payment->payment_method,
+                    'created_at' => $payment->created_at,
+                    'action_url' => $actionUrl,
+                    'action_label' => $actionLabel,
+                ];
+            });
+
+        $individualPurchases = IndividualPurchase::where('user_id', Auth::id())
+            ->with('purchasable')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (IndividualPurchase $purchase) {
+                if ($purchase->status === IndividualPurchase::STATUS_PENDING && $purchase->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuIndividualPurchaseUsesCurrentGateway($purchase)) {
+                        $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+
+                        if ($purchase->status === IndividualPurchase::STATUS_PENDING) {
+                            $this->rejectStaleIpaymuIndividualPurchase($purchase);
+                            $purchase->refresh();
+                        }
+                    } else {
+                        $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+                    }
+                }
+
+                $item = $purchase->purchasable;
+                $subtitle = match (class_basename($purchase->purchasable_type)) {
+                    'Material' => 'Materi',
+                    'Tryout' => 'Tryout',
+                    'TesKoran' => 'Tes Koran',
+                    default => 'Item',
+                };
+                $actionUrl = null;
+                $actionLabel = null;
+
+                if ($purchase->status === IndividualPurchase::STATUS_PENDING && !in_array($purchase->payment_method, ['manual', 'free_conditional'], true)) {
+                    if ($this->pendingIndividualPurchaseIsExpired($purchase)) {
+                        $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
+                        $details['auto_rejected_reason'] = 'Gateway payment expired before completion.';
+                        $details['auto_rejected_at'] = now()->toDateTimeString();
+                        $purchase->update([
+                            'status' => IndividualPurchase::STATUS_REJECTED,
+                            'payment_details' => $details,
+                        ]);
+                        $purchase->refresh();
+                    } else {
+                        $actionUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
+                        $actionLabel = 'Lanjutkan Pembayaran';
+                    }
+                }
+
+                $isAutoExpired = $purchase->status === IndividualPurchase::STATUS_REJECTED && $this->individualPurchaseWasAutoExpired($purchase);
+
+                if ($isAutoExpired) {
+                    $actionUrl = $this->individualPurchaseRetryUrl($purchase);
+                    $actionLabel = 'Checkout Ulang';
+                }
+
+                return (object) [
+                    'type' => 'individual',
+                    'title' => $item?->title ?? $item?->name ?? 'Item',
+                    'subtitle' => $subtitle,
+                    'transaction_id' => $purchase->transaction_id,
+                    'amount' => (float) $purchase->total_amount,
+                    'status' => $isAutoExpired ? 'expired' : $purchase->status,
+                    'payment_method' => $purchase->payment_method,
+                    'created_at' => $purchase->created_at,
+                    'action_url' => $actionUrl,
+                    'action_label' => $actionLabel,
+                ];
+            });
+
+        $items = $payments
+            ->merge($individualPurchases)
+            ->sortByDesc('created_at')
+            ->values();
+
+        $perPage = 10;
+        $page = (int) $request->get('page', 1);
+        $histories = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $items->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
+        return view('user.pages.package.riwayat-pembelian', compact('histories'));
+    }
+
+    private function pendingIndividualPurchaseRedirectUrl(IndividualPurchase $purchase): ?string
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+
+        return match ($purchase->payment_method) {
+            'interactive_qris' => route('user.package.payment.qris.show', $purchase->transaction_id),
+            'xendit' => $details['invoice_url'] ?? null,
+            'midtrans', 'ipaymu' => $details['redirect_url'] ?? null,
+            default => null,
+        };
+    }
+
+    private function pendingIndividualPurchaseIsExpired(IndividualPurchase $purchase): bool
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $expiresAt = $details['expires_at']
+            ?? $details['expired_at']
+            ?? $details['expiry_date']
+            ?? $details['expiration_date']
+            ?? null;
+
+        if ($expiresAt) {
+            return Carbon::parse($expiresAt)->isPast();
+        }
+
+        if ($purchase->payment_method === 'interactive_qris') {
+            return ($purchase->created_at ?: now())->copy()->addMinutes(30)->isPast();
+        }
+
+        if (in_array($purchase->payment_method, ['xendit', 'midtrans', 'ipaymu'], true)) {
+            return ($purchase->created_at ?: now())->copy()->addDay()->isPast();
+        }
+
+        return false;
+    }
+
+    private function individualPurchaseWasAutoExpired(IndividualPurchase $purchase): bool
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $reason = strtolower((string) ($details['auto_rejected_reason'] ?? ''));
+
+        return str_contains($reason, 'expired');
+    }
+
+    private function individualPurchaseRetryUrl(IndividualPurchase $purchase): ?string
+    {
+        return match ($purchase->purchasable_type) {
+            Material::class => route('user.material.index'),
+            Tryout::class => route('user.package.tryout.list'),
+            TesKoran::class => route('user.tes-koran.index'),
+            default => null,
+        };
+    }
+
+    private function paymentDetailsArray(mixed $details): array
+    {
+        if (is_array($details)) {
+            return $details;
+        }
+
+        return $details ? (json_decode($details, true) ?: []) : [];
+    }
+
+    private function checkIndividualQrisPurchase(IndividualPurchase $purchase): array
+    {
+        $apiKey = config('services.interactive_qris.api_key');
+        $merchantId = config('services.interactive_qris.mid');
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $invoiceId = $details['qris_invoiceid'] ?? null;
+        $transactionDate = Carbon::parse($details['qris_request_date'] ?? $purchase->created_at)->toDateString();
+
+        if (!$apiKey || !$merchantId) {
+            return [
+                'success' => false,
+                'message' => 'Credential InterActive QRIS belum dikonfigurasi.',
+            ];
+        }
+
+        if (!$invoiceId) {
+            return [
+                'success' => false,
+                'message' => 'Invoice ID QRIS tidak ditemukan.',
+            ];
+        }
+
+        $response = Http::timeout(20)->get(rtrim(config('services.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'), '/') . '/checkpaid_qris.php', [
+            'do' => 'checkStatus',
+            'apikey' => $apiKey,
+            'mID' => $merchantId,
+            'invid' => $invoiceId,
+            'trxvalue' => (int) $purchase->total_amount,
+            'trxdate' => $transactionDate,
+        ]);
+
+        if (!$response->successful()) {
+            return [
+                'success' => false,
+                'message' => 'Gagal mengecek status InterActive QRIS.',
+            ];
+        }
+
+        $payload = $response->json();
+        $status = $payload['data']['qris_status'] ?? null;
+
+        if (($payload['status'] ?? null) === 'success' && $status === 'paid') {
+            $details['qris_paid_status'] = $payload['data'] ?? [];
+            $details['qris_api_version_code'] = $payload['qris_api_version_code'] ?? null;
+
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_APPROVED,
+                'approved_at' => now(),
+                'payment_details' => $details,
+            ]);
+
+            return [
+                'success' => true,
+                'paid' => true,
+                'message' => 'Pembayaran QRIS berhasil dikonfirmasi.',
+                'data' => $payload,
+            ];
+        }
+
+        if ($this->pendingIndividualPurchaseIsExpired($purchase)) {
+            $details['auto_rejected_reason'] = 'Gateway payment expired before completion.';
+            $details['auto_rejected_at'] = now()->toDateTimeString();
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_REJECTED,
+                'payment_details' => $details,
+            ]);
+
+            return [
+                'success' => true,
+                'paid' => false,
+                'expired' => true,
+                'message' => 'QRIS sudah kedaluwarsa. Silakan buat pembayaran ulang.',
+                'data' => $payload,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'paid' => false,
+            'expired' => false,
+            'message' => 'Pembayaran belum ditemukan. Coba cek lagi setelah beberapa saat.',
+            'data' => $payload,
+        ];
+    }
+
+    private function ensureIndividualPurchaseAccess(IndividualPurchase $purchase, string $notes): void
+    {
+        $purchase->loadMissing('purchasable');
+        $approvedAt = $purchase->approved_at ?: Carbon::now();
+        $accessExpiresAt = $purchase->access_expires_at
+            ?: ($purchase->purchasable ? PurchaseAccessDuration::expiresAt($purchase->purchasable, $approvedAt) : null);
+
+        if ($purchase->purchasable_type === Material::class) {
+            UserMaterialAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'material_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        } elseif ($purchase->purchasable_type === Tryout::class) {
+            UserTryoutAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'tryout_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'not_started',
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        }
+
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $details['access_activation_notes'] = $notes;
+
+        $purchase->update([
+            'status' => IndividualPurchase::STATUS_APPROVED,
+            'approved_at' => $approvedAt,
+            'access_expires_at' => $accessExpiresAt,
+            'payment_details' => $details,
+        ]);
     }
 
     public function riwayatPembelianAktif()
@@ -906,9 +1549,19 @@ class PackageController extends Controller
             ->where('transaction_id', $transactionId)
             ->where('user_id', Auth::id())
             ->where('payment_method', 'interactive_qris')
-            ->firstOrFail();
+            ->first();
 
-        $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+        $individualPurchase = null;
+        if (!$payment) {
+            $individualPurchase = IndividualPurchase::with('purchasable')
+                ->where('transaction_id', $transactionId)
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'interactive_qris')
+                ->firstOrFail();
+        }
+
+        $payable = $payment ?: $individualPurchase;
+        $paymentDetails = $this->paymentDetailsArray($payable->payment_details);
         $qrisContent = $paymentDetails['qris_content'] ?? null;
 
         if (!$qrisContent) {
@@ -917,14 +1570,29 @@ class PackageController extends Controller
                 ->with('error', 'Konten QRIS tidak ditemukan.');
         }
 
-        if ($payment->status === Payment::STATUS_PENDING && $gateway->isExpired($payment)) {
+        if ($payment && $payment->status === Payment::STATUS_PENDING && $gateway->isExpired($payment)) {
             $payment->update(['status' => Payment::STATUS_EXPIRED]);
             $payment->refresh();
         }
 
-        $qrisImage = base64_encode(QrCode::format('png')->size(280)->margin(1)->generate($qrisContent));
+        if ($individualPurchase && $individualPurchase->status === IndividualPurchase::STATUS_PENDING && $this->pendingIndividualPurchaseIsExpired($individualPurchase)) {
+            $paymentDetails['auto_rejected_reason'] = 'Gateway payment expired before completion.';
+            $paymentDetails['auto_rejected_at'] = now()->toDateTimeString();
+            $individualPurchase->update([
+                'status' => IndividualPurchase::STATUS_REJECTED,
+                'payment_details' => $paymentDetails,
+            ]);
+            $individualPurchase->refresh();
+            $payable = $individualPurchase;
+        }
 
-        return view('user.pages.package.payment-qris', compact('payment', 'paymentDetails', 'qrisImage'));
+        $qrisImage = base64_encode(QrCode::format('png')->size(280)->margin(1)->generate($qrisContent));
+        $payment = $payable;
+        $paymentTitle = $payable instanceof Payment
+            ? ($payable->package->name ?? 'Paket')
+            : ($payable->purchasable?->title ?? $payable->purchasable?->name ?? 'Item');
+
+        return view('user.pages.package.payment-qris', compact('payment', 'paymentDetails', 'qrisImage', 'paymentTitle'));
     }
 
     public function checkQrisPayment(string $transactionId, InteractiveQrisGateway $gateway)
@@ -933,9 +1601,44 @@ class PackageController extends Controller
             ->where('transaction_id', $transactionId)
             ->where('user_id', Auth::id())
             ->where('payment_method', 'interactive_qris')
-            ->firstOrFail();
+            ->first();
+
+        if (!$payment) {
+            $individualPurchase = IndividualPurchase::with('purchasable')
+                ->where('transaction_id', $transactionId)
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'interactive_qris')
+                ->firstOrFail();
+
+            if ($individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via InterActive QRIS');
+
+                return response()->json([
+                    'success' => true,
+                    'paid' => true,
+                    'message' => 'Pembayaran sudah dikonfirmasi.',
+                    'redirect_url' => route('user.package.my'),
+                ]);
+            }
+
+            $result = $this->checkIndividualQrisPurchase($individualPurchase);
+            $individualPurchase->refresh();
+
+            if (($result['paid'] ?? false) && $individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via InterActive QRIS');
+
+                return response()->json([
+                    ...$result,
+                    'redirect_url' => route('user.package.my'),
+                ]);
+            }
+
+            return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
+        }
 
         if ($payment->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS');
+
             return response()->json([
                 'success' => true,
                 'paid' => true,
@@ -1654,39 +2357,174 @@ class PackageController extends Controller
         });
     }
 
-    public function paymentSuccess()
+    public function paymentSuccess(Request $request, IpaymuGateway $ipaymuGateway)
     {
-        // TEMPORARY: Auto-activate pending payments for development testing
-        if (config('app.env') === 'local' || config('app.env') === 'production') {
-            $this->activatePendingPayments(Auth::id());
+        $payment = $this->ipaymuReturnPayment($request);
+
+        if ($payment) {
+            try {
+                if ($payment->status === Payment::STATUS_PENDING && $ipaymuGateway->requestHasPaidStatus($request)) {
+                    $details = $payment->paymentDetailsArray();
+                    $details['ipaymu_return'] = $request->all();
+                    $payment->update([
+                        'status' => Payment::STATUS_SUCCESS,
+                        'paid_at' => Carbon::now(),
+                        'payment_details' => json_encode($details),
+                    ]);
+                    $payment->refresh();
+                } elseif ($payment->status === Payment::STATUS_PENDING) {
+                    $ipaymuGateway->checkTransaction($payment);
+                    $payment->refresh();
+                }
+
+                if ($payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu return');
+
+                    return redirect()->route('user.package.my')
+                        ->with('success', 'Pembayaran berhasil. Paket sudah aktif.');
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $individualPurchase = $this->ipaymuReturnIndividualPurchase($request);
+
+        if ($individualPurchase) {
+            try {
+                if ($individualPurchase->status === IndividualPurchase::STATUS_PENDING && $ipaymuGateway->requestHasPaidStatus($request)) {
+                    $details = $this->paymentDetailsArray($individualPurchase->payment_details);
+                    $details['ipaymu_return'] = $request->all();
+                    $individualPurchase->update([
+                        'status' => IndividualPurchase::STATUS_APPROVED,
+                        'approved_at' => Carbon::now(),
+                        'payment_details' => $details,
+                    ]);
+                    $individualPurchase->refresh();
+                } elseif ($individualPurchase->status === IndividualPurchase::STATUS_PENDING) {
+                    $ipaymuGateway->checkIndividualTransaction($individualPurchase);
+                    $individualPurchase->refresh();
+                }
+
+                if ($individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
+                    $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via iPaymu return');
+
+                    return redirect()->route('user.package.my')
+                        ->with('success', 'Pembayaran berhasil. Akses sudah aktif.');
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return redirect()->route('user.package.riwayatPembelian')
-            ->with('success', 'Pembayaran berhasil! Akses paket akan diaktifkan setelah konfirmasi.');
+            ->with('success', 'Terima kasih. Akses akan aktif setelah pembayaran dikonfirmasi oleh payment gateway.');
     }
 
-    /**
-     * TEMPORARY: Activate pending payments for development testing
-     */
-    private function activatePendingPayments($userId)
+    private function ipaymuReturnPayment(Request $request): ?Payment
     {
-        try {
-            $pendingPayments = Payment::where('user_id', $userId)
-                ->where('status', 'pending')
-                ->where('created_at', '>', now()->subHours(2)) // Only payments from last 2 hours
-                ->get();
-
-            foreach ($pendingPayments as $payment) {
-                // Update payment status
-                $payment->update([
-                    'status' => 'success',
-                    'paid_at' => Carbon::now()
-                ]);
-
-                $this->ensureUserPackageAccess($payment, 'Auto-activated for development testing');
-            }
-        } catch (\Exception $e) {
+        if (!Auth::check()) {
+            return null;
         }
+
+        $referenceId = (string) ($request->input('transaction_id')
+            ?: $request->input('reference_id')
+            ?: $request->input('referenceId')
+            ?: $request->input('reference')
+            ?: $request->input('merchant_ref')
+            ?: '');
+
+        if ($referenceId !== '') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('transaction_id', $referenceId)
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        $gatewayTransactionId = (string) ($request->input('trx_id')
+            ?: $request->input('ipaymu_transaction_id')
+            ?: $request->input('sid')
+            ?: '');
+
+        if ($gatewayTransactionId !== '') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('payment_details', 'like', '%' . $gatewayTransactionId . '%')
+                ->latest()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        if (strtolower((string) config('services.payment_gateway', '')) !== 'ipaymu') {
+            return null;
+        }
+
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'ipaymu')
+            ->where('status', Payment::STATUS_PENDING)
+            ->latest()
+            ->first();
+    }
+
+    private function ipaymuReturnIndividualPurchase(Request $request): ?IndividualPurchase
+    {
+        if (!Auth::check()) {
+            return null;
+        }
+
+        $referenceId = (string) ($request->input('transaction_id')
+            ?: $request->input('reference_id')
+            ?: $request->input('referenceId')
+            ?: $request->input('reference')
+            ?: $request->input('merchant_ref')
+            ?: '');
+
+        if ($referenceId !== '') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('transaction_id', $referenceId)
+                ->first();
+
+            if ($purchase) {
+                return $purchase;
+            }
+        }
+
+        $gatewayTransactionId = (string) ($request->input('trx_id')
+            ?: $request->input('ipaymu_transaction_id')
+            ?: $request->input('sid')
+            ?: '');
+
+        if ($gatewayTransactionId !== '') {
+            return IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('payment_details', 'like', '%' . $gatewayTransactionId . '%')
+                ->latest()
+                ->first();
+        }
+
+        if (strtolower((string) config('services.payment_gateway', '')) !== 'ipaymu') {
+            return null;
+        }
+
+        return IndividualPurchase::query()
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'ipaymu')
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->latest()
+            ->first();
     }
 
     public function paymentFailed()
@@ -1709,7 +2547,31 @@ class PackageController extends Controller
         $payment = Payment::where('transaction_id', $request->external_id)->first();
 
         if (!$payment) {
-            return response()->json(['message' => 'Payment not found'], 404);
+            $purchase = IndividualPurchase::where('transaction_id', $request->external_id)->first();
+
+            if (!$purchase) {
+                return response()->json(['message' => 'Payment not found'], 404);
+            }
+
+            if ($request->status === 'PAID') {
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_APPROVED,
+                    'approved_at' => Carbon::now(),
+                ]);
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via Xendit');
+            } elseif (in_array($request->status, ['EXPIRED', 'FAILED'], true)) {
+                $details = $this->paymentDetailsArray($purchase->payment_details);
+                $details['auto_rejected_reason'] = $request->status === 'EXPIRED'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_REJECTED,
+                    'payment_details' => $details,
+                ]);
+            }
+
+            return response()->json(['message' => 'OK']);
         }
 
         if ($request->status === 'PAID') {
@@ -1753,7 +2615,40 @@ class PackageController extends Controller
         $payment = Payment::where('transaction_id', $orderId)->first();
 
         if (!$payment) {
-            return response()->json(['message' => 'Payment not found'], 404);
+            $purchase = IndividualPurchase::where('transaction_id', $orderId)->first();
+
+            if (!$purchase) {
+                return response()->json(['message' => 'Payment not found'], 404);
+            }
+
+            $transactionStatus = $request->input('transaction_status');
+            $fraudStatus = $request->input('fraud_status');
+
+            if (in_array($transactionStatus, ['capture', 'settlement'], true)) {
+                if ($transactionStatus === 'capture' && $fraudStatus === 'challenge') {
+                    $purchase->update(['status' => IndividualPurchase::STATUS_PENDING]);
+                } else {
+                    $purchase->update([
+                        'status' => IndividualPurchase::STATUS_APPROVED,
+                        'approved_at' => Carbon::now(),
+                    ]);
+                    $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via Midtrans');
+                }
+            } elseif ($transactionStatus === 'pending') {
+                $purchase->update(['status' => IndividualPurchase::STATUS_PENDING]);
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $details = $this->paymentDetailsArray($purchase->payment_details);
+                $details['auto_rejected_reason'] = $transactionStatus === 'expire'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed or cancelled.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_REJECTED,
+                    'payment_details' => $details,
+                ]);
+            }
+
+            return response()->json(['message' => 'OK']);
         }
 
         $transactionStatus = $request->input('transaction_status');
@@ -1783,14 +2678,18 @@ class PackageController extends Controller
 
     public function ipaymuWebhook(Request $request, IpaymuGateway $gateway)
     {
-        $payment = $gateway->handleWebhook($request);
+        $payable = $gateway->handleWebhook($request);
 
-        if (!$payment) {
+        if (!$payable) {
             return response()->json(['message' => 'Payment not found'], 404);
         }
 
-        if ($payment->status === Payment::STATUS_SUCCESS) {
-            $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu');
+        if ($payable instanceof Payment && $payable->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payable, 'Payment confirmed via iPaymu');
+        }
+
+        if ($payable instanceof IndividualPurchase && $payable->status === IndividualPurchase::STATUS_APPROVED) {
+            $this->ensureIndividualPurchaseAccess($payable, 'Payment confirmed via iPaymu');
         }
 
         return response()->json(['message' => 'OK']);
@@ -1798,6 +2697,10 @@ class PackageController extends Controller
 
     private function ensureUserPackageAccess(Payment $payment, string $notes): void
     {
+        if ($payment->status !== Payment::STATUS_SUCCESS) {
+            throw new \RuntimeException('Cannot grant package access before payment is successful.');
+        }
+
         $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
             ->where('package_id', $payment->package_id)
             ->where('status', 'active')
@@ -1900,9 +2803,15 @@ class PackageController extends Controller
         if ($payment->payment_method === 'ipaymu') {
             try {
                 $result = app(IpaymuGateway::class)->checkTransaction($payment);
+                $payment->refresh();
+
+                if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu - admin check');
+                }
 
                 return response()->json([
                     'payment_status' => $payment->status,
+                    'gateway_confirmation' => $payment->gatewayConfirmationLabel(),
                     'ipaymu_result' => $result,
                 ]);
             } catch (\Exception $e) {
@@ -2676,6 +3585,8 @@ class PackageController extends Controller
             ->toArray();
 
         $directMaterialIds = UserMaterialAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where('status', '!=', 'not_started')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -2695,6 +3606,8 @@ class PackageController extends Controller
             ->get();
 
         $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
@@ -3113,6 +4026,7 @@ class PackageController extends Controller
         $hasAccess = false;
         $isOwned = false;
         $isPendingConditional = false;
+        $pendingPackagePayment = null;
         
         if (Auth::check()) {
             $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -3128,6 +4042,7 @@ class PackageController extends Controller
                 ->where('package_id', $package_id)
                 ->where('requirement_status', 'pending')
                 ->exists();
+            $pendingPackagePayment = $this->pendingPackagePaymentsForPackages([(int) $package_id])->get((int) $package_id);
         }
         
         // Calculate stats counts from materialsThroughDetail
@@ -3176,6 +4091,7 @@ class PackageController extends Controller
             'hasAccess',
             'isOwned',
             'isPendingConditional',
+            'pendingPackagePayment',
             'totalVideos',
             'totalDocuments',
             'totalLiveSessions',

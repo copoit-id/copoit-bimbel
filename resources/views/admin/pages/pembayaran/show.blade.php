@@ -168,6 +168,12 @@
                 <span class="text-gray-600">Nominal:</span>
                 <span class="font-medium">Rp {{ number_format($payment->total_amount, 0, ',', '.') }}</span>
             </div>
+            @if($payment->gatewayReference())
+            <div class="flex justify-between gap-4">
+                <span class="text-gray-600">Ref Gateway:</span>
+                <span class="font-medium font-mono text-xs text-right">{{ $payment->gatewayReference() }}</span>
+            </div>
+            @endif
             @if($payment->status !== 'failed')
             <div class="flex justify-between">
                 <span class="text-gray-600">Referensi:</span>
