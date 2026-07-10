@@ -22,7 +22,8 @@ class LeaderboardController extends Controller
 {
     public function index()
     {
-        // Get all tryouts with their packages and participant counts - GROUP BY tryout
+        // Show every tryout that is available through a package, including those
+        // that have not received any participant attempts yet.
         $tryouts = Tryout::with(['tryoutDetails', 'packages', 'directPackage'])
             ->get()
             ->map(function ($tryout) {
@@ -32,11 +33,6 @@ class LeaderboardController extends Controller
                 $participantCount = UserAnswer::where('tryout_id', $tryout->tryout_id)
                     ->distinct('user_id')
                     ->count();
-
-                // Skip tryouts with no participants
-                if ($participantCount === 0) {
-                    return null;
-                }
 
                 // Get all packages that have this tryout
                 $packages = $tryout->packages;
