@@ -293,6 +293,13 @@ class PackageController extends Controller
             'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'nullable|boolean',
+            'is_displayed' => 'nullable|boolean',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1',
         ]);
 
         try {
@@ -305,7 +312,14 @@ class PackageController extends Controller
                 'drive_link' => $request->drive_link,
                 'tentor_id' => $tentor?->id,
                 'mentor' => $tentor?->name ?: $request->mentor,
-                'status' => $request->status
+                'status' => $request->status,
+                'price' => $request->integer('price'),
+                'is_for_sale' => $request->boolean('is_for_sale'),
+                'is_displayed' => $request->boolean('is_displayed', true),
+                'type_price' => $request->input('type_price', 'paid'),
+                'conditional_requirement' => $request->input('conditional_requirement'),
+                'access_duration_unit' => \App\Services\PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
+                'access_duration_value' => \App\Services\PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
             ]);
 
             return redirect()->route('admin.package.class.index', $package_id)

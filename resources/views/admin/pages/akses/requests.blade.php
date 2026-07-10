@@ -10,6 +10,7 @@
         'video' => 'videos',
         'document' => 'documents',
         'live_session' => 'live',
+        'class' => 'classes',
         'tryout' => 'tryouts',
         default => $type,
     };
@@ -18,6 +19,7 @@
         'videos', 'video' => 'Video',
         'documents', 'document' => 'Dokumen',
         'live', 'live_session' => $clientBranding['live_session_label'] ?? 'Kelas Belajar',
+        'classes', 'class' => 'Kelas Zoom',
         'tryouts', 'tryout' => 'Tryout',
         'tes_koran' => 'Tes Koran',
         default => 'Item',

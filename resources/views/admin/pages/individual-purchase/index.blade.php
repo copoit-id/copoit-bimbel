@@ -5,6 +5,7 @@
     $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
     $typeOptions = [
         'material' => 'Materi',
+        'class' => 'Kelas Zoom',
         'tryout' => 'Tryout',
     ];
 
@@ -124,6 +125,7 @@
                     $itemTitle = $purchase->purchasable?->title ?? $purchase->purchasable?->name ?? 'N/A';
                     $itemType = class_basename($purchase->purchasable_type ?? '');
                     $typeLabel = match ($itemType) {
+                        'ClassModel' => 'Kelas Zoom',
                         'Tryout' => 'Tryout',
                         'TesKoran' => 'Tes Koran',
                         default => 'Materi',

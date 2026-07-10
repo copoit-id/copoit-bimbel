@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
 use App\Models\Tentor;
 use App\Models\Tryout;
+use App\Services\PurchaseAccessDuration;
 use Illuminate\Http\Request;
 
 class ClassController extends Controller
@@ -33,6 +34,13 @@ class ClassController extends Controller
             'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'nullable|boolean',
+            'is_displayed' => 'nullable|boolean',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1',
         ]);
 
         try {
@@ -45,7 +53,14 @@ class ClassController extends Controller
                 'drive_link' => $request->drive_link,
                 'tentor_id' => $tentor?->id,
                 'mentor' => $tentor?->name ?: $request->mentor,
-                'status' => $request->status
+                'status' => $request->status,
+                'price' => $request->integer('price'),
+                'is_for_sale' => $request->boolean('is_for_sale'),
+                'is_displayed' => $request->boolean('is_displayed', true),
+                'type_price' => $request->input('type_price', 'paid'),
+                'conditional_requirement' => $request->input('conditional_requirement'),
+                'access_duration_unit' => PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
+                'access_duration_value' => PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
             ]);
 
             return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
@@ -82,6 +97,13 @@ class ClassController extends Controller
             'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'nullable|boolean',
+            'is_displayed' => 'nullable|boolean',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1',
         ]);
 
         try {
@@ -95,7 +117,14 @@ class ClassController extends Controller
                 'drive_link' => $request->drive_link,
                 'tentor_id' => $tentor?->id,
                 'mentor' => $mentorName,
-                'status' => $request->status
+                'status' => $request->status,
+                'price' => $request->integer('price'),
+                'is_for_sale' => $request->boolean('is_for_sale'),
+                'is_displayed' => $request->boolean('is_displayed', true),
+                'type_price' => $request->input('type_price', 'paid'),
+                'conditional_requirement' => $request->input('conditional_requirement'),
+                'access_duration_unit' => PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
+                'access_duration_value' => PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
             ]);
 
             return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])

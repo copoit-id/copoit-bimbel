@@ -16,6 +16,7 @@ use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
+use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
@@ -1379,6 +1380,7 @@ class PackageController extends Controller
     {
         return match ($purchase->purchasable_type) {
             Material::class => route('user.material.index'),
+            ClassModel::class => route('user.package.my', ['tab' => 'classes']),
             Tryout::class => route('user.package.tryout.list'),
             TesKoran::class => route('user.tes-koran.index'),
             default => null,
@@ -1497,6 +1499,21 @@ class PackageController extends Controller
                     'access_source' => 'direct',
                     'source_id' => $purchase->id,
                     'status' => 'in_progress',
+                    'started_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        } elseif ($purchase->purchasable_type === ClassModel::class) {
+            UserClassAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'class_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'active',
                     'started_at' => now(),
                     'expires_at' => $accessExpiresAt,
                 ]
@@ -1761,14 +1778,7 @@ class PackageController extends Controller
         }
         $packageIds = array_unique($packageIds);
 
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->whereIn('package_id', $packageIds)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        $hasAccess = $class->canUserAccess(Auth::id());
 
         if (!$hasAccess) {
             return redirect()->route('user.package.index')
@@ -1795,14 +1805,7 @@ class PackageController extends Controller
         }
         $packageIds = array_unique($packageIds);
 
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->whereIn('package_id', $packageIds)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        $hasAccess = $class->canUserAccess(Auth::id());
 
         if (!$hasAccess) {
             return redirect()->route('user.package.index')
@@ -3554,6 +3557,7 @@ class PackageController extends Controller
         
         $packageRelations = [
             'package.materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+            'package.classes' => fn ($query) => $query->where('classes.is_displayed', true),
             'package.tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
         ];
         if ($tesKoranEnabled) {
@@ -3603,6 +3607,34 @@ class PackageController extends Controller
             ->with(['userAccess' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             }])
+            ->get();
+
+        $packageClassIds = \DB::table('detail_packages')
+            ->join('classes', 'detail_packages.detailable_id', '=', 'classes.class_id')
+            ->whereIn('package_id', $accessiblePackageIds)
+            ->where('detailable_type', ClassModel::class)
+            ->where('classes.is_displayed', true)
+            ->pluck('detail_packages.detailable_id')
+            ->toArray();
+
+        $directClassIds = UserClassAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->pluck('class_id')
+            ->toArray();
+
+        $accessibleClassIds = array_values(array_unique(array_merge($packageClassIds, $directClassIds)));
+
+        $myClasses = ClassModel::whereIn('class_id', $accessibleClassIds)
+            ->where('is_displayed', true)
+            ->with(['tentor', 'userAccess' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }])
+            ->orderBy('schedule_time', 'desc')
             ->get();
 
         $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
@@ -3669,6 +3701,14 @@ class PackageController extends Controller
             fn ($material) => $material->created_at
         );
 
+        $myClasses = $this->filterAndSortUserCollection(
+            $myClasses,
+            $search,
+            $sort,
+            fn ($class) => (string) $class->title,
+            fn ($class) => $class->schedule_time ?? $class->created_at
+        );
+
         $myTryouts = $this->filterAndSortUserCollection(
             $myTryouts,
             $search,
@@ -3710,9 +3750,10 @@ class PackageController extends Controller
         foreach ($activePackages as $access) {
             $package = $access->package;
             $materials = $package?->materialsThroughDetail ?? collect();
+            $classes = $package?->classes ?? collect();
             $tryouts = $package?->tryouts ?? collect();
             $tesKorans = $tesKoranEnabled ? ($package?->tesKorans ?? collect()) : collect();
-            $totalItems = $materials->count() + $tryouts->count() + $tesKorans->count();
+            $totalItems = $materials->count() + $classes->count() + $tryouts->count() + $tesKorans->count();
             $completedCount = $materials->whereIn('material_id', $completedMaterialIds)->count()
                 + $tryouts->whereIn('tryout_id', $completedTryoutIds)->count()
                 + $tesKorans->whereIn('id', $completedTesKoranIds)->count();
@@ -3739,6 +3780,7 @@ class PackageController extends Controller
         return view('user.pages.package.new-my-packages', compact(
             'activePackages',
             'myMaterials',
+            'myClasses',
             'videoMaterials',
             'documentMaterials',
             'myTryouts',

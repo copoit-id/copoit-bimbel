@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClassModel;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\Package;
+use App\Models\StudyGroup;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\User;
+use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use App\Models\UserPackageAcces;
 use App\Models\UserTryoutAccess;
@@ -41,6 +44,7 @@ class AksesController extends Controller
             'videos' => Material::where('type', 'video')->where('is_active', true)->withCount('userAccess')->get(),
             'documents' => Material::where('type', 'document')->where('is_active', true)->withCount('userAccess')->get(),
             'live' => Material::where('type', 'live_session')->where('is_active', true)->withCount('userAccess')->get(),
+            'classes' => ClassModel::withCount('userAccess')->orderBy('schedule_time', 'desc')->get(),
             'tryouts' => Tryout::where('is_active', true)->withCount('userAccess')->get(),
             'tes_koran' => TesKoran::where('is_active', true)
                 ->withCount([
@@ -73,6 +77,7 @@ class AksesController extends Controller
         $itemId = $request->integer('item_id');
         $normalizedType = rtrim($type, 's');
         if ($normalizedType === 'live') $normalizedType = 'live_session';
+        if ($normalizedType === 'classe') $normalizedType = 'class';
 
         abort_if(!$itemId, 404);
         abort_if(
@@ -83,6 +88,7 @@ class AksesController extends Controller
         $item = match($normalizedType) {
             'package' => Package::findOrFail($itemId),
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
+            'classe', 'class' => ClassModel::findOrFail($itemId),
             'tryout' => Tryout::findOrFail($itemId),
             'tes_koran' => TesKoran::findOrFail($itemId),
             default => abort(404),
@@ -111,6 +117,7 @@ class AksesController extends Controller
         $itemId = $request->get('item_id');
         $normalizedType = rtrim($type, 's');
         if ($normalizedType === 'live') $normalizedType = 'live_session';
+        if ($normalizedType === 'classe') $normalizedType = 'class';
 
         abort_if(
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
@@ -125,6 +132,7 @@ class AksesController extends Controller
         $item = match($normalizedType) {
             'package' => Package::findOrFail($itemId),
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
+            'class' => ClassModel::findOrFail($itemId),
             'tryout' => Tryout::findOrFail($itemId),
             'tes_koran' => TesKoran::findOrFail($itemId),
             default => abort(404),
@@ -137,6 +145,10 @@ class AksesController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+            'class' => UserClassAccess::where('class_id', $itemId)
                 ->with('user')
                 ->orderBy('created_at', 'desc')
                 ->get(),
@@ -171,9 +183,17 @@ class AksesController extends Controller
             $user->access_status = $this->accessStatusFor($normalizedType, $access);
             $user->has_access = $user->access_status === 'active';
         }
+
+        $studyGroups = StudyGroup::query()
+            ->where('is_active', true)
+            ->with(['users' => function ($query) {
+                $query->where('status', 'aktif')->orderBy('name');
+            }])
+            ->orderBy('name')
+            ->get();
         
         return view('admin.pages.akses.manage', compact(
-            'type', 'item', 'usersWithAccess', 'allUsers', 'search'
+            'type', 'item', 'usersWithAccess', 'allUsers', 'search', 'studyGroups'
         ));
     }
 
@@ -183,7 +203,7 @@ class AksesController extends Controller
     public function grant(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran',
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,class,classes,tryout,tryouts,tes_koran',
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
             'start_date' => 'nullable|date',
@@ -198,6 +218,7 @@ class AksesController extends Controller
         // Normalize type
         $normalizedType = rtrim($type, 's');
         if ($normalizedType === 'live') $normalizedType = 'live_session';
+        if ($normalizedType === 'classe') $normalizedType = 'class';
 
         abort_if(
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'update') ?? false),
@@ -205,7 +226,70 @@ class AksesController extends Controller
         );
         
         // Check if already has access
-        $hasAccess = match($normalizedType) {
+        $hasAccess = $this->hasActiveAccess($normalizedType, (int) $userId, (int) $itemId);
+        
+        if ($hasAccess) {
+            return response()->json(['success' => false, 'message' => 'User sudah memiliki akses']);
+        }
+        
+        $this->grantAccessToUser($normalizedType, (int) $userId, (int) $itemId, $request);
+        
+        return response()->json(['success' => true, 'message' => 'Akses berhasil diberikan']);
+    }
+
+    public function grantStudyGroup(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,class,classes,tryout,tryouts,tes_koran',
+            'item_id' => 'required|integer',
+            'study_group_id' => 'required|exists:study_groups,id',
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'integer|exists:users,id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after:start_date',
+            'access_type' => 'required|in:free,paid',
+        ]);
+
+        $normalizedType = rtrim($request->type, 's');
+        if ($normalizedType === 'live') $normalizedType = 'live_session';
+        if ($normalizedType === 'classe') $normalizedType = 'class';
+
+        abort_if(
+            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'update') ?? false),
+            403
+        );
+
+        $groupUserIds = StudyGroup::findOrFail($request->integer('study_group_id'))
+            ->users()
+            ->whereIn('users.id', $request->input('user_ids', []))
+            ->pluck('users.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $granted = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($groupUserIds, $normalizedType, $request, &$granted, &$skipped) {
+            foreach ($groupUserIds as $userId) {
+                if ($this->hasActiveAccess($normalizedType, $userId, $request->integer('item_id'))) {
+                    $skipped++;
+                    continue;
+                }
+
+                $this->grantAccessToUser($normalizedType, $userId, $request->integer('item_id'), $request);
+                $granted++;
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$granted} user berhasil diberi akses. {$skipped} user dilewati karena sudah punya akses.",
+        ]);
+    }
+
+    private function hasActiveAccess(string $normalizedType, int $userId, int $itemId): bool
+    {
+        return match($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)
                 ->where('user_id', $userId)
                 ->where('status', 'active')
@@ -215,6 +299,13 @@ class AksesController extends Controller
                 })
                 ->exists(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)
+                ->where('user_id', $userId)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', Carbon::now());
+                })
+                ->exists(),
+            'class' => UserClassAccess::where('class_id', $itemId)
                 ->where('user_id', $userId)
                 ->where(function ($query) {
                     $query->whereNull('expires_at')
@@ -235,21 +326,18 @@ class AksesController extends Controller
                 ->exists(),
             default => true,
         };
-        
-        if ($hasAccess) {
-            return response()->json(['success' => false, 'message' => 'User sudah memiliki akses']);
-        }
-        
-        // Grant access
+    }
+
+    private function grantAccessToUser(string $normalizedType, int $userId, int $itemId, Request $request): void
+    {
         match($normalizedType) {
             'package' => $this->grantPackageAccess($userId, $itemId, $request),
             'video', 'document', 'live_session' => $this->grantMaterialAccess($userId, $itemId, $request),
+            'class' => $this->grantClassAccess($userId, $itemId, $request),
             'tryout' => $this->grantTryoutAccess($userId, $itemId, $request),
             'tes_koran' => $this->grantTesKoranAccess($userId, $itemId, $request),
             default => null,
         };
-        
-        return response()->json(['success' => true, 'message' => 'Akses berhasil diberikan']);
     }
 
     /**
@@ -258,7 +346,7 @@ class AksesController extends Controller
     public function revoke(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,tryout,tryouts,tes_koran',
+            'type' => 'required|in:package,packages,video,videos,document,documents,live,live_session,class,classes,tryout,tryouts,tes_koran',
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
         ]);
@@ -270,6 +358,7 @@ class AksesController extends Controller
         // Normalize type
         $normalizedType = rtrim($type, 's');
         if ($normalizedType === 'live') $normalizedType = 'live_session';
+        if ($normalizedType === 'classe') $normalizedType = 'class';
 
         abort_if(
             $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'delete') ?? false),
@@ -279,6 +368,7 @@ class AksesController extends Controller
         match($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->delete(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->delete(),
+            'class' => UserClassAccess::where('class_id', $itemId)->where('user_id', $userId)->delete(),
             'tryout' => UserTryoutAccess::where('tryout_id', $itemId)->where('user_id', $userId)->delete(),
             'tes_koran' => IndividualPurchase::where('purchasable_type', TesKoran::class)
                 ->where('purchasable_id', $itemId)
@@ -327,7 +417,7 @@ class AksesController extends Controller
             return 'expired';
         }
 
-        if (in_array($type, ['video', 'document', 'live_session', 'tryout'], true)) {
+        if (in_array($type, ['video', 'document', 'live_session', 'class', 'tryout'], true)) {
             $expiresAt = $access->expires_at ?? null;
 
             if (is_null($expiresAt) || Carbon::parse($expiresAt)->isFuture()) {
@@ -338,6 +428,29 @@ class AksesController extends Controller
         }
 
         return 'active';
+    }
+
+    private function grantClassAccess($userId, $classId, $request)
+    {
+        $class = ClassModel::findOrFail($classId);
+        $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
+        $accessType = $request->access_type === 'paid' ? 'purchased' : 'free';
+
+        UserClassAccess::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'class_id' => $classId,
+            ],
+            [
+                'access_type' => $accessType,
+                'access_source' => 'direct',
+                'status' => 'active',
+                'started_at' => $startDate,
+                'expires_at' => $request->end_date
+                    ? Carbon::parse($request->end_date)
+                    : PurchaseAccessDuration::expiresAt($class, $startDate),
+            ]
+        );
     }
 
     private function grantMaterialAccess($userId, $materialId, $request)
@@ -448,6 +561,7 @@ class AksesController extends Controller
     {
         return match ($tab) {
             'video', 'videos', 'document', 'documents', 'live', 'live_session' => Material::class,
+            'class', 'classes' => ClassModel::class,
             'tryout', 'tryouts' => Tryout::class,
             'tes_koran' => TesKoran::class,
             default => null,
@@ -456,7 +570,7 @@ class AksesController extends Controller
 
     private function itemIdForTab(string $tab, $item): ?int
     {
-        $itemId = $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id ?? null;
+        $itemId = $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id ?? null;
 
         return $itemId ? (int) $itemId : null;
     }
