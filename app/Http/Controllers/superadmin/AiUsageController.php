@@ -5,6 +5,9 @@ namespace App\Http\Controllers\superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\AiDiscussionUsageLog;
 use App\Models\ClientProfile;
+use App\Models\AiGatewayClient;
+use App\Models\AiGatewayUsageLog;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,11 +87,33 @@ class AiUsageController extends Controller
 
         $providers = AiDiscussionUsageLog::query()->distinct()->orderBy('provider')->pluck('provider');
         $models = AiDiscussionUsageLog::query()->distinct()->orderBy('model')->pluck('model');
+        $gatewayClients = AiGatewayClient::withSum(['usageLogs as tokens_this_month' => fn ($q) => $q->where('created_at', '>=', now()->startOfMonth())], 'total_tokens')->orderBy('name')->get();
 
         return view('super-admin.ai-usage.index', compact(
             'month', 'summary', 'monthlyLimit', 'usedTokens', 'byQuestion', 'byUser',
-            'dailyUsage', 'logs', 'providers', 'models'
+            'dailyUsage', 'logs', 'providers', 'models', 'gatewayClients'
         ));
+    }
+
+    public function storeGatewayClient(Request $request)
+    {
+        $data = $request->validate(['name' => ['required','string','max:100'], 'monthly_token_limit' => ['nullable','integer','min:0']]);
+        $plainKey = 'aigw_' . Str::random(48);
+        $client = AiGatewayClient::create(['name'=>$data['name'], 'slug'=>Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'api_key_hash'=>hash('sha256',$plainKey), 'monthly_token_limit'=>(int)($data['monthly_token_limit'] ?? 0)]);
+        return back()->with('gateway_key', $plainKey)->with('gateway_key_client_id', $client->id)->with('success','Project gateway berhasil dibuat. Salin key sekarang; key hanya tampil sekali.');
+    }
+
+    public function updateGatewayClient(Request $request, AiGatewayClient $gatewayClient)
+    {
+        $data = $request->validate(['name' => ['required','string','max:100'], 'monthly_token_limit' => ['required','integer','min:0']]);
+        $gatewayClient->update($data);
+        return back()->with('success', 'Project gateway berhasil diperbarui.');
+    }
+
+    public function destroyGatewayClient(AiGatewayClient $gatewayClient)
+    {
+        $gatewayClient->delete();
+        return back()->with('success', 'Project gateway beserta riwayat pemakaiannya berhasil dihapus.');
     }
 
     public function updateQuota(Request $request)

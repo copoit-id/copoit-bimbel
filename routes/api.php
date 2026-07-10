@@ -22,3 +22,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Webhook untuk AI Similarity Service (tanpa auth)
 Route::post('/webhook/ai-callback', [WebhookController::class, 'aiCallback'])->name('webhook.ai-callback');
 Route::get('/webhook/health', [WebhookController::class, 'healthCheck'])->name('webhook.health');
+Route::post('/ai-gateway/discussion', [\App\Http\Controllers\Api\AiGatewayController::class, 'discussion'])->middleware('throttle:60,1');
