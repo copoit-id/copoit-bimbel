@@ -91,6 +91,18 @@
                 <div class="flex flex-col gap-2 mt-4">
                     <span class="flex items-center gap-2 justify-start">
                         <i class="ri-checkbox-circle-fill text-lg"></i>
+                        <p>
+                            Kesempatan pengerjaan:
+                            @if(is_null($remainingAttempts ?? null))
+                                tidak dibatasi.
+                            @else
+                                {{ $attempts ?? 0 }}/{{ $tryout->max_attempts ?? 0 }} selesai,
+                                sisa {{ $remainingAttempts }} kali.
+                            @endif
+                        </p>
+                    </span>
+                    <span class="flex items-center gap-2 justify-start">
+                        <i class="ri-checkbox-circle-fill text-lg"></i>
                         <p>Tidak ada aktifitas lain di akun kamu selama mengerjakan tryout.</p>
                     </span>
                     <span class="flex items-center gap-2 justify-start">
@@ -142,12 +154,19 @@
                     </div>
                 @endif
 
-                <a href="{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/tryout/1') }}"
-                    id="startTryoutBtn"
-                    class="mt-4 px-8 py-1.5 bg-primary flex justify-center text-white rounded-xl {{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'pointer-events-none opacity-50' : '' }}"
-                    aria-disabled="{{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'true' : 'false' }}">
-                    Mulai Tryout
-                </a>
+                @if($isAttemptLimitReached ?? false)
+                    <button type="button" disabled
+                        class="mx-auto mt-4 flex items-center justify-center px-8 py-1.5 bg-gray-300 text-gray-600 rounded-xl cursor-not-allowed">
+                        Batas Pengerjaan Habis
+                    </button>
+                @else
+                    <a href="{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/tryout/1') }}"
+                        id="startTryoutBtn"
+                        class="mx-auto mt-4 flex items-center justify-center px-8 py-1.5 bg-primary text-white rounded-xl {{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'pointer-events-none opacity-50' : '' }}"
+                        aria-disabled="{{ ($effectiveProctoringSettings['enable_webcam_check'] || $effectiveProctoringSettings['enable_screen_check']) ? 'true' : 'false' }}">
+                        {{ ($hasInProgressAttempt ?? false) ? 'Lanjutkan Tryout' : 'Mulai Tryout' }}
+                    </a>
+                @endif
 
                 @if($effectiveProctoringSettings['enable_webcam_check'])
                     <video id="lobbyWebcamPreview" class="pointer-events-none fixed bottom-0 right-0 h-px w-px opacity-0" autoplay muted playsinline></video>

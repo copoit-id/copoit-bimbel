@@ -28,6 +28,7 @@ class Tryout extends Model
         'show_discussion' => 'boolean',
         'show_leaderboard' => 'boolean',
         'section_break_duration' => 'integer',
+        'max_attempts' => 'integer',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'results_release_at' => 'datetime',
@@ -137,6 +138,67 @@ class Tryout extends Model
     public function getTotalDurationAttribute()
     {
         return $this->tryoutDetails()->sum('duration');
+    }
+
+    public function getAttemptLimitLabelAttribute(): string
+    {
+        $maxAttempts = (int) ($this->max_attempts ?? 0);
+
+        return $maxAttempts > 0 ? $maxAttempts.' kali' : 'Tidak dibatasi';
+    }
+
+    public function completedAttemptCountForUser(int $userId): int
+    {
+        $finalStatuses = ['completed', 'pending_release'];
+
+        if ($this->relationLoaded('userAnswers')) {
+            return $this->userAnswers
+                ->where('user_id', $userId)
+                ->whereIn('status', $finalStatuses)
+                ->pluck('attempt_token')
+                ->filter()
+                ->unique()
+                ->count();
+        }
+
+        return $this->userAnswers()
+            ->where('user_id', $userId)
+            ->whereIn('status', $finalStatuses)
+            ->distinct('attempt_token')
+            ->count('attempt_token');
+    }
+
+    public function hasInProgressAttemptForUser(int $userId): bool
+    {
+        if ($this->relationLoaded('userAnswers')) {
+            return $this->userAnswers
+                ->where('user_id', $userId)
+                ->where('status', 'in_progress')
+                ->isNotEmpty();
+        }
+
+        return $this->userAnswers()
+            ->where('user_id', $userId)
+            ->where('status', 'in_progress')
+            ->exists();
+    }
+
+    public function remainingAttemptsForUser(int $userId): ?int
+    {
+        $maxAttempts = (int) ($this->max_attempts ?? 0);
+
+        if ($maxAttempts <= 0) {
+            return null;
+        }
+
+        return max(0, $maxAttempts - $this->completedAttemptCountForUser($userId));
+    }
+
+    public function hasReachedAttemptLimitForUser(int $userId): bool
+    {
+        $maxAttempts = (int) ($this->max_attempts ?? 0);
+
+        return $maxAttempts > 0 && $this->completedAttemptCountForUser($userId) >= $maxAttempts;
     }
 
     /**

@@ -95,8 +95,8 @@
 
             <div class="p-6 space-y-6">
                 <!-- Basic Information -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="md:col-span-2">
                         <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Nama Tryout <span
                                 class="text-red-500">*</span></label>
                         <input type="text" id="name" name="name"
@@ -104,7 +104,7 @@
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label for="type_tryout" class="block text-sm font-medium text-gray-700 mb-2">Tipe Tryout <span
                                 class="text-red-500">*</span></label>
                         <select id="type_tryout" name="type_tryout" required
@@ -118,7 +118,7 @@
                         </select>
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">
                             Kategori Penilaian <span class="text-red-500">*</span>
                             <x-ui.tooltip>Gunakan kategori ini untuk membedakan tryout reguler dengan pre test atau post test di kelas.</x-ui.tooltip>
@@ -129,6 +129,17 @@
                             <option value="pre_test" {{ (isset($tryout) && $tryout->assessment_type === 'pre_test') || old('assessment_type') === 'pre_test' ? 'selected' : '' }}>Pre Test</option>
                             <option value="post_test" {{ (isset($tryout) && $tryout->assessment_type === 'post_test') || old('assessment_type') === 'post_test' ? 'selected' : '' }}>Post Test</option>
                         </select>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="max_attempts" class="block text-sm font-medium text-gray-700 mb-2">
+                            Batas Pengerjaan
+                            <x-ui.tooltip>Jumlah maksimal peserta bisa menyelesaikan tryout ini. Isi 0 untuk tidak dibatasi.</x-ui.tooltip>
+                        </label>
+                        <input type="number" id="max_attempts" name="max_attempts" min="0" max="1000"
+                            value="{{ old('max_attempts', isset($tryout) ? ($tryout->max_attempts ?? 0) : 0) }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="0 = tidak dibatasi">
                     </div>
                 </div>
 

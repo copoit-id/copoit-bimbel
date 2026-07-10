@@ -35,7 +35,7 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     <div class="flex items-center justify-between">
         <div>
             <p class="text-white/80 text-sm mb-1">Total Tryout Dikerjakan</p>
-            <h2 class="text-3xl font-bold">{{ $tryouts->filter(function($t) { return $t->userAnswers->count() > 0; })->count() }}</h2>
+            <h2 class="text-3xl font-bold">{{ $tryouts->filter(function($t) use ($user) { return $user && $t->completedAttemptCountForUser($user->id) > 0; })->count() }}</h2>
         </div>
         <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
             <i class="ri-file-list-3-line text-3xl"></i>
@@ -88,17 +88,20 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($tryouts as $tryout)
     @php
-    $userAnswer = $tryout->userAnswers->first();
     $totalQuestions = $tryout->getTotalQuestionsAttribute();
     $totalDuration = $tryout->getTotalDurationAttribute();
-    $isCompleted = $userAnswer && $userAnswer->status === 'completed';
-    $isInProgress = $userAnswer && $userAnswer->status === 'in_progress';
+    $completedAttempts = $user ? $tryout->completedAttemptCountForUser($user->id) : 0;
+    $remainingAttempts = $user ? $tryout->remainingAttemptsForUser($user->id) : null;
+    $isInProgress = $user ? $tryout->hasInProgressAttemptForUser($user->id) : false;
+    $hasHistory = $completedAttempts > 0;
+    $isAttemptLimitReached = $user ? ($tryout->hasReachedAttemptLimitForUser($user->id) && ! $isInProgress) : false;
     $isForSale = $tryout->isIndividuallyAvailable();
     $isPaid = $tryout->isPaidIndividualAccess();
     $isFreeUnconditional = $tryout->isFreeUnconditionalIndividualAccess();
     $isFreeConditional = $tryout->isFreeConditionalIndividualAccess();
     $isPendingIndividual = (bool) ($tryout->is_pending_individual ?? false);
     $routePackageId = $tryout->route_package_id ?? ($tryout->packages->first()?->package_id ?? 'free');
+    $showHistoryAction = $user && $hasHistory && ($tryout->has_access ?? false);
     $tryoutIcon = $tryout->icon_class ?: 'ri-file-list-3-line';
     $showThumbnail = ($tryout->user_card_display ?? 'icon') === 'thumbnail' && filled($tryout->thumbnail_url);
     @endphp
@@ -156,9 +159,21 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 </span>
             </div>
             @endif
+            @if($user)
+            <div class="flex items-center text-sm {{ $isAttemptLimitReached ? 'text-red-600' : 'text-gray-500' }}">
+                <i class="{{ $isAttemptLimitReached ? 'ri-checkbox-circle-line' : 'ri-repeat-line' }} mr-2 text-gray-400"></i>
+                <span>
+                    @if(is_null($remainingAttempts))
+                        {{ $completedAttempts }}x dikerjakan, tanpa batas
+                    @else
+                        {{ $completedAttempts }}/{{ $tryout->max_attempts ?? 0 }}x dikerjakan
+                    @endif
+                </span>
+            </div>
+            @endif
         </div>
 
-        <div class="mt-auto w-full">
+        <div class="mt-auto w-full {{ $showHistoryAction ? 'flex gap-2' : '' }}">
             @if(!$user)
                 @if($tryout->access_via_package)
                 <a href="{{ route('user.package.detail', $tryout->access_via_package->package_id) }}"
@@ -176,11 +191,16 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 @endif
             @elseif($isForSale)
                 {{-- Tryout for individual sale --}}
-                @if($tryout->has_access)
+                @if($isAttemptLimitReached)
+                <a href="{{ route('user.tryout.result', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                   class="flex {{ $showHistoryAction ? 'flex-1' : 'w-full' }} items-center justify-center gap-1 py-2.5 text-center rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                    <i class="ri-checkbox-circle-line mr-1"></i>Sudah Dikerjakan
+                </a>
+                @elseif($tryout->has_access)
                 <a href="{{ route('user.tryout.lobby', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
-                   class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                   class="flex {{ $showHistoryAction ? 'flex-1' : 'w-full' }} items-center justify-center py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                    style="background-color: {{ $primaryColor }}">
-                    <i class="ri-play-circle-line mr-1"></i>Kerjakan
+                    <i class="ri-play-circle-line mr-1"></i>{{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
                 </a>
 	                @elseif($isPendingIndividual)
 	                <button disabled class="w-full py-2.5 rounded-xl text-sm font-medium bg-amber-100 text-amber-700 cursor-not-allowed">
@@ -213,11 +233,18 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                 @endif
 	            @elseif($tryout->has_access)
 	                {{-- User has access via package/direct access - bisa langsung kerjakan --}}
-	                <a href="{{ route('user.tryout.lobby', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
-	                   class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-	                   style="background-color: {{ $primaryColor }}">
-	                    <i class="ri-play-circle-line mr-1"></i>Kerjakan
-	                </a>
+                    @if($isAttemptLimitReached)
+                    <a href="{{ route('user.tryout.result', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                       class="flex {{ $showHistoryAction ? 'flex-1' : 'w-full' }} items-center justify-center gap-1 py-2.5 text-center rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                        <i class="ri-checkbox-circle-line mr-1"></i>Sudah Dikerjakan
+                    </a>
+                    @else
+                    <a href="{{ route('user.tryout.lobby', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                       class="flex {{ $showHistoryAction ? 'flex-1' : 'w-full' }} items-center justify-center py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        <i class="ri-play-circle-line mr-1"></i>{{ $isInProgress ? 'Lanjutkan' : 'Kerjakan' }}
+                    </a>
+                    @endif
             @else
                 {{-- User doesn't have access --}}
 	                @if($tryout->access_via_package)
@@ -233,6 +260,14 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                     Tidak Tersedia
                 </button>
                 @endif
+            @endif
+
+            @if($showHistoryAction)
+                <a href="{{ route('user.package.tryout.riwayat', ['id_package' => $routePackageId, 'id_tryout' => $tryout->tryout_id]) }}"
+                   class="flex flex-1 items-center justify-center py-2.5 text-center rounded-xl text-sm font-medium border-2 hover:opacity-90 transition-colors"
+                   style="border-color: {{ $primaryColor }}; color: {{ $primaryColor }}">
+                    <i class="ri-history-line mr-1"></i>Riwayat
+                </a>
             @endif
         </div>
     </div>
