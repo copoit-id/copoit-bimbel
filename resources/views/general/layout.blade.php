@@ -35,12 +35,12 @@
             :class="scrolled ? 'top-2' : 'top-4'">
         <div class="w-full max-w-5xl rounded-full backdrop-blur-md border transition-all duration-300 flex items-center justify-between px-4 py-2.5"
              :class="scrolled ? 'bg-white/95 border-slate-200 shadow-md' : 'bg-white/80 border-white/60 shadow-sm'">
-            <a href="{{ $homeRoute }}" class="flex items-center gap-3">
+            <a href="{{ $homeRoute }}" class="flex min-w-0 flex-1 items-center gap-3 md:flex-none">
                 <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
-                    class="h-9 w-9 rounded-lg object-contain">
-                <div class="hidden sm:block">
-                    <p class="text-sm font-bold text-slate-900 leading-tight">{{ $clientBranding['name'] }}</p>
-                    <p class="text-[10px] text-slate-600 font-medium">Informasi dan artikel</p>
+                    class="h-9 w-9 shrink-0 rounded-lg object-contain">
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-bold text-slate-900 leading-tight">{{ $clientBranding['name'] }}</p>
+                    <p class="hidden text-[10px] text-slate-600 font-medium sm:block">Informasi dan artikel</p>
                 </div>
             </a>
 
@@ -96,7 +96,7 @@
                 @endif
             </nav>
 
-            <div class="flex items-center gap-2">
+            <div class="hidden items-center gap-2 md:flex">
                 @auth
                     <a href="{{ route('user.dashboard.index') }}"
                         class="rounded-full border border-slate-300 bg-transparent px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-white/50 transition-colors">
@@ -164,6 +164,17 @@
                         Paket
                     </a>
                     @endif
+                    @auth
+                    <a href="{{ route('user.dashboard.index') }}"
+                        class="block rounded-xl px-3 py-2 text-sm font-semibold hover:bg-white/60">
+                        Dashboard
+                    </a>
+                    @else
+                    <a href="{{ route('login') }}"
+                        class="block rounded-xl px-3 py-2 text-sm font-semibold hover:bg-white/60">
+                        Login
+                    </a>
+                    @endauth
                 </div>
             </details>
         </div>
