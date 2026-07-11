@@ -31,32 +31,6 @@
 
     @if(session('success'))<div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>@endif
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h3 class="font-semibold text-gray-900">Project terhubung ke AI Gateway</h3><p class="text-sm text-gray-500">Project lain memanggil <code>/api/ai-gateway/discussion</code> dengan header <code>X-AI-Gateway-Key</code>.</p></div><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.remove('hidden')" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"><i class="ri-add-line"></i>Tambah project</button></div>
-        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100"><table class="ai-usage-table min-w-full text-sm"><thead><tr><th>Project</th><th>Project key</th><th>Terakhir dipakai</th><th class="text-right">Token bulan ini</th><th class="text-right">Kuota</th><th class="text-right">Aksi</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($gatewayClients as $client)<tr><td class="py-3 pr-4 font-medium">{{ $client->name }}<p class="text-xs font-normal text-gray-500">{{ $client->slug }}</p></td><td class="py-3 pr-4">@if((int) session('gateway_key_client_id') === $client->id)<code class="select-all rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{{ session('gateway_key') }}</code><p class="mt-1 text-xs text-amber-700">Salin sekarang; key tidak ditampilkan lagi.</p>@else<span class="text-xs text-gray-400">Tersimpan aman</span>@endif</td><td class="py-3 pr-4 text-gray-500">{{ $client->last_used_at?->format('d M Y H:i') ?? 'Belum pernah' }}</td><td class="py-3 pr-4 text-right font-medium">{{ $formatToken($client->tokens_this_month) }}</td><td class="py-3 text-right">{{ $client->monthly_token_limit ? $formatToken($client->monthly_token_limit) : '∞' }}</td><td class="py-3 text-right whitespace-nowrap"><button type="button" onclick="document.getElementById('edit-gateway-{{ $client->id }}').classList.toggle('hidden')" class="text-xs font-medium text-primary hover:underline">Edit</button><form method="POST" action="{{ route('super-admin.ai-usage.projects.destroy', $client) }}" class="ml-3 inline" onsubmit="return confirm('Hapus project ini? Semua riwayat pemakaian project juga akan dihapus.')">@csrf @method('DELETE')<button class="text-xs font-medium text-red-600 hover:underline">Hapus</button></form><form id="edit-gateway-{{ $client->id }}" method="POST" action="{{ route('super-admin.ai-usage.projects.update', $client) }}" class="hidden mt-3 rounded-lg bg-gray-50 p-3 text-left">@csrf @method('PUT')<label class="block text-xs text-gray-600">Nama<input name="name" value="{{ $client->name }}" class="mt-1 w-full rounded border-gray-300 text-sm"></label><label class="mt-2 block text-xs text-gray-600">Kuota token<input name="monthly_token_limit" type="number" min="0" value="{{ $client->monthly_token_limit }}" class="mt-1 w-full rounded border-gray-300 text-sm"></label><button class="mt-2 rounded bg-primary px-3 py-1.5 text-xs text-white">Simpan</button></form></td></tr>@empty<tr><td colspan="6" class="py-6 text-center text-gray-500">Belum ada project eksternal.</td></tr>@endforelse</tbody></table></div>
-    </div>
-
-    <div id="create-gateway-project-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4">
-        <div class="flex min-h-full items-center justify-center">
-            <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-                <div class="flex items-start justify-between gap-4"><div><h3 class="text-lg font-semibold text-gray-900">Tambah project gateway</h3><p class="mt-1 text-sm text-gray-500">Satu key unik akan dibuat untuk server project ini.</p></div><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.add('hidden')" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><i class="ri-close-line text-xl"></i></button></div>
-                <form method="POST" action="{{ route('super-admin.ai-usage.projects.store') }}" class="mt-6 space-y-4">@csrf
-                    <label class="block">
-                        <span class="text-sm font-semibold text-gray-700">Nama project</span>
-                        <span class="mt-1 block text-xs text-gray-500">Gunakan nama yang mudah dikenali di dashboard pusat.</span>
-                        <input name="name" required autofocus placeholder="Contoh: Bimbel Cabang A" class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
-                    </label>
-                    <label class="block">
-                        <span class="text-sm font-semibold text-gray-700">Kuota token bulanan</span>
-                        <div class="relative mt-2"><input name="monthly_token_limit" type="number" min="0" value="0" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 pr-20 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-gray-400">token</span></div>
-                        <span class="mt-1.5 block text-xs text-gray-500">Isi <b>0</b> jika project boleh memakai token tanpa batas.</span>
-                    </label>
-                    <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.add('hidden')" class="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">Batal</button><button class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">Buat project & key</button></div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-xl border border-gray-200 bg-white p-5">
             <p class="text-sm text-gray-500">Token terpakai</p>

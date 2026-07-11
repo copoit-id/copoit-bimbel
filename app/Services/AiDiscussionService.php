@@ -67,6 +67,7 @@ class AiDiscussionService
 
     private function chatViaGateway(string $message, array $context): array
     {
+        $user = Auth::user();
         $question = $context['question'] ?? null;
         $options = $question instanceof Question
             ? $question->questionOptions->values()->map(fn ($option, $index) => [
@@ -85,7 +86,10 @@ class AiDiscussionService
                 ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
                 ->post(config('services.ai_gateway.url'), [
                     'message' => $message,
-                    'external_user_id' => (string) (Auth::id() ?? ''),
+                    'external_user_id' => (string) ($user?->getAuthIdentifier() ?? ''),
+                    'external_user_name' => $user?->name,
+                    'external_user_email' => $user?->email,
+                    'project_base_url' => rtrim((string) config('app.url'), '/'),
                     'question_reference' => (string) ($question?->question_id ?? ($context['question_reference'] ?? '')),
                     'context' => [
                         'tryout_name' => $context['tryout_name'] ?? '-',

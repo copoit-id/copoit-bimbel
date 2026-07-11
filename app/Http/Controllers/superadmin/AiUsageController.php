@@ -99,25 +99,54 @@ class AiUsageController extends Controller
 
         $providers = AiDiscussionUsageLog::query()->distinct()->orderBy('provider')->pluck('provider');
         $models = AiDiscussionUsageLog::query()->distinct()->orderBy('model')->pluck('model');
-        $gatewayClients = AiGatewayClient::withSum(['usageLogs as tokens_this_month' => fn ($q) => $q->where('created_at', '>=', now()->startOfMonth())], 'total_tokens')->orderBy('name')->get();
-
         return view('super-admin.ai-usage.index', compact(
             'month', 'summary', 'monthlyLimit', 'usedTokens', 'byQuestion', 'byUser',
-            'dailyUsage', 'periodUsage', 'logs', 'providers', 'models', 'gatewayClients'
+            'dailyUsage', 'periodUsage', 'logs', 'providers', 'models'
         ));
+    }
+
+    public function gatewayIndex(Request $request)
+    {
+        $clients = AiGatewayClient::query()
+            ->withSum('usageLogs as total_tokens', 'total_tokens')
+            ->withCount('usageLogs')
+            ->orderBy('name')
+            ->get();
+
+        $logs = AiGatewayUsageLog::query()
+            ->with('client:id,name,slug,base_url')
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = trim((string) $request->input('q'));
+                $query->where(function ($q) use ($term) {
+                    $q->where('external_user_id', 'like', "%{$term}%")
+                        ->orWhere('external_user_name', 'like', "%{$term}%")
+                        ->orWhere('external_user_email', 'like', "%{$term}%")
+                        ->orWhere('question_reference', 'like', "%{$term}%");
+                });
+            })
+            ->latest()
+            ->paginate(30)
+            ->withQueryString();
+
+        $filteredLogs = AiGatewayUsageLog::query()
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')));
+        $summary = $filteredLogs->selectRaw('COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens, COUNT(DISTINCT external_user_id) as user_count')->first();
+
+        return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary'));
     }
 
     public function storeGatewayClient(Request $request)
     {
-        $data = $request->validate(['name' => ['required','string','max:100'], 'monthly_token_limit' => ['nullable','integer','min:0']]);
+        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['nullable','integer','min:0']]);
         $plainKey = 'aigw_' . Str::random(48);
-        $client = AiGatewayClient::create(['name'=>$data['name'], 'slug'=>Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'api_key_hash'=>hash('sha256',$plainKey), 'monthly_token_limit'=>(int)($data['monthly_token_limit'] ?? 0)]);
+        $client = AiGatewayClient::create(['name'=>$data['name'], 'slug'=>Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'base_url'=>$data['base_url'] ?? null, 'api_key_hash'=>hash('sha256',$plainKey), 'monthly_token_limit'=>(int)($data['monthly_token_limit'] ?? 0)]);
         return back()->with('gateway_key', $plainKey)->with('gateway_key_client_id', $client->id)->with('success','Project gateway berhasil dibuat. Salin key sekarang; key hanya tampil sekali.');
     }
 
     public function updateGatewayClient(Request $request, AiGatewayClient $gatewayClient)
     {
-        $data = $request->validate(['name' => ['required','string','max:100'], 'monthly_token_limit' => ['required','integer','min:0']]);
+        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['required','integer','min:0']]);
         $gatewayClient->update($data);
         return back()->with('success', 'Project gateway berhasil diperbarui.');
     }
