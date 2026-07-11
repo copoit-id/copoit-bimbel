@@ -32,12 +32,18 @@
             </label>
         </div>
 
-        <div class="mb-6 space-y-4 rounded-xl border border-gray-200 p-5">
-            <label class="flex cursor-pointer items-start justify-between gap-4">
+        <section class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div class="border-b border-gray-100 px-5 py-4">
+                <h2 class="font-semibold text-gray-900">Diskusi AI Pembahasan</h2>
+                <p class="mt-1 text-sm text-gray-500">Kelola layanan AI pusat tanpa membuka kredensial atau pengaturan ini ke admin.</p>
+            </div>
+
+            <div class="space-y-5 p-5">
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 transition hover:border-primary/40">
                 <span>
-                    <span class="block text-base font-semibold text-gray-900">Diskusi AI Pembahasan</span>
+                    <span class="block text-base font-semibold text-gray-900">Aktifkan Diskusi AI</span>
                     <span class="mt-1 block text-sm text-gray-500">
-                        Aktifkan chat AI per soal di halaman pembahasan user. Konfigurasi ini dikelola oleh super admin dan cocok untuk koneksi satu arah melalui gateway.
+                        Tampilkan chat AI per soal di halaman pembahasan user.
                     </span>
                 </span>
                 <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
@@ -48,7 +54,7 @@
                 </span>
             </label>
 
-            <label class="flex cursor-pointer items-start justify-between gap-4 border-t border-gray-100 pt-4">
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 transition hover:border-primary/40">
                 <span>
                     <span class="block text-sm font-semibold text-gray-900">Izinkan admin mengatur Diskusi AI</span>
                     <span class="mt-1 block text-sm text-gray-500">Default mati. Saat nonaktif, bagian pengaturan AI pembahasan tidak tampil di halaman admin.</span>
@@ -61,38 +67,39 @@
                 </span>
             </label>
 
-            <div class="grid gap-4 border-t border-gray-100 pt-4 lg:grid-cols-3">
+            <div class="grid gap-4 lg:grid-cols-3">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Model Chat</label>
-                    <input type="text" name="ai_discussion_model" value="{{ old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="gemini-2.5-flash">
+                    <input type="text" name="ai_discussion_model" value="{{ old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="gemini-2.5-flash">
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
-                    <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000" value="{{ old('ai_discussion_max_output_tokens', $aiDiscussion['max_output_tokens'] ?? 700) }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
+                    <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000" value="{{ old('ai_discussion_max_output_tokens', $aiDiscussion['max_output_tokens'] ?? 700) }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
                 </div>
-                <p class="self-end text-sm text-gray-500">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</p>
+                <div class="self-end rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2.5 text-sm text-blue-700">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</div>
             </div>
 
             <div class="grid gap-4 lg:grid-cols-2">
-                <div class="space-y-3 rounded-lg bg-gray-50 p-4">
-                    <p class="font-semibold text-gray-900">OpenAI</p>
-                    <input type="password" name="ai_discussion_openai_api_key" autocomplete="new-password" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="{{ filled($aiProviders['openai']['api_key'] ?? null) ? 'API key sudah tersimpan' : 'sk-...' }}">
-                    <input type="url" name="ai_discussion_openai_base_url" value="{{ old('ai_discussion_openai_base_url', $aiProviders['openai']['base_url'] ?? 'https://api.openai.com/v1') }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
-                    <input type="number" name="ai_discussion_openai_timeout" min="5" max="300" value="{{ old('ai_discussion_openai_timeout', $aiProviders['openai']['timeout'] ?? 90) }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Timeout (detik)">
+                <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+                    <div><p class="font-semibold text-gray-900">OpenAI</p><p class="mt-1 text-xs text-gray-500">API untuk model GPT dan kompatibel OpenAI.</p></div>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">API Key</span><input type="password" name="ai_discussion_openai_api_key" autocomplete="new-password" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="{{ filled($aiProviders['openai']['api_key'] ?? null) ? 'API key sudah tersimpan' : 'sk-...' }}"></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Base URL</span><input type="url" name="ai_discussion_openai_base_url" value="{{ old('ai_discussion_openai_base_url', $aiProviders['openai']['base_url'] ?? 'https://api.openai.com/v1') }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Timeout (detik)</span><input type="number" name="ai_discussion_openai_timeout" min="5" max="300" value="{{ old('ai_discussion_openai_timeout', $aiProviders['openai']['timeout'] ?? 90) }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
                 </div>
-                <div class="space-y-3 rounded-lg bg-gray-50 p-4">
-                    <p class="font-semibold text-gray-900">Gemini</p>
-                    <input type="password" name="ai_discussion_gemini_api_key" autocomplete="new-password" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="{{ filled($aiProviders['gemini']['api_key'] ?? null) ? 'API key sudah tersimpan' : 'AIza...' }}">
-                    <input type="url" name="ai_discussion_gemini_base_url" value="{{ old('ai_discussion_gemini_base_url', $aiProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta') }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
-                    <input type="number" name="ai_discussion_gemini_timeout" min="5" max="300" value="{{ old('ai_discussion_gemini_timeout', $aiProviders['gemini']['timeout'] ?? 90) }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Timeout (detik)">
+                <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+                    <div><p class="font-semibold text-gray-900">Gemini</p><p class="mt-1 text-xs text-gray-500">API untuk model Gemini Google.</p></div>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">API Key</span><input type="password" name="ai_discussion_gemini_api_key" autocomplete="new-password" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="{{ filled($aiProviders['gemini']['api_key'] ?? null) ? 'API key sudah tersimpan' : 'AIza...' }}"></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Base URL</span><input type="url" name="ai_discussion_gemini_base_url" value="{{ old('ai_discussion_gemini_base_url', $aiProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta') }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Timeout (detik)</span><input type="number" name="ai_discussion_gemini_timeout" min="5" max="300" value="{{ old('ai_discussion_gemini_timeout', $aiProviders['gemini']['timeout'] ?? 90) }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
                 </div>
             </div>
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-gray-700">Instruksi Tambahan Tutor AI</label>
-                <textarea name="ai_discussion_instruction" rows="3" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Contoh: berikan petunjuk bertahap, jangan langsung jawaban akhir.">{{ old('ai_discussion_instruction', $aiDiscussion['instruction'] ?? '') }}</textarea>
+                <textarea name="ai_discussion_instruction" rows="3" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="Contoh: berikan petunjuk bertahap, jangan langsung jawaban akhir.">{{ old('ai_discussion_instruction', $aiDiscussion['instruction'] ?? '') }}</textarea>
             </div>
-        </div>
+            </div>
+        </section>
 
         <div class="mb-6 grid gap-4 md:grid-cols-2">
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
