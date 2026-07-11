@@ -22,8 +22,9 @@ class LeaderboardController extends Controller
 {
     public function index()
     {
-        // Show every tryout that is available through a package, including those
-        // that have not received any participant attempts yet.
+        // Show every tryout from Tryout Management. A tryout can already have
+        // attempts even when its package relation has been removed or was never
+        // created, so it must not be excluded from the leaderboard.
         $tryouts = Tryout::with(['tryoutDetails', 'packages', 'directPackage'])
             ->get()
             ->map(function ($tryout) {
@@ -39,19 +40,17 @@ class LeaderboardController extends Controller
                 $directPackage = $tryout->directPackage ? collect([$tryout->directPackage]) : collect();
                 $allPackages = $packages->isEmpty() ? $directPackage : $packages;
 
-                if ($allPackages->isEmpty()) {
-                    return null; // Skip if no package
-                }
-
                 // Combine package names for display
                 $packageNames = $allPackages->pluck('name')->toArray();
-                $combinedPackageName = count($packageNames) > 1
+                $combinedPackageName = $allPackages->isEmpty()
+                    ? 'Tidak terhubung ke paket'
+                    : (count($packageNames) > 1
                     ? implode(' + ', array_slice($packageNames, 0, 2)) . (count($packageNames) > 2 ? ' + ' . (count($packageNames) - 2) . ' lainnya' : '')
-                    : $packageNames[0] ?? 'Unknown Package';
+                    : $packageNames[0]);
 
                 return [
                     'tryout_id' => $tryout->tryout_id,
-                    'package_id' => $allPackages->first()->package_id, // Use first package for routing
+                    'package_id' => optional($allPackages->first())->package_id,
                     'name' => $tryout->name,
                     'description' => $tryout->description,
                     'total_questions' => $tryoutDetail ? $tryoutDetail->questions()->count() : 0,
@@ -69,7 +68,6 @@ class LeaderboardController extends Controller
                     })->toArray()
                 ];
             })
-            ->filter() // Remove null values
             ->values(); // Reset array keys
 
         return view('admin.pages.leaderboard.index', compact('tryouts'));
@@ -79,6 +77,20 @@ class LeaderboardController extends Controller
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::findOrFail($tryout_id);
+
+        return $this->renderLeaderboard($tryout, $package);
+    }
+
+    public function showTryout($tryout_id)
+    {
+        $tryout = Tryout::findOrFail($tryout_id);
+
+        return $this->renderLeaderboard($tryout);
+    }
+
+    private function renderLeaderboard(Tryout $tryout, ?Package $package = null)
+    {
+        $tryout_id = $tryout->tryout_id;
 
         // Get tryout details
         $tryoutDetail = $tryout->tryoutDetails()->first();

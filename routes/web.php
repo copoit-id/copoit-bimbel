@@ -314,6 +314,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     // Route untuk admin leaderboard
     Route::prefix('leaderboard')->name('leaderboard.')->group(function () {
         Route::get('/', [LeaderboardController::class, 'index'])->name('index');
+        Route::get('/tryout/{tryout_id}', [LeaderboardController::class, 'showTryout'])->name('show-tryout');
         Route::get('/{package_id}/{tryout_id}/export/excel', [LeaderboardController::class, 'exportExcel'])->name('export-excel');
         Route::get('/{package_id}/{tryout_id}/export/pdf', [LeaderboardController::class, 'exportPdf'])->name('export-pdf');
         Route::get('/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('show');

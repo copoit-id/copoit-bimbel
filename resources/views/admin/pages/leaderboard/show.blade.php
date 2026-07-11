@@ -9,6 +9,7 @@
             <x-breadcrumb-item href="" title="Peringkat Tryout" />
         </x-slot>
     </x-breadcrumb>
+    @if($package)
     <div class="flex gap-2">
         <a href="{{ route('admin.leaderboard.export-excel', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id]) }}"
             class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
@@ -21,6 +22,7 @@
             Export PDF
         </a>
     </div>
+    @endif
 </div>
 <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
 

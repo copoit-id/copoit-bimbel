@@ -13,9 +13,9 @@
 
 <div class="grid grid-cols-4 gap-4 mt-6 text-gray-600">
     @forelse($tryouts as $tryout)
-    <div class="bg-white px-5 py-5 shadow rounded-lg">
+    <div class="bg-white px-5 py-5 shadow rounded-lg flex flex-col h-full">
         <p class="text-lg font-bold text-black text-center mb-4">{{ Str::limit($tryout['name'], 25) }}</p>
-        <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1 flex-1">
             <span class="flex items-center justify-between">
                 <p class="font-medium">Jumlah : </p>
                 <p class="font-light">{{ $tryout['total_questions'] }} Soal</p>
@@ -47,8 +47,10 @@
                 </div>
             </span>
         </div>
-        <div class="flex gap-2 font-light">
-            <a href="{{ route('admin.leaderboard.show', ['package_id' => $tryout['package_id'], 'tryout_id' => $tryout['tryout_id']]) }}"
+        <div class="flex gap-2 font-light mt-auto">
+            <a href="{{ $tryout['package_id']
+                ? route('admin.leaderboard.show', ['package_id' => $tryout['package_id'], 'tryout_id' => $tryout['tryout_id']])
+                : route('admin.leaderboard.show-tryout', ['tryout_id' => $tryout['tryout_id']]) }}"
                 class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg mt-4 hover:bg-primary/90 transition-colors">
                 <i class="ri-trophy-fill me-2"></i>Lihat Peringkat
             </a>
