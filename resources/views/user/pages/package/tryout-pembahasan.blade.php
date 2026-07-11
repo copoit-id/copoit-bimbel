@@ -884,6 +884,7 @@
         const error = wrapper.querySelector('.ai-discussion-error');
         const submitButton = form?.querySelector('button[type="submit"]');
         const voiceButton = wrapper.querySelector('.ai-discussion-voice');
+        let replyWithVoice = false;
 
         const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
         if (history.length > 0) {
@@ -915,6 +916,7 @@
             };
             recognition.onresult = (event) => {
                 input.value = event.results[0][0].transcript;
+                replyWithVoice = true;
                 form.requestSubmit();
             };
             recognition.onerror = () => {
@@ -945,6 +947,8 @@
             if (!message) {
                 return;
             }
+            const shouldSpeakResponse = replyWithVoice;
+            replyWithVoice = false;
 
             appendAiDiscussionMessage(messages, message, 'user');
             input.value = '';
@@ -974,7 +978,9 @@
                 loadingBubble.remove();
                 const aiMessage = data.message || 'AI tidak mengembalikan jawaban.';
                 appendAiDiscussionMessage(messages, aiMessage, 'ai');
-                playAiDiscussionAudio(aiMessage);
+                if (shouldSpeakResponse) {
+                    playAiDiscussionAudio(aiMessage);
+                }
             } catch (err) {
                 loadingBubble.remove();
                 if (error) {
