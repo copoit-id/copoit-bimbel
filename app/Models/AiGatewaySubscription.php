@@ -14,4 +14,9 @@ class AiGatewaySubscription extends Model
     {
         return $this->belongsTo(AiGatewayPlan::class, 'ai_gateway_plan_id');
     }
+
+    public function client()
+    {
+        return $this->belongsTo(AiGatewayClient::class, 'ai_gateway_client_id');
+    }
 }

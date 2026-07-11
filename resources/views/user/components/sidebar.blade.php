@@ -112,6 +112,15 @@
                     <span class="ms-3">{{ $clientBranding['faq_label'] ?? 'FAQ' }}</span>
                 </a>
             </li>
+            @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')))
+            <li>
+                <a href="{{ route('user.ai-gateway.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.ai-gateway.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-cpu-line text-[20px] {{ request()->routeIs('user.ai-gateway.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Paket AI</span>
+                </a>
+            </li>
+            @endif
             @if($canShowAffiliateMenu)
             <li>
                 <a href="{{ route('user.affiliate.index') }}"

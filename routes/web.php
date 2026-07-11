@@ -235,6 +235,8 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
     Route::get('/tagihan', [UserBillingController::class, 'index'])->name('user.billing.index');
+    Route::get('/paket-ai', [\App\Http\Controllers\user\AiGatewaySubscriptionController::class, 'index'])->name('user.ai-gateway.index');
+    Route::post('/paket-ai/checkout', [\App\Http\Controllers\user\AiGatewaySubscriptionController::class, 'checkout'])->name('user.ai-gateway.checkout');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])->name('user.class-schedule.attend');
 

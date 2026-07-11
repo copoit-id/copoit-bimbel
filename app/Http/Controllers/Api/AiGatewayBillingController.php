@@ -24,7 +24,8 @@ class AiGatewayBillingController extends Controller
     public function status(Request $r)
     {
         $c = $this->client($r);
-        $s = AiGatewaySubscription::where('ai_gateway_client_id', $c->id)->where('status', 'active')->where('ends_at', '>', now())->latest()->first();
+        $userId = (string) $r->validate(['external_user_id' => 'required|string|max:120'])['external_user_id'];
+        $s = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->where('status', 'active')->where('ends_at', '>', now())->latest()->first();
 
         return ['project' => $c->name, 'subscription' => $s];
     }
@@ -32,11 +33,11 @@ class AiGatewayBillingController extends Controller
     public function checkout(Request $r)
     {
         $c = $this->client($r);
-        $d = $r->validate(['plan_id' => 'required|integer|exists:ai_gateway_plans,id', 'customer_name' => 'nullable|string|max:100', 'customer_email' => 'nullable|email']);
+        $d = $r->validate(['plan_id' => 'required|integer|exists:ai_gateway_plans,id', 'external_user_id' => 'required|string|max:120', 'customer_name' => 'required|string|max:100', 'customer_email' => 'required|email']);
         $p = AiGatewayPlan::where('is_active', true)->findOrFail($d['plan_id']);
-        $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'status' => 'pending']);
+        $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
         $id = 'AIGW-'.$c->id.'-'.$s->id.'-'.Str::upper(Str::random(8));
-        $res = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', ['external_id' => $id, 'amount' => $p->price, 'description' => 'Paket AI Gateway: '.$p->name, 'invoice_duration' => 86400, 'customer' => ['given_names' => $d['customer_name'] ?? $c->name, 'email' => $d['customer_email'] ?? null]]);
+        $res = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', ['external_id' => $id, 'amount' => $p->price, 'description' => 'Paket AI Gateway: '.$p->name, 'invoice_duration' => 86400, 'customer' => ['given_names' => $d['customer_name'], 'email' => $d['customer_email']]]);
         if (! $res->successful()) {
             $s->delete();
 

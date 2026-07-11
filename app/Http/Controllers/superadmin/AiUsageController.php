@@ -7,6 +7,7 @@ use App\Models\AiDiscussionUsageLog;
 use App\Models\ClientProfile;
 use App\Models\AiGatewayClient;
 use App\Models\AiGatewayUsageLog;
+use App\Models\AiGatewaySubscription;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -132,8 +133,15 @@ class AiUsageController extends Controller
         $filteredLogs = AiGatewayUsageLog::query()
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')));
         $summary = $filteredLogs->selectRaw('COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens, COUNT(DISTINCT external_user_id) as user_count')->first();
+        $subscriptions = AiGatewaySubscription::query()
+            ->with(['client:id,name,base_url', 'plan:id,name,token_limit,chat_limit'])
+            ->whereNotNull('external_user_id')
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->latest()
+            ->paginate(20, ['*'], 'subscription_page')
+            ->withQueryString();
 
-        return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary'));
+        return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary', 'subscriptions'));
     }
 
     public function storeGatewayClient(Request $request)
