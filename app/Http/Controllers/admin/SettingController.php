@@ -294,8 +294,10 @@ class SettingController extends Controller
                 ->with('active_tab', 'ai');
         }
 
-        $aiDiscussionFeatureEnabled = (bool) config('client.branding.ai_discussion_feature_enabled', false);
-        $aiDiscussionSettingsResult = $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], $aiDiscussionFeatureEnabled);
+        $aiDiscussionConfigurable = (bool) config('client.branding.ai_discussion_admin_configurable', false);
+        $aiDiscussionSettingsResult = $aiDiscussionConfigurable
+            ? $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], true)
+            : ['settings' => $profile->ai_discussion_settings ?? [], 'sensitive_changed' => false, 'errors' => []];
         if (!empty($aiDiscussionSettingsResult['errors'])) {
             return back()
                 ->withErrors($aiDiscussionSettingsResult['errors'])
@@ -401,7 +403,9 @@ class SettingController extends Controller
         $validated['enable_utbk_types'] = false;
         unset($validated['ai_question_generator_enabled']);
         $validated['ai_question_generator_settings'] = $aiSettingsResult['settings'];
-        $validated['ai_discussion_settings'] = $aiDiscussionSettingsResult['settings'];
+        if ($aiDiscussionConfigurable) {
+            $validated['ai_discussion_settings'] = $aiDiscussionSettingsResult['settings'];
+        }
         unset(
             $validated['ai_openai_api_key'],
             $validated['ai_openai_base_url'],

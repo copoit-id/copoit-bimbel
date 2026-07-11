@@ -1,6 +1,10 @@
 @extends('super-admin.layouts.app')
 
 @section('content')
+@php
+    $aiDiscussion = is_array($clientProfile?->ai_discussion_settings) ? $clientProfile->ai_discussion_settings : [];
+    $aiProviders = is_array($aiDiscussion['providers'] ?? null) ? $aiDiscussion['providers'] : [];
+@endphp
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">General Settings</h1>
@@ -28,21 +32,66 @@
             </label>
         </div>
 
-        <div class="mb-6">
-            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+        <div class="mb-6 space-y-4 rounded-xl border border-gray-200 p-5">
+            <label class="flex cursor-pointer items-start justify-between gap-4">
                 <span>
                     <span class="block text-base font-semibold text-gray-900">Diskusi AI Pembahasan</span>
                     <span class="mt-1 block text-sm text-gray-500">
-                        Izinkan admin mengaktifkan chat AI per soal di halaman pembahasan user. Default fitur ini mati.
+                        Aktifkan chat AI per soal di halaman pembahasan user. Konfigurasi ini dikelola oleh super admin dan cocok untuk koneksi satu arah melalui gateway.
                     </span>
                 </span>
                 <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
                     <input type="checkbox" name="ai_discussion_feature_enabled" value="1"
                         class="rounded border-gray-300 text-primary focus:ring-primary"
                         @checked(old('ai_discussion_feature_enabled', (bool) ($clientProfile?->ai_discussion_feature_enabled ?? false)))>
-                    Tampilkan
+                    Aktifkan
                 </span>
             </label>
+
+            <label class="flex cursor-pointer items-start justify-between gap-4 border-t border-gray-100 pt-4">
+                <span>
+                    <span class="block text-sm font-semibold text-gray-900">Izinkan admin mengatur Diskusi AI</span>
+                    <span class="mt-1 block text-sm text-gray-500">Default mati. Saat nonaktif, bagian pengaturan AI pembahasan tidak tampil di halaman admin.</span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="ai_discussion_admin_configurable" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('ai_discussion_admin_configurable', (bool) ($clientProfile?->ai_discussion_admin_configurable ?? false)))>
+                    Izinkan
+                </span>
+            </label>
+
+            <div class="grid gap-4 border-t border-gray-100 pt-4 lg:grid-cols-3">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Model Chat</label>
+                    <input type="text" name="ai_discussion_model" value="{{ old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="gemini-2.5-flash">
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
+                    <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000" value="{{ old('ai_discussion_max_output_tokens', $aiDiscussion['max_output_tokens'] ?? 700) }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
+                </div>
+                <p class="self-end text-sm text-gray-500">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</p>
+            </div>
+
+            <div class="grid gap-4 lg:grid-cols-2">
+                <div class="space-y-3 rounded-lg bg-gray-50 p-4">
+                    <p class="font-semibold text-gray-900">OpenAI</p>
+                    <input type="password" name="ai_discussion_openai_api_key" autocomplete="new-password" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="{{ filled($aiProviders['openai']['api_key'] ?? null) ? 'API key sudah tersimpan' : 'sk-...' }}">
+                    <input type="url" name="ai_discussion_openai_base_url" value="{{ old('ai_discussion_openai_base_url', $aiProviders['openai']['base_url'] ?? 'https://api.openai.com/v1') }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
+                    <input type="number" name="ai_discussion_openai_timeout" min="5" max="300" value="{{ old('ai_discussion_openai_timeout', $aiProviders['openai']['timeout'] ?? 90) }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Timeout (detik)">
+                </div>
+                <div class="space-y-3 rounded-lg bg-gray-50 p-4">
+                    <p class="font-semibold text-gray-900">Gemini</p>
+                    <input type="password" name="ai_discussion_gemini_api_key" autocomplete="new-password" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="{{ filled($aiProviders['gemini']['api_key'] ?? null) ? 'API key sudah tersimpan' : 'AIza...' }}">
+                    <input type="url" name="ai_discussion_gemini_base_url" value="{{ old('ai_discussion_gemini_base_url', $aiProviders['gemini']['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta') }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
+                    <input type="number" name="ai_discussion_gemini_timeout" min="5" max="300" value="{{ old('ai_discussion_gemini_timeout', $aiProviders['gemini']['timeout'] ?? 90) }}" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Timeout (detik)">
+                </div>
+            </div>
+
+            <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Instruksi Tambahan Tutor AI</label>
+                <textarea name="ai_discussion_instruction" rows="3" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Contoh: berikan petunjuk bertahap, jangan langsung jawaban akhir.">{{ old('ai_discussion_instruction', $aiDiscussion['instruction'] ?? '') }}</textarea>
+            </div>
         </div>
 
         <div class="mb-6 grid gap-4 md:grid-cols-2">
