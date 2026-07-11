@@ -10,6 +10,8 @@ class AiGatewayClient extends Model
 
     protected $casts = [
         'monthly_token_limit' => 'integer',
+        'free_token_limit' => 'integer',
+        'free_chat_limit' => 'integer',
         'is_active' => 'boolean',
         'last_used_at' => 'datetime',
     ];
@@ -20,6 +22,8 @@ class AiGatewayClient extends Model
         'base_url',
         'api_key_hash',
         'monthly_token_limit',
+        'free_token_limit',
+        'free_chat_limit',
         'is_active',
         'last_used_at',
     ];

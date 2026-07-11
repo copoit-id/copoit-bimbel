@@ -3438,6 +3438,28 @@ class PackageController extends Controller
 
         $token = $token;
         $packageRouteId = $isFreeTryout ? 'free' : $package->package_id;
+        $aiGatewaySubscription = null;
+        $aiGatewayTrial = null;
+        $aiGatewayPlans = [];
+        $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
+
+        if ($gatewayBaseUrl !== '' && filled(config('services.ai_gateway.key'))) {
+            try {
+                $gateway = Http::acceptJson()
+                    ->timeout(3)
+                    ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')]);
+                $gatewayStatus = $gateway
+                    ->get("{$gatewayBaseUrl}/subscription", ['external_user_id' => (string) Auth::id()])
+                    ->json();
+                $aiGatewaySubscription = data_get($gatewayStatus, 'subscription');
+                $aiGatewayTrial = data_get($gatewayStatus, 'trial');
+                $aiGatewayPlans = $gateway->get("{$gatewayBaseUrl}/plans")->json() ?? [];
+            } catch (\Throwable) {
+                // Halaman pembahasan tetap tersedia bila gateway sedang tidak merespons.
+            }
+        }
+
         return view('user.pages.package.tryout-pembahasan', compact(
             'package',
             'packageRouteId',
@@ -3448,7 +3470,10 @@ class PackageController extends Controller
             'allAnswerDetails',
             'aiDiscussionHistoryByQuestion',
             'overallStats',
-            'subtestSummaries'
+            'subtestSummaries',
+            'aiGatewaySubscription',
+            'aiGatewayTrial',
+            'aiGatewayPlans'
         ));
     }
 

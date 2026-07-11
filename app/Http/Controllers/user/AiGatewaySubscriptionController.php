@@ -17,13 +17,16 @@ class AiGatewaySubscriptionController extends Controller
         $user = $request->user();
         $plans = [];
         $subscription = null;
+        $trial = null;
         $gatewayError = null;
 
         try {
             $plans = $this->gatewayRequest('get', 'plans')->json() ?? [];
-            $subscription = $this->gatewayRequest('get', 'subscription', [
+            $status = $this->gatewayRequest('get', 'subscription', [
                 'external_user_id' => (string) $user->getAuthIdentifier(),
-            ])->json('subscription');
+            ])->json();
+            $subscription = data_get($status, 'subscription');
+            $trial = data_get($status, 'trial');
         } catch (\Throwable) {
             $gatewayError = 'Informasi paket AI sementara tidak dapat dimuat. Silakan coba lagi.';
         }
@@ -34,7 +37,7 @@ class AiGatewaySubscriptionController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'usageLogs', 'gatewayError'));
+        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'trial', 'usageLogs', 'gatewayError'));
     }
 
     public function checkout(Request $request): RedirectResponse

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AiGatewayClient;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayUsageLog;
+use App\Models\AiGatewayUserTrial;
 use App\Services\AiDiscussionService;
 use Illuminate\Http\Request;
 
@@ -24,11 +25,25 @@ class AiGatewayController extends Controller
             ->where('ends_at', '>', now())
             ->latest()
             ->first();
-        if (!$subscription) {
-            return response()->json(['message' => 'Paket Diskusi AI belum aktif. Silakan beli paket AI terlebih dahulu.'], 403);
-        }
-        if (($subscription->plan->token_limit > 0 && $subscription->tokens_used >= $subscription->plan->token_limit) || ($subscription->plan->chat_limit > 0 && $subscription->chats_used >= $subscription->plan->chat_limit)) {
-            return response()->json(['message' => 'Kuota paket Diskusi AI Anda habis.'], 429);
+        $trial = null;
+        if ($subscription) {
+            if (($subscription->plan->token_limit > 0 && $subscription->tokens_used >= $subscription->plan->token_limit) || ($subscription->plan->chat_limit > 0 && $subscription->chats_used >= $subscription->plan->chat_limit)) {
+                return response()->json(['message' => 'Kuota paket Diskusi AI Anda habis.'], 429);
+            }
+        } else {
+            if ($client->free_token_limit <= 0 && $client->free_chat_limit <= 0) {
+                return response()->json(['message' => 'Paket Diskusi AI belum aktif. Silakan beli paket AI terlebih dahulu.'], 403);
+            }
+            $trial = AiGatewayUserTrial::firstOrCreate([
+                'ai_gateway_client_id' => $client->id,
+                'external_user_id' => $data['external_user_id'],
+            ], [
+                'external_user_name' => $data['external_user_name'] ?? null,
+                'external_user_email' => $data['external_user_email'] ?? null,
+            ]);
+            if (($client->free_token_limit > 0 && $trial->tokens_used >= $client->free_token_limit) || ($client->free_chat_limit > 0 && $trial->chats_used >= $client->free_chat_limit)) {
+                return response()->json(['message' => 'Kuota coba gratis Diskusi AI Anda sudah habis. Silakan beli paket AI untuk melanjutkan.'], 429);
+            }
         }
         $used = (int) AiGatewayUsageLog::where('ai_gateway_client_id', $client->id)->where('created_at', '>=', now()->startOfMonth())->sum('total_tokens');
         if ($client->monthly_token_limit > 0 && $used >= $client->monthly_token_limit) {
@@ -43,6 +58,10 @@ class AiGatewayController extends Controller
         if ($subscription) {
             $subscription->increment('tokens_used', (int) $result['usage']['total']);
             $subscription->increment('chats_used');
+        }
+        if ($trial) {
+            $trial->increment('tokens_used', (int) $result['usage']['total']);
+            $trial->increment('chats_used');
         }
         $client->update(['last_used_at' => now()]);
 

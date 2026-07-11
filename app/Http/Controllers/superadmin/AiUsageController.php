@@ -146,15 +146,15 @@ class AiUsageController extends Controller
 
     public function storeGatewayClient(Request $request)
     {
-        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['nullable','integer','min:0']]);
+        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['nullable','integer','min:0'], 'free_token_limit' => ['nullable','integer','min:0'], 'free_chat_limit' => ['nullable','integer','min:0']]);
         $plainKey = 'aigw_' . Str::random(48);
-        $client = AiGatewayClient::create(['name'=>$data['name'], 'slug'=>Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'base_url'=>$data['base_url'] ?? null, 'api_key_hash'=>hash('sha256',$plainKey), 'monthly_token_limit'=>(int)($data['monthly_token_limit'] ?? 0)]);
+        $client = AiGatewayClient::create(['name'=>$data['name'], 'slug'=>Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'base_url'=>$data['base_url'] ?? null, 'api_key_hash'=>hash('sha256',$plainKey), 'monthly_token_limit'=>(int)($data['monthly_token_limit'] ?? 0), 'free_token_limit'=>(int)($data['free_token_limit'] ?? 0), 'free_chat_limit'=>(int)($data['free_chat_limit'] ?? 0)]);
         return back()->with('gateway_key', $plainKey)->with('gateway_key_client_id', $client->id)->with('success','Project gateway berhasil dibuat. Salin key sekarang; key hanya tampil sekali.');
     }
 
     public function updateGatewayClient(Request $request, AiGatewayClient $gatewayClient)
     {
-        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['required','integer','min:0']]);
+        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['required','integer','min:0'], 'free_token_limit' => ['nullable','integer','min:0'], 'free_chat_limit' => ['nullable','integer','min:0']]);
         $gatewayClient->update($data);
         return back()->with('success', 'Project gateway berhasil diperbarui.');
     }

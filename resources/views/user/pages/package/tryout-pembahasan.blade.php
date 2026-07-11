@@ -12,6 +12,15 @@
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
+        $hasActiveAiGatewayPackage = data_get($aiGatewaySubscription, 'status') === 'active';
+        $aiGatewayPlan = data_get($aiGatewaySubscription ?? [], 'plan', []);
+        $aiGatewayQuota = $hasActiveAiGatewayPackage ? $aiGatewaySubscription : ($aiGatewayTrial ?? []);
+        $aiGatewayTokenLimit = (int) data_get($hasActiveAiGatewayPackage ? $aiGatewayPlan : $aiGatewayQuota, 'token_limit', 0);
+        $aiGatewayTokensUsed = (int) data_get($aiGatewayQuota, 'tokens_used', 0);
+        $aiGatewayRemainingTokens = $aiGatewayTokenLimit > 0 ? max(0, $aiGatewayTokenLimit - $aiGatewayTokensUsed) : null;
+        $aiGatewayTokenPercentage = $aiGatewayTokenLimit > 0 ? min(100, ($aiGatewayRemainingTokens / $aiGatewayTokenLimit) * 100) : null;
+        $aiGatewayUsedPercentage = $aiGatewayTokenPercentage !== null ? 100 - $aiGatewayTokenPercentage : null;
+        $hasAiGatewayTrial = !$hasActiveAiGatewayPackage && (bool) data_get($aiGatewayTrial, 'available', false);
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -829,6 +838,28 @@
             <i class="ri-refresh-line mr-2"></i>Coba Lagi
         </a>
     </div>
+
+    @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)
+    <a href="{{ route('user.ai-gateway.index') }}" class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $hasActiveAiGatewayPackage ? 'Lihat Paket & Penggunaan AI' : ($hasAiGatewayTrial ? 'Coba gratis Diskusi AI tersedia' : 'Belum membeli paket pembahasan AI') }}">
+        <span class="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center text-gray-700">
+        @if($hasActiveAiGatewayPackage)
+            <span class="text-base font-bold leading-none">{{ $aiGatewayUsedPercentage !== null ? number_format($aiGatewayUsedPercentage, 0) . '%' : '∞' }}</span>
+            <span class="mt-1 text-[9px] font-medium leading-none text-gray-500">terpakai</span>
+        @elseif($hasAiGatewayTrial)
+            <i class="ri-sparkling-2-line text-lg text-primary"></i><span class="mt-1 text-[9px] font-semibold leading-none">Coba gratis</span>
+        @else
+            <i class="ri-close-line text-xl text-gray-400"></i>
+        @endif
+        </span>
+        <span class="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block">{{ $hasActiveAiGatewayPackage ? ($aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokensUsed, 0, ',', '.') . ' dari ' . number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token terpakai' : 'Paket token tanpa batas') : ($hasAiGatewayTrial ? 'Coba Diskusi AI gratis tersedia' : 'Belum membeli paket pembahasan AI') }}</span>
+    </a>
+
+    @if($hasAiGatewayTrial)
+    <div id="ai-discussion-intro-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-robot-2-line text-2xl"></i></span><h2 class="mt-4 text-xl font-semibold text-gray-900">Coba Diskusi AI Pembahasan</h2><p class="mt-2 text-sm leading-6 text-gray-500">Tanyakan konsep atau langkah penyelesaian soal. Kamu mendapat kuota coba gratis {{ $aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token' : 'untuk mencoba' }}.</p><div class="mt-6 flex justify-center gap-2"><button type="button" onclick="closeAiDiscussionIntro()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Nanti saja</button><button type="button" onclick="startAiDiscussionTrial()" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Coba sekarang</button></div></div></div></div>
+    @endif
+
+    <div id="ai-gateway-plan-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold text-gray-900">Paket Diskusi AI</h2><p id="ai-gateway-plan-modal-message" class="mt-1 text-sm text-gray-500">Pilih paket untuk menggunakan Diskusi AI pada pembahasan.</p></div><button type="button" onclick="closeAiGatewayPlanModal()" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div class="mt-5 grid gap-4 md:grid-cols-3">@forelse($aiGatewayPlans as $plan)<div class="flex flex-col rounded-xl border border-gray-200 p-4"><h3 class="font-semibold text-gray-900">{{ data_get($plan, 'name') }}</h3><p class="mt-2 text-xl font-bold text-primary">Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }}</p><p class="mt-1 text-xs text-gray-500">{{ data_get($plan, 'duration_days') }} hari · {{ data_get($plan, 'chat_limit') ?: '∞' }} chat</p><p class="mt-1 text-xs text-gray-500">{{ data_get($plan, 'token_limit') ? number_format(data_get($plan, 'token_limit'), 0, ',', '.') : '∞' }} token</p><form class="mt-4" method="POST" action="{{ route('user.ai-gateway.checkout') }}">@csrf<input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}"><button class="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90">Beli paket</button></form></div>@empty<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 md:col-span-3">Paket belum dapat dimuat. <a href="{{ route('user.ai-gateway.index') }}" class="font-semibold underline">Buka halaman penggunaan AI</a>.</div>@endforelse</div><div class="mt-5 text-right"><a href="{{ route('user.ai-gateway.index') }}" class="text-sm font-medium text-primary hover:underline">Lihat penggunaan AI saya</a></div></div></div></div>
+    @endif
 </div>
 
 @endsection
@@ -874,6 +905,36 @@
     const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
     const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
     const csrfToken = @json(csrf_token());
+
+    function openAiGatewayPlanModal(message = null) {
+        const modal = document.getElementById('ai-gateway-plan-modal');
+        const messageElement = document.getElementById('ai-gateway-plan-modal-message');
+        if (message && messageElement) messageElement.textContent = message;
+        modal?.classList.remove('hidden');
+    }
+
+    function closeAiGatewayPlanModal() {
+        document.getElementById('ai-gateway-plan-modal')?.classList.add('hidden');
+    }
+
+    function closeAiDiscussionIntro() {
+        document.getElementById('ai-discussion-intro-modal')?.classList.add('hidden');
+        localStorage.setItem(@json('ai-discussion-intro-' . $tryout->tryout_id), 'seen');
+    }
+
+    function startAiDiscussionTrial() {
+        closeAiDiscussionIntro();
+        const toggle = document.querySelector('.ai-discussion-toggle');
+        const discussion = toggle?.closest('.ai-discussion');
+        discussion?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (toggle && discussion?.querySelector('.ai-discussion-body')?.classList.contains('hidden')) {
+            toggle.click();
+        }
+    }
+
+    if (@json($hasAiGatewayTrial) && localStorage.getItem(@json('ai-discussion-intro-' . $tryout->tryout_id)) !== 'seen') {
+        setTimeout(() => document.getElementById('ai-discussion-intro-modal')?.classList.remove('hidden'), 500);
+    }
 
     document.querySelectorAll('.ai-discussion').forEach((wrapper) => {
         const toggle = wrapper.querySelector('.ai-discussion-toggle');
@@ -950,7 +1011,7 @@
             const shouldSpeakResponse = replyWithVoice;
             replyWithVoice = false;
 
-            appendAiDiscussionMessage(messages, message, 'user');
+            const userBubble = appendAiDiscussionMessage(messages, message, 'user');
             input.value = '';
             error?.classList.add('hidden');
             submitButton.disabled = true;
@@ -972,6 +1033,12 @@
                 const data = await response.json();
 
                 if (!response.ok) {
+                    if (String(data.message || '').includes('Paket Diskusi AI')) {
+                        loadingBubble.remove();
+                        userBubble.remove();
+                        openAiGatewayPlanModal('Paket AI diperlukan untuk melanjutkan diskusi. Pilih paket yang sesuai di bawah.');
+                        return;
+                    }
                     throw new Error(data.message || 'Diskusi AI gagal diproses.');
                 }
 

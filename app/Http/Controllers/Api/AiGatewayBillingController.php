@@ -7,6 +7,7 @@ use App\Models\AiGatewayClient;
 use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
+use App\Models\AiGatewayUserTrial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -25,9 +26,11 @@ class AiGatewayBillingController extends Controller
     {
         $c = $this->client($r);
         $userId = (string) $r->validate(['external_user_id' => 'required|string|max:120'])['external_user_id'];
+        $this->syncLatestPendingPayment($c, $userId);
         $s = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->where('status', 'active')->where('ends_at', '>', now())->latest()->first();
+        $trial = AiGatewayUserTrial::where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->first();
 
-        return ['project' => $c->name, 'subscription' => $s];
+        return ['project' => $c->name, 'subscription' => $s, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
     }
 
     public function checkout(Request $r)
@@ -62,5 +65,32 @@ class AiGatewayBillingController extends Controller
         }
 
         return ['message' => 'OK'];
+    }
+
+    private function syncLatestPendingPayment(AiGatewayClient $client, string $externalUserId): void
+    {
+        $transaction = AiGatewayTransaction::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('status', 'pending')
+            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
+            ->latest()
+            ->first();
+
+        if (!$transaction || blank($transaction->provider_invoice_id)) {
+            return;
+        }
+
+        try {
+            $response = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')
+                ->timeout(10)
+                ->get(rtrim((string) config('services.xendit.base_url'), '/') . '/v2/invoices/' . $transaction->provider_invoice_id);
+            if (strtoupper((string) $response->json('status')) === 'PAID') {
+                $transaction->update(['status' => 'paid', 'paid_at' => now()]);
+                $subscription = AiGatewaySubscription::find($transaction->ai_gateway_subscription_id);
+                $subscription?->update(['status' => 'active', 'starts_at' => now(), 'ends_at' => now()->addDays($transaction->plan?->duration_days ?? 30)]);
+            }
+        } catch (\Throwable) {
+            // Webhook tetap menjadi jalur utama; sinkronisasi ini hanya fallback saat status dibuka user.
+        }
     }
 }
