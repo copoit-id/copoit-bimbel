@@ -1,17 +1,17 @@
 <?php
 
-use App\Http\Controllers\admin\AksesController;
-use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
 use App\Http\Controllers\admin\AdminAssistantController;
+use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
+use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
-use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\CertificateController;
+use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\ClassAttendanceController;
 use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\ClassScheduleController;
 use App\Http\Controllers\admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\admin\DiscussionController;
 use App\Http\Controllers\admin\DiscountController;
+use App\Http\Controllers\admin\DiscussionController;
 use App\Http\Controllers\admin\EssayReviewController;
 use App\Http\Controllers\admin\ExpenseController;
 use App\Http\Controllers\admin\FaqController;
@@ -26,14 +26,14 @@ use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
 use App\Http\Controllers\admin\ProfileController;
-use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionBankController;
+use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\StudyGroupController;
-use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TentorController;
+use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
@@ -42,8 +42,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
 use App\Http\Controllers\PublicPageController;
-use App\Http\Controllers\user\CertificateValidationController;
+use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
+use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
 use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
@@ -53,12 +54,11 @@ use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\user\UserBillingController;
 use App\Http\Controllers\user\UserClassScheduleController;
-use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Middleware\AdminMiddleware;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+
 // routes/web.php
 Route::get('/phpinfo', function () {
     phpinfo();
@@ -74,12 +74,12 @@ Route::get('/test-email-reset', function () {
         'email' => 'johndoe@example.com',
     ]);
     $resetUrl = url('/reset-password/mock-token-123456');
+
     return view('emails.reset-password', [
         'user' => $user,
         'resetUrl' => $resetUrl,
     ]);
 });
-
 
 Route::get('/m1grat3', function () {
     Artisan::call('migrate');
@@ -168,7 +168,6 @@ Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name(
 Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
-
 Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Route untuk logout as (admin kembali ke akun admin)
@@ -177,13 +176,13 @@ Route::match(['get', 'post'], '/logout-as', [UserController::class, 'logoutAs'])
 // Public user routes (no auth required)
 Route::prefix('user')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('user.dashboard.index');
-    
+
     // Public package listing (berbayar & gratis)
     Route::get('/paket', [PackageController::class, 'index'])->name('user.package.index');
-    
+
     // Public package detail (bisa diakses guest)
     Route::get('/paket/{package_id}/detail', [PackageController::class, 'detail'])->name('user.package.detail');
-    
+
     // Public material listing (bisa diakses guest)
     Route::prefix('materi')->name('user.material.')->group(function () {
         Route::get('/', [\App\Http\Controllers\user\MaterialController::class, 'index'])->name('index');
@@ -192,7 +191,7 @@ Route::prefix('user')->group(function () {
         Route::get('/live-session', [\App\Http\Controllers\user\MaterialController::class, 'liveSessions'])->name('live-sessions');
         Route::get('/kategori/{category_id}', [\App\Http\Controllers\user\MaterialController::class, 'byCategory'])->name('category');
     });
-    
+
     // Public tryout listing (bisa diakses guest)
     Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
 });
@@ -220,6 +219,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->name('user.package.tryout.pembahasan.ai-chat');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->name('user.package.tryout.pembahasan.ai-speech');
     });
 
     Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');
@@ -260,7 +260,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/sertifikasi-list', [PackageController::class, 'listSertifikasi'])->name('user.package.sertifikasi.list');
         Route::get('/sertifikasi/{id_package}', [PackageController::class, 'indexSertifikasi'])->name('user.package.sertifikasi');
         Route::get('/{id_package}/tryout/{id_tryout}/statistik', [PackageController::class, 'statistikTryout'])->name('user.package.tryout.statistik');
-        // Note: user.package.buy, user.package.bimbel, user.package.tryout, user.package.tryout.riwayat, 
+        // Note: user.package.buy, user.package.bimbel, user.package.tryout, user.package.tryout.riwayat,
         // user.package.tryout.ranking sudah didefinisikan di paket-pembelian prefix
         // user.package.tryout.list sudah didefinisikan di public routes
     });
@@ -336,6 +336,12 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/roles/{role}/permissions', [\App\Http\Controllers\superadmin\RoleController::class, 'updatePermissions'])->name('roles.permissions');
     Route::get('/general-settings', [\App\Http\Controllers\superadmin\GeneralSettingController::class, 'edit'])->name('general-settings.edit');
     Route::put('/general-settings', [\App\Http\Controllers\superadmin\GeneralSettingController::class, 'update'])->name('general-settings.update');
+    Route::get('/ai-usage', [\App\Http\Controllers\superadmin\AiUsageController::class, 'index'])->name('ai-usage.index');
+    Route::put('/ai-usage/quota', [\App\Http\Controllers\superadmin\AiUsageController::class, 'updateQuota'])->name('ai-usage.quota.update');
+    Route::post('/ai-usage/projects', [\App\Http\Controllers\superadmin\AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
+    Route::put('/ai-usage/projects/{gatewayClient}', [\App\Http\Controllers\superadmin\AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');
+    Route::delete('/ai-usage/projects/{gatewayClient}', [\App\Http\Controllers\superadmin\AiUsageController::class, 'destroyGatewayClient'])->name('ai-usage.projects.destroy');
+    Route::resource('ai-gateway-plans', \App\Http\Controllers\superadmin\AiGatewayPlanController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Plan Master Data Routes (CRUD Plan templates)
     Route::get('/plans', [\App\Http\Controllers\superadmin\PlanController::class, 'index'])->name('plans.index');
@@ -403,10 +409,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('/user/import/status/{token}', function (string $token) {
         return response()->json([
             'progress' => cache()->get("import_users:{$token}:progress"),
-            'done'     => cache()->get("import_users:{$token}:done", false),
+            'done' => cache()->get("import_users:{$token}:done", false),
         ]);
     })->name('user.import.status');
-
 
     // Package Management - Gunakan AdminPackageController dengan alias
     Route::get('/paket', [AdminPackageController::class, 'index'])->name('package.index');
@@ -629,7 +634,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
         Route::post('/grant', [AksesController::class, 'grant'])->name('grant');
         Route::post('/grant-rombel', [AksesController::class, 'grantStudyGroup'])->name('grant-study-group');
         Route::post('/revoke', [AksesController::class, 'revoke'])->name('revoke');
-        
+
         // Legacy routes for backward compatibility
         Route::get('/paket/{package_id}', [AksesController::class, 'show'])->name('show');
         Route::post('/pengajuan/{access}/approve', [AksesController::class, 'approveRequest'])->name('requests.approve');

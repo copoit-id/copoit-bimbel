@@ -1,0 +1,102 @@
+@extends('super-admin.layouts.app')
+
+@section('title', 'Super Admin - Paket AI Gateway')
+
+@section('content')
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Paket AI Gateway</h2>
+            <p class="text-gray-500">Kelola paket AI yang dapat dibeli oleh project terhubung.</p>
+        </div>
+        <button type="button" onclick="document.getElementById('create-plan-modal').classList.remove('hidden')"
+            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">
+            <i class="ri-add-line"></i>
+            Tambah Paket
+        </button>
+    </div>
+
+    @if(session('success'))
+        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>
+    @endif
+
+    <div class="rounded-xl border border-border bg-white p-6">
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Daftar Paket</h3>
+            <p class="mt-1 text-sm text-gray-500">Batas bernilai 0 berarti tidak terbatas.</p>
+        </div>
+
+        <div class="space-y-4">
+            @forelse($plans as $plan)
+                <div class="rounded-xl border border-gray-200 p-5">
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h4 class="text-lg font-semibold text-gray-900">{{ $plan->name }}</h4>
+                                <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $plan->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                                    {{ $plan->is_active ? 'Aktif' : 'Nonaktif' }}
+                                </span>
+                            </div>
+                            <p class="mt-1 text-sm text-gray-500">{{ $plan->slug }} · Rp {{ number_format($plan->price, 0, ',', '.') }} / {{ $plan->duration_days }} hari</p>
+                        </div>
+                        <form method="POST" action="{{ route('super-admin.ai-gateway-plans.destroy', $plan) }}" onsubmit="return confirm('Hapus paket ini?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="rounded-full border border-red-400 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-500 hover:text-white">Hapus</button>
+                        </form>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4 text-sm md:grid-cols-3">
+                        <div>
+                            <span class="text-gray-500">Harga:</span>
+                            <span class="ml-1 font-medium text-gray-800">Rp {{ number_format($plan->price, 0, ',', '.') }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Token:</span>
+                            <span class="ml-1 font-medium text-gray-800">{{ $plan->token_limit ?: 'Unlimited' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Chat:</span>
+                            <span class="ml-1 font-medium text-gray-800">{{ $plan->chat_limit ?: 'Unlimited' }}</span>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="py-10 text-center text-gray-500">Belum ada paket AI Gateway.</div>
+            @endforelse
+        </div>
+    </div>
+</div>
+
+<div id="create-plan-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4">
+    <div class="flex min-h-full items-center justify-center">
+        <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Tambah Paket AI Gateway</h3>
+                    <p class="mt-1 text-sm text-gray-500">Atur harga, quota, dan masa aktif paket.</p>
+                </div>
+                <button type="button" onclick="document.getElementById('create-plan-modal').classList.add('hidden')"
+                    class="rounded-lg p-1 text-gray-400 hover:bg-gray-100">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <form method="POST" action="{{ route('super-admin.ai-gateway-plans.store') }}" class="mt-6 grid gap-4 md:grid-cols-2">
+                @csrf
+                <label class="block md:col-span-2">
+                    <span class="text-sm font-semibold text-gray-700">Nama Paket</span>
+                    <input name="name" required placeholder="Contoh: Starter AI" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
+                </label>
+                <label class="block">
+                    <span class="text-sm font-semibold text-gray-700">Harga (Rp)</span>
+                    <input name="price" type="number" min="0" required placeholder="35000" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
+                </label>
+                <label class="block"><span class="text-sm font-semibold text-gray-700">Masa Aktif (hari)</span><input name="duration_days" type="number" min="1" value="30" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
+                <label class="block"><span class="text-sm font-semibold text-gray-700">Limit Token</span><input name="token_limit" type="number" min="0" value="0" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">0 = unlimited</span></label>
+                <label class="block"><span class="text-sm font-semibold text-gray-700">Limit Chat</span><input name="chat_limit" type="number" min="0" value="0" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">0 = unlimited</span></label>
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 md:col-span-2"><input name="is_active" value="1" type="checkbox" checked class="rounded border-gray-300 text-primary focus:ring-primary"> Aktifkan paket setelah dibuat</label>
+                <div class="flex justify-end gap-2 pt-2 md:col-span-2"><button type="button" onclick="document.getElementById('create-plan-modal').classList.add('hidden')" class="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">Batal</button><button class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">Simpan Paket</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection

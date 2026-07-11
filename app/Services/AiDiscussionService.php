@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Models\ClientProfile;
+use App\Models\AiDiscussionUsageLog;
 use App\Models\Question;
 use App\Models\UserAnswerDetail;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -18,7 +20,7 @@ class AiDiscussionService
             && (bool) ($this->settings()['enabled'] ?? false);
     }
 
-    public function chat(string $message, array $context): array
+    public function chat(string $message, array $context, bool $forceDirectProvider = false): array
     {
         $message = trim($message);
 
@@ -30,18 +32,81 @@ class AiDiscussionService
             throw new RuntimeException('Pertanyaan tidak boleh kosong.');
         }
 
+        if (! $forceDirectProvider && filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key'))) {
+            return $this->chatViaGateway($message, $context);
+        }
+
         $settings = $this->settings();
+        $monthlyLimit = max(0, (int) ($settings['monthly_token_limit'] ?? 0));
+        if ($monthlyLimit > 0) {
+            $usedThisMonth = (int) AiDiscussionUsageLog::query()
+                ->where('created_at', '>=', now()->startOfMonth())
+                ->sum('total_tokens');
+
+            if ($usedThisMonth >= $monthlyLimit) {
+                throw new RuntimeException('Kuota token Diskusi AI bulan ini sudah habis.');
+            }
+        }
+
         $model = (string) ($settings['model'] ?? $this->defaultModel());
         $provider = $this->providerForModel($model, $settings);
 
-        $content = $provider === 'gemini'
+        $startedAt = hrtime(true);
+        $response = $provider === 'gemini'
             ? $this->chatWithGemini($message, $context, $model, $settings)
             : $this->chatWithOpenAi($message, $context, $model, $settings);
 
         return [
-            'message' => trim($content),
+            'message' => trim($response['message']),
             'model' => $model,
             'provider' => $provider,
+            'usage' => $response['usage'],
+            'response_time_ms' => (int) round((hrtime(true) - $startedAt) / 1_000_000),
+        ];
+    }
+
+    private function chatViaGateway(string $message, array $context): array
+    {
+        $question = $context['question'] ?? null;
+        $options = $question instanceof Question
+            ? $question->questionOptions->values()->map(fn ($option, $index) => [
+                'key' => trim((string) $option->option_key) ?: chr(65 + $index),
+                'text' => $this->plainText((string) $option->option_text),
+            ])->all()
+            : ($context['options'] ?? []);
+
+        $selectedAnswer = $context['answer_detail']?->questionOption
+            ? $this->plainText((string) $context['answer_detail']->questionOption->option_text)
+            : ($context['answer_detail']?->answer_text ?? ($context['selected_answer'] ?? 'Tidak dijawab / tidak tersedia'));
+
+        try {
+            $response = Http::acceptJson()
+                ->timeout((int) config('services.gemini.timeout', 90))
+                ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
+                ->post(config('services.ai_gateway.url'), [
+                    'message' => $message,
+                    'external_user_id' => (string) (Auth::id() ?? ''),
+                    'question_reference' => (string) ($question?->question_id ?? ($context['question_reference'] ?? '')),
+                    'context' => [
+                        'tryout_name' => $context['tryout_name'] ?? '-',
+                        'subtest_name' => $context['subtest_name'] ?? '-',
+                        'question_type' => $question?->question_type ?? ($context['question_type'] ?? '-'),
+                        'question_text' => $question instanceof Question ? $this->plainText((string) $question->question_text) : ($context['question_text'] ?? ''),
+                        'options' => $options,
+                        'selected_answer' => $selectedAnswer,
+                        'explanation' => $question instanceof Question ? $this->plainText((string) ($question->explanation ?? '')) : ($context['explanation'] ?? ''),
+                    ],
+                ])->throw()->json();
+        } catch (RequestException $exception) {
+            throw new RuntimeException('Gateway AI tidak dapat dihubungi: ' . Str::limit((string) ($exception->response?->json('message') ?: $exception->getMessage()), 240));
+        }
+
+        return [
+            'message' => (string) ($response['message'] ?? ''),
+            'model' => (string) ($response['model'] ?? 'gateway'),
+            'provider' => (string) ($response['provider'] ?? 'gateway'),
+            'usage' => $response['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0],
+            'response_time_ms' => (int) ($response['response_time_ms'] ?? 0),
         ];
     }
 
@@ -60,7 +125,7 @@ class AiDiscussionService
             : [];
     }
 
-    private function chatWithOpenAi(string $message, array $context, string $model, array $settings): string
+    private function chatWithOpenAi(string $message, array $context, string $model, array $settings): array
     {
         $provider = $this->providerSettings('openai', $settings);
         $apiKey = $provider['api_key'] ?? config('services.openai.api_key');
@@ -98,10 +163,13 @@ class AiDiscussionService
             throw new RuntimeException('Gagal menghubungi OpenAI: ' . Str::limit((string) $error, 240));
         }
 
-        return $this->extractOpenAiOutputText($response);
+        return [
+            'message' => $this->extractOpenAiOutputText($response),
+            'usage' => $this->normalizeUsage($response['usage'] ?? [], 'input_tokens', 'output_tokens', 'total_tokens'),
+        ];
     }
 
-    private function chatWithGemini(string $message, array $context, string $model, array $settings): string
+    private function chatWithGemini(string $message, array $context, string $model, array $settings): array
     {
         $provider = $this->providerSettings('gemini', $settings);
         $apiKey = $provider['api_key'] ?? config('services.gemini.api_key');
@@ -142,7 +210,19 @@ class AiDiscussionService
             throw new RuntimeException('Gagal menghubungi Gemini: ' . Str::limit((string) $error, 240));
         }
 
-        return $this->extractGeminiOutputText($response);
+        return [
+            'message' => $this->extractGeminiOutputText($response),
+            'usage' => $this->normalizeUsage($response['usageMetadata'] ?? [], 'promptTokenCount', 'candidatesTokenCount', 'totalTokenCount'),
+        ];
+    }
+
+    private function normalizeUsage(array $usage, string $inputKey, string $outputKey, string $totalKey): array
+    {
+        $input = max(0, (int) ($usage[$inputKey] ?? 0));
+        $output = max(0, (int) ($usage[$outputKey] ?? 0));
+        $total = max(0, (int) ($usage[$totalKey] ?? ($input + $output)));
+
+        return compact('input', 'output', 'total');
     }
 
     private function systemPrompt(array $settings): string
@@ -160,6 +240,17 @@ class AiDiscussionService
 
     private function contextPrompt(string $message, array $context): string
     {
+        if (! isset($context['question']) || ! $context['question'] instanceof Question) {
+            $options = collect($context['options'] ?? [])->map(function ($option, $index) {
+                return is_array($option) ? (($option['key'] ?? chr(65 + $index)) . '. ' . ($option['text'] ?? '')) : (string) $option;
+            })->implode("\n");
+
+            return "Nama tryout: " . ($context['tryout_name'] ?? '-') . "\nSubtest: " . ($context['subtest_name'] ?? '-')
+                . "\nTipe soal: " . ($context['question_type'] ?? '-') . "\n\nSoal:\n" . ($context['question_text'] ?? '')
+                . "\n\nPilihan:\n" . $options . "\n\nJawaban siswa:\n" . ($context['selected_answer'] ?? '-')
+                . "\n\nPembahasan resmi:\n" . ($context['explanation'] ?? '-') . "\n\nPertanyaan siswa:\n" . $message;
+        }
+
         /** @var Question $question */
         $question = $context['question'];
         /** @var UserAnswerDetail|null $answerDetail */

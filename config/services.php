@@ -98,6 +98,10 @@ return [
             'gemini-2.5-flash-lite' => 'Gemini - 2.5 Flash-Lite',
         ],
     ],
+    'ai_gateway' => [
+        'url' => env('AI_GATEWAY_URL'),
+        'key' => env('AI_GATEWAY_KEY'),
+    ],
 
     'ai_similarity' => [
         'enabled' => env('AI_SIMILARITY_ENABLED', true),

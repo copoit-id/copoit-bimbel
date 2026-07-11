@@ -15,6 +15,7 @@ use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
+use App\Models\AiDiscussionUsageLog;
 use App\Models\UserAnswer;
 use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
@@ -3262,6 +3263,23 @@ class PackageController extends Controller
             return $detail;
         });
 
+        // Riwayat percakapan disimpan per attempt dan per soal agar siswa dapat
+        // membacanya kembali ketika membuka halaman pembahasan di lain waktu.
+        $aiDiscussionHistoryByQuestion = AiDiscussionUsageLog::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->whereIn('question_id', $questions->pluck('question_id'))
+            ->orderBy('created_at')
+            ->get(['question_id', 'user_message', 'assistant_message', 'created_at'])
+            ->groupBy('question_id')
+            ->map(fn ($messages) => $messages->map(fn ($message) => [
+                'user_message' => $message->user_message,
+                'assistant_message' => $message->assistant_message,
+                'created_at' => optional($message->created_at)->toIso8601String(),
+            ])->values())
+            ->all();
+
         $pendingReviewCount = $allAnswerDetails->filter(function ($detail) {
             $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
             return !empty($meta['pending_review']);
@@ -3428,6 +3446,7 @@ class PackageController extends Controller
             'latestUserAnswers',
             'token',
             'allAnswerDetails',
+            'aiDiscussionHistoryByQuestion',
             'overallStats',
             'subtestSummaries'
         ));
@@ -3510,7 +3529,63 @@ class PackageController extends Controller
             ], 422);
         }
 
+        AiDiscussionUsageLog::create([
+            'user_id' => Auth::id(),
+            'tryout_id' => $tryout->tryout_id,
+            'question_id' => $question->question_id,
+            'attempt_token' => $token,
+            'provider' => $result['provider'],
+            'model' => $result['model'],
+            'input_tokens' => $result['usage']['input'],
+            'output_tokens' => $result['usage']['output'],
+            'total_tokens' => $result['usage']['total'],
+            'response_time_ms' => $result['response_time_ms'],
+            'user_message' => $validated['message'],
+            'assistant_message' => $result['message'],
+        ]);
+
         return response()->json($result);
+    }
+
+    public function speakPembahasanAi(Request $request, $id_package, $id_tryout, $token)
+    {
+        $data = $request->validate([
+            'text' => ['required', 'string', 'max:4096'],
+        ]);
+
+        abort_unless(UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $token)
+            ->where('status', 'completed')
+            ->exists(), 404);
+
+        $apiKey = (string) config('services.openai.api_key');
+        if ($apiKey === '') {
+            return response()->json(['message' => 'Suara AI belum dikonfigurasi.'], 422);
+        }
+
+        try {
+            $response = Http::withToken($apiKey)
+                ->accept('audio/mpeg')
+                ->timeout((int) config('services.openai.timeout', 90))
+                ->post(rtrim((string) config('services.openai.base_url'), '/') . '/audio/speech', [
+                    'model' => 'tts-1-hd',
+                    'voice' => 'nova',
+                    'input' => strip_tags($data['text']),
+                    'response_format' => 'mp3',
+                ]);
+        } catch (\Throwable $exception) {
+            return response()->json(['message' => 'Suara AI tidak dapat dibuat.'], 422);
+        }
+
+        if (! $response->successful()) {
+            return response()->json(['message' => 'Suara AI tidak dapat dibuat.'], 422);
+        }
+
+        return response($response->body(), 200, [
+            'Content-Type' => 'audio/mpeg',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     private function getSubtestName($type)

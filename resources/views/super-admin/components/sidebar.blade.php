@@ -38,6 +38,14 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('super-admin.ai-usage.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.ai-usage.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-cpu-line text-[20px]"></i>
+                    <span class="ms-3">AI Usage</span>
+                </a>
+            </li>
+            <li><a href="{{ route('super-admin.ai-gateway-plans.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.ai-gateway-plans.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg"><i class="ri-price-tag-3-line text-[20px]"></i><span class="ms-3">Paket AI Gateway</span></a></li>
+            <li>
                 <a href="{{ route('super-admin.plans.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.plans.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i class="ri-vip-crown-line text-[20px]"></i>

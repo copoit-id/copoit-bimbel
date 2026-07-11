@@ -11,6 +11,7 @@
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
+        $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -687,6 +688,12 @@
                             class="ai-discussion-input min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                             maxlength="1200"
                             placeholder="Contoh: jelaskan kenapa opsi B benar">
+                        <button type="button"
+                            class="ai-discussion-voice inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Tanya dengan suara">
+                            <i class="ri-mic-line text-lg"></i>
+                            <span class="sr-only">Tanya dengan suara</span>
+                        </button>
                         <button type="submit"
                             class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
                             <i class="ri-send-plane-2-line"></i>
@@ -864,6 +871,8 @@
     });
 
     const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
+    const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
+    const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
     const csrfToken = @json(csrf_token());
 
     document.querySelectorAll('.ai-discussion').forEach((wrapper) => {
@@ -874,6 +883,51 @@
         const messages = wrapper.querySelector('.ai-discussion-messages');
         const error = wrapper.querySelector('.ai-discussion-error');
         const submitButton = form?.querySelector('button[type="submit"]');
+        const voiceButton = wrapper.querySelector('.ai-discussion-voice');
+
+        const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
+        if (history.length > 0) {
+            messages.innerHTML = '';
+            history.forEach((entry) => {
+                appendAiDiscussionMessage(messages, entry.user_message, 'user');
+                appendAiDiscussionMessage(messages, entry.assistant_message, 'ai');
+            });
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            voiceButton?.setAttribute('disabled', 'disabled');
+            voiceButton?.setAttribute('title', 'Input suara belum didukung browser ini.');
+        } else if (voiceButton) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'id-ID';
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            voiceButton.addEventListener('click', () => {
+                error?.classList.add('hidden');
+                recognition.start();
+            });
+
+            recognition.onstart = () => {
+                voiceButton.disabled = true;
+                voiceButton.innerHTML = '<i class="ri-record-circle-line animate-pulse text-lg text-red-500"></i>';
+            };
+            recognition.onresult = (event) => {
+                input.value = event.results[0][0].transcript;
+                form.requestSubmit();
+            };
+            recognition.onerror = () => {
+                if (error) {
+                    error.textContent = 'Suara belum terbaca. Coba lagi atau ketik pertanyaanmu.';
+                    error.classList.remove('hidden');
+                }
+            };
+            recognition.onend = () => {
+                voiceButton.disabled = false;
+                voiceButton.innerHTML = '<i class="ri-mic-line text-lg"></i><span class="sr-only">Tanya dengan suara</span>';
+            };
+        }
 
         toggle?.addEventListener('click', () => {
             const isHidden = body.classList.toggle('hidden');
@@ -918,7 +972,9 @@
                 }
 
                 loadingBubble.remove();
-                appendAiDiscussionMessage(messages, data.message || 'AI tidak mengembalikan jawaban.', 'ai');
+                const aiMessage = data.message || 'AI tidak mengembalikan jawaban.';
+                appendAiDiscussionMessage(messages, aiMessage, 'ai');
+                playAiDiscussionAudio(aiMessage);
             } catch (err) {
                 loadingBubble.remove();
                 if (error) {
@@ -935,15 +991,113 @@
     function appendAiDiscussionMessage(messages, text, type) {
         const bubble = document.createElement('div');
         const isUser = type === 'user';
+        const isAiResponse = type === 'ai';
         bubble.className = [
-            'max-w-[92%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-line',
+            'max-w-[92%] rounded-lg px-3 py-2 text-sm leading-relaxed',
             isUser ? 'ml-auto bg-primary text-white' : 'bg-white border border-gray-200 text-gray-700',
             type === 'loading' ? 'text-gray-500 italic' : '',
         ].join(' ');
-        bubble.textContent = text;
+
+        // Respons model berupa Markdown. Format elemen yang umum digunakan,
+        // tetapi escape semua HTML terlebih dahulu agar respons tetap aman.
+        if (isAiResponse) {
+            bubble.classList.add('ai-discussion-markdown');
+            bubble.innerHTML = formatAiDiscussionMarkdown(text);
+
+            const replay = document.createElement('button');
+            replay.type = 'button';
+            replay.className = 'mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline';
+            replay.innerHTML = '<i class="ri-volume-up-line"></i> Dengarkan lagi';
+            replay.addEventListener('click', () => playAiDiscussionAudio(text));
+            bubble.appendChild(replay);
+        } else {
+            bubble.classList.add('whitespace-pre-line');
+            bubble.textContent = text;
+        }
         messages.appendChild(bubble);
         messages.scrollTop = messages.scrollHeight;
         return bubble;
+    }
+
+    async function playAiDiscussionAudio(text) {
+        try {
+            const response = await fetch(aiSpeechEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'audio/mpeg, application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ text }),
+            });
+            if (!response.ok) throw new Error('TTS gagal');
+            const audioUrl = URL.createObjectURL(await response.blob());
+            const audio = new Audio(audioUrl);
+            audio.onended = () => URL.revokeObjectURL(audioUrl);
+            await audio.play();
+            return;
+        } catch (_) {
+            speakAiDiscussionResponseFallback(text);
+        }
+    }
+
+    function speakAiDiscussionResponseFallback(text) {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const spokenText = String(text)
+            .replace(/[*#`_]/g, '')
+            .replace(/\n+/g, '. ');
+        const utterance = new SpeechSynthesisUtterance(spokenText);
+        utterance.lang = 'id-ID';
+        utterance.rate = 0.96;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function formatAiDiscussionMarkdown(text) {
+        const escapeHtml = (value) => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const inline = (value) => escapeHtml(value)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+            .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+        const output = [];
+        let listType = null;
+        const closeList = () => {
+            if (listType) output.push(`</${listType}>`);
+            listType = null;
+        };
+
+        String(text || '').replace(/\r\n/g, '\n').split('\n').forEach((line) => {
+            const bullet = line.match(/^\s*[-*•]\s+(.+)$/);
+            const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+            const heading = line.match(/^\s{0,3}#{1,3}\s+(.+)$/);
+
+            if (bullet || ordered) {
+                const nextType = bullet ? 'ul' : 'ol';
+                if (listType && listType !== nextType) closeList();
+                if (!listType) {
+                    listType = nextType;
+                    output.push(`<${listType}>`);
+                }
+                output.push(`<li>${inline((bullet || ordered)[1])}</li>`);
+                return;
+            }
+
+            closeList();
+            if (heading) output.push(`<p class="ai-discussion-heading">${inline(heading[1])}</p>`);
+            else if (line.trim() === '') output.push('<div class="h-2"></div>');
+            else output.push(`<p>${inline(line)}</p>`);
+        });
+        closeList();
+
+        return output.join('');
     }
     
     // Cek apakah ada essay yang menunggu koreksi AI
@@ -1040,6 +1194,20 @@
     .card-pembahasan:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .ai-discussion-markdown p + p { margin-top: 0.4rem; }
+    .ai-discussion-markdown .ai-discussion-heading { font-weight: 700; color: #111827; }
+    .ai-discussion-markdown ul,
+    .ai-discussion-markdown ol { margin: 0.4rem 0; padding-left: 1.25rem; }
+    .ai-discussion-markdown ul { list-style: disc; }
+    .ai-discussion-markdown ol { list-style: decimal; }
+    .ai-discussion-markdown li + li { margin-top: 0.2rem; }
+    .ai-discussion-markdown code {
+        border-radius: 0.25rem;
+        background: #f3f4f6;
+        padding: 0.1rem 0.25rem;
+        font-size: 0.85em;
     }
 
     /* Color definitions */

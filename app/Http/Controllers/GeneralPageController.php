@@ -106,22 +106,17 @@ class GeneralPageController extends Controller
     {
         abort_unless(GeneralPage::findActiveByKey('statistik-ptn'), 404);
 
-        $endpoint = $selectionPath === 'snbt'
-            ? 'https://snpmb.id/proxy-ptn-sb.php'
-            : 'https://snpmb.id/proxy-ptn-sn.php';
+        $endpoints = $selectionPath === 'snbt'
+            ? [
+                'https://snpmb.id/proxy-ptn-sb.php',
+                'https://snpmb.id/proxy-ptn-sn.php',
+            ]
+            : [
+                'https://snpmb.id/proxy-ptn-sn.php',
+                'https://snpmb.id/proxy-ptn-sb.php',
+            ];
 
-        $data = Cache::remember("snpmb_{$selectionPath}_ptn_list", 3600 * 6, function () use ($endpoint, $selectionPath) {
-            try {
-                $response = Http::timeout(10)->get($endpoint);
-                if ($response->successful()) {
-                    return $response->json();
-                }
-            } catch (\Exception $e) {
-                logger()->error("Error fetching PTN list {$selectionPath} from SNPMB: ".$e->getMessage());
-            }
-
-            return null;
-        });
+        $data = $this->fetchSnpmbData("snpmb_{$selectionPath}_ptn_list", $endpoints, [], $selectionPath, 'PTN');
 
         if ($data === null) {
             return response()->json(['error' => 'Gagal mengambil data PTN dari server pusat.'], 502);
@@ -144,31 +139,83 @@ class GeneralPageController extends Controller
             return response()->json(['error' => 'Parameter ptn tidak valid.'], 400);
         }
 
-        $endpoint = $selectionPath === 'snbt'
-            ? 'https://snpmb.id/proxy-prodi-sb.php'
-            : 'https://snpmb.id/proxy-prodi-sn.php';
-
         $cacheKey = "snpmb_{$selectionPath}_prodi_list_".$ptnId;
-        $data = Cache::remember($cacheKey, 3600 * 6, function () use ($ptnId, $endpoint, $selectionPath) {
-            try {
-                $response = Http::timeout(10)->get($endpoint, [
-                    'ptn' => $ptnId,
-                ]);
-                if ($response->successful()) {
-                    return $response->json();
-                }
-            } catch (\Exception $e) {
-                logger()->error("Error fetching Prodi list {$selectionPath} for PTN {$ptnId} from SNPMB: ".$e->getMessage());
-            }
-
-            return null;
-        });
+        $endpoints = $selectionPath === 'snbt'
+            ? [
+                'https://snpmb.id/proxy-prodi-sb.php',
+                'https://snpmb.id/proxy-prodi-sn.php',
+            ]
+            : [
+                'https://snpmb.id/proxy-prodi-sn.php',
+                'https://snpmb.id/proxy-prodi-sb.php',
+            ];
+        $data = $this->fetchSnpmbData(
+            $cacheKey,
+            $endpoints,
+            ['ptn' => $ptnId],
+            $selectionPath,
+            "Prodi for PTN {$ptnId}"
+        );
 
         if ($data === null) {
             return response()->json(['error' => 'Gagal mengambil data Program Studi dari server pusat.'], 502);
         }
 
         return response()->json($this->appendSupportingSubjectsToProdiList($data));
+    }
+
+    /**
+     * Fetch SNPMB data with a same-format endpoint failover and a durable last-successful cache.
+     * The SNPMB proxy endpoints occasionally return 502 while the other selection endpoint remains available.
+     */
+    private function fetchSnpmbData(
+        string $cacheKey,
+        array $endpoints,
+        array $query,
+        string $selectionPath,
+        string $resource
+    ): ?array {
+        $lastSuccessfulCacheKey = "{$cacheKey}_last_successful";
+
+        $data = Cache::remember($cacheKey, now()->addHours(6), function () use (
+            $endpoints,
+            $query,
+            $selectionPath,
+            $resource,
+            $lastSuccessfulCacheKey
+        ) {
+            foreach ($endpoints as $endpoint) {
+                try {
+                    $response = Http::acceptJson()
+                        ->timeout(15)
+                        ->connectTimeout(5)
+                        ->retry(2, 500, throw: false)
+                        ->get($endpoint, $query);
+
+                    $data = $response->json();
+                    if ($response->successful() && is_array($data) && $data !== []) {
+                        Cache::forever($lastSuccessfulCacheKey, $data);
+
+                        return $data;
+                    }
+
+                    logger()->warning("SNPMB {$resource} endpoint failed", [
+                        'selection' => $selectionPath,
+                        'endpoint' => $endpoint,
+                        'status' => $response->status(),
+                    ]);
+                } catch (\Throwable $e) {
+                    logger()->warning("Error fetching {$resource} {$selectionPath} from SNPMB", [
+                        'endpoint' => $endpoint,
+                        'exception' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            return Cache::get($lastSuccessfulCacheKey);
+        });
+
+        return is_array($data) && $data !== [] ? $data : null;
     }
 
     private function appendSupportingSubjectsToProdiList(array $prodiList): array
@@ -462,6 +509,7 @@ class GeneralPageController extends Controller
         foreach ($defaults as $key => $defaultValue) {
             if (! array_key_exists($key, $content)) {
                 $content[$key] = $defaultValue;
+
                 continue;
             }
 
