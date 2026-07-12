@@ -46,6 +46,7 @@ class AiGatewayBillingController extends Controller
         $c = $this->client($r);
         $d = $r->validate(['plan_id' => 'required|integer|exists:ai_gateway_plans,id', 'external_user_id' => 'required|string|max:120', 'customer_name' => 'required|string|max:100', 'customer_email' => 'required|email', 'success_redirect_url' => 'nullable|url|max:2048', 'failure_redirect_url' => 'nullable|url|max:2048']);
         $p = AiGatewayPlan::where('is_active', true)->where('token_limit', '>', 0)->findOrFail($d['plan_id']);
+        $this->syncLatestPendingPayment($c, $d['external_user_id']);
         $pendingTransaction = AiGatewayTransaction::query()
             ->with('subscription')
             ->where('ai_gateway_client_id', $c->id)
