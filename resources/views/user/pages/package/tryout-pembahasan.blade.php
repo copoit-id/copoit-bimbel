@@ -1018,7 +1018,7 @@
     function closeAiDiscussionFeatureModal(markSeen = true) {
         document.getElementById('ai-discussion-feature-modal')?.classList.add('hidden');
         if (markSeen) {
-            localStorage.setItem(@json('ai-discussion-feature-' . $tryout->tryout_id), 'seen');
+            localStorage.setItem(@json('ai-discussion-feature-' . $tryout->tryout_id), new Date().toISOString().slice(0, 10));
         }
     }
 
@@ -1056,7 +1056,10 @@
         }
     }
 
-    if (@json($shouldOpenAiGatewayBuyModal && request('payment') !== 'success') && localStorage.getItem(@json('ai-discussion-feature-' . $tryout->tryout_id)) !== 'seen') {
+    const aiDiscussionFeatureSeenKey = @json('ai-discussion-feature-' . $tryout->tryout_id);
+    const aiDiscussionFeatureSeenToday = localStorage.getItem(aiDiscussionFeatureSeenKey) === new Date().toISOString().slice(0, 10);
+
+    if (@json($shouldOpenAiGatewayBuyModal && request('payment') !== 'success') && !aiDiscussionFeatureSeenToday) {
         setTimeout(() => openAiDiscussionFeatureModal(), 500);
     } else if (@json($hasAiGatewayTrial) && localStorage.getItem(@json('ai-discussion-intro-' . $tryout->tryout_id)) !== 'seen') {
         setTimeout(() => document.getElementById('ai-discussion-intro-modal')?.classList.remove('hidden'), 500);
