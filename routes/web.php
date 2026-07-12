@@ -340,6 +340,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::put('/general-settings', [\App\Http\Controllers\superadmin\GeneralSettingController::class, 'update'])->name('general-settings.update');
     Route::get('/ai-usage', [\App\Http\Controllers\superadmin\AiUsageController::class, 'index'])->name('ai-usage.index');
     Route::get('/ai-gateway-usage', [\App\Http\Controllers\superadmin\AiUsageController::class, 'gatewayIndex'])->name('ai-gateway-usage.index');
+    Route::get('/ai-gateway-payments', [\App\Http\Controllers\superadmin\AiUsageController::class, 'gatewayPayments'])->name('ai-gateway-payments.index');
     Route::put('/ai-usage/quota', [\App\Http\Controllers\superadmin\AiUsageController::class, 'updateQuota'])->name('ai-usage.quota.update');
     Route::post('/ai-usage/projects', [\App\Http\Controllers\superadmin\AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
     Route::put('/ai-usage/projects/{gatewayClient}', [\App\Http\Controllers\superadmin\AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');

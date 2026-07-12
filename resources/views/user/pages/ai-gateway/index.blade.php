@@ -15,6 +15,8 @@
     <div><p class="text-sm text-gray-500">Diskusi AI</p><h1 class="text-2xl font-semibold text-gray-900">Paket & Penggunaan AI</h1><p class="mt-1 text-gray-500">Pilih paket untuk memakai chat AI pada pembahasan tryout dan pantau pemakaianmu.</p></div>
 
     @if(session('error'))<div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>@endif
+    @if(request('payment') === 'success')<div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Pembayaran berhasil diterima. Status paket sedang disinkronkan dari gateway pusat.</div>@endif
+    @if(request('payment') === 'failed')<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Pembayaran belum berhasil. Anda dapat mencoba kembali kapan saja.</div>@endif
     @if($gatewayError)<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ $gatewayError }}</div>@endif
 
     <div class="rounded-xl border border-gray-200 bg-white p-5">

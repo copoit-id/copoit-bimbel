@@ -20,7 +20,7 @@ class AiDiscussionService
             && (bool) ($this->settings()['enabled'] ?? false);
     }
 
-    public function chat(string $message, array $context, bool $forceDirectProvider = false): array
+    public function chat(string $message, array $context, bool $forceDirectProvider = false, ?int $remainingTokenQuota = null): array
     {
         $message = trim($message);
 
@@ -37,6 +37,14 @@ class AiDiscussionService
         }
 
         $settings = $this->settings();
+        if ($remainingTokenQuota !== null) {
+            $defaultOutputTokens = max(1, (int) ($settings['max_output_tokens'] ?? 700));
+            $settings['max_output_tokens'] = max(64, min($defaultOutputTokens, $remainingTokenQuota));
+            if ($remainingTokenQuota < $defaultOutputTokens) {
+                $settings['instruction'] = trim((string) ($settings['instruction'] ?? ''))
+                    . "\n\nJawab sangat ringkas, prioritaskan inti pembahasan, dan akhiri jawaban dengan kalimat yang tuntas.";
+            }
+        }
         $monthlyLimit = max(0, (int) ($settings['monthly_token_limit'] ?? 0));
         if ($monthlyLimit > 0) {
             $usedThisMonth = (int) AiDiscussionUsageLog::query()
@@ -111,6 +119,7 @@ class AiDiscussionService
             'provider' => (string) ($response['provider'] ?? 'gateway'),
             'usage' => $response['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0],
             'response_time_ms' => (int) ($response['response_time_ms'] ?? 0),
+            'quota' => $response['quota'] ?? null,
         ];
     }
 

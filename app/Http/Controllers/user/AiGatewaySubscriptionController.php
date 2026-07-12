@@ -51,6 +51,8 @@ class AiGatewaySubscriptionController extends Controller
                 'external_user_id' => (string) $user->getAuthIdentifier(),
                 'customer_name' => (string) $user->name,
                 'customer_email' => (string) $user->email,
+                'success_redirect_url' => route('user.ai-gateway.index', ['payment' => 'success']),
+                'failure_redirect_url' => route('user.ai-gateway.index', ['payment' => 'failed']),
             ]);
             $response->throw();
             $invoiceUrl = (string) $response->json('invoice_url');

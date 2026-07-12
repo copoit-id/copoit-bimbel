@@ -840,15 +840,15 @@
     </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)
-    <a href="{{ route('user.ai-gateway.index') }}" class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $hasActiveAiGatewayPackage ? 'Lihat Paket & Penggunaan AI' : ($hasAiGatewayTrial ? 'Coba gratis Diskusi AI tersedia' : 'Belum membeli paket pembahasan AI') }}">
+    <a id="ai-gateway-usage-badge" href="{{ route('user.ai-gateway.index') }}" class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $hasActiveAiGatewayPackage ? 'Lihat Paket & Penggunaan AI' : ($hasAiGatewayTrial ? 'Coba gratis Diskusi AI tersedia' : 'Belum membeli paket pembahasan AI') }}">
         <span class="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center text-gray-700">
         @if($hasActiveAiGatewayPackage)
-            <span class="text-base font-bold leading-none">{{ $aiGatewayUsedPercentage !== null ? number_format($aiGatewayUsedPercentage, 0) . '%' : '∞' }}</span>
-            <span class="mt-1 text-[9px] font-medium leading-none text-gray-500">terpakai</span>
+            <i class="ri-robot-2-line mb-1 text-xs text-primary"></i><span id="ai-gateway-used-percentage" class="text-base font-bold leading-none">{{ $aiGatewayUsedPercentage !== null ? number_format($aiGatewayUsedPercentage, 0) . '%' : '∞' }}</span>
+            <span id="ai-gateway-used-label" class="mt-1 text-[9px] font-medium leading-none text-gray-500">terpakai</span>
         @elseif($hasAiGatewayTrial)
             <i class="ri-sparkling-2-line text-lg text-primary"></i><span class="mt-1 text-[9px] font-semibold leading-none">Coba gratis</span>
         @else
-            <i class="ri-close-line text-xl text-gray-400"></i>
+            <i class="ri-robot-2-line text-lg text-gray-400"></i><span class="mt-1 text-[9px] font-medium leading-none text-gray-500">Belum aktif</span>
         @endif
         </span>
         <span class="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block">{{ $hasActiveAiGatewayPackage ? ($aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokensUsed, 0, ',', '.') . ' dari ' . number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token terpakai' : 'Paket token tanpa batas') : ($hasAiGatewayTrial ? 'Coba Diskusi AI gratis tersedia' : 'Belum membeli paket pembahasan AI') }}</span>
@@ -920,6 +920,25 @@
     function closeAiDiscussionIntro() {
         document.getElementById('ai-discussion-intro-modal')?.classList.add('hidden');
         localStorage.setItem(@json('ai-discussion-intro-' . $tryout->tryout_id), 'seen');
+    }
+
+    function updateAiGatewayUsageBadge(quota) {
+        if (!quota) return;
+        const badge = document.getElementById('ai-gateway-usage-badge');
+        const percentage = document.getElementById('ai-gateway-used-percentage');
+        const label = document.getElementById('ai-gateway-used-label');
+        const tokenLimit = Number(quota.token_limit || 0);
+        const tokensUsed = Number(quota.tokens_used || 0);
+        if (!badge || !percentage || !label) return;
+        if (tokenLimit > 0) {
+            const usedPercentage = Math.min(100, (tokensUsed / tokenLimit) * 100);
+            badge.style.background = `conic-gradient({{ $primaryColor }} ${usedPercentage}%, #e5e7eb 0)`;
+            percentage.textContent = `${Math.round(usedPercentage)}%`;
+            label.textContent = 'terpakai';
+        } else {
+            percentage.textContent = '∞';
+            label.textContent = 'aktif';
+        }
     }
 
     function startAiDiscussionTrial() {
@@ -1045,6 +1064,7 @@
                 loadingBubble.remove();
                 const aiMessage = data.message || 'AI tidak mengembalikan jawaban.';
                 appendAiDiscussionMessage(messages, aiMessage, 'ai');
+                updateAiGatewayUsageBadge(data.quota);
                 if (shouldSpeakResponse) {
                     playAiDiscussionAudio(aiMessage);
                 }

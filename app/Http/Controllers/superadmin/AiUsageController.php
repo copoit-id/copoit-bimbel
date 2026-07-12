@@ -8,6 +8,7 @@ use App\Models\ClientProfile;
 use App\Models\AiGatewayClient;
 use App\Models\AiGatewayUsageLog;
 use App\Models\AiGatewaySubscription;
+use App\Models\AiGatewayTransaction;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -142,6 +143,24 @@ class AiUsageController extends Controller
             ->withQueryString();
 
         return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary', 'subscriptions'));
+    }
+
+    public function gatewayPayments(Request $request)
+    {
+        $clients = AiGatewayClient::query()->orderBy('name')->get(['id', 'name']);
+        $transactions = AiGatewayTransaction::query()
+            ->with(['client:id,name,base_url', 'plan:id,name', 'subscription:id,external_user_name,external_user_email,tokens_used,chats_used'])
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
+            ->latest()
+            ->paginate(30)
+            ->withQueryString();
+        $summary = AiGatewayTransaction::query()
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) as paid_amount, SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid_count, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count")
+            ->first();
+
+        return view('super-admin.ai-gateway-payments.index', compact('clients', 'transactions', 'summary'));
     }
 
     public function storeGatewayClient(Request $request)

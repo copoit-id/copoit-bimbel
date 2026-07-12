@@ -19,4 +19,9 @@ class AiGatewayTransaction extends Model
     {
         return $this->belongsTo(AiGatewaySubscription::class, 'ai_gateway_subscription_id');
     }
+
+    public function client()
+    {
+        return $this->belongsTo(AiGatewayClient::class, 'ai_gateway_client_id');
+    }
 }
