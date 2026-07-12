@@ -47,8 +47,7 @@ class AiGatewayPlanController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'price' => ['required', 'integer', 'min:0'],
-            'token_limit' => ['required', 'integer', 'min:0'],
-            'chat_limit' => ['required', 'integer', 'min:0'],
+            'token_limit' => ['required', 'integer', 'min:1'],
             'duration_days' => ['required', 'integer', 'min:1', 'max:3650'],
         ]);
     }

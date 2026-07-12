@@ -27,7 +27,10 @@ class AiGatewayController extends Controller
             ->first();
         $trial = null;
         if ($subscription) {
-            if (($subscription->plan->token_limit > 0 && $subscription->tokens_used >= $subscription->plan->token_limit) || ($subscription->plan->chat_limit > 0 && $subscription->chats_used >= $subscription->plan->chat_limit)) {
+            if ($subscription->plan->token_limit <= 0) {
+                return response()->json(['message' => 'Paket AI ini belum memiliki batas token yang valid. Hubungi pengelola gateway.'], 422);
+            }
+            if ($subscription->tokens_used >= $subscription->plan->token_limit) {
                 return response()->json(['message' => 'Kuota paket Diskusi AI Anda habis.'], 429);
             }
         } else {
@@ -77,7 +80,7 @@ class AiGatewayController extends Controller
         $client->update(['last_used_at' => now()]);
 
         $quota = $subscription
-            ? ['type' => 'package', 'token_limit' => (int) $subscription->plan->token_limit, 'tokens_used' => (int) $subscription->tokens_used, 'chat_limit' => (int) $subscription->plan->chat_limit, 'chats_used' => (int) $subscription->chats_used]
+            ? ['type' => 'package', 'token_limit' => (int) $subscription->plan->token_limit, 'tokens_used' => (int) $subscription->tokens_used, 'chats_used' => (int) $subscription->chats_used]
             : ['type' => 'trial', 'token_limit' => (int) $client->free_token_limit, 'tokens_used' => (int) $trial->tokens_used, 'chat_limit' => (int) $client->free_chat_limit, 'chats_used' => (int) $trial->chats_used];
 
         return response()->json([...$result, 'quota' => $quota]);
