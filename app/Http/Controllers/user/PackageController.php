@@ -3439,7 +3439,9 @@ class PackageController extends Controller
         $token = $token;
         $packageRouteId = $isFreeTryout ? 'free' : $package->package_id;
         $aiGatewaySubscription = null;
+        $aiGatewaySubscriptions = [];
         $aiGatewayTrial = null;
+        $aiGatewayPendingPayment = null;
         $aiGatewayPlans = [];
         $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
         $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
@@ -3453,7 +3455,9 @@ class PackageController extends Controller
                     ->get("{$gatewayBaseUrl}/subscription", ['external_user_id' => (string) Auth::id()])
                     ->json();
                 $aiGatewaySubscription = data_get($gatewayStatus, 'subscription');
+                $aiGatewaySubscriptions = data_get($gatewayStatus, 'subscriptions', $aiGatewaySubscription ? [$aiGatewaySubscription] : []);
                 $aiGatewayTrial = data_get($gatewayStatus, 'trial');
+                $aiGatewayPendingPayment = data_get($gatewayStatus, 'pending_payment');
                 $aiGatewayPlans = $gateway->get("{$gatewayBaseUrl}/plans")->json() ?? [];
             } catch (\Throwable) {
                 // Halaman pembahasan tetap tersedia bila gateway sedang tidak merespons.
@@ -3472,7 +3476,9 @@ class PackageController extends Controller
             'overallStats',
             'subtestSummaries',
             'aiGatewaySubscription',
+            'aiGatewaySubscriptions',
             'aiGatewayTrial',
+            'aiGatewayPendingPayment',
             'aiGatewayPlans'
         ));
     }

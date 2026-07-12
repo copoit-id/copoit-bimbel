@@ -49,8 +49,12 @@ class AiGatewaySubscriptionController extends Controller
 
     public function checkout(Request $request): RedirectResponse
     {
-        $data = $request->validate(['plan_id' => ['required', 'integer']]);
+        $data = $request->validate([
+            'plan_id' => ['required', 'integer'],
+            'return_url' => ['nullable', 'string', 'max:2048'],
+        ]);
         $user = $request->user();
+        $returnUrl = $this->safeReturnUrl($request);
 
         try {
             $response = $this->gatewayRequest('post', 'checkout', [
@@ -58,8 +62,8 @@ class AiGatewaySubscriptionController extends Controller
                 'external_user_id' => (string) $user->getAuthIdentifier(),
                 'customer_name' => (string) $user->name,
                 'customer_email' => (string) $user->email,
-                'success_redirect_url' => route('user.ai-gateway.index', ['payment' => 'success']),
-                'failure_redirect_url' => route('user.ai-gateway.index', ['payment' => 'failed']),
+                'success_redirect_url' => $this->withPaymentStatus($returnUrl, 'success'),
+                'failure_redirect_url' => $this->withPaymentStatus($returnUrl, 'failed'),
             ]);
             $response->throw();
             $invoiceUrl = (string) $response->json('invoice_url');
@@ -93,5 +97,21 @@ class AiGatewaySubscriptionController extends Controller
             ->timeout(15)
             ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
             ->{$method}("{$baseUrl}/{$endpoint}", $data);
+    }
+
+    private function safeReturnUrl(Request $request): string
+    {
+        $returnUrl = (string) $request->input('return_url', '');
+
+        if ($returnUrl !== '' && Str::startsWith($returnUrl, url('/'))) {
+            return $returnUrl;
+        }
+
+        return route('user.ai-gateway.index');
+    }
+
+    private function withPaymentStatus(string $url, string $status): string
+    {
+        return $url.(str_contains($url, '?') ? '&' : '?').'payment='.$status;
     }
 }

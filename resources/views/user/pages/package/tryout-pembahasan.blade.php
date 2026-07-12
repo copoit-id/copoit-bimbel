@@ -12,17 +12,31 @@
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
-        $hasActiveAiGatewayPackage = data_get($aiGatewaySubscription, 'status') === 'active';
-        $aiGatewayPlan = data_get($aiGatewaySubscription ?? [], 'plan', []);
-        $aiGatewayQuota = $hasActiveAiGatewayPackage ? $aiGatewaySubscription : ($aiGatewayTrial ?? []);
-        $aiGatewayTokenLimit = (int) ($hasActiveAiGatewayPackage
-            ? (data_get($aiGatewaySubscription, 'token_limit') ?: data_get($aiGatewayPlan, 'token_limit', 0))
-            : data_get($aiGatewayQuota, 'token_limit', 0));
-        $aiGatewayTokensUsed = (int) data_get($aiGatewayQuota, 'tokens_used', 0);
+        $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
+        $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
+        $hasAnyActiveAiGatewayPackage = $activeAiGatewaySubscriptions->isNotEmpty();
+        $activeAiGatewayTokenLimit = $activeAiGatewaySubscriptions->sum(function ($subscription) {
+            $plan = data_get($subscription, 'plan', []);
+            return (int) (data_get($subscription, 'token_limit') ?: data_get($plan, 'token_limit', 0));
+        });
+        $activeAiGatewayTokensUsed = $activeAiGatewaySubscriptions->sum(fn ($subscription) => (int) data_get($subscription, 'tokens_used', 0));
+        $aiGatewayQuota = $hasAnyActiveAiGatewayPackage ? [] : ($aiGatewayTrial ?? []);
+        $aiGatewayTokenLimit = $hasAnyActiveAiGatewayPackage ? $activeAiGatewayTokenLimit : (int) data_get($aiGatewayQuota, 'token_limit', 0);
+        $aiGatewayTokensUsed = $hasAnyActiveAiGatewayPackage ? $activeAiGatewayTokensUsed : (int) data_get($aiGatewayQuota, 'tokens_used', 0);
         $aiGatewayRemainingTokens = $aiGatewayTokenLimit > 0 ? max(0, $aiGatewayTokenLimit - $aiGatewayTokensUsed) : null;
         $aiGatewayTokenPercentage = $aiGatewayTokenLimit > 0 ? min(100, ($aiGatewayRemainingTokens / $aiGatewayTokenLimit) * 100) : null;
         $aiGatewayUsedPercentage = $aiGatewayTokenPercentage !== null ? 100 - $aiGatewayTokenPercentage : null;
-        $hasAiGatewayTrial = !$hasActiveAiGatewayPackage && (bool) data_get($aiGatewayTrial, 'available', false);
+        $hasActiveAiGatewayPackage = $hasAnyActiveAiGatewayPackage && ($aiGatewayTokenLimit <= 0 || $aiGatewayRemainingTokens > 0);
+        $isAiGatewayPackageExhausted = $hasAnyActiveAiGatewayPackage && $aiGatewayTokenLimit > 0 && $aiGatewayRemainingTokens <= 0;
+        $shouldOpenAiGatewayBuyModal = !$hasActiveAiGatewayPackage;
+        $hasAiGatewayTrial = !$hasAnyActiveAiGatewayPackage && (bool) data_get($aiGatewayTrial, 'available', false);
+        $aiGatewayReturnUrl = request()->fullUrlWithoutQuery('payment');
+        $aiGatewayPendingInvoiceUrl = data_get($aiGatewayPendingPayment ?? [], 'invoice_url');
+        $aiGatewayBadgeTitle = $hasActiveAiGatewayPackage
+            ? 'Lihat Paket & Penggunaan AI'
+            : ($isAiGatewayPackageExhausted ? 'Kuota paket AI habis. Beli paket baru.' : ($hasAiGatewayTrial ? 'Coba gratis Diskusi AI tersedia' : 'Belum membeli paket pembahasan AI'));
+        $aiGatewayFeatureTitle = $isAiGatewayPackageExhausted ? 'Kuota AI habis' : 'Fitur baru';
+        $aiGatewayFeatureButtonText = $isAiGatewayPackageExhausted ? 'Beli paket lagi' : 'Beli paket AI';
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -37,6 +51,12 @@
             transform: translateY(-1px);
         }
     </style>
+    @if(request('payment') === 'success')
+        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Pembayaran paket AI berhasil diterima. Status paket akan tersinkron otomatis dari gateway pusat.</div>
+    @endif
+    @if(request('payment') === 'failed')
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Pembayaran paket AI belum berhasil. Kamu bisa coba beli lagi dari modal Diskusi AI.</div>
+    @endif
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col md:flex-row gap-4 text-dark">
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
@@ -842,25 +862,96 @@
     </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)
-    <a id="ai-gateway-usage-badge" href="{{ route('user.ai-gateway.index') }}" class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $hasActiveAiGatewayPackage ? 'Lihat Paket & Penggunaan AI' : ($hasAiGatewayTrial ? 'Coba gratis Diskusi AI tersedia' : 'Belum membeli paket pembahasan AI') }}">
+    <a id="ai-gateway-usage-badge" href="{{ $hasActiveAiGatewayPackage ? route('user.ai-gateway.index') : '#' }}" @if($shouldOpenAiGatewayBuyModal) onclick="event.preventDefault(); openAiDiscussionFeatureModal();" @endif class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $aiGatewayBadgeTitle }}">
         <span class="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center text-gray-700">
         @if($hasActiveAiGatewayPackage)
             <i class="ri-robot-2-line mb-1 text-xs text-primary"></i><span id="ai-gateway-used-percentage" class="text-base font-bold leading-none">{{ $aiGatewayUsedPercentage !== null ? number_format($aiGatewayUsedPercentage, 0) . '%' : '∞' }}</span>
             <span id="ai-gateway-used-label" class="mt-1 text-[9px] font-medium leading-none text-gray-500">terpakai</span>
+        @elseif($isAiGatewayPackageExhausted)
+            <i class="ri-robot-2-line text-lg text-amber-500"></i><span class="mt-1 text-[9px] font-semibold leading-none text-amber-700">Kuota habis</span>
         @elseif($hasAiGatewayTrial)
             <i class="ri-sparkling-2-line text-lg text-primary"></i><span class="mt-1 text-[9px] font-semibold leading-none">Coba gratis</span>
         @else
             <i class="ri-robot-2-line text-lg text-gray-400"></i><span class="mt-1 text-[9px] font-medium leading-none text-gray-500">Belum aktif</span>
         @endif
         </span>
-        <span class="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block">{{ $hasActiveAiGatewayPackage ? ($aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokensUsed, 0, ',', '.') . ' dari ' . number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token terpakai' : 'Paket token tanpa batas') : ($hasAiGatewayTrial ? 'Coba Diskusi AI gratis tersedia' : 'Belum membeli paket pembahasan AI') }}</span>
+        <span class="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block">{{ $hasAnyActiveAiGatewayPackage ? ($aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokensUsed, 0, ',', '.') . ' dari ' . number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token terpakai' : 'Paket token tanpa batas') : ($hasAiGatewayTrial ? 'Coba Diskusi AI gratis tersedia' : 'Belum membeli paket pembahasan AI') }}</span>
     </a>
 
     @if($hasAiGatewayTrial)
     <div id="ai-discussion-intro-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-robot-2-line text-2xl"></i></span><h2 class="mt-4 text-xl font-semibold text-gray-900">Coba Diskusi AI Pembahasan</h2><p class="mt-2 text-sm leading-6 text-gray-500">Tanyakan konsep atau langkah penyelesaian soal. Kamu mendapat kuota coba gratis {{ $aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token' : 'untuk mencoba' }}.</p><div class="mt-6 flex justify-center gap-2"><button type="button" onclick="closeAiDiscussionIntro()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Nanti saja</button><button type="button" onclick="startAiDiscussionTrial()" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Coba sekarang</button></div></div></div></div>
     @endif
 
-    <div id="ai-gateway-plan-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold text-gray-900">Paket Diskusi AI</h2><p id="ai-gateway-plan-modal-message" class="mt-1 text-sm text-gray-500">Pilih paket untuk menggunakan Diskusi AI pada pembahasan.</p></div><button type="button" onclick="closeAiGatewayPlanModal()" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div class="mt-5 grid gap-4 md:grid-cols-3">@forelse($aiGatewayPlans as $plan)<div class="flex flex-col rounded-xl border border-gray-200 p-4"><h3 class="font-semibold text-gray-900">{{ data_get($plan, 'name') }}</h3><p class="mt-2 text-xl font-bold text-primary">Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }}</p><p class="mt-1 text-xs text-gray-500">{{ data_get($plan, 'duration_days') }} hari · {{ data_get($plan, 'chat_limit') ?: '∞' }} chat</p><p class="mt-1 text-xs text-gray-500">{{ data_get($plan, 'token_limit') ? number_format(data_get($plan, 'token_limit'), 0, ',', '.') : '∞' }} token</p><form class="mt-4" method="POST" action="{{ route('user.ai-gateway.checkout') }}">@csrf<input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}"><button class="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90">Beli paket</button></form></div>@empty<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 md:col-span-3">Paket belum dapat dimuat. <a href="{{ route('user.ai-gateway.index') }}" class="font-semibold underline">Buka halaman penggunaan AI</a>.</div>@endforelse</div><div class="mt-5 text-right"><a href="{{ route('user.ai-gateway.index') }}" class="text-sm font-medium text-primary hover:underline">Lihat penggunaan AI saya</a></div></div></div></div>
+    @if($shouldOpenAiGatewayBuyModal)
+    <div id="ai-discussion-feature-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl lg:max-w-3xl">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                    <p class="text-2xl font-semibold text-gray-900 md:text-3xl">{{ $aiGatewayFeatureTitle }}</p>
+                    <button type="button" onclick="closeAiDiscussionFeatureModal()" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100" aria-label="Tutup">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+                <button type="button" onclick="openAiGatewayPlanModal('Pilih paket untuk mengaktifkan Diskusi AI Pembahasan.')" class="block w-full bg-gray-50">
+                    <img src="{{ asset('img/new-fitures/pembahasan-ai.webp') }}" alt="Pamflet fitur Diskusi AI Pembahasan" class="w-full object-cover">
+                </button>
+                <div class="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <button type="button" onclick="closeAiDiscussionFeatureModal()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Nanti saja</button>
+                    <button type="button" onclick="openAiGatewayPlanModal('Pilih paket untuk mengaktifkan Diskusi AI Pembahasan.')" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">{{ $aiGatewayFeatureButtonText }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <div id="ai-gateway-plan-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Paket Diskusi AI</h2>
+                        <p id="ai-gateway-plan-modal-message" class="mt-1 text-sm text-gray-500">Pilih paket untuk menggunakan Diskusi AI pada pembahasan.</p>
+                    </div>
+                    <button type="button" onclick="closeAiGatewayPlanModal()" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100" aria-label="Tutup">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+
+                @if($aiGatewayPendingInvoiceUrl)
+                    <div class="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <p class="font-semibold text-blue-900">Masih ada pembayaran paket AI yang pending.</p>
+                        <p class="mt-1 text-sm text-blue-800">Lanjutkan pembayaran ini dulu supaya invoice tidak dobel.</p>
+                        <a href="{{ $aiGatewayPendingInvoiceUrl }}" class="mt-3 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Lanjutkan pembayaran</a>
+                    </div>
+                @else
+                    <div class="mt-5 grid gap-4 md:grid-cols-3">
+                        @forelse($aiGatewayPlans as $plan)
+                            @php
+                                $planTokenLimit = (int) data_get($plan, 'token_limit', 0);
+                            @endphp
+                            <div class="flex flex-col rounded-xl border border-gray-200 p-4">
+                                <h3 class="font-semibold text-gray-900">{{ data_get($plan, 'name') }}</h3>
+                                <p class="mt-2 text-xl font-bold text-primary">Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }}</p>
+                                <p class="mt-1 text-xs text-gray-500">Aktif {{ data_get($plan, 'duration_days') }} hari</p>
+                                <p class="mt-3 text-sm text-gray-700">{{ number_format($planTokenLimit, 0, ',', '.') }} token</p>
+                                <p class="mt-1 text-xs text-gray-500">Estimasi {{ max(1, floor($planTokenLimit / 1600)) }}-{{ max(1, floor($planTokenLimit / 700)) }} tanya jawab.</p>
+                                <form class="mt-4" method="POST" action="{{ route('user.ai-gateway.checkout') }}">
+                                    @csrf
+                                    <input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}">
+                                    <input type="hidden" name="return_url" value="{{ $aiGatewayReturnUrl }}">
+                                    <button class="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90">Beli sekarang</button>
+                                </form>
+                            </div>
+                        @empty
+                            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 md:col-span-3">
+                                Paket belum dapat dimuat. Coba buka ulang halaman pembahasan ini.
+                            </div>
+                        @endforelse
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
     @endif
 </div>
 
@@ -909,6 +1000,7 @@
     const csrfToken = @json(csrf_token());
 
     function openAiGatewayPlanModal(message = null) {
+        closeAiDiscussionFeatureModal(false);
         const modal = document.getElementById('ai-gateway-plan-modal');
         const messageElement = document.getElementById('ai-gateway-plan-modal-message');
         if (message && messageElement) messageElement.textContent = message;
@@ -917,6 +1009,17 @@
 
     function closeAiGatewayPlanModal() {
         document.getElementById('ai-gateway-plan-modal')?.classList.add('hidden');
+    }
+
+    function openAiDiscussionFeatureModal() {
+        document.getElementById('ai-discussion-feature-modal')?.classList.remove('hidden');
+    }
+
+    function closeAiDiscussionFeatureModal(markSeen = true) {
+        document.getElementById('ai-discussion-feature-modal')?.classList.add('hidden');
+        if (markSeen) {
+            localStorage.setItem(@json('ai-discussion-feature-' . $tryout->tryout_id), 'seen');
+        }
     }
 
     function closeAiDiscussionIntro() {
@@ -953,7 +1056,9 @@
         }
     }
 
-    if (@json($hasAiGatewayTrial) && localStorage.getItem(@json('ai-discussion-intro-' . $tryout->tryout_id)) !== 'seen') {
+    if (@json($shouldOpenAiGatewayBuyModal && request('payment') !== 'success') && localStorage.getItem(@json('ai-discussion-feature-' . $tryout->tryout_id)) !== 'seen') {
+        setTimeout(() => openAiDiscussionFeatureModal(), 500);
+    } else if (@json($hasAiGatewayTrial) && localStorage.getItem(@json('ai-discussion-intro-' . $tryout->tryout_id)) !== 'seen') {
         setTimeout(() => document.getElementById('ai-discussion-intro-modal')?.classList.remove('hidden'), 500);
     }
 
