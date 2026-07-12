@@ -24,11 +24,19 @@
     @if(data_get($pendingPayment, 'invoice_url'))<div class="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-blue-900">Pembayaran paket {{ data_get($pendingPayment, 'plan_name', 'AI') }} masih menunggu.</p><p class="mt-1 text-sm text-blue-800">Lanjutkan pembayaran sebelum {{ \Illuminate\Support\Carbon::parse(data_get($pendingPayment, 'expires_at'))->translatedFormat('d M Y H:i') }}.</p></div><a href="{{ data_get($pendingPayment, 'invoice_url') }}" class="w-fit rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Lanjutkan pembayaran</a></div>@endif
 
     <div class="rounded-xl border border-gray-200 bg-white p-5">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 class="font-semibold text-gray-900">Status paket saya</h2><p class="mt-1 text-sm text-gray-500">Kuota dihitung oleh gateway pusat.</p></div>@if(data_get($subscription, 'status') === 'active')<span class="w-fit rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">Aktif hingga {{ \Illuminate\Support\Carbon::parse(data_get($subscription, 'ends_at'))->translatedFormat('d M Y') }}</span>@else<span class="w-fit rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-600">Belum ada paket aktif</span>@endif</div>
-        @if(data_get($subscription, 'status') === 'active')
-            @php $plan = data_get($subscription, 'plan', []); @endphp
-            <div class="mt-4 grid gap-3 sm:grid-cols-3"><div class="rounded-xl bg-gray-50 p-4"><p class="text-xs text-gray-500">Paket</p><p class="mt-1 font-semibold text-gray-900">{{ data_get($plan, 'name', '-') }}</p></div><div class="rounded-xl bg-gray-50 p-4"><p class="text-xs text-gray-500">Estimasi tanya-jawab</p><p class="mt-1 font-semibold text-gray-900">{{ max(1, floor(data_get($plan, 'token_limit') / 1600)) }}–{{ max(1, floor(data_get($plan, 'token_limit') / 700)) }} sesi</p></div><div class="rounded-xl bg-gray-50 p-4"><p class="text-xs text-gray-500">Sisa token</p><p class="mt-1 font-semibold text-gray-900">{{ data_get($plan, 'token_limit') ? number_format(max(0, data_get($plan, 'token_limit') - data_get($subscription, 'tokens_used', 0)), 0, ',', '.') : 'Tidak terbatas' }}</p></div></div>
-        @endif
+        <div><h2 class="font-semibold text-gray-900">Status paket saya</h2><p class="mt-1 text-sm text-gray-500">Kuota setiap paket dihitung oleh gateway pusat.</p></div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            @forelse($subscriptions as $activeSubscription)
+                @php
+                    $activePlan = data_get($activeSubscription, 'plan', []);
+                    $activeTokenLimit = (int) (data_get($activeSubscription, 'token_limit') ?: data_get($activePlan, 'token_limit', 0));
+                    $activeTokensUsed = (int) data_get($activeSubscription, 'tokens_used', 0);
+                @endphp
+                <div class="rounded-xl border border-gray-100 bg-gray-50 p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-gray-900">{{ data_get($activePlan, 'name', '-') }}</p><p class="mt-1 text-xs text-gray-500">Berakhir {{ \Illuminate\Support\Carbon::parse(data_get($activeSubscription, 'ends_at'))->translatedFormat('d M Y') }}</p></div><span class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">Aktif</span></div><div class="mt-4"><div class="flex justify-between gap-3 text-xs text-gray-500"><span>Sisa token</span><span>{{ number_format(max(0, $activeTokenLimit - $activeTokensUsed), 0, ',', '.') }} / {{ number_format($activeTokenLimit, 0, ',', '.') }}</span></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-primary" style="width: {{ $activeTokenLimit > 0 ? min(100, ($activeTokensUsed / $activeTokenLimit) * 100) : 0 }}%"></div></div><p class="mt-3 text-xs text-gray-600">Estimasi {{ max(1, floor($activeTokenLimit / 1600)) }}–{{ max(1, floor($activeTokenLimit / 700)) }} tanya-jawab.</p></div></div>
+            @empty
+                <div class="rounded-xl bg-gray-50 p-4 text-sm text-gray-600 md:col-span-2 xl:col-span-3">Belum ada paket aktif.</div>
+            @endforelse
+        </div>
     </div>
 
     @if($subscriptionExhausted)

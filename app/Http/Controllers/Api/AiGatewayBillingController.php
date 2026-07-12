@@ -27,7 +27,8 @@ class AiGatewayBillingController extends Controller
         $c = $this->client($r);
         $userId = (string) $r->validate(['external_user_id' => 'required|string|max:120'])['external_user_id'];
         $this->syncLatestPendingPayment($c, $userId);
-        $s = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->where('status', 'active')->where('ends_at', '>', now())->latest()->first();
+        $subscriptions = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->where('status', 'active')->where('ends_at', '>', now())->latest()->get();
+        $s = $subscriptions->first();
         $trial = AiGatewayUserTrial::where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->first();
         $pendingPayment = AiGatewayTransaction::query()
             ->with(['plan:id,name', 'subscription:id,external_user_id'])
@@ -38,7 +39,7 @@ class AiGatewayBillingController extends Controller
             ->latest()
             ->first();
 
-        return ['project' => $c->name, 'subscription' => $s, 'pending_payment' => $pendingPayment ? ['plan_name' => $pendingPayment->plan?->name, 'invoice_url' => data_get($pendingPayment->details, 'invoice_url'), 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String()] : null, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
+        return ['project' => $c->name, 'subscription' => $s, 'subscriptions' => $subscriptions, 'pending_payment' => $pendingPayment ? ['plan_name' => $pendingPayment->plan?->name, 'invoice_url' => data_get($pendingPayment->details, 'invoice_url'), 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String()] : null, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
     }
 
     public function checkout(Request $r)
@@ -147,6 +148,7 @@ class AiGatewayBillingController extends Controller
         $activeSubscription = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
             ->where('external_user_id', $pendingSubscription->external_user_id)
+            ->where('ai_gateway_plan_id', $pendingSubscription->ai_gateway_plan_id)
             ->where('status', 'active')
             ->where('ends_at', '>', now())
             ->latest()

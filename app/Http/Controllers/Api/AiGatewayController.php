@@ -18,13 +18,18 @@ class AiGatewayController extends Controller
         $client = AiGatewayClient::where('api_key_hash', hash('sha256', $key))->where('is_active', true)->first();
         abort_unless($client, 401, 'Gateway key tidak valid.');
         $data = $request->validate(['message' => 'required|string|max:1200', 'external_user_id' => 'required|string|max:120', 'external_user_name' => 'nullable|string|max:255', 'external_user_email' => 'nullable|email|max:255', 'project_base_url' => 'nullable|url|max:2048', 'question_reference' => 'nullable|string|max:120', 'context' => 'required|array', 'context.tryout_name' => 'nullable|string|max:255', 'context.subtest_name' => 'nullable|string|max:255', 'context.question_text' => 'required|string|max:20000', 'context.question_type' => 'nullable|string|max:80', 'context.options' => 'nullable|array', 'context.selected_answer' => 'nullable|string|max:5000', 'context.explanation' => 'nullable|string|max:20000']);
-        $subscription = AiGatewaySubscription::with('plan')
+        $subscriptions = AiGatewaySubscription::with('plan')
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $data['external_user_id'])
             ->where('status', 'active')
             ->where('ends_at', '>', now())
-            ->latest()
-            ->first();
+            ->orderBy('ends_at')
+            ->get();
+        $subscription = $subscriptions->first(function (AiGatewaySubscription $item): bool {
+            $tokenLimit = (int) ($item->token_limit ?: $item->plan?->token_limit ?: 0);
+
+            return $tokenLimit > (int) $item->tokens_used;
+        });
         $trial = null;
         if ($subscription) {
             $subscriptionTokenLimit = (int) ($subscription->token_limit ?: $subscription->plan->token_limit);
