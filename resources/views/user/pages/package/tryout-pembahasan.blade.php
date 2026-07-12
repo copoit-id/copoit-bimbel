@@ -15,7 +15,9 @@
         $hasActiveAiGatewayPackage = data_get($aiGatewaySubscription, 'status') === 'active';
         $aiGatewayPlan = data_get($aiGatewaySubscription ?? [], 'plan', []);
         $aiGatewayQuota = $hasActiveAiGatewayPackage ? $aiGatewaySubscription : ($aiGatewayTrial ?? []);
-        $aiGatewayTokenLimit = (int) data_get($hasActiveAiGatewayPackage ? $aiGatewayPlan : $aiGatewayQuota, 'token_limit', 0);
+        $aiGatewayTokenLimit = (int) ($hasActiveAiGatewayPackage
+            ? (data_get($aiGatewaySubscription, 'token_limit') ?: data_get($aiGatewayPlan, 'token_limit', 0))
+            : data_get($aiGatewayQuota, 'token_limit', 0));
         $aiGatewayTokensUsed = (int) data_get($aiGatewayQuota, 'tokens_used', 0);
         $aiGatewayRemainingTokens = $aiGatewayTokenLimit > 0 ? max(0, $aiGatewayTokenLimit - $aiGatewayTokensUsed) : null;
         $aiGatewayTokenPercentage = $aiGatewayTokenLimit > 0 ? min(100, ($aiGatewayRemainingTokens / $aiGatewayTokenLimit) * 100) : null;

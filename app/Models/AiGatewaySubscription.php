@@ -8,7 +8,7 @@ class AiGatewaySubscription extends Model
 {
     protected $guarded = ['id'];
 
-    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'token_limit' => 'integer', 'tokens_used' => 'integer', 'chats_used' => 'integer'];
 
     public function plan()
     {

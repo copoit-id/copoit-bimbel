@@ -6,7 +6,7 @@
 <div class="space-y-6">
     @php
         $subscriptionPlan = data_get($subscription, 'plan', []);
-        $subscriptionTokenLimit = (int) data_get($subscriptionPlan, 'token_limit', 0);
+        $subscriptionTokenLimit = (int) (data_get($subscription, 'token_limit') ?: data_get($subscriptionPlan, 'token_limit', 0));
         $subscriptionTokensUsed = (int) data_get($subscription, 'tokens_used', 0);
         $subscriptionTokenPercentage = $subscriptionTokenLimit > 0
             ? min(100, ($subscriptionTokensUsed / $subscriptionTokenLimit) * 100)

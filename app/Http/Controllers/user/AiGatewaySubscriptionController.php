@@ -29,9 +29,13 @@ class AiGatewaySubscriptionController extends Controller
             $subscription = data_get($status, 'subscription');
             $trial = data_get($status, 'trial');
             $pendingPayment = data_get($status, 'pending_payment');
+            if ($subscription) {
+                $request->session()->forget('ai_gateway_pending_payment');
+            }
         } catch (\Throwable) {
             $gatewayError = 'Informasi paket AI sementara tidak dapat dimuat. Silakan coba lagi.';
         }
+        $pendingPayment ??= $request->session()->get('ai_gateway_pending_payment');
 
         $usageLogs = AiDiscussionUsageLog::query()
             ->where('user_id', $user->id)
@@ -62,6 +66,12 @@ class AiGatewaySubscriptionController extends Controller
             if ($invoiceUrl === '') {
                 return back()->with('error', 'Invoice gateway tidak tersedia.');
             }
+
+            $request->session()->put('ai_gateway_pending_payment', [
+                'plan_name' => 'AI',
+                'invoice_url' => $invoiceUrl,
+                'expires_at' => now()->addDay()->toIso8601String(),
+            ]);
 
             return redirect()->away($invoiceUrl);
         } catch (\Throwable) {
