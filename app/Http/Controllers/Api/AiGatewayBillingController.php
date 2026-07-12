@@ -29,8 +29,16 @@ class AiGatewayBillingController extends Controller
         $this->syncLatestPendingPayment($c, $userId);
         $s = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->where('status', 'active')->where('ends_at', '>', now())->latest()->first();
         $trial = AiGatewayUserTrial::where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->first();
+        $pendingPayment = AiGatewayTransaction::query()
+            ->with(['plan:id,name', 'subscription:id,external_user_id'])
+            ->where('ai_gateway_client_id', $c->id)
+            ->where('status', 'pending')
+            ->where('created_at', '>', now()->subDay())
+            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $userId))
+            ->latest()
+            ->first();
 
-        return ['project' => $c->name, 'subscription' => $s, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
+        return ['project' => $c->name, 'subscription' => $s, 'pending_payment' => $pendingPayment ? ['plan_name' => $pendingPayment->plan?->name, 'invoice_url' => data_get($pendingPayment->details, 'invoice_url'), 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String()] : null, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
     }
 
     public function checkout(Request $r)
@@ -38,6 +46,28 @@ class AiGatewayBillingController extends Controller
         $c = $this->client($r);
         $d = $r->validate(['plan_id' => 'required|integer|exists:ai_gateway_plans,id', 'external_user_id' => 'required|string|max:120', 'customer_name' => 'required|string|max:100', 'customer_email' => 'required|email', 'success_redirect_url' => 'nullable|url|max:2048', 'failure_redirect_url' => 'nullable|url|max:2048']);
         $p = AiGatewayPlan::where('is_active', true)->where('token_limit', '>', 0)->findOrFail($d['plan_id']);
+        $pendingTransaction = AiGatewayTransaction::query()
+            ->with('subscription')
+            ->where('ai_gateway_client_id', $c->id)
+            ->where('ai_gateway_plan_id', $p->id)
+            ->where('status', 'pending')
+            ->where('created_at', '>', now()->subDay())
+            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $d['external_user_id']))
+            ->latest()
+            ->first();
+
+        if ($pendingTransaction && filled(data_get($pendingTransaction->details, 'invoice_url'))) {
+            return [
+                'invoice_url' => data_get($pendingTransaction->details, 'invoice_url'),
+                'external_id' => $pendingTransaction->external_id,
+                'reused_pending_invoice' => true,
+            ];
+        }
+
+        if ($pendingTransaction) {
+            $pendingTransaction->update(['status' => 'expired']);
+            $pendingTransaction->subscription?->update(['status' => 'expired']);
+        }
         $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
         $id = 'AIGW-'.$c->id.'-'.$s->id.'-'.Str::upper(Str::random(8));
         $res = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', ['external_id' => $id, 'amount' => $p->price, 'description' => 'Paket AI Gateway: '.$p->name, 'invoice_duration' => 86400, 'success_redirect_url' => $d['success_redirect_url'] ?? null, 'failure_redirect_url' => $d['failure_redirect_url'] ?? null, 'customer' => ['given_names' => $d['customer_name'], 'email' => $d['customer_email']]]);
