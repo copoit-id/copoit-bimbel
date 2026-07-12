@@ -40,3 +40,19 @@
     <div class="rounded-xl border border-gray-200 bg-white p-5"><div><h2 class="font-semibold text-gray-900">Riwayat penggunaan saya</h2><p class="mt-1 text-sm text-gray-500">Riwayat chat AI dari akun ini di project saat ini.</p></div>@if($subscriptionTokenPercentage !== null)<div class="mt-4 rounded-xl bg-gray-50 p-4"><div class="flex items-center justify-between gap-3 text-sm"><span class="font-medium text-gray-700">Token paket digunakan</span><span class="font-semibold text-gray-900">{{ number_format($subscriptionTokensUsed, 0, ',', '.') }} / {{ number_format($subscriptionTokenLimit, 0, ',', '.') }} · {{ number_format($subscriptionTokenPercentage, 1, ',', '.') }}%</span></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-primary" style="width: {{ $subscriptionTokenPercentage }}%"></div></div></div>@elseif(data_get($subscription, 'status') === 'active')<p class="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-600">Paket Anda memiliki token tanpa batas.</p>@endif<div class="mt-4 overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th class="px-3 py-3">Waktu</th><th class="px-3 py-3 text-right">Token digunakan</th><th class="px-3 py-3 text-right">Respons</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($usageLogs as $log)<tr><td class="px-3 py-3 text-gray-500">{{ $log->created_at->format('d M Y H:i') }}</td><td class="px-3 py-3 text-right">{{ number_format($log->total_tokens, 0, ',', '.') }}</td><td class="px-3 py-3 text-right">{{ number_format(($log->response_time_ms ?? 0) / 1000, 2, ',', '.') }} dtk</td></tr>@empty<tr><td colspan="3" class="px-3 py-8 text-center text-gray-500">Belum ada riwayat penggunaan AI.</td></tr>@endforelse</tbody></table></div><div class="mt-4">{{ $usageLogs->links() }}</div></div>
 </div>
 @endsection
+
+@if(data_get($pendingPayment, 'invoice_url'))
+@push('scripts')
+<script>
+    document.querySelectorAll('button[disabled]').forEach((button) => {
+        const form = button.closest('form');
+        if (!form) return;
+        const link = document.createElement('a');
+        link.href = @json(data_get($pendingPayment, 'invoice_url'));
+        link.className = 'block w-full rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-white hover:bg-primary/90';
+        link.textContent = 'Lanjutkan pembayaran';
+        form.replaceWith(link);
+    });
+</script>
+@endpush
+@endif
