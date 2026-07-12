@@ -39,13 +39,12 @@ class AiGatewaySubscriptionController extends Controller
         }
         $pendingPayment ??= $request->session()->get('ai_gateway_pending_payment');
 
-        $usageLogs = AiDiscussionUsageLog::query()
-            ->where('user_id', $user->id)
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
+        $usageLogsQuery = AiDiscussionUsageLog::query()
+            ->where('user_id', $user->id);
+        $usageTokenTotal = (int) (clone $usageLogsQuery)->sum('total_tokens');
+        $usageLogs = $usageLogsQuery->latest()->paginate(20)->withQueryString();
 
-        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'usageLogs', 'gatewayError'));
+        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'usageLogs', 'usageTokenTotal', 'gatewayError'));
     }
 
     public function checkout(Request $request): RedirectResponse
