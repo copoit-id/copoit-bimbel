@@ -341,6 +341,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/ai-usage', [\App\Http\Controllers\superadmin\AiUsageController::class, 'index'])->name('ai-usage.index');
     Route::get('/ai-gateway-usage', [\App\Http\Controllers\superadmin\AiUsageController::class, 'gatewayIndex'])->name('ai-gateway-usage.index');
     Route::get('/ai-gateway-payments', [\App\Http\Controllers\superadmin\AiUsageController::class, 'gatewayPayments'])->name('ai-gateway-payments.index');
+    Route::post('/ai-gateway-payments/{transaction}/approve', [\App\Http\Controllers\superadmin\AiUsageController::class, 'approveGatewayPayment'])->name('ai-gateway-payments.approve');
+    Route::post('/ai-gateway-payments/{transaction}/reject', [\App\Http\Controllers\superadmin\AiUsageController::class, 'rejectGatewayPayment'])->name('ai-gateway-payments.reject');
     Route::put('/ai-usage/quota', [\App\Http\Controllers\superadmin\AiUsageController::class, 'updateQuota'])->name('ai-usage.quota.update');
     Route::post('/ai-usage/projects', [\App\Http\Controllers\superadmin\AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
     Route::put('/ai-usage/projects/{gatewayClient}', [\App\Http\Controllers\superadmin\AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');

@@ -9,6 +9,7 @@ use App\Models\AiGatewayClient;
 use App\Models\AiGatewayUsageLog;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
+use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -161,6 +162,29 @@ class AiUsageController extends Controller
             ->first();
 
         return view('super-admin.ai-gateway-payments.index', compact('clients', 'transactions', 'summary'));
+    }
+
+    public function approveGatewayPayment(AiGatewayTransaction $transaction, AiGatewaySubscriptionService $subscriptionService)
+    {
+        if ($transaction->status !== 'pending') {
+            return back()->with('error', 'Hanya transaksi pending yang dapat di-ACC.');
+        }
+
+        $subscriptionService->activateTransaction($transaction);
+
+        return back()->with('success', 'Pembayaran berhasil di-ACC dan kuota peserta telah diaktifkan.');
+    }
+
+    public function rejectGatewayPayment(AiGatewayTransaction $transaction)
+    {
+        if ($transaction->status !== 'pending') {
+            return back()->with('error', 'Hanya transaksi pending yang dapat ditolak.');
+        }
+
+        $transaction->update(['status' => 'rejected']);
+        $transaction->subscription?->update(['status' => 'rejected']);
+
+        return back()->with('success', 'Pembayaran ditolak. Peserta dapat membuat pembayaran baru.');
     }
 
     public function storeGatewayClient(Request $request)

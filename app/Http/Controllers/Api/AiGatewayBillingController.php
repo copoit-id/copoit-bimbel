@@ -8,12 +8,17 @@ use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUserTrial;
+use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class AiGatewayBillingController extends Controller
 {
+    public function __construct(private AiGatewaySubscriptionService $subscriptionService)
+    {
+    }
+
     private function client(Request $r): AiGatewayClient
     {
         $c = AiGatewayClient::where('api_key_hash', hash('sha256', (string) $r->header('X-AI-Gateway-Key')))->where('is_active', true)->first();
@@ -88,8 +93,8 @@ class AiGatewayBillingController extends Controller
         if (! hash_equals((string) config('services.xendit.webhook_token'), (string) $r->header('X-CALLBACK-TOKEN'))) {
             return response()->json(['message' => 'Invalid callback token'], 401);
         }$t = AiGatewayTransaction::where('external_id', $r->input('external_id'))->firstOrFail();
-        if ($r->input('status') === 'PAID') {
-            $this->activateTransaction($t);
+        if ($r->input('status') === 'PAID' && $t->status === 'pending') {
+            $this->subscriptionService->activateTransaction($t);
         } elseif (in_array($r->input('status'), ['EXPIRED', 'FAILED'])) {
             $t->update(['status' => strtolower($r->input('status'))]);
         }
@@ -124,7 +129,7 @@ class AiGatewayBillingController extends Controller
             }
 
             if (strtoupper((string) data_get($invoice, 'status')) === 'PAID') {
-                $this->activateTransaction($transaction);
+                $this->subscriptionService->activateTransaction($transaction);
             }
         } catch (\Throwable $exception) {
             report($exception);
@@ -132,44 +137,4 @@ class AiGatewayBillingController extends Controller
         }
     }
 
-    private function activateTransaction(AiGatewayTransaction $transaction): void
-    {
-        if ($transaction->status === 'paid') {
-            return;
-        }
-
-        $pendingSubscription = AiGatewaySubscription::with('plan')->find($transaction->ai_gateway_subscription_id);
-        if (!$pendingSubscription) {
-            return;
-        }
-
-        $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
-        $durationDays = max(1, (int) ($transaction->plan?->duration_days ?? 30));
-        $activeSubscription = AiGatewaySubscription::query()
-            ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
-            ->where('external_user_id', $pendingSubscription->external_user_id)
-            ->where('ai_gateway_plan_id', $pendingSubscription->ai_gateway_plan_id)
-            ->where('status', 'active')
-            ->where('ends_at', '>', now())
-            ->latest()
-            ->first();
-
-        if ($activeSubscription) {
-            $currentLimit = (int) ($activeSubscription->token_limit ?: $activeSubscription->plan?->token_limit ?: 0);
-            $activeSubscription->update([
-                'token_limit' => $currentLimit + $tokenCredit,
-                'ends_at' => $activeSubscription->ends_at->copy()->addDays($durationDays),
-            ]);
-            $pendingSubscription->update(['status' => 'merged']);
-        } else {
-            $pendingSubscription->update([
-                'status' => 'active',
-                'token_limit' => $tokenCredit,
-                'starts_at' => now(),
-                'ends_at' => now()->addDays($durationDays),
-            ]);
-        }
-
-        $transaction->update(['status' => 'paid', 'paid_at' => now()]);
-    }
 }
