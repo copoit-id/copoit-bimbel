@@ -110,13 +110,23 @@ class AiGatewayBillingController extends Controller
         }
 
         try {
-            $response = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')
+            $http = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')
                 ->timeout(10)
-                ->get(rtrim((string) config('services.xendit.base_url'), '/') . '/v2/invoices/' . $transaction->provider_invoice_id);
-            if (strtoupper((string) $response->json('status')) === 'PAID') {
+                ->acceptJson();
+            $baseUrl = rtrim((string) config('services.xendit.base_url'), '/');
+            $response = $http->get($baseUrl . '/v2/invoices/' . $transaction->provider_invoice_id);
+            $invoice = $response->successful() ? $response->json() : null;
+
+            if (!is_array($invoice) || blank($invoice['status'] ?? null)) {
+                $lookup = $http->get($baseUrl . '/v2/invoices', ['external_id' => $transaction->external_id]);
+                $invoice = data_get($lookup->json(), 'data.0', $lookup->json());
+            }
+
+            if (strtoupper((string) data_get($invoice, 'status')) === 'PAID') {
                 $this->activateTransaction($transaction);
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
             // Webhook tetap menjadi jalur utama; sinkronisasi ini hanya fallback saat status dibuka user.
         }
     }
