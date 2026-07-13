@@ -282,7 +282,13 @@ class LaporanController extends Controller
         if ($withCalculatedScores && $attemptSummaries->isNotEmpty()) {
             $answersByAttempt = UserAnswer::where('tryout_id', $tryout->tryout_id)
                 ->whereIn('user_id', $attemptSummaries->pluck('user_id')->unique())
-                ->with(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption'])
+                ->with([
+                    'tryoutDetail' => function ($query) {
+                        $query->withCount('questions');
+                    },
+                    'userAnswerDetails.question',
+                    'userAnswerDetails.questionOption',
+                ])
                 ->get()
                 ->groupBy(['user_id', 'attempt_token']);
         }
@@ -295,6 +301,7 @@ class LaporanController extends Controller
                         $attempt->raw_score = $userAnswers->sum(function ($answer) {
                             return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
                         });
+                        $this->hydrateAttemptAnswerCounts($attempt, $userAnswers);
                         $attempt->attempt_status = $this->resolveAttemptStatus($userAnswers, $attempt->attempt_status);
                     } else {
                         $attempt->raw_score = (float) ($attempt->total_score ?? $attempt->average_score ?? 0);
@@ -361,13 +368,47 @@ class LaporanController extends Controller
         $attempt->finished_time_label = $finishedAt ? $finishedAt->format('H:i') : '';
     }
 
+    /**
+     * Use answer details as the source of truth, rather than persisted summary
+     * columns which can be stale for attempts completed before the current logic.
+     */
+    private function hydrateAttemptAnswerCounts($attempt, $userAnswers): void
+    {
+        $counts = collect($userAnswers)
+            ->map(fn (UserAnswer $answer) => $this->calculateUserAnswerCounts($answer));
+
+        $attempt->total_correct = $counts->sum('correct');
+        $attempt->total_wrong = $counts->sum('wrong');
+        $attempt->total_unanswered = $counts->sum('unanswered');
+    }
+
+    private function calculateUserAnswerCounts(UserAnswer $userAnswer): array
+    {
+        $details = $userAnswer->userAnswerDetails;
+        $answered = $details->count();
+        $correct = $details->where('is_correct', true)->count();
+        $totalQuestions = (int) (optional($userAnswer->tryoutDetail)->questions_count ?? 0);
+
+        return [
+            'correct' => $correct,
+            'wrong' => max(0, $answered - $correct),
+            'unanswered' => max(0, $totalQuestions - $answered),
+        ];
+    }
+
     public function attemptDetail($tryoutId, $attemptToken)
     {
-        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
+        $tryout = Tryout::with([
+            'tryoutDetails' => function ($query) {
+                $query->withCount('questions');
+            },
+        ])->findOrFail($tryoutId);
 
         $attemptAnswers = UserAnswer::with([
             'user',
-            'tryoutDetail',
+            'tryoutDetail' => function ($query) {
+                $query->withCount('questions');
+            },
             'userAnswerDetails.question.questionOptions',
             'userAnswerDetails.questionOption',
         ])
@@ -381,10 +422,13 @@ class LaporanController extends Controller
 
         $firstAnswer = $attemptAnswers->first();
         $user = $firstAnswer->user ?: $this->missingUserPlaceholder($firstAnswer->user_id);
+        $answerCounts = $attemptAnswers->mapWithKeys(function (UserAnswer $answer) {
+            return [$answer->user_answer_id => $this->calculateUserAnswerCounts($answer)];
+        });
         $overallStats = [
-            'correct' => $attemptAnswers->sum('correct_answers'),
-            'wrong' => $attemptAnswers->sum('wrong_answers'),
-            'unanswered' => $attemptAnswers->sum('unanswered'),
+            'correct' => $answerCounts->sum('correct'),
+            'wrong' => $answerCounts->sum('wrong'),
+            'unanswered' => $answerCounts->sum('unanswered'),
             'score' => round($attemptAnswers->avg('score') ?? 0, 1),
             'started_at' => $attemptAnswers->min('started_at'),
             'finished_at' => $attemptAnswers->max('finished_at'),
@@ -392,13 +436,15 @@ class LaporanController extends Controller
         $overallStats['total_questions'] = $overallStats['correct'] + $overallStats['wrong'] + $overallStats['unanswered'];
 
         $subtests = $attemptAnswers->map(function (UserAnswer $answer) {
+            $counts = $this->calculateUserAnswerCounts($answer);
+
             return [
                 'name' => $this->formatSubtestName(optional($answer->tryoutDetail)->type_subtest),
                 'type' => optional($answer->tryoutDetail)->type_subtest,
                 'duration' => optional($answer->tryoutDetail)->duration,
-                'correct' => $answer->correct_answers,
-                'wrong' => $answer->wrong_answers,
-                'unanswered' => $answer->unanswered,
+                'correct' => $counts['correct'],
+                'wrong' => $counts['wrong'],
+                'unanswered' => $counts['unanswered'],
                 'score' => round($answer->score ?? 0, 1),
             ];
         });
