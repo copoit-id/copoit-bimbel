@@ -3,10 +3,18 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Certificate;
 use App\Models\User;
 use Carbon\Carbon;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class UserController extends Controller
 {
@@ -172,11 +180,146 @@ class UserController extends Controller
 
     public function report($id)
     {
+        return view('admin.pages.user.report', $this->reportData($id));
+    }
+
+    public function downloadReport($id)
+    {
+        $data = $this->reportData($id);
+        $options = new Options();
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml(view('admin.pages.user.report-pdf', $data)->render());
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = sprintf(
+            'laporan-aktivitas-%s-%s.pdf',
+            Str::slug($data['user']->name),
+            now()->format('Ymd-His')
+        );
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    public function downloadReportExcel($id)
+    {
+        $data = $this->reportData($id);
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getProperties()
+            ->setCreator(config('app.name'))
+            ->setTitle('Laporan Aktivitas ' . $data['user']->name);
+
+        $summarySheet = $spreadsheet->getActiveSheet();
+        $summarySheet->setTitle('Ringkasan');
+        $summarySheet->fromArray([
+            ['LAPORAN AKTIVITAS PENGGUNA'],
+            ['Nama', $data['user']->name],
+            ['Email', $data['user']->email],
+            ['Bergabung', $data['user']->created_at->format('d M Y')],
+            ['Dibuat pada', now('Asia/Jakarta')->format('d M Y, H:i') . ' WIB'],
+            [],
+            ['Total Tryout', 'Rata-rata Nilai', 'Sertifikat', 'Waktu Belajar (jam)'],
+            [
+                $data['statistics']['total_tryouts'],
+                $data['statistics']['avg_score'],
+                $data['statistics']['total_certificates'],
+                $data['statistics']['study_hours'],
+            ],
+        ], null, 'A1');
+        $summarySheet->mergeCells('A1:D1');
+        $summarySheet->getStyle('A1:D1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('FFFFFF');
+        $summarySheet->getStyle('A1:D1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
+        $summarySheet->getStyle('A7:D7')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $summarySheet->getStyle('A7:D7')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('312E81');
+        $summarySheet->getStyle('A1:D8')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        foreach (range('A', 'D') as $column) {
+            $summarySheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $historySheet = $spreadsheet->createSheet();
+        $historySheet->setTitle('Riwayat Tryout');
+        $historySheet->fromArray([
+            ['Tanggal Selesai', 'Tryout', 'Subtest', 'Nilai', 'Jawaban Benar', 'Total Soal', 'Durasi (menit)', 'Status'],
+        ], null, 'A1');
+        foreach ($data['tryoutHistory'] as $tryout) {
+            $historySheet->fromArray([[
+                $tryout['date']->format('d M Y H:i') . ' WIB',
+                $tryout['name'],
+                $tryout['section'] ?? '-',
+                $tryout['score'],
+                $tryout['correct_answers'],
+                $tryout['total_questions'],
+                $tryout['duration'] ?? '-',
+                $tryout['is_passed'] ? 'Lulus' : 'Belum lulus',
+            ]], null, 'A' . ($historySheet->getHighestRow() + 1));
+        }
+        $this->styleExportSheet($historySheet, 'A1:H1');
+
+        $certificateSheet = $spreadsheet->createSheet();
+        $certificateSheet->setTitle('Sertifikat');
+        $certificateSheet->fromArray([['Nama Sertifikat', 'Nomor Sertifikat', 'Tanggal Terbit', 'Status']], null, 'A1');
+        foreach ($data['certificates'] as $certificate) {
+            $certificateSheet->fromArray([[
+                $certificate->certificate_name,
+                $certificate->certificate_number,
+                optional($certificate->issued_date)->format('d M Y') ?? '-',
+                $certificate->status_text,
+            ]], null, 'A' . ($certificateSheet->getHighestRow() + 1));
+        }
+        $this->styleExportSheet($certificateSheet, 'A1:D1');
+
+        $timelineSheet = $spreadsheet->createSheet();
+        $timelineSheet->setTitle('Timeline Aktivitas');
+        $timelineSheet->fromArray([['Tanggal', 'Jenis Aktivitas', 'Aktivitas']], null, 'A1');
+        foreach ($data['activities'] as $activity) {
+            $timelineSheet->fromArray([[
+                $activity['date']->format('d M Y H:i') . ' WIB',
+                ucfirst($activity['type']),
+                $activity['text'],
+            ]], null, 'A' . ($timelineSheet->getHighestRow() + 1));
+        }
+        $this->styleExportSheet($timelineSheet, 'A1:C1');
+
+        $filename = sprintf(
+            'laporan-aktivitas-%s-%s.xlsx',
+            Str::slug($data['user']->name),
+            now()->format('Ymd-His')
+        );
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    private function styleExportSheet($sheet, string $headerRange): void
+    {
+        $sheet->getStyle($headerRange)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle($headerRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter($headerRange);
+
+        foreach (range('A', $sheet->getHighestColumn()) as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+    }
+
+    private function reportData($id): array
+    {
         $user = User::with([
             'userAnswers' => function ($query) {
                 $query->where('status', 'completed')
-                    ->with(['tryout', 'userAnswerDetails'])
-                    ->orderBy('created_at', 'desc');
+                    ->with(['tryout', 'tryoutDetail', 'userAnswerDetails'])
+                    ->orderByDesc('finished_at')
+                    ->orderByDesc('created_at');
             }
         ])->findOrFail($id);
 
@@ -184,47 +327,70 @@ class UserController extends Controller
         $totalTryouts = $completedTryouts->count();
         $avgScore = $completedTryouts->avg('score') ?? 0;
 
-        $recentTryouts = $completedTryouts->take(5)->map(function ($answer) {
+        $tryoutHistory = $completedTryouts->map(function ($answer) {
+            $finishedAt = $answer->finished_at ?? $answer->created_at;
+            $duration = $answer->started_at && $answer->finished_at
+                ? (int) round($answer->started_at->diffInSeconds($answer->finished_at) / 60)
+                : null;
+
             return [
+                'id' => $answer->user_answer_id,
                 'name' => $answer->tryout->name ?? 'Unknown Tryout',
                 'score' => round($answer->score ?? 0, 1),
-                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
-                'is_passed' => $answer->is_passed ?? false
+                'date' => Carbon::parse($finishedAt),
+                'is_passed' => (bool) ($answer->is_passed ?? false),
+                'duration' => $duration,
+                'correct_answers' => $answer->correct_answers ?? 0,
+                'total_questions' => $answer->userAnswerDetails->count(),
+                'section' => $answer->tryoutDetail->name ?? $answer->tryoutDetail->title ?? null,
             ];
         });
 
         $totalStudyMinutes = $completedTryouts->sum(function ($answer) {
             if ($answer->started_at && $answer->finished_at) {
-                return Carbon::parse($answer->started_at)->diffInMinutes(Carbon::parse($answer->finished_at));
+                return (int) round(Carbon::parse($answer->started_at)->diffInSeconds(Carbon::parse($answer->finished_at)) / 60);
             }
 
             return optional($answer->tryoutDetail)->duration ?? 60;
         });
 
-        $totalStudyHours = round($totalStudyMinutes / 60, 1);
+        $totalStudyHours = (int) round($totalStudyMinutes / 60);
 
-        $certificates = collect();
-        $activities = collect();
+        // Certificate ownership is stored in metadata.user_id, not a certificates.user_id column.
+        $certificates = Certificate::query()
+            ->whereJsonContains('metadata->user_id', (string) $user->id)
+            ->orderByDesc('issued_date')
+            ->get();
 
-        foreach ($completedTryouts->take(4) as $answer) {
+        $activities = collect([[
+            'type' => 'account',
+            'text' => 'Bergabung dengan platform',
+            'icon' => 'ri-user-add-line',
+            'color' => 'indigo',
+            'date' => Carbon::parse($user->created_at),
+        ]]);
+
+        foreach ($tryoutHistory as $tryout) {
             $activities->push([
                 'type' => 'tryout',
-                'text' => 'Menyelesaikan tryout ' . ($answer->tryout->name ?? 'Unknown') . ' dengan skor ' . round($answer->score ?? 0, 1),
+                'text' => 'Menyelesaikan tryout ' . $tryout['name'] . ' dengan skor ' . $tryout['score'],
                 'icon' => 'ri-file-list-line',
                 'color' => 'blue',
-                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at)
+                'date' => $tryout['date'],
             ]);
         }
 
-        $activities->push([
-            'type' => 'login',
-            'text' => 'Login ke sistem',
-            'icon' => 'ri-login-box-line',
-            'color' => 'green',
-            'date' => Carbon::now()->subHours(2)
-        ]);
+        foreach ($certificates as $certificate) {
+            $activities->push([
+                'type' => 'certificate',
+                'text' => 'Sertifikat "' . $certificate->certificate_name . '" diterbitkan',
+                'icon' => 'ri-award-line',
+                'color' => 'amber',
+                'date' => Carbon::parse($certificate->issued_date ?? $certificate->created_at),
+            ]);
+        }
 
-        $activities = $activities->sortByDesc('date')->take(8);
+        $activities = $activities->sortByDesc('date')->values();
 
         $statistics = [
             'total_tryouts' => $totalTryouts,
@@ -233,12 +399,12 @@ class UserController extends Controller
             'study_hours' => $totalStudyHours
         ];
 
-        return view('admin.pages.user.report', compact(
+        return compact(
             'user',
             'statistics',
-            'recentTryouts',
+            'tryoutHistory',
             'certificates',
             'activities'
-        ));
+        );
     }
 }
