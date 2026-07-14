@@ -4,7 +4,9 @@ namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiDiscussionUsageLog;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -41,13 +43,12 @@ class AiGatewaySubscriptionController extends Controller
 
         $usageLogsQuery = AiDiscussionUsageLog::query()
             ->where('user_id', $user->id);
-        $usageTokenTotal = (int) (clone $usageLogsQuery)->sum('total_tokens');
         $usageLogs = $usageLogsQuery->latest()->paginate(20)->withQueryString();
 
-        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'usageLogs', 'usageTokenTotal', 'gatewayError'));
+        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'usageLogs', 'gatewayError'));
     }
 
-    public function checkout(Request $request): RedirectResponse
+    public function checkout(Request $request): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'plan_id' => ['required', 'integer'],
@@ -69,6 +70,13 @@ class AiGatewaySubscriptionController extends Controller
             $invoiceUrl = (string) $response->json('invoice_url');
 
             if ($invoiceUrl === '') {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invoice Pembahasan AI tidak tersedia. Silakan coba lagi.',
+                    ], 422);
+                }
+
                 return back()->with('error', 'Invoice gateway tidak tersedia.');
             }
 
@@ -78,10 +86,47 @@ class AiGatewaySubscriptionController extends Controller
                 'expires_at' => now()->addDay()->toIso8601String(),
             ]);
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'invoice_url' => $invoiceUrl,
+                ]);
+            }
+
             return redirect()->away($invoiceUrl);
-        } catch (\Throwable) {
+        } catch (RequestException $exception) {
+            report($exception);
+            $message = $this->gatewayErrorMessage($exception);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 422);
+            }
+
+            return back()->with('error', $message);
+        } catch (\Throwable $exception) {
+            report($exception);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal membuat pembayaran paket AI. Silakan coba lagi.',
+                ], 422);
+            }
+
             return back()->with('error', 'Gagal membuat pembayaran paket AI. Silakan coba lagi.');
         }
+    }
+
+    private function gatewayErrorMessage(RequestException $exception): string
+    {
+        $message = trim(strip_tags((string) $exception->response?->json('message')));
+        $message = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $message) ?? '';
+
+        return $message !== ''
+            ? Str::limit($message, 180)
+            : 'Gagal membuat pembayaran paket AI. Silakan coba lagi.';
     }
 
     private function gatewayRequest(string $method, string $endpoint, array $data = [])
@@ -99,19 +144,32 @@ class AiGatewaySubscriptionController extends Controller
             ->{$method}("{$baseUrl}/{$endpoint}", $data);
     }
 
-    private function safeReturnUrl(Request $request): string
+    private function safeReturnUrl(Request $request): ?string
     {
         $returnUrl = (string) $request->input('return_url', '');
 
         if ($returnUrl !== '' && Str::startsWith($returnUrl, url('/'))) {
-            return $returnUrl;
+            return $this->isLocalUrl($returnUrl) ? null : $returnUrl;
         }
 
-        return route('user.ai-gateway.index');
+        $fallbackUrl = route('user.ai-gateway.index');
+
+        return $this->isLocalUrl($fallbackUrl) ? null : $fallbackUrl;
     }
 
-    private function withPaymentStatus(string $url, string $status): string
+    private function withPaymentStatus(?string $url, string $status): ?string
     {
+        if ($url === null) {
+            return null;
+        }
+
         return $url.(str_contains($url, '?') ? '&' : '?').'payment='.$status;
+    }
+
+    private function isLocalUrl(string $url): bool
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        return in_array($host, ['localhost', '127.0.0.1', '::1'], true);
     }
 }

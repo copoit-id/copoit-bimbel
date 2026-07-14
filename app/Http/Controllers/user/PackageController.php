@@ -119,6 +119,7 @@ class PackageController extends Controller
             ->get();
         $packageAutomaticDiscounts = $this->automaticDiscountsForPackages($packages, $automaticDiscounts);
         $affiliateDiscountPreview = $this->affiliateDiscountPreview();
+        $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
         
         return view('user.pages.package.new-index', compact(
             'packages',
@@ -130,9 +131,36 @@ class PackageController extends Controller
             'publicDiscounts',
             'packageAutomaticDiscounts',
             'affiliateDiscountPreview',
+            'aiGatewayPlans',
             'search',
             'sort'
         ));
+    }
+
+    private function availableAiGatewayPlans(): array
+    {
+        if (! app(AiDiscussionService::class)->isEnabled()) {
+            return [];
+        }
+
+        $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
+
+        if ($gatewayBaseUrl === '' || blank(config('services.ai_gateway.key'))) {
+            return [];
+        }
+
+        try {
+            $plans = Http::acceptJson()
+                ->timeout(3)
+                ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
+                ->get("{$gatewayBaseUrl}/plans")
+                ->json();
+
+            return is_array($plans) ? $plans : [];
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     public function buyPackage(Request $request, $package_id)
@@ -4139,7 +4167,9 @@ class PackageController extends Controller
             $tryout->access_via_package = $tryout->packages->first();
         }
         
-        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort'));
+        $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+
+        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans'));
     }
 
     /**

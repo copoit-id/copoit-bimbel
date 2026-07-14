@@ -19,6 +19,7 @@ class AiGatewaySubscriptionService
         }
 
         $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
+        $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
         $durationDays = max(1, (int) ($transaction->plan?->duration_days ?? 30));
         $activeSubscription = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
@@ -31,15 +32,21 @@ class AiGatewaySubscriptionService
 
         if ($activeSubscription) {
             $currentLimit = (int) ($activeSubscription->token_limit ?: $activeSubscription->plan?->token_limit ?: 0);
-            $activeSubscription->update([
+            $updates = [
                 'token_limit' => $currentLimit + $tokenCredit,
                 'ends_at' => $activeSubscription->ends_at->copy()->addDays($durationDays),
-            ]);
+            ];
+            if ($chatCredit > 0) {
+                $currentChatLimit = (int) ($activeSubscription->chat_limit ?: $activeSubscription->plan?->chat_limit ?: 0);
+                $updates['chat_limit'] = $currentChatLimit + $chatCredit;
+            }
+            $activeSubscription->update($updates);
             $pendingSubscription->update(['status' => 'merged']);
         } else {
             $pendingSubscription->update([
                 'status' => 'active',
                 'token_limit' => $tokenCredit,
+                'chat_limit' => $chatCredit,
                 'starts_at' => now(),
                 'ends_at' => now()->addDays($durationDays),
             ]);

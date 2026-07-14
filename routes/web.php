@@ -185,7 +185,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
     Route::get('/tagihan', [UserBillingController::class, 'index'])->name('user.billing.index');
     Route::get('/paket-ai', [AiGatewaySubscriptionController::class, 'index'])->name('user.ai-gateway.index');
-    Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])->name('user.ai-gateway.checkout');
+    Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])
+        ->middleware('throttle:10,1')
+        ->name('user.ai-gateway.checkout');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])->name('user.class-schedule.attend');
 

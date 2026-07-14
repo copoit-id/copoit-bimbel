@@ -14,6 +14,19 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('client.branding.payment_mode', 'gateway')));
+$aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
+$aiChatLabel = function ($plan): string {
+    $chatLimit = (int) data_get($plan, 'chat_limit', 0);
+
+    return $chatLimit > 0
+        ? number_format($chatLimit, 0, ',', '.') . ' chat AI'
+        : 'Kuota chat AI';
+};
+$aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
+    'id' => (int) data_get($plan, 'id'),
+    'price' => (int) data_get($plan, 'price', 0),
+    'chat_limit' => (int) data_get($plan, 'chat_limit', 0),
+])->all();
 @endphp
 
 <!-- Header -->
@@ -306,6 +319,28 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
                        style="--tw-ring-color: {{ $primaryColor }}"
                        placeholder="CONTOH: HEMAT50">
             </div>
+            @if($aiGatewayPlans->isNotEmpty())
+            <div id="tryoutAiAddOn" class="mb-4 hidden rounded-xl border border-gray-200 p-4">
+                <div class="flex items-start gap-3">
+                    <input id="tryoutAiEnabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300" onchange="document.getElementById('tryoutAiPlanWrap').classList.toggle('hidden', !this.checked)">
+                    <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openAiPreviewModal()" class="group relative h-20 w-24 shrink-0 overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" aria-label="Lihat ilustrasi Pembahasan AI ukuran besar">
+                        <img src="{{ asset('img/new-fitures/pembahasan-ai.webp') }}" alt="Ilustrasi Pembahasan AI" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-200 group-hover:scale-105">
+                        <span class="absolute inset-0 flex items-center justify-center bg-slate-900/0 text-white transition group-hover:bg-slate-900/45"><i class="ri-zoom-in-line text-xl opacity-0 transition group-hover:opacity-100"></i></span>
+                    </button>
+                    <label for="tryoutAiEnabled" class="min-w-0 flex-1 cursor-pointer">
+                        <p class="font-semibold text-gray-800"><i class="ri-robot-2-line mr-1 text-primary"></i>Tambahkan Pembahasan AI</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Tagihan AI dibuat terpisah dan bisa dibayar kapan saja.</p>
+                    </label>
+                </div>
+                <div id="tryoutAiPlanWrap" class="mt-3 hidden">
+                    <select id="tryoutAiPlan" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700">
+                        @foreach($aiGatewayPlans as $plan)
+                        <option value="{{ data_get($plan, 'id') }}">{{ data_get($plan, 'name') }} — Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }} · {{ $aiChatLabel($plan) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            @endif
             @if($paymentMode === 'manual')
             <div id="tryoutPaymentProofWrapper" class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Bukti Pembayaran</label>
@@ -335,9 +370,30 @@ $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('c
     </div>
 </div>
 
+<div id="tryoutPaymentLinksModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 class="text-center text-lg font-semibold text-gray-800">Tagihan siap diproses</h3>
+        <p class="mt-1 text-center text-sm text-gray-500">Paket/tryout dan Pembahasan AI dibayar terpisah.</p>
+        <div class="mt-5 space-y-3">
+            <a id="tryoutPayProductLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Tryout</span><span class="text-xs text-gray-500">Aktifkan akses tryout</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+            <a id="tryoutPayAiLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+        </div>
+        <button type="button" onclick="closeTryoutPaymentLinksModal()" class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Nanti saja</button>
+    </div>
+</div>
+
+<div id="aiPreviewModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onclick="if (event.target === this) closeAiPreviewModal()" role="dialog" aria-modal="true" aria-label="Pratinjau ilustrasi Pembahasan AI">
+    <div class="relative max-h-[90vh] w-full max-w-4xl">
+        <button type="button" onclick="closeAiPreviewModal()" class="absolute -right-1 -top-11 rounded-lg p-2 text-white hover:bg-white/15" aria-label="Tutup pratinjau"><i class="ri-close-line text-2xl"></i></button>
+        <img src="{{ asset('img/new-fitures/pembahasan-ai.webp') }}" alt="Ilustrasi Pembahasan AI ukuran besar" class="max-h-[90vh] w-full rounded-2xl object-contain shadow-2xl">
+    </div>
+</div>
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const aiGatewayPlans = @json($aiGatewayPlansJson);
+    const aiGatewayCheckoutUrl = @json(route('user.ai-gateway.checkout'));
     const modal = document.getElementById('tryoutPurchaseModal');
     const form = document.getElementById('tryoutPurchaseForm');
     const itemId = document.getElementById('tryoutPurchaseItemId');
@@ -353,6 +409,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const conditionalProofInput = conditionalProofWrapper?.querySelector('input[type="file"]');
     const conditionalNotesWrapper = document.getElementById('tryoutConditionalNotesWrapper');
     const submitBtn = document.getElementById('tryoutSubmitPurchaseBtn');
+    const aiAddOn = document.getElementById('tryoutAiAddOn');
+    const aiEnabled = document.getElementById('tryoutAiEnabled');
+    const aiPlan = document.getElementById('tryoutAiPlan');
 
     function closeModal() {
         modal.classList.add('hidden');
@@ -370,6 +429,9 @@ document.addEventListener('DOMContentLoaded', function () {
             modalTitle.textContent = isPaid ? 'Beli Tryout' : (priceType === 'free_conditional' ? 'Ajukan Akses Tryout' : 'Akses Gratis Tryout');
             itemPrice.textContent = isPaid ? 'Rp ' + Number(this.dataset.price).toLocaleString('id-ID') : (priceType === 'free_conditional' ? 'Gratis Bersyarat' : 'Gratis');
             voucherWrapper?.classList.toggle('hidden', !isPaid);
+            aiAddOn?.classList.toggle('hidden', !isPaid);
+            if (aiEnabled) aiEnabled.checked = false;
+            document.getElementById('tryoutAiPlanWrap')?.classList.add('hidden');
             proofWrapper?.classList.toggle('hidden', !isPaid);
             if (proofInput) proofInput.required = isPaid;
             conditionalRequirementWrapper?.classList.toggle('hidden', !isConditional);
@@ -391,6 +453,34 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', async function (event) {
         event.preventDefault();
 
+        let aiInvoiceUrl = null;
+        if (aiEnabled?.checked) {
+            const selectedPlanId = Number(aiPlan?.value || 0);
+            if (!aiGatewayPlans.some((plan) => Number(plan.id) === selectedPlanId)) {
+                alert('Paket Pembahasan AI tidak valid.');
+                return;
+            }
+
+            const aiFormData = new FormData();
+            aiFormData.append('plan_id', selectedPlanId);
+            aiFormData.append('return_url', window.location.href);
+            const aiResponse = await fetch(aiGatewayCheckoutUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: aiFormData,
+            });
+            const aiData = await aiResponse.json();
+            if (!aiResponse.ok || !aiData.success || !aiData.invoice_url) {
+                alert(aiData.message || 'Gagal membuat tagihan Pembahasan AI.');
+                return;
+            }
+            aiInvoiceUrl = aiData.invoice_url;
+        }
+
         const response = await fetch('{{ route('user.individual-purchase.buy') }}', {
             method: 'POST',
             headers: {
@@ -402,16 +492,50 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const data = await response.json();
         if (data.redirect_url) {
+            if (aiInvoiceUrl) {
+                window.showTryoutPaymentLinks(data.redirect_url, aiInvoiceUrl);
+                closeModal();
+                return;
+            }
             window.location.href = data.redirect_url;
             return;
         }
 
         alert(data.message || (data.success ? 'Pembelian berhasil diproses.' : 'Pembelian gagal diproses.'));
         if (data.success) {
+            if (aiInvoiceUrl) {
+                window.showTryoutPaymentLinks(null, aiInvoiceUrl);
+                closeModal();
+                return;
+            }
             window.location.reload();
         }
     });
+
+    window.showTryoutPaymentLinks = function (productUrl, aiUrl) {
+        const productLink = document.getElementById('tryoutPayProductLink');
+        productLink.classList.toggle('hidden', !productUrl);
+        productLink.href = productUrl || '#';
+        document.getElementById('tryoutPayAiLink').href = aiUrl;
+        document.getElementById('tryoutPaymentLinksModal').classList.remove('hidden');
+        document.getElementById('tryoutPaymentLinksModal').classList.add('flex');
+    };
 });
+
+function closeTryoutPaymentLinksModal() {
+    document.getElementById('tryoutPaymentLinksModal').classList.add('hidden');
+    document.getElementById('tryoutPaymentLinksModal').classList.remove('flex');
+}
+
+function openAiPreviewModal() {
+    document.getElementById('aiPreviewModal').classList.remove('hidden');
+    document.getElementById('aiPreviewModal').classList.add('flex');
+}
+
+function closeAiPreviewModal() {
+    document.getElementById('aiPreviewModal').classList.add('hidden');
+    document.getElementById('aiPreviewModal').classList.remove('flex');
+}
 </script>
 @endpush
 

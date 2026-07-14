@@ -21,6 +21,14 @@ $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled
 $publicDiscounts = $publicDiscounts ?? collect();
 $packageAutomaticDiscounts = $packageAutomaticDiscounts ?? [];
 $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
+$aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
+$aiChatLabel = function ($plan): string {
+    $chatLimit = (int) data_get($plan, 'chat_limit', 0);
+
+    return $chatLimit > 0
+        ? number_format($chatLimit, 0, ',', '.') . ' chat AI'
+        : 'Kuota chat AI';
+};
 $discountsJson = $publicDiscounts->map(function($d) {
     return [
         'id' => $d->id,
@@ -37,6 +45,13 @@ $discountsJson = $publicDiscounts->map(function($d) {
 $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(function($discount, $packageId) {
     return [(string) $packageId => $discount];
 })->toArray();
+$aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
+    'id' => (int) data_get($plan, 'id'),
+    'name' => (string) data_get($plan, 'name'),
+    'price' => (int) data_get($plan, 'price', 0),
+    'chat_limit' => (int) data_get($plan, 'chat_limit', 0),
+    'duration_days' => (int) data_get($plan, 'duration_days', 0),
+])->all();
 @endphp
 
 <!-- Header -->
@@ -472,6 +487,85 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
     </div>
 </div>
 
+<!-- Checkout summary: product and AI are intentionally billed separately. -->
+<div id="checkoutModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+    <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div class="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white p-5">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Ringkasan Checkout</h3>
+                <p class="mt-0.5 text-xs text-gray-500">Paket dan AI dapat dibayar terpisah.</p>
+            </div>
+            <button type="button" onclick="closeCheckoutModal()" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Tutup">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <div class="space-y-5 p-5">
+            <div class="rounded-xl border border-gray-200 p-4">
+                <div class="mb-3 flex items-start justify-between gap-3">
+                    <div><p class="text-sm font-semibold text-gray-800" id="checkoutPackageName">Paket</p><p class="text-xs text-gray-500">Tagihan paket/tryout</p></div>
+                    <i class="ri-book-3-line text-xl text-primary"></i>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Harga</span><span id="checkoutPackagePrice" class="font-medium text-gray-800">Rp 0</span></div>
+                    <div id="checkoutDiscountRow" class="hidden justify-between"><span class="text-gray-500">Diskon</span><span id="checkoutDiscountAmount" class="font-medium text-emerald-600">- Rp 0</span></div>
+                    <div class="flex justify-between border-t border-dashed border-gray-200 pt-2"><span class="font-medium text-gray-700">Tagihan paket</span><span id="checkoutPackageTotal" class="font-semibold text-gray-900">Rp 0</span></div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <input id="checkoutDiscountInput" type="text" maxlength="50" class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase" placeholder="Kode diskon (opsional)">
+                    <button type="button" onclick="applyCheckoutDiscount()" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Terapkan</button>
+                </div>
+                <p id="checkoutDiscountInfo" class="mt-2 hidden text-xs"></p>
+            </div>
+
+            @if($aiGatewayPlans->isNotEmpty())
+                <div class="rounded-xl border border-gray-200 p-4 transition hover:border-primary/50">
+                    <div class="flex items-start gap-3">
+                        <input id="checkoutAiEnabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300" onchange="toggleAiCheckoutPlan()">
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openAiPreviewModal()" class="group relative h-20 w-24 shrink-0 overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" aria-label="Lihat ilustrasi Pembahasan AI ukuran besar">
+                            <img src="{{ asset('img/new-fitures/pembahasan-ai.webp') }}" alt="Ilustrasi Pembahasan AI" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-200 group-hover:scale-105">
+                            <span class="absolute inset-0 flex items-center justify-center bg-slate-900/0 text-white transition group-hover:bg-slate-900/45"><i class="ri-zoom-in-line text-xl opacity-0 transition group-hover:opacity-100"></i></span>
+                        </button>
+                        <label for="checkoutAiEnabled" class="min-w-0 flex-1 cursor-pointer">
+                            <div class="flex items-center justify-between gap-3"><span class="font-semibold text-gray-800"><i class="ri-robot-2-line mr-1 text-primary"></i>Tambahkan Pembahasan AI</span><span class="text-xs font-medium text-gray-500">Opsional</span></div>
+                            <p class="mt-1 text-xs leading-5 text-gray-500">Gunakan untuk tanya konsep dan langkah penyelesaian pada pembahasan tryout.</p>
+                        </label>
+                    </div>
+                    <div id="checkoutAiPlanWrap" class="mt-3 hidden">
+                        <select id="checkoutAiPlan" onchange="renderCheckoutSummary()" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700">
+                            @foreach($aiGatewayPlans as $plan)
+                                <option value="{{ data_get($plan, 'id') }}">{{ data_get($plan, 'name') }} — Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }} · {{ $aiChatLabel($plan) }}</option>
+                            @endforeach
+                        </select>
+                        <div class="mt-3 flex justify-between border-t border-dashed border-gray-200 pt-3 text-sm"><span class="font-medium text-gray-700">Tagihan AI terpisah</span><span id="checkoutAiTotal" class="font-semibold text-gray-900">Rp 0</span></div>
+                    </div>
+                </div>
+            @endif
+
+            <div class="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-800"><i class="ri-information-line mr-1"></i>Jika memilih AI, kami buat dua tagihan. Kamu boleh membayar salah satu dahulu; akses yang sudah lunas tetap aktif sendiri.</div>
+            <div id="checkoutError" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"></div>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeCheckoutModal()" class="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Batal</button>
+                <button type="button" id="checkoutSubmitBtn" onclick="continueCheckout()" class="flex-1 rounded-xl px-4 py-2.5 font-medium text-white" style="background-color: {{ $primaryColor }}">Buat Tagihan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="paymentLinksModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="text-center"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-bill-line text-2xl"></i></span><h3 class="mt-3 text-lg font-semibold text-gray-800">Dua tagihan sudah dibuat</h3><p class="mt-1 text-sm text-gray-500">Bayar sesuai urutan yang kamu inginkan.</p></div>
+        <div class="mt-5 space-y-3"><a id="payPackageLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Paket / Tryout</span><span class="text-xs text-gray-500">Aktifkan akses belajar</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a><a id="payAiLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a></div>
+        <button type="button" onclick="closePaymentLinksModal()" class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Nanti saja</button>
+    </div>
+</div>
+
+<div id="aiPreviewModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onclick="if (event.target === this) closeAiPreviewModal()" role="dialog" aria-modal="true" aria-label="Pratinjau ilustrasi Pembahasan AI">
+    <div class="relative max-h-[90vh] w-full max-w-4xl">
+        <button type="button" onclick="closeAiPreviewModal()" class="absolute -right-1 -top-11 rounded-lg p-2 text-white hover:bg-white/15" aria-label="Tutup pratinjau"><i class="ri-close-line text-2xl"></i></button>
+        <img src="{{ asset('img/new-fitures/pembahasan-ai.webp') }}" alt="Ilustrasi Pembahasan AI ukuran besar" class="max-h-[90vh] w-full rounded-2xl object-contain shadow-2xl">
+    </div>
+</div>
+
 <!-- Payment Modal for Manual Transfer -->
 <div id="paymentModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -526,6 +620,10 @@ $automaticDiscountsJson = collect($packageAutomaticDiscounts)->mapWithKeys(funct
                     <div class="flex justify-between border-t border-dashed border-gray-200/80 pt-2 mt-2">
                         <span class="text-gray-500">Total Bayar</span>
                         <span class="font-bold text-lg" style="color: {{ $primaryColor }}" id="paymentAmountDisplay">Rp 0</span>
+                    </div>
+                    <div id="manualAiInvoiceNotice" class="hidden border-t border-dashed border-gray-200/80 pt-3 mt-3">
+                        <p class="text-sm font-medium text-gray-700">Tagihan Pembahasan AI sudah dibuat.</p>
+                        <a id="manualAiPaymentLink" href="#" target="_blank" rel="noopener" class="mt-2 inline-flex rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:opacity-90">Bayar Pembahasan AI</a>
                     </div>
                     @if(!empty($paymentBankNote))
                     <div class="border-t border-dashed border-gray-200/80 pt-3 mt-3">
@@ -610,6 +708,8 @@ const PAYMENT_MODE = '{{ $paymentModeConfig }}';
 const PAYMENT_UNIQUE_CODE_ENABLED = @json($paymentUniqueCodeEnabled);
 const MANUAL_PAYMENT_UNIQUE_CODES = @json($manualPaymentUniqueCodes ?? []);
 const CONDITIONAL_PACKAGE_BUY_URL_TEMPLATE = @json(route('user.package.buy', ['package_id' => '__PACKAGE_ID__']));
+const AI_GATEWAY_PLANS = @json($aiGatewayPlansJson);
+const AI_GATEWAY_CHECKOUT_URL = @json(route('user.ai-gateway.checkout'));
 let selectedPackageId = null;
 let selectedPrice = 0;
 let selectedPackageName = '';
@@ -617,6 +717,7 @@ let selectedDiscountCode = '';
 let selectedDiscountAmount = 0;
 let selectedPayableAmount = 0;
 let selectedConditionalPackageId = null;
+let selectedAiInvoiceUrl = null;
 
 function openConditionalModal(packageId, packageName, requirementText) {
     selectedConditionalPackageId = packageId;
@@ -941,12 +1042,155 @@ async function handleBuy(packageId, price, packageName) {
     selectedDiscountCode = activeCode || '';
     selectedDiscountAmount = 0;
     selectedPayableAmount = Number(price);
+    selectedAiInvoiceUrl = null;
+
+    document.getElementById('checkoutDiscountInput').value = selectedDiscountCode;
+    const aiCheckoutCheckbox = document.getElementById('checkoutAiEnabled');
+    if (aiCheckoutCheckbox) {
+        aiCheckoutCheckbox.checked = false;
+    }
+    document.getElementById('checkoutAiPlanWrap')?.classList.add('hidden');
+    document.getElementById('checkoutError').classList.add('hidden');
+    await refreshCheckoutDiscount();
+    renderCheckoutSummary();
+    document.getElementById('checkoutModal').classList.remove('hidden');
+    document.getElementById('checkoutModal').classList.add('flex');
+}
+
+function closeCheckoutModal() {
+    document.getElementById('checkoutModal').classList.add('hidden');
+    document.getElementById('checkoutModal').classList.remove('flex');
+}
+
+function toggleAiCheckoutPlan() {
+    document.getElementById('checkoutAiPlanWrap')?.classList.toggle('hidden', !document.getElementById('checkoutAiEnabled')?.checked);
+    renderCheckoutSummary();
+}
+
+function selectedAiPlan() {
+    const planId = Number(document.getElementById('checkoutAiPlan')?.value || 0);
+    return AI_GATEWAY_PLANS.find((plan) => Number(plan.id) === planId) || null;
+}
+
+function renderCheckoutSummary() {
+    document.getElementById('checkoutPackageName').textContent = selectedPackageName || 'Paket';
+    document.getElementById('checkoutPackagePrice').textContent = 'Rp ' + formatNumber(selectedPrice);
+    document.getElementById('checkoutDiscountAmount').textContent = '- Rp ' + formatNumber(selectedDiscountAmount);
+    document.getElementById('checkoutDiscountRow').classList.toggle('hidden', selectedDiscountAmount <= 0);
+    document.getElementById('checkoutDiscountRow').classList.toggle('flex', selectedDiscountAmount > 0);
+    document.getElementById('checkoutPackageTotal').textContent = 'Rp ' + formatNumber(selectedPayableAmount);
+
+    const plan = selectedAiPlan();
+    const aiTotal = document.getElementById('checkoutAiTotal');
+    if (aiTotal) {
+        aiTotal.textContent = 'Rp ' + formatNumber(plan?.price || 0);
+    }
+}
+
+async function applyCheckoutDiscount() {
+    selectedDiscountCode = (document.getElementById('checkoutDiscountInput').value || '').trim().toUpperCase();
+    await refreshCheckoutDiscount();
+}
+
+async function refreshCheckoutDiscount() {
+    const info = document.getElementById('checkoutDiscountInfo');
+    const formData = new FormData();
+    if (selectedDiscountCode) {
+        formData.append('discount_code', selectedDiscountCode);
+    }
+
+    try {
+        const response = await fetch('/user/paket-pembelian/' + selectedPackageId + '/discount/preview', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            },
+            body: formData,
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            selectedDiscountAmount = 0;
+            selectedPayableAmount = Number(selectedPrice);
+            info.textContent = selectedDiscountCode ? (data.message || 'Kode diskon tidak valid.') : '';
+            info.className = selectedDiscountCode ? 'mt-2 text-xs text-red-600' : 'hidden text-xs';
+        } else {
+            selectedDiscountCode = data.code || selectedDiscountCode;
+            selectedDiscountAmount = Number(data.discount_amount || 0);
+            selectedPayableAmount = Number(data.payable_amount || selectedPrice);
+            info.textContent = selectedDiscountAmount > 0 ? 'Diskon berhasil diterapkan pada tagihan paket.' : '';
+            info.className = selectedDiscountAmount > 0 ? 'mt-2 text-xs text-emerald-600' : 'hidden text-xs';
+        }
+    } catch {
+        selectedDiscountAmount = 0;
+        selectedPayableAmount = Number(selectedPrice);
+        info.textContent = 'Gagal mengecek diskon. Harga paket tetap digunakan.';
+        info.className = 'mt-2 text-xs text-red-600';
+    }
+
+    renderCheckoutSummary();
+}
+
+async function createAiInvoice() {
+    if (!document.getElementById('checkoutAiEnabled')?.checked) {
+        return null;
+    }
+
+    const plan = selectedAiPlan();
+    if (!plan) {
+        throw new Error('Paket Pembahasan AI belum dipilih.');
+    }
+
+    const formData = new FormData();
+    formData.append('plan_id', plan.id);
+    formData.append('return_url', window.location.href);
+    const response = await fetch(AI_GATEWAY_CHECKOUT_URL, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData,
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.success || !data.invoice_url) {
+        throw new Error(data.message || 'Gagal membuat tagihan Pembahasan AI.');
+    }
+
+    return data.invoice_url;
+}
+
+async function continueCheckout() {
+    const submitButton = document.getElementById('checkoutSubmitBtn');
+    const originalText = submitButton.innerHTML;
+    const errorElement = document.getElementById('checkoutError');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Menyiapkan...';
+    errorElement.classList.add('hidden');
+
+    try {
+        selectedAiInvoiceUrl = await createAiInvoice();
+        closeCheckoutModal();
+        await startPackageCheckout();
+    } catch (error) {
+        errorElement.textContent = error.message || 'Gagal menyiapkan tagihan.';
+        errorElement.classList.remove('hidden');
+    } finally {
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
+    }
+}
+
+async function startPackageCheckout() {
 
     if (PAYMENT_MODE === 'manual') {
-        const uniqueCode = PAYMENT_UNIQUE_CODE_ENABLED ? Number(MANUAL_PAYMENT_UNIQUE_CODES[packageId] || 0) : 0;
+        const uniqueCode = PAYMENT_UNIQUE_CODE_ENABLED ? Number(MANUAL_PAYMENT_UNIQUE_CODES[selectedPackageId] || 0) : 0;
         const totalAmount = selectedPayableAmount + uniqueCode;
 
-        document.getElementById('baseAmountDisplay').textContent = 'Rp ' + formatNumber(price);
+        document.getElementById('baseAmountDisplay').textContent = 'Rp ' + formatNumber(selectedPrice);
         document.getElementById('discountRow').classList.add('hidden');
         document.getElementById('discountAmountDisplay').textContent = '- Rp 0';
         document.getElementById('uniqueCodeRow').classList.toggle('hidden', !PAYMENT_UNIQUE_CODE_ENABLED);
@@ -962,6 +1206,8 @@ async function handleBuy(packageId, price, packageName) {
         document.getElementById('paymentProofSection').classList.remove('hidden');
         document.getElementById('submitPaymentBtn').textContent = 'Kirim Bukti Bayar';
         document.getElementById('proofPreview').classList.add('hidden');
+        document.getElementById('manualAiInvoiceNotice').classList.toggle('hidden', !selectedAiInvoiceUrl);
+        document.getElementById('manualAiPaymentLink').href = selectedAiInvoiceUrl || '#';
         document.getElementById('paymentModal').classList.remove('hidden');
         document.getElementById('paymentModal').classList.add('flex');
         
@@ -972,14 +1218,9 @@ async function handleBuy(packageId, price, packageName) {
         }
     } else {
         // Gateway mode - always use AJAX to handle redirect_url from gateway
-        const form = document.querySelector(`form[data-package-id="${packageId}"]`);
+        const form = document.querySelector(`form[data-package-id="${selectedPackageId}"]`);
         
-        // If a promo code is already selected on the page, use it directly. Otherwise, ask user.
-        let discountCode = selectedDiscountCode;
-        if (!discountCode && !hasAutomaticDiscountFor(packageId)) {
-            discountCode = await showCustomPrompt();
-            if (discountCode === null) return; // User closed the prompt modal, cancel purchase flow
-        }
+        const discountCode = selectedDiscountCode;
         
         const submitBtn = form.querySelector('button');
         const originalText = submitBtn.innerHTML;
@@ -992,7 +1233,7 @@ async function handleBuy(packageId, price, packageName) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Memproses...';
 
-        fetch(form.action, {
+        return fetch(form.action, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -1006,7 +1247,11 @@ async function handleBuy(packageId, price, packageName) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
             if (data.success && data.redirect_url) {
-                window.location.href = data.redirect_url;
+                if (selectedAiInvoiceUrl) {
+                    openPaymentLinksModal(data.redirect_url, selectedAiInvoiceUrl);
+                } else {
+                    window.location.href = data.redirect_url;
+                }
             } else {
                 showToast(data.message || 'Gagal membuat pembayaran. Coba lagi nanti.', 'error');
             }
@@ -1017,6 +1262,28 @@ async function handleBuy(packageId, price, packageName) {
             showToast('Terjadi kesalahan. Silakan coba lagi.', 'error');
         });
     }
+}
+
+function openPaymentLinksModal(packageUrl, aiUrl) {
+    document.getElementById('payPackageLink').href = packageUrl;
+    document.getElementById('payAiLink').href = aiUrl;
+    document.getElementById('paymentLinksModal').classList.remove('hidden');
+    document.getElementById('paymentLinksModal').classList.add('flex');
+}
+
+function closePaymentLinksModal() {
+    document.getElementById('paymentLinksModal').classList.add('hidden');
+    document.getElementById('paymentLinksModal').classList.remove('flex');
+}
+
+function openAiPreviewModal() {
+    document.getElementById('aiPreviewModal').classList.remove('hidden');
+    document.getElementById('aiPreviewModal').classList.add('flex');
+}
+
+function closeAiPreviewModal() {
+    document.getElementById('aiPreviewModal').classList.add('hidden');
+    document.getElementById('aiPreviewModal').classList.remove('flex');
 }
 
 function updateDiscountDisplay(code, discountAmount, payableAmount) {

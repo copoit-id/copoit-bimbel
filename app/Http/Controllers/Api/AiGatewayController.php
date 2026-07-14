@@ -29,8 +29,10 @@ class AiGatewayController extends Controller
             ->get();
         $subscription = $subscriptions->first(function (AiGatewaySubscription $item): bool {
             $tokenLimit = (int) ($item->token_limit ?: $item->plan?->token_limit ?: 0);
+            $chatLimit = (int) ($item->chat_limit ?: $item->plan?->chat_limit ?: 0);
 
-            return $tokenLimit > (int) $item->tokens_used;
+            return $tokenLimit > (int) $item->tokens_used
+                && ($chatLimit === 0 || $chatLimit > (int) $item->chats_used);
         });
         $trial = null;
         if ($subscription) {
@@ -40,6 +42,10 @@ class AiGatewayController extends Controller
             }
             if ($subscription->tokens_used >= $subscriptionTokenLimit) {
                 return response()->json(['message' => 'Kuota paket Diskusi AI Anda habis.'], 429);
+            }
+            $subscriptionChatLimit = (int) ($subscription->chat_limit ?: $subscription->plan?->chat_limit ?: 0);
+            if ($subscriptionChatLimit > 0 && $subscription->chats_used >= $subscriptionChatLimit) {
+                return response()->json(['message' => 'Kuota chat AI Anda habis.'], 429);
             }
         } else {
             if ($client->free_token_limit <= 0 && $client->free_chat_limit <= 0) {
@@ -88,7 +94,7 @@ class AiGatewayController extends Controller
         $client->update(['last_used_at' => now()]);
 
         $quota = $subscription
-            ? ['type' => 'package', 'token_limit' => (int) ($subscription->token_limit ?: $subscription->plan->token_limit), 'tokens_used' => (int) $subscription->tokens_used, 'chats_used' => (int) $subscription->chats_used]
+            ? ['type' => 'package', 'token_limit' => (int) ($subscription->token_limit ?: $subscription->plan->token_limit), 'tokens_used' => (int) $subscription->tokens_used, 'chat_limit' => (int) ($subscription->chat_limit ?: $subscription->plan?->chat_limit ?: 0), 'chats_used' => (int) $subscription->chats_used]
             : ['type' => 'trial', 'token_limit' => (int) $client->free_token_limit, 'tokens_used' => (int) $trial->tokens_used, 'chat_limit' => (int) $client->free_chat_limit, 'chats_used' => (int) $trial->chats_used];
 
         return response()->json([...$result, 'quota' => $quota]);

@@ -20,14 +20,26 @@
             return (int) (data_get($subscription, 'token_limit') ?: data_get($plan, 'token_limit', 0));
         });
         $activeAiGatewayTokensUsed = $activeAiGatewaySubscriptions->sum(fn ($subscription) => (int) data_get($subscription, 'tokens_used', 0));
+        $activeAiGatewayChatLimit = $activeAiGatewaySubscriptions->sum(function ($subscription) {
+            $plan = data_get($subscription, 'plan', []);
+            return (int) (data_get($subscription, 'chat_limit') ?: data_get($plan, 'chat_limit', 0));
+        });
+        $activeAiGatewayChatsUsed = $activeAiGatewaySubscriptions->sum(fn ($subscription) => (int) data_get($subscription, 'chats_used', 0));
         $aiGatewayQuota = $hasAnyActiveAiGatewayPackage ? [] : ($aiGatewayTrial ?? []);
         $aiGatewayTokenLimit = $hasAnyActiveAiGatewayPackage ? $activeAiGatewayTokenLimit : (int) data_get($aiGatewayQuota, 'token_limit', 0);
         $aiGatewayTokensUsed = $hasAnyActiveAiGatewayPackage ? $activeAiGatewayTokensUsed : (int) data_get($aiGatewayQuota, 'tokens_used', 0);
         $aiGatewayRemainingTokens = $aiGatewayTokenLimit > 0 ? max(0, $aiGatewayTokenLimit - $aiGatewayTokensUsed) : null;
         $aiGatewayTokenPercentage = $aiGatewayTokenLimit > 0 ? min(100, ($aiGatewayRemainingTokens / $aiGatewayTokenLimit) * 100) : null;
         $aiGatewayUsedPercentage = $aiGatewayTokenPercentage !== null ? 100 - $aiGatewayTokenPercentage : null;
-        $hasActiveAiGatewayPackage = $hasAnyActiveAiGatewayPackage && ($aiGatewayTokenLimit <= 0 || $aiGatewayRemainingTokens > 0);
-        $isAiGatewayPackageExhausted = $hasAnyActiveAiGatewayPackage && $aiGatewayTokenLimit > 0 && $aiGatewayRemainingTokens <= 0;
+        $aiGatewayChatLimit = $hasAnyActiveAiGatewayPackage ? $activeAiGatewayChatLimit : (int) data_get($aiGatewayQuota, 'chat_limit', 0);
+        $aiGatewayChatsUsed = $hasAnyActiveAiGatewayPackage ? $activeAiGatewayChatsUsed : (int) data_get($aiGatewayQuota, 'chats_used', 0);
+        $aiGatewayRemainingChats = $aiGatewayChatLimit > 0 ? max(0, $aiGatewayChatLimit - $aiGatewayChatsUsed) : null;
+        $hasActiveAiGatewayPackage = $hasAnyActiveAiGatewayPackage
+            && ($aiGatewayTokenLimit <= 0 || $aiGatewayRemainingTokens > 0)
+            && ($aiGatewayChatLimit <= 0 || $aiGatewayRemainingChats > 0);
+        $isAiGatewayPackageExhausted = $hasAnyActiveAiGatewayPackage
+            && (($aiGatewayTokenLimit > 0 && $aiGatewayRemainingTokens <= 0)
+                || ($aiGatewayChatLimit > 0 && $aiGatewayRemainingChats <= 0));
         $shouldOpenAiGatewayBuyModal = !$hasActiveAiGatewayPackage;
         $hasAiGatewayTrial = !$hasAnyActiveAiGatewayPackage && (bool) data_get($aiGatewayTrial, 'available', false);
         $aiGatewayReturnUrl = request()->fullUrlWithoutQuery('payment');
@@ -875,11 +887,11 @@
             <i class="ri-robot-2-line text-lg text-gray-400"></i><span class="mt-1 text-[9px] font-medium leading-none text-gray-500">Belum aktif</span>
         @endif
         </span>
-        <span class="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block">{{ $hasAnyActiveAiGatewayPackage ? ($aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokensUsed, 0, ',', '.') . ' dari ' . number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token terpakai' : 'Paket token tanpa batas') : ($hasAiGatewayTrial ? 'Coba Diskusi AI gratis tersedia' : 'Belum membeli paket pembahasan AI') }}</span>
+        <span class="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:block">{{ $hasAnyActiveAiGatewayPackage ? ($aiGatewayChatLimit > 0 ? number_format($aiGatewayChatsUsed, 0, ',', '.') . ' dari ' . number_format($aiGatewayChatLimit, 0, ',', '.') . ' chat AI terpakai' : 'Paket chat AI aktif') : ($hasAiGatewayTrial ? 'Coba Diskusi AI gratis tersedia' : 'Belum membeli paket pembahasan AI') }}</span>
     </a>
 
     @if($hasAiGatewayTrial)
-    <div id="ai-discussion-intro-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-robot-2-line text-2xl"></i></span><h2 class="mt-4 text-xl font-semibold text-gray-900">Coba Diskusi AI Pembahasan</h2><p class="mt-2 text-sm leading-6 text-gray-500">Tanyakan konsep atau langkah penyelesaian soal. Kamu mendapat kuota coba gratis {{ $aiGatewayTokenLimit > 0 ? number_format($aiGatewayTokenLimit, 0, ',', '.') . ' token' : 'untuk mencoba' }}.</p><div class="mt-6 flex justify-center gap-2"><button type="button" onclick="closeAiDiscussionIntro()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Nanti saja</button><button type="button" onclick="startAiDiscussionTrial()" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Coba sekarang</button></div></div></div></div>
+    <div id="ai-discussion-intro-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-robot-2-line text-2xl"></i></span><h2 class="mt-4 text-xl font-semibold text-gray-900">Coba Diskusi AI Pembahasan</h2><p class="mt-2 text-sm leading-6 text-gray-500">Tanyakan konsep atau langkah penyelesaian soal. Kamu mendapat kuota coba gratis {{ $aiGatewayChatLimit > 0 ? number_format($aiGatewayChatLimit, 0, ',', '.') . ' chat AI' : 'untuk mencoba' }}.</p><div class="mt-6 flex justify-center gap-2"><button type="button" onclick="closeAiDiscussionIntro()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Nanti saja</button><button type="button" onclick="startAiDiscussionTrial()" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Coba sekarang</button></div></div></div></div>
     @endif
 
     @if($shouldOpenAiGatewayBuyModal)
@@ -927,14 +939,13 @@
                     <div class="mt-5 grid gap-4 md:grid-cols-3">
                         @forelse($aiGatewayPlans as $plan)
                             @php
-                                $planTokenLimit = (int) data_get($plan, 'token_limit', 0);
+                                $planChatLimit = (int) data_get($plan, 'chat_limit', 0);
                             @endphp
                             <div class="flex flex-col rounded-xl border border-gray-200 p-4">
                                 <h3 class="font-semibold text-gray-900">{{ data_get($plan, 'name') }}</h3>
                                 <p class="mt-2 text-xl font-bold text-primary">Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }}</p>
                                 <p class="mt-1 text-xs text-gray-500">Aktif {{ data_get($plan, 'duration_days') }} hari</p>
-                                <p class="mt-3 text-sm text-gray-700">{{ number_format($planTokenLimit, 0, ',', '.') }} token</p>
-                                <p class="mt-1 text-xs text-gray-500">Estimasi {{ max(1, floor($planTokenLimit / 1600)) }}-{{ max(1, floor($planTokenLimit / 700)) }} tanya jawab.</p>
+                                <p class="mt-3 text-sm text-gray-700">{{ $planChatLimit > 0 ? number_format($planChatLimit, 0, ',', '.') . ' chat AI' : 'Kuota chat AI sesuai paket' }}</p>
                                 <form class="mt-4" method="POST" action="{{ route('user.ai-gateway.checkout') }}">
                                     @csrf
                                     <input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}">
@@ -1032,11 +1043,11 @@
         const badge = document.getElementById('ai-gateway-usage-badge');
         const percentage = document.getElementById('ai-gateway-used-percentage');
         const label = document.getElementById('ai-gateway-used-label');
-        const tokenLimit = Number(quota.token_limit || 0);
-        const tokensUsed = Number(quota.tokens_used || 0);
+        const chatLimit = Number(quota.chat_limit || 0);
+        const chatsUsed = Number(quota.chats_used || 0);
         if (!badge || !percentage || !label) return;
-        if (tokenLimit > 0) {
-            const usedPercentage = Math.min(100, (tokensUsed / tokenLimit) * 100);
+        if (chatLimit > 0) {
+            const usedPercentage = Math.min(100, (chatsUsed / chatLimit) * 100);
             badge.style.background = `conic-gradient({{ $primaryColor }} ${usedPercentage}%, #e5e7eb 0)`;
             percentage.textContent = `${Math.round(usedPercentage)}%`;
             label.textContent = 'terpakai';

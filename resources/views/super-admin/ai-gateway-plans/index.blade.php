@@ -51,8 +51,8 @@
                             <span class="ml-1 font-medium text-gray-800">{{ $plan->token_limit ?: 'Perlu diatur' }}</span>
                         </div>
                         <div>
-                            <span class="text-gray-500">Estimasi chat:</span>
-                            <span class="ml-1 font-medium text-gray-800">{{ max(1, floor($plan->token_limit / 1600)) }}–{{ max(1, floor($plan->token_limit / 700)) }}</span>
+                            <span class="text-gray-500">Limit chat:</span>
+                            <span class="ml-1 font-medium text-gray-800">{{ number_format($plan->chat_limit) }} chat AI</span>
                         </div>
                     </div>
                 </div>
@@ -100,31 +100,3 @@
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-    document.querySelectorAll('input[name="token_limit"]').forEach((tokenInput) => {
-        const form = tokenInput.closest('form');
-        if (!form) return;
-        form.querySelector('input[name="chat_limit"]')?.closest('label')?.remove();
-
-        const hint = document.createElement('p');
-        hint.className = 'mt-2 text-xs text-gray-500';
-        tokenInput.closest('label')?.appendChild(hint);
-
-        const updateHint = () => {
-            const tokenLimit = Math.max(0, Number(tokenInput.value || 0));
-            if (tokenLimit < 1) {
-                hint.textContent = 'Isi Limit Token minimal 1 agar paket dapat dijual.';
-                return;
-            }
-            const estimateLow = Math.max(1, Math.floor(tokenLimit / 1600));
-            const estimateHigh = Math.max(estimateLow, Math.floor(tokenLimit / 700));
-            hint.textContent = `Perkiraan kapasitas: ${estimateLow}–${estimateHigh} tanya-jawab, dihitung dari Limit Token dan panjang konteks.`;
-        };
-
-        tokenInput.addEventListener('input', updateHint);
-        updateHint();
-    });
-</script>
-@endpush

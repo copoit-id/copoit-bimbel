@@ -36,7 +36,7 @@ class AiGatewayBillingController extends Controller
             ->where('is_active', true)
             ->where('token_limit', '>', 0)
             ->orderBy('price')
-            ->get(['id', 'name', 'slug', 'price', 'token_limit', 'duration_days']);
+            ->get(['id', 'name', 'slug', 'price', 'token_limit', 'chat_limit', 'duration_days']);
     }
 
     public function status(Request $r)
@@ -89,13 +89,18 @@ class AiGatewayBillingController extends Controller
             $pendingTransaction->update(['status' => 'expired']);
             $pendingTransaction->subscription?->update(['status' => 'expired']);
         }
-        $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'token_limit' => $p->token_limit, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
+        if (blank(config('services.xendit.secret_key'))) {
+            return response()->json(['message' => 'Pembayaran Pembahasan AI belum dikonfigurasi. Silakan hubungi admin.'], 503);
+        }
+
+        $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'token_limit' => $p->token_limit, 'chat_limit' => $p->chat_limit, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
         $id = 'AIGW-'.$c->id.'-'.$s->id.'-'.Str::upper(Str::random(8));
         $res = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', ['external_id' => $id, 'amount' => $p->price, 'description' => 'Paket AI Gateway: '.$p->name, 'invoice_duration' => 86400, 'success_redirect_url' => $successRedirectUrl, 'failure_redirect_url' => $failureRedirectUrl, 'customer' => ['given_names' => $d['customer_name'], 'email' => $d['customer_email']]]);
         if (! $res->successful()) {
+            report(new \RuntimeException('AI gateway invoice creation failed with HTTP status '.$res->status()));
             $s->delete();
 
-            return response()->json(['message' => 'Gagal membuat invoice pusat.'], 422);
+            return response()->json(['message' => 'Layanan pembayaran AI menolak pembuatan tagihan. Silakan coba lagi atau hubungi admin.'], 422);
         }$i = $res->json();
         AiGatewayTransaction::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'ai_gateway_subscription_id' => $s->id, 'external_id' => $id, 'provider' => 'xendit', 'provider_invoice_id' => $i['id'] ?? null, 'amount' => $p->price, 'status' => 'pending', 'details' => $i]);
 
