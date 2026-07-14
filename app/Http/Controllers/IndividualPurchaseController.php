@@ -2,20 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Discount;
 use App\Models\ClassModel;
+use App\Models\Discount;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\Payment;
 use App\Models\TesKoran;
 use App\Models\Tryout;
-use App\Models\UserMaterialAccess;
 use App\Models\UserClassAccess;
+use App\Models\UserMaterialAccess;
 use App\Models\UserTryoutAccess;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\PurchaseAccessDuration;
+use App\Support\MailSafety;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -26,13 +28,14 @@ class IndividualPurchaseController extends Controller
 {
     public function buy(Request $request)
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Silakan login terlebih dahulu.'
+                    'message' => 'Silakan login terlebih dahulu.',
                 ], 401);
             }
+
             return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu.');
         }
 
@@ -61,8 +64,9 @@ class IndividualPurchaseController extends Controller
             $purchasableType = TesKoran::class;
         }
 
-        if (!$item) {
+        if (! $item) {
             $message = 'Item tidak ditemukan.';
+
             return $request->expectsJson()
                 ? response()->json(['success' => false, 'message' => $message], 404)
                 : redirect()->back()->with('error', $message);
@@ -70,6 +74,7 @@ class IndividualPurchaseController extends Controller
 
         if (! ($item->is_displayed ?? true) || ! $item->isIndividuallyAvailable()) {
             $message = 'Item ini tidak dijual terpisah.';
+
             return $request->expectsJson()
                 ? response()->json(['success' => false, 'message' => $message], 400)
                 : redirect()->back()->with('error', $message);
@@ -88,6 +93,7 @@ class IndividualPurchaseController extends Controller
 
         if ($existingPurchase) {
             $message = 'Anda sudah memiliki item ini.';
+
             return $request->expectsJson()
                 ? response()->json(['success' => false, 'message' => $message], 400)
                 : redirect()->back()->with('error', $message);
@@ -122,6 +128,7 @@ class IndividualPurchaseController extends Controller
             };
 
             $message = "Anda sudah memiliki akses ke {$itemLabel} ini.";
+
             return $request->expectsJson()
                 ? response()->json(['success' => false, 'message' => $message], 400)
                 : redirect()->back()->with('error', $message);
@@ -132,6 +139,7 @@ class IndividualPurchaseController extends Controller
             $this->grantApprovedAccess($purchase);
 
             $message = 'Akses gratis berhasil diaktifkan.';
+
             return $request->expectsJson()
                 ? response()->json(['success' => true, 'message' => $message, 'reload' => true])
                 : redirect()->back()->with('success', $message);
@@ -151,7 +159,7 @@ class IndividualPurchaseController extends Controller
             ]);
 
             $proofPaths = collect($request->file('requirement_proofs', []))
-                ->map(fn (\Illuminate\Http\UploadedFile $proof) => $proof->store('conditional-proofs/individual', 'public'))
+                ->map(fn (UploadedFile $proof) => $proof->store('conditional-proofs/individual', 'public'))
                 ->values()
                 ->all();
 
@@ -168,6 +176,7 @@ class IndividualPurchaseController extends Controller
             $this->sendPurchaseNotificationToAdmin($purchase);
 
             $message = 'Permintaan akses gratis bersyarat berhasil dikirim. Mohon tunggu verifikasi admin.';
+
             return $request->expectsJson()
                 ? response()->json(['success' => true, 'message' => $message])
                 : redirect()->route('user.package.riwayatPembelian')->with('success', $message);
@@ -205,7 +214,7 @@ class IndividualPurchaseController extends Controller
                 'total_amount' => 0,
                 'payment_method' => 'discount',
                 'status' => IndividualPurchase::STATUS_APPROVED,
-                'transaction_id' => 'IND-DISC-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time(),
+                'transaction_id' => 'IND-DISC-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time(),
                 'payment_details' => [
                     'base_amount' => (int) $item->price,
                     'discount_code' => $discount?->code,
@@ -224,7 +233,7 @@ class IndividualPurchaseController extends Controller
 
         // For manual payment, require payment proof
         $paymentMode = config('client.branding.payment_mode', 'gateway');
-        
+
         if ($paymentMode === 'manual') {
             $request->validate([
                 'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
@@ -233,7 +242,7 @@ class IndividualPurchaseController extends Controller
             ]);
 
             $proofPath = $request->file('payment_proof')->store('payment-proofs/individual', 'public');
-            $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+            $transactionId = 'IND-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time();
 
             $purchase = IndividualPurchase::create([
                 'user_id' => $userId,
@@ -257,6 +266,7 @@ class IndividualPurchaseController extends Controller
             $this->sendPurchaseNotificationToAdmin($purchase);
 
             $message = 'Bukti pembayaran berhasil dikirim. Mohon tunggu verifikasi admin.';
+
             return $request->expectsJson()
                 ? response()->json(['success' => true, 'message' => $message])
                 : redirect()->route('user.package.riwayatPembelian')->with('success', $message);
@@ -374,23 +384,23 @@ class IndividualPurchaseController extends Controller
     {
         $secretKey = config('services.xendit.secret_key');
 
-        if (!$secretKey) {
+        if (! $secretKey) {
             return ['success' => false, 'message' => 'Xendit secret key tidak dikonfigurasi.'];
         }
 
         $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
         $payableTotal = $totalAmount + ($uniqueCode ?? 0);
-        $transactionId = 'IND-XENDIT-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+        $transactionId = 'IND-XENDIT-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time();
         $itemName = $item->title ?? $item->name ?? 'Item';
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
+                'Authorization' => 'Basic '.base64_encode($secretKey.':'),
                 'Content-Type' => 'application/json',
-            ])->post(rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/') . '/v2/invoices', [
+            ])->post(rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/').'/v2/invoices', [
                 'external_id' => $transactionId,
                 'amount' => $payableTotal,
-                'description' => 'Pembelian ' . $itemName,
+                'description' => 'Pembelian '.$itemName,
                 'invoice_duration' => 86400,
                 'customer' => [
                     'given_names' => Auth::user()->name,
@@ -400,7 +410,7 @@ class IndividualPurchaseController extends Controller
                 'failure_redirect_url' => route('user.package.payment.failed'),
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return ['success' => false, 'message' => $response->json('message') ?: 'Gagal membuat pembayaran Xendit.'];
             }
 
@@ -434,7 +444,7 @@ class IndividualPurchaseController extends Controller
 
             return ['success' => true, 'redirect_url' => $invoiceData['invoice_url'], 'purchase' => $purchase];
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Error koneksi ke Xendit: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Error koneksi ke Xendit: '.$e->getMessage()];
         }
     }
 
@@ -442,18 +452,18 @@ class IndividualPurchaseController extends Controller
     {
         $serverKey = config('services.midtrans.server_key');
 
-        if (!$serverKey) {
+        if (! $serverKey) {
             return ['success' => false, 'message' => 'Midtrans server key tidak dikonfigurasi.'];
         }
 
         $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
         $payableTotal = $totalAmount + ($uniqueCode ?? 0);
-        $transactionId = 'IND-MIDTRANS-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+        $transactionId = 'IND-MIDTRANS-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time();
         $itemName = $item->title ?? $item->name ?? 'Item';
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                'Authorization' => 'Basic '.base64_encode($serverKey.':'),
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->post(config('services.midtrans.snap_url', 'https://app.sandbox.midtrans.com/snap/v1/transactions'), [
@@ -478,7 +488,7 @@ class IndividualPurchaseController extends Controller
                 ],
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return ['success' => false, 'message' => $response->json('error_messages.0') ?: 'Gagal membuat pembayaran Midtrans.'];
             }
 
@@ -512,7 +522,7 @@ class IndividualPurchaseController extends Controller
 
             return ['success' => true, 'redirect_url' => $data['redirect_url'], 'purchase' => $purchase];
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Error koneksi ke Midtrans: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Error koneksi ke Midtrans: '.$e->getMessage()];
         }
     }
 
@@ -531,7 +541,7 @@ class IndividualPurchaseController extends Controller
             'total_amount' => $totalAmount + ($uniqueCode ?? 0),
             'payment_method' => 'ipaymu',
             'status' => IndividualPurchase::STATUS_PENDING,
-            'transaction_id' => 'IND-IPAYMU-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time(),
+            'transaction_id' => 'IND-IPAYMU-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time(),
             'payment_details' => [
                 'base_amount' => (int) $item->price,
                 'payable_amount' => $totalAmount,
@@ -544,7 +554,7 @@ class IndividualPurchaseController extends Controller
 
         $response = app(IpaymuGateway::class)->createIndividualPurchasePayment($purchase, $item, $type);
 
-        if (!($response['success'] ?? false)) {
+        if (! ($response['success'] ?? false)) {
             $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
             $details['auto_rejected_reason'] = $response['message'] ?? 'Gagal membuat pembayaran iPaymu.';
             $details['auto_rejected_at'] = now()->toDateTimeString();
@@ -562,16 +572,16 @@ class IndividualPurchaseController extends Controller
         $apiKey = config('services.interactive_qris.api_key');
         $merchantId = config('services.interactive_qris.mid');
 
-        if (!$apiKey || !$merchantId) {
+        if (! $apiKey || ! $merchantId) {
             return ['success' => false, 'message' => 'Credential InterActive QRIS belum dikonfigurasi.'];
         }
 
         $uniqueCode = $this->paymentUniqueCodeFor($totalAmount);
         $payableTotal = $totalAmount + ($uniqueCode ?? 0);
-        $transactionId = 'IND-QRIS-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+        $transactionId = 'IND-QRIS-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time();
 
         try {
-            $response = Http::timeout(20)->get(rtrim(config('services.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'), '/') . '/show_qris.php', [
+            $response = Http::timeout(20)->get(rtrim(config('services.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'), '/').'/show_qris.php', [
                 'do' => 'create-invoice',
                 'apikey' => $apiKey,
                 'mID' => $merchantId,
@@ -580,7 +590,7 @@ class IndividualPurchaseController extends Controller
                 'useTip' => config('services.interactive_qris.use_tip', false) ? 'yes' : 'no',
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return ['success' => false, 'message' => 'Gagal membuat invoice InterActive QRIS.'];
             }
 
@@ -626,13 +636,13 @@ class IndividualPurchaseController extends Controller
                 'purchase' => $purchase,
             ];
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Error koneksi ke InterActive QRIS: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Error koneksi ke InterActive QRIS: '.$e->getMessage()];
         }
     }
 
     private function paymentUniqueCodeFor(int $amount): ?int
     {
-        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+        if ($amount <= 0 || ! (bool) config('client.branding.payment_unique_code_enabled', true)) {
             return null;
         }
 
@@ -641,7 +651,7 @@ class IndividualPurchaseController extends Controller
 
     private function resolveIndividualDiscount(?string $code, $item, string $type, int $userId): array
     {
-        if (!$code) {
+        if (! $code) {
             return [
                 'discount' => null,
                 'discount_amount' => 0,
@@ -651,7 +661,7 @@ class IndividualPurchaseController extends Controller
 
         $discount = Discount::query()->voucher()->where('code', $code)->first();
 
-        if (!$discount) {
+        if (! $discount) {
             return [
                 'discount' => null,
                 'discount_amount' => 0,
@@ -685,24 +695,29 @@ class IndividualPurchaseController extends Controller
 
     private function sendPurchaseNotificationToAdmin(IndividualPurchase $purchase): void
     {
-        $recipient = config('client.branding.smtp_notification_email')
-            ?: config('client.branding.smtp_email');
+        $recipient = MailSafety::email(
+            config('client.branding.smtp_notification_email')
+                ?: config('client.branding.smtp_email')
+        );
 
-        if (!$recipient) {
+        if (! $recipient) {
             return;
         }
 
         $purchase->load(['user', 'purchasable']);
 
         $purchaseType = match (true) {
-            $purchase->purchasable instanceof \App\Models\Material => 'Materi',
-            $purchase->purchasable instanceof \App\Models\Tryout => 'Tryout',
-            $purchase->purchasable instanceof \App\Models\TesKoran => 'Tes Koran',
+            $purchase->purchasable instanceof Material => 'Materi',
+            $purchase->purchasable instanceof Tryout => 'Tryout',
+            $purchase->purchasable instanceof TesKoran => 'Tes Koran',
             default => 'Item',
         };
 
         $itemName = $purchase->purchasable?->name ?? '-';
-        $brandName = config('client.branding.name', config('app.name'));
+        $brandName = MailSafety::header(
+            (string) config('client.branding.name', config('app.name')),
+            'Copoit Academy'
+        );
 
         try {
             Mail::send('emails.individual-purchase-notification', [
@@ -732,9 +747,8 @@ class IndividualPurchaseController extends Controller
         bool $approved,
         array $requirementProofPaths = [],
         ?string $requirementUserNotes = null
-    ): IndividualPurchase
-    {
-        $transactionId = 'IND-' . strtoupper($type) . '-' . $id . '-' . $userId . '-' . time();
+    ): IndividualPurchase {
+        $transactionId = 'IND-'.strtoupper($type).'-'.$id.'-'.$userId.'-'.time();
         $approvedAt = $approved ? Carbon::now() : null;
         $accessExpiresAt = $approved ? PurchaseAccessDuration::expiresAt($item, $approvedAt) : null;
 

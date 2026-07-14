@@ -5,8 +5,11 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\ClientProfile;
 use App\Services\ActivityLogger;
+use App\Support\MailSafety;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -74,7 +77,7 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
-        $profile = ClientProfile::query()->first() ?? new ClientProfile();
+        $profile = ClientProfile::query()->first() ?? new ClientProfile;
         $paymentGatewayKeys = array_keys(config('payment_gateways.gateways', [
             'xendit' => [],
             'midtrans' => [],
@@ -96,7 +99,7 @@ class SettingController extends Controller
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string'],
             'payment_unique_code_enabled' => ['nullable', 'boolean'],
-            'payment_gateway' => ['nullable', 'in:' . implode(',', $paymentGatewayKeys)],
+            'payment_gateway' => ['nullable', 'in:'.implode(',', $paymentGatewayKeys)],
             'payment_gateway_mode' => ['nullable', 'in:sandbox,production'],
             'xendit_secret_key' => ['nullable', 'string', 'max:255'],
             'xendit_webhook_token' => ['nullable', 'string', 'max:255'],
@@ -156,7 +159,7 @@ class SettingController extends Controller
             $rules['payment_account_holder'] = ['required', 'string', 'max:255'];
         }
         if ($request->input('payment_mode') === 'gateway') {
-            $rules['payment_gateway'] = ['required', 'in:' . implode(',', $paymentGatewayKeys)];
+            $rules['payment_gateway'] = ['required', 'in:'.implode(',', $paymentGatewayKeys)];
             $rules['payment_gateway_mode'] = ['required', 'in:sandbox,production'];
         }
 
@@ -174,7 +177,7 @@ class SettingController extends Controller
         ) {
             try {
                 $existingQrisApiKey = (string) ($profile->interactive_qris_api_key ?? '');
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 $existingQrisApiKey = '';
             }
 
@@ -198,7 +201,7 @@ class SettingController extends Controller
         ) {
             try {
                 $existingIpaymuApiKey = (string) ($profile->ipaymu_api_key ?? '');
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 $existingIpaymuApiKey = '';
             }
 
@@ -226,12 +229,14 @@ class SettingController extends Controller
             $smtpPort = 587;
             $smtpEncryption = 'tls';
         }
-        $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
+        $validated['smtp_email'] = MailSafety::email($validated['smtp_email'] ?? null);
+        $validated['smtp_notification_email'] = MailSafety::email($validated['smtp_notification_email'] ?? null);
+        $smtpEmail = $validated['smtp_email'] ?? MailSafety::email($profile->smtp_email);
 
         $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));
         try {
             $existingSmtpPassword = $profile->smtp_app_password ?? null;
-        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+        } catch (DecryptException $e) {
             $existingSmtpPassword = null;
         }
         $smtpPassword = $newPassword !== '' ? $newPassword : $existingSmtpPassword;
@@ -249,6 +254,16 @@ class SettingController extends Controller
             unset($validated['smtp_app_password']);
         }
 
+        $smtpSettingsChanged = $newPassword !== ''
+            || MailSafety::email($profile->smtp_email) !== ($validated['smtp_email'] ?? null)
+            || MailSafety::email($profile->smtp_notification_email) !== ($validated['smtp_notification_email'] ?? null)
+            || ($shouldClearSmtp && (
+                ! empty($profile->smtp_host)
+                || ! empty($profile->smtp_port)
+                || ! empty($profile->smtp_encryption)
+                || ! empty($existingSmtpPassword)
+            ));
+
         $sensitiveKeys = [
             'xendit_secret_key',
             'xendit_webhook_token',
@@ -262,12 +277,13 @@ class SettingController extends Controller
             $newValue = trim((string) ($validated[$key] ?? ''));
             if ($newValue === '') {
                 unset($validated[$key]);
+
                 continue;
             }
 
             try {
                 $existingValue = (string) ($profile->{$key} ?? '');
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 $existingValue = '';
             }
 
@@ -287,7 +303,7 @@ class SettingController extends Controller
         }
 
         $aiSettingsResult = $this->buildAiQuestionGeneratorSettings($request, $profile);
-        if (!empty($aiSettingsResult['errors'])) {
+        if (! empty($aiSettingsResult['errors'])) {
             return back()
                 ->withErrors($aiSettingsResult['errors'])
                 ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key']))
@@ -298,7 +314,7 @@ class SettingController extends Controller
         $aiDiscussionSettingsResult = $aiDiscussionConfigurable
             ? $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], true)
             : ['settings' => $profile->ai_discussion_settings ?? [], 'sensitive_changed' => false, 'errors' => []];
-        if (!empty($aiDiscussionSettingsResult['errors'])) {
+        if (! empty($aiDiscussionSettingsResult['errors'])) {
             return back()
                 ->withErrors($aiDiscussionSettingsResult['errors'])
                 ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key', 'ai_discussion_openai_api_key', 'ai_discussion_gemini_api_key']))
@@ -307,9 +323,10 @@ class SettingController extends Controller
 
         $sensitiveChanged = $sensitiveChanged || (bool) ($aiSettingsResult['sensitive_changed'] ?? false);
         $sensitiveChanged = $sensitiveChanged || (bool) ($aiDiscussionSettingsResult['sensitive_changed'] ?? false);
+        $sensitiveChanged = $sensitiveChanged || $smtpSettingsChanged;
 
         if ($sensitiveChanged) {
-            if (!$request->filled('admin_password') && $request->filled('ai_admin_password')) {
+            if (! $request->filled('admin_password') && $request->filled('ai_admin_password')) {
                 $request->merge(['admin_password' => $request->input('ai_admin_password')]);
             }
 
@@ -320,7 +337,7 @@ class SettingController extends Controller
             ]);
 
             $user = $request->user();
-            if (!$user || !Hash::check((string) $request->input('admin_password'), $user->password)) {
+            if (! $user || ! Hash::check((string) $request->input('admin_password'), $user->password)) {
                 return back()
                     ->withErrors(['admin_password' => 'Password admin tidak valid.'])
                     ->withInput($request->except([
@@ -338,13 +355,13 @@ class SettingController extends Controller
         }
 
         // SMTP wajib lengkap hanya jika memang dikonfigurasi/diaktifkan.
-        $smtpConfigured = !empty($profile->smtp_email) || !empty($existingSmtpPassword);
+        $smtpConfigured = ! empty($profile->smtp_email) || ! empty($existingSmtpPassword);
         $smtpRequested = $request->filled('smtp_email')
             || $request->filled('smtp_app_password')
             || $request->filled('smtp_notification_email');
         $shouldValidateSmtp = $smtpConfigured || $smtpRequested;
 
-        if ($shouldValidateSmtp && (!$smtpEmail || !$smtpPassword)) {
+        if (! $shouldClearSmtp && $shouldValidateSmtp && (! $smtpEmail || ! $smtpPassword)) {
             return back()
                 ->withErrors([
                     'smtp_email' => 'Konfigurasi SMTP belum lengkap. Isi email SMTP dan sandi aplikasi.',
@@ -352,7 +369,7 @@ class SettingController extends Controller
                 ->withInput($request->except('smtp_app_password'));
         }
 
-        if ($shouldValidateSmtp && !$shouldClearSmtp) {
+        if ($shouldValidateSmtp && ! $shouldClearSmtp) {
             $validated['smtp_host'] = $smtpHost;
             $validated['smtp_port'] = $smtpPort;
             $validated['smtp_encryption'] = $smtpEncryption;
@@ -446,11 +463,13 @@ class SettingController extends Controller
         $changedFields = [];
         foreach ($validated as $key => $value) {
             if (in_array($key, $sensitiveKeys, true)) {
-                $changedFields[] = $key . ':updated';
+                $changedFields[] = $key.':updated';
+
                 continue;
             }
             if ($key === 'smtp_app_password') {
                 $changedFields[] = 'smtp_app_password:updated';
+
                 continue;
             }
             $original = $profile->exists ? $profile->getOriginal($key) : null;
@@ -468,13 +487,13 @@ class SettingController extends Controller
         try {
             $profile->save();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Gagal menyimpan pengaturan', [
+            Log::error('Gagal menyimpan pengaturan', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return back()
-                ->withErrors(['general' => 'Gagal menyimpan pengaturan: ' . $e->getMessage()])
+                ->withErrors(['general' => 'Gagal menyimpan pengaturan: '.$e->getMessage()])
                 ->withInput($request->except(['admin_password', 'smtp_app_password']))
                 ->with('active_tab', $request->input('settings_tab', 'identity'));
         }
@@ -501,7 +520,7 @@ class SettingController extends Controller
             ? json_decode($modelsJson, true)
             : ($existing['models'] ?? $this->defaultAiQuestionModels());
 
-        if (!is_array($models)) {
+        if (! is_array($models)) {
             return [
                 'settings' => $existing,
                 'sensitive_changed' => false,
@@ -522,8 +541,8 @@ class SettingController extends Controller
         $geminiKey = trim((string) $request->input('ai_gemini_api_key', ''));
         $existingOpenAiKey = (string) ($existingProviders['openai']['api_key'] ?? '');
         $existingGeminiKey = (string) ($existingProviders['gemini']['api_key'] ?? '');
-        $sensitiveChanged = ($openAiKey !== '' && !hash_equals($existingOpenAiKey, $openAiKey))
-            || ($geminiKey !== '' && !hash_equals($existingGeminiKey, $geminiKey));
+        $sensitiveChanged = ($openAiKey !== '' && ! hash_equals($existingOpenAiKey, $openAiKey))
+            || ($geminiKey !== '' && ! hash_equals($existingGeminiKey, $geminiKey));
 
         $settings = [
             'default_model' => $request->input('ai_question_default_model')
@@ -544,7 +563,7 @@ class SettingController extends Controller
         ];
 
         $modelIds = collect($models)->pluck('id')->all();
-        if (!in_array($settings['default_model'], $modelIds, true)) {
+        if (! in_array($settings['default_model'], $modelIds, true)) {
             $settings['default_model'] = $models[0]['id'];
         }
 
@@ -588,8 +607,8 @@ class SettingController extends Controller
         $existingOpenAiKey = (string) ($existingProviders['openai']['api_key'] ?? '');
         $existingGeminiKey = (string) ($existingProviders['gemini']['api_key'] ?? '');
         $sensitiveChanged = $credentialMode === 'custom' && (
-            ($openAiKey !== '' && !hash_equals($existingOpenAiKey, $openAiKey))
-            || ($geminiKey !== '' && !hash_equals($existingGeminiKey, $geminiKey))
+            ($openAiKey !== '' && ! hash_equals($existingOpenAiKey, $openAiKey))
+            || ($geminiKey !== '' && ! hash_equals($existingGeminiKey, $geminiKey))
         );
 
         $sharedModel = (string) ($sharedAiSettings['default_model'] ?? 'gemini-2.5-flash');
@@ -656,14 +675,14 @@ class SettingController extends Controller
     private function storeBrandingImage($file, ?string $existingPath = null, string $prefix = 'brand'): string
     {
         $directory = public_path('logo');
-        if (!is_dir($directory)) {
+        if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 
         $extension = strtolower($file->getClientOriginalExtension() ?: 'png');
-        $filename = $prefix . '-' . now()->format('YmdHis') . '.' . $extension;
+        $filename = $prefix.'-'.now()->format('YmdHis').'.'.$extension;
 
-        $relativePath = 'logo/' . $filename;
+        $relativePath = 'logo/'.$filename;
 
         $this->deleteBrandingImage($existingPath);
 
@@ -674,7 +693,7 @@ class SettingController extends Controller
 
     private function deleteBrandingImage(?string $path): void
     {
-        if (!$path) {
+        if (! $path) {
             return;
         }
 
@@ -706,7 +725,7 @@ class SettingController extends Controller
         }
 
         if (str_starts_with($digits, '0')) {
-            return '62' . substr($digits, 1);
+            return '62'.substr($digits, 1);
         }
 
         return $digits;
@@ -723,8 +742,8 @@ class SettingController extends Controller
                     return null;
                 }
 
-                if (!Str::startsWith($url, ['http://', 'https://', '/', 'mailto:', 'tel:'])) {
-                    $url = '/' . ltrim($url, '/');
+                if (! Str::startsWith($url, ['http://', 'https://', '/', 'mailto:', 'tel:'])) {
+                    $url = '/'.ltrim($url, '/');
                 }
 
                 return [

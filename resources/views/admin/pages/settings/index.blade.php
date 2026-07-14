@@ -622,7 +622,7 @@
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Password Admin</label>
                     <input type="password" name="admin_password"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Wajib diisi untuk mengubah kredensial pembayaran">
+                        placeholder="Wajib diisi untuk mengubah kredensial pembayaran atau SMTP">
                     @error('admin_password')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror

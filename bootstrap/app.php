@@ -1,31 +1,44 @@
 <?php
 
+use App\Http\Middleware\AdminExpiryMiddleware;
+use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\DisableBrowserCache;
+use App\Http\Middleware\EnforceConcurrentLoginLimit;
+use App\Http\Middleware\EnsureCertificateManagementEnabled;
+use App\Http\Middleware\EnsurePanelPortal;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetPanelUrlDefaults;
+use App\Http\Middleware\SuperAdminMiddleware;
+use App\Http\Middleware\TutorMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
-        commands: __DIR__ . '/../routes/console.php',
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->append(SecurityHeaders::class);
+
         $middleware->web(append: [
-            \App\Http\Middleware\EnforceConcurrentLoginLimit::class,
-            \App\Http\Middleware\SetPanelUrlDefaults::class,
+            EnforceConcurrentLoginLimit::class,
+            SetPanelUrlDefaults::class,
         ]);
 
         $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'admin.expiry' => \App\Http\Middleware\AdminExpiryMiddleware::class,
-            'tutor' => \App\Http\Middleware\TutorMiddleware::class,
-            'super-admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
-            'certificate.enabled' => \App\Http\Middleware\EnsureCertificateManagementEnabled::class,
-            'permission' => \App\Http\Middleware\CheckPermission::class,
-            'panel.portal' => \App\Http\Middleware\EnsurePanelPortal::class,
-            'no-cache' => \App\Http\Middleware\DisableBrowserCache::class,
+            'admin' => AdminMiddleware::class,
+            'admin.expiry' => AdminExpiryMiddleware::class,
+            'tutor' => TutorMiddleware::class,
+            'super-admin' => SuperAdminMiddleware::class,
+            'certificate.enabled' => EnsureCertificateManagementEnabled::class,
+            'permission' => CheckPermission::class,
+            'panel.portal' => EnsurePanelPortal::class,
+            'no-cache' => DisableBrowserCache::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
