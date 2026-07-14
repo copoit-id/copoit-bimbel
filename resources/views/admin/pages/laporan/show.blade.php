@@ -101,7 +101,7 @@
                         <p class="text-xl font-semibold text-gray-900">{{ $participant['total_attempts'] }}</p>
                     </div>
                     <div class="px-4 py-2 rounded-xl bg-gray-50 border border-gray-100">
-                        <p class="text-xs text-gray-500 uppercase tracking-wide">Skor Terakhir</p>
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">Nilai Terakhir</p>
                         <p class="text-xl font-semibold text-gray-900">{{ $participant['latest_score'] }}</p>
                     </div>
                     <div class="px-4 py-2 rounded-xl bg-gray-50 border border-gray-100">
@@ -133,10 +133,11 @@
                             <thead class="text-xs text-gray-500 uppercase bg-white border-b border-gray-100">
                                 <tr>
                                     <th class="px-4 py-2 text-left">Attempt Token</th>
-                                    <th class="px-4 py-2 text-center">Skor</th>
+                                    <th class="px-4 py-2 text-center">Nilai</th>
                                     <th class="px-4 py-2 text-center">Benar/Salah</th>
                                     <th class="px-4 py-2 text-center">Durasi</th>
                                     <th class="px-4 py-2 text-center">Selesai</th>
+                                    <th class="px-4 py-2 text-center">Status</th>
                                     <th class="px-4 py-2 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -155,7 +156,7 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-center">
-                                        <p class="text-lg font-semibold text-gray-900">{{ round($attempt->raw_score ?? 0, 1) }}</p>
+                                        <p class="text-lg font-semibold text-gray-900">{{ round($attempt->display_score ?? 0, 1) }}</p>
                                         <p class="text-[11px] text-gray-500">{{ $questions }} soal</p>
                                     </td>
                                     <td class="px-4 py-3 text-center">
@@ -178,9 +179,11 @@
                                     <td class="px-4 py-3 text-center">
                                         <p class="font-medium text-gray-800">{{ $attemptFinished ? $attemptFinished->translatedFormat('d M Y') : '-' }}</p>
                                         <p class="text-xs text-gray-500">{{ $attemptFinished ? $attemptFinished->format('H:i') : '' }}</p>
-                                        @if(($attempt->attempt_status ?? null) !== 'completed')
-                                        <p class="text-[11px] text-amber-600 mt-1">{{ $attempt->attempt_status_label }}</p>
-                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ ($attempt->is_passed ?? false) ? 'bg-green-100 text-green-700' : (($attempt->attempt_status ?? null) === 'completed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">
+                                            {{ $attempt->result_status_label }}
+                                        </span>
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"

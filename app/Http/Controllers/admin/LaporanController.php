@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Question;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ use Dompdf\Options;
 
 class LaporanController extends Controller
 {
+    private array $maxScoreByDetail = [];
+
     public function index()
     {
         $tryouts = $this->buildTryoutReportQuery()
@@ -69,7 +72,7 @@ class LaporanController extends Controller
                 $tryout->unique_participants,
                 $tryout->completed_attempts,
                 $tryout->completion_rate,
-                $tryout->avg_score . '%',
+                $tryout->avg_score,
                 $tryout->is_active ? 'Aktif' : 'Tidak Aktif',
             ], null, 'A' . $row);
 
@@ -159,8 +162,8 @@ class LaporanController extends Controller
                     $participant['user']->name,
                     $participant['user']->email,
                     $attempt->attempt_token ?: '-',
-                    $attempt->attempt_status_label,
-                    round($attempt->raw_score ?? 0, 1),
+                    $attempt->result_status_label,
+                    round($attempt->display_score ?? 0, 1),
                     $attempt->total_correct ?? 0,
                     $attempt->total_wrong ?? 0,
                     $attempt->total_unanswered ?? 0,
@@ -294,22 +297,26 @@ class LaporanController extends Controller
         }
 
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) use ($answersByAttempt, $withCalculatedScores) {
-                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt, $withCalculatedScores) {
+            ->map(function ($attempts) use ($answersByAttempt, $tryout, $withCalculatedScores) {
+                $attempts = $attempts->map(function ($attempt) use ($answersByAttempt, $tryout, $withCalculatedScores) {
                     if ($withCalculatedScores) {
                         $userAnswers = $answersByAttempt[$attempt->user_id][$attempt->attempt_token] ?? collect();
-                        $attempt->raw_score = $userAnswers->sum(function ($answer) {
-                            return $this->calculateTotalScore($answer, optional($answer->tryoutDetail)->type_subtest);
-                        });
                         $this->hydrateAttemptAnswerCounts($attempt, $userAnswers);
                         $attempt->attempt_status = $this->resolveAttemptStatus($userAnswers, $attempt->attempt_status);
+                        $this->hydrateAttemptScoreAndResult($attempt, $userAnswers, $tryout);
                     } else {
                         $attempt->raw_score = (float) ($attempt->total_score ?? $attempt->average_score ?? 0);
+                        $attempt->display_score = (float) ($attempt->average_score ?? 0);
+                        $attempt->is_passed = false;
                         $attempt->attempt_status = $this->resolveAttemptStatusFromSummary($attempt);
                     }
 
                     $this->hydrateAttemptDisplayFields($attempt);
                     $attempt->attempt_status_label = $this->formatAttemptStatus($attempt->attempt_status);
+                    $attempt->result_status_label = $this->formatAttemptResultStatus(
+                        $attempt->attempt_status,
+                        (bool) $attempt->is_passed
+                    );
 
                     return $attempt;
                 });
@@ -321,7 +328,7 @@ class LaporanController extends Controller
                 return [
                     'user' => $user,
                     'total_attempts' => $attempts->count(),
-                    'latest_score' => round($latest->raw_score ?? 0, 1),
+                    'latest_score' => round($latest->display_score ?? 0, 1),
                     'last_finished' => $latest->finished_at,
                     'attempts' => $sortedAttempts,
                 ];
@@ -396,7 +403,171 @@ class LaporanController extends Controller
         ];
     }
 
+    private function hydrateAttemptScoreAndResult($attempt, $userAnswers, Tryout $tryout): void
+    {
+        $userAnswers = collect($userAnswers);
+
+        if ($tryout->requiresIrtScoring()) {
+            $attempt->raw_score = (float) ($userAnswers->first()?->utbk_total_score ?? 0);
+            $attempt->display_score = $attempt->raw_score;
+            $attempt->is_passed = $attempt->attempt_status === 'completed'
+                && $userAnswers->every(fn (UserAnswer $answer) => (bool) $answer->is_passed);
+
+            return;
+        }
+
+        if ($tryout->is_toefl) {
+            $attempt->raw_score = (float) ($userAnswers->first()?->toefl_total_score
+                ?? $userAnswers->first()?->score
+                ?? 0);
+            $attempt->display_score = $attempt->raw_score;
+            $attempt->is_passed = $attempt->attempt_status === 'completed'
+                && $userAnswers->every(fn (UserAnswer $answer) => (bool) $answer->is_passed);
+
+            return;
+        }
+
+        $totalScore = 0.0;
+        $totalMaxScore = 0.0;
+        $allSubtestsPassed = $userAnswers->isNotEmpty();
+
+        foreach ($userAnswers as $userAnswer) {
+            $type = optional($userAnswer->tryoutDetail)->type_subtest;
+            $subtestScore = $this->calculateTotalScore($userAnswer, $type);
+            $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
+                $userAnswer->tryout_detail_id,
+                $type
+            );
+
+            $totalScore += $subtestScore;
+            $totalMaxScore += $maxSubtestScore;
+
+            if (! $this->isSubtestPassed($userAnswer->tryoutDetail, $subtestScore, $maxSubtestScore, $type)) {
+                $allSubtestsPassed = false;
+            }
+        }
+
+        $attempt->raw_score = $totalScore;
+        $attempt->display_score = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
+        $attempt->is_passed = $attempt->attempt_status === 'completed' && $allSubtestsPassed;
+    }
+
+    private function getMaxPossibleScoreForDetail(int $tryoutDetailId, ?string $typeSubtest): float
+    {
+        if (isset($this->maxScoreByDetail[$tryoutDetailId])) {
+            return $this->maxScoreByDetail[$tryoutDetailId];
+        }
+
+        $questions = Question::where('tryout_detail_id', $tryoutDetailId)
+            ->with('questionOptions')
+            ->get();
+        $total = 0.0;
+
+        foreach ($questions as $question) {
+            $questionType = $question->question_type ?? 'multiple_choice';
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 0);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
+                case 'audio':
+                    break;
+
+                default:
+                    $maxWeight = (float) ($question->questionOptions->max('weight') ?? 0);
+                    $fallbackWeight = match ($typeSubtest) {
+                        'twk', 'tiu' => 5,
+                        'writing', 'reading', 'listening' => 10,
+                        default => 1,
+                    };
+                    $total += $maxWeight > 0 ? $maxWeight : $fallbackWeight;
+                    break;
+            }
+        }
+
+        return $this->maxScoreByDetail[$tryoutDetailId] = $total;
+    }
+
+    private function isSubtestPassed($detail, float $rawScore, float $maxScore, ?string $type): bool
+    {
+        $passingScore = $detail?->passing_score ?? $this->getDefaultPassingScore($type);
+        $passingType = $detail?->passing_type ?? 'score';
+
+        if ($passingType === 'percentage') {
+            return $maxScore > 0 && (($rawScore / $maxScore) * 100) >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
+    }
+
+    private function getDefaultPassingScore(?string $type): int
+    {
+        return match ($type) {
+            'word', 'excel', 'ppt' => 70,
+            'teknis', 'social culture', 'management', 'interview' => 65,
+            default => 60,
+        };
+    }
+
+    private function formatAttemptResultStatus(?string $status, bool $isPassed): string
+    {
+        if ($status === 'completed') {
+            return $isPassed ? 'Lulus' : 'Tidak Lulus';
+        }
+
+        return $this->formatAttemptStatus($status);
+    }
+
     public function attemptDetail($tryoutId, $attemptToken)
+    {
+        return view('admin.pages.laporan.answer', $this->getAttemptDetailData($tryoutId, $attemptToken));
+    }
+
+    public function exportAttemptPdf($tryoutId, $attemptToken)
+    {
+        $this->prepareDownloadRuntime();
+
+        $html = view(
+            'admin.pages.laporan.export-attempt-pdf',
+            $this->getAttemptDetailData($tryoutId, $attemptToken)
+        )->render();
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $filename = sprintf(
+            'detail-jawaban-%s-%s.pdf',
+            $tryoutId,
+            Carbon::now()->format('Ymd_His')
+        );
+        $disposition = request()->boolean('inline') ? 'inline' : 'attachment';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function getAttemptDetailData($tryoutId, $attemptToken): array
     {
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
@@ -461,14 +632,14 @@ class LaporanController extends Controller
 
         $answerDetails = $answerDetails->sortBy('subtest_name');
 
-        return view('admin.pages.laporan.answer', compact(
+        return compact(
             'tryout',
             'user',
             'attemptToken',
             'overallStats',
             'subtests',
             'answerDetails'
-        ));
+        );
     }
 
     private function formatSubtestName(?string $type): string

@@ -40,7 +40,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="title">Laporan Tryout</div>
+        <div class="title">{{ config('app.report_name') }} - Laporan Tryout</div>
         <div class="meta">Tanggal export: {{ now()->format('d M Y H:i') }}</div>
     </div>
 
@@ -68,7 +68,7 @@
                     <td class="text-center">{{ $tryout->unique_participants }}</td>
                     <td class="text-center">{{ $tryout->completed_attempts }}</td>
                     <td class="text-center">{{ $tryout->completion_rate }}%</td>
-                    <td class="text-center">{{ $tryout->avg_score }}%</td>
+                    <td class="text-center">{{ $tryout->avg_score }}</td>
                     <td class="text-center">{{ $tryout->is_active ? 'Aktif' : 'Tidak Aktif' }}</td>
                 </tr>
             @empty

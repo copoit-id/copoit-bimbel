@@ -11,16 +11,16 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <button type="button" data-print-answer
+        <a href="{{ route('admin.laporan.attempt.export-pdf', [$tryout->tryout_id, $attemptToken, 'inline' => 1]) }}" target="_blank"
             class="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">
             <i class="ri-printer-line"></i>
             Cetak
-        </button>
-        <button type="button" data-print-answer
+        </a>
+        <a href="{{ route('admin.laporan.attempt.export-pdf', [$tryout->tryout_id, $attemptToken]) }}"
             class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
             <i class="ri-download-2-line"></i>
             Unduh PDF
-        </button>
+        </a>
     </div>
 </div>
 <x-page-desc title="Jawaban Peserta - {{ $user->name }}"></x-page-desc>
@@ -194,10 +194,6 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('[data-print-answer]').forEach(button => {
-            button.addEventListener('click', () => window.print());
-        });
-
         const searchInput = document.getElementById('answer-search');
         const rows = document.querySelectorAll('.answer-row');
 

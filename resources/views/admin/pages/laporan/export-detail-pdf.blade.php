@@ -47,7 +47,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="title">Laporan Tryout - {{ $tryout->name }}</div>
+        <div class="title">{{ config('app.report_name') }} - Laporan Tryout {{ $tryout->name }}</div>
         <div class="meta">Tanggal export: {{ now()->format('d M Y H:i') }}</div>
         <div class="summary">
             <span>Peserta: {{ $statistics['total_participants'] }}</span>
@@ -64,7 +64,7 @@
                 <th>Email</th>
                 <th>Attempt Token</th>
                 <th class="text-center">Status</th>
-                <th class="text-center">Skor</th>
+                <th class="text-center">Nilai</th>
                 <th class="text-center">Benar</th>
                 <th class="text-center">Salah</th>
                 <th class="text-center">Kosong</th>
@@ -81,8 +81,8 @@
                         <td>{{ $participant['user']->name ?? 'User' }}</td>
                         <td>{{ $participant['user']->email ?? '-' }}</td>
                         <td>{{ $attempt->attempt_token }}</td>
-                        <td class="text-center">{{ $attempt->attempt_status_label }}</td>
-                        <td class="text-center">{{ round($attempt->raw_score ?? 0, 1) }}</td>
+                        <td class="text-center">{{ $attempt->result_status_label }}</td>
+                        <td class="text-center">{{ round($attempt->display_score ?? 0, 1) }}</td>
                         <td class="text-center">{{ $attempt->total_correct ?? 0 }}</td>
                         <td class="text-center">{{ $attempt->total_wrong ?? 0 }}</td>
                         <td class="text-center">{{ $attempt->total_unanswered ?? 0 }}</td>

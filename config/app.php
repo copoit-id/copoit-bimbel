@@ -14,6 +14,10 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Keep the original APP_NAME available for reports. AppServiceProvider may
+    // override app.name with client-profile branding at runtime.
+    'report_name' => env('APP_NAME', 'Laravel'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

@@ -44,7 +44,7 @@
 </head>
 <body>
     <div class="report-header">
-        <p class="brand">Copoit Bimbel · Laporan Pengguna</p>
+        <p class="brand">{{ config('app.report_name') }} · Laporan Pengguna</p>
         <h1>Detail Aktivitas {{ $user->name }}</h1>
         <p class="subtitle">Dibuat pada {{ now()->timezone('Asia/Jakarta')->format('d M Y, H:i') }} WIB</p>
     </div>
