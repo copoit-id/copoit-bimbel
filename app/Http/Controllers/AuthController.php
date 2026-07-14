@@ -42,7 +42,7 @@ class AuthController extends Controller
                 return redirect()->route('super-admin.admins.index');
             }
             if ($user->isTutor()) {
-                return redirect()->route('tutor.dashboard');
+                return redirect()->route('tutor.schedule.index');
             }
             return $user->canAccessAdminPanel()
                 ? redirect()->route('admin.dashboard')
@@ -110,7 +110,7 @@ class AuthController extends Controller
                 return redirect()->intended(route('super-admin.admins.index'));
             }
             if ($user->isTutor()) {
-                return redirect()->intended(route('tutor.dashboard'));
+                return redirect()->intended(route('tutor.schedule.index'));
             }
             if ($user->canAccessAdminPanel()) {
                 if ($user->role === 'admin_demo') {

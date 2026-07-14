@@ -197,7 +197,7 @@
         updateUI();
 
         try {
-            const response = await fetch(`/admin/paket/{{ $package->package_id }}/tryout/${tryoutId}/toggle`, {
+            const response = await fetch('{{ route('admin.package.tryout.toggle', ['package_id' => $package->package_id, 'tryout_id' => '__TRYOUT_ID__']) }}'.replace('__TRYOUT_ID__', tryoutId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

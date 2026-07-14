@@ -1363,7 +1363,7 @@
     function editBank(id, name, description) {
         document.getElementById('editBankName').value = name;
         document.getElementById('editBankDescription').value = description || '';
-        document.getElementById('editBankForm').action = '/admin/bank-soal/' + id;
+        document.getElementById('editBankForm').action = '{{ route('admin.question-bank.update', ['questionBank' => '__QUESTION_BANK_ID__']) }}'.replace('__QUESTION_BANK_ID__', id);
         const modal = document.getElementById('editBankModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -1375,7 +1375,7 @@
         if (totalQuestions > 0) {
             message += `\n\nPERHATIAN: Bank ini berisi ${totalQuestions} soal. Semua soal akan ikut dihapus!`;
         }
-        openConfirmModal('confirmDelete', '/admin/bank-soal/' + id, 'DELETE', message);
+        openConfirmModal('confirmDelete', '{{ route('admin.question-bank.destroy', ['questionBank' => '__QUESTION_BANK_ID__']) }}'.replace('__QUESTION_BANK_ID__', id), 'DELETE', message);
     }
 </script>
 @endpush

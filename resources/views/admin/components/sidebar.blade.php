@@ -87,7 +87,8 @@
         || $isMaterialManagementActive;
     $isClassScheduleActive = $canShowClassScheduleMenu
         && (request()->routeIs('admin.class-schedules.*') || request()->routeIs('admin.class-attendance.*'));
-    $isTutorScheduleActive = $isTutor && request()->routeIs('tutor.*');
+    $isTutorScheduleActive = $isTutor && request()->routeIs('tutor.schedule.*');
+    $isTutorAttendanceActive = $isTutor && request()->routeIs('tutor.attendance.*');
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
     $isUserActive = request()->routeIs('admin.user.*')
         || request()->routeIs('admin.akses.*')
@@ -118,7 +119,7 @@
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
         <p class="{{ $sectionLabelClass }} text-sm">Menu</p>
         <ul class="space-y-1 font-medium">
-            @if(!$isTutor && $canFeatureView('dashboard'))
+            @if($canFeatureView('dashboard'))
                 <li><a href="{{ route('admin.dashboard') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.dashboard') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-home-line text-[20px] {{ request()->routeIs('admin.dashboard') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Dashboard</span></a></li>
             @endif
             @if($canShowMasterMenu)
@@ -132,7 +133,10 @@
                 </ul></details></li>
             @endif
             @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 px-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isClassScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal & Absensi</span></a></li>@endif
-            @if($isTutor && $adminRouteExists('tutor.dashboard'))<li><a href="{{ route('tutor.dashboard') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal & Absensi Saya</span></a></li>@endif
+            @if($isTutor && $adminRouteExists('tutor.schedule.index'))
+                <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
+                <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
+            @endif
             @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Bank Soal</span></a></li>@endif
             @if($canShowCategoryMenu)
                 <li><details id="menu-category" class="group" {{ $isCategoryActive ? 'open' : '' }}><summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isCategoryActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;"><span class="flex items-center"><i class="ri-folder-settings-line text-[20px] {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Kategori</span></span><i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i></summary><ul class="mt-1 ms-2 space-y-1">

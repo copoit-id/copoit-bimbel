@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUI();
 
         try {
-            const response = await fetch(`/admin/paket/{{ $package->package_id }}/materi/${materialId}/toggle`, {
+            const response = await fetch('{{ route('admin.package.material.toggle', ['package_id' => $package->package_id, 'material_id' => '__MATERIAL_ID__']) }}'.replace('__MATERIAL_ID__', materialId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

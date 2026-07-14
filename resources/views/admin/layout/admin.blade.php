@@ -10,7 +10,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="turbo-cache-control" content="no-cache">
-    <title>{{ $clientBranding['name'] }} - Admin Dashboard</title>
+    <title>{{ $clientBranding['name'] }} - {{ auth()->user()?->isTutor() ? 'Tutor' : 'Admin' }} Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.ckeditor.com/4.22.1/full-all/ckeditor.js"></script>
@@ -50,7 +50,7 @@
         @yield('content')
     </div>
 
-    @if(config('client.branding.admin_assistant_enabled', false))
+    @if(config('client.branding.admin_assistant_enabled', false) && !auth()->user()?->isTutor())
         <x-admin.assistant />
     @endif
 
@@ -258,6 +258,7 @@
         });
         
         // Refresh CSRF token periodically to prevent session expiry issues
+        @if(auth()->user()?->canAccessAdminPanel())
         setInterval(function() {
             fetch('{{ route("admin.dashboard") }}', {
                 method: 'HEAD',
@@ -266,6 +267,7 @@
                 }
             }).catch(function() {});
         }, 300000); // Every 5 minutes
+        @endif
     </script>
     @stack('scripts')
 </body>

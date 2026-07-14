@@ -16,6 +16,7 @@ class TutorAttendance extends Model
         'status',
         'check_in_at',
         'check_out_at',
+        'photo_path',
         'source',
         'notes',
         'marked_by',

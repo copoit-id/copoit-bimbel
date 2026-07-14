@@ -13,7 +13,7 @@
 <body class="min-h-screen bg-slate-50 text-gray-800">
     <header class="border-b border-gray-200 bg-white">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-            <a href="{{ route('tutor.dashboard') }}" class="font-bold text-primary">Portal Tutor</a>
+            <a href="{{ route('tutor.schedule.index') }}" class="font-bold text-primary">Portal Tutor</a>
             <div class="flex items-center gap-4 text-sm">
                 <span class="hidden text-gray-600 sm:inline">{{ auth()->user()->name }}</span>
                 <form method="POST" action="{{ route('logout') }}">

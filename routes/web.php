@@ -314,12 +314,16 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 });
 
+// Keep the former short URL working for existing bookmarks.
+Route::redirect('/tutor', '/tutor/jadwal-tutor');
+
 // Tutor portal: a Tutor may only access sessions assigned to their linked tentor profile.
-Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
-    Route::get('/', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'index'])->name('dashboard');
-    Route::get('sesi/{session}/absensi', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'showSession'])->name('sessions.show');
-    Route::post('sesi/{session}/absensi-saya', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'markOwnAttendance'])->name('sessions.attendance.mark');
-    Route::post('sesi/{session}/absensi-siswa', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'markStudentAttendance'])->name('sessions.students.mark');
+Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'index'])->name('schedule.index');
+    Route::get('absensi', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
+    Route::get('absensi/{session}', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'showSession'])->name('attendance.show');
+    Route::post('absensi/{session}/saya', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'markOwnAttendance'])->name('attendance.mark');
+    Route::post('absensi/{session}/siswa', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'markStudentAttendance'])->name('attendance.students.mark');
 });
 
 // Webhook route (outside auth middleware) - make sure this is correct
@@ -374,7 +378,11 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
 });
 
 // Admin Routes (add auth middleware)
-Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission', 'no-cache'])->group(function () {
+Route::prefix('{portal}')
+    ->where(['portal' => 'admin|tutor'])
+    ->name('admin.')
+    ->middleware(['auth', AdminMiddleware::class, 'panel.portal', 'admin.expiry', 'permission', 'no-cache'])
+    ->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
     Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');

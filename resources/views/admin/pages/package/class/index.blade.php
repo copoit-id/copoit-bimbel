@@ -175,7 +175,7 @@
         updateUI();
 
         try {
-            const response = await fetch(`/admin/paket/{{ $package->package_id }}/kelas/${classId}/toggle`, {
+            const response = await fetch('{{ route('admin.package.class.toggle', ['package_id' => $package->package_id, 'class_id' => '__CLASS_ID__']) }}'.replace('__CLASS_ID__', classId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

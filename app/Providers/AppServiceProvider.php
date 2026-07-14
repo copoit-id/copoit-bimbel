@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -26,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Console jobs and unauthenticated requests fall back to the admin portal.
+        // SetPanelUrlDefaults replaces this per authenticated web request.
+        URL::defaults(['portal' => 'admin']);
+
         Blade::anonymousComponentNamespace(resource_path('views/components/ui'), 'ui');
         Blade::componentNamespace('App\\View\\Components\\Ui', 'ui');
         $defaultAsset = 'img/logo/logo-copoit.png';

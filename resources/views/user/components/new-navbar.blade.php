@@ -219,7 +219,7 @@ function isActive($route, $current) {
                         </div>
                         @if($user && ($user->isAdmin() || $user->isSuperAdmin()))
                         <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm font-semibold text-red-650 hover:bg-red-50 border-b border-gray-100">
-                            <i class="ri-shield-user-line mr-2"></i>Dashboard Admin
+                            <i class="ri-shield-user-line mr-2"></i>Dashboard {{ $user->isTutor() ? 'Tutor' : 'Admin' }}
                         </a>
                         @endif
                         <a href="{{ route('user.profile.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
