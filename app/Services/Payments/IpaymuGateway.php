@@ -266,53 +266,14 @@ class IpaymuGateway
             return null;
         }
 
-        $statusValues = $this->statusValues($request->all());
-
-        $details = $this->detailsArray($payable->payment_details);
-        $details['ipaymu_webhook'] = $request->all();
-
-        if ($this->hasPaidStatusValue($statusValues)) {
-            if ($payable instanceof Payment) {
-                $payable->update([
-                    'status' => Payment::STATUS_SUCCESS,
-                    'paid_at' => Carbon::now(),
-                    'payment_details' => json_encode($details),
-                ]);
-            } else {
-                $payable->update([
-                    'status' => IndividualPurchase::STATUS_APPROVED,
-                    'approved_at' => Carbon::now(),
-                    'payment_details' => $details,
-                ]);
-            }
-
-            return $payable->fresh();
+        // Do not trust the inbound notification as proof of payment. Verify the
+        // transaction with iPaymu using the merchant credential before changing
+        // any local payment or access status.
+        if ($payable instanceof Payment) {
+            $this->checkTransaction($payable);
+        } else {
+            $this->checkIndividualTransaction($payable);
         }
-
-        if ($this->hasFailedStatusValue($statusValues)) {
-            if ($payable instanceof Payment) {
-                $payable->update([
-                    'status' => $this->hasExpiredStatusValue($statusValues)
-                        ? Payment::STATUS_EXPIRED
-                        : Payment::STATUS_FAILED,
-                    'payment_details' => json_encode($details),
-                ]);
-            } else {
-                $details['auto_rejected_reason'] = $this->hasExpiredStatusValue($statusValues)
-                    ? 'Gateway payment expired before completion.'
-                    : 'Gateway payment failed or cancelled.';
-                $details['auto_rejected_at'] = now()->toDateTimeString();
-
-                $payable->update([
-                    'status' => IndividualPurchase::STATUS_REJECTED,
-                    'payment_details' => $details,
-                ]);
-            }
-
-            return $payable->fresh();
-        }
-
-        $payable->update(['payment_details' => $payable instanceof Payment ? json_encode($details) : $details]);
 
         return $payable->fresh();
     }

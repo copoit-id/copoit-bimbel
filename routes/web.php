@@ -117,10 +117,10 @@ Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->middl
 Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1')->name('password.update');
 
-Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 // Route untuk logout as (admin kembali ke akun admin)
-Route::match(['get', 'post'], '/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
+Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
 
 // Public user routes (no auth required)
 Route::prefix('user')->group(function () {
@@ -240,9 +240,16 @@ Route::prefix('user')->middleware('auth')->group(function () {
     // Certificate validation routes
     Route::prefix('sertifikat')->middleware('certificate.enabled')->group(function () {
         Route::get('/validasi', [CertificateValidationController::class, 'index'])->name('user.certificate.validation');
-        Route::post('/validasi', [CertificateValidationController::class, 'validateCertificate'])->name('user.certificate.validate');
+        Route::post('/validasi', [CertificateValidationController::class, 'validateCertificate'])
+            ->middleware('throttle:20,1')
+            ->name('user.certificate.validate');
         Route::post('/download', [CertificateValidationController::class, 'downloadCertificate'])->name('user.certificate.download.post');
-        Route::get('/download/{certificate_id}', [CertificateValidationController::class, 'downloadById'])->name('user.certificate.validation.download');
+        Route::get('/validasi/preview/{certificate_id}', [App\Http\Controllers\user\CertificateController::class, 'view'])
+            ->middleware('signed')
+            ->name('user.certificate.validation.preview');
+        Route::get('/download/{certificate_id}', [CertificateValidationController::class, 'downloadById'])
+            ->middleware('signed')
+            ->name('user.certificate.validation.download');
 
         // Certificate generation routes
         Route::get('/preview/{package_id}/{tryout_id}/{token}', [App\Http\Controllers\user\CertificateController::class, 'preview'])->name('user.certificate.preview');
@@ -276,9 +283,9 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
 });
 
 // Webhook route (outside auth middleware) - make sure this is correct
-Route::post('/webhook/xendit', [PackageController::class, 'xenditWebhook'])->name('webhook.xendit');
-Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])->name('webhook.midtrans');
-Route::post('/webhook/ipaymu', [PackageController::class, 'ipaymuWebhook'])->name('webhook.ipaymu');
+Route::post('/webhook/xendit', [PackageController::class, 'xenditWebhook'])->middleware('throttle:120,1')->name('webhook.xendit');
+Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])->middleware('throttle:120,1')->name('webhook.midtrans');
+Route::post('/webhook/ipaymu', [PackageController::class, 'ipaymuWebhook'])->middleware('throttle:120,1')->name('webhook.ipaymu');
 
 // Add route for checking payment status (for debugging)
 Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);

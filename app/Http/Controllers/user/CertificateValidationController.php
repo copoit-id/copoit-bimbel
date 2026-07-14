@@ -5,8 +5,8 @@ namespace App\Http\Controllers\user;
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
@@ -19,9 +19,6 @@ class CertificateValidationController extends Controller
 
     public function validateCertificate(Request $request)
     {
-        // Debug: Log incoming request
-        Log::info('Certificate validation request:', $request->all());
-
         $validator = Validator::make($request->all(), [
             'certificate_number' => 'required|string|min:3|max:50'
         ], [
@@ -41,61 +38,41 @@ class CertificateValidationController extends Controller
 
         $certificateNumber = trim($request->certificate_number);
 
-        // Debug: Log search query
-        Log::info('Searching for certificate:', ['number' => $certificateNumber]);
-
-        // Cari sertifikat berdasarkan nomor
         $certificate = Certificate::where('certificate_number', $certificateNumber)
             ->where('status', 'active')
             ->first();
 
-        // Debug: Log search result
-        Log::info('Certificate found:', ['certificate' => $certificate ? $certificate->toArray() : null]);
-
         if (!$certificate) {
-            // Debug: Check all certificates in database
-            $allCertificates = Certificate::select('certificate_number', 'status')->get();
-            Log::info('All certificates in database:', $allCertificates->toArray());
-
             return response()->json([
                 'success' => false,
                 'valid' => false,
-                'message' => 'Sertifikat tidak ditemukan dalam database',
-                'debug' => [
-                    'searched_for' => $certificateNumber,
-                    'total_certificates' => $allCertificates->count(),
-                    'all_numbers' => $allCertificates->pluck('certificate_number')->toArray()
-                ]
+                'message' => 'Sertifikat tidak ditemukan atau tidak aktif.',
             ]);
         }
 
-        // Parse metadata
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
 
-        // Debug: Log metadata
-        Log::info('Certificate metadata:', ['metadata' => $metadata]);
-
-        // Prepare certificate data untuk ditampilkan
         $certificateData = [
             'certificate_number' => $certificate->certificate_number,
             'certificate_name' => $certificate->certificate_name,
             'holder_name' => $metadata['user_name'] ?? 'Unknown',
-            'holder_email' => $metadata['user_email'] ?? 'Unknown',
             'institution_name' => $certificate->institution_name,
             'issued_date' => $certificate->issued_date->format('d F Y'),
             'expired_date' => $certificate->expired_date->format('d F Y'),
             'verification_code' => substr($certificate->verification_code, 0, 8) . '...',
             'package_name' => $metadata['package_name'] ?? 'Unknown Package',
             'exam_date' => isset($metadata['exam_date']) ? \Carbon\Carbon::parse($metadata['exam_date'])->format('d F Y') : $certificate->issued_date->format('d F Y'),
-            'scores' => [
-                'overall' => $metadata['score'] ?? 0,
-                'listening' => $metadata['listening_score'] ?? '-',
-                'reading' => $metadata['reading_score'] ?? '-',
-                'writing' => $metadata['writing_score'] ?? '-'
-            ],
-            'date_of_birth' => $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth->format('d F Y') : \Carbon\Carbon::parse($certificate->date_of_birth)->format('d F Y'),
             'is_expired' => $certificate->expired_date->isPast(),
-            'certificate_id' => $certificate->certificate_id
+            'preview_url' => URL::temporarySignedRoute(
+                'user.certificate.validation.preview',
+                now()->addMinutes(10),
+                ['certificate_id' => $certificate->certificate_id]
+            ),
+            'download_url' => URL::temporarySignedRoute(
+                'user.certificate.validation.download',
+                now()->addMinutes(10),
+                ['certificate_id' => $certificate->certificate_id]
+            ),
         ];
 
         return response()->json([
@@ -130,8 +107,11 @@ class CertificateValidationController extends Controller
             ], 404);
         }
 
-        // Generate download URL
-        $downloadUrl = route('user.certificate.validation.download', $certificate->certificate_id);
+        $downloadUrl = URL::temporarySignedRoute(
+            'user.certificate.validation.download',
+            now()->addMinutes(10),
+            ['certificate_id' => $certificate->certificate_id]
+        );
 
         return response()->json([
             'success' => true,

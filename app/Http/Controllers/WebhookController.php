@@ -18,34 +18,30 @@ class WebhookController extends Controller
      */
     public function aiCallback(Request $request)
     {
-        $jobId = $request->input('job_id', 'unknown');
-        Log::info("AI Callback received for AI job: {$jobId}");
-        Log::info("Payload: " . json_encode($request->all()));
+        $secret = (string) $request->header('X-Callback-Secret', '');
+        $expectedSecret = (string) config('services.ai_similarity.callback_secret', '');
 
-        // Validasi secret jika ada
-        $secret = $request->header('X-Callback-Secret');
-        $expectedSecret = config('services.ai_similarity.callback_secret');
-        
-        if ($expectedSecret && $secret !== $expectedSecret) {
-            Log::warning('AI Callback: Invalid secret');
+        if ($expectedSecret === '' || $secret === '' || ! hash_equals($expectedSecret, $secret)) {
+            Log::warning('AI Callback: invalid or missing callback secret.');
+
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         // Validasi input
         try {
             $data = $request->validate([
-                'job_id' => 'required|string',
-                'user_id' => 'required|string',
+                'job_id' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9._:-]+$/'],
+                'user_id' => ['required', 'integer'],
                 'status' => 'required|string|in:COMPLETED,FAILED',
-                'results' => 'required_if:status,COMPLETED|array',
-                'results.*.question_id' => 'required|string',
+                'results' => 'required_if:status,COMPLETED|array|max:500',
+                'results.*.question_id' => 'required|integer',
                 'results.*.similarity' => 'required|numeric|between:0,1',
                 'results.*.score' => 'required|integer|between:0,100',
                 'total_score' => 'required_if:status,COMPLETED|numeric',
-                'processed_count' => 'required_if:status,COMPLETED|integer',
-                'processing_time_ms' => 'nullable|integer',
-                'method' => 'nullable|string',
-                'error' => 'required_if:status,FAILED|string',
+                'processed_count' => 'required_if:status,COMPLETED|integer|min:0|max:500',
+                'processing_time_ms' => 'nullable|integer|min:0|max:3600000',
+                'method' => 'nullable|string|max:100',
+                'error' => 'required_if:status,FAILED|string|max:1000',
             ]);
         } catch (\Exception $e) {
             Log::error('AI Callback validation error: ' . $e->getMessage());
@@ -55,16 +51,30 @@ class WebhookController extends Controller
         try {
             DB::beginTransaction();
 
-            // Cari job berdasarkan ai_job_id (bisa multiple AI jobs untuk 1 local job)
-            // atau mencari yang ai_job_id-nya mengandung job_id ini
-            $job = EssayCorrectionJob::where('ai_job_id', 'like', '%' . $data['job_id'] . '%')
-                ->where('status', 'queued') // Cari yang masih queued
+            $jobId = $data['job_id'];
+            $escapedJobId = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $jobId);
+            $job = EssayCorrectionJob::where('status', 'queued')
+                ->where(function ($query) use ($jobId, $escapedJobId) {
+                    $query->where('ai_job_id', $jobId)
+                        ->orWhere('ai_job_id', 'like', $escapedJobId . ',%')
+                        ->orWhere('ai_job_id', 'like', '%,' . $escapedJobId)
+                        ->orWhere('ai_job_id', 'like', '%,' . $escapedJobId . ',%');
+                })
                 ->first();
 
             if (!$job) {
                 Log::warning("AI Callback: Job not found for ai_job_id: {$data['job_id']} or job not in queued state");
                 DB::rollBack();
                 return response()->json(['error' => 'Job not found'], 404);
+            }
+
+            if ((int) $job->user_id !== (int) $data['user_id']) {
+                Log::warning('AI Callback: callback user does not match correction job.', [
+                    'job_id' => $job->getKey(),
+                ]);
+                DB::rollBack();
+
+                return response()->json(['error' => 'Invalid callback payload'], 422);
             }
 
             Log::info("AI Callback: Found local job {$job->id} for ai_job_id: {$data['job_id']}");
@@ -94,8 +104,13 @@ class WebhookController extends Controller
                 $similarity = $result['similarity'];
                 $isCorrect = $similarity >= $threshold;
 
-                // Cari UserAnswerDetail
-                $detail = UserAnswerDetail::with('question')->find($detailId);
+                $detail = UserAnswerDetail::with('question')
+                    ->whereKey($detailId)
+                    ->whereHas('userAnswer', function ($query) use ($job) {
+                        $query->where('user_answer_id', $job->user_answer_id)
+                            ->where('user_id', $job->user_id);
+                    })
+                    ->first();
                 
                 if (!$detail) {
                     Log::warning("AI Callback: UserAnswerDetail not found: {$detailId}");
@@ -105,6 +120,11 @@ class WebhookController extends Controller
                 $question = $detail->question;
                 if (!$question) {
                     Log::warning("AI Callback: Question not found for detail: {$detailId}");
+                    continue;
+                }
+
+                $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                if (($answerMeta['ai_job_id'] ?? null) === $data['job_id'] && ($answerMeta['pending_review'] ?? true) === false) {
                     continue;
                 }
 
@@ -120,7 +140,6 @@ class WebhookController extends Controller
                 $processedCount++;
 
                 // Update answer
-                $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
                 $answerMeta['pending_review'] = false;
                 $answerMeta['reviewed_by'] = null; // AI
                 $answerMeta['reviewed_at'] = Carbon::now('Asia/Jakarta')->toIso8601String();

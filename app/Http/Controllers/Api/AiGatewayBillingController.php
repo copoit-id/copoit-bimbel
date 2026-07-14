@@ -21,10 +21,22 @@ class AiGatewayBillingController extends Controller
 
     private function client(Request $r): AiGatewayClient
     {
-        $c = AiGatewayClient::where('api_key_hash', hash('sha256', (string) $r->header('X-AI-Gateway-Key')))->where('is_active', true)->first();
+        $apiKey = (string) $r->header('X-AI-Gateway-Key', '');
+        abort_if($apiKey === '', 401, 'Gateway key tidak valid.');
+
+        $c = AiGatewayClient::where('api_key_hash', hash('sha256', $apiKey))->where('is_active', true)->first();
         abort_unless($c, 401, 'Gateway key tidak valid.');
 
         return $c;
+    }
+
+    public function plans()
+    {
+        return AiGatewayPlan::query()
+            ->where('is_active', true)
+            ->where('token_limit', '>', 0)
+            ->orderBy('price')
+            ->get(['id', 'name', 'slug', 'price', 'token_limit', 'duration_days']);
     }
 
     public function status(Request $r)
@@ -51,6 +63,8 @@ class AiGatewayBillingController extends Controller
     {
         $c = $this->client($r);
         $d = $r->validate(['plan_id' => 'required|integer|exists:ai_gateway_plans,id', 'external_user_id' => 'required|string|max:120', 'customer_name' => 'required|string|max:100', 'customer_email' => 'required|email', 'success_redirect_url' => 'nullable|url|max:2048', 'failure_redirect_url' => 'nullable|url|max:2048']);
+        $successRedirectUrl = $this->allowedRedirectUrl($c, $d['success_redirect_url'] ?? null);
+        $failureRedirectUrl = $this->allowedRedirectUrl($c, $d['failure_redirect_url'] ?? null);
         $p = AiGatewayPlan::where('is_active', true)->where('token_limit', '>', 0)->findOrFail($d['plan_id']);
         $this->syncLatestPendingPayment($c, $d['external_user_id']);
         $pendingTransaction = AiGatewayTransaction::query()
@@ -77,7 +91,7 @@ class AiGatewayBillingController extends Controller
         }
         $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'token_limit' => $p->token_limit, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
         $id = 'AIGW-'.$c->id.'-'.$s->id.'-'.Str::upper(Str::random(8));
-        $res = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', ['external_id' => $id, 'amount' => $p->price, 'description' => 'Paket AI Gateway: '.$p->name, 'invoice_duration' => 86400, 'success_redirect_url' => $d['success_redirect_url'] ?? null, 'failure_redirect_url' => $d['failure_redirect_url'] ?? null, 'customer' => ['given_names' => $d['customer_name'], 'email' => $d['customer_email']]]);
+        $res = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', ['external_id' => $id, 'amount' => $p->price, 'description' => 'Paket AI Gateway: '.$p->name, 'invoice_duration' => 86400, 'success_redirect_url' => $successRedirectUrl, 'failure_redirect_url' => $failureRedirectUrl, 'customer' => ['given_names' => $d['customer_name'], 'email' => $d['customer_email']]]);
         if (! $res->successful()) {
             $s->delete();
 
@@ -90,9 +104,14 @@ class AiGatewayBillingController extends Controller
 
     public function webhook(Request $r)
     {
-        if (! hash_equals((string) config('services.xendit.webhook_token'), (string) $r->header('X-CALLBACK-TOKEN'))) {
+        $webhookToken = (string) config('services.xendit.webhook_token', '');
+        $callbackToken = (string) $r->header('X-CALLBACK-TOKEN', '');
+
+        if ($webhookToken === '' || $callbackToken === '' || ! hash_equals($webhookToken, $callbackToken)) {
             return response()->json(['message' => 'Invalid callback token'], 401);
-        }$t = AiGatewayTransaction::where('external_id', $r->input('external_id'))->firstOrFail();
+        }
+
+        $t = AiGatewayTransaction::where('external_id', $r->input('external_id'))->firstOrFail();
         if ($r->input('status') === 'PAID' && $t->status === 'pending') {
             $this->subscriptionService->activateTransaction($t);
         } elseif (in_array($r->input('status'), ['EXPIRED', 'FAILED'])) {
@@ -135,6 +154,24 @@ class AiGatewayBillingController extends Controller
             report($exception);
             // Webhook tetap menjadi jalur utama; sinkronisasi ini hanya fallback saat status dibuka user.
         }
+    }
+
+    private function allowedRedirectUrl(AiGatewayClient $client, ?string $redirectUrl): ?string
+    {
+        if (blank($redirectUrl)) {
+            return null;
+        }
+
+        $clientUrl = parse_url((string) $client->base_url);
+        $targetUrl = parse_url($redirectUrl);
+        $sameOrigin = isset($clientUrl['scheme'], $clientUrl['host'], $targetUrl['scheme'], $targetUrl['host'])
+            && strtolower($clientUrl['scheme']) === strtolower($targetUrl['scheme'])
+            && strtolower($clientUrl['host']) === strtolower($targetUrl['host'])
+            && ($clientUrl['port'] ?? null) === ($targetUrl['port'] ?? null);
+
+        abort_unless($sameOrigin, 422, 'URL pengalihan harus berasal dari domain klien yang terdaftar.');
+
+        return $redirectUrl;
     }
 
 }

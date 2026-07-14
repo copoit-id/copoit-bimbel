@@ -91,8 +91,10 @@ class SettingController extends Controller
             'live_session_label' => ['required', 'string', 'max:80'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
-            'logo' => ['nullable', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
-            'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,svg,webp', 'max:4096'],
+            // SVG is executable XML in browsers. Do not place untrusted SVG
+            // content in the public web root.
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
+            'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,webp', 'max:4096'],
             'payment_mode' => ['required', 'in:gateway,manual'],
             'payment_bank_name' => ['nullable', 'string', 'max:255'],
             'payment_account_number' => ['nullable', 'string', 'max:100'],

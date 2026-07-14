@@ -2542,9 +2542,9 @@ class PackageController extends Controller
     {
 
         $callbackToken = $request->header('X-CALLBACK-TOKEN');
-        $expectedToken = config('services.xendit.webhook_token');
+        $expectedToken = (string) config('services.xendit.webhook_token', '');
 
-        if ($callbackToken !== $expectedToken) {
+        if ($expectedToken === '' || ! is_string($callbackToken) || ! hash_equals($expectedToken, $callbackToken)) {
             return response()->json(['message' => 'Invalid callback token'], 401);
         }
 
