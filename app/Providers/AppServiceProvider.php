@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
         $defaultAsset = 'img/logo/logo-copoit.png';
 
         $defaults = [
-            'name' => 'Copoit Academy',
+            'name' => config('app.report_name', config('app.name', 'Laravel')),
             'logo' => $defaultAsset,
             'favicon' => null,
             'primary_color' => '#1C3259',

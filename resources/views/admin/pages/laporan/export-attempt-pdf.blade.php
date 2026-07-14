@@ -30,7 +30,7 @@
 </head>
 <body>
     <div class="header">
-        <p class="brand">{{ config('app.report_name') }} · Laporan Detail Jawaban</p>
+        <p class="brand">{{ config('app.name') }} · Laporan Detail Jawaban</p>
         <h1>{{ $tryout->name }}</h1>
         <div class="meta">
             <strong>{{ $user->name }}</strong> · {{ $user->email ?? '-' }}<br>
@@ -90,6 +90,6 @@
         </tbody>
     </table>
 
-    <p class="footer">{{ config('app.report_name') }} · Detail jawaban peserta</p>
+    <p class="footer">{{ config('app.name') }} · Detail jawaban peserta</p>
 </body>
 </html>

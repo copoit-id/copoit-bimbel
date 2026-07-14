@@ -47,7 +47,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="title">{{ config('app.report_name') }} - Laporan Tryout {{ $tryout->name }}</div>
+        <div class="title">{{ config('app.name') }} - Laporan Tryout {{ $tryout->name }}</div>
         <div class="meta">Tanggal export: {{ now()->format('d M Y H:i') }}</div>
         <div class="summary">
             <span>Peserta: {{ $statistics['total_participants'] }}</span>
