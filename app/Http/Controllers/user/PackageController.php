@@ -16,6 +16,7 @@ use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\AiDiscussionUsageLog;
+use App\Models\AiGatewayTransaction;
 use App\Models\UserAnswer;
 use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
 use App\Services\AiDiscussionService;
+use App\Services\AiGatewaySubscriptionService;
 use App\Services\AffiliateService;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
@@ -2642,6 +2644,29 @@ class PackageController extends Controller
 
         if (!$orderId) {
             return response()->json(['message' => 'Invalid payload'], 422);
+        }
+
+        $aiTransaction = AiGatewayTransaction::query()
+            ->where('external_id', $orderId)
+            ->where('provider', 'midtrans')
+            ->first();
+
+        if ($aiTransaction) {
+            $transactionStatus = (string) $request->input('transaction_status');
+            $fraudStatus = (string) $request->input('fraud_status');
+
+            if (in_array($transactionStatus, ['capture', 'settlement'], true)) {
+                if ($transactionStatus === 'capture' && $fraudStatus === 'challenge') {
+                    return response()->json(['message' => 'OK']);
+                }
+
+                app(AiGatewaySubscriptionService::class)->activateTransaction($aiTransaction);
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $aiTransaction->update(['status' => $transactionStatus === 'expire' ? 'expired' : 'failed']);
+                $aiTransaction->subscription?->update(['status' => $transactionStatus === 'expire' ? 'expired' : 'failed']);
+            }
+
+            return response()->json(['message' => 'OK']);
         }
 
         $payment = Payment::where('transaction_id', $orderId)->first();
