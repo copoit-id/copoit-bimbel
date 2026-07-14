@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
@@ -127,6 +128,11 @@ class User extends Authenticatable
     public function roles()
     {
         return $this->belongsToMany(Role::class);
+    }
+
+    public function tentorProfile(): HasOne
+    {
+        return $this->hasOne(Tentor::class, 'user_id');
     }
 
     public function certificates()
@@ -259,6 +265,11 @@ class User extends Authenticatable
     public function isDemoAdmin(): bool
     {
         return $this->role === 'admin_demo';
+    }
+
+    public function isTutor(): bool
+    {
+        return $this->role === 'tutor';
     }
 
     public function hasPermission(string $feature, string $action): bool

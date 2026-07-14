@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\ClassAttendance;
 use App\Models\ClassSession;
+use App\Models\TutorAttendance;
 use App\Services\ClassAttendanceParticipantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class ClassAttendanceController extends Controller
 {
     public function show(ClassSession $session, ClassAttendanceParticipantService $participantService): View
     {
-        $session->load(['class.packages', 'studyGroup.users', 'schedule.attendanceSetting', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
+        $session->load(['class.packages', 'tentor', 'tutorAttendance', 'studyGroup.users', 'schedule.attendanceSetting', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
         $participants = $participantService->participants($session);
         $attendances = $session->attendances->keyBy('user_id');
 
@@ -44,5 +45,28 @@ class ClassAttendanceController extends Controller
         );
 
         return back()->with('success', 'Absensi berhasil diperbarui.');
+    }
+
+    public function markTutor(Request $request, ClassSession $session): RedirectResponse
+    {
+        abort_unless($session->tentor_id, 422, 'Sesi ini belum memiliki Tutor.');
+
+        $validated = $request->validate([
+            'status' => ['required', 'in:present,late,absent,excused'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        TutorAttendance::updateOrCreate(
+            ['class_session_id' => $session->id, 'tentor_id' => $session->tentor_id],
+            [
+                'status' => $validated['status'],
+                'check_in_at' => in_array($validated['status'], ['present', 'late'], true) ? now() : null,
+                'source' => 'admin',
+                'notes' => $validated['notes'] ?? null,
+                'marked_by' => $request->user()?->id,
+            ]
+        );
+
+        return back()->with('success', 'Absensi Tutor berhasil diperbarui.');
     }
 }

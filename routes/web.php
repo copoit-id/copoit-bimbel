@@ -314,6 +314,14 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 });
 
+// Tutor portal: a Tutor may only access sessions assigned to their linked tentor profile.
+Route::prefix('tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'index'])->name('dashboard');
+    Route::get('sesi/{session}/absensi', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'showSession'])->name('sessions.show');
+    Route::post('sesi/{session}/absensi-saya', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'markOwnAttendance'])->name('sessions.attendance.mark');
+    Route::post('sesi/{session}/absensi-siswa', [\App\Http\Controllers\tutor\TutorDashboardController::class, 'markStudentAttendance'])->name('sessions.students.mark');
+});
+
 // Webhook route (outside auth middleware) - make sure this is correct
 Route::post('/webhook/xendit', [PackageController::class, 'xenditWebhook'])->name('webhook.xendit');
 Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])->name('webhook.midtrans');
@@ -544,10 +552,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('class/{class}/assessments', [ClassController::class, 'assessments'])->name('class.assessments');
     Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
     Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
-    Route::resource('tentor', TentorController::class)
-        ->except(['show'])
+    // Legacy URLs remain available while all newly generated links use the Tutor terminology.
+    Route::get('tentor', fn () => redirect()->route('admin.tentors.index'));
+    Route::get('tentor/create', fn () => redirect()->route('admin.tentors.create'));
+    Route::get('tentor/{tentor}/edit', fn (\App\Models\Tentor $tentor) => redirect()->route('admin.tentors.edit', $tentor));
+    Route::get('tutor', fn () => redirect()->route('admin.user.index', ['role' => 'tutor']))
+        ->name('tentors.index');
+    Route::resource('tutor', TentorController::class)
+        ->except(['index', 'show'])
         ->names('tentors')
-        ->parameters(['tentor' => 'tentor']);
+        ->parameters(['tutor' => 'tentor']);
     Route::resource('rombel', StudyGroupController::class)
         ->except(['show'])
         ->names('study-groups')
@@ -560,6 +574,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
     Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
     Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
+    Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
+    Route::get('penggajian-tutor', [\App\Http\Controllers\admin\TutorPayrollController::class, 'index'])->name('tutor-payrolls.index');
+    Route::post('penggajian-tutor/generate', [\App\Http\Controllers\admin\TutorPayrollController::class, 'generate'])->name('tutor-payrolls.generate');
+    Route::put('penggajian-tutor/{tutorPayroll}', [\App\Http\Controllers\admin\TutorPayrollController::class, 'update'])->name('tutor-payrolls.update');
     Route::resource('class', ClassController::class);
     Route::resource('certification', CertificationController::class);
     Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');

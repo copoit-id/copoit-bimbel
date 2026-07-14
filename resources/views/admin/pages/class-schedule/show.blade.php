@@ -18,7 +18,7 @@
             @endif
             <?php $tentorName = $classSchedule->tentor?->name ?? $classSchedule->studyGroup?->tentor?->name ?? $classSchedule->class?->tentor?->name ?? $classSchedule->class?->mentor; ?>
             @if($tentorName)
-                <p class="mt-1 text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
+                <p class="mt-1 text-xs text-gray-500">Tutor: {{ $tentorName }}</p>
             @endif
         </div>
         <div class="flex flex-wrap items-center gap-2">

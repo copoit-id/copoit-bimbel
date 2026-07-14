@@ -41,6 +41,9 @@ class AuthController extends Controller
             if ($user->isSuperAdmin()) {
                 return redirect()->route('super-admin.admins.index');
             }
+            if ($user->isTutor()) {
+                return redirect()->route('tutor.dashboard');
+            }
             return $user->canAccessAdminPanel()
                 ? redirect()->route('admin.dashboard')
                 : redirect()->route('user.dashboard.index');
@@ -105,6 +108,9 @@ class AuthController extends Controller
             // Redirect based on user role
             if ($user->isSuperAdmin()) {
                 return redirect()->intended(route('super-admin.admins.index'));
+            }
+            if ($user->isTutor()) {
+                return redirect()->intended(route('tutor.dashboard'));
             }
             if ($user->canAccessAdminPanel()) {
                 if ($user->role === 'admin_demo') {

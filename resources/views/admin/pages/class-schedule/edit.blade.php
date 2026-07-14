@@ -38,9 +38,9 @@
             </div>
 
             <div>
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Tentor</label>
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Tutor</label>
                 <select name="tentor_id" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="">Ikuti tentor dari rombel</option>
+                    <option value="">Ikuti Tutor dari rombel</option>
                     @foreach($tentors as $tentor)
                         <option value="{{ $tentor->id }}" @selected(old('tentor_id', $classSchedule->tentor_id) == $tentor->id)>
                             {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}

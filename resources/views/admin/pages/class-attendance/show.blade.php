@@ -15,6 +15,28 @@
         </p>
     </div>
 
+    @if($session->tentor)
+        @php($tutorAttendance = $session->tutorAttendance)
+        <div class="rounded-lg border border-gray-200 bg-white p-4">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">Absensi Tutor: {{ $session->tentor->name }}</p>
+                    <p class="text-xs text-gray-500">{{ $tutorAttendance?->check_in_at?->format('d M Y H:i') ?? 'Belum melakukan absensi' }}</p>
+                </div>
+                <form method="POST" action="{{ route('admin.class-attendance.tutor.mark', $session) }}" class="flex flex-wrap items-center gap-2">
+                    @csrf
+                    <select name="status" class="rounded-lg border border-gray-200 px-2 py-1 text-sm">
+                        @foreach(['present' => 'Hadir', 'late' => 'Terlambat', 'absent' => 'Tidak Hadir', 'excused' => 'Izin'] as $key => $label)
+                            <option value="{{ $key }}" @selected(($tutorAttendance->status ?? '') === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <input name="notes" value="{{ $tutorAttendance?->notes }}" class="rounded-lg border border-gray-200 px-2 py-1 text-sm" placeholder="Catatan (opsional)">
+                    <button class="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white">Simpan Tutor</button>
+                </form>
+            </div>
+        </div>
+    @endif
+
     <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table class="w-full text-left text-sm text-gray-600">
             <thead class="bg-gray-50 text-xs uppercase text-gray-700">

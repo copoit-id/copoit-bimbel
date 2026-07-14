@@ -52,17 +52,36 @@ return [
             'label' => 'Manajemen Tryout',
             'routes' => ['admin.tryout.'],
         ],
+        // Keep the more specific material category route before material.
+        // Permission resolution uses the first matching route prefix.
+        'material_category' => [
+            'label' => 'Kategori Subtest',
+            'routes' => ['admin.material.material-category.'],
+        ],
+        'material' => [
+            'label' => 'Manajemen Materi',
+            'routes' => ['admin.material.'],
+        ],
         'feedback' => [
             'label' => 'Feedback Tryout',
             'routes' => ['admin.feedback.'],
         ],
         'class' => [
             'label' => 'Kelas',
-            'routes' => ['admin.class.'],
+            'routes' => [
+                'admin.class-schedules.',
+                'admin.class-attendance.',
+                'admin.study-groups.',
+                'admin.class.',
+            ],
         ],
         'tentor' => [
-            'label' => 'Manajemen Tentor',
+            'label' => 'Manajemen Tutor',
             'routes' => ['admin.tentors.'],
+        ],
+        'tutor_payroll' => [
+            'label' => 'Penggajian Tutor',
+            'routes' => ['admin.tutor-payrolls.'],
         ],
         'certification' => [
             'label' => 'Sertifikasi',
@@ -99,6 +118,30 @@ return [
         'pembayaran' => [
             'label' => 'Pembayaran',
             'routes' => ['admin.pembayaran.'],
+        ],
+        'finance' => [
+            'label' => 'Keuangan',
+            'routes' => ['admin.finance.'],
+        ],
+        'recurring_bill' => [
+            'label' => 'Tagihan Rutin',
+            'routes' => ['admin.recurring-bills.'],
+        ],
+        'discount' => [
+            'label' => 'Diskon',
+            'routes' => ['admin.discounts.'],
+        ],
+        'affiliate' => [
+            'label' => 'Affiliate',
+            'routes' => ['admin.affiliate.'],
+        ],
+        'activity' => [
+            'label' => 'Activity',
+            'routes' => ['admin.activity.'],
+        ],
+        'update_notification' => [
+            'label' => 'Notifikasi Update',
+            'routes' => ['admin.update-notifications.'],
         ],
         'tes_koran' => [
             'label' => 'Tes Koran',

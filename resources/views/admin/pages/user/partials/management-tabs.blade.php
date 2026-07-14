@@ -29,13 +29,6 @@
             ->all();
     }
 
-    if ($canViewFeature('tentor') && \Illuminate\Support\Facades\Route::has('admin.tentors.index')) {
-        $tabs[] = [
-            'label' => 'Tentor',
-            'href' => route('admin.tentors.index'),
-            'active' => $activeManagementTab === 'tentor',
-        ];
-    }
 @endphp
 
 @if($tabs)

@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\ParticipantDestinationCategory;
 use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
+use App\Services\TutorProfileService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -87,13 +88,6 @@ class UserController extends Controller
 
     public function create()
     {
-        // Cek quota user - backend validation
-        $quotaCheck = PlanQuotaService::canRegisterUser();
-        if (!$quotaCheck['allowed']) {
-            return redirect()->route('admin.user.index')
-                ->with('error', $quotaCheck['reason']);
-        }
-
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
         return view('admin.pages.user.create', [
@@ -103,15 +97,12 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request, ParticipantDestinationSelectionService $destinationSelectionService)
+    public function store(
+        Request $request,
+        ParticipantDestinationSelectionService $destinationSelectionService,
+        TutorProfileService $tutorProfileService
+    )
     {
-        // Cek quota user - backend validation (hindari bypass)
-        $quotaCheck = PlanQuotaService::canRegisterUser();
-        if (!$quotaCheck['allowed']) {
-            return redirect()->route('admin.user.index')
-                ->with('error', $quotaCheck['reason']);
-        }
-
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
@@ -122,24 +113,38 @@ class UserController extends Controller
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
         ]);
+
+        // Kuota paket hanya berlaku untuk akun peserta, bukan akun operasional seperti Tutor.
+        if ($validated['role'] === 'user') {
+            $quotaCheck = PlanQuotaService::canRegisterUser();
+            if (! $quotaCheck['allowed']) {
+                return redirect()->route('admin.user.index')
+                    ->with('error', $quotaCheck['reason']);
+            }
+        }
         $destinationPayload = $destinationSelectionService->validate(
             $request,
-            $destinationSelectionService->isRequired()
+            $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'username' => $validated['username'],
-            'password' => Hash::make($validated['password']),
-            'status' => $validated['status'] ?? 'aktif',
-            'role' => $validated['role'],
-            ...$destinationPayload,
-        ]);
-        $role = \App\Models\Role::where('slug', $user->role)->first();
-        if ($role) {
-            $user->roles()->syncWithoutDetaching([$role->id]);
-        }
+        $user = DB::transaction(function () use ($validated, $destinationPayload, $tutorProfileService): User {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'username' => $validated['username'],
+                'password' => Hash::make($validated['password']),
+                'status' => $validated['status'] ?? 'aktif',
+                'role' => $validated['role'],
+                ...$destinationPayload,
+            ]);
+            $role = Role::where('slug', $user->role)->first();
+            if ($role) {
+                $user->roles()->syncWithoutDetaching([$role->id]);
+            }
+            $tutorProfileService->sync($user);
+
+            return $user;
+        });
 
         return redirect()->route('admin.user.index', ['role' => $user->role])->with('success', 'User created successfully.');
     }
@@ -162,7 +167,12 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id, ParticipantDestinationSelectionService $destinationSelectionService)
+    public function update(
+        Request $request,
+        $id,
+        ParticipantDestinationSelectionService $destinationSelectionService,
+        TutorProfileService $tutorProfileService
+    )
     {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
@@ -176,29 +186,33 @@ class UserController extends Controller
         ]);
         $destinationPayload = $destinationSelectionService->validate(
             $request,
-            $destinationSelectionService->isRequired()
+            $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
 
-        $user = User::findOrFail($id);
+        $user = DB::transaction(function () use ($id, $validated, $destinationPayload, $tutorProfileService): User {
+            $user = User::findOrFail($id);
+            $user->fill([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'username' => $validated['username'],
+                'status' => $validated['status'],
+                'role' => $validated['role'],
+                ...$destinationPayload,
+            ]);
 
-        $user->fill([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'username' => $validated['username'],
-            'status' => $validated['status'],
-            'role' => $validated['role'],
-            ...$destinationPayload,
-        ]);
+            if (! empty($validated['password'])) {
+                $user->password = Hash::make($validated['password']);
+            }
 
-        if (!empty($validated['password'])) {
-            $user->password = Hash::make($validated['password']);
-        }
+            $user->save();
+            $role = Role::where('slug', $user->role)->first();
+            if ($role) {
+                $user->roles()->sync([$role->id]);
+            }
+            $tutorProfileService->sync($user);
 
-        $user->save();
-        $role = \App\Models\Role::where('slug', $user->role)->first();
-        if ($role) {
-            $user->roles()->sync([$role->id]);
-        }
+            return $user;
+        });
 
         return redirect()->route('admin.user.index', $request->query())
             ->with('success', 'User berhasil diperbarui');

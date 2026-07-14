@@ -24,10 +24,10 @@
             </div>
 
             <div>
-                <label for="tentor_id" class="block text-sm font-medium text-gray-700 mb-2">Tentor Default</label>
+                <label for="tentor_id" class="block text-sm font-medium text-gray-700 mb-2">Tutor Default</label>
                 <select id="tentor_id" name="tentor_id"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Pilih tentor</option>
+                    <option value="">Pilih Tutor</option>
                     @foreach($tentors as $tentor)
                         <option value="{{ $tentor->id }}" @selected(old('tentor_id', $studyGroup?->tentor_id) == $tentor->id)>
                             {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}

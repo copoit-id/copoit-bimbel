@@ -163,7 +163,7 @@
                                     <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
                                     <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
                                     @if($tentorName)
-                                        <p class="text-xs text-gray-500">Tentor: {{ $tentorName }}</p>
+                                        <p class="text-xs text-gray-500">Tutor: {{ $tentorName }}</p>
                                     @endif
                                     @if($schedule->studyGroup)
                                         <p class="text-xs text-gray-500">Rombel: {{ $schedule->studyGroup->name }}</p>

@@ -28,6 +28,12 @@ class CheckPermission
 
         $feature = $this->resolveFeature($routeName);
         if (! $feature) {
+            // Tutor must be explicitly granted every admin feature. This prevents access
+            // to administrative routes that have not yet been mapped to a permission.
+            if (method_exists($user, 'isTutor') && $user->isTutor()) {
+                abort(403, 'Akses ditolak.');
+            }
+
             return $next($request);
         }
 

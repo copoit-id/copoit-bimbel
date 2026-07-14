@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Tentor extends Model
 {
@@ -18,11 +19,17 @@ class Tentor extends Model
         'expertise',
         'bio',
         'is_active',
+        'user_id',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function classes(): HasMany
     {
@@ -37,6 +44,16 @@ class Tentor extends Model
     public function sessions(): HasMany
     {
         return $this->hasMany(ClassSession::class, 'tentor_id');
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(TutorAttendance::class);
+    }
+
+    public function payrolls(): HasMany
+    {
+        return $this->hasMany(TutorPayroll::class);
     }
 
     public function scopeActive(Builder $query): Builder

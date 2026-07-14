@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'admin.expiry' => \App\Http\Middleware\AdminExpiryMiddleware::class,
+            'tutor' => \App\Http\Middleware\TutorMiddleware::class,
             'super-admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'certificate.enabled' => \App\Http\Middleware\EnsureCertificateManagementEnabled::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
