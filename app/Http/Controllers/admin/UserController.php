@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
+use App\Models\Question;
 use App\Models\User;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
@@ -18,6 +19,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class UserController extends Controller
 {
+    private array $maxScoreByDetail = [];
+
     private function roleOptions(): array
     {
         $roles = User::query()
@@ -317,7 +320,12 @@ class UserController extends Controller
         $user = User::with([
             'userAnswers' => function ($query) {
                 $query->where('status', 'completed')
-                    ->with(['tryout', 'tryoutDetail', 'userAnswerDetails'])
+                    ->with([
+                        'tryout',
+                        'tryoutDetail',
+                        'userAnswerDetails.question',
+                        'userAnswerDetails.questionOption',
+                    ])
                     ->orderByDesc('finished_at')
                     ->orderByDesc('created_at');
             }
@@ -338,7 +346,7 @@ class UserController extends Controller
                 'name' => $answer->tryout->name ?? 'Unknown Tryout',
                 'score' => round($answer->score ?? 0, 1),
                 'date' => Carbon::parse($finishedAt),
-                'is_passed' => (bool) ($answer->is_passed ?? false),
+                'is_passed' => $this->isPassedByPassingGrade($answer),
                 'duration' => $duration,
                 'correct_answers' => $answer->correct_answers ?? 0,
                 'total_questions' => $answer->userAnswerDetails->count(),
@@ -406,5 +414,140 @@ class UserController extends Controller
             'certificates',
             'activities'
         );
+    }
+
+    private function isPassedByPassingGrade($answer): bool
+    {
+        $tryout = $answer->tryout;
+        if ($tryout?->requiresIrtScoring() || $tryout?->is_toefl) {
+            return (bool) $answer->is_passed;
+        }
+
+        $type = $answer->tryoutDetail?->type_subtest;
+        $rawScore = $this->calculateRawScore($answer, $type);
+        $maxScore = $this->getMaxPossibleScoreForDetail($answer->tryout_detail_id, $type);
+        $passingScore = $answer->tryoutDetail?->passing_score ?? $this->getDefaultPassingScore($type);
+
+        if (($answer->tryoutDetail?->passing_type ?? 'score') === 'percentage') {
+            return $maxScore > 0 && (($rawScore / $maxScore) * 100) >= $passingScore;
+        }
+
+        return $rawScore >= $passingScore;
+    }
+
+    private function calculateRawScore($answer, ?string $type): float
+    {
+        $totalScore = 0.0;
+
+        foreach ($answer->userAnswerDetails as $detail) {
+            $question = $detail->question;
+            if (! $question) {
+                continue;
+            }
+
+            $questionType = $question->question_type ?? 'multiple_choice';
+            $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+            $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $totalScore += $detail->is_correct ? $weight : 0;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    if ($pendingReview) {
+                        continue 2;
+                    }
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    break;
+
+                case 'audio':
+                    continue 2;
+
+                default:
+                    if (! $detail->questionOption) {
+                        continue 2;
+                    }
+
+                    $weight = (float) ($detail->questionOption->weight ?? 0);
+                    $fallbackWeight = match ($type) {
+                        'twk', 'tiu' => 5,
+                        'writing', 'reading', 'listening' => 10,
+                        default => 1,
+                    };
+                    $totalScore += $weight > 0 ? $weight : ($type === 'tkp' ? 1 : ($detail->is_correct ? $fallbackWeight : 0));
+                    break;
+            }
+        }
+
+        return $totalScore;
+    }
+
+    private function getMaxPossibleScoreForDetail(int $tryoutDetailId, ?string $type): float
+    {
+        if (isset($this->maxScoreByDetail[$tryoutDetailId])) {
+            return $this->maxScoreByDetail[$tryoutDetailId];
+        }
+
+        $questions = Question::where('tryout_detail_id', $tryoutDetailId)
+            ->with('questionOptions')
+            ->get();
+        $total = 0.0;
+
+        foreach ($questions as $question) {
+            $questionType = $question->question_type ?? 'multiple_choice';
+
+            switch ($questionType) {
+                case 'matching':
+                    $weight = (float) ($question->default_weight ?? 0);
+                    if ($weight <= 0) {
+                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
+                            ? count($question->metadata['matching_pairs'])
+                            : 1;
+                        $weight = max(1, $pairs);
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'short_answer':
+                case 'essay':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
+                case 'audio':
+                    break;
+
+                default:
+                    $maxWeight = (float) ($question->questionOptions->max('weight') ?? 0);
+                    $fallbackWeight = match ($type) {
+                        'twk', 'tiu' => 5,
+                        'writing', 'reading', 'listening' => 10,
+                        default => 1,
+                    };
+                    $total += $maxWeight > 0 ? $maxWeight : $fallbackWeight;
+                    break;
+            }
+        }
+
+        return $this->maxScoreByDetail[$tryoutDetailId] = $total;
+    }
+
+    private function getDefaultPassingScore(?string $type): int
+    {
+        return match ($type) {
+            'word', 'excel', 'ppt' => 70,
+            'teknis', 'social culture', 'management', 'interview' => 65,
+            default => 60,
+        };
     }
 }
