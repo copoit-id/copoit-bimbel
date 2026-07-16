@@ -169,8 +169,8 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->name('user.package.tryout.pembahasan.ai-chat');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->name('user.package.tryout.pembahasan.ai-speech');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-chat');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->middleware('throttle:5,1')->name('user.package.tryout.pembahasan.ai-speech');
     });
 
     Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');

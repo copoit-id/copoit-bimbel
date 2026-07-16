@@ -24,6 +24,7 @@ use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -1982,6 +1983,10 @@ class PackageController extends Controller
                 return redirect()->route('user.package.index')
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                abort(404);
+            }
         }
 
         // Get user attempts for this tryout dengan data yang lebih lengkap
@@ -3559,6 +3564,10 @@ class PackageController extends Controller
                 return redirect()->route('user.package.index')
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                abort(404);
+            }
         }
 
         // Get user's latest completed answers for this tryout
@@ -3643,9 +3652,10 @@ class PackageController extends Controller
             ->where('attempt_token', $token)
             ->whereIn('question_id', $questions->pluck('question_id'))
             ->orderBy('created_at')
-            ->get(['question_id', 'user_message', 'assistant_message', 'created_at'])
+            ->get(['id', 'question_id', 'user_message', 'assistant_message', 'created_at'])
             ->groupBy('question_id')
             ->map(fn ($messages) => $messages->map(fn ($message) => [
+                'id' => $message->id,
                 'user_message' => $message->user_message,
                 'assistant_message' => $message->assistant_message,
                 'created_at' => optional($message->created_at)->toIso8601String(),
@@ -3893,6 +3903,12 @@ class PackageController extends Controller
                     'message' => 'Anda tidak memiliki akses ke paket ini.',
                 ], 403);
             }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                return response()->json([
+                    'message' => 'Tryout ini tidak termasuk dalam paket tersebut.',
+                ], 403);
+            }
         }
 
         $userAnswers = \App\Models\UserAnswer::where('user_id', Auth::id())
@@ -3932,7 +3948,7 @@ class PackageController extends Controller
             ], 422);
         }
 
-        AiDiscussionUsageLog::create([
+        $usageLog = AiDiscussionUsageLog::create([
             'user_id' => Auth::id(),
             'tryout_id' => $tryout->tryout_id,
             'question_id' => $question->question_id,
@@ -3947,14 +3963,28 @@ class PackageController extends Controller
             'assistant_message' => $result['message'],
         ]);
 
-        return response()->json($result);
+        return response()->json([...$result, 'discussion_log_id' => $usageLog->id]);
     }
 
     public function speakPembahasanAi(Request $request, $id_package, $id_tryout, $token)
     {
         $data = $request->validate([
-            'text' => ['required', 'string', 'max:4096'],
+            'usage_log_id' => ['required', 'integer'],
         ]);
+        $isFreeTryout = $id_package === 'free';
+        $tryout = Tryout::findOrFail($id_tryout);
+        abort_unless($tryout->show_discussion, 403);
+
+        if (! $isFreeTryout) {
+            $package = Package::findOrFail($id_package);
+            $hasAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(fn ($query) => $query->whereNull('end_date')->orWhere('end_date', '>', now()))
+                ->exists();
+            abort_unless($hasAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 403);
+        }
 
         abort_unless(UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
@@ -3962,10 +3992,19 @@ class PackageController extends Controller
             ->where('status', 'completed')
             ->exists(), 404);
 
+        $usageLog = AiDiscussionUsageLog::query()
+            ->whereKey($data['usage_log_id'])
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->whereNotNull('assistant_message')
+            ->firstOrFail();
+
         $apiKey = (string) config('services.openai.api_key');
         if ($apiKey === '') {
             return response()->json(['message' => 'Suara AI belum dikonfigurasi.'], 422);
         }
+        abort_unless(Cache::add('ai-discussion-tts:' . Auth::id() . ':' . $usageLog->id, true, now()->addDay()), 429);
 
         try {
             $response = Http::withToken($apiKey)
@@ -3974,7 +4013,7 @@ class PackageController extends Controller
                 ->post(rtrim((string) config('services.openai.base_url'), '/') . '/audio/speech', [
                     'model' => 'tts-1-hd',
                     'voice' => 'nova',
-                    'input' => strip_tags($data['text']),
+                    'input' => Str::limit(strip_tags((string) $usageLog->assistant_message), 4000, ''),
                     'response_format' => 'mp3',
                 ]);
         } catch (\Throwable $exception) {

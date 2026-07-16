@@ -16,7 +16,14 @@
         @csrf
         @method('PUT')
 
-        <div class="mb-6">
+        <nav class="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200 pb-3" aria-label="Kategori pengaturan">
+            <button type="button" data-settings-tab="general" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Umum</button>
+            <button type="button" data-settings-tab="ai" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Diskusi AI</button>
+            <button type="button" data-settings-tab="pricing" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Tarif Model AI</button>
+            <button type="button" data-settings-tab="payment" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Pembayaran AI</button>
+        </nav>
+
+        <div class="mb-6" data-settings-tab-panel="general">
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
                     <span class="block text-base font-semibold text-gray-900">Asisten Admin</span>
@@ -33,7 +40,7 @@
             </label>
         </div>
 
-        <section class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <section class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white" data-settings-tab-panel="ai">
             <div class="border-b border-gray-100 px-5 py-4">
                 <h2 class="font-semibold text-gray-900">Diskusi AI Pembahasan</h2>
                 <p class="mt-1 text-sm text-gray-500">Kelola layanan AI pusat tanpa membuka kredensial atau pengaturan ini ke admin.</p>
@@ -87,16 +94,6 @@
                 <div class="self-end rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2.5 text-sm text-blue-700">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</div>
             </div>
 
-            <div class="overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40">
-                <div class="border-b border-sky-100 px-4 py-3">
-                    <p class="font-semibold text-sky-950">Tarif Model OpenAI</p>
-                    <p class="mt-1 text-xs text-sky-800">Tarif aktif disimpan di database, bukan di ENV. Masukkan tarif resmi OpenAI per 1 juta token untuk mengaktifkan model baru. Tarif setiap request akan disnapshot agar riwayat laba tidak berubah.</p>
-                </div>
-                <div class="overflow-x-auto bg-white">
-                    <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Model</th><th class="px-4 py-3">Input / 1 jt token (US$)</th><th class="px-4 py-3">Output / 1 jt token (US$)</th><th class="px-4 py-3">Kurs USD → IDR</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($openAiModels as $index => $model)@php($pricing = $aiModelPricings->get($model['id']))<tr><td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900"><span class="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ $model['id'] }}</span><input type="hidden" name="ai_model_pricings[{{ $index }}][model]" value="{{ $model['id'] }}"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][input_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.input_per_million_usd", $pricing?->input_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][output_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.output_per_million_usd", $pricing?->output_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][usd_to_idr]" min="1" max="1000000" step="0.0001" value="{{ old("ai_model_pricings.$index.usd_to_idr", $pricing?->usd_to_idr ?? 16000) }}" class="w-40 rounded-lg border-gray-200 text-sm"></td></tr>@empty<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Simpan API key OpenAI lalu muat ulang halaman untuk mengambil daftar model.</td></tr>@endforelse</tbody></table>
-                </div>
-            </div>
-
             <div class="grid gap-4 lg:grid-cols-2">
                 <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
                     <div><p class="font-semibold text-gray-900">OpenAI</p><p class="mt-1 text-xs text-gray-500">API untuk model GPT dan kompatibel OpenAI.</p></div>
@@ -119,7 +116,17 @@
             </div>
         </section>
 
-        <section class="mb-6 overflow-hidden rounded-xl border border-indigo-200 bg-white">
+        <section class="mb-6 overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40" data-settings-tab-panel="pricing">
+            <div class="border-b border-sky-100 px-5 py-4">
+                <h2 class="font-semibold text-sky-950">Tarif Model OpenAI</h2>
+                <p class="mt-1 text-sm text-sky-800">Tarif aktif disimpan di database, bukan di ENV. Masukkan tarif resmi OpenAI per 1 juta token untuk mengaktifkan model baru. Tarif setiap request akan disnapshot agar riwayat laba tidak berubah.</p>
+            </div>
+            <div class="overflow-x-auto bg-white">
+                <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Model</th><th class="px-4 py-3">Input / 1 jt token (US$)</th><th class="px-4 py-3">Output / 1 jt token (US$)</th><th class="px-4 py-3">Kurs USD → IDR</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($openAiModels as $index => $model)@php($pricing = $aiModelPricings->get($model['id']))<tr><td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900"><span class="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ $model['id'] }}</span><input type="hidden" name="ai_model_pricings[{{ $index }}][model]" value="{{ $model['id'] }}"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][input_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.input_per_million_usd", $pricing?->input_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][output_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.output_per_million_usd", $pricing?->output_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][usd_to_idr]" min="1" max="1000000" step="0.0001" value="{{ old("ai_model_pricings.$index.usd_to_idr", $pricing?->usd_to_idr ?? 16000) }}" class="w-40 rounded-lg border-gray-200 text-sm"></td></tr>@empty<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Simpan API key OpenAI lalu muat ulang halaman untuk mengambil daftar model.</td></tr>@endforelse</tbody></table>
+            </div>
+        </section>
+
+        <section class="mb-6 overflow-hidden rounded-xl border border-indigo-200 bg-white" data-settings-tab-panel="payment">
             <div class="border-b border-indigo-100 bg-indigo-50/60 px-5 py-4">
                 <h2 class="font-semibold text-gray-900">Pembayaran AI Gateway</h2>
                 <p class="mt-1 text-sm text-gray-600">Khusus untuk pembelian paket AI dari project yang terhubung ke gateway pusat. Konfigurasi ini terpisah dari payment gateway di halaman Admin.</p>
@@ -146,7 +153,7 @@
             </div>
         </section>
 
-        <div class="mb-6 grid gap-4 md:grid-cols-2">
+        <div class="mb-6 grid gap-4 md:grid-cols-2" data-settings-tab-panel="general">
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
                     <span class="block text-base font-semibold text-gray-900">Menu Jadwal, Absensi & Rombel</span>
@@ -178,7 +185,7 @@
             </label>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-3" data-settings-tab-panel="general">
             @foreach([
                 'landing' => ['label' => 'Landing Page', 'description' => 'Jika off, route / diarahkan ke login.'],
                 'artikel' => ['label' => 'Artikel', 'description' => 'Jika off, artikel tidak tampil di public dan menu admin.'],
@@ -207,3 +214,29 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const buttons = document.querySelectorAll('[data-settings-tab]');
+        const panels = document.querySelectorAll('[data-settings-tab-panel]');
+        const activeClass = ['bg-primary', 'text-white'];
+        const inactiveClass = ['bg-gray-100', 'text-gray-600', 'hover:bg-gray-200'];
+
+        const showTab = (tab) => {
+            panels.forEach((panel) => {
+                panel.classList.toggle('hidden', panel.dataset.settingsTabPanel !== tab);
+            });
+            buttons.forEach((button) => {
+                const isActive = button.dataset.settingsTab === tab;
+                button.classList.remove(...activeClass, ...inactiveClass);
+                button.classList.add(...(isActive ? activeClass : inactiveClass));
+                button.setAttribute('aria-selected', String(isActive));
+            });
+        };
+
+        buttons.forEach((button) => button.addEventListener('click', () => showTab(button.dataset.settingsTab)));
+        showTab({{ $errors->has('ai_model_pricings') ? "'pricing'" : "'general'" }});
+    });
+</script>
+@endpush

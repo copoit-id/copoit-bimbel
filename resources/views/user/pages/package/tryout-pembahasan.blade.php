@@ -1092,7 +1092,7 @@
             messages.innerHTML = '';
             history.forEach((entry) => {
                 appendAiDiscussionMessage(messages, entry.user_message, 'user');
-                appendAiDiscussionMessage(messages, entry.assistant_message, 'ai');
+                appendAiDiscussionMessage(messages, entry.assistant_message, 'ai', entry.id);
             });
         }
 
@@ -1184,10 +1184,10 @@
 
                 loadingBubble.remove();
                 const aiMessage = data.message || 'AI tidak mengembalikan jawaban.';
-                appendAiDiscussionMessage(messages, aiMessage, 'ai');
+                appendAiDiscussionMessage(messages, aiMessage, 'ai', data.discussion_log_id);
                 updateAiGatewayUsageBadge(data.quota);
                 if (shouldSpeakResponse) {
-                    playAiDiscussionAudio(aiMessage);
+                    playAiDiscussionAudio(data.discussion_log_id, aiMessage);
                 }
             } catch (err) {
                 loadingBubble.remove();
@@ -1202,7 +1202,7 @@
         });
     });
 
-    function appendAiDiscussionMessage(messages, text, type) {
+    function appendAiDiscussionMessage(messages, text, type, usageLogId = null) {
         const bubble = document.createElement('div');
         const isUser = type === 'user';
         const isAiResponse = type === 'ai';
@@ -1222,7 +1222,7 @@
             replay.type = 'button';
             replay.className = 'mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline';
             replay.innerHTML = '<i class="ri-volume-up-line"></i> Dengarkan lagi';
-            replay.addEventListener('click', () => playAiDiscussionAudio(text));
+            replay.addEventListener('click', () => playAiDiscussionAudio(usageLogId, text));
             bubble.appendChild(replay);
         } else {
             bubble.classList.add('whitespace-pre-line');
@@ -1233,7 +1233,12 @@
         return bubble;
     }
 
-    async function playAiDiscussionAudio(text) {
+    async function playAiDiscussionAudio(usageLogId, text) {
+        if (!Number.isInteger(Number(usageLogId))) {
+            speakAiDiscussionResponseFallback(text);
+            return;
+        }
+
         try {
             const response = await fetch(aiSpeechEndpoint, {
                 method: 'POST',
@@ -1242,7 +1247,7 @@
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': csrfToken,
                 },
-                body: JSON.stringify({ text }),
+                body: JSON.stringify({ usage_log_id: usageLogId }),
             });
             if (!response.ok) throw new Error('TTS gagal');
             const audioUrl = URL.createObjectURL(await response.blob());
