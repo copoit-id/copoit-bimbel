@@ -15,15 +15,22 @@
     <form method="POST" action="{{ route('super-admin.general-settings.update') }}" class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         @csrf
         @method('PUT')
+        <input type="hidden" name="settings_tab" value="{{ $activeSettingsTab }}">
 
         <nav class="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200 pb-3" aria-label="Kategori pengaturan">
-            <button type="button" data-settings-tab="general" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Umum</button>
-            <button type="button" data-settings-tab="ai" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Diskusi AI</button>
-            <button type="button" data-settings-tab="pricing" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Tarif Model AI</button>
-            <button type="button" data-settings-tab="payment" class="settings-tab whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold">Pembayaran AI</button>
+            @foreach(['general' => 'Umum', 'ai' => 'Diskusi AI', 'pricing' => 'Tarif Model AI', 'payment' => 'Pembayaran AI'] as $tab => $label)
+                <a href="{{ route('super-admin.general-settings.edit', ['tab' => $tab]) }}"
+                    @class([
+                        'whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold',
+                        'bg-primary text-white' => $activeSettingsTab === $tab,
+                        'bg-gray-100 text-gray-600 hover:bg-gray-200' => $activeSettingsTab !== $tab,
+                    ])>
+                    {{ $label }}
+                </a>
+            @endforeach
         </nav>
 
-        <div class="mb-6" data-settings-tab-panel="general">
+        <div @class(['mb-6', 'hidden' => $activeSettingsTab !== 'general'])>
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
                     <span class="block text-base font-semibold text-gray-900">Asisten Admin</span>
@@ -40,7 +47,7 @@
             </label>
         </div>
 
-        <section class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white" data-settings-tab-panel="ai">
+        <section @class(['mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white', 'hidden' => $activeSettingsTab !== 'ai'])>
             <div class="border-b border-gray-100 px-5 py-4">
                 <h2 class="font-semibold text-gray-900">Diskusi AI Pembahasan</h2>
                 <p class="mt-1 text-sm text-gray-500">Kelola layanan AI pusat tanpa membuka kredensial atau pengaturan ini ke admin.</p>
@@ -79,17 +86,24 @@
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Model Chat</label>
                     <select name="ai_discussion_model" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
-                        @foreach($aiDiscussionModels as $model)
-                            <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
-                                {{ $model['label'] }}
-                            </option>
-                        @endforeach
+                        @forelse(collect($aiDiscussionModels)->groupBy('provider') as $provider => $models)
+                            <optgroup label="{{ $provider === 'gemini' ? 'Gemini' : 'OpenAI' }}">
+                                @foreach($models as $model)
+                                    <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
+                                        {{ $model['id'] }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @empty
+                            <option value="" disabled selected>Belum ada model bertarif aktif.</option>
+                        @endforelse
                     </select>
                     <p class="mt-1 text-xs text-gray-500">Model OpenAI dan Gemini diambil dari API masing-masing berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif tersimpan yang dapat dipilih agar laba tetap akurat.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
                     <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000" value="{{ old('ai_discussion_max_output_tokens', $aiDiscussion['max_output_tokens'] ?? 700) }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
+                    <p class="mt-1 text-xs text-gray-500">Rekomendasi: 700 token. Cukup untuk pembahasan bertahap, namun tetap hemat biaya.</p>
                 </div>
                 <div class="self-end rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2.5 text-sm text-blue-700">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</div>
             </div>
@@ -116,7 +130,7 @@
             </div>
         </section>
 
-        <section class="mb-6 overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40" data-settings-tab-panel="pricing">
+        <section @class(['mb-6 overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40', 'hidden' => $activeSettingsTab !== 'pricing'])>
             <div class="border-b border-sky-100 px-5 py-4">
                 <h2 class="font-semibold text-sky-950">Tarif Model AI</h2>
                 <p class="mt-1 text-sm text-sky-800">Daftar model OpenAI dan Gemini diambil dari API provider. Tarif aktif disimpan di database, bukan di ENV. Isi tarif per 1 juta token untuk mengaktifkan model; setiap request akan menyimpan snapshot tarif agar riwayat laba tidak berubah.</p>
@@ -126,7 +140,7 @@
             </div>
         </section>
 
-        <section class="mb-6 overflow-hidden rounded-xl border border-indigo-200 bg-white" data-settings-tab-panel="payment">
+        <section @class(['mb-6 overflow-hidden rounded-xl border border-indigo-200 bg-white', 'hidden' => $activeSettingsTab !== 'payment'])>
             <div class="border-b border-indigo-100 bg-indigo-50/60 px-5 py-4">
                 <h2 class="font-semibold text-gray-900">Pembayaran AI Gateway</h2>
                 <p class="mt-1 text-sm text-gray-600">Khusus untuk pembelian paket AI dari project yang terhubung ke gateway pusat. Konfigurasi ini terpisah dari payment gateway di halaman Admin.</p>
@@ -153,7 +167,7 @@
             </div>
         </section>
 
-        <div class="mb-6 grid gap-4 md:grid-cols-2" data-settings-tab-panel="general">
+        <div @class(['mb-6 grid gap-4 md:grid-cols-2', 'hidden' => $activeSettingsTab !== 'general'])>
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
                     <span class="block text-base font-semibold text-gray-900">Menu Jadwal, Absensi & Rombel</span>
@@ -185,7 +199,7 @@
             </label>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-3" data-settings-tab-panel="general">
+        <div @class(['grid gap-4 md:grid-cols-3', 'hidden' => $activeSettingsTab !== 'general'])>
             @foreach([
                 'landing' => ['label' => 'Landing Page', 'description' => 'Jika off, route / diarahkan ke login.'],
                 'artikel' => ['label' => 'Artikel', 'description' => 'Jika off, artikel tidak tampil di public dan menu admin.'],
@@ -214,48 +228,3 @@
     </form>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-    const initializeGeneralSettingsTabs = () => {
-        const buttons = document.querySelectorAll('[data-settings-tab]');
-        const panels = document.querySelectorAll('[data-settings-tab-panel]');
-        const activeClass = ['bg-primary', 'text-white'];
-        const inactiveClass = ['bg-gray-100', 'text-gray-600', 'hover:bg-gray-200'];
-
-        if (buttons.length === 0 || panels.length === 0) {
-            return;
-        }
-
-        const showTab = (tab) => {
-            const selectedTab = Array.from(buttons).some((button) => button.dataset.settingsTab === tab)
-                ? tab
-                : 'general';
-
-            panels.forEach((panel) => {
-                panel.classList.toggle('hidden', panel.dataset.settingsTabPanel !== selectedTab);
-            });
-            buttons.forEach((button) => {
-                const isActive = button.dataset.settingsTab === selectedTab;
-                button.classList.remove(...activeClass, ...inactiveClass);
-                button.classList.add(...(isActive ? activeClass : inactiveClass));
-                button.setAttribute('aria-selected', String(isActive));
-            });
-
-            if (window.location.hash !== `#${selectedTab}`) {
-                window.history.replaceState(null, '', `#${selectedTab}`);
-            }
-        };
-
-        buttons.forEach((button) => button.addEventListener('click', () => showTab(button.dataset.settingsTab)));
-        window.addEventListener('hashchange', () => showTab(window.location.hash.replace('#', '')));
-        showTab(window.location.hash.replace('#', '') || {{ $errors->has('ai_model_pricings') ? "'pricing'" : "'general'" }});
-    };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeGeneralSettingsTabs, { once: true });
-    } else {
-        initializeGeneralSettingsTabs();
-    }
-</script>
-@endpush

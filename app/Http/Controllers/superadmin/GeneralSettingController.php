@@ -20,8 +20,9 @@ class GeneralSettingController extends Controller
     ) {
     }
 
-    public function edit()
+    public function edit(Request $request)
     {
+        $activeSettingsTab = $this->activeSettingsTab($request->query('tab'));
         $pages = $this->ensurePages();
         $clientProfile = ClientProfile::query()->first();
         $openAiModels = $this->availableOpenAiDiscussionModels($clientProfile);
@@ -34,7 +35,7 @@ class GeneralSettingController extends Controller
             ->keyBy(fn (AiModelPricing $pricing): string => $pricing->provider . ':' . $pricing->model);
 
         return view('super-admin.general-settings.edit', compact(
-            'pages', 'clientProfile', 'aiDiscussionModels', 'availableModels', 'aiModelPricings'
+            'pages', 'clientProfile', 'aiDiscussionModels', 'availableModels', 'aiModelPricings', 'activeSettingsTab'
         ));
     }
 
@@ -56,6 +57,7 @@ class GeneralSettingController extends Controller
         $selectableModels = array_unique([...array_keys($aiDiscussionModels), ...$submittedPricedModels]);
 
         $validated = $request->validate([
+            'settings_tab' => ['nullable', Rule::in(['general', 'ai', 'pricing', 'payment'])],
             'public_visibility' => ['nullable', 'array'],
             'public_visibility.*' => ['nullable', 'boolean'],
             'admin_assistant_enabled' => ['nullable', 'boolean'],
@@ -120,8 +122,17 @@ class GeneralSettingController extends Controller
         $this->aiGatewayCostService->forgetCachedPricing();
 
         return redirect()
-            ->route('super-admin.general-settings.edit')
+            ->route('super-admin.general-settings.edit', [
+                'tab' => $this->activeSettingsTab($validated['settings_tab'] ?? null),
+            ])
             ->with('success', 'Pengaturan General berhasil diperbarui.');
+    }
+
+    private function activeSettingsTab(?string $tab): string
+    {
+        return in_array($tab, ['general', 'ai', 'pricing', 'payment'], true)
+            ? $tab
+            : 'general';
     }
 
     private function ensurePages()
