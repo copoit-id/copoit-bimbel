@@ -35,6 +35,17 @@ class GeneralSettingController extends Controller
             'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
             'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
             'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
+            'ai_gateway_payment_gateway' => ['required', 'in:xendit,midtrans,ipaymu,interactive_qris'],
+            'ai_gateway_payment_gateway_mode' => ['required', 'in:sandbox,production'],
+            'ai_gateway_xendit_secret_key' => ['nullable', 'string', 'max:255'],
+            'ai_gateway_xendit_webhook_token' => ['nullable', 'string', 'max:255'],
+            'ai_gateway_midtrans_server_key' => ['nullable', 'string', 'max:255'],
+            'ai_gateway_midtrans_client_key' => ['nullable', 'string', 'max:255'],
+            'ai_gateway_interactive_qris_api_key' => ['nullable', 'string', 'max:500'],
+            'ai_gateway_interactive_qris_mid' => ['nullable', 'string', 'max:100'],
+            'ai_gateway_interactive_qris_use_tip' => ['nullable', 'boolean'],
+            'ai_gateway_ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
+            'ai_gateway_ipaymu_va' => ['nullable', 'string', 'max:100'],
             'class_schedule_menu_enabled' => ['nullable', 'boolean'],
             'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
         ]);
@@ -56,6 +67,7 @@ class GeneralSettingController extends Controller
                 'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
                 'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
                 'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
+                'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
                 'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
                 'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
             ]);
@@ -121,6 +133,25 @@ class GeneralSettingController extends Controller
             'instruction' => trim((string) $request->input('ai_discussion_instruction', $existing['instruction'] ?? '')),
             'monthly_token_limit' => max(0, (int) ($existing['monthly_token_limit'] ?? 0)),
             'models' => $existing['models'] ?? [],
+        ];
+    }
+
+    private function aiGatewayPaymentSettings(Request $request, ClientProfile $profile): array
+    {
+        $existing = is_array($profile->ai_gateway_payment_settings) ? $profile->ai_gateway_payment_settings : [];
+
+        return [
+            'gateway' => $request->input('ai_gateway_payment_gateway', $existing['gateway'] ?? 'xendit'),
+            'mode' => $request->input('ai_gateway_payment_gateway_mode', $existing['mode'] ?? 'sandbox'),
+            'xendit_secret_key' => trim((string) $request->input('ai_gateway_xendit_secret_key')) ?: ($existing['xendit_secret_key'] ?? null),
+            'xendit_webhook_token' => trim((string) $request->input('ai_gateway_xendit_webhook_token')) ?: ($existing['xendit_webhook_token'] ?? null),
+            'midtrans_server_key' => trim((string) $request->input('ai_gateway_midtrans_server_key')) ?: ($existing['midtrans_server_key'] ?? null),
+            'midtrans_client_key' => trim((string) $request->input('ai_gateway_midtrans_client_key')) ?: ($existing['midtrans_client_key'] ?? null),
+            'interactive_qris_api_key' => trim((string) $request->input('ai_gateway_interactive_qris_api_key')) ?: ($existing['interactive_qris_api_key'] ?? null),
+            'interactive_qris_mid' => trim((string) $request->input('ai_gateway_interactive_qris_mid')) ?: ($existing['interactive_qris_mid'] ?? null),
+            'interactive_qris_use_tip' => $request->boolean('ai_gateway_interactive_qris_use_tip'),
+            'ipaymu_api_key' => trim((string) $request->input('ai_gateway_ipaymu_api_key')) ?: ($existing['ipaymu_api_key'] ?? null),
+            'ipaymu_va' => trim((string) $request->input('ai_gateway_ipaymu_va')) ?: ($existing['ipaymu_va'] ?? null),
         ];
     }
 }

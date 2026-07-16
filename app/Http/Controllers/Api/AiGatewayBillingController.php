@@ -8,17 +8,17 @@ use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUserTrial;
+use App\Services\AiGatewayPaymentService;
 use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AiGatewayBillingController extends Controller
 {
-    public function __construct(private AiGatewaySubscriptionService $subscriptionService)
-    {
-    }
+    public function __construct(
+        private AiGatewaySubscriptionService $subscriptionService,
+        private AiGatewayPaymentService $paymentService,
+    ) {}
 
     private function client(Request $r): AiGatewayClient
     {
@@ -90,16 +90,16 @@ class AiGatewayBillingController extends Controller
             $pendingTransaction->update(['status' => 'expired']);
             $pendingTransaction->subscription?->update(['status' => 'expired']);
         }
-        $gateway = strtolower((string) config('services.payment_gateway', 'xendit'));
-        if (! in_array($gateway, ['xendit', 'midtrans'], true)) {
-            return response()->json(['message' => 'Gateway pembayaran AI belum mendukung metode pembayaran utama yang dipilih.'], 422);
-        }
-
         $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'token_limit' => $p->token_limit, 'chat_limit' => $p->chat_limit, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
         $id = 'AIGW-'.$c->id.'-'.$s->id.'-'.Str::upper(Str::random(8));
-        $payment = $gateway === 'midtrans'
-            ? $this->createMidtransCheckout($p, $id, $d, $successRedirectUrl, $failureRedirectUrl)
-            : $this->createXenditCheckout($p, $id, $d, $successRedirectUrl, $failureRedirectUrl);
+        try {
+            $payment = $this->paymentService->createCheckout($p, $id, $d, $successRedirectUrl, $failureRedirectUrl);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $s->delete();
+
+            return response()->json(['message' => 'Payment gateway AI belum siap digunakan.'], 422);
+        }
 
         if (! ($payment['success'] ?? false)) {
             $s->delete();
@@ -107,113 +107,59 @@ class AiGatewayBillingController extends Controller
             return response()->json(['message' => $payment['message'] ?? 'Gagal membuat pembayaran Pembahasan AI.'], 422);
         }
 
-        AiGatewayTransaction::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'ai_gateway_subscription_id' => $s->id, 'external_id' => $id, 'provider' => $gateway, 'provider_invoice_id' => $payment['provider_id'] ?? null, 'amount' => $p->price, 'status' => 'pending', 'details' => $payment['details']]);
+        AiGatewayTransaction::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'ai_gateway_subscription_id' => $s->id, 'external_id' => $id, 'provider' => $payment['provider'], 'provider_invoice_id' => $payment['provider_id'] ?? null, 'amount' => $p->price, 'status' => 'pending', 'details' => $payment['details']]);
 
         return ['invoice_url' => $payment['url'], 'external_id' => $id];
     }
 
-    private function createXenditCheckout(AiGatewayPlan $plan, string $externalId, array $customer, ?string $successRedirectUrl, ?string $failureRedirectUrl): array
-    {
-        $secretKey = (string) config('services.xendit.secret_key');
-        if ($secretKey === '') {
-            return ['success' => false, 'message' => 'Credential Xendit belum dikonfigurasi.'];
-        }
-
-        $response = Http::withBasicAuth($secretKey, '')
-            ->acceptJson()
-            ->post(rtrim((string) config('services.xendit.base_url'), '/').'/v2/invoices', [
-                'external_id' => $externalId,
-                'amount' => $plan->price,
-                'description' => 'Paket AI Gateway: '.$plan->name,
-                'invoice_duration' => 86400,
-                'success_redirect_url' => $successRedirectUrl,
-                'failure_redirect_url' => $failureRedirectUrl,
-                'customer' => ['given_names' => $customer['customer_name'], 'email' => $customer['customer_email']],
-            ]);
-
-        if (! $response->successful()) {
-            Log::warning('AI gateway invoice creation rejected by Xendit.', [
-                'status' => $response->status(),
-                'provider_code' => trim((string) data_get($response->json(), 'error_code', 'unknown')),
-                'provider_message' => Str::limit(trim(strip_tags((string) data_get($response->json(), 'message', ''))), 300),
-                'external_id' => $externalId,
-                'amount' => $plan->price,
-            ]);
-
-            return ['success' => false, 'message' => 'Layanan pembayaran Xendit menolak pembuatan tagihan.'];
-        }
-
-        $payload = $response->json();
-        $url = (string) data_get($payload, 'invoice_url');
-
-        return $url !== ''
-            ? ['success' => true, 'url' => $url, 'provider_id' => data_get($payload, 'id'), 'details' => $payload]
-            : ['success' => false, 'message' => 'Xendit tidak mengembalikan tautan pembayaran.'];
-    }
-
-    private function createMidtransCheckout(AiGatewayPlan $plan, string $externalId, array $customer, ?string $successRedirectUrl, ?string $failureRedirectUrl): array
-    {
-        $serverKey = (string) config('services.midtrans.server_key');
-        if ($serverKey === '') {
-            return ['success' => false, 'message' => 'Credential Midtrans belum dikonfigurasi.'];
-        }
-
-        $response = Http::withBasicAuth($serverKey, '')
-            ->acceptJson()
-            ->post(config('services.midtrans.snap_url'), [
-                'transaction_details' => ['order_id' => $externalId, 'gross_amount' => $plan->price],
-                'item_details' => [[
-                    'id' => (string) $plan->id,
-                    'price' => $plan->price,
-                    'quantity' => 1,
-                    'name' => Str::limit('Paket AI: '.$plan->name, 50, ''),
-                ]],
-                'customer_details' => ['first_name' => $customer['customer_name'], 'email' => $customer['customer_email']],
-                'callbacks' => array_filter([
-                    'finish' => $successRedirectUrl,
-                    'error' => $failureRedirectUrl,
-                ]),
-            ]);
-
-        if (! $response->successful()) {
-            Log::warning('AI gateway payment creation rejected by Midtrans.', [
-                'status' => $response->status(),
-                'provider_code' => trim((string) data_get($response->json(), 'status_code', 'unknown')),
-                'provider_message' => Str::limit(trim(strip_tags((string) data_get($response->json(), 'status_message', data_get($response->json(), 'error_messages.0', '')))), 300),
-                'external_id' => $externalId,
-                'amount' => $plan->price,
-            ]);
-
-            return ['success' => false, 'message' => 'Layanan pembayaran Midtrans menolak pembuatan tagihan.'];
-        }
-
-        $payload = $response->json();
-        $url = (string) data_get($payload, 'redirect_url');
-
-        return $url !== ''
-            ? ['success' => true, 'url' => $url, 'details' => $payload]
-            : ['success' => false, 'message' => 'Midtrans tidak mengembalikan tautan pembayaran.'];
-    }
-
     public function webhook(Request $r)
     {
-        $webhookToken = (string) config('services.xendit.webhook_token', '');
-        $callbackToken = (string) $r->header('X-CALLBACK-TOKEN', '');
-
-        if ($webhookToken === '' || $callbackToken === '' || ! hash_equals($webhookToken, $callbackToken)) {
+        if (! $this->paymentService->handleXenditWebhook($r->all(), $r->header('X-CALLBACK-TOKEN'))) {
             return response()->json(['message' => 'Invalid callback token'], 401);
         }
 
-        $t = AiGatewayTransaction::where('external_id', $r->input('external_id'))
-            ->where('provider', 'xendit')
-            ->firstOrFail();
-        if ($r->input('status') === 'PAID' && $t->status === 'pending') {
-            $this->subscriptionService->activateTransaction($t);
-        } elseif (in_array($r->input('status'), ['EXPIRED', 'FAILED'])) {
-            $t->update(['status' => strtolower($r->input('status'))]);
+        return ['message' => 'OK'];
+    }
+
+    public function midtransWebhook(Request $request)
+    {
+        if (! $this->paymentService->handleMidtransWebhook($request->all())) {
+            return response()->json(['message' => 'Invalid signature'], 401);
         }
 
         return ['message' => 'OK'];
+    }
+
+    public function ipaymuWebhook(Request $request)
+    {
+        $externalId = (string) ($request->input('reference_id') ?: $request->input('referenceId') ?: '');
+        $transaction = $externalId !== ''
+            ? AiGatewayTransaction::query()->where('external_id', $externalId)->where('provider', 'ipaymu')->first()
+            : null;
+
+        if (! $transaction) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+
+        $this->paymentService->synchronize($transaction);
+
+        return ['message' => 'OK'];
+    }
+
+    public function showQrisPayment(string $externalId)
+    {
+        $transaction = AiGatewayTransaction::query()->where('external_id', $externalId)->where('provider', 'interactive_qris')->firstOrFail();
+        $transaction = $this->paymentService->synchronize($transaction);
+
+        return view('ai-gateway.qris-payment', compact('transaction'));
+    }
+
+    public function qrisStatus(string $externalId)
+    {
+        $transaction = AiGatewayTransaction::query()->where('external_id', $externalId)->where('provider', 'interactive_qris')->firstOrFail();
+        $transaction = $this->paymentService->synchronize($transaction);
+
+        return response()->json(['status' => $transaction->status]);
     }
 
     private function syncLatestPendingPayment(AiGatewayClient $client, string $externalUserId): void
@@ -225,30 +171,11 @@ class AiGatewayBillingController extends Controller
             ->latest()
             ->first();
 
-        if (!$transaction || $transaction->provider !== 'xendit' || blank($transaction->provider_invoice_id)) {
+        if (! $transaction) {
             return;
         }
 
-        try {
-            $http = Http::withBasicAuth((string) config('services.xendit.secret_key'), '')
-                ->timeout(10)
-                ->acceptJson();
-            $baseUrl = rtrim((string) config('services.xendit.base_url'), '/');
-            $response = $http->get($baseUrl . '/v2/invoices/' . $transaction->provider_invoice_id);
-            $invoice = $response->successful() ? $response->json() : null;
-
-            if (!is_array($invoice) || blank($invoice['status'] ?? null)) {
-                $lookup = $http->get($baseUrl . '/v2/invoices', ['external_id' => $transaction->external_id]);
-                $invoice = data_get($lookup->json(), 'data.0', $lookup->json());
-            }
-
-            if (strtoupper((string) data_get($invoice, 'status')) === 'PAID') {
-                $this->subscriptionService->activateTransaction($transaction);
-            }
-        } catch (\Throwable $exception) {
-            report($exception);
-            // Webhook tetap menjadi jalur utama; sinkronisasi ini hanya fallback saat status dibuka user.
-        }
+        $this->paymentService->synchronize($transaction);
     }
 
     private function paymentUrl(AiGatewayTransaction $transaction): ?string
@@ -274,5 +201,4 @@ class AiGatewayBillingController extends Controller
 
         return $redirectUrl;
     }
-
 }

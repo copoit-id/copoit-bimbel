@@ -4,6 +4,7 @@
 @php
     $aiDiscussion = is_array($clientProfile?->ai_discussion_settings) ? $clientProfile->ai_discussion_settings : [];
     $aiProviders = is_array($aiDiscussion['providers'] ?? null) ? $aiDiscussion['providers'] : [];
+    $aiGatewayPayment = is_array($clientProfile?->ai_gateway_payment_settings) ? $clientProfile->ai_gateway_payment_settings : [];
 @endphp
 <div class="space-y-6">
     <div>
@@ -98,6 +99,33 @@
                 <label class="mb-1 block text-sm font-medium text-gray-700">Instruksi Tambahan Tutor AI</label>
                 <textarea name="ai_discussion_instruction" rows="3" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="Contoh: berikan petunjuk bertahap, jangan langsung jawaban akhir.">{{ old('ai_discussion_instruction', $aiDiscussion['instruction'] ?? '') }}</textarea>
             </div>
+            </div>
+        </section>
+
+        <section class="mb-6 overflow-hidden rounded-xl border border-indigo-200 bg-white">
+            <div class="border-b border-indigo-100 bg-indigo-50/60 px-5 py-4">
+                <h2 class="font-semibold text-gray-900">Pembayaran AI Gateway</h2>
+                <p class="mt-1 text-sm text-gray-600">Khusus untuk pembelian paket AI dari project yang terhubung ke gateway pusat. Konfigurasi ini terpisah dari payment gateway di halaman Admin.</p>
+            </div>
+            <div class="space-y-5 p-5">
+                <div class="grid gap-4 md:grid-cols-2">
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Gateway aktif</span><select name="ai_gateway_payment_gateway" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm"><option value="xendit" @selected(old('ai_gateway_payment_gateway', $aiGatewayPayment['gateway'] ?? 'xendit') === 'xendit')>Xendit</option><option value="midtrans" @selected(old('ai_gateway_payment_gateway', $aiGatewayPayment['gateway'] ?? '') === 'midtrans')>Midtrans</option><option value="ipaymu" @selected(old('ai_gateway_payment_gateway', $aiGatewayPayment['gateway'] ?? '') === 'ipaymu')>iPaymu</option><option value="interactive_qris" @selected(old('ai_gateway_payment_gateway', $aiGatewayPayment['gateway'] ?? '') === 'interactive_qris')>InterActive QRIS</option></select></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Mode</span><select name="ai_gateway_payment_gateway_mode" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm"><option value="sandbox" @selected(old('ai_gateway_payment_gateway_mode', $aiGatewayPayment['mode'] ?? 'sandbox') === 'sandbox')>Sandbox</option><option value="production" @selected(old('ai_gateway_payment_gateway_mode', $aiGatewayPayment['mode'] ?? '') === 'production')>Production</option></select></label>
+                </div>
+                <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                    <p>Kosongkan credential yang sudah tersimpan bila tidak ingin menggantinya. Untuk mode production, arahkan webhook provider ke endpoint AI Gateway pusat.</p>
+                    <ul class="mt-2 list-disc space-y-1 pl-4">
+                        <li>Xendit: <code>{{ route('webhook.ai-gateway.xendit') }}</code></li>
+                        <li>Midtrans: <code>{{ route('webhook.ai-gateway.midtrans') }}</code></li>
+                        <li>iPaymu: <code>{{ route('webhook.ai-gateway.ipaymu') }}</code></li>
+                    </ul>
+                </div>
+                <div class="grid gap-4 lg:grid-cols-2">
+                    <div class="space-y-3 rounded-xl border border-gray-200 p-4"><p class="font-semibold text-gray-900">Xendit</p><label class="block text-sm text-gray-700">Secret key<input type="password" name="ai_gateway_xendit_secret_key" autocomplete="new-password" class="mt-1 w-full rounded-lg border-gray-200 text-sm" placeholder="{{ filled($aiGatewayPayment['xendit_secret_key'] ?? null) ? 'Sudah tersimpan' : 'xnd_...' }}"></label><label class="block text-sm text-gray-700">Webhook token<input type="password" name="ai_gateway_xendit_webhook_token" autocomplete="new-password" class="mt-1 w-full rounded-lg border-gray-200 text-sm" placeholder="{{ filled($aiGatewayPayment['xendit_webhook_token'] ?? null) ? 'Sudah tersimpan' : 'Token callback' }}"></label></div>
+                    <div class="space-y-3 rounded-xl border border-gray-200 p-4"><p class="font-semibold text-gray-900">Midtrans</p><label class="block text-sm text-gray-700">Server key<input type="password" name="ai_gateway_midtrans_server_key" autocomplete="new-password" class="mt-1 w-full rounded-lg border-gray-200 text-sm" placeholder="{{ filled($aiGatewayPayment['midtrans_server_key'] ?? null) ? 'Sudah tersimpan' : 'SB-Mid-server-...' }}"></label><label class="block text-sm text-gray-700">Client key<input type="password" name="ai_gateway_midtrans_client_key" autocomplete="new-password" class="mt-1 w-full rounded-lg border-gray-200 text-sm" placeholder="{{ filled($aiGatewayPayment['midtrans_client_key'] ?? null) ? 'Sudah tersimpan' : 'SB-Mid-client-...' }}"></label></div>
+                    <div class="space-y-3 rounded-xl border border-gray-200 p-4"><p class="font-semibold text-gray-900">InterActive QRIS</p><label class="block text-sm text-gray-700">API key<input type="password" name="ai_gateway_interactive_qris_api_key" autocomplete="new-password" class="mt-1 w-full rounded-lg border-gray-200 text-sm" placeholder="{{ filled($aiGatewayPayment['interactive_qris_api_key'] ?? null) ? 'Sudah tersimpan' : 'API key' }}"></label><label class="block text-sm text-gray-700">mID<input name="ai_gateway_interactive_qris_mid" value="{{ old('ai_gateway_interactive_qris_mid', $aiGatewayPayment['interactive_qris_mid'] ?? '') }}" class="mt-1 w-full rounded-lg border-gray-200 text-sm"></label><label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="ai_gateway_interactive_qris_use_tip" value="1" @checked(old('ai_gateway_interactive_qris_use_tip', $aiGatewayPayment['interactive_qris_use_tip'] ?? false))> Aktifkan tip</label></div>
+                    <div class="space-y-3 rounded-xl border border-gray-200 p-4"><p class="font-semibold text-gray-900">iPaymu</p><label class="block text-sm text-gray-700">API key<input type="password" name="ai_gateway_ipaymu_api_key" autocomplete="new-password" class="mt-1 w-full rounded-lg border-gray-200 text-sm" placeholder="{{ filled($aiGatewayPayment['ipaymu_api_key'] ?? null) ? 'Sudah tersimpan' : 'API key' }}"></label><label class="block text-sm text-gray-700">VA<input name="ai_gateway_ipaymu_va" value="{{ old('ai_gateway_ipaymu_va', $aiGatewayPayment['ipaymu_va'] ?? '') }}" class="mt-1 w-full rounded-lg border-gray-200 text-sm"></label></div>
+                </div>
             </div>
         </section>
 

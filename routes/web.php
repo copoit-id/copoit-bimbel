@@ -82,6 +82,7 @@ Route::get('/participant-destinations/official/institutions', [ParticipantDestin
 Route::get('/participant-destinations/official/programs', [ParticipantDestinationLookupController::class, 'programs'])->name('participant-destinations.official.programs');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
+Route::get('/ai-gateway-payments/{externalId}/qris', [\App\Http\Controllers\Api\AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');
 
 Route::prefix('general')->name('general.')->group(function () {
     Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
