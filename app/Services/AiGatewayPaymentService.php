@@ -7,6 +7,7 @@ use App\Models\AiGatewayTransaction;
 use App\Models\ClientProfile;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -182,15 +183,25 @@ class AiGatewayPaymentService
         $data = $body['Data'] ?? $body['data'] ?? [];
         $url = $data['Url'] ?? $data['url'] ?? $data['PaymentUrl'] ?? $data['payment_url'] ?? null;
 
-        return $response->successful() && $this->ipaymuSuccess($body) && filled($url)
-            ? $this->success('ipaymu', $url, [
+        if ($response->successful() && $this->ipaymuSuccess($body) && filled($url)) {
+            return $this->success('ipaymu', $url, [
                 'redirect_url' => $url,
                 'session_id' => $data['SessionID'] ?? $data['sessionId'] ?? null,
                 'ipaymu_transaction_id' => $data['TransactionId'] ?? $data['transactionId'] ?? null,
                 'external_id' => $externalId,
                 'response' => $data,
-            ])
-            : $this->failure('iPaymu menolak pembuatan pembayaran AI.');
+            ]);
+        }
+
+        $message = $this->ipaymuResponseMessage($body, 'iPaymu menolak pembuatan pembayaran AI.', $response->status());
+        Log::warning('AI Gateway iPaymu invoice creation rejected.', [
+            'external_id' => $externalId,
+            'http_status' => $response->status(),
+            'provider_status' => $body['Status'] ?? $body['status'] ?? null,
+            'provider_message' => $message,
+        ]);
+
+        return $this->failure($message);
     }
 
     private function createInteractiveQris(array $settings, AiGatewayPlan $plan, string $externalId): array
@@ -333,5 +344,27 @@ class AiGatewayPaymentService
     private function ipaymuSuccess(array $payload): bool
     {
         return in_array((string) ($payload['Status'] ?? $payload['status'] ?? ''), ['200', '201', 'success', 'Success'], true);
+    }
+
+    private function ipaymuResponseMessage(array $payload, string $fallback, int $httpStatus): string
+    {
+        $message = data_get($payload, 'Message')
+            ?? data_get($payload, 'message')
+            ?? data_get($payload, 'StatusDesc')
+            ?? data_get($payload, 'statusDesc')
+            ?? data_get($payload, 'Description')
+            ?? data_get($payload, 'description')
+            ?? data_get($payload, 'Data.Message')
+            ?? data_get($payload, 'data.message');
+
+        if (is_array($message)) {
+            $message = collect($message)->flatten()->filter()->implode(' ');
+        }
+
+        $message = trim(strip_tags((string) $message));
+
+        return $message !== ''
+            ? 'iPaymu: '.Str::limit($message, 180)
+            : "iPaymu menolak pembuatan pembayaran AI (HTTP {$httpStatus}).";
     }
 }
