@@ -4,6 +4,7 @@ namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassAttendance;
+use App\Models\ClassModel;
 use App\Models\ClassSession;
 use App\Models\UserPackageAcces;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,12 @@ class UserClassScheduleController extends Controller
             ->where(function ($query) use ($user, $destinationCategoryIds, $packageIds) {
                 $query->whereHas('studyGroup.users', fn ($userQuery) => $userQuery->where('users.id', $user->id));
 
+                $query->orWhereHas('class.userAccess', function ($accessQuery) use ($user) {
+                    $accessQuery
+                        ->where('user_id', $user->id)
+                        ->active();
+                });
+
                 $query->orWhere(function ($legacyQuery) use ($destinationCategoryIds, $packageIds) {
                     $legacyQuery->whereDoesntHave('studyGroup.users')
                         ->where(function ($legacyAccessQuery) use ($destinationCategoryIds, $packageIds) {
@@ -48,11 +55,31 @@ class UserClassScheduleController extends Controller
                         });
                 });
             })
-            ->whereDate('session_date', '>=', now()->subDay()->toDateString())
+            ->whereHas('schedule', fn ($scheduleQuery) => $scheduleQuery->where('is_active', true))
+            ->where('status', 'scheduled')
+            ->whereDate('session_date', '>=', now()->toDateString())
             ->orderBy('start_at')
             ->paginate(15);
 
-        return view('user.pages.class-schedule.index', compact('sessions'));
+        $liveClasses = ClassModel::query()
+            ->with('tentor')
+            ->where('status', 'upcoming')
+            ->whereNotNull('schedule_time')
+            ->whereDate('schedule_time', '>=', now()->toDateString())
+            ->where(function ($query) use ($user, $packageIds) {
+                $query->whereHas('userAccess', function ($accessQuery) use ($user) {
+                    $accessQuery
+                        ->where('user_id', $user->id)
+                        ->active();
+                });
+
+                $query->orWhereHas('packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $packageIds));
+            })
+            ->whereDoesntHave('sessions', fn ($sessionQuery) => $sessionQuery->whereDate('session_date', '>=', now()->toDateString()))
+            ->orderBy('schedule_time')
+            ->get();
+
+        return view('user.pages.class-schedule.index', compact('sessions', 'liveClasses'));
     }
 
     public function attend(Request $request, ClassSession $session): RedirectResponse
