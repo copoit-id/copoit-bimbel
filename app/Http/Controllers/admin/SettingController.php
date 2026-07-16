@@ -77,6 +77,12 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
+        if ($request->user()?->isDemoAdmin()) {
+            return redirect()
+                ->route('admin.settings.index')
+                ->with('error', 'Akun demo hanya dapat melihat pengaturan dan tidak dapat mengubahnya.');
+        }
+
         $profile = ClientProfile::query()->first() ?? new ClientProfile;
         $paymentGatewayKeys = array_keys(config('payment_gateways.gateways', [
             'xendit' => [],

@@ -103,12 +103,20 @@
     $aiDiscussionEnabled = (bool) old('ai_discussion_enabled', $aiDiscussionSettings['enabled'] ?? false);
     $aiDiscussionCredentialMode = old('ai_discussion_credential_mode', $aiDiscussionSettings['credential_mode'] ?? 'shared');
     $aiDiscussionModel = old('ai_discussion_model', $aiDiscussionSettings['model'] ?? $aiDefaultModel);
+    $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
+
+        @if ($isDemoAdmin)
+        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p class="font-semibold">Mode lihat akun demo</p>
+            <p class="mt-1">Seluruh pengaturan dikunci dan tidak dapat disimpan oleh akun demo.</p>
+        </div>
+        @endif
 
         @if ($errors->any())
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
@@ -154,6 +162,7 @@
             </div>
         </div>
 
+        <fieldset @disabled($isDemoAdmin)>
         <div data-settings-panel="identity"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'identity' ? 'hidden' : '' }}">
             <div>
@@ -1112,6 +1121,7 @@
                 class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary/90">Simpan
                 Pengaturan</button>
         </div>
+        </fieldset>
     </form>
 </div>
 @endsection
