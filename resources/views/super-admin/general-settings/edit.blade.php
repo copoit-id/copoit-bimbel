@@ -5,6 +5,8 @@
     $aiDiscussion = is_array($clientProfile?->ai_discussion_settings) ? $clientProfile->ai_discussion_settings : [];
     $aiProviders = is_array($aiDiscussion['providers'] ?? null) ? $aiDiscussion['providers'] : [];
     $aiGatewayPayment = is_array($clientProfile?->ai_gateway_payment_settings) ? $clientProfile->ai_gateway_payment_settings : [];
+    $openAiChatModels = collect($aiDiscussionModels)->where('provider', 'openai');
+    $geminiChatModels = collect($aiDiscussionModels)->where('provider', 'gemini');
 @endphp
 <div class="space-y-6">
     <div>
@@ -86,17 +88,27 @@
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Model Chat</label>
                     <select name="ai_discussion_model" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
-                        @forelse(collect($aiDiscussionModels)->groupBy('provider') as $provider => $models)
-                            <optgroup label="{{ $provider === 'gemini' ? 'Gemini' : 'OpenAI' }}">
-                                @foreach($models as $model)
+                        @if($openAiChatModels->isNotEmpty())
+                            <optgroup label="OpenAI">
+                                @foreach($openAiChatModels as $model)
                                     <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
-                                        {{ $model['id'] }}
+                                        OpenAI — {{ $model['id'] }}
                                     </option>
                                 @endforeach
                             </optgroup>
-                        @empty
+                        @endif
+                        @if($geminiChatModels->isNotEmpty())
+                            <optgroup label="Google Gemini">
+                                @foreach($geminiChatModels as $model)
+                                    <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
+                                        Gemini — {{ $model['id'] }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @endif
+                        @if($openAiChatModels->isEmpty() && $geminiChatModels->isEmpty())
                             <option value="" disabled selected>Belum ada model bertarif aktif.</option>
-                        @endforelse
+                        @endif
                     </select>
                     <p class="mt-1 text-xs text-gray-500">Model OpenAI dan Gemini diambil dari API masing-masing berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif tersimpan yang dapat dipilih agar laba tetap akurat.</p>
                 </div>
