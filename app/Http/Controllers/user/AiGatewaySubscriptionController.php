@@ -53,6 +53,7 @@ class AiGatewaySubscriptionController extends Controller
         $data = $request->validate([
             'plan_id' => ['required', 'integer'],
             'return_url' => ['nullable', 'string', 'max:2048'],
+            'combined_checkout' => ['nullable', 'boolean'],
         ]);
         $user = $request->user();
         $returnUrl = $this->safeReturnUrl($request);
@@ -80,11 +81,21 @@ class AiGatewaySubscriptionController extends Controller
                 return back()->with('error', 'Invoice gateway tidak tersedia.');
             }
 
-            $request->session()->put('ai_gateway_pending_payment', [
+            $pendingPayment = [
                 'plan_name' => 'AI',
                 'invoice_url' => $invoiceUrl,
                 'expires_at' => now()->addDay()->toIso8601String(),
-            ]);
+            ];
+
+            $request->session()->put('ai_gateway_pending_payment', $pendingPayment);
+
+            if ($request->boolean('combined_checkout')) {
+                $request->session()->put('ai_gateway_combined_checkout', [
+                    ...$pendingPayment,
+                    'return_url' => $returnUrl,
+                    'product_transaction_id' => null,
+                ]);
+            }
 
             if ($request->expectsJson()) {
                 return response()->json([
@@ -144,32 +155,32 @@ class AiGatewaySubscriptionController extends Controller
             ->{$method}("{$baseUrl}/{$endpoint}", $data);
     }
 
-    private function safeReturnUrl(Request $request): ?string
+    private function safeReturnUrl(Request $request): string
     {
-        $returnUrl = (string) $request->input('return_url', '');
+        $returnUrl = trim((string) $request->input('return_url', ''));
+        $appUrl = url('/');
 
-        if ($returnUrl !== '' && Str::startsWith($returnUrl, url('/'))) {
-            return $this->isLocalUrl($returnUrl) ? null : $returnUrl;
+        if ($returnUrl !== '' && $this->hasSameOrigin($returnUrl, $appUrl)) {
+            return $returnUrl;
         }
 
-        $fallbackUrl = route('user.ai-gateway.index');
-
-        return $this->isLocalUrl($fallbackUrl) ? null : $fallbackUrl;
+        return route('user.ai-gateway.index');
     }
 
-    private function withPaymentStatus(?string $url, string $status): ?string
+    private function withPaymentStatus(string $url, string $status): string
     {
-        if ($url === null) {
-            return null;
-        }
-
         return $url.(str_contains($url, '?') ? '&' : '?').'payment='.$status;
     }
 
-    private function isLocalUrl(string $url): bool
+    private function hasSameOrigin(string $url, string $appUrl): bool
     {
-        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $candidate = parse_url($url);
+        $application = parse_url($appUrl);
 
-        return in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+        return is_array($candidate)
+            && is_array($application)
+            && strtolower((string) ($candidate['scheme'] ?? '')) === strtolower((string) ($application['scheme'] ?? ''))
+            && strtolower((string) ($candidate['host'] ?? '')) === strtolower((string) ($application['host'] ?? ''))
+            && (int) ($candidate['port'] ?? 0) === (int) ($application['port'] ?? 0);
     }
 }

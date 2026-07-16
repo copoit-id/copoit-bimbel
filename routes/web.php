@@ -158,6 +158,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::post('/{package_id}/discount/preview', [PackageController::class, 'previewDiscount'])->name('user.package.discount.preview');
         Route::get('/payment/success', [PackageController::class, 'paymentSuccess'])->name('user.package.payment.success');
         Route::get('/payment/failed', [PackageController::class, 'paymentFailed'])->name('user.package.payment.failed');
+        Route::get('/payment/{transactionId}/resume', [PackageController::class, 'resumeCombinedPayment'])->name('user.package.payment.resume');
         Route::get('/payment/qris/{transactionId}', [PackageController::class, 'showQrisPayment'])->name('user.package.payment.qris.show');
         Route::post('/payment/qris/{transactionId}/check', [PackageController::class, 'checkQrisPayment'])->name('user.package.payment.qris.check');
         Route::get('/riwayat-pembelian', [PackageController::class, 'riwayatPembelian'])->name('user.package.riwayatPembelian');

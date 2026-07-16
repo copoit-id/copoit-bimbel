@@ -40,6 +40,7 @@ class PackageController extends Controller
 {
     public function index(Request $request)
     {
+        $this->forgetCombinedAiCheckoutAfterAiPayment($request);
         $tab = 'all';
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
@@ -122,6 +123,7 @@ class PackageController extends Controller
         $packageAutomaticDiscounts = $this->automaticDiscountsForPackages($packages, $automaticDiscounts);
         $affiliateDiscountPreview = $this->affiliateDiscountPreview();
         $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+        $combinedAiPayment = Auth::check() ? $this->activeCombinedAiPayment($request) : null;
         
         return view('user.pages.package.new-index', compact(
             'packages',
@@ -134,6 +136,7 @@ class PackageController extends Controller
             'packageAutomaticDiscounts',
             'affiliateDiscountPreview',
             'aiGatewayPlans',
+            'combinedAiPayment',
             'search',
             'sort'
         ));
@@ -374,6 +377,8 @@ class PackageController extends Controller
 
                     $pendingGatewayPayment = $this->reusablePendingPackageGatewayPayment($package);
                     if ($pendingGatewayPayment) {
+                        $this->rememberCombinedAiCheckout($request, $pendingGatewayPayment, 'package');
+
                         if ($pendingGatewayPayment->status === Payment::STATUS_SUCCESS) {
                             if ($request->expectsJson()) {
                                 return response()->json([
@@ -383,8 +388,10 @@ class PackageController extends Controller
                                 ]);
                             }
 
-                            return redirect()->route('user.package.my')
-                                ->with('success', 'Pembayaran sudah berhasil. Akses paket sudah aktif.');
+                            return $this->redirectAfterSuccessfulProductPayment(
+                                $request,
+                                'Pembayaran sudah berhasil. Akses paket sudah aktif.'
+                            );
                         }
 
                         $redirectUrl = $this->pendingGatewayPaymentRedirectUrl($pendingGatewayPayment);
@@ -405,6 +412,12 @@ class PackageController extends Controller
                     $paymentResponse = $this->createPayment($package, $discountData);
 
                     if ($paymentResponse['success']) {
+                        $this->rememberCombinedAiCheckout(
+                            $request,
+                            $paymentResponse['payment'] ?? null,
+                            'package'
+                        );
+
                         // For AJAX requests, return JSON; for native form submit, redirect directly
                         if ($request->expectsJson()) {
                             return response()->json([
@@ -993,7 +1006,7 @@ class PackageController extends Controller
                 $invoiceData = $response->json();
 
                 // Save payment record
-                Payment::create([
+                $payment = Payment::create([
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
@@ -1024,7 +1037,8 @@ class PackageController extends Controller
 
                 return [
                     'success' => true,
-                    'redirect_url' => $invoiceData['invoice_url']
+                    'redirect_url' => $invoiceData['invoice_url'],
+                    'payment' => $payment,
                 ];
             } else {
                 $errorMessage = 'Gagal membuat pembayaran';
@@ -1094,7 +1108,7 @@ class PackageController extends Controller
             if ($response->successful()) {
                 $data = $response->json();
 
-                Payment::create([
+                $payment = Payment::create([
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
@@ -1126,6 +1140,7 @@ class PackageController extends Controller
                 return [
                     'success' => true,
                     'redirect_url' => $data['redirect_url'] ?? null,
+                    'payment' => $payment,
                 ];
             }
 
@@ -1222,11 +1237,13 @@ class PackageController extends Controller
 
     public function riwayatPembelian(Request $request)
     {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
         $payments = Payment::where('user_id', Auth::id())
             ->with('package')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function (Payment $payment) {
+            ->map(function (Payment $payment) use ($combinedCheckout) {
                 if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method === 'ipaymu') {
                     if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
                         $payment = $this->syncPendingIpaymuPayment($payment);
@@ -1250,6 +1267,10 @@ class PackageController extends Controller
                     } else {
                         $actionUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
                         $actionLabel = 'Lanjutkan Pembayaran';
+
+                        if ($this->isCombinedCheckoutTransaction($combinedCheckout, $payment->transaction_id)) {
+                            $actionUrl = route('user.package.payment.resume', $payment->transaction_id);
+                        }
                     }
                 }
 
@@ -1281,7 +1302,7 @@ class PackageController extends Controller
             ->with('purchasable')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function (IndividualPurchase $purchase) {
+            ->map(function (IndividualPurchase $purchase) use ($combinedCheckout) {
                 if ($purchase->status === IndividualPurchase::STATUS_PENDING && $purchase->payment_method === 'ipaymu') {
                     if (!$this->pendingIpaymuIndividualPurchaseUsesCurrentGateway($purchase)) {
                         $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
@@ -1300,6 +1321,7 @@ class PackageController extends Controller
                     'Material' => 'Materi',
                     'Tryout' => 'Tryout',
                     'TesKoran' => 'Tes Koran',
+                    'Kecermatan' => 'Tes Kecermatan',
                     default => 'Item',
                 };
                 $actionUrl = null;
@@ -1318,6 +1340,10 @@ class PackageController extends Controller
                     } else {
                         $actionUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
                         $actionLabel = 'Lanjutkan Pembayaran';
+
+                        if ($this->isCombinedCheckoutTransaction($combinedCheckout, $purchase->transaction_id)) {
+                            $actionUrl = route('user.package.payment.resume', $purchase->transaction_id);
+                        }
                     }
                 }
 
@@ -1361,6 +1387,63 @@ class PackageController extends Controller
         );
 
         return view('user.pages.package.riwayat-pembelian', compact('histories'));
+    }
+
+    public function resumeCombinedPayment(Request $request, string $transactionId): \Illuminate\Http\RedirectResponse
+    {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! $this->isCombinedCheckoutTransaction($combinedCheckout, $transactionId)) {
+            return redirect()->route('user.package.riwayatPembelian')
+                ->with('error', 'Tagihan gabungan tidak ditemukan atau sudah kedaluwarsa.');
+        }
+
+        $productPaid = false;
+        $productPaymentUrl = null;
+
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->firstOrFail();
+
+            $this->syncMidtransProductPaymentStatus($payment);
+            $payment->refresh();
+            $productPaid = $payment->status === Payment::STATUS_SUCCESS;
+            $productPaymentUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->firstOrFail();
+
+            $this->syncMidtransProductPaymentStatus($purchase);
+            $purchase->refresh();
+            $productPaid = $purchase->status === IndividualPurchase::STATUS_APPROVED;
+            $productPaymentUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
+        }
+
+        $returnUrl = $combinedCheckout['return_url'] ?? route('user.package.index');
+
+        return redirect()->to($returnUrl)->with('combined_ai_payment', [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $productPaid,
+            'product_payment_url' => $productPaid ? null : $productPaymentUrl,
+        ]);
+    }
+
+    private function isCombinedCheckoutTransaction(mixed $combinedCheckout, string $transactionId): bool
+    {
+        if (! is_array($combinedCheckout)
+            || empty($combinedCheckout['invoice_url'])
+            || ! hash_equals((string) ($combinedCheckout['product_transaction_id'] ?? ''), $transactionId)) {
+            return false;
+        }
+
+        $expiresAt = $combinedCheckout['expires_at'] ?? null;
+
+        return ! $expiresAt || ! Carbon::parse($expiresAt)->isPast();
     }
 
     private function pendingIndividualPurchaseRedirectUrl(IndividualPurchase $purchase): ?string
@@ -2414,8 +2497,10 @@ class PackageController extends Controller
                 if ($payment->status === Payment::STATUS_SUCCESS) {
                     $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu return');
 
-                    return redirect()->route('user.package.my')
-                        ->with('success', 'Pembayaran berhasil. Paket sudah aktif.');
+                    return $this->redirectAfterSuccessfulProductPayment(
+                        $request,
+                        'Pembayaran berhasil. Paket sudah aktif.'
+                    );
                 }
             } catch (\Throwable $e) {
                 report($e);
@@ -2443,16 +2528,242 @@ class PackageController extends Controller
                 if ($individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
                     $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via iPaymu return');
 
-                    return redirect()->route('user.package.my')
-                        ->with('success', 'Pembayaran berhasil. Akses sudah aktif.');
+                    return $this->redirectAfterSuccessfulProductPayment(
+                        $request,
+                        'Pembayaran berhasil. Akses sudah aktif.'
+                    );
                 }
             } catch (\Throwable $e) {
                 report($e);
             }
         }
 
+        if ($combinedRedirect = $this->redirectAfterCombinedProductPaymentReturn($request)) {
+            return $combinedRedirect;
+        }
+
         return redirect()->route('user.package.riwayatPembelian')
             ->with('success', 'Terima kasih. Akses akan aktif setelah pembayaran dikonfirmasi oleh payment gateway.');
+    }
+
+    private function rememberCombinedAiCheckout(Request $request, ?Payment $payment, string $productType): void
+    {
+        if (! $request->boolean('combined_ai_checkout') || ! $payment) {
+            return;
+        }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout) || empty($combinedCheckout['invoice_url'])) {
+            return;
+        }
+
+        $combinedCheckout['product_transaction_id'] = $payment->transaction_id;
+        $combinedCheckout['product_type'] = $productType;
+        $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
+    }
+
+    private function redirectAfterSuccessfulProductPayment(Request $request, string $message): \Illuminate\Http\RedirectResponse
+    {
+        return $this->redirectAfterCombinedProductPaymentReturn($request)
+            ?? redirect()->route('user.package.my')->with('success', $message);
+    }
+
+    private function redirectAfterCombinedProductPaymentReturn(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout)
+            || empty($combinedCheckout['invoice_url'])
+            || empty($combinedCheckout['product_transaction_id'])
+            || ! Auth::check()) {
+            return null;
+        }
+
+        $expiresAt = $combinedCheckout['expires_at'] ?? null;
+        if ($expiresAt && Carbon::parse($expiresAt)->isPast()) {
+            $request->session()->forget('ai_gateway_combined_checkout');
+
+            return null;
+        }
+
+        $isSuccessful = false;
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $combinedCheckout['product_transaction_id'])
+                ->first();
+
+            if ($payment) {
+                $this->syncMidtransProductPaymentStatus($payment);
+                $payment->refresh();
+            }
+
+            if ($payment?->status === Payment::STATUS_SUCCESS) {
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via payment return');
+                $isSuccessful = true;
+            }
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $combinedCheckout['product_transaction_id'])
+                ->first();
+
+            if ($purchase) {
+                $this->syncMidtransProductPaymentStatus($purchase);
+                $purchase->refresh();
+            }
+
+            if ($purchase?->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via payment return');
+                $isSuccessful = true;
+            }
+        }
+
+        $returnUrl = $combinedCheckout['return_url'] ?? route('user.package.index');
+
+        return redirect()->to($returnUrl)->with('combined_ai_payment', [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $isSuccessful,
+        ]);
+    }
+
+    private function activeCombinedAiPayment(Request $request): ?array
+    {
+        if (! app(AiDiscussionService::class)->isEnabled()) {
+            return null;
+        }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+        $transactionId = (string) data_get($combinedCheckout, 'product_transaction_id', '');
+
+        if (! Auth::check() || ! $this->isCombinedCheckoutTransaction($combinedCheckout, $transactionId)) {
+            return null;
+        }
+
+        $productPaid = false;
+        $productPaymentUrl = null;
+
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->first();
+
+            if (! $payment) {
+                return null;
+            }
+
+            $this->syncMidtransProductPaymentStatus($payment);
+            $payment->refresh();
+            $productPaid = $payment->status === Payment::STATUS_SUCCESS;
+            $productPaymentUrl = $productPaid ? null : $this->pendingGatewayPaymentRedirectUrl($payment);
+            $productItemId = (int) $payment->package_id;
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->first();
+
+            if (! $purchase) {
+                return null;
+            }
+
+            $this->syncMidtransProductPaymentStatus($purchase);
+            $purchase->refresh();
+            $productPaid = $purchase->status === IndividualPurchase::STATUS_APPROVED;
+            $productPaymentUrl = $productPaid ? null : $this->pendingIndividualPurchaseRedirectUrl($purchase);
+            $productItemId = (int) $purchase->purchasable_id;
+        } else {
+            return null;
+        }
+
+        return [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $productPaid,
+            'product_payment_url' => $productPaymentUrl,
+            'product_type' => $combinedCheckout['product_type'],
+            'product_item_id' => $productItemId,
+            'ai_payment_pending' => true,
+        ];
+    }
+
+    private function forgetCombinedAiCheckoutAfterAiPayment(Request $request): void
+    {
+        if ($request->query('payment') === 'success') {
+            $request->session()->forget('ai_gateway_combined_checkout');
+            $request->session()->forget('ai_gateway_pending_payment');
+        }
+    }
+
+    private function syncMidtransProductPaymentStatus(Payment|IndividualPurchase $payable): void
+    {
+        if ($payable->payment_method !== 'midtrans'
+            || ! in_array($payable->status, [Payment::STATUS_PENDING, IndividualPurchase::STATUS_PENDING], true)) {
+            return;
+        }
+
+        $serverKey = (string) config('services.midtrans.server_key');
+        $statusUrl = rtrim((string) config('services.midtrans.status_url'), '/');
+
+        if ($serverKey === '' || $statusUrl === '') {
+            return;
+        }
+
+        try {
+            $response = Http::withBasicAuth($serverKey, '')
+                ->acceptJson()
+                ->timeout(8)
+                ->get($statusUrl.'/'.rawurlencode($payable->transaction_id).'/status');
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            $data = $response->json();
+            $orderId = (string) data_get($data, 'order_id');
+            $signature = (string) data_get($data, 'signature_key');
+            $expectedSignature = hash('sha512', $orderId.(string) data_get($data, 'status_code').(string) data_get($data, 'gross_amount').$serverKey);
+
+            if ($orderId !== $payable->transaction_id
+                || ($signature !== '' && ! hash_equals($expectedSignature, $signature))) {
+                return;
+            }
+
+            $transactionStatus = (string) data_get($data, 'transaction_status');
+            $fraudStatus = (string) data_get($data, 'fraud_status');
+            $isPaid = in_array($transactionStatus, ['capture', 'settlement'], true)
+                && ! ($transactionStatus === 'capture' && $fraudStatus === 'challenge');
+
+            if ($payable instanceof Payment) {
+                if ($isPaid) {
+                    $payable->update(['status' => Payment::STATUS_SUCCESS, 'paid_at' => $payable->paid_at ?? now()]);
+                    $this->ensureUserPackageAccess($payable->fresh(), 'Payment confirmed via Midtrans status check');
+                } elseif ($transactionStatus === 'expire') {
+                    $payable->update(['status' => Payment::STATUS_EXPIRED]);
+                } elseif (in_array($transactionStatus, ['cancel', 'deny', 'failure'], true)) {
+                    $payable->update(['status' => Payment::STATUS_FAILED]);
+                }
+
+                return;
+            }
+
+            if ($isPaid) {
+                $payable->update(['status' => IndividualPurchase::STATUS_APPROVED, 'approved_at' => $payable->approved_at ?? now()]);
+                $this->ensureIndividualPurchaseAccess($payable->fresh(), 'Payment confirmed via Midtrans status check');
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $details = $this->paymentDetailsArray($payable->payment_details);
+                $details['auto_rejected_reason'] = $transactionStatus === 'expire'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed or cancelled.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $payable->update(['status' => IndividualPurchase::STATUS_REJECTED, 'payment_details' => $details]);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function ipaymuReturnPayment(Request $request): ?Payment
@@ -4132,6 +4443,7 @@ class PackageController extends Controller
      */
     public function listTryout(Request $request)
     {
+        $this->forgetCombinedAiCheckoutAfterAiPayment($request);
         $user = Auth::user();
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
@@ -4193,8 +4505,9 @@ class PackageController extends Controller
         }
         
         $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+        $combinedAiPayment = $user ? $this->activeCombinedAiPayment($request) : null;
 
-        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans'));
+        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans', 'combinedAiPayment'));
     }
 
     /**

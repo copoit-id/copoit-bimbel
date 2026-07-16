@@ -21,6 +21,8 @@ $paymentUniqueCodeEnabled = (bool) ($clientBranding['payment_unique_code_enabled
 $publicDiscounts = $publicDiscounts ?? collect();
 $packageAutomaticDiscounts = $packageAutomaticDiscounts ?? [];
 $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
+$hasCombinedPaymentFlash = is_array(session('combined_ai_payment'));
+$combinedAiPayment = session('combined_ai_payment') ?? ($combinedAiPayment ?? null);
 $aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
 $aiChatLabel = function ($plan): string {
     $chatLimit = (int) data_get($plan, 'chat_limit', 0);
@@ -247,6 +249,10 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     $pendingPackagePayment = ($pendingPackagePaymentsByPackage ?? collect())->get((int) $package->package_id);
     $isPendingManualPayment = $pendingPackagePayment && $pendingPackagePayment->payment_method === 'manual';
     $isPendingGatewayPayment = $pendingPackagePayment && $pendingPackagePayment->payment_method !== 'manual';
+    $hasPendingAiPayment = is_array($combinedAiPayment)
+        && data_get($combinedAiPayment, 'ai_payment_pending')
+        && data_get($combinedAiPayment, 'product_type') === 'package'
+        && (int) data_get($combinedAiPayment, 'product_item_id') === (int) $package->package_id;
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col">
         <!-- Package Image/Header -->
@@ -327,7 +333,13 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                     <i class="ri-eye-line"></i><span>Detail</span>
                 </a>
                 @auth
-                    @if($isOwned)
+                    @if($hasPendingAiPayment)
+                    <button type="button" onclick="openResumePaymentLinksModal()"
+                            class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
+                    </button>
+                    @elseif($isOwned)
                     <a href="{{ route('user.package.show', $package->package_id) }}"
                        class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                        style="background-color: {{ $primaryColor }}">
@@ -551,13 +563,33 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     </div>
 </div>
 
-<div id="paymentLinksModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+<div id="paymentLinksModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="paymentLinksModalTitle">
     <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <div class="text-center"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-bill-line text-2xl"></i></span><h3 class="mt-3 text-lg font-semibold text-gray-800">Dua tagihan sudah dibuat</h3><p class="mt-1 text-sm text-gray-500">Bayar sesuai urutan yang kamu inginkan.</p></div>
-        <div class="mt-5 space-y-3"><a id="payPackageLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Paket / Tryout</span><span class="text-xs text-gray-500">Aktifkan akses belajar</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a><a id="payAiLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a></div>
+        <div class="text-center"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-bill-line text-2xl"></i></span><h3 id="paymentLinksModalTitle" class="mt-3 text-lg font-semibold text-gray-800">Dua tagihan sudah dibuat</h3><p class="mt-1 text-sm text-gray-500">Bayar sesuai urutan yang kamu inginkan.</p></div>
+        <div class="mt-5 space-y-3">
+            <a id="payPackageLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Paket / Tryout</span><span class="text-xs text-gray-500">Aktifkan akses belajar</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+            <a id="payAiLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+        </div>
         <button type="button" onclick="closePaymentLinksModal()" class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Nanti saja</button>
     </div>
 </div>
+
+@if(is_array($combinedAiPayment) && filled(data_get($combinedAiPayment, 'invoice_url')))
+<div id="resumePaymentLinksModal" class="fixed inset-0 z-[60] {{ $hasCombinedPaymentFlash ? 'flex' : 'hidden' }} items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resumePaymentLinksModalTitle">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="text-center"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-bill-line text-2xl"></i></span><h3 id="resumePaymentLinksModalTitle" class="mt-3 text-lg font-semibold text-gray-800">Dua tagihan sudah dibuat</h3><p class="mt-1 text-sm text-gray-500">Bayar sesuai urutan yang kamu inginkan.</p></div>
+        <div class="mt-5 space-y-3">
+            @if(data_get($combinedAiPayment, 'product_paid'))
+            <div class="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4"><span><span class="block font-semibold text-emerald-800">Paket / Tryout sudah dibayar</span><span class="text-xs text-emerald-700">Akses belajar sudah aktif</span></span><i class="ri-checkbox-circle-fill text-2xl text-emerald-600"></i></div>
+            @else
+            <a href="{{ data_get($combinedAiPayment, 'product_payment_url') }}" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Paket / Tryout</span><span class="text-xs text-gray-500">Aktifkan akses belajar</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+            @endif
+            <a href="{{ data_get($combinedAiPayment, 'invoice_url') }}" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+        </div>
+        <button type="button" onclick="closeResumePaymentLinksModal()" class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Nanti saja</button>
+    </div>
+</div>
+@endif
 
 <div id="aiPreviewModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onclick="if (event.target === this) closeAiPreviewModal()" role="dialog" aria-modal="true" aria-label="Pratinjau ilustrasi Pembahasan AI">
     <div class="relative max-h-[90vh] w-full max-w-4xl">
@@ -710,6 +742,7 @@ const MANUAL_PAYMENT_UNIQUE_CODES = @json($manualPaymentUniqueCodes ?? []);
 const CONDITIONAL_PACKAGE_BUY_URL_TEMPLATE = @json(route('user.package.buy', ['package_id' => '__PACKAGE_ID__']));
 const AI_GATEWAY_PLANS = @json($aiGatewayPlansJson);
 const AI_GATEWAY_CHECKOUT_URL = @json(route('user.ai-gateway.checkout'));
+const ACTIVE_COMBINED_PAYMENT = @json($combinedAiPayment);
 let selectedPackageId = null;
 let selectedPrice = 0;
 let selectedPackageName = '';
@@ -1033,6 +1066,13 @@ function hasAutomaticDiscountFor(packageId) {
 }
 
 async function handleBuy(packageId, price, packageName) {
+    if (ACTIVE_COMBINED_PAYMENT
+        && ACTIVE_COMBINED_PAYMENT.product_type === 'package'
+        && Number(ACTIVE_COMBINED_PAYMENT.product_item_id) === Number(packageId)) {
+        openResumePaymentLinksModal();
+        return;
+    }
+
     selectedPackageId = packageId;
     selectedPrice = price;
     selectedPackageName = packageName;
@@ -1145,6 +1185,7 @@ async function createAiInvoice() {
     const formData = new FormData();
     formData.append('plan_id', plan.id);
     formData.append('return_url', window.location.href);
+    formData.append('combined_checkout', '1');
     const response = await fetch(AI_GATEWAY_CHECKOUT_URL, {
         method: 'POST',
         headers: {
@@ -1226,6 +1267,10 @@ async function startPackageCheckout() {
         const originalText = submitBtn.innerHTML;
         const formData = new FormData(form);
 
+        if (selectedAiInvoiceUrl) {
+            formData.set('combined_ai_checkout', '1');
+        }
+
         if (discountCode.trim() !== '') {
             formData.set('discount_code', discountCode.trim().toUpperCase());
         }
@@ -1274,6 +1319,20 @@ function openPaymentLinksModal(packageUrl, aiUrl) {
 function closePaymentLinksModal() {
     document.getElementById('paymentLinksModal').classList.add('hidden');
     document.getElementById('paymentLinksModal').classList.remove('flex');
+}
+
+function openResumePaymentLinksModal() {
+    const modal = document.getElementById('resumePaymentLinksModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeResumePaymentLinksModal() {
+    const modal = document.getElementById('resumePaymentLinksModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function openAiPreviewModal() {

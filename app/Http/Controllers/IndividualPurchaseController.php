@@ -43,6 +43,7 @@ class IndividualPurchaseController extends Controller
             'type' => 'required|in:material,class,tryout,tes_koran',
             'id' => 'required|integer',
             'discount_code' => 'nullable|string|max:50',
+            'combined_ai_checkout' => 'nullable|boolean',
         ]);
 
         $type = $request->type;
@@ -102,6 +103,7 @@ class IndividualPurchaseController extends Controller
         $pendingPurchase = $this->reusablePendingPurchase($userId, $purchasableType, $id);
 
         if ($pendingPurchase) {
+            $this->rememberCombinedAiCheckout($request, $pendingPurchase);
             $redirectUrl = $this->pendingGatewayPurchaseRedirectUrl($pendingPurchase);
             $message = $pendingPurchase->payment_method === 'manual'
                 ? 'Bukti pembayaran untuk item ini masih menunggu verifikasi admin.'
@@ -275,6 +277,8 @@ class IndividualPurchaseController extends Controller
         $paymentResponse = $this->createGatewayPurchase($item, $purchasableType, $id, $type, $userId, $discount, $discountAmount, $totalAmount);
 
         if ($paymentResponse['success'] ?? false) {
+            $this->rememberCombinedAiCheckout($request, $paymentResponse['purchase'] ?? null);
+
             return $request->expectsJson()
                 ? response()->json([
                     'success' => true,
@@ -300,6 +304,23 @@ class IndividualPurchaseController extends Controller
     public function history()
     {
         return redirect()->route('user.package.riwayatPembelian');
+    }
+
+    private function rememberCombinedAiCheckout(Request $request, ?IndividualPurchase $purchase): void
+    {
+        if (! $request->boolean('combined_ai_checkout') || ! $purchase) {
+            return;
+        }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout) || empty($combinedCheckout['invoice_url'])) {
+            return;
+        }
+
+        $combinedCheckout['product_transaction_id'] = $purchase->transaction_id;
+        $combinedCheckout['product_type'] = 'individual';
+        $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
     }
 
     private function reusablePendingPurchase(int $userId, string $purchasableType, int $purchasableId): ?IndividualPurchase

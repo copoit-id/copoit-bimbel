@@ -14,6 +14,8 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('client.branding.payment_mode', 'gateway')));
+$hasCombinedPaymentFlash = is_array(session('combined_ai_payment'));
+$combinedAiPayment = session('combined_ai_payment') ?? ($combinedAiPayment ?? null);
 $aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
 $aiChatLabel = function ($plan): string {
     $chatLimit = (int) data_get($plan, 'chat_limit', 0);
@@ -113,6 +115,10 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     $isFreeUnconditional = $tryout->isFreeUnconditionalIndividualAccess();
     $isFreeConditional = $tryout->isFreeConditionalIndividualAccess();
     $isPendingIndividual = (bool) ($tryout->is_pending_individual ?? false);
+    $hasPendingAiPayment = is_array($combinedAiPayment)
+        && data_get($combinedAiPayment, 'ai_payment_pending')
+        && data_get($combinedAiPayment, 'product_type') === 'individual'
+        && (int) data_get($combinedAiPayment, 'product_item_id') === (int) $tryout->tryout_id;
     $routePackageId = $tryout->route_package_id ?? ($tryout->packages->first()?->package_id ?? 'free');
     $showHistoryAction = $user && $hasHistory && ($tryout->has_access ?? false);
     $tryoutIcon = $tryout->icon_class ?: 'ri-file-list-3-line';
@@ -202,6 +208,12 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                     Masuk untuk Akses
                 </a>
                 @endif
+            @elseif($hasPendingAiPayment)
+                <button type="button" onclick="openResumeTryoutPaymentLinksModal()"
+                        class="flex items-center justify-center w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                        style="background-color: {{ $primaryColor }}">
+                    <i class="ri-time-line mr-1"></i>Lanjutkan Pembayaran
+                </button>
             @elseif($isForSale)
                 {{-- Tryout for individual sale --}}
                 @if($isAttemptLimitReached)
@@ -370,10 +382,10 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     </div>
 </div>
 
-<div id="tryoutPaymentLinksModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+<div id="tryoutPaymentLinksModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tryoutPaymentLinksModalTitle">
     <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <h3 class="text-center text-lg font-semibold text-gray-800">Tagihan siap diproses</h3>
-        <p class="mt-1 text-center text-sm text-gray-500">Paket/tryout dan Pembahasan AI dibayar terpisah.</p>
+        <h3 id="tryoutPaymentLinksModalTitle" class="text-center text-lg font-semibold text-gray-800">Dua tagihan sudah dibuat</h3>
+        <p class="mt-1 text-center text-sm text-gray-500">Bayar sesuai urutan yang kamu inginkan.</p>
         <div class="mt-5 space-y-3">
             <a id="tryoutPayProductLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Tryout</span><span class="text-xs text-gray-500">Aktifkan akses tryout</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
             <a id="tryoutPayAiLink" href="#" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
@@ -381,6 +393,24 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
         <button type="button" onclick="closeTryoutPaymentLinksModal()" class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Nanti saja</button>
     </div>
 </div>
+
+@if(is_array($combinedAiPayment) && filled(data_get($combinedAiPayment, 'invoice_url')))
+<div id="resumeTryoutPaymentLinksModal" class="fixed inset-0 z-[60] {{ $hasCombinedPaymentFlash ? 'flex' : 'hidden' }} items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resumeTryoutPaymentLinksModalTitle">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 id="resumeTryoutPaymentLinksModalTitle" class="text-center text-lg font-semibold text-gray-800">Dua tagihan sudah dibuat</h3>
+        <p class="mt-1 text-center text-sm text-gray-500">Bayar sesuai urutan yang kamu inginkan.</p>
+        <div class="mt-5 space-y-3">
+            @if(data_get($combinedAiPayment, 'product_paid'))
+            <div class="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4"><span><span class="block font-semibold text-emerald-800">Tryout sudah dibayar</span><span class="text-xs text-emerald-700">Akses tryout sudah aktif</span></span><i class="ri-checkbox-circle-fill text-2xl text-emerald-600"></i></div>
+            @else
+            <a href="{{ data_get($combinedAiPayment, 'product_payment_url') }}" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Tryout</span><span class="text-xs text-gray-500">Aktifkan akses tryout</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+            @endif
+            <a href="{{ data_get($combinedAiPayment, 'invoice_url') }}" class="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-primary/50"><span><span class="block font-semibold text-gray-800">Bayar Pembahasan AI</span><span class="text-xs text-gray-500">Aktifkan kuota Diskusi AI</span></span><i class="ri-arrow-right-line text-xl text-primary"></i></a>
+        </div>
+        <button type="button" onclick="closeResumeTryoutPaymentLinksModal()" class="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Nanti saja</button>
+    </div>
+</div>
+@endif
 
 <div id="aiPreviewModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onclick="if (event.target === this) closeAiPreviewModal()" role="dialog" aria-modal="true" aria-label="Pratinjau ilustrasi Pembahasan AI">
     <div class="relative max-h-[90vh] w-full max-w-4xl">
@@ -394,6 +424,7 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
 document.addEventListener('DOMContentLoaded', function () {
     const aiGatewayPlans = @json($aiGatewayPlansJson);
     const aiGatewayCheckoutUrl = @json(route('user.ai-gateway.checkout'));
+    const activeCombinedPayment = @json($combinedAiPayment);
     const modal = document.getElementById('tryoutPurchaseModal');
     const form = document.getElementById('tryoutPurchaseForm');
     const itemId = document.getElementById('tryoutPurchaseItemId');
@@ -421,6 +452,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('[data-buy-tryout]').forEach(button => {
         button.addEventListener('click', function () {
+            if (activeCombinedPayment
+                && activeCombinedPayment.product_type === 'individual'
+                && Number(activeCombinedPayment.product_item_id) === Number(this.dataset.id)) {
+                openResumeTryoutPaymentLinksModal();
+                return;
+            }
+
             itemId.value = this.dataset.id;
             itemName.textContent = this.dataset.name;
             const priceType = this.dataset.priceType || 'paid';
@@ -464,6 +502,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const aiFormData = new FormData();
             aiFormData.append('plan_id', selectedPlanId);
             aiFormData.append('return_url', window.location.href);
+            aiFormData.append('combined_checkout', '1');
             const aiResponse = await fetch(aiGatewayCheckoutUrl, {
                 method: 'POST',
                 headers: {
@@ -481,13 +520,18 @@ document.addEventListener('DOMContentLoaded', function () {
             aiInvoiceUrl = aiData.invoice_url;
         }
 
+        const purchaseFormData = new FormData(form);
+        if (aiInvoiceUrl) {
+            purchaseFormData.set('combined_ai_checkout', '1');
+        }
+
         const response = await fetch('{{ route('user.individual-purchase.buy') }}', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                 'Accept': 'application/json',
             },
-            body: new FormData(form),
+            body: purchaseFormData,
         });
 
         const data = await response.json();
@@ -525,6 +569,20 @@ document.addEventListener('DOMContentLoaded', function () {
 function closeTryoutPaymentLinksModal() {
     document.getElementById('tryoutPaymentLinksModal').classList.add('hidden');
     document.getElementById('tryoutPaymentLinksModal').classList.remove('flex');
+}
+
+function openResumeTryoutPaymentLinksModal() {
+    const modal = document.getElementById('resumeTryoutPaymentLinksModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeResumeTryoutPaymentLinksModal() {
+    const modal = document.getElementById('resumeTryoutPaymentLinksModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function openAiPreviewModal() {
