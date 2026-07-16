@@ -320,6 +320,7 @@ class IndividualPurchaseController extends Controller
 
         $combinedCheckout['product_transaction_id'] = $purchase->transaction_id;
         $combinedCheckout['product_type'] = 'individual';
+        $combinedCheckout['product_item_id'] = $purchase->purchasable_id;
         $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
     }
 

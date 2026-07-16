@@ -1430,6 +1430,9 @@ class PackageController extends Controller
             'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
             'product_paid' => $productPaid,
             'product_payment_url' => $productPaid ? null : $productPaymentUrl,
+            'product_type' => $combinedCheckout['product_type'] ?? null,
+            'product_item_id' => (int) ($combinedCheckout['product_item_id'] ?? 0),
+            'ai_payment_pending' => true,
         ]);
     }
 
@@ -2560,6 +2563,7 @@ class PackageController extends Controller
 
         $combinedCheckout['product_transaction_id'] = $payment->transaction_id;
         $combinedCheckout['product_type'] = $productType;
+        $combinedCheckout['product_item_id'] = $payment->package_id;
         $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
     }
 
@@ -2626,6 +2630,10 @@ class PackageController extends Controller
             'invoice_url' => $combinedCheckout['invoice_url'],
             'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
             'product_paid' => $isSuccessful,
+            'product_payment_url' => null,
+            'product_type' => $combinedCheckout['product_type'],
+            'product_item_id' => (int) $combinedCheckout['product_item_id'],
+            'ai_payment_pending' => true,
         ]);
     }
 

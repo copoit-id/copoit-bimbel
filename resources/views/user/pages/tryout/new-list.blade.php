@@ -15,7 +15,10 @@ $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $paymentMode = strtolower((string) ($clientBranding['payment_mode'] ?? config('client.branding.payment_mode', 'gateway')));
 $hasCombinedPaymentFlash = is_array(session('combined_ai_payment'));
-$combinedAiPayment = session('combined_ai_payment') ?? ($combinedAiPayment ?? null);
+$combinedAiPayment = array_replace(
+    is_array($combinedAiPayment ?? null) ? $combinedAiPayment : [],
+    is_array(session('combined_ai_payment')) ? session('combined_ai_payment') : [],
+);
 $aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
 $aiChatLabel = function ($plan): string {
     $chatLimit = (int) data_get($plan, 'chat_limit', 0);
