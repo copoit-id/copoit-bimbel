@@ -58,9 +58,17 @@ class AiGatewayCostService
         ];
     }
 
-    public function forgetCachedPricing(string $provider = 'openai'): void
+    public function forgetCachedPricing(?string $provider = null): void
     {
-        Cache::forget($this->cacheKey(strtolower($provider)));
+        if ($provider !== null) {
+            Cache::forget($this->cacheKey(strtolower($provider)));
+
+            return;
+        }
+
+        foreach (['openai', 'gemini'] as $supportedProvider) {
+            Cache::forget($this->cacheKey($supportedProvider));
+        }
     }
 
     /**

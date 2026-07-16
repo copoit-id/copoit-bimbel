@@ -85,7 +85,7 @@
                             </option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Model GPT diambil dari API OpenAI berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif API tersimpan yang dapat dipilih agar laba tetap akurat.</p>
+                    <p class="mt-1 text-xs text-gray-500">Model OpenAI dan Gemini diambil dari API masing-masing berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif tersimpan yang dapat dipilih agar laba tetap akurat.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
@@ -118,11 +118,11 @@
 
         <section class="mb-6 overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40" data-settings-tab-panel="pricing">
             <div class="border-b border-sky-100 px-5 py-4">
-                <h2 class="font-semibold text-sky-950">Tarif Model OpenAI</h2>
-                <p class="mt-1 text-sm text-sky-800">Tarif aktif disimpan di database, bukan di ENV. Masukkan tarif resmi OpenAI per 1 juta token untuk mengaktifkan model baru. Tarif setiap request akan disnapshot agar riwayat laba tidak berubah.</p>
+                <h2 class="font-semibold text-sky-950">Tarif Model AI</h2>
+                <p class="mt-1 text-sm text-sky-800">Daftar model OpenAI dan Gemini diambil dari API provider. Tarif aktif disimpan di database, bukan di ENV. Isi tarif per 1 juta token untuk mengaktifkan model; setiap request akan menyimpan snapshot tarif agar riwayat laba tidak berubah.</p>
             </div>
             <div class="overflow-x-auto bg-white">
-                <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Model</th><th class="px-4 py-3">Input / 1 jt token (US$)</th><th class="px-4 py-3">Output / 1 jt token (US$)</th><th class="px-4 py-3">Kurs USD → IDR</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($openAiModels as $index => $model)@php($pricing = $aiModelPricings->get($model['id']))<tr><td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900"><span class="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ $model['id'] }}</span><input type="hidden" name="ai_model_pricings[{{ $index }}][model]" value="{{ $model['id'] }}"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][input_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.input_per_million_usd", $pricing?->input_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][output_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.output_per_million_usd", $pricing?->output_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][usd_to_idr]" min="1" max="1000000" step="0.0001" value="{{ old("ai_model_pricings.$index.usd_to_idr", $pricing?->usd_to_idr ?? 16000) }}" class="w-40 rounded-lg border-gray-200 text-sm"></td></tr>@empty<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Simpan API key OpenAI lalu muat ulang halaman untuk mengambil daftar model.</td></tr>@endforelse</tbody></table>
+                <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Provider</th><th class="px-4 py-3">Model</th><th class="px-4 py-3">Input / 1 jt token (US$)</th><th class="px-4 py-3">Output / 1 jt token (US$)</th><th class="px-4 py-3">Kurs USD → IDR</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($availableModels as $index => $model)@php($pricing = $aiModelPricings->get($model['provider'] . ':' . $model['id']))<tr><td class="px-4 py-3"><span class="rounded bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700">{{ strtoupper($model['provider']) }}</span><input type="hidden" name="ai_model_pricings[{{ $index }}][provider]" value="{{ $model['provider'] }}"></td><td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900"><span class="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ $model['id'] }}</span><input type="hidden" name="ai_model_pricings[{{ $index }}][model]" value="{{ $model['id'] }}"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][input_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.input_per_million_usd", $pricing?->input_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][output_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.output_per_million_usd", $pricing?->output_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][usd_to_idr]" min="1" max="1000000" step="0.0001" value="{{ old("ai_model_pricings.$index.usd_to_idr", $pricing?->usd_to_idr ?? 16000) }}" class="w-40 rounded-lg border-gray-200 text-sm"></td></tr>@empty<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Simpan API key OpenAI atau Gemini lalu muat ulang halaman untuk mengambil daftar model.</td></tr>@endforelse</tbody></table>
             </div>
         </section>
 
@@ -217,26 +217,45 @@
 
 @push('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    const initializeGeneralSettingsTabs = () => {
         const buttons = document.querySelectorAll('[data-settings-tab]');
         const panels = document.querySelectorAll('[data-settings-tab-panel]');
         const activeClass = ['bg-primary', 'text-white'];
         const inactiveClass = ['bg-gray-100', 'text-gray-600', 'hover:bg-gray-200'];
 
+        if (buttons.length === 0 || panels.length === 0) {
+            return;
+        }
+
         const showTab = (tab) => {
+            const selectedTab = Array.from(buttons).some((button) => button.dataset.settingsTab === tab)
+                ? tab
+                : 'general';
+
             panels.forEach((panel) => {
-                panel.classList.toggle('hidden', panel.dataset.settingsTabPanel !== tab);
+                panel.classList.toggle('hidden', panel.dataset.settingsTabPanel !== selectedTab);
             });
             buttons.forEach((button) => {
-                const isActive = button.dataset.settingsTab === tab;
+                const isActive = button.dataset.settingsTab === selectedTab;
                 button.classList.remove(...activeClass, ...inactiveClass);
                 button.classList.add(...(isActive ? activeClass : inactiveClass));
                 button.setAttribute('aria-selected', String(isActive));
             });
+
+            if (window.location.hash !== `#${selectedTab}`) {
+                window.history.replaceState(null, '', `#${selectedTab}`);
+            }
         };
 
         buttons.forEach((button) => button.addEventListener('click', () => showTab(button.dataset.settingsTab)));
-        showTab({{ $errors->has('ai_model_pricings') ? "'pricing'" : "'general'" }});
-    });
+        window.addEventListener('hashchange', () => showTab(window.location.hash.replace('#', '')));
+        showTab(window.location.hash.replace('#', '') || {{ $errors->has('ai_model_pricings') ? "'pricing'" : "'general'" }});
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeGeneralSettingsTabs, { once: true });
+    } else {
+        initializeGeneralSettingsTabs();
+    }
 </script>
 @endpush

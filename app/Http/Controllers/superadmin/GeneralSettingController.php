@@ -25,15 +25,16 @@ class GeneralSettingController extends Controller
         $pages = $this->ensurePages();
         $clientProfile = ClientProfile::query()->first();
         $openAiModels = $this->availableOpenAiDiscussionModels($clientProfile);
-        $aiDiscussionModels = $this->aiDiscussionModels($openAiModels);
+        $geminiModels = $this->availableGeminiDiscussionModels($clientProfile);
+        $availableModels = [...$openAiModels, ...$geminiModels];
+        $aiDiscussionModels = $this->aiDiscussionModels($availableModels);
         $aiModelPricings = AiModelPricing::query()
-            ->where('provider', 'openai')
             ->orderBy('model')
             ->get()
-            ->keyBy('model');
+            ->keyBy(fn (AiModelPricing $pricing): string => $pricing->provider . ':' . $pricing->model);
 
         return view('super-admin.general-settings.edit', compact(
-            'pages', 'clientProfile', 'aiDiscussionModels', 'openAiModels', 'aiModelPricings'
+            'pages', 'clientProfile', 'aiDiscussionModels', 'availableModels', 'aiModelPricings'
         ));
     }
 
@@ -41,13 +42,16 @@ class GeneralSettingController extends Controller
     {
         $profile = ClientProfile::query()->first();
         $openAiModels = $this->availableOpenAiDiscussionModels($profile);
-        $aiDiscussionModels = $this->aiDiscussionModels($openAiModels);
+        $geminiModels = $this->availableGeminiDiscussionModels($profile);
+        $aiDiscussionModels = $this->aiDiscussionModels([...$openAiModels, ...$geminiModels]);
         $submittedPricedModels = collect($request->input('ai_model_pricings', []))
             ->filter(fn ($pricing): bool => is_array($pricing)
                 && $this->hasPricingRates($pricing)
-                && $this->isSupportedOpenAiDiscussionModel((string) ($pricing['model'] ?? '')))
-            ->pluck('model')
-            ->map(fn ($model): string => strtolower(trim((string) $model)))
+                && $this->isSupportedDiscussionModel(
+                    (string) ($pricing['provider'] ?? ''),
+                    (string) ($pricing['model'] ?? ''),
+                ))
+            ->map(fn (array $pricing): string => strtolower(trim((string) $pricing['model'])))
             ->all();
         $selectableModels = array_unique([...array_keys($aiDiscussionModels), ...$submittedPricedModels]);
 
@@ -68,6 +72,7 @@ class GeneralSettingController extends Controller
             'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
             'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
             'ai_model_pricings' => ['nullable', 'array'],
+            'ai_model_pricings.*.provider' => ['required', Rule::in(['openai', 'gemini'])],
             'ai_model_pricings.*.model' => ['required', 'string', 'max:120'],
             'ai_model_pricings.*.input_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'ai_model_pricings.*.output_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
@@ -177,18 +182,10 @@ class GeneralSettingController extends Controller
         ];
     }
 
-    private function aiDiscussionModels(array $openAiModels): array
+    private function aiDiscussionModels(array $availableModels): array
     {
-        $geminiModels = collect(config('services.gemini.question_models', []))
-            ->map(fn (string $label, string $id) => [
-                'id' => $id,
-                'label' => $label,
-                'provider' => 'Gemini',
-            ]);
-
-        return collect($openAiModels)
-            ->filter(fn (array $model): bool => $this->aiGatewayCostService->hasPricing('openai', $model['id']))
-            ->merge($geminiModels)
+        return collect($availableModels)
+            ->filter(fn (array $model): bool => $this->aiGatewayCostService->hasPricing($model['provider'], $model['id']))
             ->keyBy('id')
             ->all();
     }
@@ -240,7 +237,7 @@ class GeneralSettingController extends Controller
             ->map(fn (string $id) => [
                 'id' => $id,
                 'label' => 'OpenAI - ' . $id,
-                'provider' => 'OpenAI',
+                'provider' => 'openai',
             ])
             ->all();
 
@@ -265,6 +262,26 @@ class GeneralSettingController extends Controller
             && ! str_contains($model, 'codex');
     }
 
+    private function isSupportedGeminiDiscussionModel(string $model): bool
+    {
+        $model = strtolower($model);
+
+        return str_starts_with($model, 'gemini-')
+            && ! str_contains($model, 'image')
+            && ! str_contains($model, 'audio')
+            && ! str_contains($model, 'live')
+            && ! str_contains($model, 'tts');
+    }
+
+    private function isSupportedDiscussionModel(string $provider, string $model): bool
+    {
+        return match (strtolower(trim($provider))) {
+            'openai' => $this->isSupportedOpenAiDiscussionModel($model),
+            'gemini' => $this->isSupportedGeminiDiscussionModel($model),
+            default => false,
+        };
+    }
+
     /**
      * @return array<int, array{id: string, label: string, provider: string}>
      */
@@ -277,7 +294,7 @@ class GeneralSettingController extends Controller
                 ->map(fn (string $label, string $id) => [
                     'id' => $id,
                     'label' => $label,
-                    'provider' => 'OpenAI',
+                    'provider' => 'openai',
                 ])
                 ->all();
         }
@@ -288,7 +305,85 @@ class GeneralSettingController extends Controller
             ->map(fn (string $model) => [
                 'id' => $model,
                 'label' => 'OpenAI - ' . $model,
-                'provider' => 'OpenAI',
+                'provider' => 'openai',
+            ]);
+
+        return collect($models)
+            ->merge($pricedModels)
+            ->keyBy('id')
+            ->sortBy('id', SORT_NATURAL)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Retrieve the text Gemini models available to the saved Gemini API key.
+     *
+     * @return array<int, array{id: string, label: string, provider: string}>
+     */
+    private function availableGeminiDiscussionModels(?ClientProfile $profile): array
+    {
+        $settings = is_array($profile?->ai_discussion_settings) ? $profile->ai_discussion_settings : [];
+        $provider = is_array($settings['providers']['gemini'] ?? null) ? $settings['providers']['gemini'] : [];
+        $apiKey = trim((string) ($provider['api_key'] ?? config('services.gemini.api_key')));
+        $models = [];
+
+        if ($apiKey !== '') {
+            $baseUrl = rtrim(trim((string) ($provider['base_url'] ?? config('services.gemini.base_url'))), '/');
+            $cacheKey = 'gemini-discussion-models:' . hash('sha256', $baseUrl . '|' . $apiKey);
+            $cachedModels = Cache::get($cacheKey);
+
+            if (is_array($cachedModels)) {
+                $models = $cachedModels;
+            } else {
+                try {
+                    $response = Http::acceptJson()
+                        ->timeout(8)
+                        ->withQueryParameters(['key' => $apiKey])
+                        ->get($baseUrl . '/models');
+                } catch (\Throwable) {
+                    $response = null;
+                }
+
+                if ($response?->successful()) {
+                    $models = collect($response->json('models', []))
+                        ->filter(fn ($model): bool => is_array($model)
+                            && in_array('generateContent', $model['supportedGenerationMethods'] ?? [], true))
+                        ->map(fn (array $model): string => str_replace('models/', '', (string) ($model['name'] ?? '')))
+                        ->filter(fn (string $model): bool => $this->isSupportedGeminiDiscussionModel($model))
+                        ->sort(SORT_NATURAL)
+                        ->values()
+                        ->map(fn (string $id): array => [
+                            'id' => $id,
+                            'label' => 'Gemini - ' . $id,
+                            'provider' => 'gemini',
+                        ])
+                        ->all();
+
+                    if ($models !== []) {
+                        Cache::put($cacheKey, $models, now()->addMinutes(15));
+                    }
+                }
+            }
+        }
+
+        if ($models === []) {
+            $models = collect(config('services.gemini.question_models', []))
+                ->map(fn (string $label, string $id): array => [
+                    'id' => $id,
+                    'label' => $label,
+                    'provider' => 'gemini',
+                ])
+                ->all();
+        }
+
+        $pricedModels = AiModelPricing::query()
+            ->where('provider', 'gemini')
+            ->pluck('model')
+            ->map(fn (string $model): array => [
+                'id' => $model,
+                'label' => 'Gemini - ' . $model,
+                'provider' => 'gemini',
             ]);
 
         return collect($models)
@@ -308,12 +403,13 @@ class GeneralSettingController extends Controller
             }
 
             $model = strtolower(trim((string) ($pricing['model'] ?? '')));
-            if (! $this->isSupportedOpenAiDiscussionModel($model)) {
+            $provider = strtolower(trim((string) ($pricing['provider'] ?? '')));
+            if (! $this->isSupportedDiscussionModel($provider, $model)) {
                 continue;
             }
 
             AiModelPricing::query()->updateOrCreate(
-                ['provider' => 'openai', 'model' => $model],
+                ['provider' => $provider, 'model' => $model],
                 [
                     'input_per_million_usd' => (float) $pricing['input_per_million_usd'],
                     'output_per_million_usd' => (float) $pricing['output_per_million_usd'],
