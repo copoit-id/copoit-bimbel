@@ -308,17 +308,19 @@ class AiGatewayPaymentService
 
     private function ipaymuPost(array $settings, string $path, array $payload)
     {
-        $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        // iPaymu memvalidasi signature terhadap byte JSON yang dikirim. Kirim body
+        // yang sama persis agar URL callback tidak menghasilkan signature berbeda.
+        $body = json_encode($payload, JSON_THROW_ON_ERROR);
         $apiKey = (string) $settings['ipaymu_api_key'];
         $va = (string) $settings['ipaymu_va'];
         $signature = hash_hmac('sha256', 'POST:'.$va.':'.strtolower(hash('sha256', $body)).':'.$apiKey, $apiKey);
         $base = ($settings['mode'] ?? 'sandbox') === 'production' ? 'https://my.ipaymu.com' : 'https://sandbox.ipaymu.com';
 
-        return Http::acceptJson()->asJson()->timeout(30)->withHeaders([
+        return Http::acceptJson()->withBody($body, 'application/json')->timeout(30)->withHeaders([
             'va' => $va,
             'signature' => $signature,
             'timestamp' => now()->format('YmdHis'),
-        ])->post($base.'/'.ltrim($path, '/'), $payload);
+        ])->post($base.'/'.ltrim($path, '/'));
     }
 
     private function settings(): array

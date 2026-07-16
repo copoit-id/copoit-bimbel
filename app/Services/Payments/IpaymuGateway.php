@@ -2,9 +2,9 @@
 
 namespace App\Services\Payments;
 
+use App\Models\IndividualPurchase;
 use App\Models\Package;
 use App\Models\Payment;
-use App\Models\IndividualPurchase;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,14 +19,14 @@ class IpaymuGateway
         $apiKey = config('services.ipaymu.api_key');
         $va = config('services.ipaymu.va');
 
-        if (!$apiKey || !$va) {
+        if (! $apiKey || ! $va) {
             return [
                 'success' => false,
                 'message' => 'Credential iPaymu belum dikonfigurasi.',
             ];
         }
 
-        $transactionId = 'IPAYMU-' . $package->package_id . '-' . Auth::id() . '-' . time();
+        $transactionId = 'IPAYMU-'.$package->package_id.'-'.Auth::id().'-'.time();
         $amount = (int) round($discountData['payable_amount']);
         $uniqueCode = $this->paymentUniqueCodeFor($amount);
         $totalAmount = $amount + ($uniqueCode ?? 0);
@@ -37,7 +37,7 @@ class IpaymuGateway
             'product' => [Str::limit($package->name, 80, '')],
             'qty' => [1],
             'price' => [$totalAmount],
-            'description' => ['Pembelian ' . $package->name],
+            'description' => ['Pembelian '.$package->name],
             'notifyUrl' => route('webhook.ipaymu'),
             'returnUrl' => route('user.package.payment.success', ['transaction_id' => $transactionId]),
             'cancelUrl' => route('user.package.payment.failed', ['transaction_id' => $transactionId]),
@@ -52,7 +52,7 @@ class IpaymuGateway
         try {
             $response = $this->post('/api/v2/payment', $payload);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return [
                     'success' => false,
                     'message' => $this->responseMessage($response->json() ?: [], 'Gagal membuat pembayaran iPaymu.', $response->status()),
@@ -60,7 +60,7 @@ class IpaymuGateway
             }
 
             $data = $response->json();
-            if (!$this->isSuccessResponse($data)) {
+            if (! $this->isSuccessResponse($data)) {
                 return [
                     'success' => false,
                     'message' => $this->responseMessage($data, 'iPaymu menolak pembuatan pembayaran.'),
@@ -74,7 +74,7 @@ class IpaymuGateway
                 ?? $responseData['payment_url']
                 ?? null;
 
-            if (!$redirectUrl) {
+            if (! $redirectUrl) {
                 return [
                     'success' => false,
                     'message' => 'iPaymu tidak mengembalikan URL pembayaran.',
@@ -118,7 +118,7 @@ class IpaymuGateway
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'Error koneksi ke iPaymu: ' . $e->getMessage(),
+                'message' => 'Error koneksi ke iPaymu: '.$e->getMessage(),
             ];
         }
     }
@@ -128,7 +128,7 @@ class IpaymuGateway
         $apiKey = config('services.ipaymu.api_key');
         $va = config('services.ipaymu.va');
 
-        if (!$apiKey || !$va) {
+        if (! $apiKey || ! $va) {
             return [
                 'success' => false,
                 'message' => 'Credential iPaymu belum dikonfigurasi.',
@@ -145,7 +145,7 @@ class IpaymuGateway
             'product' => [Str::limit($itemName, 80, '')],
             'qty' => [1],
             'price' => [$amount],
-            'description' => ['Pembelian ' . $itemName],
+            'description' => ['Pembelian '.$itemName],
             'notifyUrl' => route('webhook.ipaymu'),
             'returnUrl' => route('user.package.payment.success', ['transaction_id' => $transactionId]),
             'cancelUrl' => route('user.package.payment.failed', ['transaction_id' => $transactionId]),
@@ -160,7 +160,7 @@ class IpaymuGateway
         try {
             $response = $this->post('/api/v2/payment', $payload);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return [
                     'success' => false,
                     'message' => $this->responseMessage($response->json() ?: [], 'Gagal membuat pembayaran iPaymu.', $response->status()),
@@ -168,7 +168,7 @@ class IpaymuGateway
             }
 
             $data = $response->json();
-            if (!$this->isSuccessResponse($data)) {
+            if (! $this->isSuccessResponse($data)) {
                 return [
                     'success' => false,
                     'message' => $this->responseMessage($data, 'iPaymu menolak pembuatan pembayaran.'),
@@ -182,7 +182,7 @@ class IpaymuGateway
                 ?? $responseData['payment_url']
                 ?? null;
 
-            if (!$redirectUrl) {
+            if (! $redirectUrl) {
                 return [
                     'success' => false,
                     'message' => 'iPaymu tidak mengembalikan URL pembayaran.',
@@ -210,14 +210,14 @@ class IpaymuGateway
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'Error koneksi ke iPaymu: ' . $e->getMessage(),
+                'message' => 'Error koneksi ke iPaymu: '.$e->getMessage(),
             ];
         }
     }
 
     private function paymentUniqueCodeFor(int $amount): ?int
     {
-        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+        if ($amount <= 0 || ! (bool) config('client.branding.payment_unique_code_enabled', true)) {
             return null;
         }
 
@@ -237,11 +237,11 @@ class IpaymuGateway
             : null;
         $individualPurchase = null;
 
-        if (!$payment && $referenceId !== '') {
+        if (! $payment && $referenceId !== '') {
             $individualPurchase = IndividualPurchase::where('transaction_id', $referenceId)->first();
         }
 
-        if (!$payment && !$individualPurchase) {
+        if (! $payment && ! $individualPurchase) {
             $transactionId = (string) ($request->input('trx_id')
                 ?: $request->input('transaction_id')
                 ?: $request->input('sid')
@@ -249,12 +249,12 @@ class IpaymuGateway
 
             if ($transactionId !== '') {
                 $payment = Payment::where('payment_method', 'ipaymu')
-                    ->where('payment_details', 'like', '%' . $transactionId . '%')
+                    ->where('payment_details', 'like', '%'.$transactionId.'%')
                     ->first();
 
-                if (!$payment) {
+                if (! $payment) {
                     $individualPurchase = IndividualPurchase::where('payment_method', 'ipaymu')
-                        ->where('payment_details', 'like', '%' . $transactionId . '%')
+                        ->where('payment_details', 'like', '%'.$transactionId.'%')
                         ->first();
                 }
             }
@@ -262,7 +262,7 @@ class IpaymuGateway
 
         $payable = $payment ?: $individualPurchase;
 
-        if (!$payable) {
+        if (! $payable) {
             return null;
         }
 
@@ -570,20 +570,21 @@ class IpaymuGateway
     {
         $apiKey = (string) config('services.ipaymu.api_key');
         $va = (string) config('services.ipaymu.va');
-        $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        // iPaymu memvalidasi signature dari body JSON persis yang diterima.
+        $body = json_encode($payload, JSON_THROW_ON_ERROR);
         $requestBody = strtolower(hash('sha256', $body));
-        $stringToSign = 'POST:' . $va . ':' . $requestBody . ':' . $apiKey;
+        $stringToSign = 'POST:'.$va.':'.$requestBody.':'.$apiKey;
         $signature = hash_hmac('sha256', $stringToSign, $apiKey);
 
         return Http::acceptJson()
-            ->asJson()
+            ->withBody($body, 'application/json')
             ->timeout(30)
             ->withHeaders([
                 'va' => $va,
                 'signature' => $signature,
                 'timestamp' => now()->format('YmdHis'),
             ])
-            ->post(rtrim((string) config('services.ipaymu.base_url'), '/') . '/' . ltrim($path, '/'), $payload);
+            ->post(rtrim((string) config('services.ipaymu.base_url'), '/').'/'.ltrim($path, '/'));
     }
 
     private function isSuccessResponse(array $data): bool
@@ -652,7 +653,7 @@ class IpaymuGateway
 
     private function userLooksLikeMerchant($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
