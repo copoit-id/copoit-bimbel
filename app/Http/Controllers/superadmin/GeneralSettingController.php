@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\ClientProfile;
 use App\Models\GeneralPage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
 
 class GeneralSettingController extends Controller
 {
@@ -13,12 +16,16 @@ class GeneralSettingController extends Controller
     {
         $pages = $this->ensurePages();
         $clientProfile = ClientProfile::query()->first();
+        $aiDiscussionModels = $this->aiDiscussionModels($clientProfile);
 
-        return view('super-admin.general-settings.edit', compact('pages', 'clientProfile'));
+        return view('super-admin.general-settings.edit', compact('pages', 'clientProfile', 'aiDiscussionModels'));
     }
 
     public function update(Request $request)
     {
+        $profile = ClientProfile::query()->first();
+        $aiDiscussionModels = $this->aiDiscussionModels($profile);
+
         $validated = $request->validate([
             'public_visibility' => ['nullable', 'array'],
             'public_visibility.*' => ['nullable', 'boolean'],
@@ -26,7 +33,7 @@ class GeneralSettingController extends Controller
             'ai_discussion_feature_enabled' => ['nullable', 'boolean'],
             'ai_discussion_admin_configurable' => ['nullable', 'boolean'],
             'ai_discussion_credential_mode' => ['nullable', 'in:custom'],
-            'ai_discussion_model' => ['nullable', 'string', 'max:120'],
+            'ai_discussion_model' => ['required', Rule::in(array_keys($aiDiscussionModels))],
             'ai_discussion_openai_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_discussion_openai_base_url' => ['nullable', 'url', 'max:255'],
             'ai_discussion_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
@@ -60,7 +67,6 @@ class GeneralSettingController extends Controller
             );
         }
 
-        $profile = ClientProfile::query()->first();
         if ($profile) {
             $profile->update([
                 'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
@@ -116,7 +122,7 @@ class GeneralSettingController extends Controller
         return [
             'enabled' => $request->boolean('ai_discussion_feature_enabled'),
             'credential_mode' => 'custom',
-            'model' => trim((string) $request->input('ai_discussion_model', $existing['model'] ?? 'gemini-2.5-flash')) ?: 'gemini-2.5-flash',
+            'model' => (string) $request->input('ai_discussion_model', $existing['model'] ?? 'gemini-2.5-flash'),
             'providers' => [
                 'openai' => [
                     'api_key' => trim((string) $request->input('ai_discussion_openai_api_key')) ?: ($providers['openai']['api_key'] ?? null),
@@ -134,6 +140,105 @@ class GeneralSettingController extends Controller
             'monthly_token_limit' => max(0, (int) ($existing['monthly_token_limit'] ?? 0)),
             'models' => $existing['models'] ?? [],
         ];
+    }
+
+    private function aiDiscussionModels(?ClientProfile $profile): array
+    {
+        $openAiModels = $this->openAiDiscussionModels($profile);
+
+        if ($openAiModels === []) {
+            $openAiModels = collect(config('services.openai.question_models', []))
+                ->map(fn (string $label, string $id) => [
+                    'id' => $id,
+                    'label' => $label,
+                    'provider' => 'OpenAI',
+                ])
+                ->all();
+        }
+
+        $geminiModels = collect(config('services.gemini.question_models', []))
+            ->map(fn (string $label, string $id) => [
+                'id' => $id,
+                'label' => $label,
+                'provider' => 'Gemini',
+            ]);
+
+        return collect($openAiModels)
+            ->merge($geminiModels)
+            ->keyBy('id')
+            ->all();
+    }
+
+    /**
+     * Retrieve the GPT models available to the saved OpenAI API key.
+     *
+     * The Models API also returns audio, image, realtime, and legacy models.
+     * This screen only supports text GPT models through the Responses API.
+     *
+     * @return array<int, array{id: string, label: string, provider: string}>
+     */
+    private function openAiDiscussionModels(?ClientProfile $profile): array
+    {
+        $settings = is_array($profile?->ai_discussion_settings) ? $profile->ai_discussion_settings : [];
+        $provider = is_array($settings['providers']['openai'] ?? null) ? $settings['providers']['openai'] : [];
+        $apiKey = trim((string) ($provider['api_key'] ?? config('services.openai.api_key')));
+
+        if ($apiKey === '') {
+            return [];
+        }
+
+        $baseUrl = rtrim(trim((string) ($provider['base_url'] ?? config('services.openai.base_url'))), '/');
+        $cacheKey = 'openai-discussion-models:' . hash('sha256', $baseUrl . '|' . $apiKey);
+        $cachedModels = Cache::get($cacheKey);
+
+        if (is_array($cachedModels)) {
+            return $cachedModels;
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->withToken($apiKey)
+                ->timeout(8)
+                ->get($baseUrl . '/models');
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $models = collect($response->json('data', []))
+            ->pluck('id')
+            ->filter(fn ($id): bool => is_string($id) && $this->isSupportedOpenAiDiscussionModel($id))
+            ->sort(SORT_NATURAL)
+            ->values()
+            ->map(fn (string $id) => [
+                'id' => $id,
+                'label' => 'OpenAI - ' . $id,
+                'provider' => 'OpenAI',
+            ])
+            ->all();
+
+        if ($models !== []) {
+            Cache::put($cacheKey, $models, now()->addMinutes(15));
+        }
+
+        return $models;
+    }
+
+    private function isSupportedOpenAiDiscussionModel(string $model): bool
+    {
+        $model = strtolower($model);
+
+        return str_starts_with($model, 'gpt-')
+            && ! str_contains($model, 'audio')
+            && ! str_contains($model, 'realtime')
+            && ! str_contains($model, 'transcribe')
+            && ! str_contains($model, 'tts')
+            && ! str_contains($model, 'image')
+            && ! str_contains($model, 'search')
+            && ! str_contains($model, 'codex');
     }
 
     private function aiGatewayPaymentSettings(Request $request, ClientProfile $profile): array

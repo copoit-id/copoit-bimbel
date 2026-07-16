@@ -71,7 +71,14 @@
             <div class="grid gap-4 lg:grid-cols-3">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Model Chat</label>
-                    <input type="text" name="ai_discussion_model" value="{{ old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="gemini-2.5-flash">
+                    <select name="ai_discussion_model" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
+                        @foreach($aiDiscussionModels as $model)
+                            <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
+                                {{ $model['label'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Model GPT diambil dari API OpenAI berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Model ini dipakai saat Diskusi AI Pembahasan memproses chat user.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
