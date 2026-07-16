@@ -101,6 +101,17 @@ return [
     'ai_gateway' => [
         'url' => env('AI_GATEWAY_URL'),
         'key' => env('AI_GATEWAY_KEY'),
+        'cost_pricing' => [
+            // Tarif OpenAI dihitung per 1 juta token. Kurs dapat disesuaikan tanpa mengubah kode.
+            'usd_to_idr' => (float) env('AI_GATEWAY_USD_TO_IDR', 16000),
+            'models' => [
+                'gpt-4o-mini' => [
+                    'aliases' => ['gpt-4o-mini', 'gpt-4o-mini-2024-07-18'],
+                    'input_per_million_usd' => (float) env('AI_GATEWAY_GPT_4O_MINI_INPUT_PER_MILLION_USD', 0.15),
+                    'output_per_million_usd' => (float) env('AI_GATEWAY_GPT_4O_MINI_OUTPUT_PER_MILLION_USD', 0.60),
+                ],
+            ],
+        ],
     ],
 
     'ai_similarity' => [

@@ -4,16 +4,17 @@ namespace App\Http\Controllers\superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiDiscussionUsageLog;
-use App\Models\ClientProfile;
 use App\Models\AiGatewayClient;
-use App\Models\AiGatewayUsageLog;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
+use App\Models\AiGatewayUsageLog;
+use App\Models\ClientProfile;
+use App\Services\AiGatewayCostService;
 use App\Services\AiGatewaySubscriptionService;
-use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AiUsageController extends Controller
 {
@@ -42,11 +43,12 @@ class AiUsageController extends Controller
 
         $periodUsage = collect([
             ['label' => 'Hari ini', 'description' => now()->translatedFormat('d M Y'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfDay())],
-            ['label' => 'Minggu ini', 'description' => now()->startOfWeek()->translatedFormat('d M') . ' – ' . now()->endOfWeek()->translatedFormat('d M'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfWeek())],
+            ['label' => 'Minggu ini', 'description' => now()->startOfWeek()->translatedFormat('d M').' – '.now()->endOfWeek()->translatedFormat('d M'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfWeek())],
             ['label' => 'Bulan ini', 'description' => now()->translatedFormat('F Y'), 'query' => fn () => (clone $allUsageQuery)->where('created_at', '>=', now()->startOfMonth())],
             ['label' => 'Total', 'description' => 'Sejak awal penggunaan', 'query' => fn () => clone $allUsageQuery],
         ])->map(function ($period) {
             $stats = $period['query']()->selectRaw('COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens')->first();
+
             return ['label' => $period['label'], 'description' => $period['description'], 'request_count' => $stats->request_count, 'total_tokens' => $stats->total_tokens];
         });
 
@@ -102,6 +104,7 @@ class AiUsageController extends Controller
 
         $providers = AiDiscussionUsageLog::query()->distinct()->orderBy('provider')->pluck('provider');
         $models = AiDiscussionUsageLog::query()->distinct()->orderBy('model')->pluck('model');
+
         return view('super-admin.ai-usage.index', compact(
             'month', 'summary', 'monthlyLimit', 'usedTokens', 'byQuestion', 'byUser',
             'dailyUsage', 'periodUsage', 'logs', 'providers', 'models'
@@ -146,7 +149,7 @@ class AiUsageController extends Controller
         return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary', 'subscriptions'));
     }
 
-    public function gatewayPayments(Request $request)
+    public function gatewayPayments(Request $request, AiGatewayCostService $costService)
     {
         $clients = AiGatewayClient::query()->orderBy('name')->get(['id', 'name']);
         $transactions = AiGatewayTransaction::query()
@@ -161,7 +164,50 @@ class AiUsageController extends Controller
             ->selectRaw("COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) as paid_amount, SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid_count, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count")
             ->first();
 
-        return view('super-admin.ai-gateway-payments.index', compact('clients', 'transactions', 'summary'));
+        $costBreakdown = AiGatewayUsageLog::query()
+            ->select(['ai_gateway_client_id', 'provider', 'model'])
+            ->selectRaw('COALESCE(SUM(input_tokens), 0) as input_tokens, COALESCE(SUM(output_tokens), 0) as output_tokens, COALESCE(SUM(total_tokens), 0) as total_tokens, COUNT(*) as request_count')
+            ->with('client:id,name')
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->groupBy('ai_gateway_client_id', 'provider', 'model')
+            ->get()
+            ->map(function (AiGatewayUsageLog $usage) use ($costService): ?array {
+                $cost = $costService->estimate(
+                    (string) $usage->provider,
+                    (string) $usage->model,
+                    (int) $usage->input_tokens,
+                    (int) $usage->output_tokens,
+                );
+
+                if ($cost === null) {
+                    return null;
+                }
+
+                return [
+                    'client_name' => $usage->client?->name ?? 'Project dihapus',
+                    'model' => $usage->model,
+                    'input_tokens' => (int) $usage->input_tokens,
+                    'output_tokens' => (int) $usage->output_tokens,
+                    'total_tokens' => (int) $usage->total_tokens,
+                    'request_count' => (int) $usage->request_count,
+                    ...$cost,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $apiExpense = (int) round($costBreakdown->sum('total_cost_idr'));
+        $financialSummary = [
+            'gross_income' => (int) $summary->paid_amount,
+            'api_expense' => $apiExpense,
+            'net_income' => (int) $summary->paid_amount - $apiExpense,
+            'input_tokens' => (int) $costBreakdown->sum('input_tokens'),
+            'output_tokens' => (int) $costBreakdown->sum('output_tokens'),
+            'total_tokens' => (int) $costBreakdown->sum('total_tokens'),
+            'request_count' => (int) $costBreakdown->sum('request_count'),
+        ];
+
+        return view('super-admin.ai-gateway-payments.index', compact('clients', 'transactions', 'summary', 'financialSummary', 'costBreakdown'));
     }
 
     public function approveGatewayPayment(AiGatewayTransaction $transaction, AiGatewaySubscriptionService $subscriptionService)
@@ -189,22 +235,25 @@ class AiUsageController extends Controller
 
     public function storeGatewayClient(Request $request)
     {
-        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['nullable','integer','min:0'], 'free_token_limit' => ['nullable','integer','min:0'], 'free_chat_limit' => ['nullable','integer','min:0']]);
-        $plainKey = 'aigw_' . Str::random(48);
-        $client = AiGatewayClient::create(['name'=>$data['name'], 'slug'=>Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'base_url'=>$data['base_url'] ?? null, 'api_key_hash'=>hash('sha256',$plainKey), 'monthly_token_limit'=>(int)($data['monthly_token_limit'] ?? 0), 'free_token_limit'=>(int)($data['free_token_limit'] ?? 0), 'free_chat_limit'=>(int)($data['free_chat_limit'] ?? 0)]);
-        return back()->with('gateway_key', $plainKey)->with('gateway_key_client_id', $client->id)->with('success','Project gateway berhasil dibuat. Salin key sekarang; key hanya tampil sekali.');
+        $data = $request->validate(['name' => ['required', 'string', 'max:100'], 'base_url' => ['nullable', 'url', 'max:2048'], 'monthly_token_limit' => ['nullable', 'integer', 'min:0'], 'free_token_limit' => ['nullable', 'integer', 'min:0'], 'free_chat_limit' => ['nullable', 'integer', 'min:0']]);
+        $plainKey = 'aigw_'.Str::random(48);
+        $client = AiGatewayClient::create(['name' => $data['name'], 'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(6)), 'base_url' => $data['base_url'] ?? null, 'api_key_hash' => hash('sha256', $plainKey), 'monthly_token_limit' => (int) ($data['monthly_token_limit'] ?? 0), 'free_token_limit' => (int) ($data['free_token_limit'] ?? 0), 'free_chat_limit' => (int) ($data['free_chat_limit'] ?? 0)]);
+
+        return back()->with('gateway_key', $plainKey)->with('gateway_key_client_id', $client->id)->with('success', 'Project gateway berhasil dibuat. Salin key sekarang; key hanya tampil sekali.');
     }
 
     public function updateGatewayClient(Request $request, AiGatewayClient $gatewayClient)
     {
-        $data = $request->validate(['name' => ['required','string','max:100'], 'base_url' => ['nullable','url','max:2048'], 'monthly_token_limit' => ['required','integer','min:0'], 'free_token_limit' => ['nullable','integer','min:0'], 'free_chat_limit' => ['nullable','integer','min:0']]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:100'], 'base_url' => ['nullable', 'url', 'max:2048'], 'monthly_token_limit' => ['required', 'integer', 'min:0'], 'free_token_limit' => ['nullable', 'integer', 'min:0'], 'free_chat_limit' => ['nullable', 'integer', 'min:0']]);
         $gatewayClient->update($data);
+
         return back()->with('success', 'Project gateway berhasil diperbarui.');
     }
 
     public function destroyGatewayClient(AiGatewayClient $gatewayClient)
     {
         $gatewayClient->delete();
+
         return back()->with('success', 'Project gateway beserta riwayat pemakaiannya berhasil dihapus.');
     }
 
