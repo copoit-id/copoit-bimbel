@@ -570,8 +570,9 @@ class IpaymuGateway
     {
         $apiKey = (string) config('services.ipaymu.api_key');
         $va = (string) config('services.ipaymu.va');
-        // iPaymu memvalidasi signature dari body JSON persis yang diterima.
-        $body = json_encode($payload, JSON_THROW_ON_ERROR);
+        // iPaymu memakai JSON.stringify pada contoh resminya. Kirim body tersebut
+        // apa adanya agar signature dan URL callback memiliki format yang sama.
+        $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $requestBody = strtolower(hash('sha256', $body));
         $stringToSign = 'POST:'.$va.':'.$requestBody.':'.$apiKey;
         $signature = hash_hmac('sha256', $stringToSign, $apiKey);

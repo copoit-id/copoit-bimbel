@@ -308,9 +308,9 @@ class AiGatewayPaymentService
 
     private function ipaymuPost(array $settings, string $path, array $payload)
     {
-        // iPaymu memvalidasi signature terhadap byte JSON yang dikirim. Kirim body
-        // yang sama persis agar URL callback tidak menghasilkan signature berbeda.
-        $body = json_encode($payload, JSON_THROW_ON_ERROR);
+        // iPaymu memakai JSON.stringify pada contoh resminya. Kirim body tersebut
+        // apa adanya agar signature dan URL callback memiliki format yang sama.
+        $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $apiKey = (string) $settings['ipaymu_api_key'];
         $va = (string) $settings['ipaymu_va'];
         $signature = hash_hmac('sha256', 'POST:'.$va.':'.strtolower(hash('sha256', $body)).':'.$apiKey, $apiKey);

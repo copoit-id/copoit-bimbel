@@ -21,7 +21,7 @@ class IpaymuGatewaySignatureTest extends TestCase
             'notifyUrl' => 'https://demo.bimbelhub.com/api/webhook/ipaymu',
             'returnUrl' => 'https://client.test/paket-ai?payment=success',
         ];
-        $expectedBody = json_encode($payload, JSON_THROW_ON_ERROR);
+        $expectedBody = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $expectedSignature = hash_hmac(
             'sha256',
             'POST:test-va:'.strtolower(hash('sha256', $expectedBody)).':test-api-key',
