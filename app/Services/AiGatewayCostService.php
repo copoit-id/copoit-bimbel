@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\AiModelPricing;
+use Illuminate\Support\Facades\Cache;
+
 class AiGatewayCostService
 {
     /**
@@ -36,27 +39,50 @@ class AiGatewayCostService
         ];
     }
 
+    public function hasPricing(string $provider, string $model): bool
+    {
+        return $this->pricingFor($provider, $model) !== null;
+    }
+
     private function pricingFor(string $provider, string $model): ?array
     {
-        if (strtolower($provider) !== 'openai') {
-            return null;
-        }
-
+        $provider = strtolower(trim($provider));
         $normalizedModel = strtolower(trim($model));
-        $pricing = config('services.ai_gateway.cost_pricing', []);
+        $pricing = $this->activePricings($provider)
+            ->first(fn (array $item): bool => $normalizedModel === $item['model'] || str_starts_with($normalizedModel, $item['model'] . '-'));
 
-        foreach (($pricing['models'] ?? []) as $modelPricing) {
-            $aliases = array_map('strtolower', $modelPricing['aliases'] ?? []);
+        return $pricing === null ? null : [
+            'input_per_million_usd' => $pricing['input_per_million_usd'],
+            'output_per_million_usd' => $pricing['output_per_million_usd'],
+            'usd_to_idr' => $pricing['usd_to_idr'],
+        ];
+    }
 
-            if (in_array($normalizedModel, $aliases, true)) {
-                return [
-                    'input_per_million_usd' => (float) ($modelPricing['input_per_million_usd'] ?? 0),
-                    'output_per_million_usd' => (float) ($modelPricing['output_per_million_usd'] ?? 0),
-                    'usd_to_idr' => (float) ($pricing['usd_to_idr'] ?? 0),
-                ];
-            }
-        }
+    public function forgetCachedPricing(string $provider = 'openai'): void
+    {
+        Cache::forget($this->cacheKey(strtolower($provider)));
+    }
 
-        return null;
+    /**
+     * @return \Illuminate\Support\Collection<int, array{model: string, input_per_million_usd: float, output_per_million_usd: float, usd_to_idr: float}>
+     */
+    private function activePricings(string $provider)
+    {
+        return Cache::remember($this->cacheKey($provider), now()->addMinutes(15), fn () => AiModelPricing::query()
+            ->where('provider', $provider)
+            ->where('is_active', true)
+            ->orderByDesc('model')
+            ->get(['model', 'input_per_million_usd', 'output_per_million_usd', 'usd_to_idr'])
+            ->map(fn (AiModelPricing $pricing): array => [
+                'model' => strtolower($pricing->model),
+                'input_per_million_usd' => (float) $pricing->input_per_million_usd,
+                'output_per_million_usd' => (float) $pricing->output_per_million_usd,
+                'usd_to_idr' => (float) $pricing->usd_to_idr,
+            ]));
+    }
+
+    private function cacheKey(string $provider): string
+    {
+        return 'ai-gateway-model-pricings:' . $provider;
     }
 }

@@ -85,7 +85,9 @@ return [
         'question_model' => env('OPENAI_QUESTION_MODEL', 'gpt-5.4-mini'),
         'timeout' => env('OPENAI_TIMEOUT', 90),
         'question_models' => [
+            'gpt-5.4' => 'OpenAI - GPT-5.4',
             'gpt-5.4-mini' => 'OpenAI - GPT-5.4 Mini',
+            'gpt-5-mini' => 'OpenAI - GPT-5 Mini',
             'gpt-4o' => 'OpenAI - GPT-4o',
             'gpt-4o-mini' => 'OpenAI - GPT-4o Mini',
         ],
@@ -103,22 +105,6 @@ return [
     'ai_gateway' => [
         'url' => env('AI_GATEWAY_URL'),
         'key' => env('AI_GATEWAY_KEY'),
-        'cost_pricing' => [
-            // Tarif OpenAI dihitung per 1 juta token. Kurs dapat disesuaikan tanpa mengubah kode.
-            'usd_to_idr' => (float) env('AI_GATEWAY_USD_TO_IDR', 16000),
-            'models' => [
-                'gpt-4o-mini' => [
-                    'aliases' => ['gpt-4o-mini', 'gpt-4o-mini-2024-07-18'],
-                    'input_per_million_usd' => (float) env('AI_GATEWAY_GPT_4O_MINI_INPUT_PER_MILLION_USD', 0.15),
-                    'output_per_million_usd' => (float) env('AI_GATEWAY_GPT_4O_MINI_OUTPUT_PER_MILLION_USD', 0.60),
-                ],
-                'gpt-4o' => [
-                    'aliases' => ['gpt-4o', 'gpt-4o-2024-11-20', 'gpt-4o-2024-08-06'],
-                    'input_per_million_usd' => (float) env('AI_GATEWAY_GPT_4O_INPUT_PER_MILLION_USD', 2.50),
-                    'output_per_million_usd' => (float) env('AI_GATEWAY_GPT_4O_OUTPUT_PER_MILLION_USD', 10.00),
-                ],
-            ],
-        ],
     ],
 
     'ai_similarity' => [

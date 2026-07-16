@@ -7,12 +7,13 @@ use App\Models\AiGatewayClient;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayUsageLog;
 use App\Models\AiGatewayUserTrial;
+use App\Services\AiGatewayCostService;
 use App\Services\AiDiscussionService;
 use Illuminate\Http\Request;
 
 class AiGatewayController extends Controller
 {
-    public function discussion(Request $request, AiDiscussionService $ai)
+    public function discussion(Request $request, AiDiscussionService $ai, AiGatewayCostService $costService)
     {
         $key = (string) $request->header('X-AI-Gateway-Key', '');
         abort_if($key === '', 401, 'Gateway key tidak valid.');
@@ -80,7 +81,31 @@ class AiGatewayController extends Controller
                 'total' => $remainingTokenQuota,
             ];
         }
-        AiGatewayUsageLog::create(['ai_gateway_client_id' => $client->id, 'external_user_id' => $data['external_user_id'] ?? null, 'external_user_name' => $data['external_user_name'] ?? null, 'external_user_email' => $data['external_user_email'] ?? null, 'origin_base_url' => $client->base_url, 'question_reference' => $data['question_reference'] ?? null, 'provider' => $result['provider'], 'model' => $result['model'], 'input_tokens' => $result['usage']['input'], 'output_tokens' => $result['usage']['output'], 'total_tokens' => $result['usage']['total'], 'response_time_ms' => $result['response_time_ms']]);
+        $cost = $costService->estimate(
+            (string) $result['provider'],
+            (string) $result['model'],
+            (int) $result['usage']['input'],
+            (int) $result['usage']['output'],
+        );
+        AiGatewayUsageLog::create([
+            'ai_gateway_client_id' => $client->id,
+            'external_user_id' => $data['external_user_id'] ?? null,
+            'external_user_name' => $data['external_user_name'] ?? null,
+            'external_user_email' => $data['external_user_email'] ?? null,
+            'origin_base_url' => $client->base_url,
+            'question_reference' => $data['question_reference'] ?? null,
+            'provider' => $result['provider'],
+            'model' => $result['model'],
+            'input_tokens' => $result['usage']['input'],
+            'output_tokens' => $result['usage']['output'],
+            'total_tokens' => $result['usage']['total'],
+            'response_time_ms' => $result['response_time_ms'],
+            'input_per_million_usd' => $cost['input_per_million_usd'] ?? null,
+            'output_per_million_usd' => $cost['output_per_million_usd'] ?? null,
+            'usd_to_idr' => $cost['usd_to_idr'] ?? null,
+            'input_cost_idr' => $cost['input_cost_idr'] ?? null,
+            'output_cost_idr' => $cost['output_cost_idr'] ?? null,
+        ]);
         if ($subscription) {
             $subscription->increment('tokens_used', (int) $result['usage']['total']);
             $subscription->increment('chats_used');

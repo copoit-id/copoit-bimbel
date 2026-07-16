@@ -78,13 +78,23 @@
                             </option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Model GPT diambil dari API OpenAI berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Model ini dipakai saat Diskusi AI Pembahasan memproses chat user.</p>
+                    <p class="mt-1 text-xs text-gray-500">Model GPT diambil dari API OpenAI berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif API tersimpan yang dapat dipilih agar laba tetap akurat.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
                     <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000" value="{{ old('ai_discussion_max_output_tokens', $aiDiscussion['max_output_tokens'] ?? 700) }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
                 </div>
                 <div class="self-end rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2.5 text-sm text-blue-700">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</div>
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40">
+                <div class="border-b border-sky-100 px-4 py-3">
+                    <p class="font-semibold text-sky-950">Tarif Model OpenAI</p>
+                    <p class="mt-1 text-xs text-sky-800">Tarif aktif disimpan di database, bukan di ENV. Masukkan tarif resmi OpenAI per 1 juta token untuk mengaktifkan model baru. Tarif setiap request akan disnapshot agar riwayat laba tidak berubah.</p>
+                </div>
+                <div class="overflow-x-auto bg-white">
+                    <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Model</th><th class="px-4 py-3">Input / 1 jt token (US$)</th><th class="px-4 py-3">Output / 1 jt token (US$)</th><th class="px-4 py-3">Kurs USD → IDR</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($openAiModels as $index => $model)@php($pricing = $aiModelPricings->get($model['id']))<tr><td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900"><span class="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ $model['id'] }}</span><input type="hidden" name="ai_model_pricings[{{ $index }}][model]" value="{{ $model['id'] }}"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][input_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.input_per_million_usd", $pricing?->input_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][output_per_million_usd]" min="0" max="10000" step="0.000001" value="{{ old("ai_model_pricings.$index.output_per_million_usd", $pricing?->output_per_million_usd) }}" placeholder="Belum diatur" class="w-40 rounded-lg border-gray-200 text-sm"></td><td class="px-4 py-3"><input type="number" name="ai_model_pricings[{{ $index }}][usd_to_idr]" min="1" max="1000000" step="0.0001" value="{{ old("ai_model_pricings.$index.usd_to_idr", $pricing?->usd_to_idr ?? 16000) }}" class="w-40 rounded-lg border-gray-200 text-sm"></td></tr>@empty<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Simpan API key OpenAI lalu muat ulang halaman untuk mengambil daftar model.</td></tr>@endforelse</tbody></table>
+                </div>
             </div>
 
             <div class="grid gap-4 lg:grid-cols-2">

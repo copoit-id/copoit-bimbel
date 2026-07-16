@@ -3,28 +3,53 @@
 namespace App\Http\Controllers\superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiModelPricing;
 use App\Models\ClientProfile;
 use App\Models\GeneralPage;
+use App\Services\AiGatewayCostService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 
 class GeneralSettingController extends Controller
 {
+    public function __construct(
+        private readonly AiGatewayCostService $aiGatewayCostService,
+    ) {
+    }
+
     public function edit()
     {
         $pages = $this->ensurePages();
         $clientProfile = ClientProfile::query()->first();
-        $aiDiscussionModels = $this->aiDiscussionModels($clientProfile);
+        $openAiModels = $this->availableOpenAiDiscussionModels($clientProfile);
+        $aiDiscussionModels = $this->aiDiscussionModels($openAiModels);
+        $aiModelPricings = AiModelPricing::query()
+            ->where('provider', 'openai')
+            ->orderBy('model')
+            ->get()
+            ->keyBy('model');
 
-        return view('super-admin.general-settings.edit', compact('pages', 'clientProfile', 'aiDiscussionModels'));
+        return view('super-admin.general-settings.edit', compact(
+            'pages', 'clientProfile', 'aiDiscussionModels', 'openAiModels', 'aiModelPricings'
+        ));
     }
 
     public function update(Request $request)
     {
         $profile = ClientProfile::query()->first();
-        $aiDiscussionModels = $this->aiDiscussionModels($profile);
+        $openAiModels = $this->availableOpenAiDiscussionModels($profile);
+        $aiDiscussionModels = $this->aiDiscussionModels($openAiModels);
+        $submittedPricedModels = collect($request->input('ai_model_pricings', []))
+            ->filter(fn ($pricing): bool => is_array($pricing)
+                && $this->hasPricingRates($pricing)
+                && $this->isSupportedOpenAiDiscussionModel((string) ($pricing['model'] ?? '')))
+            ->pluck('model')
+            ->map(fn ($model): string => strtolower(trim((string) $model)))
+            ->all();
+        $selectableModels = array_unique([...array_keys($aiDiscussionModels), ...$submittedPricedModels]);
 
         $validated = $request->validate([
             'public_visibility' => ['nullable', 'array'],
@@ -33,7 +58,7 @@ class GeneralSettingController extends Controller
             'ai_discussion_feature_enabled' => ['nullable', 'boolean'],
             'ai_discussion_admin_configurable' => ['nullable', 'boolean'],
             'ai_discussion_credential_mode' => ['nullable', 'in:custom'],
-            'ai_discussion_model' => ['required', Rule::in(array_keys($aiDiscussionModels))],
+            'ai_discussion_model' => ['required', Rule::in($selectableModels)],
             'ai_discussion_openai_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_discussion_openai_base_url' => ['nullable', 'url', 'max:255'],
             'ai_discussion_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
@@ -42,6 +67,11 @@ class GeneralSettingController extends Controller
             'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
             'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
             'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
+            'ai_model_pricings' => ['nullable', 'array'],
+            'ai_model_pricings.*.model' => ['required', 'string', 'max:120'],
+            'ai_model_pricings.*.input_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'ai_model_pricings.*.output_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'ai_model_pricings.*.usd_to_idr' => ['nullable', 'numeric', 'min:1', 'max:1000000'],
             'ai_gateway_payment_gateway' => ['required', 'in:xendit,midtrans,ipaymu,interactive_qris'],
             'ai_gateway_payment_gateway_mode' => ['required', 'in:sandbox,production'],
             'ai_gateway_xendit_secret_key' => ['nullable', 'string', 'max:255'],
@@ -57,27 +87,32 @@ class GeneralSettingController extends Controller
             'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
         ]);
 
-        foreach ($this->pageLabels() as $pageKey => $label) {
-            GeneralPage::query()->updateOrCreate(
-                ['page_key' => $pageKey],
-                [
-                    'template_key' => 'default',
-                    'is_active' => (bool) data_get($validated, "public_visibility.{$pageKey}", false),
-                ]
-            );
-        }
+        DB::transaction(function () use ($validated, $request, $profile): void {
+            foreach ($this->pageLabels() as $pageKey => $label) {
+                GeneralPage::query()->updateOrCreate(
+                    ['page_key' => $pageKey],
+                    [
+                        'template_key' => 'default',
+                        'is_active' => (bool) data_get($validated, "public_visibility.{$pageKey}", false),
+                    ]
+                );
+            }
 
-        if ($profile) {
-            $profile->update([
-                'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
-                'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
-                'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
-                'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
-                'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
-                'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
-                'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
-            ]);
-        }
+            if ($profile) {
+                $profile->update([
+                    'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
+                    'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
+                    'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
+                    'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
+                    'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
+                    'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
+                    'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
+                ]);
+            }
+
+            $this->syncAiModelPricings($validated['ai_model_pricings'] ?? []);
+        });
+        $this->aiGatewayCostService->forgetCachedPricing();
 
         return redirect()
             ->route('super-admin.general-settings.edit')
@@ -142,20 +177,8 @@ class GeneralSettingController extends Controller
         ];
     }
 
-    private function aiDiscussionModels(?ClientProfile $profile): array
+    private function aiDiscussionModels(array $openAiModels): array
     {
-        $openAiModels = $this->openAiDiscussionModels($profile);
-
-        if ($openAiModels === []) {
-            $openAiModels = collect(config('services.openai.question_models', []))
-                ->map(fn (string $label, string $id) => [
-                    'id' => $id,
-                    'label' => $label,
-                    'provider' => 'OpenAI',
-                ])
-                ->all();
-        }
-
         $geminiModels = collect(config('services.gemini.question_models', []))
             ->map(fn (string $label, string $id) => [
                 'id' => $id,
@@ -164,6 +187,7 @@ class GeneralSettingController extends Controller
             ]);
 
         return collect($openAiModels)
+            ->filter(fn (array $model): bool => $this->aiGatewayCostService->hasPricing('openai', $model['id']))
             ->merge($geminiModels)
             ->keyBy('id')
             ->all();
@@ -239,6 +263,75 @@ class GeneralSettingController extends Controller
             && ! str_contains($model, 'image')
             && ! str_contains($model, 'search')
             && ! str_contains($model, 'codex');
+    }
+
+    /**
+     * @return array<int, array{id: string, label: string, provider: string}>
+     */
+    private function availableOpenAiDiscussionModels(?ClientProfile $profile): array
+    {
+        $models = $this->openAiDiscussionModels($profile);
+
+        if ($models === []) {
+            $models = collect(config('services.openai.question_models', []))
+                ->map(fn (string $label, string $id) => [
+                    'id' => $id,
+                    'label' => $label,
+                    'provider' => 'OpenAI',
+                ])
+                ->all();
+        }
+
+        $pricedModels = AiModelPricing::query()
+            ->where('provider', 'openai')
+            ->pluck('model')
+            ->map(fn (string $model) => [
+                'id' => $model,
+                'label' => 'OpenAI - ' . $model,
+                'provider' => 'OpenAI',
+            ]);
+
+        return collect($models)
+            ->merge($pricedModels)
+            ->keyBy('id')
+            ->sortBy('id', SORT_NATURAL)
+            ->values()
+            ->all();
+    }
+
+    private function syncAiModelPricings(array $pricings): void
+    {
+        foreach ($pricings as $pricing) {
+            if (! is_array($pricing)
+                || ! $this->hasPricingRates($pricing)) {
+                continue;
+            }
+
+            $model = strtolower(trim((string) ($pricing['model'] ?? '')));
+            if (! $this->isSupportedOpenAiDiscussionModel($model)) {
+                continue;
+            }
+
+            AiModelPricing::query()->updateOrCreate(
+                ['provider' => 'openai', 'model' => $model],
+                [
+                    'input_per_million_usd' => (float) $pricing['input_per_million_usd'],
+                    'output_per_million_usd' => (float) $pricing['output_per_million_usd'],
+                    'usd_to_idr' => (float) ($pricing['usd_to_idr'] ?? 16000),
+                    'is_active' => true,
+                ],
+            );
+        }
+    }
+
+    private function hasPricingRates(array $pricing): bool
+    {
+        return array_key_exists('input_per_million_usd', $pricing)
+            && array_key_exists('output_per_million_usd', $pricing)
+            && $pricing['input_per_million_usd'] !== null
+            && $pricing['input_per_million_usd'] !== ''
+            && $pricing['output_per_million_usd'] !== null
+            && $pricing['output_per_million_usd'] !== '';
     }
 
     private function aiGatewayPaymentSettings(Request $request, ClientProfile $profile): array
