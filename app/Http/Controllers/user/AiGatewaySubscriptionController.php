@@ -5,8 +5,8 @@ namespace App\Http\Controllers\user;
 use App\Http\Controllers\Controller;
 use App\Models\AiDiscussionUsageLog;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -22,6 +22,7 @@ class AiGatewaySubscriptionController extends Controller
         $subscriptions = [];
         $trial = null;
         $pendingPayment = null;
+        $claimedFreePlanIds = [];
         $gatewayError = null;
 
         try {
@@ -33,6 +34,7 @@ class AiGatewaySubscriptionController extends Controller
             $subscriptions = data_get($status, 'subscriptions', $subscription ? [$subscription] : []);
             $trial = data_get($status, 'trial');
             $pendingPayment = data_get($status, 'pending_payment');
+            $claimedFreePlanIds = array_map('intval', data_get($status, 'claimed_free_plan_ids', []));
             if ($subscription) {
                 $request->session()->forget('ai_gateway_pending_payment');
             }
@@ -45,7 +47,7 @@ class AiGatewaySubscriptionController extends Controller
             ->where('user_id', $user->id);
         $usageLogs = $usageLogsQuery->latest()->paginate(20)->withQueryString();
 
-        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'usageLogs', 'gatewayError'));
+        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'claimedFreePlanIds', 'usageLogs', 'gatewayError'));
     }
 
     public function checkout(Request $request): RedirectResponse|JsonResponse
@@ -68,7 +70,27 @@ class AiGatewaySubscriptionController extends Controller
                 'failure_redirect_url' => $this->withPaymentStatus($returnUrl, 'failed'),
             ]);
             $response->throw();
+            $activated = (bool) $response->json('activated');
+            $alreadyClaimed = (bool) $response->json('already_claimed');
             $invoiceUrl = (string) $response->json('invoice_url');
+
+            if ($activated || $alreadyClaimed) {
+                $message = $alreadyClaimed
+                    ? 'Paket gratis ini sudah pernah diklaim oleh akun Anda.'
+                    : 'Paket Pembahasan AI gratis berhasil diklaim dan langsung aktif.';
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'activated' => $activated,
+                        'already_claimed' => $alreadyClaimed,
+                        'invoice_url' => null,
+                        'message' => $message,
+                    ]);
+                }
+
+                return redirect()->to($returnUrl)->with('success', $message);
+            }
 
             if ($invoiceUrl === '') {
                 if ($request->expectsJson()) {

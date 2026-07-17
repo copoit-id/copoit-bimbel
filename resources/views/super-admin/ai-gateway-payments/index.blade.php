@@ -85,6 +85,7 @@
                         @php
                             $confirmationSource = data_get($transaction->details, 'confirmation_source');
                             $subscription = $transaction->subscription;
+                            $isFreeClaim = $transaction->provider === 'free_claim' || (int) $transaction->amount === 0;
                             $canResetLegacyPayment = $transaction->status === 'paid'
                                 && $transaction->provider === 'ipaymu'
                                 && blank($confirmationSource)
@@ -105,17 +106,25 @@
                             </td>
                             <td class="px-4 py-3 text-gray-700">{{ $transaction->plan?->name ?? '-' }}</td>
                             <td class="whitespace-nowrap px-4 py-3 text-right font-medium">
-                                Rp {{ number_format($transaction->amount, 0, ',', '.') }}
+                                @if($isFreeClaim)
+                                    <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Gratis</span>
+                                @else
+                                    Rp {{ number_format($transaction->amount, 0, ',', '.') }}
+                                @endif
                             </td>
                             <td class="px-4 py-3">
                                 <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $transaction->status === 'paid' ? 'bg-green-100 text-green-700' : ($transaction->status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600') }}">
-                                    {{ $paymentStatusLabels[$transaction->status] ?? ucfirst($transaction->status) }}
+                                    {{ $isFreeClaim && $transaction->status === 'paid' ? 'Diklaim gratis' : ($paymentStatusLabels[$transaction->status] ?? ucfirst($transaction->status)) }}
                                 </span>
                                 <p class="mt-2 text-xs text-gray-500">
-                                    {{ $transaction->provider }}
-                                    @if($transaction->status === 'paid')
+                                    @if($isFreeClaim)
+                                        Paket gratis · aktif otomatis
+                                    @else
+                                        {{ $transaction->provider }}
+                                    @endif
+                                    @if(! $isFreeClaim && $transaction->status === 'paid')
                                         · {{ $confirmationSource === 'manual_admin' ? 'ACC manual' : ($confirmationSource === 'provider' ? 'terverifikasi provider' : 'data lama') }}
-                                    @elseif($transaction->status === 'pending')
+                                    @elseif(! $isFreeClaim && $transaction->status === 'pending')
                                         · belum ada konfirmasi pembayaran
                                     @endif
                                 </p>

@@ -10,6 +10,7 @@ use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUserTrial;
 use App\Services\AiGatewayPaymentService;
 use App\Services\AiGatewaySubscriptionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -20,125 +21,233 @@ class AiGatewayBillingController extends Controller
         private AiGatewayPaymentService $paymentService,
     ) {}
 
-    private function client(Request $r): AiGatewayClient
+    public function plans(): JsonResponse
     {
-        $apiKey = (string) $r->header('X-AI-Gateway-Key', '');
-        abort_if($apiKey === '', 401, 'Gateway key tidak valid.');
-
-        $c = AiGatewayClient::where('api_key_hash', hash('sha256', $apiKey))->where('is_active', true)->first();
-        abort_unless($c, 401, 'Gateway key tidak valid.');
-
-        return $c;
-    }
-
-    public function plans()
-    {
-        return AiGatewayPlan::query()
+        $plans = AiGatewayPlan::query()
             ->where('is_active', true)
             ->where('token_limit', '>', 0)
             ->orderBy('price')
-            ->get(['id', 'name', 'slug', 'price', 'token_limit', 'chat_limit', 'duration_days']);
+            ->orderBy('id')
+            ->get()
+            ->map(fn (AiGatewayPlan $plan) => [
+                'id' => $plan->id,
+                'name' => $plan->name,
+                'slug' => $plan->slug,
+                'price' => $plan->price,
+                'is_free' => $plan->isFree(),
+                'token_limit' => $plan->token_limit,
+                'chat_limit' => $plan->chat_limit,
+                'duration_days' => $plan->duration_days,
+            ]);
+
+        return response()->json($plans);
     }
 
-    public function status(Request $r)
+    public function status(Request $request): JsonResponse
     {
-        $c = $this->client($r);
-        $userId = (string) $r->validate(['external_user_id' => 'required|string|max:120'])['external_user_id'];
-        $this->syncLatestPendingPayment($c, $userId);
+        $client = $this->client($request);
+        $externalUserId = trim((string) $request->validate([
+            'external_user_id' => 'required|string|max:120',
+        ])['external_user_id']);
+        $this->syncLatestPendingPayment($client, $externalUserId);
         $subscriptions = AiGatewaySubscription::with('plan')
-            ->where('ai_gateway_client_id', $c->id)
-            ->where('external_user_id', $userId)
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('external_user_id', $externalUserId)
             ->where('status', 'active')
             ->notExpired()
             ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
             ->latest()
             ->get()
             ->each(fn (AiGatewaySubscription $subscription) => $subscription->setAttribute('payment_confirmed', true));
-        $s = $subscriptions->first();
-        $trial = AiGatewayUserTrial::where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->first();
+        $subscription = $subscriptions->first();
+        $trial = AiGatewayUserTrial::where('ai_gateway_client_id', $client->id)
+            ->where('external_user_id', $externalUserId)
+            ->first();
         $pendingPayment = AiGatewayTransaction::query()
             ->with(['plan:id,name', 'subscription:id,external_user_id'])
-            ->where('ai_gateway_client_id', $c->id)
+            ->where('ai_gateway_client_id', $client->id)
             ->where('status', 'pending')
             ->where('created_at', '>', now()->subDay())
-            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $userId))
+            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
             ->latest()
             ->first();
+        $claimedFreePlanIds = AiGatewaySubscription::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('external_user_id', $externalUserId)
+            ->whereNotNull('free_claim_key')
+            ->pluck('ai_gateway_plan_id')
+            ->unique()
+            ->values();
 
-        return ['project' => $c->name, 'subscription' => $s, 'subscriptions' => $subscriptions, 'pending_payment' => $pendingPayment ? ['plan_id' => $pendingPayment->ai_gateway_plan_id, 'subscription_id' => $pendingPayment->ai_gateway_subscription_id, 'plan_name' => $pendingPayment->plan?->name, 'invoice_url' => $this->paymentUrl($pendingPayment), 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String()] : null, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
+        return response()->json([
+            'project' => $client->name,
+            'subscription' => $subscription,
+            'subscriptions' => $subscriptions,
+            'pending_payment' => $pendingPayment ? [
+                'plan_id' => $pendingPayment->ai_gateway_plan_id,
+                'subscription_id' => $pendingPayment->ai_gateway_subscription_id,
+                'plan_name' => $pendingPayment->plan?->name,
+                'invoice_url' => $this->paymentUrl($pendingPayment),
+                'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String(),
+            ] : null,
+            'trial' => [
+                'available' => $client->free_token_limit > 0 || $client->free_chat_limit > 0,
+                'token_limit' => $client->free_token_limit,
+                'chat_limit' => $client->free_chat_limit,
+                'tokens_used' => $trial?->tokens_used ?? 0,
+                'chats_used' => $trial?->chats_used ?? 0,
+            ],
+            'claimed_free_plan_ids' => $claimedFreePlanIds,
+        ]);
     }
 
-    public function checkout(Request $r)
+    public function checkout(Request $request): JsonResponse
     {
-        $c = $this->client($r);
-        $d = $r->validate(['plan_id' => 'required|integer|exists:ai_gateway_plans,id', 'external_user_id' => 'required|string|max:120', 'customer_name' => 'required|string|max:100', 'customer_email' => 'required|email', 'success_redirect_url' => 'nullable|url|max:2048', 'failure_redirect_url' => 'nullable|url|max:2048']);
-        $successRedirectUrl = $this->allowedRedirectUrl($c, $d['success_redirect_url'] ?? null);
-        $failureRedirectUrl = $this->allowedRedirectUrl($c, $d['failure_redirect_url'] ?? null);
-        $p = AiGatewayPlan::where('is_active', true)->where('token_limit', '>', 0)->findOrFail($d['plan_id']);
-        $this->syncLatestPendingPayment($c, $d['external_user_id']);
+        $client = $this->client($request);
+        $data = $request->validate([
+            'plan_id' => 'required|integer|exists:ai_gateway_plans,id',
+            'external_user_id' => 'required|string|max:120',
+            'customer_name' => 'nullable|string|max:100',
+            'customer_email' => 'nullable|email',
+            'success_redirect_url' => 'nullable|url|max:2048',
+            'failure_redirect_url' => 'nullable|url|max:2048',
+        ]);
+        $data['external_user_id'] = trim($data['external_user_id']);
+        $successRedirectUrl = $this->allowedRedirectUrl($client, $data['success_redirect_url'] ?? null);
+        $failureRedirectUrl = $this->allowedRedirectUrl($client, $data['failure_redirect_url'] ?? null);
+        $plan = AiGatewayPlan::where('is_active', true)
+            ->where('token_limit', '>', 0)
+            ->findOrFail($data['plan_id']);
+
+        if ($plan->isFree()) {
+            $claim = $this->subscriptionService->claimFreePlan($client, $plan, $data);
+            $subscription = $claim['subscription'];
+            $transaction = $claim['transaction'];
+            $isActive = $subscription?->status === 'active'
+                && ($subscription->ends_at === null || $subscription->ends_at->isFuture())
+                && $subscription->hasRemainingQuota();
+
+            return response()->json([
+                'message' => $claim['already_claimed']
+                    ? 'Paket gratis ini sudah pernah diklaim.'
+                    : 'Paket gratis berhasil diklaim dan langsung aktif.',
+                'activated' => $isActive,
+                'claimed' => ! $claim['already_claimed'],
+                'already_claimed' => $claim['already_claimed'],
+                'invoice_url' => null,
+                'external_id' => $transaction?->external_id,
+                'subscription' => $subscription,
+            ]);
+        }
+
+        $request->validate([
+            'customer_name' => 'required|string|max:100',
+            'customer_email' => 'required|email',
+        ]);
+
+        $this->syncLatestPendingPayment($client, $data['external_user_id']);
         $pendingTransaction = AiGatewayTransaction::query()
             ->with('subscription')
-            ->where('ai_gateway_client_id', $c->id)
-            ->where('ai_gateway_plan_id', $p->id)
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('ai_gateway_plan_id', $plan->id)
             ->where('status', 'pending')
             ->where('created_at', '>', now()->subDay())
-            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $d['external_user_id']))
+            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $data['external_user_id']))
             ->latest()
             ->first();
 
         if ($pendingTransaction && filled($this->paymentUrl($pendingTransaction))) {
-            return [
+            return response()->json([
+                'activated' => false,
+                'claimed' => false,
                 'invoice_url' => $this->paymentUrl($pendingTransaction),
                 'external_id' => $pendingTransaction->external_id,
                 'reused_pending_invoice' => true,
-            ];
+            ]);
         }
 
         if ($pendingTransaction) {
             $pendingTransaction->update(['status' => 'expired']);
             $pendingTransaction->subscription?->update(['status' => 'expired']);
         }
-        $s = AiGatewaySubscription::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'token_limit' => $p->token_limit, 'chat_limit' => $p->chat_limit, 'external_user_id' => $d['external_user_id'], 'external_user_name' => $d['customer_name'], 'external_user_email' => $d['customer_email'], 'status' => 'pending']);
-        $id = 'AIGW-'.$c->id.'-'.$s->id.'-'.Str::upper(Str::random(8));
+
+        $subscription = AiGatewaySubscription::create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'token_limit' => $plan->token_limit,
+            'chat_limit' => $plan->chat_limit,
+            'external_user_id' => $data['external_user_id'],
+            'external_user_name' => $data['customer_name'],
+            'external_user_email' => $data['customer_email'],
+            'status' => 'pending',
+        ]);
+        $externalId = 'AIGW-'.$client->id.'-'.$subscription->id.'-'.Str::upper(Str::random(8));
+
         try {
-            $payment = $this->paymentService->createCheckout($p, $id, $d, $successRedirectUrl, $failureRedirectUrl);
+            $payment = $this->paymentService->createCheckout(
+                $plan,
+                $externalId,
+                $data,
+                $successRedirectUrl,
+                $failureRedirectUrl
+            );
         } catch (\Throwable $exception) {
             report($exception);
-            $s->delete();
+            $subscription->delete();
 
             return response()->json(['message' => 'Payment gateway AI belum siap digunakan.'], 422);
         }
 
         if (! ($payment['success'] ?? false)) {
-            $s->delete();
+            $subscription->delete();
 
-            return response()->json(['message' => $payment['message'] ?? 'Gagal membuat pembayaran Pembahasan AI.'], 422);
+            return response()->json([
+                'message' => $payment['message'] ?? 'Gagal membuat pembayaran Pembahasan AI.',
+            ], 422);
         }
 
-        AiGatewayTransaction::create(['ai_gateway_client_id' => $c->id, 'ai_gateway_plan_id' => $p->id, 'ai_gateway_subscription_id' => $s->id, 'external_id' => $id, 'provider' => $payment['provider'], 'provider_invoice_id' => $payment['provider_id'] ?? null, 'amount' => $p->price, 'status' => 'pending', 'details' => $payment['details']]);
+        AiGatewayTransaction::create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'ai_gateway_subscription_id' => $subscription->id,
+            'external_id' => $externalId,
+            'provider' => $payment['provider'],
+            'provider_invoice_id' => $payment['provider_id'] ?? null,
+            'amount' => $plan->price,
+            'status' => 'pending',
+            'details' => $payment['details'],
+        ]);
 
-        return ['invoice_url' => $payment['url'], 'external_id' => $id];
+        return response()->json([
+            'activated' => false,
+            'claimed' => false,
+            'invoice_url' => $payment['url'],
+            'external_id' => $externalId,
+        ]);
     }
 
-    public function webhook(Request $r)
+    public function webhook(Request $request): JsonResponse
     {
-        if (! $this->paymentService->handleXenditWebhook($r->all(), $r->header('X-CALLBACK-TOKEN'))) {
+        if (! $this->paymentService->handleXenditWebhook(
+            $request->all(),
+            $request->header('X-CALLBACK-TOKEN')
+        )) {
             return response()->json(['message' => 'Invalid callback token'], 401);
         }
 
-        return ['message' => 'OK'];
+        return response()->json(['message' => 'OK']);
     }
 
-    public function midtransWebhook(Request $request)
+    public function midtransWebhook(Request $request): JsonResponse
     {
         if (! $this->paymentService->handleMidtransWebhook($request->all())) {
             return response()->json(['message' => 'Invalid signature'], 401);
         }
 
-        return ['message' => 'OK'];
+        return response()->json(['message' => 'OK']);
     }
 
-    public function ipaymuWebhook(Request $request)
+    public function ipaymuWebhook(Request $request): JsonResponse
     {
         $externalId = (string) ($request->input('reference_id') ?: $request->input('referenceId') ?: '');
         $transaction = $externalId !== ''
@@ -151,23 +260,42 @@ class AiGatewayBillingController extends Controller
 
         $this->paymentService->synchronize($transaction);
 
-        return ['message' => 'OK'];
+        return response()->json(['message' => 'OK']);
     }
 
     public function showQrisPayment(string $externalId)
     {
-        $transaction = AiGatewayTransaction::query()->where('external_id', $externalId)->where('provider', 'interactive_qris')->firstOrFail();
+        $transaction = AiGatewayTransaction::query()
+            ->where('external_id', $externalId)
+            ->where('provider', 'interactive_qris')
+            ->firstOrFail();
         $transaction = $this->paymentService->synchronize($transaction);
 
         return view('ai-gateway.qris-payment', compact('transaction'));
     }
 
-    public function qrisStatus(string $externalId)
+    public function qrisStatus(string $externalId): JsonResponse
     {
-        $transaction = AiGatewayTransaction::query()->where('external_id', $externalId)->where('provider', 'interactive_qris')->firstOrFail();
+        $transaction = AiGatewayTransaction::query()
+            ->where('external_id', $externalId)
+            ->where('provider', 'interactive_qris')
+            ->firstOrFail();
         $transaction = $this->paymentService->synchronize($transaction);
 
         return response()->json(['status' => $transaction->status]);
+    }
+
+    private function client(Request $request): AiGatewayClient
+    {
+        $apiKey = (string) $request->header('X-AI-Gateway-Key', '');
+        abort_if($apiKey === '', 401, 'Gateway key tidak valid.');
+
+        $client = AiGatewayClient::where('api_key_hash', hash('sha256', $apiKey))
+            ->where('is_active', true)
+            ->first();
+        abort_unless($client, 401, 'Gateway key tidak valid.');
+
+        return $client;
     }
 
     private function syncLatestPendingPayment(AiGatewayClient $client, string $externalUserId): void
@@ -179,11 +307,9 @@ class AiGatewayBillingController extends Controller
             ->latest()
             ->first();
 
-        if (! $transaction) {
-            return;
+        if ($transaction) {
+            $this->paymentService->synchronize($transaction);
         }
-
-        $this->paymentService->synchronize($transaction);
     }
 
     private function paymentUrl(AiGatewayTransaction $transaction): ?string

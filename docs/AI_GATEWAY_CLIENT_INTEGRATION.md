@@ -42,7 +42,7 @@ Super admin BimbelHub harus melakukan ini terlebih dahulu:
 1. Buat **AI Gateway Client** untuk CPNS Academy.
 2. Isi `base_url` dengan origin production CPNS Academy, misalnya `https://cpnsacademy.com`.
 3. Atur trial gratis bila diperlukan (`free_token_limit` dan/atau `free_chat_limit`).
-4. Buat dan aktifkan paket AI: harga, batas token, limit chat (`0` untuk unlimited), dan masa aktif (`0` untuk tanpa masa aktif).
+4. Buat dan aktifkan paket AI: harga (`0` untuk paket gratis), batas token, limit chat (`0` untuk unlimited), dan masa aktif (`0` untuk tanpa masa aktif).
 5. Pastikan provider/model AI dan payment gateway AI pusat sudah aktif.
 6. Salin API key client saat key dibuat. Key hanya ditampilkan sekali.
 
@@ -122,6 +122,7 @@ Response berupa array paket aktif:
     "name": "Paket Hemat",
     "slug": "hemat",
     "price": 25000,
+    "is_free": false,
     "token_limit": 50000,
     "chat_limit": 0,
     "duration_days": 0
@@ -132,6 +133,8 @@ Response berupa array paket aktif:
 Tampilkan harga/paket dari response gateway, bukan hardcode di CPNS Academy.
 
 `token_limit` selalu lebih dari `0` dan menjadi batas utama penggunaan paket. `chat_limit = 0` berarti jumlah chat unlimited selama token paket masih tersedia. `duration_days = 0` berarti paket tidak memiliki tanggal kedaluwarsa; pada response subscription nilai `ends_at` akan berupa `null`. Bila `chat_limit > 0` atau `duration_days > 0`, batas tersebut tetap harus dihormati untuk kompatibilitas dengan paket lain.
+
+`is_free = true` menandakan paket dapat diklaim peserta tanpa pembayaran. Tampilkan tombol **Klaim gratis**, bukan tombol bayar. Satu peserta hanya dapat mengklaim paket gratis yang sama satu kali pada project client yang sama.
 
 ### 5.2 `GET /subscription`
 
@@ -149,6 +152,7 @@ Bagian response yang perlu dipakai UI:
 - `subscriptions`: seluruh paket aktif;
 - `pending_payment`: invoice pending yang masih dapat dilanjutkan;
 - `trial`: batas dan pemakaian trial.
+- `claimed_free_plan_ids`: ID paket gratis yang pernah diklaim peserta, termasuk yang kuotanya sudah habis atau masa aktifnya berakhir.
 
 Jangan menganggap pembayaran berhasil hanya dari query parameter redirect. Setelah user kembali dari payment gateway, panggil endpoint ini lagi. User hanya boleh memakai AI bila ada trial tersisa atau `subscription.status === "active"` dan kuota belum habis.
 
@@ -178,15 +182,31 @@ Response sukses:
 }
 ```
 
+Untuk paket dengan `is_free = true`, endpoint yang sama langsung mengaktifkan subscription dan tidak membuat invoice:
+
+```json
+{
+  "message": "Paket gratis berhasil diklaim dan langsung aktif.",
+  "activated": true,
+  "claimed": true,
+  "already_claimed": false,
+  "invoice_url": null,
+  "external_id": "AIGW-FREE-..."
+}
+```
+
+Jika peserta mengulang klaim paket gratis yang sama, response tetap HTTP 200 dengan `already_claimed = true`. Client harus me-refresh `/subscription` dan menampilkan **Sudah diklaim**. Jangan menganggap `invoice_url = null` sebagai kegagalan ketika `activated = true` atau `already_claimed = true`.
+
 Alur yang wajib:
 
 1. Validasi user login dan `plan_id` di CPNS Academy.
 2. Ambil nama dan email dari user yang sedang login; jangan menerima identitas pembeli dari browser.
 3. Validasi `return_url` hanya boleh dari origin CPNS Academy.
 4. Panggil `/checkout` dari server.
-5. Simpan `invoice_url` sebagai pembayaran pending di session/database lokal agar tombol berubah menjadi **Lanjutkan pembayaran**, bukan **Mulai**.
-6. Redirect browser ke `invoice_url`.
-7. Saat kembali, panggil `/subscription` untuk sinkronisasi. Bila status belum aktif, tetap tampilkan **Lanjutkan pembayaran** atau status pending.
+5. Jika response `activated = true`, jangan redirect ke payment provider; refresh `/subscription` dan tampilkan paket aktif.
+6. Untuk paket berbayar, simpan `invoice_url` sebagai pembayaran pending di session/database lokal agar tombol berubah menjadi **Lanjutkan pembayaran**, bukan **Mulai**.
+7. Redirect browser ke `invoice_url` hanya untuk paket berbayar.
+8. Saat kembali, panggil `/subscription` untuk sinkronisasi. Bila status belum aktif, tetap tampilkan **Lanjutkan pembayaran** atau status pending.
 
 Gateway pusat menangani Xendit, Midtrans, iPaymu, atau InterActive QRIS. CPNS Academy **tidak membuat webhook provider dan tidak menyimpan credential provider**.
 

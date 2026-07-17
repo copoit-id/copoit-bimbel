@@ -66,7 +66,7 @@ class AiGatewayPlanController extends Controller
 
         return back()->with(
             'warning',
-            'Paket pernah digunakan sehingga riwayatnya tidak dapat dihapus. Paket telah dinonaktifkan dan tidak lagi tersedia untuk pembelian baru.'
+            'Paket pernah digunakan sehingga riwayatnya tidak dapat dihapus. Paket telah dinonaktifkan dan tidak lagi tersedia untuk pembelian atau klaim baru.'
         );
     }
 
@@ -78,6 +78,8 @@ class AiGatewayPlanController extends Controller
             'token_limit' => ['required', 'integer', 'min:1'],
             'chat_limit' => ['required', 'integer', 'min:0'],
             'duration_days' => ['required', 'integer', 'min:0', 'max:3650'],
+        ], [
+            'token_limit.min' => 'Limit token minimal 1 agar biaya paket tetap terkendali.',
         ]);
     }
 }
