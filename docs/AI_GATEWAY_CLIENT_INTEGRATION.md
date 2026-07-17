@@ -307,6 +307,7 @@ Jangan mengambil nilai tersebut dari form/browser saat resume pembayaran. Saat d
 ### 6.3 Urutan checkout yang direkomendasikan (sama seperti BimbelHub)
 
 1. User memilih tryout/paket CPNS dan, bila mau, memilih satu paket AI dari response `/plans`.
+   Jika paket gratis dan berbayar tersedia bersamaan, UI pembelian produk harus memilih paket berbayar sebagai default. Jika hanya paket gratis yang tersedia, tampilkan placeholder **Pilih paket AI** agar paket gratis tetap dipilih secara sadar oleh user.
 2. Browser mengirim request ke **route CPNS Academy**, bukan ke gateway langsung.
 3. Controller CPNS Academy memvalidasi user, produk, harga produk, voucher, serta `plan_id` dari daftar paket gateway yang baru diambil.
 4. Jika add-on AI dipilih, controller CPNS Academy memanggil `POST /checkout` gateway secara server-to-server dan menyimpan invoice AI sebagai pending.
@@ -409,6 +410,7 @@ Gateway pusat sudah membatasi AI agar tetap membahas soal aktif, tetapi CPNS Aca
 
 - Tampilkan checkbox **Tambahkan Pembahasan AI** hanya bila `/plans` mengembalikan paket aktif.
 - Saat checkbox aktif, tampilkan pilihan paket AI dari gateway, bukan pilihan yang di-hardcode.
+- Default pilihan add-on harus paket berbayar pertama. Jika tidak ada paket berbayar, tampilkan placeholder **Pilih paket AI**; jangan pernah otomatis memilih paket gratis.
 - Saat submit, nonaktifkan tombol sampai kedua request server selesai agar tidak terjadi invoice dobel.
 - Bila salah satu checkout gagal, tampilkan error dan jangan menampilkan akses aktif apa pun.
 - Bila dua pembayaran berhasil dibuat, tampilkan halaman/modal ringkasan dengan dua link pembayaran dan label status masing-masing.

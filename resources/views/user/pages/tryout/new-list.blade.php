@@ -20,6 +20,11 @@ $combinedAiPayment = array_replace(
     is_array(session('combined_ai_payment')) ? session('combined_ai_payment') : [],
 );
 $aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
+$defaultAiGatewayPlanId = (int) data_get(
+    $aiGatewayPlans->first(fn ($plan) => (int) data_get($plan, 'price', 0) > 0),
+    'id',
+    0,
+);
 $aiChatLabel = function ($plan): string {
     $chatLimit = (int) data_get($plan, 'chat_limit', 0);
 
@@ -344,13 +349,16 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                     </button>
                     <label for="tryoutAiEnabled" class="min-w-0 flex-1 cursor-pointer">
                         <p class="font-semibold text-gray-800"><i class="ri-robot-2-line mr-1 text-primary"></i>Tambahkan Pembahasan AI</p>
-                        <p class="mt-1 text-xs leading-5 text-gray-500">Tagihan AI dibuat terpisah dan bisa dibayar kapan saja.</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Paket berbayar ditagih terpisah; paket gratis langsung aktif setelah diklaim.</p>
                     </label>
                 </div>
                 <div id="tryoutAiPlanWrap" class="mt-3 hidden">
                     <select id="tryoutAiPlan" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700">
+                        @if($defaultAiGatewayPlanId === 0)
+                        <option value="" selected disabled>Pilih paket AI</option>
+                        @endif
                         @foreach($aiGatewayPlans as $plan)
-                        <option value="{{ data_get($plan, 'id') }}">{{ data_get($plan, 'name') }} — Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }} · {{ $aiChatLabel($plan) }}</option>
+                        <option value="{{ data_get($plan, 'id') }}" @selected((int) data_get($plan, 'id') === $defaultAiGatewayPlanId)>{{ data_get($plan, 'name') }} — {{ (int) data_get($plan, 'price', 0) === 0 ? 'Gratis' : 'Rp ' . number_format(data_get($plan, 'price'), 0, ',', '.') }} · {{ $aiChatLabel($plan) }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -426,6 +434,7 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const aiGatewayPlans = @json($aiGatewayPlansJson);
+    const defaultAiGatewayPlanId = @json($defaultAiGatewayPlanId);
     const aiGatewayCheckoutUrl = @json(route('user.ai-gateway.checkout'));
     const activeCombinedPayment = @json($combinedAiPayment);
     const modal = document.getElementById('tryoutPurchaseModal');
@@ -472,6 +481,7 @@ document.addEventListener('DOMContentLoaded', function () {
             voucherWrapper?.classList.toggle('hidden', !isPaid);
             aiAddOn?.classList.toggle('hidden', !isPaid);
             if (aiEnabled) aiEnabled.checked = false;
+            if (aiPlan) aiPlan.value = defaultAiGatewayPlanId ? String(defaultAiGatewayPlanId) : '';
             document.getElementById('tryoutAiPlanWrap')?.classList.add('hidden');
             proofWrapper?.classList.toggle('hidden', !isPaid);
             if (proofInput) proofInput.required = isPaid;
@@ -516,11 +526,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 body: aiFormData,
             });
             const aiData = await aiResponse.json();
-            if (!aiResponse.ok || !aiData.success || !aiData.invoice_url) {
+            if (!aiResponse.ok || !aiData.success) {
                 alert(aiData.message || 'Gagal membuat tagihan Pembahasan AI.');
                 return;
             }
-            aiInvoiceUrl = aiData.invoice_url;
+            if (!aiData.activated && !aiData.already_claimed && !aiData.invoice_url) {
+                alert(aiData.message || 'Gagal membuat tagihan Pembahasan AI.');
+                return;
+            }
+            aiInvoiceUrl = aiData.invoice_url || null;
         }
 
         const purchaseFormData = new FormData(form);

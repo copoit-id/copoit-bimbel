@@ -27,6 +27,11 @@ $combinedAiPayment = array_replace(
     is_array(session('combined_ai_payment')) ? session('combined_ai_payment') : [],
 );
 $aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
+$defaultAiGatewayPlanId = (int) data_get(
+    $aiGatewayPlans->first(fn ($plan) => (int) data_get($plan, 'price', 0) > 0),
+    'id',
+    0,
+);
 $aiChatLabel = function ($plan): string {
     $chatLimit = (int) data_get($plan, 'chat_limit', 0);
 
@@ -547,16 +552,19 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                     </div>
                     <div id="checkoutAiPlanWrap" class="mt-3 hidden">
                         <select id="checkoutAiPlan" onchange="renderCheckoutSummary()" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700">
+                            @if($defaultAiGatewayPlanId === 0)
+                                <option value="" selected disabled>Pilih paket AI</option>
+                            @endif
                             @foreach($aiGatewayPlans as $plan)
-                                <option value="{{ data_get($plan, 'id') }}">{{ data_get($plan, 'name') }} — Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }} · {{ $aiChatLabel($plan) }}</option>
+                                <option value="{{ data_get($plan, 'id') }}" @selected((int) data_get($plan, 'id') === $defaultAiGatewayPlanId)>{{ data_get($plan, 'name') }} — {{ (int) data_get($plan, 'price', 0) === 0 ? 'Gratis' : 'Rp ' . number_format(data_get($plan, 'price'), 0, ',', '.') }} · {{ $aiChatLabel($plan) }}</option>
                             @endforeach
                         </select>
-                        <div class="mt-3 flex justify-between border-t border-dashed border-gray-200 pt-3 text-sm"><span class="font-medium text-gray-700">Tagihan AI terpisah</span><span id="checkoutAiTotal" class="font-semibold text-gray-900">Rp 0</span></div>
+                        <div class="mt-3 flex justify-between border-t border-dashed border-gray-200 pt-3 text-sm"><span id="checkoutAiBillingLabel" class="font-medium text-gray-700">Tagihan AI terpisah</span><span id="checkoutAiTotal" class="font-semibold text-gray-900">Rp 0</span></div>
                     </div>
                 </div>
             @endif
 
-            <div class="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-800"><i class="ri-information-line mr-1"></i>Jika memilih AI, kami buat dua tagihan. Kamu boleh membayar salah satu dahulu; akses yang sudah lunas tetap aktif sendiri.</div>
+            <div class="rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-800"><i class="ri-information-line mr-1"></i>Paket AI berbayar dibuat sebagai tagihan terpisah. Paket AI gratis langsung aktif setelah diklaim.</div>
             <div id="checkoutError" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"></div>
             <div class="flex gap-3">
                 <button type="button" onclick="closeCheckoutModal()" class="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-600 hover:bg-gray-50">Batal</button>
@@ -744,6 +752,7 @@ const PAYMENT_UNIQUE_CODE_ENABLED = @json($paymentUniqueCodeEnabled);
 const MANUAL_PAYMENT_UNIQUE_CODES = @json($manualPaymentUniqueCodes ?? []);
 const CONDITIONAL_PACKAGE_BUY_URL_TEMPLATE = @json(route('user.package.buy', ['package_id' => '__PACKAGE_ID__']));
 const AI_GATEWAY_PLANS = @json($aiGatewayPlansJson);
+const DEFAULT_AI_GATEWAY_PLAN_ID = @json($defaultAiGatewayPlanId);
 const AI_GATEWAY_CHECKOUT_URL = @json(route('user.ai-gateway.checkout'));
 const ACTIVE_COMBINED_PAYMENT = @json($combinedAiPayment);
 let selectedPackageId = null;
@@ -1092,6 +1101,10 @@ async function handleBuy(packageId, price, packageName) {
     if (aiCheckoutCheckbox) {
         aiCheckoutCheckbox.checked = false;
     }
+    const aiPlanSelect = document.getElementById('checkoutAiPlan');
+    if (aiPlanSelect) {
+        aiPlanSelect.value = DEFAULT_AI_GATEWAY_PLAN_ID ? String(DEFAULT_AI_GATEWAY_PLAN_ID) : '';
+    }
     document.getElementById('checkoutAiPlanWrap')?.classList.add('hidden');
     document.getElementById('checkoutError').classList.add('hidden');
     await refreshCheckoutDiscount();
@@ -1125,8 +1138,12 @@ function renderCheckoutSummary() {
 
     const plan = selectedAiPlan();
     const aiTotal = document.getElementById('checkoutAiTotal');
+    const aiBillingLabel = document.getElementById('checkoutAiBillingLabel');
     if (aiTotal) {
-        aiTotal.textContent = 'Rp ' + formatNumber(plan?.price || 0);
+        aiTotal.textContent = Number(plan?.price || 0) === 0 ? 'Gratis' : 'Rp ' + formatNumber(plan.price);
+    }
+    if (aiBillingLabel) {
+        aiBillingLabel.textContent = Number(plan?.price || 0) === 0 ? 'Klaim paket AI' : 'Tagihan AI terpisah';
     }
 }
 
@@ -1200,7 +1217,15 @@ async function createAiInvoice() {
     });
     const data = await response.json();
 
-    if (!response.ok || !data.success || !data.invoice_url) {
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal membuat tagihan Pembahasan AI.');
+    }
+
+    if (data.activated || data.already_claimed) {
+        return null;
+    }
+
+    if (!data.invoice_url) {
         throw new Error(data.message || 'Gagal membuat tagihan Pembahasan AI.');
     }
 
