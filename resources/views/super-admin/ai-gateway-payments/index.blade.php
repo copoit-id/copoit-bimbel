@@ -37,6 +37,137 @@
         @if($unpricedUsage->isNotEmpty())<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Ada {{ number_format($unpricedUsage->sum('request_count'), 0, ',', '.') }} request lama tanpa tarif: {{ $unpricedUsage->pluck('model')->unique()->join(', ') }}. Pemasukan bersih sengaja tidak ditampilkan agar tidak menyesatkan.</div>@endif
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5"><div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 class="font-semibold text-gray-900">Riwayat pembayaran</h2><p class="mt-1 text-sm text-gray-500">Status dibayar hanya diberikan setelah konfirmasi provider atau persetujuan manual super admin.</p></div><form method="GET" class="flex flex-wrap gap-2"><select name="client_id" class="rounded-lg border-gray-300 text-sm"><option value="">Semua project</option>@foreach($clients as $client)<option value="{{ $client->id }}" @selected((string) request('client_id') === (string) $client->id)>{{ $client->name }}</option>@endforeach</select><select name="status" class="rounded-lg border-gray-300 text-sm"><option value="">Semua status</option>@foreach(['paid' => 'Dibayar', 'pending' => 'Menunggu konfirmasi', 'expired' => 'Kedaluwarsa', 'failed' => 'Gagal'] as $value => $label)<option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>@endforeach</select><button class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90">Filter</button></form></div><div class="mt-4 overflow-x-auto rounded-xl border border-gray-100"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Waktu</th><th class="px-4 py-3">Peserta / project</th><th class="px-4 py-3">Paket</th><th class="px-4 py-3 text-right">Nominal</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Token / chat terpakai</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($transactions as $transaction)@php($confirmationSource = data_get($transaction->details, 'confirmation_source'))@php($canResetLegacyPayment = $transaction->status === 'paid' && $transaction->provider === 'ipaymu' && blank($confirmationSource) && $transaction->subscription?->status === 'active' && (int) $transaction->subscription?->tokens_used === 0 && (int) $transaction->subscription?->chats_used === 0)<tr><td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ $transaction->paid_at?->format('d M Y H:i') ?? $transaction->created_at->format('d M Y H:i') }}</td><td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $transaction->subscription?->external_user_name ?? 'Peserta tidak tersedia' }}</p><p class="mt-1 text-xs text-gray-500">{{ $transaction->subscription?->external_user_email ?? '-' }}</p><p class="mt-1 text-xs text-gray-500">{{ $transaction->client?->name ?? 'Project dihapus' }}</p></td><td class="px-4 py-3 text-gray-700">{{ $transaction->plan?->name ?? '-' }}</td><td class="whitespace-nowrap px-4 py-3 text-right font-medium">Rp {{ number_format($transaction->amount, 0, ',', '.') }}</td><td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $transaction->status === 'paid' ? 'bg-green-100 text-green-700' : ($transaction->status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600') }}">{{ $paymentStatusLabels[$transaction->status] ?? ucfirst($transaction->status) }}</span><p class="mt-2 text-xs text-gray-500">{{ $transaction->provider }}@if($transaction->status === 'paid') · {{ $confirmationSource === 'manual_admin' ? 'ACC manual' : ($confirmationSource === 'provider' ? 'terverifikasi provider' : 'data lama') }}@elseif($transaction->status === 'pending') · belum ada konfirmasi pembayaran@endif</p></td><td class="whitespace-nowrap px-4 py-3 text-right">{{ number_format($transaction->subscription?->tokens_used ?? 0, 0, ',', '.') }} token<br><span class="text-xs text-gray-500">{{ number_format($transaction->subscription?->chats_used ?? 0, 0, ',', '.') }} chat</span></td><td class="whitespace-nowrap px-4 py-3 text-right">@if($transaction->status === 'pending')<form method="POST" action="{{ route('super-admin.ai-gateway-payments.approve', $transaction) }}" class="inline" onsubmit="return confirm('ACC manual akan menandai pembayaran sebagai dibayar dan mengaktifkan kuota. Lanjutkan?')">@csrf<button class="text-xs font-semibold text-green-700 hover:underline">ACC manual</button></form><form method="POST" action="{{ route('super-admin.ai-gateway-payments.reject', $transaction) }}" class="ml-3 inline" onsubmit="return confirm('Tolak pembayaran ini?')">@csrf<button class="text-xs font-semibold text-red-600 hover:underline">Tolak</button></form>@elseif($canResetLegacyPayment)<form method="POST" action="{{ route('super-admin.ai-gateway-payments.reset-unverified', $transaction) }}" onsubmit="return confirm('Kembalikan pembayaran lama ini ke status menunggu dan nonaktifkan kuotanya sampai iPaymu mengonfirmasi pembayaran?')">@csrf<button class="text-xs font-semibold text-amber-700 hover:underline">Reset ke pending</button></form>@else<span class="text-xs text-gray-400">-</span>@endif</td></tr>@empty<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">Belum ada transaksi pembayaran AI.</td></tr>@endforelse</tbody></table></div><div class="mt-4">{{ $transactions->links() }}</div></div>
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+                <h2 class="font-semibold text-gray-900">Riwayat pembayaran</h2>
+                <p class="mt-1 text-sm text-gray-500">Status dibayar hanya diberikan setelah konfirmasi provider atau persetujuan manual super admin.</p>
+            </div>
+
+            <form method="GET" class="flex flex-wrap gap-2">
+                <select name="client_id" class="rounded-lg border-gray-300 text-sm">
+                    <option value="">Semua project</option>
+                    @foreach($clients as $client)
+                        <option value="{{ $client->id }}" @selected((string) request('client_id') === (string) $client->id)>
+                            {{ $client->name }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <select name="status" class="rounded-lg border-gray-300 text-sm">
+                    <option value="">Semua status</option>
+                    @foreach(['paid' => 'Dibayar', 'pending' => 'Menunggu konfirmasi', 'expired' => 'Kedaluwarsa', 'failed' => 'Gagal'] as $value => $label)
+                        <option value="{{ $value }}" @selected(request('status') === $value)>
+                            {{ $label }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <button class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90">Filter</button>
+            </form>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+                    <tr>
+                        <th class="px-4 py-3">Waktu</th>
+                        <th class="px-4 py-3">Peserta / project</th>
+                        <th class="px-4 py-3">Paket</th>
+                        <th class="px-4 py-3 text-right">Nominal</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3 text-right">Token / chat terpakai</th>
+                        <th class="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($transactions as $transaction)
+                        @php
+                            $confirmationSource = data_get($transaction->details, 'confirmation_source');
+                            $subscription = $transaction->subscription;
+                            $canResetLegacyPayment = $transaction->status === 'paid'
+                                && $transaction->provider === 'ipaymu'
+                                && blank($confirmationSource)
+                                && $subscription
+                                && $subscription->status === 'active'
+                                && (int) $subscription->tokens_used === 0
+                                && (int) $subscription->chats_used === 0;
+                        @endphp
+
+                        <tr>
+                            <td class="whitespace-nowrap px-4 py-3 text-gray-500">
+                                {{ $transaction->paid_at?->format('d M Y H:i') ?? $transaction->created_at->format('d M Y H:i') }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <p class="font-medium text-gray-900">{{ $subscription?->external_user_name ?? 'Peserta tidak tersedia' }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $subscription?->external_user_email ?? '-' }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $transaction->client?->name ?? 'Project dihapus' }}</p>
+                            </td>
+                            <td class="px-4 py-3 text-gray-700">{{ $transaction->plan?->name ?? '-' }}</td>
+                            <td class="whitespace-nowrap px-4 py-3 text-right font-medium">
+                                Rp {{ number_format($transaction->amount, 0, ',', '.') }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $transaction->status === 'paid' ? 'bg-green-100 text-green-700' : ($transaction->status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600') }}">
+                                    {{ $paymentStatusLabels[$transaction->status] ?? ucfirst($transaction->status) }}
+                                </span>
+                                <p class="mt-2 text-xs text-gray-500">
+                                    {{ $transaction->provider }}
+                                    @if($transaction->status === 'paid')
+                                        · {{ $confirmationSource === 'manual_admin' ? 'ACC manual' : ($confirmationSource === 'provider' ? 'terverifikasi provider' : 'data lama') }}
+                                    @elseif($transaction->status === 'pending')
+                                        · belum ada konfirmasi pembayaran
+                                    @endif
+                                </p>
+                            </td>
+                            <td class="whitespace-nowrap px-4 py-3 text-right">
+                                {{ number_format($subscription?->tokens_used ?? 0, 0, ',', '.') }} token<br>
+                                <span class="text-xs text-gray-500">{{ number_format($subscription?->chats_used ?? 0, 0, ',', '.') }} chat</span>
+                            </td>
+                            <td class="whitespace-nowrap px-4 py-3 text-right">
+                                @if($transaction->status === 'pending')
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.approve', $transaction) }}"
+                                        class="inline"
+                                        onsubmit="return confirm('ACC manual akan menandai pembayaran sebagai dibayar dan mengaktifkan kuota. Lanjutkan?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-green-700 hover:underline">ACC manual</button>
+                                    </form>
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.reject', $transaction) }}"
+                                        class="ml-3 inline"
+                                        onsubmit="return confirm('Tolak pembayaran ini?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-red-600 hover:underline">Tolak</button>
+                                    </form>
+                                @elseif($canResetLegacyPayment)
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.reset-unverified', $transaction) }}"
+                                        onsubmit="return confirm('Kembalikan pembayaran lama ini ke status menunggu dan nonaktifkan kuotanya sampai iPaymu mengonfirmasi pembayaran?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-amber-700 hover:underline">Reset ke pending</button>
+                                    </form>
+                                @else
+                                    <span class="text-xs text-gray-400">-</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">Belum ada transaksi pembayaran AI.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4">{{ $transactions->links() }}</div>
+    </div>
 </div>
 @endsection
