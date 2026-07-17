@@ -32,7 +32,7 @@ $aiChatLabel = function ($plan): string {
 
     return $chatLimit > 0
         ? number_format($chatLimit, 0, ',', '.') . ' chat AI'
-        : 'Kuota chat AI';
+        : 'Chat AI unlimited';
 };
 $discountsJson = $publicDiscounts->map(function($d) {
     return [

@@ -25,7 +25,7 @@ $aiChatLabel = function ($plan): string {
 
     return $chatLimit > 0
         ? number_format($chatLimit, 0, ',', '.') . ' chat AI'
-        : 'Kuota chat AI';
+        : 'Chat AI unlimited';
 };
 $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     'id' => (int) data_get($plan, 'id'),
