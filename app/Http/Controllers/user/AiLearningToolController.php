@@ -20,6 +20,48 @@ use RuntimeException;
 
 class AiLearningToolController extends Controller
 {
+    public function history(
+        Request $request,
+        string $idPackage,
+        int $idTryout,
+        string $token,
+        AiLearningContextService $contextService,
+    ): JsonResponse {
+        $data = $request->validate([
+            'question_id' => ['required', 'integer'],
+        ]);
+        $user = $request->user();
+        $resolved = $contextService->resolve(
+            $user,
+            $idPackage,
+            $idTryout,
+            $token,
+            (int) $data['question_id'],
+        );
+
+        $artifacts = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->where('tryout_id', $resolved['tryout']->tryout_id)
+            ->where('question_id', $resolved['question']->question_id)
+            ->where('attempt_token', $token)
+            ->latest()
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'artifacts' => $artifacts->map(fn (AiLearningArtifact $artifact): array => [
+                'id' => $artifact->id,
+                'tool' => $artifact->tool,
+                'title' => $artifact->title,
+                'created_at' => $artifact->created_at?->format('d M Y, H:i'),
+                'html' => view('user.pages.ai-learning.partials.result', [
+                    'artifact' => $artifact,
+                    'payload' => $artifact->payload,
+                ])->render(),
+            ])->values(),
+        ]);
+    }
+
     public function generate(
         Request $request,
         string $idPackage,

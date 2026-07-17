@@ -113,11 +113,33 @@
                     <p class="mt-1 text-xs text-gray-500">Model OpenAI dan Gemini diambil dari API masing-masing berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif tersimpan yang dapat dipilih agar laba tetap akurat.</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">Maks. Token Jawaban</label>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Token default</label>
                     <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000" value="{{ old('ai_discussion_max_output_tokens', $aiDiscussion['max_output_tokens'] ?? 700) }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
-                    <p class="mt-1 text-xs text-gray-500">Rekomendasi: 700 token. Cukup untuk pembahasan bertahap, namun tetap hemat biaya.</p>
+                    <p class="mt-1 text-xs text-gray-500">Dipakai sebagai fallback untuk fitur baru. Limit tiap fitur diatur terpisah di bawah.</p>
                 </div>
                 <div class="self-end rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2.5 text-sm text-blue-700">Kosongkan API key untuk mempertahankan key yang sudah tersimpan.</div>
+            </div>
+
+            @php
+                $featureTokenLimits = is_array($aiDiscussion['feature_token_limits'] ?? null) ? $aiDiscussion['feature_token_limits'] : [];
+                $featureTokenFields = [
+                    'discussion' => ['Tanya jawab', 'Jawaban percakapan per soal', 700, 'ri-message-3-line'],
+                    'learning_note' => ['Catatan', 'Materi lengkap dan poin penting', 1200, 'ri-sticky-note-line'],
+                    'learning_flashcard' => ['Flashcard', '3–5 kartu konsep', 500, 'ri-stack-line'],
+                    'learning_question' => ['Latihan mirip', 'Soal baru beserta pembahasannya', 650, 'ri-file-list-3-line'],
+                ];
+            @endphp
+            <div class="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                <div class="mb-3"><p class="font-semibold text-gray-900">Batas output per fitur</p><p class="mt-1 text-xs text-gray-600">Batas ini diterapkan oleh server gateway, bukan oleh browser. Nilai lebih kecil membuat respons lebih ringkas dan hemat kuota paket.</p></div>
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    @foreach($featureTokenFields as $feature => [$label, $description, $default, $icon])
+                        <label class="block rounded-lg border border-white bg-white p-3 shadow-sm">
+                            <span class="flex items-center gap-2 text-sm font-semibold text-gray-800"><i class="{{ $icon }} text-primary"></i>{{ $label }}</span>
+                            <span class="mt-1 block text-xs text-gray-500">{{ $description }}</span>
+                            <span class="mt-3 flex items-center gap-2"><input type="number" name="ai_discussion_feature_token_limits[{{ $feature }}]" min="64" max="2000" value="{{ old('ai_discussion_feature_token_limits.' . $feature, $featureTokenLimits[$feature] ?? $default) }}" class="w-full rounded-lg border-gray-200 text-sm focus:border-primary focus:ring-primary"><span class="text-xs text-gray-500">token</span></span>
+                        </label>
+                    @endforeach
+                </div>
             </div>
 
             <div class="grid gap-4 lg:grid-cols-2">

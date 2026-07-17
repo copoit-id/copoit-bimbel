@@ -44,7 +44,7 @@ class AiLearningToolService
     private function prompt(string $tool, array $options): string
     {
         return match ($tool) {
-            'note' => 'Buat catatan materi dari soal aktif. Balas HANYA JSON valid: {"title":"...","summary":"...","key_points":["..."],"formulas":["..."]}. Ringkas, akurat, dan jangan tambahkan URL.',
+            'note' => 'Buat catatan materi yang LENGKAP dari soal aktif, bukan ringkasan singkat. Jelaskan konsep inti, alasan, langkah memahami, miskonsepsi umum bila relevan, dan kaitannya dengan soal. Isi summary dengan 6-10 paragraf yang jelas (boleh panjang), key_points minimal 8 butir, serta formulas berisi rumus/istilah penting bila ada. Balas HANYA JSON valid: {"title":"...","summary":"...","key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL.',
             'recommendation' => 'Analisis materi yang perlu dipelajari dari soal aktif. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."]}. Jangan membuat URL atau nama sumber.',
             'question' => sprintf(
                 'Buat satu soal serupa dengan tingkat %s, variasi %s, dan HOTS %s. Balas HANYA JSON valid: {"title":"...","question_text":"...","options":[{"key":"A","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}. Jangan menyalin persis soal asli.',
@@ -99,8 +99,8 @@ class AiLearningToolService
             'note' => [
                 'title' => $this->text($payload['title'] ?? 'Catatan Materi'),
                 'summary' => $this->text($payload['summary'] ?? ''),
-                'key_points' => $this->stringList($payload['key_points'] ?? [], 8),
-                'formulas' => $this->stringList($payload['formulas'] ?? [], 6),
+                'key_points' => $this->stringList($payload['key_points'] ?? [], 12),
+                'formulas' => $this->stringList($payload['formulas'] ?? [], 8),
             ],
             'recommendation' => [
                 'title' => $this->text($payload['title'] ?? 'Rekomendasi Belajar'),

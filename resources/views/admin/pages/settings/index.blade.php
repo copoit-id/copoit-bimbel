@@ -1054,6 +1054,29 @@
                     </div>
                 </div>
 
+                @php
+                    $aiDiscussionFeatureLimits = is_array($aiDiscussionSettings['feature_token_limits'] ?? null) ? $aiDiscussionSettings['feature_token_limits'] : [];
+                    $aiDiscussionFeatures = [
+                        'discussion' => ['Tanya jawab', 700],
+                        'learning_note' => ['Catatan', 1200],
+                        'learning_flashcard' => ['Flashcard', 500],
+                        'learning_question' => ['Latihan mirip', 650],
+                    ];
+                @endphp
+                <div class="rounded-2xl border border-primary/10 bg-primary/5 p-4">
+                    <p class="font-semibold text-gray-900">Batas output per fitur</p>
+                    <p class="mt-1 text-xs text-gray-500">Diterapkan server-side untuk setiap request AI.</p>
+                    <div class="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        @foreach($aiDiscussionFeatures as $feature => [$label, $default])
+                            <label class="rounded-xl border border-gray-200 bg-white p-3">
+                                <span class="block text-sm font-semibold text-gray-800">{{ $label }}</span>
+                                <input type="number" name="ai_discussion_feature_token_limits[{{ $feature }}]" min="64" max="2000" value="{{ old('ai_discussion_feature_token_limits.' . $feature, $aiDiscussionFeatureLimits[$feature] ?? $default) }}" class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
+                                <span class="mt-1 block text-xs text-gray-500">token output</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <div class="rounded-2xl border border-gray-200 p-4 space-y-4">
                         <div>

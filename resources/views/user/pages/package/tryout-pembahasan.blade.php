@@ -12,6 +12,7 @@
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiLearningToolEndpointUrl = route('user.package.tryout.pembahasan.ai-tools', [$packageRouteId, $tryout->tryout_id, $token]);
+        $aiLearningHistoryEndpointUrl = route('user.package.tryout.pembahasan.ai-tools.history', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
         $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
@@ -720,31 +721,21 @@
                             <p class="text-xs text-gray-500">Tanyakan langkah, konsep, atau kenapa jawabanmu salah.</p>
                         </div>
                     </div>
-                    <button type="button"
-                        class="ai-discussion-toggle inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                        <i class="ri-message-3-line"></i>
-                        Buka
-                    </button>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <button type="button"
+                            class="ai-learning-open inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100">
+                            <i class="ri-sparkling-2-line"></i>
+                            <span class="hidden sm:inline">AI Learning Tools</span>
+                            <span class="sm:hidden">AI Tools</span>
+                        </button>
+                        <button type="button"
+                            class="ai-discussion-toggle inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                            <i class="ri-message-3-line"></i>
+                            Buka
+                        </button>
+                    </div>
                 </div>
                 <div class="ai-discussion-body mt-3 hidden space-y-3">
-                    <div class="ai-learning-tools rounded-lg border border-violet-100 bg-violet-50/60 p-3">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div><p class="text-xs font-semibold uppercase tracking-wide text-violet-700">AI Learning Tools</p><p class="mt-0.5 text-xs text-violet-600">Olah soal ini menjadi bahan belajar baru.</p></div>
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="note"><i class="ri-sticky-note-line mr-1"></i>Catatan</button>
-                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="recommendation"><i class="ri-compass-3-line mr-1"></i>Rekomendasi</button>
-                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="question"><i class="ri-file-add-line mr-1"></i>Soal Serupa</button>
-                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="flashcard"><i class="ri-stack-line mr-1"></i>Flashcard</button>
-                            </div>
-                        </div>
-                        <div class="ai-question-settings mt-3 grid gap-2 sm:grid-cols-3">
-                            <label class="text-[11px] font-medium text-violet-800">Kesulitan<select class="ai-question-difficulty mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs"><option value="mudah">Mudah</option><option value="sedang" selected>Sedang</option><option value="sulit">Sulit</option></select></label>
-                            <label class="text-[11px] font-medium text-violet-800">Variasi<select class="ai-question-variation mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs"><option value="konteks">Ubah konteks</option><option value="angka">Ubah angka</option><option value="hots">Tingkatkan HOTS</option></select></label>
-                            <label class="text-[11px] font-medium text-violet-800">Level HOTS<select class="ai-question-hots mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs"><option value="rendah">Rendah</option><option value="sedang" selected>Sedang</option><option value="tinggi">Tinggi</option></select></label>
-                        </div>
-                        <p class="ai-learning-error mt-2 hidden text-xs text-red-600"></p>
-                    </div>
-                    <div class="ai-learning-result hidden rounded-lg border border-gray-200 bg-white p-4"></div>
                     <div class="ai-discussion-messages max-h-72 space-y-2 overflow-y-auto rounded-lg bg-gray-50 p-3 text-sm">
                         <div class="max-w-[90%] rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-700">
                             Mau bahas bagian mana dari soal ini?
@@ -918,6 +909,77 @@
     <div id="ai-discussion-intro-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl"><span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="ri-robot-2-line text-2xl"></i></span><h2 class="mt-4 text-xl font-semibold text-gray-900">Coba Diskusi AI Pembahasan</h2><p class="mt-2 text-sm leading-6 text-gray-500">Tanyakan konsep atau langkah penyelesaian soal. Kamu mendapat kuota coba gratis {{ $aiGatewayChatLimit > 0 ? number_format($aiGatewayChatLimit, 0, ',', '.') . ' chat AI' : 'untuk mencoba' }}.</p><div class="mt-6 flex justify-center gap-2"><button type="button" onclick="closeAiDiscussionIntro()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Nanti saja</button><button type="button" onclick="startAiDiscussionTrial()" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Coba sekarang</button></div></div></div></div>
     @endif
 
+    <div id="ai-learning-tools-modal" class="fixed inset-0 z-[60] hidden overflow-y-auto bg-slate-900/60 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="ai-learning-tools-title">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="w-full max-w-6xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-6">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><i class="ri-sparkling-2-line text-xl"></i></span>
+                        <div>
+                            <h2 id="ai-learning-tools-title" class="text-lg font-semibold text-gray-900">AI Learning Tools</h2>
+                            <p class="text-xs text-gray-500">Pilih satu alat untuk mengolah soal aktif.</p>
+                        </div>
+                    </div>
+                    <button type="button" data-ai-learning-modal-close class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Tutup AI Learning Tools"><i class="ri-close-line text-xl"></i></button>
+                </div>
+
+                <div class="grid max-h-[78vh] min-h-[34rem] lg:grid-cols-4">
+                    <aside class="order-2 border-t border-gray-100 bg-gray-50 p-4 lg:order-1 lg:col-span-1 lg:border-r lg:border-t-0">
+                        <div class="flex items-center justify-between gap-2">
+                            <div><p class="text-sm font-semibold text-gray-900">Riwayat soal ini</p><p class="mt-0.5 text-xs text-gray-500">Hasil sebelumnya tidak memakai token lagi.</p></div>
+                            <i class="ri-history-line text-lg text-gray-400"></i>
+                        </div>
+                        <div class="ai-learning-history mt-3 max-h-52 space-y-2 overflow-y-auto lg:max-h-[58vh]" aria-live="polite"></div>
+                        <p class="ai-learning-history-empty mt-3 text-xs leading-5 text-gray-500">Belum ada hasil untuk soal ini.</p>
+                    </aside>
+
+                    <div class="order-1 flex min-h-0 flex-col p-4 sm:p-6 lg:order-2 lg:col-span-3">
+                        <div class="flex gap-2 overflow-x-auto border-b border-gray-100 pb-3" role="tablist" aria-label="AI Learning Tools">
+                            <button type="button" class="ai-learning-tab shrink-0 rounded-lg bg-violet-100 px-3 py-2 text-sm font-semibold text-violet-800" data-tool="note" role="tab" aria-selected="true"><i class="ri-sticky-note-line mr-1"></i>Catatan</button>
+                            <button type="button" class="ai-learning-tab shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100" data-tool="recommendation" role="tab" aria-selected="false"><i class="ri-compass-3-line mr-1"></i>Rekomendasi</button>
+                            <button type="button" class="ai-learning-tab shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100" data-tool="question" role="tab" aria-selected="false"><i class="ri-file-add-line mr-1"></i>Soal Serupa</button>
+                            <button type="button" class="ai-learning-tab shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100" data-tool="flashcard" role="tab" aria-selected="false"><i class="ri-stack-line mr-1"></i>Flashcard</button>
+                        </div>
+
+                        <div class="mt-4">
+                            <section class="ai-learning-tab-panel" data-tool-panel="note">
+                                <h3 class="font-semibold text-gray-900">AI Catatan Materi</h3>
+                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Buat catatan materi yang lengkap dari konsep soal, termasuk penjelasan, poin penting, istilah atau rumus, dan hal yang sering keliru. Hasilnya dapat disimpan ke Catatan Saya dan diekspor ke PDF.</p>
+                            </section>
+                            <section class="ai-learning-tab-panel hidden" data-tool-panel="recommendation">
+                                <h3 class="font-semibold text-gray-900">AI Rekomendasi Belajar</h3>
+                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Dapatkan prioritas materi yang perlu dipelajari, urutan belajarnya, serta materi bimbel yang sudah disetujui admin.</p>
+                            </section>
+                            <section class="ai-learning-tab-panel hidden" data-tool-panel="question">
+                                <h3 class="font-semibold text-gray-900">AI Generate Soal</h3>
+                                <p class="mt-1 text-sm leading-6 text-gray-600">Atur latihan baru di bawah. Pengaturan ini hanya berlaku untuk soal serupa.</p>
+                                <div class="mt-3 rounded-xl border border-violet-100 bg-violet-50/60 p-3">
+                                    <div class="grid gap-3 sm:grid-cols-3">
+                                        <label class="text-xs font-medium text-violet-800">Kesulitan<select class="ai-question-difficulty mt-1 w-full rounded-lg border-violet-200 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="mudah">Mudah</option><option value="sedang" selected>Sedang</option><option value="sulit">Sulit</option></select></label>
+                                        <label class="text-xs font-medium text-violet-800">Variasi<select class="ai-question-variation mt-1 w-full rounded-lg border-violet-200 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="konteks">Ubah konteks</option><option value="angka">Ubah angka</option><option value="hots">Tingkatkan HOTS</option></select></label>
+                                        <label class="text-xs font-medium text-violet-800">Level HOTS<select class="ai-question-hots mt-1 w-full rounded-lg border-violet-200 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="rendah">Rendah</option><option value="sedang" selected>Sedang</option><option value="tinggi">Tinggi</option></select></label>
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="ai-learning-tab-panel hidden" data-tool-panel="flashcard">
+                                <h3 class="font-semibold text-gray-900">AI Flashcard</h3>
+                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Buat 3–5 kartu fokus untuk hafalan konsep, istilah, rumus, atau pola jawaban. Klik kartu hasil untuk membaliknya.</p>
+                            </section>
+                        </div>
+
+                        <div class="mt-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div><p class="text-sm font-semibold text-gray-900">Siap membuat hasil baru?</p><p class="mt-0.5 text-xs text-gray-500">Hanya klik tombol ini yang memakai kuota AI. Riwayat tetap gratis dibuka.</p></div>
+                            <button type="button" class="ai-learning-generate inline-flex min-w-60 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-sparkling-2-line text-base"></i><span class="ai-learning-generate-label">Buat Catatan Materi Sekarang</span></button>
+                        </div>
+
+                        <p class="ai-learning-error mt-3 hidden text-sm text-red-600" role="alert"></p>
+                        <div class="ai-learning-result mt-4 hidden max-h-[42vh] overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if($shouldOpenAiGatewayBuyModal)
     <div id="ai-discussion-feature-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4">
         <div class="flex min-h-full items-center justify-center">
@@ -1031,6 +1093,7 @@
 
     const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
     const aiLearningToolEndpoint = @json($aiLearningToolEndpointUrl);
+    const aiLearningHistoryEndpoint = @json($aiLearningHistoryEndpointUrl);
     const aiLearningNoteSaveUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
     const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
     const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
@@ -1038,6 +1101,7 @@
 
     function openAiGatewayPlanModal(message = null) {
         closeAiDiscussionFeatureModal(false);
+        closeAiLearningToolsModal();
         const modal = document.getElementById('ai-gateway-plan-modal');
         const messageElement = document.getElementById('ai-gateway-plan-modal-message');
         if (message && messageElement) messageElement.textContent = message;
@@ -1063,6 +1127,143 @@
         document.getElementById('ai-discussion-intro-modal')?.classList.add('hidden');
         localStorage.setItem(@json('ai-discussion-intro-' . $tryout->tryout_id), 'seen');
     }
+
+    const aiLearningToolsModal = document.getElementById('ai-learning-tools-modal');
+    const aiLearningTabButtons = aiLearningToolsModal?.querySelectorAll('.ai-learning-tab') || [];
+    const aiLearningTabPanels = aiLearningToolsModal?.querySelectorAll('.ai-learning-tab-panel') || [];
+    const aiLearningGenerateButton = aiLearningToolsModal?.querySelector('.ai-learning-generate');
+    const aiLearningGenerateLabel = aiLearningToolsModal?.querySelector('.ai-learning-generate-label');
+    const aiLearningResult = aiLearningToolsModal?.querySelector('.ai-learning-result');
+    const aiLearningError = aiLearningToolsModal?.querySelector('.ai-learning-error');
+    const aiLearningHistory = aiLearningToolsModal?.querySelector('.ai-learning-history');
+    const aiLearningHistoryEmpty = aiLearningToolsModal?.querySelector('.ai-learning-history-empty');
+    const aiLearningToolLabels = {
+        note: 'Buat Catatan Materi Sekarang',
+        recommendation: 'Buat Rekomendasi Belajar',
+        question: 'Buat Soal Serupa',
+        flashcard: 'Buat Flashcard',
+    };
+    const aiLearningHistoryEntries = new Map();
+    let activeAiLearningQuestionId = null;
+    let activeAiLearningTool = 'note';
+
+    function escapeAiLearningHistoryHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function selectAiLearningTool(tool) {
+        activeAiLearningTool = tool;
+        aiLearningTabButtons.forEach((button) => {
+            const selected = button.dataset.tool === tool;
+            button.setAttribute('aria-selected', selected ? 'true' : 'false');
+            button.classList.toggle('bg-violet-100', selected);
+            button.classList.toggle('text-violet-800', selected);
+            button.classList.toggle('text-gray-600', !selected);
+        });
+        aiLearningTabPanels.forEach((panel) => {
+            panel.classList.toggle('hidden', panel.dataset.toolPanel !== tool);
+        });
+        if (aiLearningGenerateLabel) aiLearningGenerateLabel.textContent = aiLearningToolLabels[tool];
+    }
+
+    function showAiLearningResult(html) {
+        if (!aiLearningResult) return;
+        aiLearningResult.innerHTML = html || '';
+        aiLearningResult.classList.toggle('hidden', !html);
+        aiLearningResult.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderAiLearningHistory(entries, selectedArtifactId = null) {
+        aiLearningHistoryEntries.clear();
+        entries.forEach((entry) => aiLearningHistoryEntries.set(String(entry.id), entry));
+        if (aiLearningHistory) {
+            aiLearningHistory.innerHTML = entries.map((entry) => `
+                <button type="button" class="ai-learning-history-item w-full rounded-lg border border-gray-200 bg-white p-2.5 text-left hover:border-violet-300 hover:bg-violet-50" data-artifact-id="${entry.id}">
+                    <span class="block text-xs font-semibold text-gray-800">${escapeAiLearningHistoryHtml(entry.title)}</span>
+                    <span class="mt-1 block text-[11px] text-gray-500">${escapeAiLearningHistoryHtml(entry.created_at)} · ${escapeAiLearningHistoryHtml(aiLearningToolLabels[entry.tool] || entry.tool)}</span>
+                </button>
+            `).join('');
+        }
+        aiLearningHistoryEmpty?.classList.toggle('hidden', entries.length > 0);
+
+        const selected = selectedArtifactId
+            ? aiLearningHistoryEntries.get(String(selectedArtifactId))
+            : null;
+        if (selected?.html) showAiLearningResult(selected.html);
+    }
+
+    async function loadAiLearningHistory(selectedArtifactId = null) {
+        if (!activeAiLearningQuestionId) return;
+        if (aiLearningHistory) aiLearningHistory.innerHTML = '<p class="px-1 py-2 text-xs text-gray-500"><i class="ri-loader-4-line mr-1 inline-block animate-spin"></i>Memuat riwayat...</p>';
+        aiLearningHistoryEmpty?.classList.add('hidden');
+
+        try {
+            const response = await fetch(`${aiLearningHistoryEndpoint}?question_id=${encodeURIComponent(activeAiLearningQuestionId)}`, {
+                headers: { 'Accept': 'application/json' },
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Riwayat belum dapat dimuat.');
+            renderAiLearningHistory(data.artifacts || [], selectedArtifactId);
+        } catch (err) {
+            if (aiLearningHistory) aiLearningHistory.innerHTML = '';
+            if (aiLearningHistoryEmpty) {
+                aiLearningHistoryEmpty.textContent = err.message || 'Riwayat belum dapat dimuat.';
+                aiLearningHistoryEmpty.classList.remove('hidden');
+            }
+        }
+    }
+
+    function openAiLearningToolsModal(questionId) {
+        activeAiLearningQuestionId = questionId;
+        aiLearningError?.classList.add('hidden');
+        showAiLearningResult('');
+        selectAiLearningTool(activeAiLearningTool);
+        aiLearningToolsModal?.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        loadAiLearningHistory();
+    }
+
+    function closeAiLearningToolsModal() {
+        aiLearningToolsModal?.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        activeAiLearningQuestionId = null;
+    }
+
+    document.querySelectorAll('.ai-learning-open').forEach((button) => {
+        button.addEventListener('click', () => {
+            const questionId = button.closest('.ai-discussion')?.dataset.questionId;
+            if (questionId) openAiLearningToolsModal(questionId);
+        });
+    });
+
+    aiLearningTabButtons.forEach((button) => {
+        button.addEventListener('click', () => selectAiLearningTool(button.dataset.tool || 'note'));
+    });
+
+    aiLearningHistory?.addEventListener('click', (event) => {
+        const historyItem = event.target.closest('.ai-learning-history-item');
+        const artifact = aiLearningHistoryEntries.get(String(historyItem?.dataset.artifactId || ''));
+        if (artifact?.html) showAiLearningResult(artifact.html);
+    });
+
+    aiLearningToolsModal?.querySelectorAll('[data-ai-learning-modal-close]').forEach((button) => {
+        button.addEventListener('click', closeAiLearningToolsModal);
+    });
+
+    aiLearningToolsModal?.addEventListener('click', (event) => {
+        if (event.target === aiLearningToolsModal) closeAiLearningToolsModal();
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !aiLearningToolsModal?.classList.contains('hidden')) {
+            closeAiLearningToolsModal();
+        }
+    });
 
     function updateAiGatewayUsageBadge(quota) {
         if (!quota) return;
@@ -1102,6 +1303,92 @@
         setTimeout(() => document.getElementById('ai-discussion-intro-modal')?.classList.remove('hidden'), 500);
     }
 
+    aiLearningGenerateButton?.addEventListener('click', async () => {
+        if (!activeAiLearningQuestionId) return;
+
+        aiLearningError?.classList.add('hidden');
+        aiLearningGenerateButton.disabled = true;
+        const originalHtml = aiLearningGenerateButton.innerHTML;
+        aiLearningGenerateButton.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memproses...';
+
+        try {
+            const response = await fetch(aiLearningToolEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({
+                    question_id: activeAiLearningQuestionId,
+                    tool: activeAiLearningTool,
+                    difficulty: aiLearningToolsModal?.querySelector('.ai-question-difficulty')?.value || 'sedang',
+                    variation: aiLearningToolsModal?.querySelector('.ai-question-variation')?.value || 'konteks',
+                    hots_level: aiLearningToolsModal?.querySelector('.ai-question-hots')?.value || 'sedang',
+                }),
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (String(data.message || '').includes('Paket Diskusi AI')) {
+                    openAiGatewayPlanModal('Paket AI diperlukan untuk menggunakan AI Learning Tools.');
+                    return;
+                }
+                throw new Error(data.message || 'Fitur AI gagal diproses.');
+            }
+
+            showAiLearningResult(data.html || '');
+            updateAiGatewayUsageBadge(data.quota);
+            loadAiLearningHistory(data.artifact_id);
+        } catch (err) {
+            if (aiLearningError) {
+                aiLearningError.textContent = err.message || 'Fitur AI gagal diproses.';
+                aiLearningError.classList.remove('hidden');
+            }
+        } finally {
+            aiLearningGenerateButton.innerHTML = originalHtml;
+            aiLearningGenerateButton.disabled = false;
+        }
+    });
+
+    aiLearningResult?.addEventListener('click', async (event) => {
+        const saveButton = event.target.closest('.ai-save-note');
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Menyimpan...';
+            try {
+                const response = await fetch(aiLearningNoteSaveUrlTemplate.replace('ARTIFACT_ID', saveButton.dataset.artifactId), {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Catatan gagal disimpan.');
+                const pdfLink = document.createElement('a');
+                pdfLink.href = data.pdf_url;
+                pdfLink.className = 'rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5';
+                pdfLink.innerHTML = '<i class="ri-file-pdf-2-line mr-1"></i>Ekspor PDF';
+                saveButton.replaceWith(pdfLink);
+            } catch (err) {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Simpan ke Catatan Saya';
+                if (aiLearningError) {
+                    aiLearningError.textContent = err.message || 'Catatan gagal disimpan.';
+                    aiLearningError.classList.remove('hidden');
+                }
+            }
+            return;
+        }
+
+        const flashcard = event.target.closest('.ai-flashcard');
+        if (flashcard) {
+            const showBack = flashcard.dataset.showing !== 'back';
+            flashcard.dataset.showing = showBack ? 'back' : 'front';
+            flashcard.querySelector('.ai-flashcard-content').textContent = showBack
+                ? flashcard.dataset.back
+                : flashcard.dataset.front;
+        }
+    });
+
     document.querySelectorAll('.ai-discussion').forEach((wrapper) => {
         const toggle = wrapper.querySelector('.ai-discussion-toggle');
         const body = wrapper.querySelector('.ai-discussion-body');
@@ -1111,9 +1398,6 @@
         const error = wrapper.querySelector('.ai-discussion-error');
         const submitButton = form?.querySelector('button[type="submit"]');
         const voiceButton = wrapper.querySelector('.ai-discussion-voice');
-        const learningButtons = wrapper.querySelectorAll('.ai-learning-tool');
-        const learningResult = wrapper.querySelector('.ai-learning-result');
-        const learningError = wrapper.querySelector('.ai-learning-error');
         let replyWithVoice = false;
 
         const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
@@ -1230,92 +1514,6 @@
             }
         });
 
-        learningButtons.forEach((button) => {
-            button.addEventListener('click', async () => {
-                learningError?.classList.add('hidden');
-                learningButtons.forEach((item) => item.disabled = true);
-                const originalHtml = button.innerHTML;
-                button.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Memproses';
-
-                try {
-                    const response = await fetch(aiLearningToolEndpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken,
-                        },
-                        body: JSON.stringify({
-                            question_id: wrapper.dataset.questionId,
-                            tool: button.dataset.tool,
-                            difficulty: wrapper.querySelector('.ai-question-difficulty')?.value || 'sedang',
-                            variation: wrapper.querySelector('.ai-question-variation')?.value || 'konteks',
-                            hots_level: wrapper.querySelector('.ai-question-hots')?.value || 'sedang',
-                        }),
-                    });
-                    const data = await response.json();
-
-                    if (!response.ok) {
-                        if (String(data.message || '').includes('Paket Diskusi AI')) {
-                            openAiGatewayPlanModal('Paket AI diperlukan untuk menggunakan AI Learning Tools.');
-                            return;
-                        }
-                        throw new Error(data.message || 'Fitur AI gagal diproses.');
-                    }
-
-                    learningResult.innerHTML = data.html || '';
-                    learningResult.classList.remove('hidden');
-                    updateAiGatewayUsageBadge(data.quota);
-                    learningResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } catch (err) {
-                    if (learningError) {
-                        learningError.textContent = err.message || 'Fitur AI gagal diproses.';
-                        learningError.classList.remove('hidden');
-                    }
-                } finally {
-                    button.innerHTML = originalHtml;
-                    learningButtons.forEach((item) => item.disabled = false);
-                }
-            });
-        });
-
-        learningResult?.addEventListener('click', async (event) => {
-            const saveButton = event.target.closest('.ai-save-note');
-            if (saveButton) {
-                saveButton.disabled = true;
-                saveButton.textContent = 'Menyimpan...';
-                try {
-                    const response = await fetch(aiLearningNoteSaveUrlTemplate.replace('ARTIFACT_ID', saveButton.dataset.artifactId), {
-                        method: 'POST',
-                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-                    });
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || 'Catatan gagal disimpan.');
-                    const pdfLink = document.createElement('a');
-                    pdfLink.href = data.pdf_url;
-                    pdfLink.className = 'rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5';
-                    pdfLink.innerHTML = '<i class="ri-file-pdf-2-line mr-1"></i>Ekspor PDF';
-                    saveButton.replaceWith(pdfLink);
-                } catch (err) {
-                    saveButton.disabled = false;
-                    saveButton.textContent = 'Simpan ke Catatan Saya';
-                    if (learningError) {
-                        learningError.textContent = err.message || 'Catatan gagal disimpan.';
-                        learningError.classList.remove('hidden');
-                    }
-                }
-                return;
-            }
-
-            const flashcard = event.target.closest('.ai-flashcard');
-            if (flashcard) {
-                const showBack = flashcard.dataset.showing !== 'back';
-                flashcard.dataset.showing = showBack ? 'back' : 'front';
-                flashcard.querySelector('.ai-flashcard-content').textContent = showBack
-                    ? flashcard.dataset.back
-                    : flashcard.dataset.front;
-            }
-        });
     });
 
     function appendAiDiscussionMessage(messages, text, type, usageLogId = null) {

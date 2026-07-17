@@ -42,8 +42,9 @@ class AiDiscussionService
         }
 
         $settings = $this->settings();
+        $defaultOutputTokens = $this->maxOutputTokensForFeature($settings, $feature);
+        $settings['max_output_tokens'] = $defaultOutputTokens;
         if ($remainingTokenQuota !== null) {
-            $defaultOutputTokens = max(1, (int) ($settings['max_output_tokens'] ?? 700));
             $settings['max_output_tokens'] = max(64, min($defaultOutputTokens, $remainingTokenQuota));
             if ($remainingTokenQuota < $defaultOutputTokens) {
                 $settings['instruction'] = trim((string) ($settings['instruction'] ?? ''))
@@ -255,6 +256,19 @@ class AiDiscussionService
         return compact('input', 'output', 'total');
     }
 
+    private function maxOutputTokensForFeature(array $settings, string $feature): int
+    {
+        $fallback = max(64, min(2000, (int) ($settings['max_output_tokens'] ?? 700)));
+        $limits = is_array($settings['feature_token_limits'] ?? null)
+            ? $settings['feature_token_limits']
+            : [];
+        $configuredLimit = max(64, min(2000, (int) ($limits[$feature] ?? $fallback)));
+
+        return $feature === 'learning_note'
+            ? max(1200, $configuredLimit)
+            : $configuredLimit;
+    }
+
     private function systemPrompt(array $settings, string $feature = 'discussion'): string
     {
         $extraInstruction = trim((string) ($settings['instruction'] ?? ''));
@@ -286,7 +300,7 @@ PROMPT;
     private function structuredFeatureInstruction(string $feature): ?string
     {
         return match ($feature) {
-            'learning_note' => 'Buat catatan materi berdasarkan soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","summary":"string","key_points":["string"],"formulas":["string"]}. Isi minimal tiga key_points.',
+            'learning_note' => 'Buat catatan materi LENGKAP berdasarkan soal aktif, bukan ringkasan singkat. Summary harus berisi 6–10 paragraf yang menjelaskan konsep, alur pemahaman, dan miskonsepsi umum bila relevan. Isi minimal delapan key_points. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","summary":"string","key_points":["string"],"formulas":["string"]}.',
             'learning_recommendation' => 'Buat rekomendasi belajar berdasarkan kelemahan atau konsep pada soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","focus_topics":[{"topic":"string","reason":"string","priority":"tinggi|sedang|rendah"}],"study_plan":["string"]}. Jangan membuat URL atau merekomendasikan sumber eksternal.',
             'learning_question' => 'Buat satu soal latihan yang setara dan masih relevan dengan konsep soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","question_text":"string","options":[{"key":"A","text":"string"}],"correct_answer":"A","explanation":"string","difficulty":"mudah|sedang|sulit","hots_level":"rendah|sedang|tinggi"}. Jangan menyalin soal aktif secara persis.',
             'learning_flashcard' => 'Buat tiga sampai lima flashcard dari konsep penting soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","cards":[{"front":"string","back":"string"}]}.',

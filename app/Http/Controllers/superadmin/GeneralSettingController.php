@@ -72,6 +72,11 @@ class GeneralSettingController extends Controller
             'ai_discussion_gemini_base_url' => ['nullable', 'url', 'max:255'],
             'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
             'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
+            'ai_discussion_feature_token_limits' => ['nullable', 'array'],
+            'ai_discussion_feature_token_limits.discussion' => ['nullable', 'integer', 'min:64', 'max:2000'],
+            'ai_discussion_feature_token_limits.learning_note' => ['nullable', 'integer', 'min:64', 'max:2000'],
+            'ai_discussion_feature_token_limits.learning_flashcard' => ['nullable', 'integer', 'min:64', 'max:2000'],
+            'ai_discussion_feature_token_limits.learning_question' => ['nullable', 'integer', 'min:64', 'max:2000'],
             'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
             'ai_model_pricings' => ['nullable', 'array'],
             'ai_model_pricings.*.provider' => ['required', Rule::in(['openai', 'gemini'])],
@@ -187,10 +192,31 @@ class GeneralSettingController extends Controller
                 ],
             ],
             'max_output_tokens' => max(200, min(2000, (int) $request->input('ai_discussion_max_output_tokens', $existing['max_output_tokens'] ?? 700))),
+            'feature_token_limits' => $this->featureTokenLimits($request, $existing),
             'instruction' => trim((string) $request->input('ai_discussion_instruction', $existing['instruction'] ?? '')),
             'monthly_token_limit' => max(0, (int) ($existing['monthly_token_limit'] ?? 0)),
             'models' => $existing['models'] ?? [],
         ];
+    }
+
+    private function featureTokenLimits(Request $request, array $existing): array
+    {
+        $defaults = [
+            'discussion' => 700,
+            'learning_note' => 1200,
+            'learning_flashcard' => 500,
+            'learning_question' => 650,
+        ];
+        $submitted = $request->input('ai_discussion_feature_token_limits', []);
+        $saved = is_array($existing['feature_token_limits'] ?? null) ? $existing['feature_token_limits'] : [];
+
+        return collect($defaults)->mapWithKeys(function (int $default, string $feature) use ($submitted, $saved): array {
+            $value = is_array($submitted) && array_key_exists($feature, $submitted)
+                ? $submitted[$feature]
+                : ($saved[$feature] ?? $default);
+
+            return [$feature => max(64, min(2000, (int) $value))];
+        })->all();
     }
 
     private function aiDiscussionModels(array $availableModels): array
