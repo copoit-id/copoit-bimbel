@@ -12,6 +12,7 @@ use App\Services\AiGatewayPaymentService;
 use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AiGatewayBillingController extends Controller
@@ -224,6 +225,62 @@ class AiGatewayBillingController extends Controller
             'invoice_url' => $payment['url'],
             'external_id' => $externalId,
         ]);
+    }
+
+    /**
+     * Invalidate the caller's latest unpaid AI invoice.
+     *
+     * Provider invoice cancellation is intentionally not assumed here because
+     * provider APIs differ. The local transaction is made terminal, so a late
+     * provider callback cannot activate a subscription after the user cancels.
+     */
+    public function cancelPending(Request $request): JsonResponse
+    {
+        $client = $this->client($request);
+        $externalUserId = trim((string) $request->validate([
+            'external_user_id' => 'required|string|max:120',
+        ])['external_user_id']);
+
+        // Never cancel an invoice which has just been confirmed by the provider.
+        $this->syncLatestPendingPayment($client, $externalUserId);
+
+        $cancelled = DB::transaction(function () use ($client, $externalUserId): bool {
+            $transaction = AiGatewayTransaction::query()
+                ->where('ai_gateway_client_id', $client->id)
+                ->where('status', 'pending')
+                ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
+                ->latest()
+                ->lockForUpdate()
+                ->first();
+
+            if (! $transaction) {
+                return false;
+            }
+
+            $details = is_array($transaction->details) ? $transaction->details : [];
+            $details['cancelled_at'] = now()->toIso8601String();
+            $details['cancellation_source'] = 'client_request';
+
+            $transaction->update([
+                'status' => 'cancelled',
+                'details' => $details,
+            ]);
+
+            AiGatewaySubscription::query()
+                ->whereKey($transaction->ai_gateway_subscription_id)
+                ->where('status', 'pending')
+                ->update(['status' => 'cancelled']);
+
+            return true;
+        });
+
+        if (! $cancelled) {
+            return response()->json([
+                'message' => 'Tidak ada invoice Pembahasan AI pending yang dapat dibatalkan.',
+            ], 422);
+        }
+
+        return response()->json(['cancelled' => true]);
     }
 
     public function webhook(Request $request): JsonResponse

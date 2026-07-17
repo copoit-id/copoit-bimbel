@@ -123,13 +123,15 @@ class AiUsageController extends Controller
         $logs = AiGatewayUsageLog::query()
             ->with('client:id,name,slug,base_url')
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->when($request->filled('feature'), fn ($query) => $query->where('feature', $request->string('feature')->toString()))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = trim((string) $request->input('q'));
                 $query->where(function ($q) use ($term) {
                     $q->where('external_user_id', 'like', "%{$term}%")
                         ->orWhere('external_user_name', 'like', "%{$term}%")
                         ->orWhere('external_user_email', 'like', "%{$term}%")
-                        ->orWhere('question_reference', 'like', "%{$term}%");
+                        ->orWhere('question_reference', 'like', "%{$term}%")
+                        ->orWhere('feature', 'like', "%{$term}%");
                 });
             })
             ->latest()
@@ -137,8 +139,10 @@ class AiUsageController extends Controller
             ->withQueryString();
 
         $filteredLogs = AiGatewayUsageLog::query()
-            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')));
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->when($request->filled('feature'), fn ($query) => $query->where('feature', $request->string('feature')->toString()));
         $summary = $filteredLogs->selectRaw('COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens, COUNT(DISTINCT external_user_id) as user_count')->first();
+        $features = AiGatewayUsageLog::query()->distinct()->orderBy('feature')->pluck('feature');
         $subscriptions = AiGatewaySubscription::query()
             ->with(['client:id,name,base_url', 'plan:id,name,token_limit,chat_limit'])
             ->whereNotNull('external_user_id')
@@ -147,7 +151,7 @@ class AiUsageController extends Controller
             ->paginate(20, ['*'], 'subscription_page')
             ->withQueryString();
 
-        return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary', 'subscriptions'));
+        return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary', 'subscriptions', 'features'));
     }
 
     public function gatewayPayments(Request $request, AiGatewayCostService $costService)

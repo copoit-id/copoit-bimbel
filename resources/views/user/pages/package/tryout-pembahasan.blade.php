@@ -11,6 +11,7 @@
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $aiDiscussionEndpointUrl = route('user.package.tryout.pembahasan.ai-chat', [$packageRouteId, $tryout->tryout_id, $token]);
+        $aiLearningToolEndpointUrl = route('user.package.tryout.pembahasan.ai-tools', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
         $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
@@ -71,7 +72,12 @@
     @endif
     <div class="bg-white px-4 py-10 rounded-lg border border-border flex flex-col md:flex-row gap-4 text-dark">
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
-            <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
+                @if($aiDiscussionEnabled)
+                    <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-sticky-note-line mr-1"></i>Catatan Saya</a>
+                @endif
+            </div>
             <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
             <span
                 class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
@@ -721,6 +727,24 @@
                     </button>
                 </div>
                 <div class="ai-discussion-body mt-3 hidden space-y-3">
+                    <div class="ai-learning-tools rounded-lg border border-violet-100 bg-violet-50/60 p-3">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div><p class="text-xs font-semibold uppercase tracking-wide text-violet-700">AI Learning Tools</p><p class="mt-0.5 text-xs text-violet-600">Olah soal ini menjadi bahan belajar baru.</p></div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="note"><i class="ri-sticky-note-line mr-1"></i>Catatan</button>
+                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="recommendation"><i class="ri-compass-3-line mr-1"></i>Rekomendasi</button>
+                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="question"><i class="ri-file-add-line mr-1"></i>Soal Serupa</button>
+                                <button type="button" class="ai-learning-tool rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50" data-tool="flashcard"><i class="ri-stack-line mr-1"></i>Flashcard</button>
+                            </div>
+                        </div>
+                        <div class="ai-question-settings mt-3 grid gap-2 sm:grid-cols-3">
+                            <label class="text-[11px] font-medium text-violet-800">Kesulitan<select class="ai-question-difficulty mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs"><option value="mudah">Mudah</option><option value="sedang" selected>Sedang</option><option value="sulit">Sulit</option></select></label>
+                            <label class="text-[11px] font-medium text-violet-800">Variasi<select class="ai-question-variation mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs"><option value="konteks">Ubah konteks</option><option value="angka">Ubah angka</option><option value="hots">Tingkatkan HOTS</option></select></label>
+                            <label class="text-[11px] font-medium text-violet-800">Level HOTS<select class="ai-question-hots mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs"><option value="rendah">Rendah</option><option value="sedang" selected>Sedang</option><option value="tinggi">Tinggi</option></select></label>
+                        </div>
+                        <p class="ai-learning-error mt-2 hidden text-xs text-red-600"></p>
+                    </div>
+                    <div class="ai-learning-result hidden rounded-lg border border-gray-200 bg-white p-4"></div>
                     <div class="ai-discussion-messages max-h-72 space-y-2 overflow-y-auto rounded-lg bg-gray-50 p-3 text-sm">
                         <div class="max-w-[90%] rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-700">
                             Mau bahas bagian mana dari soal ini?
@@ -1006,6 +1030,8 @@
     });
 
     const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
+    const aiLearningToolEndpoint = @json($aiLearningToolEndpointUrl);
+    const aiLearningNoteSaveUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
     const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
     const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
     const csrfToken = @json(csrf_token());
@@ -1085,6 +1111,9 @@
         const error = wrapper.querySelector('.ai-discussion-error');
         const submitButton = form?.querySelector('button[type="submit"]');
         const voiceButton = wrapper.querySelector('.ai-discussion-voice');
+        const learningButtons = wrapper.querySelectorAll('.ai-learning-tool');
+        const learningResult = wrapper.querySelector('.ai-learning-result');
+        const learningError = wrapper.querySelector('.ai-learning-error');
         let replyWithVoice = false;
 
         const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
@@ -1198,6 +1227,93 @@
             } finally {
                 submitButton.disabled = false;
                 messages.scrollTop = messages.scrollHeight;
+            }
+        });
+
+        learningButtons.forEach((button) => {
+            button.addEventListener('click', async () => {
+                learningError?.classList.add('hidden');
+                learningButtons.forEach((item) => item.disabled = true);
+                const originalHtml = button.innerHTML;
+                button.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Memproses';
+
+                try {
+                    const response = await fetch(aiLearningToolEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({
+                            question_id: wrapper.dataset.questionId,
+                            tool: button.dataset.tool,
+                            difficulty: wrapper.querySelector('.ai-question-difficulty')?.value || 'sedang',
+                            variation: wrapper.querySelector('.ai-question-variation')?.value || 'konteks',
+                            hots_level: wrapper.querySelector('.ai-question-hots')?.value || 'sedang',
+                        }),
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        if (String(data.message || '').includes('Paket Diskusi AI')) {
+                            openAiGatewayPlanModal('Paket AI diperlukan untuk menggunakan AI Learning Tools.');
+                            return;
+                        }
+                        throw new Error(data.message || 'Fitur AI gagal diproses.');
+                    }
+
+                    learningResult.innerHTML = data.html || '';
+                    learningResult.classList.remove('hidden');
+                    updateAiGatewayUsageBadge(data.quota);
+                    learningResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } catch (err) {
+                    if (learningError) {
+                        learningError.textContent = err.message || 'Fitur AI gagal diproses.';
+                        learningError.classList.remove('hidden');
+                    }
+                } finally {
+                    button.innerHTML = originalHtml;
+                    learningButtons.forEach((item) => item.disabled = false);
+                }
+            });
+        });
+
+        learningResult?.addEventListener('click', async (event) => {
+            const saveButton = event.target.closest('.ai-save-note');
+            if (saveButton) {
+                saveButton.disabled = true;
+                saveButton.textContent = 'Menyimpan...';
+                try {
+                    const response = await fetch(aiLearningNoteSaveUrlTemplate.replace('ARTIFACT_ID', saveButton.dataset.artifactId), {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Catatan gagal disimpan.');
+                    const pdfLink = document.createElement('a');
+                    pdfLink.href = data.pdf_url;
+                    pdfLink.className = 'rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5';
+                    pdfLink.innerHTML = '<i class="ri-file-pdf-2-line mr-1"></i>Ekspor PDF';
+                    saveButton.replaceWith(pdfLink);
+                } catch (err) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = 'Simpan ke Catatan Saya';
+                    if (learningError) {
+                        learningError.textContent = err.message || 'Catatan gagal disimpan.';
+                        learningError.classList.remove('hidden');
+                    }
+                }
+                return;
+            }
+
+            const flashcard = event.target.closest('.ai-flashcard');
+            if (flashcard) {
+                const showBack = flashcard.dataset.showing !== 'back';
+                flashcard.dataset.showing = showBack ? 'back' : 'front';
+                flashcard.querySelector('.ai-flashcard-content').textContent = showBack
+                    ? flashcard.dataset.back
+                    : flashcard.dataset.front;
             }
         });
     });

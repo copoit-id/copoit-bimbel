@@ -222,6 +222,7 @@ Endpoint ini hanya untuk server-to-server. Request:
   "external_user_email": "user@example.com",
   "project_base_url": "https://cpnsacademy.com",
   "question_reference": "456",
+  "feature": "discussion",
   "context": {
     "tryout_name": "Tryout SKD 1",
     "subtest_name": "TWK",
@@ -235,6 +236,16 @@ Endpoint ini hanya untuk server-to-server. Request:
     "explanation": "Pembahasan resmi dari database..."
   }
 }
+```
+
+Field `feature` opsional dan default-nya `discussion`. Untuk AI Learning Tools gunakan salah satu nilai berikut agar super admin dapat memisahkan laporan token dan biaya per fitur:
+
+```text
+discussion
+learning_note
+learning_recommendation
+learning_question
+learning_flashcard
 ```
 
 Response sukses mencakup:
@@ -267,6 +278,26 @@ Error yang harus ditangani UI:
 | 422 | Konteks/permintaan salah atau provider gagal | Tampilkan pesan aman dari gateway. |
 | 429 | Kuota token/chat habis | Tampilkan tombol beli/perpanjang paket. |
 | 5xx/timeout | Gateway tidak dapat dihubungi | Tampilkan tombol coba lagi. |
+
+### 5.5 AI Learning Tools pada halaman pembahasan
+
+Project penerima dapat menyediakan fitur turunan dari konteks soal aktif berikut:
+
+- **AI Catatan Materi**: membuat ringkasan, poin penting, serta rumus/istilah; hasil dapat disimpan ke **Catatan Saya** dan diekspor sebagai PDF.
+- **AI Rekomendasi Belajar**: membuat fokus dan urutan belajar. Video, modul, materi bimbel, atau referensi eksternal yang ditampilkan wajib berasal dari database materi yang telah dikelola admin.
+- **AI Generate Soal**: membuat soal serupa dengan pilihan tingkat mudah, sedang, atau sulit serta variasi konteks, angka, dan level HOTS.
+- **AI Flashcard**: membuat kartu tanya-jawab dari konsep penting pada soal.
+
+Keempat fitur tetap menggunakan `POST /discussion` secara server-to-server. Project penerima membentuk instruksi terstruktur untuk tool yang dipilih dan mengirim nilai `feature` yang sesuai, sedangkan gateway tetap melakukan validasi subscription/trial, pemotongan kuota, serta pencatatan token dan biaya per fitur. Jangan membuat endpoint provider AI langsung di project penerima.
+
+Aturan wajib untuk tool tersebut:
+
+1. Terapkan kembali seluruh validasi akses pada Bagian 8 sebelum setiap generate.
+2. Konteks soal, jawaban, dan pembahasan tetap harus diambil dari database server.
+3. Respons AI untuk tool terstruktur harus dinormalisasi dan divalidasi server sebelum dirender.
+4. AI tidak boleh membuat URL rekomendasi. Gabungkan hasil analisis AI hanya dengan daftar materi/referensi aktif yang telah disetujui admin.
+5. Setiap generate adalah penggunaan AI baru dan tetap mengurangi token gateway, termasuk pengguna paket gratis.
+6. Artifact lokal harus terikat ke `user_id`; simpan, ekspor PDF, dan hapus harus menolak artifact milik user lain.
 
 ## 6. Combined checkout: beli tryout/paket + tambah Pembahasan AI
 
@@ -363,8 +394,12 @@ Sesuaikan nama route dengan struktur project CPNS Academy, tetapi minimal sediak
 GET  /user/paket-ai                 daftar paket, status kuota, dan pembayaran pending
 POST /user/paket-ai/checkout        membuat checkout di gateway pusat
 POST /user/.../pembahasan-ai/chat   mengirim diskusi AI untuk satu soal
+POST /user/.../pembahasan-ai/tools  membuat catatan, rekomendasi, soal serupa, atau flashcard
 POST /user/tryout/{tryout}/buy       checkout produk CPNS, opsional combined AI
 GET  /user/payment/{transaction}/resume  menampilkan ulang dua pembayaran pending setelah validasi kepemilikan
+GET  /user/catatan-ai               daftar catatan AI yang disimpan user
+POST /user/catatan-ai/{artifact}/save menyimpan hasil catatan milik user
+GET  /user/catatan-ai/{artifact}/pdf mengekspor catatan milik user sebagai PDF
 ```
 
 Semua route harus memakai middleware `auth` dan rate limit. Rekomendasi:
@@ -445,6 +480,24 @@ timestamps
 
 Gunakan log ini untuk riwayat chat per soal. Jangan gunakan log lokal sebagai sumber keputusan kuota; gateway pusat adalah sumber kebenaran kuota dan status pembayaran.
 
+Untuk AI Learning Tools, simpan artifact lokal terpisah agar hasil terstruktur tidak dipaksakan ke tabel chat, minimal:
+
+```text
+user_id
+tryout_id
+question_id
+attempt_token
+tool                           # note, recommendation, question, flashcard
+title
+payload                        # JSON hasil yang sudah dinormalisasi server
+provider / model
+input_tokens / output_tokens / total_tokens
+saved_at                       # hanya untuk catatan yang disimpan
+timestamps
+```
+
+Artifact lokal hanya untuk histori dan fitur **Catatan Saya**. Pemakaian tokennya tetap harus dicatat melalui gateway dan tidak boleh dijadikan sumber keputusan kuota.
+
 ## 11. Checklist pengujian sebelum rilis
 
 - [ ] Key gateway tidak muncul di HTML, JavaScript, response user, atau repository.
@@ -463,6 +516,10 @@ Gunakan log ini untuk riwayat chat per soal. Jangan gunakan log lokal sebagai su
 - [ ] AI aktif tetapi produk pending: endpoint chat tetap menolak karena user belum memiliki akses tryout.
 - [ ] Refresh/return dari pembayaran tidak pernah membuat tombol **Mulai** sebelum status produk dan AI masing-masing tervalidasi.
 - [ ] Resume pembayaran menolak transaction ID, tryout ID, atau invoice milik user lain.
+- [ ] AI Learning Tools menolak attempt token atau `question_id` milik user lain.
+- [ ] Rekomendasi belajar tidak pernah merender URL yang dibuat AI; hanya materi/referensi aktif yang disetujui admin.
+- [ ] Simpan, ekspor PDF, dan hapus catatan menolak artifact milik user lain.
+- [ ] Generate catatan, rekomendasi, soal, dan flashcard tetap menambah pemakaian token gateway, termasuk pada paket gratis.
 
 ## 12. File referensi di project BimbelHub
 

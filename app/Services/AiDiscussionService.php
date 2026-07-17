@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\ClientProfile;
 use App\Models\AiDiscussionUsageLog;
+use App\Models\ClientProfile;
 use App\Models\Question;
 use App\Models\UserAnswerDetail;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -20,11 +20,16 @@ class AiDiscussionService
             && (bool) ($this->settings()['enabled'] ?? false);
     }
 
-    public function chat(string $message, array $context, bool $forceDirectProvider = false, ?int $remainingTokenQuota = null): array
-    {
+    public function chat(
+        string $message,
+        array $context,
+        bool $forceDirectProvider = false,
+        ?int $remainingTokenQuota = null,
+        string $feature = 'discussion',
+    ): array {
         $message = trim($message);
 
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             throw new RuntimeException('Diskusi AI belum diaktifkan admin.');
         }
 
@@ -33,7 +38,7 @@ class AiDiscussionService
         }
 
         if (! $forceDirectProvider && filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key'))) {
-            return $this->chatViaGateway($message, $context);
+            return $this->chatViaGateway($message, $context, $feature);
         }
 
         $settings = $this->settings();
@@ -42,7 +47,7 @@ class AiDiscussionService
             $settings['max_output_tokens'] = max(64, min($defaultOutputTokens, $remainingTokenQuota));
             if ($remainingTokenQuota < $defaultOutputTokens) {
                 $settings['instruction'] = trim((string) ($settings['instruction'] ?? ''))
-                    . "\n\nJawab sangat ringkas, prioritaskan inti pembahasan, dan akhiri jawaban dengan kalimat yang tuntas.";
+                    ."\n\nJawab sangat ringkas, prioritaskan inti pembahasan, dan akhiri jawaban dengan kalimat yang tuntas.";
             }
         }
         $monthlyLimit = max(0, (int) ($settings['monthly_token_limit'] ?? 0));
@@ -61,8 +66,8 @@ class AiDiscussionService
 
         $startedAt = hrtime(true);
         $response = $provider === 'gemini'
-            ? $this->chatWithGemini($message, $context, $model, $settings)
-            : $this->chatWithOpenAi($message, $context, $model, $settings);
+            ? $this->chatWithGemini($message, $context, $model, $settings, $feature)
+            : $this->chatWithOpenAi($message, $context, $model, $settings, $feature);
 
         return [
             'message' => trim($response['message']),
@@ -73,7 +78,7 @@ class AiDiscussionService
         ];
     }
 
-    private function chatViaGateway(string $message, array $context): array
+    private function chatViaGateway(string $message, array $context, string $feature): array
     {
         $user = Auth::user();
         $question = $context['question'] ?? null;
@@ -99,6 +104,7 @@ class AiDiscussionService
                     'external_user_email' => $user?->email,
                     'project_base_url' => rtrim((string) config('app.url'), '/'),
                     'question_reference' => (string) ($question?->question_id ?? ($context['question_reference'] ?? '')),
+                    'feature' => $feature,
                     'context' => [
                         'tryout_name' => $context['tryout_name'] ?? '-',
                         'subtest_name' => $context['subtest_name'] ?? '-',
@@ -110,7 +116,7 @@ class AiDiscussionService
                     ],
                 ])->throw()->json();
         } catch (RequestException $exception) {
-            throw new RuntimeException('Gateway AI tidak dapat dihubungi: ' . Str::limit((string) ($exception->response?->json('message') ?: $exception->getMessage()), 240));
+            throw new RuntimeException('Gateway AI tidak dapat dihubungi: '.Str::limit((string) ($exception->response?->json('message') ?: $exception->getMessage()), 240));
         }
 
         return [
@@ -127,7 +133,7 @@ class AiDiscussionService
     {
         $settings = config('client.branding.ai_discussion_settings');
 
-        if (is_array($settings) && !empty($settings)) {
+        if (is_array($settings) && ! empty($settings)) {
             return $settings;
         }
 
@@ -138,34 +144,40 @@ class AiDiscussionService
             : [];
     }
 
-    private function chatWithOpenAi(string $message, array $context, string $model, array $settings): array
+    private function chatWithOpenAi(string $message, array $context, string $model, array $settings, string $feature): array
     {
         $provider = $this->providerSettings('openai', $settings);
         $apiKey = $provider['api_key'] ?? config('services.openai.api_key');
 
-        if (!$apiKey) {
+        if (! $apiKey) {
             throw new RuntimeException('API key OpenAI untuk diskusi AI belum diatur.');
         }
 
         try {
+            $payload = [
+                'model' => $model,
+                'input' => [
+                    [
+                        'role' => 'system',
+                        'content' => $this->systemPrompt($settings, $feature),
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $this->contextPrompt($message, $context),
+                    ],
+                ],
+                'max_output_tokens' => (int) ($settings['max_output_tokens'] ?? 700),
+            ];
+
+            if ($this->requiresStructuredResponse($feature)) {
+                $payload['text'] = ['format' => ['type' => 'json_object']];
+            }
+
             $response = Http::withToken($apiKey)
                 ->acceptJson()
                 ->asJson()
                 ->timeout((int) ($provider['timeout'] ?? config('services.openai.timeout', 90)))
-                ->post(rtrim((string) ($provider['base_url'] ?? config('services.openai.base_url')), '/') . '/responses', [
-                    'model' => $model,
-                    'input' => [
-                        [
-                            'role' => 'system',
-                            'content' => $this->systemPrompt($settings),
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => $this->contextPrompt($message, $context),
-                        ],
-                    ],
-                    'max_output_tokens' => (int) ($settings['max_output_tokens'] ?? 700),
-                ])
+                ->post(rtrim((string) ($provider['base_url'] ?? config('services.openai.base_url')), '/').'/responses', $payload)
                 ->throw()
                 ->json();
         } catch (RequestException $exception) {
@@ -173,7 +185,7 @@ class AiDiscussionService
                 ?: $exception->response?->body()
                 ?: $exception->getMessage();
 
-            throw new RuntimeException('Gagal menghubungi OpenAI: ' . Str::limit((string) $error, 240));
+            throw new RuntimeException('Gagal menghubungi OpenAI: '.Str::limit((string) $error, 240));
         }
 
         return [
@@ -182,26 +194,33 @@ class AiDiscussionService
         ];
     }
 
-    private function chatWithGemini(string $message, array $context, string $model, array $settings): array
+    private function chatWithGemini(string $message, array $context, string $model, array $settings, string $feature): array
     {
         $provider = $this->providerSettings('gemini', $settings);
         $apiKey = $provider['api_key'] ?? config('services.gemini.api_key');
 
-        if (!$apiKey) {
+        if (! $apiKey) {
             throw new RuntimeException('API key Gemini untuk diskusi AI belum diatur.');
         }
 
         $endpoint = rtrim((string) ($provider['base_url'] ?? config('services.gemini.base_url')), '/')
-            . '/models/' . rawurlencode($model) . ':generateContent';
+            .'/models/'.rawurlencode($model).':generateContent';
 
         try {
+            $generationConfig = [
+                'maxOutputTokens' => (int) ($settings['max_output_tokens'] ?? 700),
+            ];
+            if ($this->requiresStructuredResponse($feature)) {
+                $generationConfig['responseMimeType'] = 'application/json';
+            }
+
             $response = Http::acceptJson()
                 ->asJson()
                 ->timeout((int) ($provider['timeout'] ?? config('services.gemini.timeout', 90)))
                 ->withQueryParameters(['key' => $apiKey])
                 ->post($endpoint, [
                     'systemInstruction' => [
-                        'parts' => [['text' => $this->systemPrompt($settings)]],
+                        'parts' => [['text' => $this->systemPrompt($settings, $feature)]],
                     ],
                     'contents' => [
                         [
@@ -209,9 +228,7 @@ class AiDiscussionService
                             'parts' => [['text' => $this->contextPrompt($message, $context)]],
                         ],
                     ],
-                    'generationConfig' => [
-                        'maxOutputTokens' => (int) ($settings['max_output_tokens'] ?? 700),
-                    ],
+                    'generationConfig' => $generationConfig,
                 ])
                 ->throw()
                 ->json();
@@ -220,7 +237,7 @@ class AiDiscussionService
                 ?: $exception->response?->body()
                 ?: $exception->getMessage();
 
-            throw new RuntimeException('Gagal menghubungi Gemini: ' . Str::limit((string) $error, 240));
+            throw new RuntimeException('Gagal menghubungi Gemini: '.Str::limit((string) $error, 240));
         }
 
         return [
@@ -238,7 +255,7 @@ class AiDiscussionService
         return compact('input', 'output', 'total');
     }
 
-    private function systemPrompt(array $settings): string
+    private function systemPrompt(array $settings, string $feature = 'discussion'): string
     {
         $extraInstruction = trim((string) ($settings['instruction'] ?? ''));
 
@@ -251,24 +268,44 @@ Gunakan bahasa Indonesia yang ramah, ringkas, dan bertahap. Utamakan data pada k
 PROMPT;
 
         if ($extraInstruction !== '') {
-            $prompt .= "\n\nInstruksi tambahan admin:\n" . $extraInstruction;
+            $prompt .= "\n\nInstruksi tambahan admin:\n".$extraInstruction;
+        }
+
+        if ($instruction = $this->structuredFeatureInstruction($feature)) {
+            $prompt .= "\n\nInstruksi sistem untuk fitur pembelajaran:\n".$instruction;
         }
 
         return $prompt;
+    }
+
+    private function requiresStructuredResponse(string $feature): bool
+    {
+        return $this->structuredFeatureInstruction($feature) !== null;
+    }
+
+    private function structuredFeatureInstruction(string $feature): ?string
+    {
+        return match ($feature) {
+            'learning_note' => 'Buat catatan materi berdasarkan soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","summary":"string","key_points":["string"],"formulas":["string"]}. Isi minimal tiga key_points.',
+            'learning_recommendation' => 'Buat rekomendasi belajar berdasarkan kelemahan atau konsep pada soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","focus_topics":[{"topic":"string","reason":"string","priority":"tinggi|sedang|rendah"}],"study_plan":["string"]}. Jangan membuat URL atau merekomendasikan sumber eksternal.',
+            'learning_question' => 'Buat satu soal latihan yang setara dan masih relevan dengan konsep soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","question_text":"string","options":[{"key":"A","text":"string"}],"correct_answer":"A","explanation":"string","difficulty":"mudah|sedang|sulit","hots_level":"rendah|sedang|tinggi"}. Jangan menyalin soal aktif secara persis.',
+            'learning_flashcard' => 'Buat tiga sampai lima flashcard dari konsep penting soal aktif. Respons WAJIB hanya berupa satu object JSON valid tanpa Markdown atau teks tambahan dengan schema {"title":"string","cards":[{"front":"string","back":"string"}]}.',
+            default => null,
+        };
     }
 
     private function contextPrompt(string $message, array $context): string
     {
         if (! isset($context['question']) || ! $context['question'] instanceof Question) {
             $options = collect($context['options'] ?? [])->map(function ($option, $index) {
-                return is_array($option) ? (($option['key'] ?? chr(65 + $index)) . '. ' . ($option['text'] ?? '')) : (string) $option;
+                return is_array($option) ? (($option['key'] ?? chr(65 + $index)).'. '.($option['text'] ?? '')) : (string) $option;
             })->implode("\n");
 
-            return "Nama tryout: " . ($context['tryout_name'] ?? '-') . "\nSubtest: " . ($context['subtest_name'] ?? '-')
-                . "\nTipe soal: " . ($context['question_type'] ?? '-') . "\n\nSoal:\n" . ($context['question_text'] ?? '')
-                . "\n\nPilihan:\n" . $options . "\n\nJawaban siswa:\n" . ($context['selected_answer'] ?? '-')
-                . "\n\nPembahasan resmi:\n" . ($context['explanation'] ?? '-')
-                . "\n\n<pertanyaan_siswa_tidak_tepercaya>\n" . $message . "\n</pertanyaan_siswa_tidak_tepercaya>";
+            return 'Nama tryout: '.($context['tryout_name'] ?? '-')."\nSubtest: ".($context['subtest_name'] ?? '-')
+                ."\nTipe soal: ".($context['question_type'] ?? '-')."\n\nSoal:\n".($context['question_text'] ?? '')
+                ."\n\nPilihan:\n".$options."\n\nJawaban siswa:\n".($context['selected_answer'] ?? '-')
+                ."\n\nPembahasan resmi:\n".($context['explanation'] ?? '-')
+                ."\n\n<pertanyaan_siswa_tidak_tepercaya>\n".$message."\n</pertanyaan_siswa_tidak_tepercaya>";
         }
 
         /** @var Question $question */
@@ -282,7 +319,7 @@ PROMPT;
                 $key = trim((string) ($option->option_key ?? '')) ?: chr(65 + $index);
                 $correct = $option->is_correct ? ' (kunci)' : '';
 
-                return $key . '. ' . $this->plainText((string) $option->option_text) . $correct;
+                return $key.'. '.$this->plainText((string) $option->option_text).$correct;
             })
             ->implode("\n");
 
@@ -351,7 +388,7 @@ PROMPT;
     {
         $settings = config('client.branding.ai_question_generator_settings');
 
-        if (is_array($settings) && !empty($settings)) {
+        if (is_array($settings) && ! empty($settings)) {
             return $settings;
         }
 

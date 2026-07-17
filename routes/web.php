@@ -40,6 +40,7 @@ use App\Http\Controllers\admin\TutorPayrollController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
+use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
@@ -55,6 +56,7 @@ use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
+use App\Http\Controllers\user\AiLearningToolController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
@@ -82,7 +84,7 @@ Route::get('/participant-destinations/official/institutions', [ParticipantDestin
 Route::get('/participant-destinations/official/programs', [ParticipantDestinationLookupController::class, 'programs'])->name('participant-destinations.official.programs');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
-Route::get('/ai-gateway-payments/{externalId}/qris', [\App\Http\Controllers\Api\AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');
+Route::get('/ai-gateway-payments/{externalId}/qris', [AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');
 
 Route::prefix('general')->name('general.')->group(function () {
     Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
@@ -170,6 +172,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-chat');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-tools');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->middleware('throttle:5,1')->name('user.package.tryout.pembahasan.ai-speech');
     });
 
@@ -190,6 +193,10 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])
         ->middleware('throttle:10,1')
         ->name('user.ai-gateway.checkout');
+    Route::get('/catatan-ai', [AiLearningToolController::class, 'notes'])->name('user.ai-learning.notes');
+    Route::post('/catatan-ai/{artifact}/save', [AiLearningToolController::class, 'save'])->middleware('throttle:30,1')->name('user.ai-learning.notes.save');
+    Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
+    Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])->name('user.class-schedule.attend');
 

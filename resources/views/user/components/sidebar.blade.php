@@ -120,6 +120,13 @@
                     <span class="ms-3">Paket AI</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('user.ai-learning.notes') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.ai-learning.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-sticky-note-line text-[20px] {{ request()->routeIs('user.ai-learning.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Catatan Saya</span>
+                </a>
+            </li>
             @endif
             @if($canShowAffiliateMenu)
             <li>

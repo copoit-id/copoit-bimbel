@@ -218,6 +218,18 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->assertJsonPath('message', 'Paket Diskusi AI belum aktif. Silakan beli atau klaim paket AI terlebih dahulu.');
     }
 
+    public function test_discussion_rejects_unknown_feature_identifier(): void
+    {
+        [, $key] = $this->gatewayClient();
+        $payload = $this->discussionPayload('participant-123');
+        $payload['feature'] = 'untrusted-feature';
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/discussion', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('feature');
+    }
+
     public function test_claimed_participant_can_chat_and_usage_is_recorded(): void
     {
         [, $key] = $this->gatewayClient();
@@ -239,7 +251,9 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->assertOk();
 
         $ai = Mockery::mock(AiDiscussionService::class);
-        $ai->shouldReceive('chat')->once()->andReturn([
+        $ai->shouldReceive('chat')->once()->withArgs(
+            fn (...$arguments) => ($arguments[4] ?? null) === 'learning_note',
+        )->andReturn([
             'message' => 'Jawaban AI',
             'model' => 'test-model',
             'provider' => 'test-provider',
@@ -248,8 +262,11 @@ class AiGatewayFreePlanClaimTest extends TestCase
         ]);
         $this->app->instance(AiDiscussionService::class, $ai);
 
+        $payload = $this->discussionPayload('participant-123');
+        $payload['feature'] = 'learning_note';
+
         $this->withHeader('X-AI-Gateway-Key', $key)
-            ->postJson('/api/ai-gateway/discussion', $this->discussionPayload('participant-123'))
+            ->postJson('/api/ai-gateway/discussion', $payload)
             ->assertOk()
             ->assertJsonPath('quota.type', 'free_package')
             ->assertJsonPath('quota.tokens_used', 150)
@@ -262,6 +279,7 @@ class AiGatewayFreePlanClaimTest extends TestCase
         ]);
         $usage = AiGatewayUsageLog::query()->where('external_user_id', 'participant-123')->sole();
         $this->assertSame(150, $usage->total_tokens);
+        $this->assertSame('learning_note', $usage->feature);
         $this->assertSame(1.6, (float) $usage->input_cost_idr);
         $this->assertSame(1.6, (float) $usage->output_cost_idr);
 
@@ -390,6 +408,7 @@ class AiGatewayFreePlanClaimTest extends TestCase
             $table->decimal('input_cost_idr', 20, 6)->nullable();
             $table->decimal('output_cost_idr', 20, 6)->nullable();
             $table->string('question_reference', 120)->nullable();
+            $table->string('feature', 40)->default('discussion');
             $table->string('origin_base_url', 2048)->nullable();
             $table->timestamps();
         });

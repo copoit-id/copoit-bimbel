@@ -16,67 +16,85 @@ class AiGatewaySubscriptionService
         AiGatewayTransaction $transaction,
         string $confirmationSource = 'provider'
     ): ?AiGatewaySubscription {
-        if ($transaction->status === 'paid') {
-            $activatedSubscriptionId = data_get($transaction->details, 'activated_subscription_id');
+        return DB::transaction(function () use ($transaction, $confirmationSource): ?AiGatewaySubscription {
+            // Reload under a row lock so cancellation and a provider callback
+            // cannot both settle the same invoice.
+            $transaction = AiGatewayTransaction::query()
+                ->lockForUpdate()
+                ->find($transaction->id);
 
-            return $activatedSubscriptionId
-                ? AiGatewaySubscription::with('plan')->find($activatedSubscriptionId)
-                : AiGatewaySubscription::with('plan')->find($transaction->ai_gateway_subscription_id);
-        }
-
-        $pendingSubscription = AiGatewaySubscription::with('plan')->find($transaction->ai_gateway_subscription_id);
-        if (! $pendingSubscription) {
-            return null;
-        }
-
-        $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
-        $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
-        $durationDays = max(0, (int) ($transaction->plan?->duration_days ?? 30));
-        $activeSubscription = AiGatewaySubscription::query()
-            ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
-            ->where('external_user_id', $pendingSubscription->external_user_id)
-            ->where('ai_gateway_plan_id', $pendingSubscription->ai_gateway_plan_id)
-            ->where('status', 'active')
-            ->notExpired()
-            ->latest()
-            ->first();
-
-        if ($activeSubscription) {
-            $currentLimit = (int) ($activeSubscription->token_limit ?: $activeSubscription->plan?->token_limit ?: 0);
-            $updates = [
-                'token_limit' => $currentLimit + $tokenCredit,
-                'ends_at' => $durationDays === 0 || $activeSubscription->ends_at === null
-                    ? null
-                    : $activeSubscription->ends_at->copy()->addDays($durationDays),
-            ];
-            if ($chatCredit > 0) {
-                $currentChatLimit = (int) ($activeSubscription->chat_limit ?: $activeSubscription->plan?->chat_limit ?: 0);
-                $updates['chat_limit'] = $currentChatLimit + $chatCredit;
+            if (! $transaction) {
+                return null;
             }
-            $activeSubscription->update($updates);
-            $pendingSubscription->update(['status' => 'merged']);
-        } else {
-            $pendingSubscription->update([
-                'status' => 'active',
-                'token_limit' => $tokenCredit,
-                'chat_limit' => $chatCredit,
-                'starts_at' => now(),
-                'ends_at' => $durationDays > 0 ? now()->addDays($durationDays) : null,
+
+            if ($transaction->status === 'paid') {
+                $activatedSubscriptionId = data_get($transaction->details, 'activated_subscription_id');
+
+                return $activatedSubscriptionId
+                    ? AiGatewaySubscription::with('plan')->find($activatedSubscriptionId)
+                    : AiGatewaySubscription::with('plan')->find($transaction->ai_gateway_subscription_id);
+            }
+
+            // A cancelled, expired, or failed invoice must remain terminal even if
+            // the payment provider delivers a late callback.
+            if ($transaction->status !== 'pending') {
+                return null;
+            }
+
+            $pendingSubscription = AiGatewaySubscription::with('plan')->find($transaction->ai_gateway_subscription_id);
+            if (! $pendingSubscription) {
+                return null;
+            }
+
+            $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
+            $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
+            $durationDays = max(0, (int) ($transaction->plan?->duration_days ?? 30));
+            $activeSubscription = AiGatewaySubscription::query()
+                ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
+                ->where('external_user_id', $pendingSubscription->external_user_id)
+                ->where('ai_gateway_plan_id', $pendingSubscription->ai_gateway_plan_id)
+                ->where('status', 'active')
+                ->notExpired()
+                ->latest()
+                ->first();
+
+            if ($activeSubscription) {
+                $currentLimit = (int) ($activeSubscription->token_limit ?: $activeSubscription->plan?->token_limit ?: 0);
+                $updates = [
+                    'token_limit' => $currentLimit + $tokenCredit,
+                    'ends_at' => $durationDays === 0 || $activeSubscription->ends_at === null
+                        ? null
+                        : $activeSubscription->ends_at->copy()->addDays($durationDays),
+                ];
+                if ($chatCredit > 0) {
+                    $currentChatLimit = (int) ($activeSubscription->chat_limit ?: $activeSubscription->plan?->chat_limit ?: 0);
+                    $updates['chat_limit'] = $currentChatLimit + $chatCredit;
+                }
+                $activeSubscription->update($updates);
+                $pendingSubscription->update(['status' => 'merged']);
+            } else {
+                $pendingSubscription->update([
+                    'status' => 'active',
+                    'token_limit' => $tokenCredit,
+                    'chat_limit' => $chatCredit,
+                    'starts_at' => now(),
+                    'ends_at' => $durationDays > 0 ? now()->addDays($durationDays) : null,
+                ]);
+                $activeSubscription = $pendingSubscription;
+            }
+
+            $details = is_array($transaction->details) ? $transaction->details : [];
+            $details['confirmation_source'] = $confirmationSource;
+            $details['confirmed_at'] = now()->toDateTimeString();
+            $details['activated_subscription_id'] = $activeSubscription->id;
+            $transaction->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'details' => $details,
             ]);
-            $activeSubscription = $pendingSubscription;
-        }
 
-        $details = is_array($transaction->details) ? $transaction->details : [];
-        $details['confirmation_source'] = $confirmationSource;
-        $details['confirmed_at'] = now()->toDateTimeString();
-        $details['activated_subscription_id'] = $activeSubscription->id;
-        $transaction->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-            'details' => $details,
-        ]);
-
-        return $activeSubscription->fresh('plan');
+            return $activeSubscription->fresh('plan');
+        });
     }
 
     public function claimFreePlan(AiGatewayClient $client, AiGatewayPlan $plan, array $customer): array

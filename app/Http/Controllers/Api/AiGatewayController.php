@@ -33,6 +33,7 @@ class AiGatewayController extends Controller
             'external_user_email' => 'nullable|email|max:255',
             'project_base_url' => 'nullable|url|max:2048',
             'question_reference' => 'nullable|string|max:120',
+            'feature' => 'nullable|in:discussion,learning_note,learning_recommendation,learning_question,learning_flashcard',
             'context' => 'required|array',
             'context.tryout_name' => 'nullable|string|max:255',
             'context.subtest_name' => 'nullable|string|max:255',
@@ -97,7 +98,13 @@ class AiGatewayController extends Controller
                 : null);
 
         try {
-            $result = $ai->chat($data['message'], $data['context'], true, $remainingTokenQuota);
+            $result = $ai->chat(
+                $data['message'],
+                $data['context'],
+                true,
+                $remainingTokenQuota,
+                $data['feature'] ?? 'discussion',
+            );
         } catch (\RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -124,6 +131,7 @@ class AiGatewayController extends Controller
             'external_user_email' => $data['external_user_email'] ?? null,
             'origin_base_url' => $client->base_url,
             'question_reference' => $data['question_reference'] ?? null,
+            'feature' => $data['feature'] ?? 'discussion',
             'provider' => $result['provider'],
             'model' => $result['model'],
             'input_tokens' => $result['usage']['input'],
