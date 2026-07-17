@@ -58,6 +58,22 @@ class AiGatewayPlanControllerTest extends TestCase
         $this->assertSame(0, $validated['chat_limit']);
     }
 
+    public function test_duration_zero_is_valid_for_plan_without_expiration(): void
+    {
+        $request = Request::create('/super-admin/ai-gateway-plans', 'POST', [
+            'name' => 'Paket Lifetime',
+            'price' => 25000,
+            'token_limit' => 50000,
+            'chat_limit' => 0,
+            'duration_days' => 0,
+        ]);
+        $method = new ReflectionMethod(AiGatewayPlanController::class, 'validated');
+
+        $validated = $method->invoke(app(AiGatewayPlanController::class), $request);
+
+        $this->assertSame(0, $validated['duration_days']);
+    }
+
     public function test_used_plan_is_archived_instead_of_deleted(): void
     {
         $plan = $this->createPlan();

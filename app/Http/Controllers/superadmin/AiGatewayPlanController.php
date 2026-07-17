@@ -77,7 +77,7 @@ class AiGatewayPlanController extends Controller
             'price' => ['required', 'integer', 'min:0'],
             'token_limit' => ['required', 'integer', 'min:1'],
             'chat_limit' => ['required', 'integer', 'min:0'],
-            'duration_days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'duration_days' => ['required', 'integer', 'min:0', 'max:3650'],
         ]);
     }
 }

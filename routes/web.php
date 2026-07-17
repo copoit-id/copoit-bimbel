@@ -315,6 +315,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/ai-gateway-payments', [AiUsageController::class, 'gatewayPayments'])->name('ai-gateway-payments.index');
     Route::post('/ai-gateway-payments/{transaction}/approve', [AiUsageController::class, 'approveGatewayPayment'])->name('ai-gateway-payments.approve');
     Route::post('/ai-gateway-payments/{transaction}/reject', [AiUsageController::class, 'rejectGatewayPayment'])->name('ai-gateway-payments.reject');
+    Route::post('/ai-gateway-payments/{transaction}/reset-unverified', [AiUsageController::class, 'resetUnverifiedGatewayPayment'])->name('ai-gateway-payments.reset-unverified');
     Route::put('/ai-usage/quota', [AiUsageController::class, 'updateQuota'])->name('ai-usage.quota.update');
     Route::post('/ai-usage/projects', [AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
     Route::put('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');

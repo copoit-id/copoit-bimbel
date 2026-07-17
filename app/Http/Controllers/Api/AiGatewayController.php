@@ -25,7 +25,8 @@ class AiGatewayController extends Controller
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $data['external_user_id'])
             ->where('status', 'active')
-            ->where('ends_at', '>', now())
+            ->notExpired()
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
             ->orderBy('ends_at')
             ->get();
         $subscription = $subscriptions->first(function (AiGatewaySubscription $item): bool {

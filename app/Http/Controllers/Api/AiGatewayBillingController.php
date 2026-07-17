@@ -45,7 +45,15 @@ class AiGatewayBillingController extends Controller
         $c = $this->client($r);
         $userId = (string) $r->validate(['external_user_id' => 'required|string|max:120'])['external_user_id'];
         $this->syncLatestPendingPayment($c, $userId);
-        $subscriptions = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->where('status', 'active')->where('ends_at', '>', now())->latest()->get();
+        $subscriptions = AiGatewaySubscription::with('plan')
+            ->where('ai_gateway_client_id', $c->id)
+            ->where('external_user_id', $userId)
+            ->where('status', 'active')
+            ->notExpired()
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
+            ->latest()
+            ->get()
+            ->each(fn (AiGatewaySubscription $subscription) => $subscription->setAttribute('payment_confirmed', true));
         $s = $subscriptions->first();
         $trial = AiGatewayUserTrial::where('ai_gateway_client_id', $c->id)->where('external_user_id', $userId)->first();
         $pendingPayment = AiGatewayTransaction::query()
@@ -57,7 +65,7 @@ class AiGatewayBillingController extends Controller
             ->latest()
             ->first();
 
-        return ['project' => $c->name, 'subscription' => $s, 'subscriptions' => $subscriptions, 'pending_payment' => $pendingPayment ? ['plan_name' => $pendingPayment->plan?->name, 'invoice_url' => $this->paymentUrl($pendingPayment), 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String()] : null, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
+        return ['project' => $c->name, 'subscription' => $s, 'subscriptions' => $subscriptions, 'pending_payment' => $pendingPayment ? ['plan_id' => $pendingPayment->ai_gateway_plan_id, 'subscription_id' => $pendingPayment->ai_gateway_subscription_id, 'plan_name' => $pendingPayment->plan?->name, 'invoice_url' => $this->paymentUrl($pendingPayment), 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String()] : null, 'trial' => ['available' => $c->free_token_limit > 0 || $c->free_chat_limit > 0, 'token_limit' => $c->free_token_limit, 'chat_limit' => $c->free_chat_limit, 'tokens_used' => $trial?->tokens_used ?? 0, 'chats_used' => $trial?->chats_used ?? 0]];
     }
 
     public function checkout(Request $r)

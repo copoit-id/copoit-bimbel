@@ -944,7 +944,7 @@
                             <div class="flex flex-col rounded-xl border border-gray-200 p-4">
                                 <h3 class="font-semibold text-gray-900">{{ data_get($plan, 'name') }}</h3>
                                 <p class="mt-2 text-xl font-bold text-primary">Rp {{ number_format(data_get($plan, 'price'), 0, ',', '.') }}</p>
-                                <p class="mt-1 text-xs text-gray-500">Aktif {{ data_get($plan, 'duration_days') }} hari</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ data_get($plan, 'duration_days') > 0 ? 'Aktif ' . data_get($plan, 'duration_days') . ' hari' : 'Tanpa masa aktif' }}</p>
                                 <p class="mt-3 text-sm text-gray-700">{{ $planChatLimit > 0 ? number_format($planChatLimit, 0, ',', '.') . ' chat AI' : 'Chat AI unlimited sampai token habis' }}</p>
                                 <form class="mt-4" method="POST" action="{{ route('user.ai-gateway.checkout') }}">
                                     @csrf

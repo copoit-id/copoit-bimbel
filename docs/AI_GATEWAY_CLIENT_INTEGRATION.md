@@ -42,7 +42,7 @@ Super admin BimbelHub harus melakukan ini terlebih dahulu:
 1. Buat **AI Gateway Client** untuk CPNS Academy.
 2. Isi `base_url` dengan origin production CPNS Academy, misalnya `https://cpnsacademy.com`.
 3. Atur trial gratis bila diperlukan (`free_token_limit` dan/atau `free_chat_limit`).
-4. Buat dan aktifkan paket AI: harga, batas token, limit chat (`0` untuk unlimited), dan masa aktif.
+4. Buat dan aktifkan paket AI: harga, batas token, limit chat (`0` untuk unlimited), dan masa aktif (`0` untuk tanpa masa aktif).
 5. Pastikan provider/model AI dan payment gateway AI pusat sudah aktif.
 6. Salin API key client saat key dibuat. Key hanya ditampilkan sekali.
 
@@ -124,14 +124,14 @@ Response berupa array paket aktif:
     "price": 25000,
     "token_limit": 50000,
     "chat_limit": 0,
-    "duration_days": 30
+    "duration_days": 0
   }
 ]
 ```
 
 Tampilkan harga/paket dari response gateway, bukan hardcode di CPNS Academy.
 
-`token_limit` selalu lebih dari `0` dan menjadi batas utama penggunaan paket. `chat_limit = 0` berarti jumlah chat unlimited selama token paket masih tersedia dan masa aktif paket belum berakhir. Bila `chat_limit > 0`, batas chat tersebut tetap harus dihormati untuk kompatibilitas dengan paket lama.
+`token_limit` selalu lebih dari `0` dan menjadi batas utama penggunaan paket. `chat_limit = 0` berarti jumlah chat unlimited selama token paket masih tersedia. `duration_days = 0` berarti paket tidak memiliki tanggal kedaluwarsa; pada response subscription nilai `ends_at` akan berupa `null`. Bila `chat_limit > 0` atau `duration_days > 0`, batas tersebut tetap harus dihormati untuk kompatibilitas dengan paket lain.
 
 ### 5.2 `GET /subscription`
 
@@ -151,6 +151,8 @@ Bagian response yang perlu dipakai UI:
 - `trial`: batas dan pemakaian trial.
 
 Jangan menganggap pembayaran berhasil hanya dari query parameter redirect. Setelah user kembali dari payment gateway, panggil endpoint ini lagi. User hanya boleh memakai AI bila ada trial tersisa atau `subscription.status === "active"` dan kuota belum habis.
+
+Pembuatan invoice atau response API provider dengan pesan umum `success` bukan bukti pembayaran. Gateway pusat hanya mengubah transaksi menjadi `paid` setelah field status transaksi provider secara spesifik menyatakan lunas, atau setelah super admin melakukan **ACC manual** secara sadar.
 
 ### 5.3 `POST /checkout`
 
@@ -430,6 +432,7 @@ Gunakan log ini untuk riwayat chat per soal. Jangan gunakan log lokal sebagai su
 - [ ] User dengan kuota habis mendapat 429 dan tombol beli/perpanjang.
 - [ ] Checkout kedua sebelum 24 jam memakai invoice pending yang sama.
 - [ ] Setelah redirect sukses, tombol belum menjadi **Mulai** sebelum `/subscription` menyatakan paket aktif.
+- [ ] Response pengecekan provider yang sukses tetapi status transaksinya masih pending tidak mengaktifkan paket AI.
 - [ ] Redirect checkout ditolak bila bukan origin CPNS Academy.
 - [ ] Chat dibatasi rate limit dan pesan maksimal 1.200 karakter.
 - [ ] Jika gateway timeout, UI gagal dengan aman dan user dapat mencoba lagi.

@@ -12,6 +12,7 @@ use App\Models\ClientProfile;
 use App\Services\AiGatewayCostService;
 use App\Services\AiGatewaySubscriptionService;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -153,7 +154,7 @@ class AiUsageController extends Controller
     {
         $clients = AiGatewayClient::query()->orderBy('name')->get(['id', 'name']);
         $transactions = AiGatewayTransaction::query()
-            ->with(['client:id,name,base_url', 'plan:id,name', 'subscription:id,external_user_name,external_user_email,tokens_used,chats_used'])
+            ->with(['client:id,name,base_url', 'plan:id,name', 'subscription:id,status,external_user_name,external_user_email,tokens_used,chats_used'])
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->latest()
@@ -262,7 +263,7 @@ class AiUsageController extends Controller
             return back()->with('error', 'Hanya transaksi pending yang dapat di-ACC.');
         }
 
-        $subscriptionService->activateTransaction($transaction);
+        $subscriptionService->activateTransaction($transaction, 'manual_admin');
 
         return back()->with('success', 'Pembayaran berhasil di-ACC dan kuota peserta telah diaktifkan.');
     }
@@ -277,6 +278,47 @@ class AiUsageController extends Controller
         $transaction->subscription?->update(['status' => 'rejected']);
 
         return back()->with('success', 'Pembayaran ditolak. Peserta dapat membuat pembayaran baru.');
+    }
+
+    public function resetUnverifiedGatewayPayment(AiGatewayTransaction $transaction): RedirectResponse
+    {
+        $transaction->load('subscription');
+        $subscription = $transaction->subscription;
+        $confirmationSource = data_get($transaction->details, 'confirmation_source');
+        $hasAnotherPaidTransaction = AiGatewayTransaction::query()
+            ->where('ai_gateway_subscription_id', $transaction->ai_gateway_subscription_id)
+            ->where('id', '!=', $transaction->id)
+            ->where('status', 'paid')
+            ->exists();
+        $canReset = $transaction->status === 'paid'
+            && $transaction->provider === 'ipaymu'
+            && blank($confirmationSource)
+            && $subscription?->status === 'active'
+            && (int) $subscription->tokens_used === 0
+            && (int) $subscription->chats_used === 0
+            && ! $hasAnotherPaidTransaction;
+
+        if (! $canReset) {
+            return back()->with('error', 'Pembayaran ini tidak aman untuk dikembalikan ke pending karena sudah terverifikasi, sudah dipakai, atau telah digabung dengan transaksi lain.');
+        }
+
+        DB::transaction(function () use ($transaction, $subscription): void {
+            $details = is_array($transaction->details) ? $transaction->details : [];
+            $details['reset_to_pending_at'] = now()->toDateTimeString();
+            $details['reset_to_pending_reason'] = 'Legacy iPaymu status was not backed by an explicit transaction status.';
+            $transaction->update([
+                'status' => 'pending',
+                'paid_at' => null,
+                'details' => $details,
+            ]);
+            $subscription->update([
+                'status' => 'pending',
+                'starts_at' => null,
+                'ends_at' => null,
+            ]);
+        });
+
+        return back()->with('success', 'Status dikembalikan ke menunggu konfirmasi. Gateway akan memverifikasi ulang status transaksi iPaymu.');
     }
 
     public function storeGatewayClient(Request $request)

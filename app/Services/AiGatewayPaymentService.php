@@ -260,12 +260,98 @@ class AiGatewayPaymentService
         $lookup = $details['ipaymu_transaction_id'] ?? $details['session_id'] ?? $transaction->external_id;
         $response = $this->ipaymuPost($settings, '/api/v2/transaction', ['transactionId' => $lookup]);
         $payload = $response->json() ?: [];
-        $status = Str::lower(json_encode($payload) ?: '');
-        if (Str::contains($status, ['"paid"', '"success"', '"settlement"', '"lunas"'])) {
-            $this->subscriptionService->activateTransaction($transaction);
-        } elseif (Str::contains($status, ['"expired"', '"failed"', '"cancel"'])) {
-            $this->markFailed($transaction, Str::contains($status, 'expired') ? 'expired' : 'failed');
+
+        if (! $response->successful()) {
+            return;
         }
+
+        $providerStatus = $this->ipaymuTransactionStatus($payload);
+        $details['ipaymu_check'] = $payload;
+        $details['ipaymu_checked_at'] = now()->toDateTimeString();
+        $details['ipaymu_transaction_status'] = $providerStatus;
+        $transaction->update(['details' => $details]);
+
+        if ($providerStatus === 'paid') {
+            $this->subscriptionService->activateTransaction($transaction);
+        } elseif (in_array($providerStatus, ['expired', 'failed'], true)) {
+            $this->markFailed($transaction, $providerStatus);
+        }
+    }
+
+    private function ipaymuTransactionStatus(array $payload): ?string
+    {
+        $hasDataEnvelope = array_key_exists('Data', $payload) || array_key_exists('data', $payload);
+        $transactionData = $payload['Data'] ?? $payload['data'] ?? $payload;
+        $statusValues = [];
+        $statusKeys = [
+            'status',
+            'statuscode',
+            'transactionstatus',
+            'paymentstatus',
+            'statustrx',
+            'trxstatus',
+        ];
+
+        array_walk_recursive($transactionData, function ($value, $key) use (&$statusValues, $statusKeys): void {
+            $normalizedKey = str_replace(['_', '-'], '', Str::lower((string) $key));
+            if (in_array($normalizedKey, $statusKeys, true)) {
+                $statusValues[] = Str::lower(trim((string) $value));
+            }
+        });
+
+        $paidStatuses = [
+            '1',
+            'paid',
+            'settlement',
+            'settled',
+            'capture',
+            'complete',
+            'completed',
+            'lunas',
+        ];
+        if ($hasDataEnvelope) {
+            $paidStatuses = [...$paidStatuses, 'berhasil', 'sukses', 'success'];
+        }
+
+        if (collect($statusValues)->contains(fn (string $status): bool => in_array($status, $paidStatuses, true))) {
+            return 'paid';
+        }
+
+        if (collect($statusValues)->contains(fn (string $status): bool => in_array($status, [
+            'expired',
+            'expire',
+        ], true))) {
+            return 'expired';
+        }
+
+        if (collect($statusValues)->contains(fn (string $status): bool => in_array($status, [
+            '2',
+            '3',
+            'cancel',
+            'canceled',
+            'cancelled',
+            'failed',
+            'failure',
+            'deny',
+            'denied',
+            'refund',
+            'refunded',
+        ], true))) {
+            return 'failed';
+        }
+
+        if (collect($statusValues)->contains(fn (string $status): bool => in_array($status, [
+            '-1',
+            '0',
+            'pending',
+            'process',
+            'processing',
+            'waiting',
+        ], true))) {
+            return 'pending';
+        }
+
+        return null;
     }
 
     private function syncInteractiveQris(AiGatewayTransaction $transaction, array $settings, array $details): void
