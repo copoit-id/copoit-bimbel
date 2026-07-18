@@ -47,7 +47,8 @@ class AiLearningToolService
             'note' => 'Buat catatan materi yang LENGKAP dari soal aktif, bukan ringkasan singkat. Jelaskan konsep inti, alasan, langkah memahami, miskonsepsi umum bila relevan, dan kaitannya dengan soal. Isi summary dengan 6-10 paragraf yang jelas (boleh panjang), key_points minimal 8 butir, serta formulas berisi rumus/istilah penting bila ada. Balas HANYA JSON valid: {"title":"...","summary":"...","key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL.',
             'recommendation' => 'Analisis materi yang perlu dipelajari dari soal aktif. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."]}. Jangan membuat URL atau nama sumber.',
             'question' => sprintf(
-                'Buat satu soal serupa dengan tingkat %s, variasi %s, dan HOTS %s. Balas HANYA JSON valid: {"title":"...","question_text":"...","options":[{"key":"A","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}. Jangan menyalin persis soal asli.',
+                'Buat %d soal serupa dengan tingkat %s, variasi %s, dan HOTS %s. Setiap soal wajib memiliki tepat empat opsi A-D, satu jawaban benar, dan pembahasan. Balas HANYA JSON valid: {"title":"...","questions":[{"question_text":"...","options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}]}. Jangan menyalin persis soal asli.',
+                max(1, min(3, (int) ($options['question_count'] ?? 1))),
                 $options['difficulty'] ?? 'sedang',
                 $options['variation'] ?? 'konteks',
                 $options['hots_level'] ?? 'sedang',
@@ -118,18 +119,16 @@ class AiLearningToolService
             ],
             'question' => [
                 'title' => $this->text($payload['title'] ?? 'Soal Serupa'),
-                'question_text' => $this->text($payload['question_text'] ?? ''),
-                'options' => collect(Arr::wrap($payload['options'] ?? []))
+                'questions' => collect(Arr::wrap($payload['questions'] ?? []))
                     ->filter(fn ($item) => is_array($item))
-                    ->take(6)
-                    ->map(fn (array $item, int $index) => [
-                        'key' => Str::upper(Str::limit($this->text($item['key'] ?? chr(65 + $index)), 3, '')),
-                        'text' => $this->text($item['text'] ?? ''),
-                    ])->filter(fn (array $item) => $item['text'] !== '')->values()->all(),
-                'correct_answer' => Str::upper(Str::limit($this->text($payload['correct_answer'] ?? ''), 3, '')),
-                'explanation' => $this->text($payload['explanation'] ?? ''),
-                'difficulty' => $this->text($payload['difficulty'] ?? 'sedang'),
-                'hots_level' => $this->text($payload['hots_level'] ?? 'sedang'),
+                    ->take(3)
+                    ->map(fn (array $item) => $this->normalizeQuestion($item))
+                    ->filter(fn (array $item) => $item['question_text'] !== ''
+                        && count($item['options']) === 4
+                        && $item['correct_answer'] !== ''
+                        && $item['explanation'] !== '')
+                    ->values()
+                    ->all(),
             ],
             'flashcard' => [
                 'title' => $this->text($payload['title'] ?? 'Flashcard'),
@@ -150,6 +149,28 @@ class AiLearningToolService
         return Str::limit(trim(strip_tags(is_scalar($value) ? (string) $value : '')), 5000, '');
     }
 
+    /** @param array<string, mixed> $question */
+    private function normalizeQuestion(array $question): array
+    {
+        return [
+            'question_text' => $this->text($question['question_text'] ?? ''),
+            'options' => collect(Arr::wrap($question['options'] ?? []))
+                ->filter(fn ($item) => is_array($item))
+                ->take(4)
+                ->map(fn (array $item, int $index) => [
+                    'key' => chr(65 + $index),
+                    'text' => $this->text($item['text'] ?? ''),
+                ])
+                ->filter(fn (array $item) => $item['text'] !== '')
+                ->values()
+                ->all(),
+            'correct_answer' => Str::upper(Str::limit($this->text($question['correct_answer'] ?? ''), 1, '')),
+            'explanation' => $this->text($question['explanation'] ?? ''),
+            'difficulty' => $this->text($question['difficulty'] ?? 'sedang'),
+            'hots_level' => $this->text($question['hots_level'] ?? 'sedang'),
+        ];
+    }
+
     /** @param array<string, mixed> $payload */
     private function assertCompletePayload(string $tool, array $payload): void
     {
@@ -158,10 +179,7 @@ class AiLearningToolService
                 && count($payload['key_points']) > 0,
             'recommendation' => count($payload['focus_topics']) > 0
                 || count($payload['study_plan']) > 0,
-            'question' => $payload['question_text'] !== ''
-                && count($payload['options']) >= 2
-                && $payload['correct_answer'] !== ''
-                && $payload['explanation'] !== '',
+            'question' => count($payload['questions']) > 0,
             'flashcard' => count($payload['cards']) > 0,
             default => false,
         };

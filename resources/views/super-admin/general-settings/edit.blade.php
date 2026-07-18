@@ -126,7 +126,7 @@
                     'discussion' => ['Tanya jawab', 'Jawaban percakapan per soal', 700, 'ri-message-3-line'],
                     'learning_note' => ['Catatan', 'Materi lengkap dan poin penting', 1200, 'ri-sticky-note-line'],
                     'learning_flashcard' => ['Flashcard', '3–5 kartu konsep', 500, 'ri-stack-line'],
-                    'learning_question' => ['Latihan mirip', 'Soal baru beserta pembahasannya', 650, 'ri-file-list-3-line'],
+                    'learning_question' => ['Latihan mirip', 'Hingga tiga soal baru beserta pembahasannya', 1800, 'ri-file-list-3-line'],
                 ];
             @endphp
             <div class="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">

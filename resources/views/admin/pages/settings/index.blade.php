@@ -1060,7 +1060,7 @@
                         'discussion' => ['Tanya jawab', 700],
                         'learning_note' => ['Catatan', 1200],
                         'learning_flashcard' => ['Flashcard', 500],
-                        'learning_question' => ['Latihan mirip', 650],
+                        'learning_question' => ['Latihan mirip', 1800],
                     ];
                 @endphp
                 <div class="rounded-2xl border border-primary/10 bg-primary/5 p-4">

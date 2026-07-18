@@ -29,6 +29,7 @@ class AiLearningToolController extends Controller
     ): JsonResponse {
         $data = $request->validate([
             'question_id' => ['required', 'integer'],
+            'tool' => ['required', 'in:note,recommendation,question,flashcard'],
         ]);
         $user = $request->user();
         $resolved = $contextService->resolve(
@@ -44,6 +45,7 @@ class AiLearningToolController extends Controller
             ->where('tryout_id', $resolved['tryout']->tryout_id)
             ->where('question_id', $resolved['question']->question_id)
             ->where('attempt_token', $token)
+            ->where('tool', $data['tool'])
             ->latest()
             ->limit(20)
             ->get();
@@ -76,6 +78,7 @@ class AiLearningToolController extends Controller
             'difficulty' => ['nullable', 'in:mudah,sedang,sulit'],
             'variation' => ['nullable', 'in:konteks,angka,hots'],
             'hots_level' => ['nullable', 'in:rendah,sedang,tinggi'],
+            'question_count' => ['nullable', 'integer', 'min:1', 'max:3'],
         ]);
         $user = $request->user();
         $resolved = $contextService->resolve(
@@ -91,6 +94,7 @@ class AiLearningToolController extends Controller
                 'difficulty' => $data['difficulty'] ?? 'sedang',
                 'variation' => $data['variation'] ?? 'konteks',
                 'hots_level' => $data['hots_level'] ?? 'sedang',
+                'question_count' => $data['question_count'] ?? 1,
             ], $resolved['context']);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);

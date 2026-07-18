@@ -209,7 +209,7 @@ class GeneralSettingController extends Controller
             'discussion' => 700,
             'learning_note' => 1200,
             'learning_flashcard' => 500,
-            'learning_question' => 650,
+            'learning_question' => 1800,
         ];
         $submitted = $request->input('ai_discussion_feature_token_limits', []);
         $saved = is_array($existing['feature_token_limits'] ?? null) ? $existing['feature_token_limits'] : [];

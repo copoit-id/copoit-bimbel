@@ -51,6 +51,10 @@
             : ($isAiGatewayPackageExhausted ? 'Kuota paket AI habis. Beli paket baru.' : ($hasAiGatewayTrial ? 'Coba gratis Diskusi AI tersedia' : 'Belum membeli paket pembahasan AI'));
         $aiGatewayFeatureTitle = $isAiGatewayPackageExhausted ? 'Kuota AI habis' : 'Fitur baru';
         $aiGatewayFeatureButtonText = $isAiGatewayPackageExhausted ? 'Beli paket lagi' : 'Beli paket AI';
+        $aiLearningTokensPerGeneratedQuestion = 900;
+        $aiLearningMaxQuestionCount = $aiGatewayRemainingTokens === null
+            ? 3
+            : min(3, intdiv(max(0, (int) $aiGatewayRemainingTokens), $aiLearningTokensPerGeneratedQuestion));
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -63,6 +67,75 @@
         .discussion-nav-active {
             box-shadow: 0 0 0 3px {{ $primaryColor }}33;
             transform: translateY(-1px);
+        }
+
+        .ai-flashcard-study {
+            perspective: 1200px;
+        }
+
+        .ai-flashcard {
+            will-change: transform, opacity;
+        }
+
+        .ai-flashcard-inner {
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 620ms cubic-bezier(.22, 1, .36, 1);
+            will-change: transform;
+        }
+
+        .ai-flashcard.is-showing-back .ai-flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .ai-flashcard-face {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .ai-flashcard-back {
+            transform: rotateY(180deg);
+        }
+
+        .ai-flashcard.is-entering {
+            animation: ai-flashcard-enter 360ms cubic-bezier(.22, 1, .36, 1);
+        }
+
+        .ai-flashcard.is-exiting-remembered {
+            animation: ai-flashcard-exit-right 320ms ease-in forwards;
+        }
+
+        .ai-flashcard.is-exiting-forgotten {
+            animation: ai-flashcard-exit-left 320ms ease-in forwards;
+        }
+
+        @keyframes ai-flashcard-enter {
+            from { opacity: 0; transform: translateY(22px) scale(.94) rotateY(-10deg); }
+            to { opacity: 1; transform: translateY(0) scale(1) rotateY(0); }
+        }
+
+        @keyframes ai-flashcard-exit-right {
+            to { opacity: 0; transform: translateX(56px) rotate(4deg) scale(.94); }
+        }
+
+        @keyframes ai-flashcard-exit-left {
+            to { opacity: 0; transform: translateX(-56px) rotate(-4deg) scale(.94); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ai-flashcard.is-entering,
+            .ai-flashcard.is-exiting-remembered,
+            .ai-flashcard.is-exiting-forgotten {
+                animation-duration: 1ms;
+            }
+
+            .ai-flashcard-inner {
+                transition-duration: 1ms;
+            }
         }
     </style>
     @if(request('payment') === 'success')
@@ -723,7 +796,7 @@
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
                         <button type="button"
-                            class="ai-learning-open inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100">
+                            class="ai-learning-open inline-flex items-center gap-1 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10">
                             <i class="ri-sparkling-2-line"></i>
                             <span class="hidden sm:inline">AI Learning Tools</span>
                             <span class="sm:hidden">AI Tools</span>
@@ -914,7 +987,7 @@
             <div class="w-full max-w-6xl overflow-hidden rounded-2xl bg-white shadow-2xl">
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-6">
                     <div class="flex items-center gap-3">
-                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><i class="ri-sparkling-2-line text-xl"></i></span>
+                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><i class="ri-sparkling-2-line text-xl"></i></span>
                         <div>
                             <h2 id="ai-learning-tools-title" class="text-lg font-semibold text-gray-900">AI Learning Tools</h2>
                             <p class="text-xs text-gray-500">Pilih satu alat untuk mengolah soal aktif.</p>
@@ -935,7 +1008,7 @@
 
                     <div class="order-1 flex min-h-0 flex-col p-4 sm:p-6 lg:order-2 lg:col-span-3">
                         <div class="flex gap-2 overflow-x-auto border-b border-gray-100 pb-3" role="tablist" aria-label="AI Learning Tools">
-                            <button type="button" class="ai-learning-tab shrink-0 rounded-lg bg-violet-100 px-3 py-2 text-sm font-semibold text-violet-800" data-tool="note" role="tab" aria-selected="true"><i class="ri-sticky-note-line mr-1"></i>Catatan</button>
+                            <button type="button" class="ai-learning-tab shrink-0 rounded-lg bg-primary/10 px-3 py-2 text-sm font-semibold text-primary" data-tool="note" role="tab" aria-selected="true"><i class="ri-sticky-note-line mr-1"></i>Catatan</button>
                             <button type="button" class="ai-learning-tab shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100" data-tool="recommendation" role="tab" aria-selected="false"><i class="ri-compass-3-line mr-1"></i>Rekomendasi</button>
                             <button type="button" class="ai-learning-tab shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100" data-tool="question" role="tab" aria-selected="false"><i class="ri-file-add-line mr-1"></i>Soal Serupa</button>
                             <button type="button" class="ai-learning-tab shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100" data-tool="flashcard" role="tab" aria-selected="false"><i class="ri-stack-line mr-1"></i>Flashcard</button>
@@ -952,23 +1025,26 @@
                             </section>
                             <section class="ai-learning-tab-panel hidden" data-tool-panel="question">
                                 <h3 class="font-semibold text-gray-900">AI Generate Soal</h3>
-                                <p class="mt-1 text-sm leading-6 text-gray-600">Atur latihan baru di bawah. Pengaturan ini hanya berlaku untuk soal serupa.</p>
-                                <div class="mt-3 rounded-xl border border-violet-100 bg-violet-50/60 p-3">
-                                    <div class="grid gap-3 sm:grid-cols-3">
-                                        <label class="text-xs font-medium text-violet-800">Kesulitan<select class="ai-question-difficulty mt-1 w-full rounded-lg border-violet-200 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="mudah">Mudah</option><option value="sedang" selected>Sedang</option><option value="sulit">Sulit</option></select></label>
-                                        <label class="text-xs font-medium text-violet-800">Variasi<select class="ai-question-variation mt-1 w-full rounded-lg border-violet-200 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="konteks">Ubah konteks</option><option value="angka">Ubah angka</option><option value="hots">Tingkatkan HOTS</option></select></label>
-                                        <label class="text-xs font-medium text-violet-800">Level HOTS<select class="ai-question-hots mt-1 w-full rounded-lg border-violet-200 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="rendah">Rendah</option><option value="sedang" selected>Sedang</option><option value="tinggi">Tinggi</option></select></label>
+                                <p class="mt-1 text-sm leading-6 text-gray-600">Buat latihan baru dari konsep soal aktif. Klik <strong>Buat Soal Serupa</strong> untuk membuka pengaturannya terlebih dahulu.</p>
+                                <div class="ai-question-settings mt-3 hidden rounded-xl border border-primary/20 bg-primary/5 p-3" aria-hidden="true">
+                                    <p class="mb-3 text-sm font-semibold text-primary">Pengaturan untuk Soal Serupa</p>
+                                    <div class="grid gap-3 sm:grid-cols-4">
+                                        <label class="text-xs font-medium text-primary">Jumlah soal<select class="ai-question-count mt-1 w-full rounded-lg border-primary/25 bg-white px-2.5 py-2 text-sm text-gray-700" @disabled($aiLearningMaxQuestionCount < 1)>@if($aiLearningMaxQuestionCount > 0)@for($count = 1; $count <= $aiLearningMaxQuestionCount; $count++)<option value="{{ $count }}">{{ $count }} soal</option>@endfor @else<option value="">Kuota tidak cukup</option>@endif</select></label>
+                                        <label class="text-xs font-medium text-primary">Kesulitan<select class="ai-question-difficulty mt-1 w-full rounded-lg border-primary/25 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="mudah">Mudah</option><option value="sedang" selected>Sedang</option><option value="sulit">Sulit</option></select></label>
+                                        <label class="text-xs font-medium text-primary">Variasi<select class="ai-question-variation mt-1 w-full rounded-lg border-primary/25 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="konteks">Ubah konteks</option><option value="angka">Ubah angka</option><option value="hots">Tingkatkan HOTS</option></select></label>
+                                        <label class="text-xs font-medium text-primary">Level HOTS<select class="ai-question-hots mt-1 w-full rounded-lg border-primary/25 bg-white px-2.5 py-2 text-sm text-gray-700"><option value="rendah">Rendah</option><option value="sedang" selected>Sedang</option><option value="tinggi">Tinggi</option></select></label>
                                     </div>
+                                    <p class="ai-question-count-help mt-2 text-xs text-primary">{{ $aiLearningMaxQuestionCount > 0 ? 'Maksimal ' . $aiLearningMaxQuestionCount . ' soal berdasarkan estimasi sisa token saat ini.' : 'Sisa token belum cukup untuk membuat soal baru.' }}</p>
                                 </div>
                             </section>
                             <section class="ai-learning-tab-panel hidden" data-tool-panel="flashcard">
                                 <h3 class="font-semibold text-gray-900">AI Flashcard</h3>
-                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Buat 3–5 kartu fokus untuk hafalan konsep, istilah, rumus, atau pola jawaban. Klik kartu hasil untuk membaliknya.</p>
+                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Buat 3–5 kartu fokus untuk hafalan konsep, istilah, rumus, atau pola jawaban. Buka preview untuk belajar dalam mode recall yang lebih fokus.</p>
                             </section>
                         </div>
 
                         <div class="mt-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div><p class="text-sm font-semibold text-gray-900">Siap membuat hasil baru?</p><p class="mt-0.5 text-xs text-gray-500">Hanya klik tombol ini yang memakai kuota AI. Riwayat tetap gratis dibuka.</p></div>
+                            <div><p class="ai-learning-action-title text-sm font-semibold text-gray-900">Siap membuat hasil baru?</p><p class="ai-learning-action-copy mt-0.5 text-xs text-gray-500">Hanya klik tombol ini yang memakai kuota AI. Riwayat tetap gratis dibuka.</p></div>
                             <button type="button" class="ai-learning-generate inline-flex min-w-60 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-sparkling-2-line text-base"></i><span class="ai-learning-generate-label">Buat Catatan Materi Sekarang</span></button>
                         </div>
 
@@ -976,6 +1052,18 @@
                         <div class="ai-learning-result mt-4 hidden max-h-[42vh] overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-flashcard-preview-modal" class="fixed inset-0 z-[100000] hidden overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md sm:p-8" role="dialog" aria-modal="true" aria-labelledby="ai-flashcard-preview-title">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
+                <div class="mb-5 flex items-start justify-between gap-4">
+                    <div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Mode recall</p><h2 id="ai-flashcard-preview-title" class="ai-flashcard-preview-title mt-1 text-lg font-semibold text-gray-900">Flashcard</h2><p class="mt-1 text-sm text-gray-500">Jawab dalam hati dulu, lalu buka jawabannya.</p></div>
+                    <button type="button" data-ai-flashcard-preview-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Tutup preview flashcard"><i class="ri-close-line text-xl"></i></button>
+                </div>
+                <div class="ai-flashcard-preview-content"></div>
             </div>
         </div>
     </div>
@@ -1094,6 +1182,7 @@
     const aiDiscussionEndpoint = @json($aiDiscussionEndpointUrl);
     const aiLearningToolEndpoint = @json($aiLearningToolEndpointUrl);
     const aiLearningHistoryEndpoint = @json($aiLearningHistoryEndpointUrl);
+    const aiLearningTokensPerGeneratedQuestion = @json($aiLearningTokensPerGeneratedQuestion);
     const aiLearningNoteSaveUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
     const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
     const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
@@ -1137,15 +1226,31 @@
     const aiLearningError = aiLearningToolsModal?.querySelector('.ai-learning-error');
     const aiLearningHistory = aiLearningToolsModal?.querySelector('.ai-learning-history');
     const aiLearningHistoryEmpty = aiLearningToolsModal?.querySelector('.ai-learning-history-empty');
+    const aiLearningQuestionCount = aiLearningToolsModal?.querySelector('.ai-question-count');
+    const aiLearningQuestionCountHelp = aiLearningToolsModal?.querySelector('.ai-question-count-help');
+    const aiLearningQuestionSettings = aiLearningToolsModal?.querySelector('.ai-question-settings');
+    const aiLearningActionTitle = aiLearningToolsModal?.querySelector('.ai-learning-action-title');
+    const aiLearningActionCopy = aiLearningToolsModal?.querySelector('.ai-learning-action-copy');
+    const aiFlashcardPreviewModal = document.getElementById('ai-flashcard-preview-modal');
+    const aiFlashcardPreviewContent = aiFlashcardPreviewModal?.querySelector('.ai-flashcard-preview-content');
+    const aiFlashcardPreviewTitle = aiFlashcardPreviewModal?.querySelector('.ai-flashcard-preview-title');
     const aiLearningToolLabels = {
         note: 'Buat Catatan Materi Sekarang',
         recommendation: 'Buat Rekomendasi Belajar',
         question: 'Buat Soal Serupa',
         flashcard: 'Buat Flashcard',
     };
+    const aiLearningHistoryToolLabels = {
+        note: 'Catatan Materi',
+        recommendation: 'Rekomendasi Belajar',
+        question: 'Soal Serupa',
+        flashcard: 'Flashcard',
+    };
     const aiLearningHistoryEntries = new Map();
+    const aiLearningResultByTool = new Map();
     let activeAiLearningQuestionId = null;
     let activeAiLearningTool = 'note';
+    let aiLearningQuestionSettingsOpen = false;
 
     function escapeAiLearningHistoryHtml(value) {
         return String(value || '')
@@ -1156,22 +1261,56 @@
             .replace(/'/g, '&#039;');
     }
 
+    function updateAiLearningGenerateAction() {
+        const isQuestionTool = activeAiLearningTool === 'question';
+        const showQuestionSettings = isQuestionTool && aiLearningQuestionSettingsOpen;
+        const questionQuotaUnavailable = showQuestionSettings && Boolean(aiLearningQuestionCount?.disabled);
+
+        aiLearningQuestionSettings?.classList.toggle('hidden', !showQuestionSettings);
+        aiLearningQuestionSettings?.setAttribute('aria-hidden', showQuestionSettings ? 'false' : 'true');
+
+        if (isQuestionTool && !showQuestionSettings) {
+            if (aiLearningGenerateLabel) aiLearningGenerateLabel.textContent = 'Buat Soal Serupa';
+            if (aiLearningActionTitle) aiLearningActionTitle.textContent = 'Siapkan latihan baru';
+            if (aiLearningActionCopy) aiLearningActionCopy.textContent = 'Klik tombol untuk membuka pengaturan jumlah, kesulitan, variasi, dan level HOTS. Belum memakai kuota AI.';
+        } else if (isQuestionTool) {
+            if (aiLearningGenerateLabel) aiLearningGenerateLabel.textContent = questionQuotaUnavailable ? 'Kuota Tidak Cukup' : 'Generate Soal Serupa';
+            if (aiLearningActionTitle) aiLearningActionTitle.textContent = 'Pengaturan soal sudah siap';
+            if (aiLearningActionCopy) aiLearningActionCopy.textContent = questionQuotaUnavailable
+                ? 'Sisa token belum cukup untuk membuat soal baru.'
+                : 'Klik Generate Soal Serupa untuk membuat latihan dan memakai kuota AI.';
+        } else {
+            if (aiLearningGenerateLabel) aiLearningGenerateLabel.textContent = aiLearningToolLabels[activeAiLearningTool];
+            if (aiLearningActionTitle) aiLearningActionTitle.textContent = 'Siap membuat hasil baru?';
+            if (aiLearningActionCopy) aiLearningActionCopy.textContent = 'Hanya klik tombol ini yang memakai kuota AI. Riwayat tetap gratis dibuka.';
+        }
+
+        if (aiLearningGenerateButton && !aiLearningGenerateButton.dataset.processing) {
+            aiLearningGenerateButton.disabled = questionQuotaUnavailable;
+        }
+    }
+
     function selectAiLearningTool(tool) {
         activeAiLearningTool = tool;
         aiLearningTabButtons.forEach((button) => {
             const selected = button.dataset.tool === tool;
             button.setAttribute('aria-selected', selected ? 'true' : 'false');
-            button.classList.toggle('bg-violet-100', selected);
-            button.classList.toggle('text-violet-800', selected);
+            button.classList.toggle('bg-primary/10', selected);
+            button.classList.toggle('text-primary', selected);
             button.classList.toggle('text-gray-600', !selected);
         });
         aiLearningTabPanels.forEach((panel) => {
             panel.classList.toggle('hidden', panel.dataset.toolPanel !== tool);
         });
-        if (aiLearningGenerateLabel) aiLearningGenerateLabel.textContent = aiLearningToolLabels[tool];
+        updateAiLearningGenerateAction();
+        showAiLearningResult(aiLearningResultByTool.get(tool) || '', tool);
+        if (activeAiLearningQuestionId) loadAiLearningHistory();
     }
 
-    function showAiLearningResult(html) {
+    function showAiLearningResult(html, tool = activeAiLearningTool) {
+        if (html) aiLearningResultByTool.set(tool, html);
+        else aiLearningResultByTool.delete(tool);
+        if (tool !== activeAiLearningTool) return;
         if (!aiLearningResult) return;
         aiLearningResult.innerHTML = html || '';
         aiLearningResult.classList.toggle('hidden', !html);
@@ -1183,9 +1322,9 @@
         entries.forEach((entry) => aiLearningHistoryEntries.set(String(entry.id), entry));
         if (aiLearningHistory) {
             aiLearningHistory.innerHTML = entries.map((entry) => `
-                <button type="button" class="ai-learning-history-item w-full rounded-lg border border-gray-200 bg-white p-2.5 text-left hover:border-violet-300 hover:bg-violet-50" data-artifact-id="${entry.id}">
+                <button type="button" class="ai-learning-history-item w-full rounded-lg border border-gray-200 bg-white p-2.5 text-left hover:border-primary/40 hover:bg-primary/5" data-artifact-id="${entry.id}">
                     <span class="block text-xs font-semibold text-gray-800">${escapeAiLearningHistoryHtml(entry.title)}</span>
-                    <span class="mt-1 block text-[11px] text-gray-500">${escapeAiLearningHistoryHtml(entry.created_at)} · ${escapeAiLearningHistoryHtml(aiLearningToolLabels[entry.tool] || entry.tool)}</span>
+                    <span class="mt-1 block text-[11px] text-gray-500">${escapeAiLearningHistoryHtml(entry.created_at)} · ${escapeAiLearningHistoryHtml(aiLearningHistoryToolLabels[entry.tool] || entry.tool)}</span>
                 </button>
             `).join('');
         }
@@ -1194,7 +1333,7 @@
         const selected = selectedArtifactId
             ? aiLearningHistoryEntries.get(String(selectedArtifactId))
             : null;
-        if (selected?.html) showAiLearningResult(selected.html);
+        if (selected?.html) showAiLearningResult(selected.html, activeAiLearningTool);
     }
 
     async function loadAiLearningHistory(selectedArtifactId = null) {
@@ -1203,7 +1342,7 @@
         aiLearningHistoryEmpty?.classList.add('hidden');
 
         try {
-            const response = await fetch(`${aiLearningHistoryEndpoint}?question_id=${encodeURIComponent(activeAiLearningQuestionId)}`, {
+            const response = await fetch(`${aiLearningHistoryEndpoint}?question_id=${encodeURIComponent(activeAiLearningQuestionId)}&tool=${encodeURIComponent(activeAiLearningTool)}`, {
                 headers: { 'Accept': 'application/json' },
             });
             const data = await response.json();
@@ -1220,18 +1359,34 @@
 
     function openAiLearningToolsModal(questionId) {
         activeAiLearningQuestionId = questionId;
+        aiLearningQuestionSettingsOpen = false;
         aiLearningError?.classList.add('hidden');
-        showAiLearningResult('');
+        aiLearningResultByTool.clear();
         selectAiLearningTool(activeAiLearningTool);
         aiLearningToolsModal?.classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
-        loadAiLearningHistory();
     }
 
     function closeAiLearningToolsModal() {
+        closeAiFlashcardPreviewModal();
         aiLearningToolsModal?.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
         activeAiLearningQuestionId = null;
+    }
+
+    function openAiFlashcardPreview(trigger) {
+        const artifact = trigger.closest('[data-ai-tool="flashcard"]');
+        const template = artifact?.querySelector('.ai-flashcard-preview-template');
+        if (!(template instanceof HTMLTemplateElement) || !aiFlashcardPreviewContent) return;
+
+        aiFlashcardPreviewContent.replaceChildren(template.content.cloneNode(true));
+        if (aiFlashcardPreviewTitle) aiFlashcardPreviewTitle.textContent = trigger.dataset.flashcardTitle || 'Flashcard';
+        aiFlashcardPreviewModal?.classList.remove('hidden');
+    }
+
+    function closeAiFlashcardPreviewModal() {
+        aiFlashcardPreviewModal?.classList.add('hidden');
+        aiFlashcardPreviewContent?.replaceChildren();
     }
 
     document.querySelectorAll('.ai-learning-open').forEach((button) => {
@@ -1255,11 +1410,23 @@
         button.addEventListener('click', closeAiLearningToolsModal);
     });
 
+    aiFlashcardPreviewModal?.querySelectorAll('[data-ai-flashcard-preview-close]').forEach((button) => {
+        button.addEventListener('click', closeAiFlashcardPreviewModal);
+    });
+
     aiLearningToolsModal?.addEventListener('click', (event) => {
         if (event.target === aiLearningToolsModal) closeAiLearningToolsModal();
     });
 
+    aiFlashcardPreviewModal?.addEventListener('click', (event) => {
+        if (event.target === aiFlashcardPreviewModal) closeAiFlashcardPreviewModal();
+    });
+
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !aiFlashcardPreviewModal?.classList.contains('hidden')) {
+            closeAiFlashcardPreviewModal();
+            return;
+        }
         if (event.key === 'Escape' && !aiLearningToolsModal?.classList.contains('hidden')) {
             closeAiLearningToolsModal();
         }
@@ -1284,6 +1451,33 @@
         }
     }
 
+    function updateAiLearningQuestionCountLimit(quota) {
+        if (!aiLearningQuestionCount || !quota) return;
+        const tokenLimit = Number(quota.token_limit || 0);
+        const tokensUsed = Number(quota.tokens_used || 0);
+        const remainingTokens = tokenLimit > 0 ? Math.max(0, tokenLimit - tokensUsed) : null;
+        const maxCount = remainingTokens === null
+            ? 3
+            : Math.min(3, Math.floor(remainingTokens / aiLearningTokensPerGeneratedQuestion));
+        const previousValue = Number(aiLearningQuestionCount.value || 1);
+
+        aiLearningQuestionCount.innerHTML = '';
+        if (maxCount < 1) {
+            aiLearningQuestionCount.disabled = true;
+            aiLearningQuestionCount.add(new Option('Kuota tidak cukup', ''));
+            if (aiLearningQuestionCountHelp) aiLearningQuestionCountHelp.textContent = 'Sisa token belum cukup untuk membuat soal baru.';
+            updateAiLearningGenerateAction();
+            return;
+        }
+
+        aiLearningQuestionCount.disabled = false;
+        for (let count = 1; count <= maxCount; count += 1) {
+            aiLearningQuestionCount.add(new Option(`${count} soal`, String(count), false, count === Math.min(previousValue, maxCount)));
+        }
+        if (aiLearningQuestionCountHelp) aiLearningQuestionCountHelp.textContent = `Maksimal ${maxCount} soal berdasarkan estimasi sisa token saat ini.`;
+        updateAiLearningGenerateAction();
+    }
+
     function startAiDiscussionTrial() {
         closeAiDiscussionIntro();
         const toggle = document.querySelector('.ai-discussion-toggle');
@@ -1306,8 +1500,16 @@
     aiLearningGenerateButton?.addEventListener('click', async () => {
         if (!activeAiLearningQuestionId) return;
 
+        if (activeAiLearningTool === 'question' && !aiLearningQuestionSettingsOpen) {
+            aiLearningQuestionSettingsOpen = true;
+            updateAiLearningGenerateAction();
+            aiLearningQuestionSettings?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+
         aiLearningError?.classList.add('hidden');
         aiLearningGenerateButton.disabled = true;
+        aiLearningGenerateButton.dataset.processing = 'true';
         const originalHtml = aiLearningGenerateButton.innerHTML;
         aiLearningGenerateButton.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memproses...';
 
@@ -1325,6 +1527,9 @@
                     difficulty: aiLearningToolsModal?.querySelector('.ai-question-difficulty')?.value || 'sedang',
                     variation: aiLearningToolsModal?.querySelector('.ai-question-variation')?.value || 'konteks',
                     hots_level: aiLearningToolsModal?.querySelector('.ai-question-hots')?.value || 'sedang',
+                    question_count: activeAiLearningTool === 'question'
+                        ? Number(aiLearningQuestionCount?.value || 1)
+                        : 1,
                 }),
             });
             const data = await response.json();
@@ -1337,8 +1542,9 @@
                 throw new Error(data.message || 'Fitur AI gagal diproses.');
             }
 
-            showAiLearningResult(data.html || '');
+            showAiLearningResult(data.html || '', activeAiLearningTool);
             updateAiGatewayUsageBadge(data.quota);
+            updateAiLearningQuestionCountLimit(data.quota);
             loadAiLearningHistory(data.artifact_id);
         } catch (err) {
             if (aiLearningError) {
@@ -1348,8 +1554,116 @@
         } finally {
             aiLearningGenerateButton.innerHTML = originalHtml;
             aiLearningGenerateButton.disabled = false;
+            delete aiLearningGenerateButton.dataset.processing;
+            updateAiLearningGenerateAction();
         }
     });
+
+    function handleAiFlashcardStudyClick(event) {
+        const study = event.target.closest('.ai-flashcard-study');
+        if (!study) return false;
+
+        const cards = Array.from(study.querySelectorAll('.ai-flashcard'));
+        const setControlsDisabled = (disabled) => {
+            study.querySelectorAll('.ai-flashcard-flip, .ai-flashcard-remember, .ai-flashcard-forgot')
+                .forEach((button) => { button.disabled = disabled; });
+        };
+        const showCard = (index) => {
+            cards.forEach((card, cardIndex) => {
+                const visible = cardIndex === index;
+                card.classList.toggle('hidden', !visible);
+                if (visible) {
+                    card.classList.remove('is-exiting-remembered', 'is-exiting-forgotten', 'is-showing-back');
+                    card.dataset.showing = 'front';
+                    delete card.dataset.transitioning;
+                    card.querySelector('.ai-flashcard-front .ai-flashcard-content').textContent = card.dataset.front;
+                    card.querySelector('.ai-flashcard-back .ai-flashcard-content').textContent = card.dataset.back;
+                    card.classList.remove('is-entering');
+                    window.requestAnimationFrame(() => card.classList.add('is-entering'));
+                    window.setTimeout(() => card.classList.remove('is-entering'), 380);
+                }
+            });
+            setControlsDisabled(false);
+            study.dataset.currentIndex = String(index);
+            const progress = study.querySelector('.ai-flashcard-progress');
+            if (progress) progress.textContent = `Kartu ${index + 1} dari ${cards.length}`;
+        };
+        const finishRound = () => {
+            const forgotten = cards.filter((card) => card.dataset.status === 'forgotten').length;
+            study.querySelector('.ai-flashcard-forgot')?.classList.add('hidden');
+            study.querySelector('.ai-flashcard-remember')?.classList.add('hidden');
+            const complete = study.querySelector('.ai-flashcard-complete');
+            const completeCopy = study.querySelector('.ai-flashcard-complete-copy');
+            const recall = study.querySelector('.ai-flashcard-recall');
+            complete?.classList.remove('hidden');
+            if (completeCopy) completeCopy.textContent = forgotten > 0
+                ? `${forgotten} kartu masih perlu diulang.`
+                : 'Semua kartu sudah kamu tandai ingat.';
+            recall?.classList.toggle('hidden', forgotten === 0);
+        };
+        const continueStudy = () => {
+            const nextIndex = cards.findIndex((card) => card.dataset.status === 'new');
+            if (nextIndex === -1) {
+                finishRound();
+                return;
+            }
+            showCard(nextIndex);
+        };
+        const currentCard = () => cards[Number(study.dataset.currentIndex || 0)];
+        const advanceCard = (status) => {
+            const card = currentCard();
+            if (!card || card.dataset.transitioning) return;
+
+            card.dataset.transitioning = 'true';
+            setControlsDisabled(true);
+            card.classList.add(status === 'remembered' ? 'is-exiting-remembered' : 'is-exiting-forgotten');
+            window.setTimeout(() => {
+                card.dataset.status = status;
+                card.classList.add('hidden');
+                card.classList.remove('is-exiting-remembered', 'is-exiting-forgotten');
+                delete card.dataset.transitioning;
+                continueStudy();
+            }, 330);
+        };
+
+        if (event.target.closest('.ai-flashcard-flip')) {
+            const card = currentCard();
+            if (!card || card.dataset.transitioning) return true;
+            card.dataset.transitioning = 'true';
+            setControlsDisabled(true);
+            const showBack = card.dataset.showing !== 'back';
+            card.dataset.showing = showBack ? 'back' : 'front';
+            card.classList.toggle('is-showing-back', showBack);
+            window.setTimeout(() => {
+                delete card.dataset.transitioning;
+                setControlsDisabled(false);
+            }, 620);
+            return true;
+        }
+
+        if (event.target.closest('.ai-flashcard-remember')) {
+            advanceCard('remembered');
+            return true;
+        }
+
+        if (event.target.closest('.ai-flashcard-forgot')) {
+            advanceCard('forgotten');
+            return true;
+        }
+
+        if (event.target.closest('.ai-flashcard-recall')) {
+            cards.forEach((card) => {
+                if (card.dataset.status === 'forgotten') card.dataset.status = 'new';
+            });
+            study.querySelector('.ai-flashcard-complete')?.classList.add('hidden');
+            study.querySelector('.ai-flashcard-forgot')?.classList.remove('hidden');
+            study.querySelector('.ai-flashcard-remember')?.classList.remove('hidden');
+            continueStudy();
+            return true;
+        }
+
+        return false;
+    }
 
     aiLearningResult?.addEventListener('click', async (event) => {
         const saveButton = event.target.closest('.ai-save-note');
@@ -1379,15 +1693,16 @@
             return;
         }
 
-        const flashcard = event.target.closest('.ai-flashcard');
-        if (flashcard) {
-            const showBack = flashcard.dataset.showing !== 'back';
-            flashcard.dataset.showing = showBack ? 'back' : 'front';
-            flashcard.querySelector('.ai-flashcard-content').textContent = showBack
-                ? flashcard.dataset.back
-                : flashcard.dataset.front;
+        const previewButton = event.target.closest('.ai-flashcard-preview');
+        if (previewButton) {
+            openAiFlashcardPreview(previewButton);
+            return;
         }
+
+        handleAiFlashcardStudyClick(event);
     });
+
+    aiFlashcardPreviewContent?.addEventListener('click', handleAiFlashcardStudyClick);
 
     document.querySelectorAll('.ai-discussion').forEach((wrapper) => {
         const toggle = wrapper.querySelector('.ai-discussion-toggle');

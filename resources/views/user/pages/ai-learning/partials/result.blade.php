@@ -29,11 +29,61 @@
         @endif
         <div><p class="text-sm font-semibold text-gray-800">Materi yang disetujui admin</p><div class="mt-2 grid gap-2 md:grid-cols-2">@forelse(data_get($payload, 'materials', []) as $material)<a href="{{ data_get($material, 'url') }}" class="rounded-lg border border-gray-200 p-3 hover:border-primary/50 hover:bg-primary/5"><div class="flex items-start gap-2"><i class="{{ data_get($material, 'type') === 'video' ? 'ri-video-line' : 'ri-file-text-line' }} mt-0.5 text-primary"></i><div><p class="text-sm font-semibold text-gray-900">{{ data_get($material, 'title') }}</p><p class="mt-1 text-xs text-gray-500">{{ data_get($material, 'type_label') }} · {{ data_get($material, 'source') }}</p></div></div></a>@empty<p class="text-sm text-gray-500 md:col-span-2">Belum ada materi relevan yang telah disetujui admin.</p>@endforelse</div></div>
     @elseif($tool === 'question')
-        <div class="flex flex-wrap gap-2 text-xs"><span class="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">Kesulitan: {{ ucfirst(data_get($payload, 'difficulty', 'sedang')) }}</span><span class="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">HOTS: {{ ucfirst(data_get($payload, 'hots_level', 'sedang')) }}</span></div>
-        <p class="text-sm font-medium leading-6 text-gray-900">{{ data_get($payload, 'question_text') }}</p>
-        <div class="space-y-2">@foreach(data_get($payload, 'options', []) as $option)<div class="rounded-lg border px-3 py-2 text-sm {{ data_get($option, 'key') === data_get($payload, 'correct_answer') ? 'border-green-200 bg-green-50 text-green-800' : 'border-gray-200 text-gray-700' }}"><span class="font-semibold">{{ data_get($option, 'key') }}.</span> {{ data_get($option, 'text') }}</div>@endforeach</div>
-        <div class="rounded-lg bg-gray-50 p-3"><p class="text-sm font-semibold text-gray-800">Pembahasan</p><p class="mt-1 text-sm leading-6 text-gray-700">{{ data_get($payload, 'explanation') }}</p></div>
+        @php($generatedQuestions = data_get($payload, 'questions', []))
+        @if(empty($generatedQuestions) && filled(data_get($payload, 'question_text')))
+            @php($generatedQuestions = [$payload])
+        @endif
+        <div class="space-y-5">
+            @foreach($generatedQuestions as $index => $question)
+                <article class="rounded-xl border border-gray-200 bg-white p-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <p class="text-sm font-semibold text-gray-900">Soal {{ $index + 1 }}</p>
+                        <div class="flex flex-wrap justify-end gap-1.5 text-[11px]"><span class="rounded-full bg-gray-100 px-2 py-1 text-gray-700">{{ ucfirst(data_get($question, 'difficulty', 'sedang')) }}</span><span class="rounded-full bg-gray-100 px-2 py-1 text-gray-700">HOTS {{ ucfirst(data_get($question, 'hots_level', 'sedang')) }}</span></div>
+                    </div>
+                    <p class="mt-3 text-sm font-medium leading-6 text-gray-900">{{ data_get($question, 'question_text') }}</p>
+                    <div class="mt-3 grid gap-2 sm:grid-cols-2">@foreach(data_get($question, 'options', []) as $option)<div class="rounded-lg border px-3 py-2 text-sm {{ data_get($option, 'key') === data_get($question, 'correct_answer') ? 'border-green-200 bg-green-50 text-green-800' : 'border-gray-200 text-gray-700' }}"><span class="font-semibold">{{ data_get($option, 'key') }}.</span> {{ data_get($option, 'text') }}</div>@endforeach</div>
+                    <div class="mt-3 rounded-lg bg-gray-50 p-3"><p class="text-sm font-semibold text-gray-800">Pembahasan</p><p class="mt-1 text-sm leading-6 text-gray-700">{{ data_get($question, 'explanation') }}</p></div>
+                </article>
+            @endforeach
+        </div>
     @else
-        <div class="grid gap-3 sm:grid-cols-2">@foreach(data_get($payload, 'cards', []) as $index => $card)<button type="button" class="ai-flashcard min-h-36 rounded-xl border border-violet-200 bg-violet-50 p-4 text-left transition hover:-translate-y-0.5 hover:shadow" data-front="{{ data_get($card, 'front') }}" data-back="{{ data_get($card, 'back') }}" data-showing="front"><span class="text-[11px] font-semibold uppercase tracking-wide text-violet-600">Kartu {{ $index + 1 }} · klik untuk balik</span><span class="ai-flashcard-content mt-4 block text-sm font-semibold leading-6 text-violet-950">{{ data_get($card, 'front') }}</span></button>@endforeach</div>
+        @php($flashcardCount = count(data_get($payload, 'cards', [])))
+        <div class="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-white to-primary/5 p-5">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-xl text-white shadow-lg shadow-primary/20"><i class="ri-stack-line"></i></span>
+                    <div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Set flashcard</p><p class="mt-0.5 font-semibold text-gray-900">{{ data_get($payload, 'title', $artifact->title) }}</p><p class="mt-1 text-sm leading-6 text-gray-600">{{ $flashcardCount }} kartu siap untuk recall. Buka mode fokus untuk melihat satu kartu per giliran dan tandai mana yang sudah kamu ingat.</p></div>
+                </div>
+                <button type="button" class="ai-flashcard-preview inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary/90" data-flashcard-title="{{ data_get($payload, 'title', $artifact->title) }}"><i class="ri-eye-line"></i>Preview Flashcard</button>
+            </div>
+
+            <template class="ai-flashcard-preview-template">
+                <div class="ai-flashcard-study mx-auto w-full max-w-xl" data-current-index="0">
+                    <div class="relative px-3 pb-3 pt-2">
+                        <div class="absolute inset-x-7 top-0 h-full rounded-[2rem] bg-violet-100/80"></div>
+                        <div class="absolute inset-x-5 top-1 h-full rounded-[2rem] bg-violet-200/70"></div>
+                        @foreach(data_get($payload, 'cards', []) as $index => $card)
+                            <article class="ai-flashcard {{ $index === 0 ? '' : 'hidden' }} relative min-h-72" data-card-index="{{ $index }}" data-front="{{ data_get($card, 'front') }}" data-back="{{ data_get($card, 'back') }}" data-showing="front" data-status="new">
+                                <div class="ai-flashcard-inner min-h-72">
+                                    <div class="ai-flashcard-face ai-flashcard-front rounded-[2rem] bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 p-6 text-white shadow-xl">
+                                        <div class="flex items-center justify-between gap-3 text-xs font-semibold text-violet-100"><span><i class="ri-stack-line mr-1"></i>Flashcard {{ $index + 1 }}</span><span class="ai-flashcard-side rounded-full bg-white/15 px-2.5 py-1">Pertanyaan</span></div>
+                                        <div class="flex min-h-40 items-center justify-center py-6 text-center"><p class="ai-flashcard-content text-xl font-semibold leading-relaxed sm:text-2xl">{{ data_get($card, 'front') }}</p></div>
+                                        <button type="button" class="ai-flashcard-flip w-full rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20"><i class="ri-arrow-left-right-line mr-1"></i>Lihat jawaban</button>
+                                    </div>
+                                    <div class="ai-flashcard-face ai-flashcard-back rounded-[2rem] bg-white p-6 text-gray-900 shadow-xl">
+                                        <div class="flex items-center justify-between gap-3 text-xs font-semibold text-gray-500"><span><i class="ri-lightbulb-flash-line mr-1 text-primary"></i>Flashcard {{ $index + 1 }}</span><span class="ai-flashcard-side rounded-full bg-primary/10 px-2.5 py-1 text-primary">Jawaban</span></div>
+                                        <div class="flex min-h-40 items-center justify-center py-6 text-center"><p class="ai-flashcard-content text-xl font-semibold leading-relaxed sm:text-2xl">{{ data_get($card, 'back') }}</p></div>
+                                        <button type="button" class="ai-flashcard-flip w-full rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10"><i class="ri-arrow-go-back-line mr-1"></i>Lihat pertanyaan</button>
+                                    </div>
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                    <div class="mt-4 flex items-center justify-between gap-3"><p class="ai-flashcard-progress text-xs font-medium text-gray-500">Kartu 1 dari {{ $flashcardCount }}</p><p class="text-xs text-gray-400">Pilih sesuai ingatanmu</p></div>
+                    <div class="mt-3 grid grid-cols-2 gap-3"><button type="button" class="ai-flashcard-forgot rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"><i class="ri-restart-line mr-1"></i>Masih lupa</button><button type="button" class="ai-flashcard-remember rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-check-line mr-1"></i>Sudah ingat</button></div>
+                    <div class="ai-flashcard-complete mt-4 hidden rounded-xl border border-green-200 bg-green-50 p-4 text-center"><i class="ri-checkbox-circle-line text-2xl text-green-600"></i><p class="mt-1 text-sm font-semibold text-green-900">Satu putaran selesai.</p><p class="ai-flashcard-complete-copy mt-1 text-xs text-green-700"></p><button type="button" class="ai-flashcard-recall mt-3 hidden rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600"><i class="ri-restart-line mr-1"></i>Ulangi kartu yang lupa</button></div>
+                </div>
+            </template>
+        </div>
     @endif
 </div>
