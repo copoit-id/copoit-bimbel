@@ -12,6 +12,10 @@ use InvalidArgumentException;
 
 class AiGatewaySubscriptionService
 {
+    public function __construct(
+        private readonly AiGatewayTelegramNotificationService $telegramNotificationService,
+    ) {}
+
     public function activateTransaction(
         AiGatewayTransaction $transaction,
         string $confirmationSource = 'provider'
@@ -92,6 +96,8 @@ class AiGatewaySubscriptionService
                 'paid_at' => now(),
                 'details' => $details,
             ]);
+
+            DB::afterCommit(fn () => $this->telegramNotificationService->notifyPurchase($transaction->id));
 
             return $activeSubscription->fresh('plan');
         });

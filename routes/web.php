@@ -325,6 +325,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/roles/{role}/permissions', [RoleController::class, 'updatePermissions'])->name('roles.permissions');
     Route::get('/general-settings', [GeneralSettingController::class, 'edit'])->name('general-settings.edit');
     Route::put('/general-settings', [GeneralSettingController::class, 'update'])->name('general-settings.update');
+    Route::post('/general-settings/telegram/test', [GeneralSettingController::class, 'testTelegram'])->name('general-settings.telegram.test');
     Route::get('/ai-usage', [AiUsageController::class, 'index'])->name('ai-usage.index');
     Route::get('/ai-gateway-usage', [AiUsageController::class, 'gatewayIndex'])->name('ai-gateway-usage.index');
     Route::get('/ai-gateway-payments', [AiUsageController::class, 'gatewayPayments'])->name('ai-gateway-payments.index');

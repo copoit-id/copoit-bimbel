@@ -5,6 +5,7 @@
     $aiDiscussion = is_array($clientProfile?->ai_discussion_settings) ? $clientProfile->ai_discussion_settings : [];
     $aiProviders = is_array($aiDiscussion['providers'] ?? null) ? $aiDiscussion['providers'] : [];
     $aiGatewayPayment = is_array($clientProfile?->ai_gateway_payment_settings) ? $clientProfile->ai_gateway_payment_settings : [];
+    $aiGatewayTelegram = is_array($clientProfile?->ai_gateway_telegram_settings) ? $clientProfile->ai_gateway_telegram_settings : [];
     $openAiChatModels = collect($aiDiscussionModels)->where('provider', 'openai');
     $geminiChatModels = collect($aiDiscussionModels)->where('provider', 'gemini');
 @endphp
@@ -20,7 +21,7 @@
         <input type="hidden" name="settings_tab" value="{{ $activeSettingsTab }}">
 
         <nav class="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200 pb-3" aria-label="Kategori pengaturan">
-            @foreach(['general' => 'Umum', 'ai' => 'Diskusi AI', 'pricing' => 'Tarif Model AI', 'payment' => 'Pembayaran AI'] as $tab => $label)
+            @foreach(['general' => 'Umum', 'ai' => 'Diskusi AI', 'pricing' => 'Tarif Model AI', 'payment' => 'Pembayaran AI', 'notification' => 'Notifikasi Telegram'] as $tab => $label)
                 <a href="{{ route('super-admin.general-settings.edit', ['tab' => $tab]) }}"
                     @class([
                         'whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold',
@@ -164,6 +165,41 @@
             </div>
         </section>
 
+        <section @class(['mb-6 overflow-hidden rounded-xl border border-sky-200 bg-white', 'hidden' => $activeSettingsTab !== 'notification'])>
+            <div class="border-b border-sky-100 bg-sky-50/60 px-5 py-4">
+                <h2 class="font-semibold text-gray-900">Notifikasi Pembelian AI Learning ke Telegram</h2>
+                <p class="mt-1 text-sm text-gray-600">Kirim notifikasi setelah paket AI benar-benar aktif. Invoice pending tidak akan memicu pesan.</p>
+            </div>
+            <div class="space-y-5 p-5">
+                <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 transition hover:border-sky-300">
+                    <span><span class="block font-semibold text-gray-900">Aktifkan notifikasi Telegram</span><span class="mt-1 block text-sm text-gray-500">Bot Token dan Chat ID disimpan terenkripsi.</span></span>
+                    <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700"><input type="checkbox" name="ai_gateway_telegram_enabled" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked(old('ai_gateway_telegram_enabled', $aiGatewayTelegram['enabled'] ?? false))> Aktifkan</span>
+                </label>
+
+                <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    <p class="font-semibold">Cara setup singkat</p>
+                    <ol class="mt-2 list-decimal space-y-1 pl-5 text-xs leading-5">
+                        <li>Buat bot melalui <strong>@BotFather</strong>, lalu salin Bot Token.</li>
+                        <li>Tambahkan bot ke grup/channel tujuan atau kirim <code>/start</code> jika memakai chat pribadi.</li>
+                        <li>Isi Chat ID. Untuk channel publik juga bisa memakai format <code>@nama_channel</code>.</li>
+                        <li>Simpan pengaturan, kemudian tekan tombol <strong>Kirim Tes</strong>.</li>
+                    </ol>
+                </div>
+
+                <div class="grid gap-4 lg:grid-cols-2">
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Bot Token</span><input type="password" name="ai_gateway_telegram_bot_token" autocomplete="new-password" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:ring-primary" placeholder="{{ filled($aiGatewayTelegram['bot_token'] ?? null) ? 'Token sudah tersimpan — kosongkan jika tidak diganti' : '123456789:AA...' }}"></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Chat ID / Channel</span><input type="text" name="ai_gateway_telegram_chat_id" value="{{ old('ai_gateway_telegram_chat_id', $aiGatewayTelegram['chat_id'] ?? '') }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:ring-primary" placeholder="-1001234567890 atau @nama_channel"></label>
+                    <label class="block"><span class="text-sm font-medium text-gray-700">Topic ID (opsional)</span><input type="number" min="1" name="ai_gateway_telegram_message_thread_id" value="{{ old('ai_gateway_telegram_message_thread_id', $aiGatewayTelegram['message_thread_id'] ?? '') }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:ring-primary" placeholder="Isi jika grup memakai Topics"><span class="mt-1 block text-xs text-gray-500">Biarkan kosong untuk chat, grup, atau channel biasa.</span></label>
+                    <div class="rounded-xl border border-gray-200 p-4"><p class="text-sm font-semibold text-gray-900">Jenis transaksi</p><div class="mt-3 space-y-2"><label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="ai_gateway_telegram_notify_free" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked(old('ai_gateway_telegram_notify_free', $aiGatewayTelegram['notify_free'] ?? true))> Klaim paket gratis</label><label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="ai_gateway_telegram_notify_paid" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked(old('ai_gateway_telegram_notify_paid', $aiGatewayTelegram['notify_paid'] ?? true))> Pembayaran paket berbayar berhasil</label></div></div>
+                </div>
+
+                <div class="flex flex-col gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-xs text-amber-800">Simpan pengaturan terlebih dahulu sebelum mengirim pesan tes.</p>
+                    <button type="submit" form="ai-gateway-telegram-test-form" class="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50"><i class="ri-telegram-2-line"></i>Kirim Tes</button>
+                </div>
+            </div>
+        </section>
+
         <section @class(['mb-6 overflow-hidden rounded-xl border border-sky-100 bg-sky-50/40', 'hidden' => $activeSettingsTab !== 'pricing'])>
             <div class="border-b border-sky-100 px-5 py-4">
                 <h2 class="font-semibold text-sky-950">Tarif Model AI</h2>
@@ -260,5 +296,6 @@
             </button>
         </div>
     </form>
+    <form id="ai-gateway-telegram-test-form" method="POST" action="{{ route('super-admin.general-settings.telegram.test') }}" class="hidden">@csrf</form>
 </div>
 @endsection

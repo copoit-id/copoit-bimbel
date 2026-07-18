@@ -9,11 +9,14 @@ use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUsageLog;
 use App\Models\AiModelPricing;
+use App\Models\ClientProfile;
 use App\Services\AiDiscussionService;
 use App\Services\AiGatewayCostService;
 use App\Services\AiGatewayPaymentService;
+use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
@@ -79,6 +82,85 @@ class AiGatewayFreePlanClaimTest extends TestCase
             'amount' => 0,
             'status' => 'paid',
         ]);
+    }
+
+    public function test_free_plan_claim_sends_configured_telegram_notification(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan();
+        $this->enableTelegramNotifications();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]]),
+        ]);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', [
+                'plan_id' => $plan->id,
+                'external_user_id' => 'participant-telegram-free',
+                'customer_name' => 'Peserta Telegram',
+                'customer_email' => 'telegram@example.com',
+            ])
+            ->assertOk()
+            ->assertJson(['activated' => true, 'claimed' => true]);
+
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), '/sendMessage')
+            && $request['chat_id'] === '-1001234567890'
+            && str_contains((string) $request['text'], 'Paket AI Learning Gratis Diklaim')
+            && str_contains((string) $request['text'], 'Peserta Telegram'));
+        $this->assertStringNotContainsString(
+            '123456789:test-bot-token',
+            (string) DB::table('client_profile')->value('ai_gateway_telegram_settings'),
+        );
+        $this->assertDatabaseHas('ai_gateway_transactions', [
+            'ai_gateway_client_id' => $client->id,
+            'status' => 'paid',
+        ]);
+    }
+
+    public function test_paid_activation_sends_telegram_notification_only_once(): void
+    {
+        [$client] = $this->gatewayClient();
+        $plan = $this->freePlan([
+            'name' => 'Pembahasan AI Pro',
+            'slug' => 'pembahasan-ai-pro-telegram',
+            'price' => 50000,
+        ]);
+        $this->enableTelegramNotifications();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 2]]),
+        ]);
+        $subscription = AiGatewaySubscription::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'token_limit' => $plan->token_limit,
+            'chat_limit' => $plan->chat_limit,
+            'external_user_id' => 'participant-telegram-paid',
+            'external_user_name' => 'Peserta Berbayar',
+            'external_user_email' => 'paid@example.com',
+            'status' => 'pending',
+        ]);
+        $transaction = AiGatewayTransaction::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'ai_gateway_subscription_id' => $subscription->id,
+            'external_id' => 'AIGW-PAID-TELEGRAM-1',
+            'provider' => 'xendit',
+            'amount' => $plan->price,
+            'status' => 'pending',
+            'details' => [],
+        ]);
+
+        $service = app(AiGatewaySubscriptionService::class);
+        $service->activateTransaction($transaction);
+        $service->activateTransaction($transaction->fresh());
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request): bool => str_contains((string) $request['text'], 'Paket AI Learning Berhasil Dibayar')
+            && str_contains((string) $request['text'], 'Rp 50.000'));
+        $this->assertSame(
+            'sent',
+            data_get($transaction->fresh()->details, 'telegram_notification.status'),
+        );
     }
 
     public function test_same_participant_can_only_claim_same_free_plan_once(): void
@@ -331,6 +413,26 @@ class AiGatewayFreePlanClaimTest extends TestCase
                 'options' => [],
             ],
         ];
+    }
+
+    private function enableTelegramNotifications(): void
+    {
+        Schema::create('client_profile', function (Blueprint $table): void {
+            $table->id();
+            $table->longText('ai_gateway_telegram_settings')->nullable();
+            $table->timestamps();
+        });
+
+        ClientProfile::query()->create([
+            'ai_gateway_telegram_settings' => [
+                'enabled' => true,
+                'bot_token' => '123456789:test-bot-token',
+                'chat_id' => '-1001234567890',
+                'message_thread_id' => null,
+                'notify_free' => true,
+                'notify_paid' => true,
+            ],
+        ]);
     }
 
     private function createAiGatewaySchema(): void

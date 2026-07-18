@@ -7,6 +7,8 @@ use App\Models\AiModelPricing;
 use App\Models\ClientProfile;
 use App\Models\GeneralPage;
 use App\Services\AiGatewayCostService;
+use App\Services\AiGatewayTelegramNotificationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +19,8 @@ class GeneralSettingController extends Controller
 {
     public function __construct(
         private readonly AiGatewayCostService $aiGatewayCostService,
-    ) {
-    }
+        private readonly AiGatewayTelegramNotificationService $telegramNotificationService,
+    ) {}
 
     public function edit(Request $request)
     {
@@ -61,7 +63,7 @@ class GeneralSettingController extends Controller
         $selectableModels = array_unique([...$pricedModels, ...$submittedPricedModels]);
 
         $validated = $request->validate([
-            'settings_tab' => ['nullable', Rule::in(['general', 'ai', 'pricing', 'payment'])],
+            'settings_tab' => ['nullable', Rule::in(['general', 'ai', 'pricing', 'payment', 'notification'])],
             'public_visibility' => ['nullable', 'array'],
             'public_visibility.*' => ['nullable', 'boolean'],
             'admin_assistant_enabled' => ['nullable', 'boolean'],
@@ -99,6 +101,12 @@ class GeneralSettingController extends Controller
             'ai_gateway_interactive_qris_use_tip' => ['nullable', 'boolean'],
             'ai_gateway_ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_gateway_ipaymu_va' => ['nullable', 'string', 'max:100'],
+            'ai_gateway_telegram_enabled' => ['nullable', 'boolean'],
+            'ai_gateway_telegram_bot_token' => ['nullable', 'string', 'max:255'],
+            'ai_gateway_telegram_chat_id' => ['nullable', 'string', 'max:120'],
+            'ai_gateway_telegram_message_thread_id' => ['nullable', 'integer', 'min:1'],
+            'ai_gateway_telegram_notify_free' => ['nullable', 'boolean'],
+            'ai_gateway_telegram_notify_paid' => ['nullable', 'boolean'],
             'class_schedule_menu_enabled' => ['nullable', 'boolean'],
             'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
         ]);
@@ -121,6 +129,7 @@ class GeneralSettingController extends Controller
                     'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
                     'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
                     'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
+                    'ai_gateway_telegram_settings' => $this->aiGatewayTelegramSettings($request, $profile),
                     'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
                     'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
                 ]);
@@ -139,9 +148,26 @@ class GeneralSettingController extends Controller
 
     private function activeSettingsTab(?string $tab): string
     {
-        return in_array($tab, ['general', 'ai', 'pricing', 'payment'], true)
+        return in_array($tab, ['general', 'ai', 'pricing', 'payment', 'notification'], true)
             ? $tab
             : 'general';
+    }
+
+    public function testTelegram(): RedirectResponse
+    {
+        try {
+            $this->telegramNotificationService->sendTest();
+
+            return redirect()
+                ->route('super-admin.general-settings.edit', ['tab' => 'notification'])
+                ->with('success', 'Tes notifikasi berhasil dikirim ke Telegram.');
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route('super-admin.general-settings.edit', ['tab' => 'notification'])
+                ->with('error', $exception->getMessage());
+        }
     }
 
     private function ensurePages()
@@ -494,6 +520,22 @@ class GeneralSettingController extends Controller
             'interactive_qris_use_tip' => $request->boolean('ai_gateway_interactive_qris_use_tip'),
             'ipaymu_api_key' => trim((string) $request->input('ai_gateway_ipaymu_api_key')) ?: ($existing['ipaymu_api_key'] ?? null),
             'ipaymu_va' => trim((string) $request->input('ai_gateway_ipaymu_va')) ?: ($existing['ipaymu_va'] ?? null),
+        ];
+    }
+
+    private function aiGatewayTelegramSettings(Request $request, ClientProfile $profile): array
+    {
+        $existing = is_array($profile->ai_gateway_telegram_settings) ? $profile->ai_gateway_telegram_settings : [];
+
+        return [
+            'enabled' => $request->boolean('ai_gateway_telegram_enabled'),
+            'bot_token' => trim((string) $request->input('ai_gateway_telegram_bot_token')) ?: ($existing['bot_token'] ?? null),
+            'chat_id' => trim((string) $request->input('ai_gateway_telegram_chat_id')) ?: ($existing['chat_id'] ?? null),
+            'message_thread_id' => $request->filled('ai_gateway_telegram_message_thread_id')
+                ? (int) $request->input('ai_gateway_telegram_message_thread_id')
+                : null,
+            'notify_free' => $request->boolean('ai_gateway_telegram_notify_free'),
+            'notify_paid' => $request->boolean('ai_gateway_telegram_notify_paid'),
         ];
     }
 }
