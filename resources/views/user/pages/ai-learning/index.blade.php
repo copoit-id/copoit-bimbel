@@ -1,6 +1,7 @@
 @extends('user.layout.new-user')
 
 @section('title', 'AI Learning Tools')
+@section('container_width', 'max-w-[96rem]')
 
 @section('content')
 <style>
@@ -19,15 +20,19 @@
         'flashcard' => ['label' => 'Flashcard', 'action' => 'Buat Flashcard', 'icon' => 'ri-stack-line', 'description' => 'Ubah materi menjadi kartu ringkas untuk latihan recall.'],
     ];
     $activeTool = $toolMeta[$currentTool];
+    $sourceFilterOptions = collect([
+        'independent' => 'Input mandiri',
+        'discussion' => 'Semua pembahasan',
+    ])->merge($sourceOptions->mapWithKeys(fn ($source) => [$source['value'] => $source['label']]))->all();
 @endphp
 
-<div class="mx-auto max-w-7xl">
+<div class="w-full">
     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div><p class="text-sm font-semibold text-primary"><i class="ri-sparkling-2-line mr-1"></i>AI Learning Tools</p><h1 class="mt-1 text-2xl font-bold text-gray-900">Ruang belajar AI</h1><p class="mt-1 text-sm text-gray-500">Pilih alat, buat hasil baru, lalu buka riwayatnya di tempat yang sama.</p></div>
         <a href="{{ route('user.ai-gateway.index') }}" class="inline-flex w-fit items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10"><i class="ri-cpu-line"></i>Paket & Kuota AI</a>
     </div>
 
-    <div class="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
+    <div class="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-8">
         <aside class="lg:sticky lg:top-20 lg:h-fit">
             <nav class="flex gap-2 overflow-x-auto rounded-2xl border border-gray-200 bg-white p-2 lg:flex-col" aria-label="Menu AI Learning Tools">
                 @foreach($toolMeta as $toolKey => $meta)
@@ -44,14 +49,11 @@
 
                 <form id="ai-learning-independent-form" class="mt-6 space-y-5">
                     <input type="hidden" name="tool" value="{{ $currentTool }}">
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <label class="block"><span class="text-sm font-semibold text-gray-700">Judul atau topik <span class="font-normal text-gray-400">(opsional)</span></span><div class="relative mt-2"><i class="ri-bookmark-3-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input name="title" maxlength="120" class="h-11 w-full rounded-xl border-gray-200 pl-10 text-sm placeholder:text-gray-400 focus:border-primary focus:ring-primary" placeholder="Contoh: Hukum Newton"></div></label>
-                        <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3"><p class="text-sm font-semibold text-gray-700"><i class="ri-lightbulb-line mr-1 text-primary"></i>Tips input</p><p class="mt-1 text-xs leading-5 text-gray-500">Masukkan satu topik atau soal agar hasil AI lebih fokus.</p></div>
-                    </div>
-                    <label class="block"><span class="text-sm font-semibold text-gray-700">Soal atau materi <span class="text-red-500">*</span></span><textarea name="content" required minlength="20" maxlength="10000" rows="9" class="mt-2 w-full rounded-xl border-gray-200 p-3 text-sm leading-6 placeholder:text-gray-400 focus:border-primary focus:ring-primary" placeholder="Tempel soal, teks materi, rumus, atau konsep yang ingin diolah..."></textarea><span class="mt-1.5 block text-xs text-gray-400">Minimal 20 karakter.</span></label>
+                    <x-ui.input name="title" label="Judul atau topik (opsional)" maxlength="120" icon="ri-bookmark-3-line" placeholder="Contoh: Hukum Newton" class="h-11 max-w-xl rounded-xl" />
+                    <x-ui.input.textarea name="content" label="Soal atau materi" :required="true" minlength="20" maxlength="10000" rows="9" resize="vertical" helper="Minimal 20 karakter." placeholder="Tempel soal, teks materi, rumus, atau konsep yang ingin diolah..." class="rounded-xl leading-6" />
 
                     @if($currentTool === 'question')
-                        <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="block"><span class="text-xs font-semibold text-gray-600">Jumlah soal</span><select name="question_count" class="mt-1.5 h-10 w-full rounded-lg border-primary/20 bg-white text-sm focus:border-primary focus:ring-primary"><option value="1">1 soal</option><option value="2">2 soal</option><option value="3">3 soal</option></select></label><label class="block"><span class="text-xs font-semibold text-gray-600">Kesulitan</span><select name="difficulty" class="mt-1.5 h-10 w-full rounded-lg border-primary/20 bg-white text-sm focus:border-primary focus:ring-primary"><option value="mudah">Mudah</option><option value="sedang" selected>Sedang</option><option value="sulit">Sulit</option></select></label><label class="block"><span class="text-xs font-semibold text-gray-600">Variasi</span><select name="variation" class="mt-1.5 h-10 w-full rounded-lg border-primary/20 bg-white text-sm focus:border-primary focus:ring-primary"><option value="konteks" selected>Ubah konteks</option><option value="angka">Ubah angka</option><option value="hots">Naikkan HOTS</option></select></label><label class="block"><span class="text-xs font-semibold text-gray-600">Level HOTS</span><select name="hots_level" class="mt-1.5 h-10 w-full rounded-lg border-primary/20 bg-white text-sm focus:border-primary focus:ring-primary"><option value="rendah">Rendah</option><option value="sedang" selected>Sedang</option><option value="tinggi">Tinggi</option></select></label></div></div>
+                        <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><x-ui.input.select name="question_count" label="Jumlah soal" :options="['1' => '1 soal', '2' => '2 soal', '3' => '3 soal']" value="1" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="difficulty" label="Kesulitan" :options="['mudah' => 'Mudah', 'sedang' => 'Sedang', 'sulit' => 'Sulit']" value="sedang" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="variation" label="Variasi" :options="['konteks' => 'Ubah konteks', 'angka' => 'Ubah angka', 'hots' => 'Naikkan HOTS']" value="konteks" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="hots_level" label="Level HOTS" :options="['rendah' => 'Rendah', 'sedang' => 'Sedang', 'tinggi' => 'Tinggi']" value="sedang" class="h-10 rounded-lg border-primary/20" /></div></div>
                     @endif
 
                     <p id="ai-independent-error" class="hidden text-sm text-red-600" role="alert"></p>
@@ -63,17 +65,15 @@
 
             <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="text-lg font-bold text-gray-900">Riwayat {{ $activeTool['label'] }}</h2><p class="mt-1 text-sm text-gray-500">Buka hasil sebelumnya tanpa memakai token lagi.</p></div>
-                    @if($currentTool === 'note')
-                        <div class="inline-flex w-fit rounded-lg bg-gray-100 p-1 text-xs font-semibold"><a href="{{ route('user.ai-learning.index', ['tool' => 'note']) }}" class="rounded-md px-2.5 py-1.5 {{ ! $showSavedNotes ? 'bg-white text-primary shadow-sm' : 'text-gray-500' }}">Riwayat</a><a href="{{ route('user.ai-learning.index', ['tool' => 'note', 'saved' => 1]) }}" class="rounded-md px-2.5 py-1.5 {{ $showSavedNotes ? 'bg-white text-primary shadow-sm' : 'text-gray-500' }}"><i class="ri-pushpin-2-line mr-1"></i>Dipin ({{ $savedNotesCount }})</a></div>
-                    @endif
+                    <div class="inline-flex w-fit rounded-lg bg-gray-100 p-1 text-xs font-semibold"><a href="{{ route('user.ai-learning.index', ['tool' => $currentTool]) }}" class="rounded-md px-2.5 py-1.5 {{ ! $showPinned ? 'bg-white text-primary shadow-sm' : 'text-gray-500' }}">Riwayat</a><a href="{{ route('user.ai-learning.index', ['tool' => $currentTool, 'pinned' => 1]) }}" class="rounded-md px-2.5 py-1.5 {{ $showPinned ? 'bg-white text-primary shadow-sm' : 'text-gray-500' }}"><i class="ri-pushpin-2-line mr-1"></i>Pin ({{ $pinnedArtifactsCount }})</a></div>
                 </div>
-                <form method="GET" action="{{ route('user.ai-learning.index') }}" class="mt-4"><input type="hidden" name="tool" value="{{ $currentTool }}">@if($showSavedNotes)<input type="hidden" name="saved" value="1">@endif<label class="block text-xs font-semibold text-gray-600" for="ai-learning-source">Filter sumber</label><div class="relative mt-1.5"><i class="ri-filter-3-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><select id="ai-learning-source" name="source" onchange="this.form.submit()" class="h-10 w-full rounded-xl border-gray-200 pl-9 text-sm focus:border-primary focus:ring-primary"><option value="">Semua sumber</option><option value="independent" @selected($currentSource === 'independent')>Input mandiri</option><option value="discussion" @selected($currentSource === 'discussion')>Semua pembahasan</option>@foreach($sourceOptions as $source)<option value="{{ $source['value'] }}" @selected($currentSource === $source['value'])>{{ $source['label'] }}</option>@endforeach</select></div></form>
+                <form method="GET" action="{{ route('user.ai-learning.index') }}" class="mt-4"><input type="hidden" name="tool" value="{{ $currentTool }}">@if($showPinned)<input type="hidden" name="pinned" value="1">@endif<x-ui.input.select name="source" label="Filter sumber" :options="$sourceFilterOptions" :value="$currentSource" placeholder="Semua sumber" onchange="this.form.submit()" class="h-10 rounded-xl" /></form>
                 <div id="ai-learning-history-list" class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
                     @forelse($artifacts as $artifact)
-                        <button type="button" class="ai-learning-history-select w-full rounded-xl border border-gray-200 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5" data-artifact-id="{{ $artifact->id }}"><span class="flex items-start justify-between gap-2"><span><span class="block text-sm font-semibold text-gray-800">{{ $artifact->title }}</span><span class="mt-1 block text-xs text-gray-500">{{ $artifact->source_label ?: ($artifact->source_type === 'independent' ? 'Input mandiri' : 'Pembahasan tryout') }} · {{ $artifact->created_at?->translatedFormat('d M, H:i') }}</span></span>@if($currentTool === 'note' && $artifact->saved_at)<span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary"><i class="ri-pushpin-2-fill"></i>Dipin</span>@endif</span></button>
+                        <div class="group relative"><button type="button" class="ai-learning-history-select w-full rounded-xl border border-gray-200 p-3 pr-28 text-left transition hover:border-primary/40 hover:bg-primary/5" data-artifact-id="{{ $artifact->id }}"><span class="block"><span class="block text-sm font-semibold text-gray-800">{{ $artifact->title }}</span><span class="mt-1 block text-xs text-gray-500">{{ $artifact->source_label ?: ($artifact->source_type === 'independent' ? 'Input mandiri' : 'Pembahasan tryout') }} · {{ $artifact->created_at?->translatedFormat('d M, H:i') }}</span></span></button><button type="button" class="ai-toggle-artifact-pin absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition {{ $artifact->saved_at ? 'text-primary hover:bg-amber-50 hover:text-amber-700 lg:group-hover:bg-amber-50 lg:group-hover:text-amber-700' : 'text-gray-400 hover:bg-primary/5 hover:text-primary lg:group-hover:bg-primary/5 lg:group-hover:text-primary' }}" data-artifact-id="{{ $artifact->id }}" data-pinned="{{ $artifact->saved_at ? '1' : '0' }}"><i class="{{ $artifact->saved_at ? 'ri-pushpin-2-fill' : 'ri-pushpin-2-line' }}"></i><span class="lg:group-hover:hidden">{{ $artifact->saved_at ? 'Dipin' : 'Pin' }}</span><span class="hidden lg:group-hover:inline">{{ $artifact->saved_at ? 'Lepas pin' : 'Pin hasil' }}</span></button></div>
                         <template id="ai-learning-artifact-{{ $artifact->id }}">@include('user.pages.ai-learning.partials.result', ['artifact' => $artifact, 'payload' => $artifact->payload])</template>
                     @empty
-                        <div class="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm leading-6 text-gray-500"><i class="{{ $activeTool['icon'] }} mb-2 block text-2xl text-gray-300"></i>{{ $showSavedNotes ? 'Belum ada catatan yang dipin.' : 'Belum ada hasil. Buat hasil pertamamu di panel sebelah.' }}</div>
+                        <div class="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm leading-6 text-gray-500"><i class="{{ $activeTool['icon'] }} mb-2 block text-2xl text-gray-300"></i>{{ $showPinned ? 'Belum ada hasil yang dipin.' : 'Belum ada hasil. Buat hasil pertamamu di panel sebelah.' }}</div>
                     @endforelse
                 </div>
                 <div class="mt-4">{{ $artifacts->links() }}</div>
@@ -95,7 +95,7 @@
     const independentResultWrap = document.getElementById('ai-independent-result-wrap');
     const historyResult = document.getElementById('ai-learning-history-result');
     const independentQuestionSettings = document.getElementById('ai-independent-question-settings');
-    const noteSaveUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
+    const artifactPinUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
     const labels = { note: 'Buat Catatan Materi', recommendation: 'Buat Rekomendasi Belajar', question: 'Buat Soal Serupa', flashcard: 'Buat Flashcard' };
 
     function selectedTool() { return independentForm?.querySelector('input[name="tool"]')?.value || 'note'; }
@@ -164,25 +164,52 @@
         if (event.target.closest('.ai-flashcard-recall')) { cards.forEach((card) => { if (card.dataset.status === 'forgotten') card.dataset.status = 'new'; }); study.querySelector('.ai-flashcard-complete')?.classList.add('hidden'); study.querySelector('.ai-flashcard-forgot')?.classList.remove('hidden'); study.querySelector('.ai-flashcard-remember')?.classList.remove('hidden'); showNext(); }
     }
     document.addEventListener('click', (event) => {
+        const historyPinButton = event.target.closest('.ai-toggle-artifact-pin');
+        if (historyPinButton) {
+            const shouldPin = historyPinButton.dataset.pinned !== '1';
+            historyPinButton.disabled = true;
+            historyPinButton.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memperbarui...';
+            fetch(artifactPinUrlTemplate.replace('ARTIFACT_ID', historyPinButton.dataset.artifactId), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: new URLSearchParams({ pinned: shouldPin ? '1' : '0' }),
+            })
+                .then(async (response) => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Pin hasil AI gagal diperbarui.');
+                    window.location.reload();
+                })
+                .catch((error) => {
+                    historyPinButton.disabled = false;
+                    historyPinButton.innerHTML = '<i class="ri-error-warning-line"></i>Coba lagi';
+                    independentError.textContent = error.message || 'Pin hasil AI gagal diperbarui.';
+                    independentError.classList.remove('hidden');
+                });
+            return;
+        }
         const history = event.target.closest('.ai-learning-history-select');
         if (history) { const template = document.getElementById(`ai-learning-artifact-${history.dataset.artifactId}`); if (template instanceof HTMLTemplateElement) renderHistoryResult(template.innerHTML); }
-        const pinButton = event.target.closest('.ai-save-note');
+        const pinButton = event.target.closest('.ai-pin-artifact');
         if (pinButton) {
             pinButton.disabled = true;
             pinButton.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Mem-pin...';
-            fetch(noteSaveUrlTemplate.replace('ARTIFACT_ID', pinButton.dataset.artifactId), {
+            fetch(artifactPinUrlTemplate.replace('ARTIFACT_ID', pinButton.dataset.artifactId), {
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) },
             })
                 .then(async (response) => {
                     const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || 'Catatan gagal dipin.');
+                    if (!response.ok) throw new Error(data.message || 'Hasil AI gagal dipin.');
                     pinButton.outerHTML = `<span class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"><i class="ri-pushpin-2-fill"></i>Dipin</span>`;
                 })
                 .catch((error) => {
                     pinButton.disabled = false;
-                    pinButton.innerHTML = '<i class="ri-pushpin-2-line"></i>Pin Catatan';
-                    independentError.textContent = error.message || 'Catatan gagal dipin.';
+                    pinButton.innerHTML = '<i class="ri-pushpin-2-line"></i>Pin';
+                    independentError.textContent = error.message || 'Hasil AI gagal dipin.';
                     independentError.classList.remove('hidden');
                 });
             return;

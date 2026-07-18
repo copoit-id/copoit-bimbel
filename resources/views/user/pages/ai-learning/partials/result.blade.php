@@ -5,12 +5,10 @@
             <p class="text-xs font-semibold uppercase tracking-wide text-primary">{{ match($tool) { 'note' => 'AI Catatan Materi', 'recommendation' => 'AI Rekomendasi Belajar', 'question' => 'AI Generate Soal', default => 'AI Flashcard' } }}</p>
             <h4 class="mt-1 text-base font-semibold text-gray-900">{{ data_get($payload, 'title', $artifact->title) }}</h4>
         </div>
-        @if($tool === 'note')
-            @if($artifact->saved_at)
-                <div class="flex shrink-0 items-center gap-2"><span class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"><i class="ri-pushpin-2-fill"></i>Dipin</span><a href="{{ route('user.ai-learning.notes.pdf', $artifact) }}" class="rounded-lg border border-primary/25 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5"><i class="ri-file-pdf-2-line"></i><span class="sr-only sm:not-sr-only sm:ml-1">PDF</span></a></div>
-            @else
-                <button type="button" class="ai-save-note inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90" data-artifact-id="{{ $artifact->id }}"><i class="ri-pushpin-2-line"></i>Pin Catatan</button>
-            @endif
+        @if($artifact->saved_at)
+            <div class="flex shrink-0 items-center gap-2"><span class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"><i class="ri-pushpin-2-fill"></i>Dipin</span>@if($tool === 'note')<a href="{{ route('user.ai-learning.notes.pdf', $artifact) }}" class="rounded-lg border border-primary/25 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5"><i class="ri-file-pdf-2-line"></i><span class="sr-only sm:not-sr-only sm:ml-1">PDF</span></a>@endif</div>
+        @else
+            <button type="button" class="ai-pin-artifact inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90" data-artifact-id="{{ $artifact->id }}"><i class="ri-pushpin-2-line"></i>Pin</button>
         @endif
     </div>
 

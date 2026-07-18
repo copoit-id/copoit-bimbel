@@ -27,13 +27,13 @@ class AiLearningToolController extends Controller
         $currentTool = in_array($request->query('tool'), ['note', 'recommendation', 'question', 'flashcard'], true)
             ? $request->query('tool')
             : 'note';
-        $showSavedNotes = $currentTool === 'note' && $request->boolean('saved');
+        $showPinned = $request->boolean('pinned') || $request->boolean('saved');
 
         $artifacts = AiLearningArtifact::query()
             ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
             ->where('user_id', $user->id)
             ->where('tool', $currentTool)
-            ->when($showSavedNotes, fn ($query) => $query->whereNotNull('saved_at'))
+            ->when($showPinned, fn ($query) => $query->whereNotNull('saved_at'))
             ->when($currentSource === 'independent', fn ($query) => $query->where('source_type', 'independent'))
             ->when($currentSource === 'discussion', fn ($query) => $query->where('source_type', 'discussion'))
             ->when(
@@ -86,13 +86,13 @@ class AiLearningToolController extends Controller
             ->sortBy('label')
             ->values();
 
-        $savedNotesCount = AiLearningArtifact::query()
+        $pinnedArtifactsCount = AiLearningArtifact::query()
             ->where('user_id', $user->id)
-            ->where('tool', 'note')
+            ->where('tool', $currentTool)
             ->whereNotNull('saved_at')
             ->count();
 
-        return view('user.pages.ai-learning.index', compact('artifacts', 'sourceOptions', 'currentSource', 'currentTool', 'showSavedNotes', 'savedNotesCount'));
+        return view('user.pages.ai-learning.index', compact('artifacts', 'sourceOptions', 'currentSource', 'currentTool', 'showPinned', 'pinnedArtifactsCount'));
     }
 
     public function history(
@@ -321,19 +321,24 @@ class AiLearningToolController extends Controller
     {
         return redirect()->route('user.ai-learning.index', [
             'tool' => 'note',
-            'saved' => 1,
+            'pinned' => 1,
         ]);
     }
 
     public function save(Request $request, AiLearningArtifact $artifact): JsonResponse
     {
-        abort_unless($artifact->user_id === $request->user()->id && $artifact->tool === 'note', 404);
-        $artifact->update(['saved_at' => $artifact->saved_at ?? now()]);
+        abort_unless($artifact->user_id === $request->user()->id, 404);
+        $data = $request->validate(['pinned' => ['nullable', 'boolean']]);
+        $pinned = array_key_exists('pinned', $data) ? (bool) $data['pinned'] : true;
+        $artifact->update(['saved_at' => $pinned ? ($artifact->saved_at ?? now()) : null]);
 
         return response()->json([
-            'message' => 'Catatan berhasil dipin.',
+            'message' => $pinned ? 'Hasil AI berhasil dipin.' : 'Pin hasil AI dilepas.',
+            'pinned' => $pinned,
             'saved_at' => $artifact->saved_at?->toIso8601String(),
-            'pdf_url' => route('user.ai-learning.notes.pdf', $artifact),
+            'pdf_url' => $pinned && $artifact->tool === 'note'
+                ? route('user.ai-learning.notes.pdf', $artifact)
+                : null,
         ]);
     }
 

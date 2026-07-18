@@ -1666,7 +1666,7 @@
     }
 
     aiLearningResult?.addEventListener('click', async (event) => {
-        const saveButton = event.target.closest('.ai-save-note');
+        const saveButton = event.target.closest('.ai-pin-artifact');
         if (saveButton) {
             saveButton.disabled = true;
             saveButton.textContent = 'Mem-pin...';
@@ -1676,17 +1676,23 @@
                     headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Catatan gagal dipin.');
-                const pdfLink = document.createElement('a');
-                pdfLink.href = data.pdf_url;
-                pdfLink.className = 'rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5';
-                pdfLink.innerHTML = '<i class="ri-file-pdf-2-line mr-1"></i>Ekspor PDF';
-                saveButton.replaceWith(pdfLink);
+                if (!response.ok) throw new Error(data.message || 'Hasil AI gagal dipin.');
+                const pinnedActions = document.createElement('div');
+                pinnedActions.className = 'flex shrink-0 items-center gap-2';
+                pinnedActions.innerHTML = '<span class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"><i class="ri-pushpin-2-fill"></i>Dipin</span>';
+                if (data.pdf_url) {
+                    const pdfLink = document.createElement('a');
+                    pdfLink.href = data.pdf_url;
+                    pdfLink.className = 'rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5';
+                    pdfLink.innerHTML = '<i class="ri-file-pdf-2-line mr-1"></i>Ekspor PDF';
+                    pinnedActions.append(pdfLink);
+                }
+                saveButton.replaceWith(pinnedActions);
             } catch (err) {
                 saveButton.disabled = false;
-                saveButton.textContent = 'Pin Catatan';
+                saveButton.textContent = 'Pin';
                 if (aiLearningError) {
-                    aiLearningError.textContent = err.message || 'Catatan gagal dipin.';
+                    aiLearningError.textContent = err.message || 'Hasil AI gagal dipin.';
                     aiLearningError.classList.remove('hidden');
                 }
             }
