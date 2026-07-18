@@ -198,6 +198,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::post('/ai-learning-tools/generate', [AiLearningToolController::class, 'generateIndependent'])
         ->middleware('throttle:12,1')
         ->name('user.ai-learning.generate-independent');
+    Route::post('/catatan-ai/{artifact}/expand', [AiLearningToolController::class, 'expandNote'])
+        ->middleware('throttle:8,1')
+        ->name('user.ai-learning.notes.expand');
     Route::get('/catatan-ai', [AiLearningToolController::class, 'notes'])->name('user.ai-learning.notes');
     Route::post('/catatan-ai/{artifact}/save', [AiLearningToolController::class, 'save'])->middleware('throttle:30,1')->name('user.ai-learning.notes.save');
     Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');

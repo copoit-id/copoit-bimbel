@@ -1196,6 +1196,7 @@
     const aiLearningHistoryEndpoint = @json($aiLearningHistoryEndpointUrl);
     const aiLearningTokensPerGeneratedQuestion = @json($aiLearningTokensPerGeneratedQuestion);
     const aiLearningNoteSaveUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
+    const aiLearningNoteExpandUrlTemplate = @json(route('user.ai-learning.notes.expand', ['artifact' => 'ARTIFACT_ID']));
     const aiSpeechEndpoint = @json($aiSpeechEndpointUrl);
     const aiDiscussionHistoryByQuestion = @json($aiDiscussionHistoryByQuestion ?? []);
     const csrfToken = @json(csrf_token());
@@ -1712,6 +1713,50 @@
     }
 
     aiLearningResultModalContent?.addEventListener('click', async (event) => {
+        const expandToggle = event.target.closest('.ai-note-expand-toggle');
+        if (expandToggle) {
+            const panel = expandToggle.closest('[data-ai-tool="note"]')?.querySelector('.ai-note-expand-panel');
+            panel?.classList.toggle('hidden');
+            return;
+        }
+
+        const expandSubmit = event.target.closest('.ai-note-expand-submit');
+        if (expandSubmit) {
+            const panel = expandSubmit.closest('.ai-note-expand-panel');
+            const focus = panel?.querySelector('.ai-note-expand-focus')?.value?.trim() || '';
+            const error = panel?.querySelector('.ai-note-expand-error');
+            const original = expandSubmit.innerHTML;
+            expandSubmit.disabled = true;
+            expandSubmit.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memproses...';
+            error?.classList.add('hidden');
+
+            try {
+                const response = await fetch(aiLearningNoteExpandUrlTemplate.replace('ARTIFACT_ID', expandSubmit.dataset.artifactId), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: new URLSearchParams({ focus }),
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Catatan belum dapat diperdalam.');
+                openAiLearningResultModal(data.html || '');
+                updateAiGatewayUsageBadge(data.quota);
+                updateAiLearningQuestionCountLimit(data.quota);
+                loadAiLearningHistory(data.artifact_id);
+            } catch (expandError) {
+                expandSubmit.disabled = false;
+                expandSubmit.innerHTML = original;
+                if (error) {
+                    error.textContent = expandError.message || 'Catatan belum dapat diperdalam.';
+                    error.classList.remove('hidden');
+                }
+            }
+            return;
+        }
+
         const saveButton = event.target.closest('.ai-pin-artifact');
         if (saveButton) {
             saveButton.disabled = true;

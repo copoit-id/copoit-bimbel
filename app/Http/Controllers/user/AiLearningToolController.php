@@ -333,6 +333,86 @@ class AiLearningToolController extends Controller
         ]);
     }
 
+    public function expandNote(
+        Request $request,
+        AiLearningArtifact $artifact,
+        AiLearningToolService $toolService,
+    ): JsonResponse {
+        abort_unless($artifact->user_id === $request->user()->id && $artifact->tool === 'note', 404);
+
+        $data = $request->validate([
+            'focus' => ['nullable', 'string', 'max:300'],
+        ]);
+        $focus = trim((string) ($data['focus'] ?? ''));
+        $payload = is_array($artifact->payload) ? $artifact->payload : [];
+        $context = [
+            'tryout_name' => $artifact->source_label ?: 'AI Learning Tools',
+            'subtest_name' => 'Pendalaman catatan',
+            'question_type' => 'learning_note_expansion',
+            'question_text' => (string) ($payload['title'] ?? $artifact->title ?? 'Catatan materi'),
+            'options' => [],
+            'selected_answer' => '-',
+            'explanation' => "CATATAN SEBELUMNYA (gunakan sebagai dasar, lalu buat versi yang lebih lengkap):\n"
+                .$this->noteLearningContext($payload)
+                .($focus !== '' ? "\n\nBAGIAN YANG HARUS DIPERDALAM:\n{$focus}" : ''),
+            'question_reference' => (string) ($artifact->question_id ?? 'note-'.$artifact->id),
+        ];
+
+        try {
+            $result = $toolService->generate('note', [], $context);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $newPayload = $result['payload'];
+        $expandedArtifact = DB::transaction(function () use ($request, $artifact, $newPayload, $result) {
+            $expandedArtifact = AiLearningArtifact::query()->create([
+                'user_id' => $request->user()->id,
+                'tryout_id' => $artifact->tryout_id,
+                'question_id' => $artifact->question_id,
+                'attempt_token' => $artifact->attempt_token,
+                'source_type' => $artifact->source_type ?: 'independent',
+                'source_label' => $artifact->source_label ?: 'Input mandiri',
+                'tool' => 'note',
+                'title' => Str::limit((string) ($newPayload['title'] ?? 'Pendalaman Catatan Materi'), 255, ''),
+                'payload' => $newPayload,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+            ]);
+
+            AiDiscussionUsageLog::query()->create([
+                'user_id' => $request->user()->id,
+                'tryout_id' => $artifact->tryout_id,
+                'question_id' => $artifact->question_id,
+                'attempt_token' => $artifact->attempt_token,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+                'response_time_ms' => $result['response_time_ms'],
+                'user_message' => 'AI Learning Tool: Perdalam Catatan Materi',
+                'assistant_message' => json_encode($newPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+
+            return $expandedArtifact;
+        });
+
+        return response()->json([
+            'artifact_id' => $expandedArtifact->id,
+            'tool' => $expandedArtifact->tool,
+            'title' => $expandedArtifact->title,
+            'html' => view('user.pages.ai-learning.partials.result', [
+                'artifact' => $expandedArtifact,
+                'payload' => $newPayload,
+            ])->render(),
+            'quota' => $result['quota'],
+        ]);
+    }
+
     public function save(Request $request, AiLearningArtifact $artifact): JsonResponse
     {
         abort_unless($artifact->user_id === $request->user()->id, 404);
@@ -396,5 +476,31 @@ class AiLearningToolController extends Controller
             'flashcard' => 'Flashcard',
             default => 'AI Learning Tool',
         };
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function noteLearningContext(array $payload): string
+    {
+        $parts = [
+            (string) ($payload['title'] ?? ''),
+            (string) ($payload['summary'] ?? ''),
+        ];
+
+        foreach ($payload['sections'] ?? [] as $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+
+            $parts[] = implode("\n", array_filter([
+                (string) ($section['title'] ?? ''),
+                ...array_map('strval', is_array($section['paragraphs'] ?? null) ? $section['paragraphs'] : []),
+                ...array_map('strval', is_array($section['bullets'] ?? null) ? $section['bullets'] : []),
+            ]));
+        }
+
+        $parts[] = implode("\n", array_map('strval', is_array($payload['key_points'] ?? null) ? $payload['key_points'] : []));
+        $parts[] = implode("\n", array_map('strval', is_array($payload['formulas'] ?? null) ? $payload['formulas'] : []));
+
+        return Str::limit(implode("\n\n", array_filter($parts)), 18000, '');
     }
 }

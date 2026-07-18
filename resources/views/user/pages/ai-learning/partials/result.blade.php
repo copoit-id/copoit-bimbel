@@ -48,6 +48,18 @@
         @if(collect(data_get($payload, 'formulas', []))->isNotEmpty())
             <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5"><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white"><i class="ri-function-line"></i></span><p class="text-sm font-bold text-gray-900">Rumus / istilah kunci</p></div><div class="mt-3 grid gap-2 sm:grid-cols-2">@foreach(data_get($payload, 'formulas', []) as $formula)<p class="rounded-xl border border-primary/15 bg-white px-3 py-2.5 text-sm font-medium leading-6 text-gray-800">{{ $formula }}</p>@endforeach</div></div>
         @endif
+        <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div><p class="text-sm font-bold text-gray-900">Masih ingin mendalami materi ini?</p><p class="mt-1 text-sm leading-6 text-gray-600">Minta AI menambahkan contoh, langkah pengerjaan, rumus, atau bagian yang masih membingungkan.</p></div>
+                <button type="button" class="ai-note-expand-toggle inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-primary/30 bg-white px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10"><i class="ri-add-circle-line"></i>Perdalam materi</button>
+            </div>
+            <div class="ai-note-expand-panel mt-4 hidden border-t border-primary/15 pt-4" data-artifact-id="{{ $artifact->id }}">
+                <label class="block text-sm font-semibold text-gray-800" for="ai-note-expand-focus-{{ $artifact->id }}">Bagian yang ingin diperdalam <span class="font-normal text-gray-500">(opsional)</span></label>
+                <textarea id="ai-note-expand-focus-{{ $artifact->id }}" class="ai-note-expand-focus mt-2 min-h-24 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm leading-6 text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/15" maxlength="300" placeholder="Contoh: Tambahkan contoh soal dan langkah penyelesaiannya secara bertahap."></textarea>
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p class="text-xs leading-5 text-gray-500">Membuat pendalaman baru dan memakai kuota AI.</p><button type="button" class="ai-note-expand-submit inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90" data-artifact-id="{{ $artifact->id }}"><i class="ri-sparkling-2-line"></i>Buat versi lebih mendalam</button></div>
+                <p class="ai-note-expand-error mt-3 hidden text-sm text-red-600" role="alert"></p>
+            </div>
+        </div>
     @elseif($tool === 'recommendation')
         <div class="grid gap-3 md:grid-cols-2">
             @foreach(data_get($payload, 'focus_topics', []) as $topic)
