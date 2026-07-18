@@ -14,6 +14,7 @@
 
 @php
     $toolMeta = [
+        'quota' => ['label' => 'Paket & Kuota', 'icon' => 'ri-cpu-line'],
         'note' => ['label' => 'Catatan', 'action' => 'Buat Catatan Materi', 'icon' => 'ri-sticky-note-line', 'description' => 'Susun materi lengkap dari konsep, soal, rumus, atau teks yang kamu masukkan.'],
         'recommendation' => ['label' => 'Rekomendasi', 'action' => 'Buat Rekomendasi Belajar', 'icon' => 'ri-compass-3-line', 'description' => 'Cari fokus belajar dan langkah berikutnya dari materi yang sedang kamu pelajari.'],
         'question' => ['label' => 'Soal Serupa', 'action' => 'Buat Soal Serupa', 'icon' => 'ri-file-add-line', 'description' => 'Buat latihan baru dari materi atau soal dengan tingkat kesulitan yang kamu pilih.'],
@@ -29,7 +30,6 @@
 <div class="w-full">
     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div><p class="text-sm font-semibold text-primary"><i class="ri-sparkling-2-line mr-1"></i>AI Learning Tools</p><h1 class="mt-1 text-2xl font-bold text-gray-900">Ruang belajar AI</h1><p class="mt-1 text-sm text-gray-500">Pilih alat, buat hasil baru, lalu buka riwayatnya di tempat yang sama.</p></div>
-        <a href="{{ route('user.ai-gateway.index') }}" class="inline-flex w-fit items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10"><i class="ri-cpu-line"></i>Paket & Kuota AI</a>
     </div>
 
     <div class="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-8">
@@ -38,12 +38,13 @@
                 @foreach($toolMeta as $toolKey => $meta)
                     <a href="{{ route('user.ai-learning.index', ['tool' => $toolKey]) }}" class="shrink-0 rounded-xl px-3 py-2.5 text-sm font-semibold {{ $currentTool === $toolKey ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50' }}"><i class="{{ $meta['icon'] }} mr-2"></i>{{ $meta['label'] }}</a>
                 @endforeach
-                <div class="hidden border-t border-gray-100 pt-2 lg:block"></div>
-                <a href="{{ route('user.ai-gateway.index') }}" class="shrink-0 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"><i class="ri-cpu-line mr-2"></i>Paket & kuota</a>
             </nav>
         </aside>
 
-        <main class="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
+        <main class="{{ $currentTool === 'quota' ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]' }}">
+            @if($currentTool === 'quota')
+                @include('user.pages.ai-gateway.partials.dashboard-content', $gatewayDashboardData)
+            @else
             <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><i class="{{ $activeTool['icon'] }} text-xl"></i></span><div><h2 class="text-lg font-bold text-gray-900">AI {{ $activeTool['label'] }}</h2><p class="mt-1 text-sm leading-6 text-gray-500">{{ $activeTool['description'] }}</p></div></div>
 
@@ -77,12 +78,13 @@
                     @endforelse
                 </div>
                 <div class="mt-4">{{ $artifacts->links() }}</div>
-                <div id="ai-learning-history-detail" class="mt-4 min-h-48 rounded-xl border border-gray-200 bg-gray-50 p-4"><div id="ai-learning-history-result" class="text-sm leading-6 text-gray-500">Pilih salah satu hasil di riwayat untuk melihat detailnya di sini.</div></div>
             </section>
+            @endif
         </main>
     </div>
 </div>
 
+<div id="ai-learning-artifact-modal" class="fixed inset-0 z-[99999] hidden overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><div class="flex h-full w-full items-center justify-center"><div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Riwayat AI Learning</p><p class="mt-1 text-lg font-bold text-gray-900">Detail hasil</p></div><button type="button" data-artifact-modal-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Tutup detail hasil"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-artifact-modal-content" class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6"></div></div></div></div>
 <div id="ai-learning-flashcard-modal" class="fixed inset-0 z-[100000] hidden overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl"><div class="mb-5 flex items-start justify-between"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Mode recall</p><p class="mt-1 text-lg font-semibold text-gray-900">Flashcard</p></div><button type="button" data-flashcard-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-flashcard-modal-content"></div></div></div></div>
 @endsection
 
@@ -93,7 +95,8 @@
     const independentError = document.getElementById('ai-independent-error');
     const independentResult = document.getElementById('ai-independent-result');
     const independentResultWrap = document.getElementById('ai-independent-result-wrap');
-    const historyResult = document.getElementById('ai-learning-history-result');
+    const artifactModal = document.getElementById('ai-learning-artifact-modal');
+    const artifactModalContent = document.getElementById('ai-learning-artifact-modal-content');
     const independentQuestionSettings = document.getElementById('ai-independent-question-settings');
     const artifactPinUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
     const labels = { note: 'Buat Catatan Materi', recommendation: 'Buat Rekomendasi Belajar', question: 'Buat Soal Serupa', flashcard: 'Buat Flashcard' };
@@ -114,9 +117,18 @@
     }
 
     function renderHistoryResult(html) {
-        if (!historyResult) return;
-        historyResult.innerHTML = html;
-        historyResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (!artifactModal || !artifactModalContent) return;
+        artifactModalContent.innerHTML = html;
+        artifactModal.classList.remove('hidden');
+        artifactModal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeArtifactModal() {
+        artifactModal?.classList.add('hidden');
+        artifactModal?.classList.remove('flex');
+        artifactModalContent?.replaceChildren();
+        document.body.classList.remove('overflow-hidden');
     }
 
     independentForm?.addEventListener('submit', async (event) => {
@@ -216,9 +228,10 @@
         }
         const preview = event.target.closest('.ai-flashcard-preview');
         if (preview) openStandaloneFlashcard(preview);
+        if (event.target.closest('[data-artifact-modal-close]') || event.target === artifactModal) closeArtifactModal();
         if (event.target.closest('[data-flashcard-close]') || event.target === flashcardModal) closeStandaloneFlashcard();
         handleStandaloneFlashcard(event);
     });
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !flashcardModal?.classList.contains('hidden')) closeStandaloneFlashcard(); });
+    document.addEventListener('keydown', (event) => { if (event.key !== 'Escape') return; if (!flashcardModal?.classList.contains('hidden')) closeStandaloneFlashcard(); else if (!artifactModal?.classList.contains('hidden')) closeArtifactModal(); });
 </script>
 @endpush

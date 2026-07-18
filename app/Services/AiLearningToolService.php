@@ -44,7 +44,7 @@ class AiLearningToolService
     private function prompt(string $tool, array $options): string
     {
         return match ($tool) {
-            'note' => 'Buat catatan materi yang LENGKAP dari materi atau soal yang diberikan, bukan ringkasan singkat. Jelaskan konsep inti, alasan, langkah memahami, miskonsepsi umum bila relevan, dan kaitannya dengan konteks. Isi summary dengan 6-10 paragraf yang jelas (boleh panjang), key_points minimal 8 butir, serta formulas berisi rumus/istilah penting bila ada. Balas HANYA JSON valid: {"title":"...","summary":"...","key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL.',
+            'note' => 'Buat catatan materi yang LENGKAP, enak dipelajari, dan terstruktur dari materi atau soal yang diberikan; bukan satu paragraf panjang atau ringkasan singkat. Buat pengantar singkat pada summary, lalu pecah penjelasan menjadi 4-6 sections. Setiap section wajib memiliki title, 1-3 paragraphs pendek yang saling menyambung, dan bullets bila ada hal yang perlu diingat. Jelaskan konsep inti, alasan, langkah memahami, contoh atau konteks, serta miskonsepsi umum bila relevan. Isi key_points dengan minimal 6 butir inti. formulas berisi rumus, definisi, atau istilah penting yang layak ditonjolkan; kosongkan bila tidak relevan. Balas HANYA JSON valid: {"title":"...","summary":"...","sections":[{"title":"...","paragraphs":["..."],"bullets":["..."]}],"key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL atau Markdown.',
             'recommendation' => 'Analisis materi yang perlu dipelajari dari materi atau soal yang diberikan. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."]}. Jangan membuat URL atau nama sumber.',
             'question' => sprintf(
                 'Buat %d soal latihan serupa berdasarkan konsep yang diberikan dengan tingkat %s, variasi %s, dan HOTS %s. Setiap soal wajib memiliki tepat empat opsi A-D, satu jawaban benar, dan pembahasan. Balas HANYA JSON valid: {"title":"...","questions":[{"question_text":"...","options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}]}. Jangan menyalin persis input asli.',
@@ -100,6 +100,7 @@ class AiLearningToolService
             'note' => [
                 'title' => $this->text($payload['title'] ?? 'Catatan Materi'),
                 'summary' => $this->text($payload['summary'] ?? ''),
+                'sections' => $this->noteSections($payload['sections'] ?? []),
                 'key_points' => $this->stringList($payload['key_points'] ?? [], 12),
                 'formulas' => $this->stringList($payload['formulas'] ?? [], 8),
             ],
@@ -147,6 +148,22 @@ class AiLearningToolService
     private function text(mixed $value): string
     {
         return Str::limit(trim(strip_tags(is_scalar($value) ? (string) $value : '')), 5000, '');
+    }
+
+    /** @return array<int, array{title: string, paragraphs: array<int, string>, bullets: array<int, string>}> */
+    private function noteSections(mixed $sections): array
+    {
+        return collect(Arr::wrap($sections))
+            ->filter(fn ($section) => is_array($section))
+            ->take(6)
+            ->map(fn (array $section) => [
+                'title' => $this->text($section['title'] ?? ''),
+                'paragraphs' => $this->stringList($section['paragraphs'] ?? [], 3),
+                'bullets' => $this->stringList($section['bullets'] ?? [], 6),
+            ])
+            ->filter(fn (array $section) => $section['title'] !== '' && $section['paragraphs'] !== [])
+            ->values()
+            ->all();
     }
 
     /** @param array<string, mixed> $question */

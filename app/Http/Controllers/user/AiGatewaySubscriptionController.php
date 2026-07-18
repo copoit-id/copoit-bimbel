@@ -10,11 +10,21 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
 
 class AiGatewaySubscriptionController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
+    {
+        $parameters = ['tool' => 'quota'];
+
+        if (in_array($request->query('payment'), ['success', 'failed'], true)) {
+            $parameters['payment'] = $request->query('payment');
+        }
+
+        return redirect()->route('user.ai-learning.index', $parameters);
+    }
+
+    public function dashboardData(Request $request): array
     {
         $user = $request->user();
         $plans = [];
@@ -47,7 +57,7 @@ class AiGatewaySubscriptionController extends Controller
             ->where('user_id', $user->id);
         $usageLogs = $usageLogsQuery->latest()->paginate(20)->withQueryString();
 
-        return view('user.pages.ai-gateway.index', compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'claimedFreePlanIds', 'usageLogs', 'gatewayError'));
+        return compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'claimedFreePlanIds', 'usageLogs', 'gatewayError');
     }
 
     public function checkout(Request $request): RedirectResponse|JsonResponse

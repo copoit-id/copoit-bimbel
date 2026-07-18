@@ -13,12 +13,40 @@
     </div>
 
     @if($tool === 'note')
-        <p class="text-sm leading-6 text-gray-700">{{ data_get($payload, 'summary') }}</p>
+        @php($noteSections = data_get($payload, 'sections', []))
+        @php($summaryParagraphs = collect(preg_split('/\\R{2,}/', (string) data_get($payload, 'summary', '')))->filter())
+        @if($summaryParagraphs->isNotEmpty())
+            <div class="rounded-2xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+                <p class="text-xs font-semibold uppercase tracking-wide text-primary">Gambaran umum</p>
+                <div class="mt-2 space-y-3 text-sm leading-7 text-gray-700">
+                    @foreach($summaryParagraphs as $paragraph)<p>{{ $paragraph }}</p>@endforeach
+                </div>
+            </div>
+        @endif
+        @if(collect($noteSections)->isNotEmpty())
+            <div class="space-y-5">
+                @foreach($noteSections as $section)
+                    <section class="border-l-2 border-primary/30 pl-4 sm:pl-5">
+                        <h5 class="text-base font-bold text-gray-900">{{ data_get($section, 'title') }}</h5>
+                        <div class="mt-2 space-y-3 text-sm leading-7 text-gray-700">
+                            @foreach(data_get($section, 'paragraphs', []) as $paragraph)<p>{{ $paragraph }}</p>@endforeach
+                        </div>
+                        @if(collect(data_get($section, 'bullets', []))->isNotEmpty())
+                            <ul class="mt-3 space-y-2 text-sm leading-6 text-gray-700">
+                                @foreach(data_get($section, 'bullets', []) as $bullet)
+                                    <li class="flex gap-2"><i class="ri-check-line mt-0.5 text-primary"></i><span>{{ $bullet }}</span></li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </section>
+                @endforeach
+            </div>
+        @endif
         @if(collect(data_get($payload, 'key_points', []))->isNotEmpty())
-            <div><p class="text-sm font-semibold text-gray-800">Poin penting</p><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">@foreach(data_get($payload, 'key_points', []) as $point)<li>{{ $point }}</li>@endforeach</ul></div>
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5"><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><i class="ri-lightbulb-flash-line"></i></span><p class="text-sm font-bold text-amber-950">Poin penting untuk diingat</p></div><ul class="mt-3 space-y-2 text-sm leading-6 text-amber-900">@foreach(data_get($payload, 'key_points', []) as $point)<li class="flex gap-2"><span class="font-bold">•</span><span>{{ $point }}</span></li>@endforeach</ul></div>
         @endif
         @if(collect(data_get($payload, 'formulas', []))->isNotEmpty())
-            <div class="rounded-lg bg-blue-50 p-3"><p class="text-sm font-semibold text-blue-900">Rumus / istilah</p><ul class="mt-2 space-y-1 text-sm text-blue-800">@foreach(data_get($payload, 'formulas', []) as $formula)<li>{{ $formula }}</li>@endforeach</ul></div>
+            <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5"><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white"><i class="ri-function-line"></i></span><p class="text-sm font-bold text-gray-900">Rumus / istilah kunci</p></div><div class="mt-3 grid gap-2 sm:grid-cols-2">@foreach(data_get($payload, 'formulas', []) as $formula)<p class="rounded-xl border border-primary/15 bg-white px-3 py-2.5 text-sm font-medium leading-6 text-gray-800">{{ $formula }}</p>@endforeach</div></div>
         @endif
     @elseif($tool === 'recommendation')
         <div class="grid gap-3 md:grid-cols-2">

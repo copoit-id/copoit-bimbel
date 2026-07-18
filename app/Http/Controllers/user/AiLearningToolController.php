@@ -20,14 +20,20 @@ use RuntimeException;
 
 class AiLearningToolController extends Controller
 {
-    public function index(Request $request): View
+    public function index(
+        Request $request,
+        AiGatewaySubscriptionController $aiGatewaySubscriptionController,
+    ): View
     {
         $user = $request->user();
         $currentSource = trim((string) $request->query('source', ''));
-        $currentTool = in_array($request->query('tool'), ['note', 'recommendation', 'question', 'flashcard'], true)
+        $currentTool = in_array($request->query('tool'), ['quota', 'note', 'recommendation', 'question', 'flashcard'], true)
             ? $request->query('tool')
-            : 'note';
+            : 'quota';
         $showPinned = $request->boolean('pinned') || $request->boolean('saved');
+        $gatewayDashboardData = $currentTool === 'quota'
+            ? $aiGatewaySubscriptionController->dashboardData($request)
+            : [];
 
         $artifacts = AiLearningArtifact::query()
             ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
@@ -92,7 +98,7 @@ class AiLearningToolController extends Controller
             ->whereNotNull('saved_at')
             ->count();
 
-        return view('user.pages.ai-learning.index', compact('artifacts', 'sourceOptions', 'currentSource', 'currentTool', 'showPinned', 'pinnedArtifactsCount'));
+        return view('user.pages.ai-learning.index', compact('artifacts', 'sourceOptions', 'currentSource', 'currentTool', 'showPinned', 'pinnedArtifactsCount', 'gatewayDashboardData'));
     }
 
     public function history(
