@@ -91,8 +91,8 @@
                         @if($openAiChatModels->isNotEmpty())
                             <optgroup label="OpenAI">
                                 @foreach($openAiChatModels as $model)
-                                    <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
-                                        OpenAI — {{ $model['id'] }}
+                                    <option value="{{ $model['id'] }}" @disabled(!($model['has_pricing'] ?? false)) @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-3.1-flash-lite') === $model['id'])>
+                                        OpenAI — {{ $model['id'] }}{{ ($model['has_pricing'] ?? false) ? '' : ' (atur tarif dulu)' }}
                                     </option>
                                 @endforeach
                             </optgroup>
@@ -100,17 +100,17 @@
                         @if($geminiChatModels->isNotEmpty())
                             <optgroup label="Google Gemini">
                                 @foreach($geminiChatModels as $model)
-                                    <option value="{{ $model['id'] }}" @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-2.5-flash') === $model['id'])>
-                                        Gemini — {{ $model['id'] }}
+                                    <option value="{{ $model['id'] }}" @disabled(!($model['has_pricing'] ?? false)) @selected(old('ai_discussion_model', $aiDiscussion['model'] ?? 'gemini-3.1-flash-lite') === $model['id'])>
+                                        Gemini — {{ $model['id'] }}{{ ($model['has_pricing'] ?? false) ? '' : ' (atur tarif dulu)' }}
                                     </option>
                                 @endforeach
                             </optgroup>
                         @endif
                         @if($openAiChatModels->isEmpty() && $geminiChatModels->isEmpty())
-                            <option value="" disabled selected>Belum ada model bertarif aktif.</option>
+                            <option value="" disabled selected>Belum ada model dari API provider.</option>
                         @endif
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">Model OpenAI dan Gemini diambil dari API masing-masing berdasarkan API key tersimpan (diperbarui maksimal tiap 15 menit). Hanya model dengan tarif tersimpan yang dapat dipilih agar laba tetap akurat.</p>
+                    <p class="mt-1 text-xs text-gray-500">Semua model teks yang tersedia untuk API key OpenAI dan Gemini ditampilkan. Model tanpa tarif tetap terlihat, tetapi baru dapat dipilih setelah tarif input dan output diisi pada tab Tarif Model AI.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700">Token default</label>

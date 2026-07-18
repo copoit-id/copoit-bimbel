@@ -54,7 +54,11 @@ class GeneralSettingController extends Controller
                 ))
             ->map(fn (array $pricing): string => strtolower(trim((string) $pricing['model'])))
             ->all();
-        $selectableModels = array_unique([...array_keys($aiDiscussionModels), ...$submittedPricedModels]);
+        $pricedModels = collect($aiDiscussionModels)
+            ->filter(fn (array $model): bool => (bool) ($model['has_pricing'] ?? false))
+            ->keys()
+            ->all();
+        $selectableModels = array_unique([...$pricedModels, ...$submittedPricedModels]);
 
         $validated = $request->validate([
             'settings_tab' => ['nullable', Rule::in(['general', 'ai', 'pricing', 'payment'])],
@@ -178,7 +182,7 @@ class GeneralSettingController extends Controller
         return [
             'enabled' => $request->boolean('ai_discussion_feature_enabled'),
             'credential_mode' => 'custom',
-            'model' => (string) $request->input('ai_discussion_model', $existing['model'] ?? 'gemini-2.5-flash'),
+            'model' => (string) $request->input('ai_discussion_model', $existing['model'] ?? 'gemini-3.1-flash-lite'),
             'providers' => [
                 'openai' => [
                     'api_key' => trim((string) $request->input('ai_discussion_openai_api_key')) ?: ($providers['openai']['api_key'] ?? null),
@@ -222,7 +226,14 @@ class GeneralSettingController extends Controller
     private function aiDiscussionModels(array $availableModels): array
     {
         return collect($availableModels)
-            ->filter(fn (array $model): bool => $this->aiGatewayCostService->hasPricing($model['provider'], $model['id']))
+            ->map(function (array $model): array {
+                $model['has_pricing'] = $this->aiGatewayCostService->hasPricing(
+                    (string) $model['provider'],
+                    (string) $model['id'],
+                );
+
+                return $model;
+            })
             ->keyBy('id')
             ->all();
     }
@@ -246,7 +257,7 @@ class GeneralSettingController extends Controller
         }
 
         $baseUrl = rtrim(trim((string) ($provider['base_url'] ?? config('services.openai.base_url'))), '/');
-        $cacheKey = 'openai-discussion-models:' . hash('sha256', $baseUrl . '|' . $apiKey);
+        $cacheKey = 'openai-discussion-models:v2:' . hash('sha256', $baseUrl . '|' . $apiKey);
         $cachedModels = Cache::get($cacheKey);
 
         if (is_array($cachedModels)) {
@@ -367,7 +378,7 @@ class GeneralSettingController extends Controller
 
         if ($apiKey !== '') {
             $baseUrl = rtrim(trim((string) ($provider['base_url'] ?? config('services.gemini.base_url'))), '/');
-            $cacheKey = 'gemini-discussion-models:' . hash('sha256', $baseUrl . '|' . $apiKey);
+            $cacheKey = 'gemini-discussion-models:v2:' . hash('sha256', $baseUrl . '|' . $apiKey);
             $cachedModels = Cache::get($cacheKey);
 
             if (is_array($cachedModels)) {
