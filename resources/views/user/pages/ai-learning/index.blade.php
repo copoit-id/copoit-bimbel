@@ -6,10 +6,34 @@
 @section('content')
 <style>
     .standalone-flashcard { perspective: 1200px; }
-    .standalone-flashcard-inner { position: relative; min-height: 18rem; transform-style: preserve-3d; transition: transform 620ms cubic-bezier(.22, 1, .36, 1); }
-    .standalone-flashcard.is-showing-back .ai-flashcard-inner { transform: rotateY(180deg); }
+    .standalone-flashcard .ai-flashcard { will-change: transform, opacity; }
+    .standalone-flashcard .ai-flashcard-inner { position: relative; min-height: 18rem; transform-style: preserve-3d; transition: transform 620ms cubic-bezier(.22, 1, .36, 1); will-change: transform; }
+    .standalone-flashcard .ai-flashcard.is-showing-back .ai-flashcard-inner { transform: rotateY(180deg); }
     .standalone-flashcard .ai-flashcard-face { position: absolute; inset: 0; display: flex; flex-direction: column; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
     .standalone-flashcard .ai-flashcard-back { transform: rotateY(180deg); }
+    .standalone-flashcard .ai-flashcard.is-entering { animation: standalone-flashcard-enter 360ms cubic-bezier(.22, 1, .36, 1); }
+    .standalone-flashcard .ai-flashcard.is-exiting-remembered { animation: standalone-flashcard-exit-right 320ms ease-in forwards; }
+    .standalone-flashcard .ai-flashcard.is-exiting-forgotten { animation: standalone-flashcard-exit-left 320ms ease-in forwards; }
+
+    @keyframes standalone-flashcard-enter {
+        from { opacity: 0; transform: translateY(22px) scale(.94) rotateY(-10deg); }
+        to { opacity: 1; transform: translateY(0) scale(1) rotateY(0); }
+    }
+
+    @keyframes standalone-flashcard-exit-right {
+        to { opacity: 0; transform: translateX(56px) rotate(4deg) scale(.94); }
+    }
+
+    @keyframes standalone-flashcard-exit-left {
+        to { opacity: 0; transform: translateX(-56px) rotate(-4deg) scale(.94); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .standalone-flashcard .ai-flashcard.is-entering,
+        .standalone-flashcard .ai-flashcard.is-exiting-remembered,
+        .standalone-flashcard .ai-flashcard.is-exiting-forgotten { animation-duration: 1ms; }
+        .standalone-flashcard .ai-flashcard-inner { transition-duration: 1ms; }
+    }
 </style>
 
 @php
@@ -175,11 +199,97 @@
         const study = event.target.closest('.ai-flashcard-study');
         if (!study) return;
         const cards = Array.from(study.querySelectorAll('.ai-flashcard'));
-        const current = () => cards.find((card) => !card.classList.contains('hidden'));
-        const showNext = () => { const next = cards.find((card) => card.dataset.status === 'new'); if (next) { next.classList.remove('hidden'); } else { study.querySelector('.ai-flashcard-complete')?.classList.remove('hidden'); study.querySelector('.ai-flashcard-forgot')?.classList.add('hidden'); study.querySelector('.ai-flashcard-remember')?.classList.add('hidden'); } };
-        if (event.target.closest('.ai-flashcard-flip')) { const card = current(); if (card) { const back = card.dataset.showing !== 'back'; card.dataset.showing = back ? 'back' : 'front'; card.classList.toggle('is-showing-back', back); } return; }
-        if (event.target.closest('.ai-flashcard-remember') || event.target.closest('.ai-flashcard-forgot')) { const card = current(); if (card) { card.dataset.status = event.target.closest('.ai-flashcard-remember') ? 'remembered' : 'forgotten'; card.classList.add('hidden'); showNext(); } return; }
-        if (event.target.closest('.ai-flashcard-recall')) { cards.forEach((card) => { if (card.dataset.status === 'forgotten') card.dataset.status = 'new'; }); study.querySelector('.ai-flashcard-complete')?.classList.add('hidden'); study.querySelector('.ai-flashcard-forgot')?.classList.remove('hidden'); study.querySelector('.ai-flashcard-remember')?.classList.remove('hidden'); showNext(); }
+        const setControlsDisabled = (disabled) => {
+            study.querySelectorAll('.ai-flashcard-flip, .ai-flashcard-remember, .ai-flashcard-forgot')
+                .forEach((button) => { button.disabled = disabled; });
+        };
+        const showCard = (index) => {
+            cards.forEach((card, cardIndex) => {
+                const visible = cardIndex === index;
+                card.classList.toggle('hidden', !visible);
+                if (!visible) return;
+
+                card.classList.remove('is-exiting-remembered', 'is-exiting-forgotten', 'is-showing-back');
+                card.dataset.showing = 'front';
+                delete card.dataset.transitioning;
+                card.classList.remove('is-entering');
+                window.requestAnimationFrame(() => card.classList.add('is-entering'));
+                window.setTimeout(() => card.classList.remove('is-entering'), 380);
+            });
+            setControlsDisabled(false);
+            study.dataset.currentIndex = String(index);
+            const progress = study.querySelector('.ai-flashcard-progress');
+            if (progress) progress.textContent = `Kartu ${index + 1} dari ${cards.length}`;
+        };
+        const finishRound = () => {
+            const forgotten = cards.filter((card) => card.dataset.status === 'forgotten').length;
+            study.querySelector('.ai-flashcard-forgot')?.classList.add('hidden');
+            study.querySelector('.ai-flashcard-remember')?.classList.add('hidden');
+            const complete = study.querySelector('.ai-flashcard-complete');
+            const completeCopy = study.querySelector('.ai-flashcard-complete-copy');
+            const recall = study.querySelector('.ai-flashcard-recall');
+            complete?.classList.remove('hidden');
+            if (completeCopy) completeCopy.textContent = forgotten > 0
+                ? `${forgotten} kartu masih perlu diulang.`
+                : 'Semua kartu sudah kamu tandai ingat.';
+            recall?.classList.toggle('hidden', forgotten === 0);
+        };
+        const continueStudy = () => {
+            const nextIndex = cards.findIndex((card) => card.dataset.status === 'new');
+            if (nextIndex === -1) {
+                finishRound();
+                return;
+            }
+            showCard(nextIndex);
+        };
+        const currentCard = () => cards[Number(study.dataset.currentIndex || 0)];
+        const advanceCard = (status) => {
+            const card = currentCard();
+            if (!card || card.dataset.transitioning) return;
+
+            card.dataset.transitioning = 'true';
+            setControlsDisabled(true);
+            card.classList.add(status === 'remembered' ? 'is-exiting-remembered' : 'is-exiting-forgotten');
+            window.setTimeout(() => {
+                card.dataset.status = status;
+                card.classList.add('hidden');
+                card.classList.remove('is-exiting-remembered', 'is-exiting-forgotten');
+                delete card.dataset.transitioning;
+                continueStudy();
+            }, 330);
+        };
+
+        if (event.target.closest('.ai-flashcard-flip')) {
+            const card = currentCard();
+            if (!card || card.dataset.transitioning) return;
+            card.dataset.transitioning = 'true';
+            setControlsDisabled(true);
+            const showBack = card.dataset.showing !== 'back';
+            card.dataset.showing = showBack ? 'back' : 'front';
+            card.classList.toggle('is-showing-back', showBack);
+            window.setTimeout(() => {
+                delete card.dataset.transitioning;
+                setControlsDisabled(false);
+            }, 620);
+            return;
+        }
+        if (event.target.closest('.ai-flashcard-remember')) {
+            advanceCard('remembered');
+            return;
+        }
+        if (event.target.closest('.ai-flashcard-forgot')) {
+            advanceCard('forgotten');
+            return;
+        }
+        if (event.target.closest('.ai-flashcard-recall')) {
+            cards.forEach((card) => {
+                if (card.dataset.status === 'forgotten') card.dataset.status = 'new';
+            });
+            study.querySelector('.ai-flashcard-complete')?.classList.add('hidden');
+            study.querySelector('.ai-flashcard-forgot')?.classList.remove('hidden');
+            study.querySelector('.ai-flashcard-remember')?.classList.remove('hidden');
+            continueStudy();
+        }
     }
     document.addEventListener('click', (event) => {
         const generatedResultButton = event.target.closest('.ai-learning-open-generated-result');
