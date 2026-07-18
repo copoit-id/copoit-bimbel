@@ -20,6 +20,81 @@ use RuntimeException;
 
 class AiLearningToolController extends Controller
 {
+    public function index(Request $request): View
+    {
+        $user = $request->user();
+        $currentSource = trim((string) $request->query('source', ''));
+        $currentTool = in_array($request->query('tool'), ['note', 'recommendation', 'question', 'flashcard'], true)
+            ? $request->query('tool')
+            : 'note';
+        $showSavedNotes = $currentTool === 'note' && $request->boolean('saved');
+
+        $artifacts = AiLearningArtifact::query()
+            ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->when($showSavedNotes, fn ($query) => $query->whereNotNull('saved_at'))
+            ->when($currentSource === 'independent', fn ($query) => $query->where('source_type', 'independent'))
+            ->when($currentSource === 'discussion', fn ($query) => $query->where('source_type', 'discussion'))
+            ->when(
+                str_starts_with($currentSource, 'tryout:'),
+                fn ($query) => $query->where('tryout_id', (int) Str::after($currentSource, 'tryout:')),
+            )
+            ->when(
+                $currentSource !== ''
+                    && ! in_array($currentSource, ['independent', 'discussion'], true)
+                    && ! str_starts_with($currentSource, 'tryout:'),
+                fn ($query) => $query->where('source_label', $currentSource),
+            )
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        $sourceOptions = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->select('source_type', 'source_label')
+            ->whereNotNull('source_label')
+            ->distinct()
+            ->orderBy('source_label')
+            ->get()
+            ->toBase()
+            ->map(fn (AiLearningArtifact $artifact): array => [
+                'value' => (string) $artifact->source_label,
+                'label' => (string) $artifact->source_label,
+            ]);
+        $legacyTryoutOptions = AiLearningArtifact::query()
+            ->with('tryout:tryout_id,name')
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->whereNull('source_label')
+            ->whereNotNull('tryout_id')
+            ->select('tryout_id')
+            ->distinct()
+            ->get()
+            ->toBase()
+            ->filter(fn (AiLearningArtifact $artifact) => $artifact->tryout !== null)
+            ->map(fn (AiLearningArtifact $artifact): array => [
+                'value' => 'tryout:'.$artifact->tryout_id,
+                'label' => 'Pembahasan · '.$artifact->tryout->name,
+            ])
+            ->unique('value')
+            ->values();
+        $sourceOptions = $sourceOptions
+            ->merge($legacyTryoutOptions)
+            ->unique('value')
+            ->sortBy('label')
+            ->values();
+
+        $savedNotesCount = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->where('tool', 'note')
+            ->whereNotNull('saved_at')
+            ->count();
+
+        return view('user.pages.ai-learning.index', compact('artifacts', 'sourceOptions', 'currentSource', 'currentTool', 'showSavedNotes', 'savedNotesCount'));
+    }
+
     public function history(
         Request $request,
         string $idPackage,
@@ -116,6 +191,10 @@ class AiLearningToolController extends Controller
                 'tryout_id' => $resolved['tryout']->tryout_id,
                 'question_id' => $resolved['question']->question_id,
                 'attempt_token' => $token,
+                'source_type' => 'discussion',
+                'source_label' => $resolved['package']?->name
+                    ? 'Paket · '.$resolved['package']->name
+                    : 'Pembahasan · '.$resolved['tryout']->name,
                 'tool' => $data['tool'],
                 'title' => Str::limit((string) ($payload['title'] ?? $this->toolLabel($data['tool'])), 255, ''),
                 'payload' => $payload,
@@ -156,18 +235,94 @@ class AiLearningToolController extends Controller
         ]);
     }
 
-    public function notes(Request $request): View
-    {
-        $notes = AiLearningArtifact::query()
-            ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
-            ->where('user_id', $request->user()->id)
-            ->where('tool', 'note')
-            ->whereNotNull('saved_at')
-            ->latest('saved_at')
-            ->paginate(12)
-            ->withQueryString();
+    public function generateIndependent(
+        Request $request,
+        AiLearningToolService $toolService,
+    ): JsonResponse {
+        $data = $request->validate([
+            'tool' => ['required', 'in:note,recommendation,question,flashcard'],
+            'title' => ['nullable', 'string', 'max:120'],
+            'content' => ['required', 'string', 'min:20', 'max:10000'],
+            'difficulty' => ['nullable', 'in:mudah,sedang,sulit'],
+            'variation' => ['nullable', 'in:konteks,angka,hots'],
+            'hots_level' => ['nullable', 'in:rendah,sedang,tinggi'],
+            'question_count' => ['nullable', 'integer', 'min:1', 'max:3'],
+        ]);
+        $user = $request->user();
+        $sourceTitle = trim((string) ($data['title'] ?? '')) ?: 'Input mandiri';
+        $context = [
+            'tryout_name' => 'AI Learning Tools',
+            'subtest_name' => $sourceTitle,
+            'question_type' => 'external_input',
+            'question_text' => trim($data['content']),
+            'options' => [],
+            'selected_answer' => '-',
+            'explanation' => 'Tidak tersedia. Buat hasil belajar berdasarkan input pengguna.',
+            'question_reference' => 'external-'.$user->id,
+        ];
 
-        return view('user.pages.ai-learning.notes', compact('notes'));
+        try {
+            $result = $toolService->generate($data['tool'], [
+                'difficulty' => $data['difficulty'] ?? 'sedang',
+                'variation' => $data['variation'] ?? 'konteks',
+                'hots_level' => $data['hots_level'] ?? 'sedang',
+                'question_count' => $data['question_count'] ?? 1,
+            ], $context);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $payload = $result['payload'];
+        if ($data['tool'] === 'recommendation') {
+            $payload['materials'] = [];
+        }
+
+        $artifact = DB::transaction(function () use ($user, $data, $sourceTitle, $payload, $result) {
+            $artifact = AiLearningArtifact::query()->create([
+                'user_id' => $user->id,
+                'source_type' => 'independent',
+                'source_label' => 'Input mandiri',
+                'tool' => $data['tool'],
+                'title' => Str::limit((string) ($payload['title'] ?? $sourceTitle), 255, ''),
+                'payload' => $payload,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+            ]);
+
+            AiDiscussionUsageLog::query()->create([
+                'user_id' => $user->id,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+                'response_time_ms' => $result['response_time_ms'],
+                'user_message' => 'AI Learning Tool mandiri: '.$this->toolLabel($data['tool']),
+                'assistant_message' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+
+            return $artifact;
+        });
+
+        return response()->json([
+            'artifact_id' => $artifact->id,
+            'html' => view('user.pages.ai-learning.partials.result', [
+                'artifact' => $artifact,
+                'payload' => $payload,
+            ])->render(),
+            'quota' => $result['quota'],
+        ]);
+    }
+
+    public function notes(Request $request): RedirectResponse
+    {
+        return redirect()->route('user.ai-learning.index', [
+            'tool' => 'note',
+            'saved' => 1,
+        ]);
     }
 
     public function save(Request $request, AiLearningArtifact $artifact): JsonResponse
@@ -176,7 +331,7 @@ class AiLearningToolController extends Controller
         $artifact->update(['saved_at' => $artifact->saved_at ?? now()]);
 
         return response()->json([
-            'message' => 'Catatan berhasil disimpan ke Catatan Saya.',
+            'message' => 'Catatan berhasil dipin.',
             'saved_at' => $artifact->saved_at?->toIso8601String(),
             'pdf_url' => route('user.ai-learning.notes.pdf', $artifact),
         ]);

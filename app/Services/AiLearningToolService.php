@@ -44,10 +44,10 @@ class AiLearningToolService
     private function prompt(string $tool, array $options): string
     {
         return match ($tool) {
-            'note' => 'Buat catatan materi yang LENGKAP dari soal aktif, bukan ringkasan singkat. Jelaskan konsep inti, alasan, langkah memahami, miskonsepsi umum bila relevan, dan kaitannya dengan soal. Isi summary dengan 6-10 paragraf yang jelas (boleh panjang), key_points minimal 8 butir, serta formulas berisi rumus/istilah penting bila ada. Balas HANYA JSON valid: {"title":"...","summary":"...","key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL.',
-            'recommendation' => 'Analisis materi yang perlu dipelajari dari soal aktif. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."]}. Jangan membuat URL atau nama sumber.',
+            'note' => 'Buat catatan materi yang LENGKAP dari materi atau soal yang diberikan, bukan ringkasan singkat. Jelaskan konsep inti, alasan, langkah memahami, miskonsepsi umum bila relevan, dan kaitannya dengan konteks. Isi summary dengan 6-10 paragraf yang jelas (boleh panjang), key_points minimal 8 butir, serta formulas berisi rumus/istilah penting bila ada. Balas HANYA JSON valid: {"title":"...","summary":"...","key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL.',
+            'recommendation' => 'Analisis materi yang perlu dipelajari dari materi atau soal yang diberikan. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."]}. Jangan membuat URL atau nama sumber.',
             'question' => sprintf(
-                'Buat %d soal serupa dengan tingkat %s, variasi %s, dan HOTS %s. Setiap soal wajib memiliki tepat empat opsi A-D, satu jawaban benar, dan pembahasan. Balas HANYA JSON valid: {"title":"...","questions":[{"question_text":"...","options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}]}. Jangan menyalin persis soal asli.',
+                'Buat %d soal latihan serupa berdasarkan konsep yang diberikan dengan tingkat %s, variasi %s, dan HOTS %s. Setiap soal wajib memiliki tepat empat opsi A-D, satu jawaban benar, dan pembahasan. Balas HANYA JSON valid: {"title":"...","questions":[{"question_text":"...","options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}]}. Jangan menyalin persis input asli.',
                 max(1, min(3, (int) ($options['question_count'] ?? 1))),
                 $options['difficulty'] ?? 'sedang',
                 $options['variation'] ?? 'konteks',
@@ -55,7 +55,7 @@ class AiLearningToolService
                 $options['difficulty'] ?? 'sedang',
                 $options['hots_level'] ?? 'sedang',
             ),
-            'flashcard' => 'Ubah konsep penting dari soal aktif menjadi 3 sampai 5 flashcard. Balas HANYA JSON valid: {"title":"...","cards":[{"front":"...","back":"..."}]}. Cocok untuk menghafal rumus, istilah, atau konsep; jangan tambahkan URL.',
+            'flashcard' => 'Ubah konsep penting dari materi atau soal yang diberikan menjadi 3 sampai 5 flashcard. Balas HANYA JSON valid: {"title":"...","cards":[{"front":"...","back":"..."}]}. Cocok untuk menghafal rumus, istilah, atau konsep; jangan tambahkan URL.',
             default => throw new RuntimeException('Fitur AI tidak dikenali.'),
         };
     }

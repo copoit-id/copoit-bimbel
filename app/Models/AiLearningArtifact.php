@@ -12,6 +12,8 @@ class AiLearningArtifact extends Model
         'tryout_id',
         'question_id',
         'attempt_token',
+        'source_type',
+        'source_label',
         'tool',
         'title',
         'payload',

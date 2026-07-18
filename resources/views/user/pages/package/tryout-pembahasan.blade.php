@@ -149,7 +149,7 @@
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
                 @if($aiDiscussionEnabled)
-                    <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-sticky-note-line mr-1"></i>Catatan Saya</a>
+                    <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-pushpin-2-line mr-1"></i>Catatan Dipin</a>
                 @endif
             </div>
             <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
@@ -1017,7 +1017,7 @@
                         <div class="mt-4">
                             <section class="ai-learning-tab-panel" data-tool-panel="note">
                                 <h3 class="font-semibold text-gray-900">AI Catatan Materi</h3>
-                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Buat catatan materi yang lengkap dari konsep soal, termasuk penjelasan, poin penting, istilah atau rumus, dan hal yang sering keliru. Hasilnya dapat disimpan ke Catatan Saya dan diekspor ke PDF.</p>
+                                <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">Buat catatan materi yang lengkap dari konsep soal, termasuk penjelasan, poin penting, istilah atau rumus, dan hal yang sering keliru. Hasilnya dapat dipin dan diekspor ke PDF.</p>
                             </section>
                             <section class="ai-learning-tab-panel hidden" data-tool-panel="recommendation">
                                 <h3 class="font-semibold text-gray-900">AI Rekomendasi Belajar</h3>
@@ -1669,14 +1669,14 @@
         const saveButton = event.target.closest('.ai-save-note');
         if (saveButton) {
             saveButton.disabled = true;
-            saveButton.textContent = 'Menyimpan...';
+            saveButton.textContent = 'Mem-pin...';
             try {
                 const response = await fetch(aiLearningNoteSaveUrlTemplate.replace('ARTIFACT_ID', saveButton.dataset.artifactId), {
                     method: 'POST',
                     headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Catatan gagal disimpan.');
+                if (!response.ok) throw new Error(data.message || 'Catatan gagal dipin.');
                 const pdfLink = document.createElement('a');
                 pdfLink.href = data.pdf_url;
                 pdfLink.className = 'rounded-lg border border-primary/30 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5';
@@ -1684,9 +1684,9 @@
                 saveButton.replaceWith(pdfLink);
             } catch (err) {
                 saveButton.disabled = false;
-                saveButton.textContent = 'Simpan ke Catatan Saya';
+                saveButton.textContent = 'Pin Catatan';
                 if (aiLearningError) {
-                    aiLearningError.textContent = err.message || 'Catatan gagal disimpan.';
+                    aiLearningError.textContent = err.message || 'Catatan gagal dipin.';
                     aiLearningError.classList.remove('hidden');
                 }
             }
