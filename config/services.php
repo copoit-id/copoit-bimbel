@@ -105,6 +105,9 @@ return [
     'ai_gateway' => [
         'url' => env('AI_GATEWAY_URL'),
         'key' => env('AI_GATEWAY_KEY'),
+        // Generate materi dapat memerlukan waktu lebih lama daripada request API biasa.
+        'timeout' => env('AI_GATEWAY_TIMEOUT', 120),
+        'connect_timeout' => env('AI_GATEWAY_CONNECT_TIMEOUT', 10),
     ],
 
     'ai_similarity' => [

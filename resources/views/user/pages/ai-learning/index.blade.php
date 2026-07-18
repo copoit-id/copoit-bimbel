@@ -109,9 +109,14 @@
     }
     updateIndependentTool();
 
-    function renderStandaloneResult(html) {
+    const generatedResultHtml = new Map();
+
+    function renderStandaloneResult(result) {
         if (!independentResult || !independentResultWrap) return;
-        independentResult.innerHTML = html;
+        const artifactId = String(result.artifact_id || 'latest');
+        generatedResultHtml.set(artifactId, result.html || '');
+        independentResult.innerHTML = '<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-700"><i class="ri-checkbox-circle-line text-xl"></i></span><div><p class="text-sm font-semibold text-gray-900">Hasil AI sudah siap</p><p data-generated-result-title class="mt-0.5 text-sm text-gray-500"></p></div></div><button type="button" class="ai-learning-open-generated-result inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90" data-artifact-id="' + artifactId + '"><i class="ri-eye-line"></i>Lihat hasil</button></div>';
+        independentResult.querySelector('[data-generated-result-title]').textContent = result.title || 'Buka hasil lengkapnya dalam modal.';
         independentResultWrap.classList.remove('hidden');
         independentResultWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -142,7 +147,7 @@
             const response = await fetch(@json(route('user.ai-learning.generate-independent')), { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) }, body: formData });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'AI belum dapat memproses input.');
-            renderStandaloneResult(data.html || '');
+            renderStandaloneResult(data);
         } catch (error) {
             independentError.textContent = error.message || 'AI belum dapat memproses input.';
             independentError.classList.remove('hidden');
@@ -176,6 +181,12 @@
         if (event.target.closest('.ai-flashcard-recall')) { cards.forEach((card) => { if (card.dataset.status === 'forgotten') card.dataset.status = 'new'; }); study.querySelector('.ai-flashcard-complete')?.classList.add('hidden'); study.querySelector('.ai-flashcard-forgot')?.classList.remove('hidden'); study.querySelector('.ai-flashcard-remember')?.classList.remove('hidden'); showNext(); }
     }
     document.addEventListener('click', (event) => {
+        const generatedResultButton = event.target.closest('.ai-learning-open-generated-result');
+        if (generatedResultButton) {
+            const html = generatedResultHtml.get(String(generatedResultButton.dataset.artifactId || ''));
+            if (html) renderHistoryResult(html);
+            return;
+        }
         const historyPinButton = event.target.closest('.ai-toggle-artifact-pin');
         if (historyPinButton) {
             const shouldPin = historyPinButton.dataset.pinned !== '1';

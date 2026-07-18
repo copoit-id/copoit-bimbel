@@ -6,6 +6,7 @@ use App\Models\AiDiscussionUsageLog;
 use App\Models\ClientProfile;
 use App\Models\Question;
 use App\Models\UserAnswerDetail;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -90,13 +91,18 @@ class AiDiscussionService
             ])->all()
             : ($context['options'] ?? []);
 
-        $selectedAnswer = $context['answer_detail']?->questionOption
-            ? $this->plainText((string) $context['answer_detail']->questionOption->option_text)
-            : ($context['answer_detail']?->answer_text ?? ($context['selected_answer'] ?? 'Tidak dijawab / tidak tersedia'));
+        /** @var UserAnswerDetail|null $answerDetail */
+        $answerDetail = $context['answer_detail'] ?? null;
+        $selectedAnswer = $answerDetail?->questionOption
+            ? $this->plainText((string) $answerDetail->questionOption->option_text)
+            : ($answerDetail?->answer_text ?? ($context['selected_answer'] ?? 'Tidak dijawab / tidak tersedia'));
+        $timeout = $this->gatewayTimeout();
+        $connectTimeout = min($timeout, max(3, (int) config('services.ai_gateway.connect_timeout', 10)));
 
         try {
             $response = Http::acceptJson()
-                ->timeout((int) config('services.gemini.timeout', 90))
+                ->connectTimeout($connectTimeout)
+                ->timeout($timeout)
                 ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
                 ->post(config('services.ai_gateway.url'), [
                     'message' => $message,
@@ -116,8 +122,18 @@ class AiDiscussionService
                         'explanation' => $question instanceof Question ? $this->plainText((string) ($question->explanation ?? '')) : ($context['explanation'] ?? ''),
                     ],
                 ])->throw()->json();
+        } catch (ConnectionException $exception) {
+            report($exception);
+
+            throw new RuntimeException('Gateway AI membutuhkan waktu terlalu lama untuk merespons. Silakan coba lagi sebentar lagi.');
         } catch (RequestException $exception) {
-            throw new RuntimeException('Gateway AI tidak dapat dihubungi: '.Str::limit((string) ($exception->response?->json('message') ?: $exception->getMessage()), 240));
+            $message = Str::limit((string) ($exception->response?->json('message') ?: $exception->getMessage()), 240);
+
+            if ($this->isTimeoutMessage($message)) {
+                throw new RuntimeException('Gateway AI membutuhkan waktu terlalu lama untuk merespons. Silakan coba lagi sebentar lagi.');
+            }
+
+            throw new RuntimeException('Gateway AI tidak dapat dihubungi: '.$message);
         }
 
         return [
@@ -177,10 +193,14 @@ class AiDiscussionService
             $response = Http::withToken($apiKey)
                 ->acceptJson()
                 ->asJson()
-                ->timeout((int) ($provider['timeout'] ?? config('services.openai.timeout', 90)))
+                ->timeout($this->providerTimeout($provider, 'openai'))
                 ->post(rtrim((string) ($provider['base_url'] ?? config('services.openai.base_url')), '/').'/responses', $payload)
                 ->throw()
                 ->json();
+        } catch (ConnectionException $exception) {
+            report($exception);
+
+            throw new RuntimeException('Provider AI membutuhkan waktu terlalu lama untuk merespons. Silakan coba lagi sebentar lagi.');
         } catch (RequestException $exception) {
             $error = $exception->response?->json('error.message')
                 ?: $exception->response?->body()
@@ -217,7 +237,7 @@ class AiDiscussionService
 
             $response = Http::acceptJson()
                 ->asJson()
-                ->timeout((int) ($provider['timeout'] ?? config('services.gemini.timeout', 90)))
+                ->timeout($this->providerTimeout($provider, 'gemini'))
                 ->withQueryParameters(['key' => $apiKey])
                 ->post($endpoint, [
                     'systemInstruction' => [
@@ -233,6 +253,10 @@ class AiDiscussionService
                 ])
                 ->throw()
                 ->json();
+        } catch (ConnectionException $exception) {
+            report($exception);
+
+            throw new RuntimeException('Provider AI membutuhkan waktu terlalu lama untuk merespons. Silakan coba lagi sebentar lagi.');
         } catch (RequestException $exception) {
             $error = $exception->response?->json('error.message')
                 ?: $exception->response?->body()
@@ -364,6 +388,29 @@ Pembahasan resmi:
 {$message}
 </pertanyaan_siswa_tidak_tepercaya>
 PROMPT;
+    }
+
+    private function gatewayTimeout(): int
+    {
+        return min(180, max(60, (int) config('services.ai_gateway.timeout', 120)));
+    }
+
+    /** @param array<string, mixed> $provider */
+    private function providerTimeout(array $provider, string $providerName): int
+    {
+        $configuredTimeout = $provider['timeout']
+            ?? config("services.{$providerName}.timeout", 90);
+
+        return min(180, max(90, (int) $configuredTimeout));
+    }
+
+    private function isTimeoutMessage(string $message): bool
+    {
+        $message = Str::lower($message);
+
+        return str_contains($message, 'timed out')
+            || str_contains($message, 'timeout')
+            || str_contains($message, 'curl error 28');
     }
 
     private function providerForModel(string $model, array $settings): string

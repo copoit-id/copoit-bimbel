@@ -1049,9 +1049,21 @@
                         </div>
 
                         <p class="ai-learning-error mt-3 hidden text-sm text-red-600" role="alert"></p>
-                        <div class="ai-learning-result mt-4 hidden max-h-[42vh] overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4"></div>
+                        <div class="ai-learning-result mt-4 hidden rounded-xl border border-green-200 bg-green-50 p-4"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-learning-result-modal" class="fixed inset-0 z-[99999] hidden overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ai-learning-result-title">
+        <div class="flex h-full w-full items-center justify-center">
+            <div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+                <div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6">
+                    <div><p class="text-xs font-semibold uppercase tracking-wide text-primary">AI Learning Tools</p><h2 id="ai-learning-result-title" class="mt-1 text-lg font-bold text-gray-900">Detail hasil</h2></div>
+                    <button type="button" data-ai-learning-result-modal-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Tutup detail hasil"><i class="ri-close-line text-xl"></i></button>
+                </div>
+                <div class="ai-learning-result-modal-content min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6"></div>
             </div>
         </div>
     </div>
@@ -1223,6 +1235,8 @@
     const aiLearningGenerateButton = aiLearningToolsModal?.querySelector('.ai-learning-generate');
     const aiLearningGenerateLabel = aiLearningToolsModal?.querySelector('.ai-learning-generate-label');
     const aiLearningResult = aiLearningToolsModal?.querySelector('.ai-learning-result');
+    const aiLearningResultModal = document.getElementById('ai-learning-result-modal');
+    const aiLearningResultModalContent = aiLearningResultModal?.querySelector('.ai-learning-result-modal-content');
     const aiLearningError = aiLearningToolsModal?.querySelector('.ai-learning-error');
     const aiLearningHistory = aiLearningToolsModal?.querySelector('.ai-learning-history');
     const aiLearningHistoryEmpty = aiLearningToolsModal?.querySelector('.ai-learning-history-empty');
@@ -1312,9 +1326,23 @@
         else aiLearningResultByTool.delete(tool);
         if (tool !== activeAiLearningTool) return;
         if (!aiLearningResult) return;
-        aiLearningResult.innerHTML = html || '';
+        aiLearningResult.innerHTML = html
+            ? '<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-700"><i class="ri-checkbox-circle-line text-xl"></i></span><div><p class="text-sm font-semibold text-green-950">Hasil AI sudah siap</p><p class="mt-0.5 text-xs text-green-800">Buka hasil lengkapnya dalam modal.</p></div></div><button type="button" class="ai-learning-open-result inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-eye-line"></i>Lihat hasil</button></div>'
+            : '';
         aiLearningResult.classList.toggle('hidden', !html);
-        aiLearningResult.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function openAiLearningResultModal(html) {
+        if (!html || !aiLearningResultModal || !aiLearningResultModalContent) return;
+        aiLearningResultModalContent.innerHTML = html;
+        aiLearningResultModal.classList.remove('hidden');
+        aiLearningResultModal.classList.add('flex');
+    }
+
+    function closeAiLearningResultModal() {
+        aiLearningResultModal?.classList.add('hidden');
+        aiLearningResultModal?.classList.remove('flex');
+        aiLearningResultModalContent?.replaceChildren();
     }
 
     function renderAiLearningHistory(entries, selectedArtifactId = null) {
@@ -1368,6 +1396,7 @@
     }
 
     function closeAiLearningToolsModal() {
+        closeAiLearningResultModal();
         closeAiFlashcardPreviewModal();
         aiLearningToolsModal?.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
@@ -1403,11 +1432,20 @@
     aiLearningHistory?.addEventListener('click', (event) => {
         const historyItem = event.target.closest('.ai-learning-history-item');
         const artifact = aiLearningHistoryEntries.get(String(historyItem?.dataset.artifactId || ''));
-        if (artifact?.html) showAiLearningResult(artifact.html);
+        if (artifact?.html) openAiLearningResultModal(artifact.html);
+    });
+
+    aiLearningResult?.addEventListener('click', (event) => {
+        if (!event.target.closest('.ai-learning-open-result')) return;
+        openAiLearningResultModal(aiLearningResultByTool.get(activeAiLearningTool) || '');
     });
 
     aiLearningToolsModal?.querySelectorAll('[data-ai-learning-modal-close]').forEach((button) => {
         button.addEventListener('click', closeAiLearningToolsModal);
+    });
+
+    aiLearningResultModal?.querySelectorAll('[data-ai-learning-result-modal-close]').forEach((button) => {
+        button.addEventListener('click', closeAiLearningResultModal);
     });
 
     aiFlashcardPreviewModal?.querySelectorAll('[data-ai-flashcard-preview-close]').forEach((button) => {
@@ -1418,6 +1456,10 @@
         if (event.target === aiLearningToolsModal) closeAiLearningToolsModal();
     });
 
+    aiLearningResultModal?.addEventListener('click', (event) => {
+        if (event.target === aiLearningResultModal) closeAiLearningResultModal();
+    });
+
     aiFlashcardPreviewModal?.addEventListener('click', (event) => {
         if (event.target === aiFlashcardPreviewModal) closeAiFlashcardPreviewModal();
     });
@@ -1425,6 +1467,10 @@
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !aiFlashcardPreviewModal?.classList.contains('hidden')) {
             closeAiFlashcardPreviewModal();
+            return;
+        }
+        if (event.key === 'Escape' && !aiLearningResultModal?.classList.contains('hidden')) {
+            closeAiLearningResultModal();
             return;
         }
         if (event.key === 'Escape' && !aiLearningToolsModal?.classList.contains('hidden')) {
@@ -1665,7 +1711,7 @@
         return false;
     }
 
-    aiLearningResult?.addEventListener('click', async (event) => {
+    aiLearningResultModalContent?.addEventListener('click', async (event) => {
         const saveButton = event.target.closest('.ai-pin-artifact');
         if (saveButton) {
             saveButton.disabled = true;

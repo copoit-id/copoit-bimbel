@@ -315,6 +315,8 @@ class AiLearningToolController extends Controller
 
         return response()->json([
             'artifact_id' => $artifact->id,
+            'tool' => $artifact->tool,
+            'title' => $artifact->title,
             'html' => view('user.pages.ai-learning.partials.result', [
                 'artifact' => $artifact,
                 'payload' => $payload,
