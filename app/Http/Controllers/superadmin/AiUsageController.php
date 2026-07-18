@@ -143,6 +143,60 @@ class AiUsageController extends Controller
             ->when($request->filled('feature'), fn ($query) => $query->where('feature', $request->string('feature')->toString()));
         $summary = $filteredLogs->selectRaw('COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens, COUNT(DISTINCT external_user_id) as user_count')->first();
         $features = AiGatewayUsageLog::query()->distinct()->orderBy('feature')->pluck('feature');
+
+        $featureTotals = (clone $filteredLogs)
+            ->selectRaw("COALESCE(feature, 'discussion') as feature, COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens, COUNT(DISTINCT external_user_id) as user_count")
+            ->groupBy('feature')
+            ->get()
+            ->keyBy('feature');
+
+        $featureUsage = collect([
+            'discussion',
+            'learning_note',
+            'learning_recommendation',
+            'learning_question',
+            'learning_flashcard',
+        ])->map(function (string $feature) use ($featureTotals, $summary): array {
+            $total = $featureTotals->get($feature);
+            $requestCount = (int) ($total?->request_count ?? 0);
+
+            return [
+                'feature' => $feature,
+                'request_count' => $requestCount,
+                'total_tokens' => (int) ($total?->total_tokens ?? 0),
+                'user_count' => (int) ($total?->user_count ?? 0),
+                'percentage' => (int) ($summary->request_count ?? 0) > 0
+                    ? round(($requestCount / (int) $summary->request_count) * 100, 1)
+                    : 0,
+            ];
+        });
+
+        $userFeatureUsage = (clone $filteredLogs)
+            ->select([
+                'ai_gateway_client_id',
+                'external_user_id',
+                'external_user_name',
+                'external_user_email',
+            ])
+            ->selectRaw("COALESCE(feature, 'discussion') as feature, COUNT(*) as request_count, COALESCE(SUM(total_tokens), 0) as total_tokens")
+            ->with('client:id,name')
+            ->groupBy([
+                'ai_gateway_client_id',
+                'external_user_id',
+                'external_user_name',
+                'external_user_email',
+                'feature',
+            ])
+            ->orderByDesc('request_count')
+            ->orderByDesc('total_tokens')
+            ->limit(50)
+            ->get()
+            ->each(function (AiGatewayUsageLog $usage) use ($summary): void {
+                $usage->percentage = (int) ($summary->request_count ?? 0) > 0
+                    ? round(((int) $usage->request_count / (int) $summary->request_count) * 100, 1)
+                    : 0;
+            });
+
         $subscriptions = AiGatewaySubscription::query()
             ->with(['client:id,name,base_url', 'plan:id,name,token_limit,chat_limit'])
             ->whereNotNull('external_user_id')
@@ -151,7 +205,9 @@ class AiUsageController extends Controller
             ->paginate(20, ['*'], 'subscription_page')
             ->withQueryString();
 
-        return view('super-admin.ai-gateway-usage.index', compact('clients', 'logs', 'summary', 'subscriptions', 'features'));
+        return view('super-admin.ai-gateway-usage.index', compact(
+            'clients', 'logs', 'summary', 'subscriptions', 'features', 'featureUsage', 'userFeatureUsage'
+        ));
     }
 
     public function gatewayPayments(Request $request, AiGatewayCostService $costService)

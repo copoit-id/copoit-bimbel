@@ -281,23 +281,128 @@ Error yang harus ditangani UI:
 
 ### 5.5 AI Learning Tools pada halaman pembahasan
 
-Project penerima dapat menyediakan fitur turunan dari konteks soal aktif berikut:
+AI Learning Tools terdiri dari **Catatan**, **Rekomendasi**, **Soal Serupa**, dan **Flashcard**. Fitur ini dapat dipakai dari dua sumber:
 
-- **AI Catatan Materi**: membuat ringkasan, poin penting, serta rumus/istilah; hasil dapat disimpan ke **Catatan Saya** dan diekspor sebagai PDF.
-- **AI Rekomendasi Belajar**: membuat fokus dan urutan belajar. Video, modul, materi bimbel, atau referensi eksternal yang ditampilkan wajib berasal dari database materi yang telah dikelola admin.
-- **AI Generate Soal**: membuat soal serupa dengan pilihan tingkat mudah, sedang, atau sulit serta variasi konteks, angka, dan level HOTS.
-- **AI Flashcard**: membuat kartu tanya-jawab dari konsep penting pada soal.
+1. **Dari pembahasan soal**: konteks soal aktif diambil ulang oleh server project penerima setelah validasi attempt dan akses tryout.
+2. **Mandiri dari menu AI Learning Tools**: peserta mengisi topik atau materi sendiri. Browser tetap mengirim ke route project penerima; server project penerima yang memanggil gateway pusat.
 
-Keempat fitur tetap menggunakan `POST /discussion` secara server-to-server. Project penerima membentuk instruksi terstruktur untuk tool yang dipilih dan mengirim nilai `feature` yang sesuai, sedangkan gateway tetap melakukan validasi subscription/trial, pemotongan kuota, serta pencatatan token dan biaya per fitur. Jangan membuat endpoint provider AI langsung di project penerima.
+Alurnya selalu sama:
 
-Aturan wajib untuk tool tersebut:
+```text
+Browser peserta
+    -> server project penerima
+    -> BimbelHub AI Gateway pusat (/api/ai-gateway/discussion)
+    -> provider AI (Gemini/OpenAI)
+```
 
-1. Terapkan kembali seluruh validasi akses pada Bagian 8 sebelum setiap generate.
-2. Konteks soal, jawaban, dan pembahasan tetap harus diambil dari database server.
-3. Respons AI untuk tool terstruktur harus dinormalisasi dan divalidasi server sebelum dirender.
-4. AI tidak boleh membuat URL rekomendasi. Gabungkan hasil analisis AI hanya dengan daftar materi/referensi aktif yang telah disetujui admin.
-5. Setiap generate adalah penggunaan AI baru dan tetap mengurangi token gateway, termasuk pengguna paket gratis.
-6. Artifact lokal harus terikat ke `user_id`; simpan, ekspor PDF, dan hapus harus menolak artifact milik user lain.
+Browser **tidak pernah** memanggil `demo.bimbelhub.com`, server production BimbelHub, Gemini, atau OpenAI secara langsung. `AI_GATEWAY_URL` menunjuk gateway pusat (domain demo hanya untuk environment demo); API key provider dan `AI_GATEWAY_KEY` hanya berada di server.
+
+Keempat tool menggunakan `POST /discussion` secara server-to-server. Project penerima membentuk instruksi terstruktur dan mengirim nilai `feature` yang sesuai. Gateway tetap memvalidasi subscription/trial, memotong kuota, serta mencatat token dan biaya per fitur. Jangan membuat endpoint provider AI langsung di project penerima.
+
+Nilai `feature` juga menjadi sumber analytics super admin. Gateway menghitung jumlah request, total token, jumlah peserta unik, dan persentase penggunaan untuk Diskusi Soal, Catatan, Rekomendasi, Soal Serupa, serta Flashcard. Karena itu, jangan mengirim semua tool sebagai `discussion` dan jangan mengandalkan event JavaScript untuk statistik penggunaan.
+
+| Tool | `feature` | Hasil yang wajib dinormalisasi server |
+|---|---|---|
+| Catatan | `learning_note` | judul, ringkasan, section, poin penting, istilah/rumus |
+| Rekomendasi | `learning_recommendation` | fokus belajar, alasan, prioritas, dan urutan belajar |
+| Soal Serupa | `learning_question` | daftar soal, empat opsi, jawaban benar, pembahasan, metadata kesulitan/HOTS |
+| Flashcard | `learning_flashcard` | judul set dan pasangan `front`/`back` |
+
+#### Kontrak hasil terstruktur
+
+Model dapat mengembalikan JSON dalam field `message` atau format yang telah disepakati gateway. Project penerima wajib memvalidasi dan menyimpan bentuk akhirnya sebelum ditampilkan. Jangan merender respons mentah model sebagai HTML.
+
+Contoh minimal **Catatan**:
+
+```json
+{
+  "title": "Materi Antonim",
+  "summary": "Antonim adalah kata dengan makna berlawanan.",
+  "sections": [
+    {
+      "title": "Konsep inti",
+      "paragraphs": ["Optimis berarti berpandangan baik."],
+      "bullets": ["Pesimis adalah antonim optimis."]
+    }
+  ],
+  "key_points": ["Bandingkan makna inti setiap pilihan."],
+  "formulas": []
+}
+```
+
+Catatan harus dirender sebagai materi yang mudah dibaca: ringkasan singkat, section, bullet, dan highlight istilah/rumus bila ada; bukan satu paragraf panjang.
+
+Contoh minimal **Rekomendasi**:
+
+```json
+{
+  "title": "Prioritas belajar antonim",
+  "focus_topics": [
+    {"topic": "Makna kata", "reason": "Dasar mencari antonim", "priority": "tinggi"}
+  ],
+  "study_plan": ["Pelajari konsep", "Kerjakan latihan", "Evaluasi kesalahan"]
+}
+```
+
+Model tidak boleh membuat URL video, modul, atau referensi eksternal. Server project penerima mencocokkan `focus_topics` dengan materi aktif di database sendiri, lalu hanya merender materi/referensi yang telah disetujui admin.
+
+Contoh minimal **Soal Serupa**:
+
+```json
+{
+  "title": "Latihan antonim",
+  "questions": [
+    {
+      "question_text": "Antonim kata ... adalah ...",
+      "options": [
+        {"key": "A", "text": "..."},
+        {"key": "B", "text": "..."},
+        {"key": "C", "text": "..."},
+        {"key": "D", "text": "..."}
+      ],
+      "correct_answer": "A",
+      "explanation": "...",
+      "difficulty": "sedang",
+      "hots_level": "sedang"
+    }
+  ]
+}
+```
+
+Server harus memastikan jumlah hasil sesuai pilihan peserta, pilihan jawaban lengkap, jawaban benar menunjuk opsi yang ada, dan nilai kesulitan/variasi/HOTS termasuk allowlist. Jumlah soal dibatasi oleh kebijakan produk dan estimasi token yang tersisa; tampilkan batas maksimum sebelum generate.
+
+Contoh minimal **Flashcard**:
+
+```json
+{
+  "title": "Kartu istilah antonim",
+  "cards": [
+    {"front": "Apa arti antonim?", "back": "Kata yang maknanya berlawanan."}
+  ]
+}
+```
+
+#### Perilaku UI yang wajib
+
+- Sediakan halaman **AI Learning Tools** di navbar. Halaman dibuka pada **Paket & Kuota** sebagai menu/default pertama, kemudian menu Catatan, Rekomendasi, Soal Serupa, dan Flashcard.
+- Gunakan sidebar tool yang konsisten. Setiap menu memiliki area generate dan area **Riwayat** dengan tab **Riwayat** dan **Pin**. Riwayat hanya menampilkan artifact tool yang sedang dibuka.
+- Jangan otomatis menampilkan hasil generate panjang di bawah form. Setelah sukses tampilkan status dan tombol **Lihat hasil**; detail artifact, termasuk artifact riwayat, dibuka dalam modal.
+- Modal detail memiliki tinggi wajar, header tetap, dan area isi yang scroll di dalam modal. Jangan membuat seluruh halaman/modal luar ikut scroll.
+- Artifact dapat dipin atau unpin oleh pemiliknya. Status pin tampil di sisi kanan kartu dan berubah menjadi aksi Pin/Unpin saat hover/focus.
+- Dari pembahasan soal, tool dan riwayat memakai kontrak serta action yang sama. Hasil dari Catatan tidak boleh tampil pada tab Soal Serupa, Flashcard, atau Rekomendasi.
+- Flashcard menampilkan kartu set lebih dahulu. Tombol **Preview/Mulai recall** membuka modal recall di atas modal hasil; ketika recall berlangsung, navigasi halaman/modal dasar tidak boleh aktif. Membuka hasil lama atau berpindah kartu tidak memanggil gateway lagi.
+- Catatan yang dipin dapat diekspor PDF sesuai kebijakan project. Aksi **Perdalam materi** dapat membuat catatan baru dari artifact catatan yang tersimpan; ini adalah generate baru dan tetap memakai token.
+
+#### Aturan generate dan pendalaman
+
+1. Terapkan kembali seluruh validasi akses pada Bagian 8 sebelum generate yang bersumber dari pembahasan.
+2. Konteks soal, jawaban, dan pembahasan harus diambil dari database server; jangan percaya payload konteks dari browser.
+3. Untuk mode mandiri, browser hanya mengirim `tool`, topik/isi, dan opsi yang diizinkan. Batasi topik/isi, misalnya maksimum 10.000 karakter; identitas pengguna selalu dari session server.
+4. Respons tool wajib dinormalisasi dan divalidasi server sebelum disimpan/dirender.
+5. Saat memperdalam catatan, browser hanya boleh mengirim ID artifact miliknya dan fokus tambahan singkat (misalnya maksimum 300 karakter). Server mengambil payload catatan asli dari database, membentuk konteks tepercaya, lalu membuat artifact catatan baru.
+6. Setiap generate, termasuk pendalaman, tetap mengurangi token gateway, termasuk untuk paket gratis. Membuka riwayat, preview, pin/unpin, dan ekspor PDF tidak boleh memanggil AI lagi.
+7. Jangan melakukan retry otomatis untuk request generate yang gagal/timeout karena berisiko memotong token dua kali. Tampilkan tombol coba lagi agar peserta memutuskan sendiri.
+8. Artifact lokal harus terikat ke `user_id`; lihat detail, pin, ekspor PDF, pendalaman, dan hapus harus menolak artifact milik user lain.
 
 ## 6. Combined checkout: beli tryout/paket + tambah Pembahasan AI
 
@@ -395,10 +500,16 @@ GET  /user/paket-ai                 daftar paket, status kuota, dan pembayaran p
 POST /user/paket-ai/checkout        membuat checkout di gateway pusat
 POST /user/.../pembahasan-ai/chat   mengirim diskusi AI untuk satu soal
 POST /user/.../pembahasan-ai/tools  membuat catatan, rekomendasi, soal serupa, atau flashcard
+GET  /user/.../pembahasan-ai/tools/history  riwayat tool untuk soal/attempt tersebut
+GET  /user/ai-learning-tools        halaman mandiri (`?tool=quota|note|recommendation|question|flashcard`)
+POST /user/ai-learning-tools/generate membuat artifact tool dari topik/materi mandiri
+GET  /user/ai-learning-tools/{artifact} detail artifact milik user
+PATCH /user/ai-learning-tools/{artifact}/pin mengubah status pin artifact milik user
 POST /user/tryout/{tryout}/buy       checkout produk CPNS, opsional combined AI
 GET  /user/payment/{transaction}/resume  menampilkan ulang dua pembayaran pending setelah validasi kepemilikan
-GET  /user/catatan-ai               daftar catatan AI yang disimpan user
-POST /user/catatan-ai/{artifact}/save menyimpan hasil catatan milik user
+GET  /user/catatan-ai               daftar artifact Catatan milik user
+POST /user/catatan-ai/{artifact}/pin mengubah status pin Catatan milik user
+POST /user/catatan-ai/{artifact}/expand memperdalam catatan dari artifact milik user
 GET  /user/catatan-ai/{artifact}/pdf mengekspor catatan milik user sebagai PDF
 ```
 
@@ -410,7 +521,15 @@ Route::post('/.../pembahasan-ai/chat', ...)
 
 Route::post('/user/paket-ai/checkout', ...)
     ->middleware(['auth', 'throttle:20,1']);
+
+Route::post('/user/ai-learning-tools/generate', ...)
+    ->middleware(['auth', 'throttle:12,1']);
+
+Route::post('/user/catatan-ai/{artifact}/expand', ...)
+    ->middleware(['auth', 'throttle:8,1']);
 ```
+
+Nama route dapat disesuaikan, tetapi route detail/action artifact wajib memakai route model binding atau query yang memverifikasi kepemilikan user login. Gunakan `POST` untuk generate, jangan `GET`.
 
 ## 8. Aturan keamanan pembahasan AI
 
@@ -458,6 +577,16 @@ Gateway pusat sudah membatasi AI agar tetap membahas soal aktif, tetapi CPNS Aca
 - Saat checkout berhasil, redirect ke `invoice_url`.
 - Saat kembali dari provider, refresh status dari gateway sebelum merender tombol.
 
+### Halaman AI Learning Tools mandiri
+
+- Tambahkan satu menu navbar **AI Learning Tools**. Jangan membuat menu terpisah untuk masing-masing tool.
+- Gunakan satu layout dengan sidebar internal: **Paket & Kuota**, **Catatan**, **Rekomendasi**, **Soal Serupa**, dan **Flashcard**. Paket & Kuota adalah tampilan default.
+- Setiap halaman tool memuat form input yang relevan dan daftar artifact milik user pada panel yang sama. Jangan menyediakan tombol “buat baru” global; generate dilakukan langsung dari tab tool yang dipilih.
+- Catatan, Rekomendasi, Soal Serupa, dan Flashcard masing-masing mempunyai tab **Riwayat** dan **Pin**. Filter sumber (misalnya paket/tryout atau mandiri) hanya menampilkan artifact milik user sendiri.
+- Setelah generate sukses, tampilkan tombol **Lihat hasil**. Tampilkan hasil detail dalam modal, termasuk action yang sesuai seperti Pin/Unpin, Preview recall, ekspor PDF, atau Perdalam materi.
+- Untuk Soal Serupa, tampilkan pengaturan jumlah soal, kesulitan, variasi, dan level HOTS hanya setelah peserta memilih aksi **Buat soal serupa**, lalu validasi kembali semuanya di server.
+- Untuk Flashcard, tampilkan ringkasan set dan tombol preview. Mode recall harus memisahkan pertanyaan dan jawaban secara visual serta tidak mengaktifkan navbar/modal dasar selama sedang berlangsung.
+
 ## 10. Penyimpanan lokal yang disarankan
 
 CPNS Academy tidak perlu menyalin tabel subscription/transaction gateway pusat. Simpan data lokal hanya untuk kebutuhan UI dan audit, misalnya tabel log diskusi:
@@ -484,19 +613,21 @@ Untuk AI Learning Tools, simpan artifact lokal terpisah agar hasil terstruktur t
 
 ```text
 user_id
-tryout_id
-question_id
-attempt_token
-tool                           # note, recommendation, question, flashcard
+tryout_id                       # nullable untuk mode mandiri
+question_id                     # nullable untuk mode mandiri
+attempt_token                   # nullable untuk mode mandiri
+source_type                     # discussion atau independent
+source_label                    # label paket/tryout/topik untuk filter riwayat
+tool                            # note, recommendation, question, flashcard
 title
 payload                        # JSON hasil yang sudah dinormalisasi server
 provider / model
 input_tokens / output_tokens / total_tokens
-saved_at                       # hanya untuk catatan yang disimpan
+pinned_at                       # null bila belum dipin
 timestamps
 ```
 
-Artifact lokal hanya untuk histori dan fitur **Catatan Saya**. Pemakaian tokennya tetap harus dicatat melalui gateway dan tidak boleh dijadikan sumber keputusan kuota.
+Artifact lokal hanya untuk histori, pin, modal detail, recall flashcard, dan ekspor PDF. Jangan menggandakan status subscription gateway di tabel ini. Pemakaian token tetap dicatat melalui gateway dan artifact lokal tidak boleh dijadikan sumber keputusan kuota.
 
 ## 11. Checklist pengujian sebelum rilis
 
@@ -517,9 +648,14 @@ Artifact lokal hanya untuk histori dan fitur **Catatan Saya**. Pemakaian tokenny
 - [ ] Refresh/return dari pembayaran tidak pernah membuat tombol **Mulai** sebelum status produk dan AI masing-masing tervalidasi.
 - [ ] Resume pembayaran menolak transaction ID, tryout ID, atau invoice milik user lain.
 - [ ] AI Learning Tools menolak attempt token atau `question_id` milik user lain.
+- [ ] Mode mandiri tidak pernah memanggil BimbelHub/provider dari JavaScript; request selalu melalui server project penerima.
 - [ ] Rekomendasi belajar tidak pernah merender URL yang dibuat AI; hanya materi/referensi aktif yang disetujui admin.
-- [ ] Simpan, ekspor PDF, dan hapus catatan menolak artifact milik user lain.
+- [ ] Detail, pin/unpin, pendalaman, ekspor PDF, dan hapus artifact menolak artifact milik user lain.
 - [ ] Generate catatan, rekomendasi, soal, dan flashcard tetap menambah pemakaian token gateway, termasuk pada paket gratis.
+- [ ] Membuka riwayat, modal hasil, preview/recall flashcard, dan pin/unpin tidak memanggil generate AI atau menambah token.
+- [ ] Hasil tiap tool hanya muncul dalam tab tool-nya sendiri; tab Pin juga hanya memuat artifact tool yang aktif.
+- [ ] Hasil tool terstruktur tervalidasi sebelum dirender; soal serupa memiliki opsi/jawaban benar yang valid dan catatan tidak dirender sebagai satu paragraf mentah.
+- [ ] Timeout generate ditampilkan sebagai kegagalan aman dengan aksi coba lagi, tanpa retry otomatis.
 
 ## 12. File referensi di project BimbelHub
 

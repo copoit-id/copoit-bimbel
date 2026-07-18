@@ -32,6 +32,31 @@
     </div>
 
     <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div>
+            <h2 class="font-semibold text-gray-900">Fitur yang paling sering digunakan</h2>
+            <p class="mt-1 text-sm text-gray-500">Persentase dihitung dari jumlah request gateway sesuai filter aktif, bukan dari jumlah token.</p>
+        </div>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            @foreach($featureUsage as $usage)
+                @php($label = $featureLabels[$usage['feature']] ?? ucfirst(str_replace('_', ' ', $usage['feature'])))
+                <div class="rounded-xl border border-gray-100 bg-slate-50 p-4">
+                    <p class="text-sm font-medium text-gray-800">{{ $label }}</p>
+                    <div class="mt-3 flex items-end justify-between gap-2"><p class="text-2xl font-bold text-gray-900">{{ number_format($usage['percentage'], 1, ',', '.') }}%</p><p class="text-xs text-gray-500">{{ number_format($usage['request_count'], 0, ',', '.') }} request</p></div>
+                    <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-primary" style="width: {{ min(100, $usage['percentage']) }}%"></div></div>
+                    <p class="mt-2 text-xs text-gray-500">{{ number_format($usage['user_count'], 0, ',', '.') }} peserta · {{ number_format($usage['total_tokens'], 0, ',', '.') }} token</p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div><h2 class="font-semibold text-gray-900">Pemakaian per peserta dan fitur</h2><p class="mt-1 text-sm text-gray-500">Satu baris menunjukkan jumlah penggunaan satu fitur oleh satu peserta pada project tertentu.</p></div>
+        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
+            <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Peserta / project</th><th class="px-4 py-3">Fitur terpakai</th><th class="px-4 py-3 text-right">Request</th><th class="px-4 py-3 text-right">Proporsi</th><th class="px-4 py-3 text-right">Token</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($userFeatureUsage as $usage)<tr><td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $usage->external_user_name ?: 'Pengguna tidak tersedia' }}</p><p class="mt-1 text-xs text-gray-500">{{ $usage->external_user_email ?: 'ID: '.($usage->external_user_id ?: '-') }}</p><p class="mt-1 text-xs text-gray-500">{{ $usage->client?->name ?? 'Project dihapus' }}</p></td><td class="px-4 py-3"><span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{{ $featureLabels[$usage->feature] ?? ucfirst(str_replace('_', ' ', $usage->feature)) }}</span></td><td class="px-4 py-3 text-right font-medium">{{ number_format($usage->request_count, 0, ',', '.') }}</td><td class="px-4 py-3 text-right text-gray-600">{{ number_format($usage->percentage, 1, ',', '.') }}%</td><td class="px-4 py-3 text-right font-medium">{{ number_format($usage->total_tokens, 0, ',', '.') }}</td></tr>@empty<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada pemakaian fitur untuk filter ini.</td></tr>@endforelse</tbody></table>
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div><h2 class="font-semibold text-gray-900">Project gateway</h2><p class="mt-1 text-sm text-gray-500">Project key disimpan aman dan hanya ditampilkan sekali saat dibuat.</p></div>
             <button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.remove('hidden')" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"><i class="ri-add-line"></i> Tambah project</button>
