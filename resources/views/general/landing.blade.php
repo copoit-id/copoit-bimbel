@@ -178,7 +178,7 @@
 
 @section('content')
 <!-- Section 1: Hero / Pengenalan Platform -->
-<section class="relative overflow-hidden pt-32 pb-16 sm:pt-40 sm:pb-24 lg:pt-48 lg:pb-32 px-4 sm:px-6 lg:px-8 border-b border-slate-200" style="background-image: url('{{ asset('img/landing/hero/bg.png') }}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+<section class="relative overflow-hidden pt-32 pb-16 sm:pt-40 sm:pb-24 lg:pt-48 lg:pb-32 px-4 sm:px-6 lg:px-8 border-b border-slate-200" style="background-image: url('{{ asset('img/landing/hero/bg.webp') }}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
     <div class="mx-auto max-w-7xl relative z-10">
         <div class="grid lg:grid-cols-12 gap-6 items-stretch">
             
@@ -229,7 +229,7 @@
             <div class="lg:col-span-5 flex flex-col items-center justify-center relative mt-8 lg:mt-0">
                 <!-- Top Card: Illustration -->
                 <div class="flex items-center justify-center w-full relative z-10 animate-float-slow">
-                    <img src="{{ asset('img/landing/hero/grafis.png') }}"
+                    <img src="{{ asset('img/landing/hero/grafis.webp') }}"
                          alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
                          class="w-[125%] md:w-[140%] max-w-none h-auto object-contain scale-110 lg:scale-125 origin-center">
                 </div>
