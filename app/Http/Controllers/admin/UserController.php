@@ -3,32 +3,36 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Role;
 use App\Models\ParticipantDestinationCategory;
+use App\Models\Role;
+use App\Models\User;
+use App\Rules\SafeName;
+use App\Services\ActivityLogger;
+use App\Services\AiGatewayTokenClientService;
 use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
 use App\Services\TutorProfileService;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
-use App\Rules\SafeName;
 use Illuminate\View\View;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
 
 class UserController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, AiGatewayTokenClientService $aiGatewayTokenService): View
     {
         $roleOptions = $this->getRoleOptions();
         $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
 
-        if (!array_key_exists((string) $activeRole, $roleOptions)) {
+        if (! array_key_exists((string) $activeRole, $roleOptions)) {
             $activeRole = array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions);
         }
 
@@ -40,12 +44,63 @@ class UserController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole'));
+        $aiTokenSummaries = $activeRole === 'user'
+            ? $aiGatewayTokenService->summaries($users->pluck('id')->all())
+            : collect();
+
+        return view('admin.pages.user.index', compact(
+            'users',
+            'roleOptions',
+            'activeRole',
+            'aiTokenSummaries'
+        ));
+    }
+
+    public function addAiTokens(
+        Request $request,
+        User $user,
+        AiGatewayTokenClientService $aiGatewayTokenService
+    ): RedirectResponse {
+        if ($request->user()?->isDemoAdmin()) {
+            return back()->with('error', 'Akun demo tidak dapat menambahkan token AI.');
+        }
+
+        $validated = $request->validate([
+            'tokens' => ['required', 'integer', 'min:1', 'max:100000000'],
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'tokens.max' => 'Penambahan token maksimal 100.000.000 per transaksi.',
+            'reason.required' => 'Alasan penambahan token wajib diisi untuk audit.',
+        ]);
+
+        try {
+            $result = $aiGatewayTokenService->addTokens(
+                $user,
+                $request->user(),
+                (int) $validated['tokens'],
+                $validated['reason']
+            );
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        ActivityLogger::log('ai_tokens_added', 'success', $request->user(), [
+            'target_user_id' => $user->id,
+            'target_user_name' => $user->name,
+            'target_user_email' => $user->email,
+            'reason' => $validated['reason'],
+            ...$result,
+        ], $request);
+
+        return back()->with(
+            'success',
+            number_format($result['added_tokens'], 0, ',', '.')." token AI berhasil ditambahkan ke {$user->name}."
+        );
     }
 
     public function exportExcel(): BinaryFileResponse
     {
-        $filename = 'data-user-lengkap-' . now()->format('Ymd_His') . '.xlsx';
+        $filename = 'data-user-lengkap-'.now()->format('Ymd_His').'.xlsx';
         $userColumns = collect(Schema::getColumnListing('users'))
             ->reject(fn (string $column) => in_array($column, [
                 'id',
@@ -82,7 +137,7 @@ class UserController extends Controller
         $users = User::where('role', 'user')
             ->orderBy('name')
             ->paginate(20);
-        
+
         return view('admin.pages.user.login-as', compact('users'));
     }
 
@@ -90,6 +145,7 @@ class UserController extends Controller
     {
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
+
         return view('admin.pages.user.create', [
             'user' => null,
             'roleOptions' => $roleOptions,
@@ -101,12 +157,11 @@ class UserController extends Controller
         Request $request,
         ParticipantDestinationSelectionService $destinationSelectionService,
         TutorProfileService $tutorProfileService
-    )
-    {
+    ) {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', new SafeName()],
+            'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users',
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:8',
@@ -152,6 +207,7 @@ class UserController extends Controller
     public function show($id)
     {
         $user = User::findOrFail($id);
+
         return view('admin.pages.user.show', compact('user'));
     }
 
@@ -160,6 +216,7 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
+
         return view('admin.pages.user.create', [
             'user' => $user,
             'roleOptions' => $roleOptions,
@@ -172,14 +229,13 @@ class UserController extends Controller
         $id,
         ParticipantDestinationSelectionService $destinationSelectionService,
         TutorProfileService $tutorProfileService
-    )
-    {
+    ) {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', new SafeName()],
-            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
-            'username' => 'required|string|max:255|unique:users,username,' . $id,
+            'name' => ['required', 'string', 'max:255', new SafeName],
+            'email' => 'required|string|email|max:255|unique:users,email,'.$id,
+            'username' => 'required|string|max:255|unique:users,username,'.$id,
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
@@ -254,7 +310,7 @@ class UserController extends Controller
 
         foreach ($packageColumns as $package) {
             $fields->push([
-                'key' => 'package_' . $package['id'],
+                'key' => 'package_'.$package['id'],
                 'label' => $package['name'],
                 'type' => 'computed',
             ]);
@@ -265,7 +321,7 @@ class UserController extends Controller
 
     private function exportPackageColumns(): array
     {
-        if (!Schema::hasTable('packages')) {
+        if (! Schema::hasTable('packages')) {
             return [];
         }
 
@@ -289,7 +345,7 @@ class UserController extends Controller
         $this->writeXlsxRow($sheet, 1, array_column($fields, 'label'), true);
 
         $selects = array_map(
-            fn (string $column) => 'users.' . $column . ' as ' . $column,
+            fn (string $column) => 'users.'.$column.' as '.$column,
             $userColumns
         );
 
@@ -324,7 +380,7 @@ class UserController extends Controller
         fwrite($sheet, '</sheetData></worksheet>');
         fclose($sheet);
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $zip->open($targetPath, ZipArchive::OVERWRITE);
         $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypesXml());
         $zip->addFromString('_rels/.rels', $this->xlsxRootRelsXml());
@@ -377,7 +433,7 @@ class UserController extends Controller
         $parentName = trim((string) ($user->participant_destination_parent_name ?? ''));
 
         if ($categoryName !== '') {
-            return $parentName !== '' ? $parentName . ' - ' . $categoryName : $categoryName;
+            return $parentName !== '' ? $parentName.' - '.$categoryName : $categoryName;
         }
 
         $institutionName = trim((string) ($user->participant_destination_institution_name ?? ''));
@@ -387,7 +443,7 @@ class UserController extends Controller
             return '';
         }
 
-        return $programName !== '' ? $institutionName . ' - ' . $programName : $institutionName;
+        return $programName !== '' ? $institutionName.' - '.$programName : $institutionName;
     }
 
     private function exportCell(mixed $value): string
@@ -403,7 +459,7 @@ class UserController extends Controller
         $value = (string) ($value ?? '');
 
         if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
-            return "'" . $value;
+            return "'".$value;
         }
 
         return $value;
@@ -411,12 +467,12 @@ class UserController extends Controller
 
     private function writeXlsxRow($handle, int $rowNumber, array $values, bool $isHeader = false): void
     {
-        fwrite($handle, '<row r="' . $rowNumber . '">');
+        fwrite($handle, '<row r="'.$rowNumber.'">');
 
         foreach (array_values($values) as $index => $value) {
-            $cellReference = $this->excelColumnName($index + 1) . $rowNumber;
+            $cellReference = $this->excelColumnName($index + 1).$rowNumber;
             $style = $isHeader ? ' s="1"' : '';
-            fwrite($handle, '<c r="' . $cellReference . '" t="inlineStr"' . $style . '><is><t>' . $this->escapeXml($this->exportCell($value)) . '</t></is></c>');
+            fwrite($handle, '<c r="'.$cellReference.'" t="inlineStr"'.$style.'><is><t>'.$this->escapeXml($this->exportCell($value)).'</t></is></c>');
         }
 
         fwrite($handle, '</row>');
@@ -428,7 +484,7 @@ class UserController extends Controller
 
         while ($number > 0) {
             $number--;
-            $name = chr(65 + ($number % 26)) . $name;
+            $name = chr(65 + ($number % 26)).$name;
             $number = intdiv($number, 26);
         }
 
@@ -443,50 +499,50 @@ class UserController extends Controller
     private function xlsxContentTypesXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-            . '<Default Extension="xml" ContentType="application/xml"/>'
-            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
-            . '</Types>';
+            .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            .'<Default Extension="xml" ContentType="application/xml"/>'
+            .'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            .'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            .'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            .'</Types>';
     }
 
     private function xlsxRootRelsXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-            . '</Relationships>';
+            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            .'</Relationships>';
     }
 
     private function xlsxWorkbookXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            . '<sheets><sheet name="Data User" sheetId="1" r:id="rId1"/></sheets>'
-            . '</workbook>';
+            .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            .'<sheets><sheet name="Data User" sheetId="1" r:id="rId1"/></sheets>'
+            .'</workbook>';
     }
 
     private function xlsxWorkbookRelsXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-            . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-            . '</Relationships>';
+            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            .'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            .'</Relationships>';
     }
 
     private function xlsxStylesXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            . '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
-            . '<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
-            . '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
-            . '</styleSheet>';
+            .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            .'<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            .'<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
+            .'<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            .'<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+            .'</styleSheet>';
     }
 
     private function getRoleOptions(): array
@@ -513,7 +569,7 @@ class UserController extends Controller
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || count($ids) === 0) {
+        if (! is_array($ids) || count($ids) === 0) {
             return redirect()->route('admin.user.index')
                 ->with('error', 'Pilih minimal satu user untuk dihapus.');
         }
@@ -554,7 +610,7 @@ class UserController extends Controller
                 $query->where('status', 'completed')
                     ->with(['tryout', 'userAnswerDetails'])
                     ->orderBy('created_at', 'desc');
-            }
+            },
         ])->findOrFail($id);
 
         $completedTryouts = $user->userAnswers->where('status', 'completed');
@@ -566,7 +622,7 @@ class UserController extends Controller
                 'name' => $answer->tryout->name ?? 'Unknown Tryout',
                 'score' => round($answer->score ?? 0, 1),
                 'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
-                'is_passed' => $answer->is_passed ?? false
+                'is_passed' => $answer->is_passed ?? false,
             ];
         });
 
@@ -586,10 +642,10 @@ class UserController extends Controller
         foreach ($completedTryouts->take(4) as $answer) {
             $activities->push([
                 'type' => 'tryout',
-                'text' => 'Menyelesaikan tryout ' . ($answer->tryout->name ?? 'Unknown') . ' dengan skor ' . round($answer->score ?? 0, 1),
+                'text' => 'Menyelesaikan tryout '.($answer->tryout->name ?? 'Unknown').' dengan skor '.round($answer->score ?? 0, 1),
                 'icon' => 'ri-file-list-line',
                 'color' => 'blue',
-                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at)
+                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
             ]);
         }
 
@@ -598,7 +654,7 @@ class UserController extends Controller
             'text' => 'Login ke sistem',
             'icon' => 'ri-login-box-line',
             'color' => 'green',
-            'date' => Carbon::now()->subHours(2)
+            'date' => Carbon::now()->subHours(2),
         ]);
 
         $activities = $activities->sortByDesc('date')->take(8);
@@ -607,7 +663,7 @@ class UserController extends Controller
             'total_tryouts' => $totalTryouts,
             'avg_score' => round($avgScore, 1),
             'total_certificates' => $certificates->count(),
-            'study_hours' => $totalStudyHours
+            'study_hours' => $totalStudyHours,
         ];
 
         return view('admin.pages.user.report', compact(
@@ -622,13 +678,13 @@ class UserController extends Controller
     public function loginAs($id)
     {
         $user = User::findOrFail($id);
-        
+
         // Pastikan yang login adalah admin
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
+        if (! Auth::check() || Auth::user()->role !== 'admin') {
             return redirect()->route('admin.user.index')
                 ->with('error', 'Unauthorized access.');
         }
-        
+
         // Simpan admin ID dan info ke session
         session([
             'admin_login_as' => Auth::id(),
@@ -637,24 +693,24 @@ class UserController extends Controller
             'login_as_user_name' => $user->name,
             'login_as_user_email' => $user->email,
         ]);
-        
+
         // Login sebagai user
         Auth::login($user);
-        
+
         return redirect()->route('user.dashboard.index');
     }
-    
+
     public function logoutAs()
     {
         $adminId = session('admin_login_as');
-        
-        if (!$adminId) {
+
+        if (! $adminId) {
             return redirect()->route('login');
         }
-        
+
         $admin = User::find($adminId);
-        
-        if (!$admin) {
+
+        if (! $admin) {
             session()->forget([
                 'admin_login_as',
                 'admin_name',
@@ -662,9 +718,10 @@ class UserController extends Controller
                 'login_as_user_name',
                 'login_as_user_email',
             ]);
+
             return redirect()->route('login');
         }
-        
+
         // Hapus session admin_login_as
         session()->forget([
             'admin_login_as',
@@ -673,10 +730,10 @@ class UserController extends Controller
             'login_as_user_name',
             'login_as_user_email',
         ]);
-        
+
         // Login kembali sebagai admin
         Auth::login($admin);
-        
+
         return redirect()->route('admin.user.index')
             ->with('success', 'Anda kembali login sebagai admin.');
     }

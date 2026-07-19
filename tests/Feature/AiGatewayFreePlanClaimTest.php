@@ -228,6 +228,52 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->assertJsonPath('claimed_free_plan_ids.0', $plan->id);
     }
 
+    public function test_gateway_client_can_add_and_audit_tokens_for_a_specific_participant(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan();
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', [
+                'plan_id' => $plan->id,
+                'external_user_id' => 'participant-123',
+            ])
+            ->assertOk();
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/subscription/tokens', [
+                'external_user_id' => 'participant-123',
+                'tokens' => 5000,
+                'reason' => 'Bonus event',
+                'actor_user_id' => '7',
+                'actor_name' => 'Admin Test',
+                'actor_email' => 'admin@example.com',
+                'origin_base_url' => 'https://client.example.com',
+            ])
+            ->assertOk()
+            ->assertJsonPath('previous_limit', 10000)
+            ->assertJsonPath('new_limit', 15000)
+            ->assertJsonPath('added_tokens', 5000);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/subscription/token-summaries', [
+                'external_user_ids' => ['participant-123'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('summaries.participant-123.token_limit', 15000)
+            ->assertJsonPath('summaries.participant-123.remaining_tokens', 15000);
+
+        $this->assertDatabaseHas('ai_gateway_token_adjustments', [
+            'ai_gateway_client_id' => $client->id,
+            'external_user_id' => 'participant-123',
+            'tokens_added' => 5000,
+            'previous_token_limit' => 10000,
+            'new_token_limit' => 15000,
+            'reason' => 'Bonus event',
+            'actor_name' => 'Admin Test',
+        ]);
+    }
+
     public function test_paid_plan_still_creates_pending_payment_invoice(): void
     {
         [$client, $key] = $this->gatewayClient();
@@ -524,6 +570,21 @@ class AiGatewayFreePlanClaimTest extends TestCase
             $table->unsignedInteger('chats_used')->default(0);
             $table->timestamps();
             $table->unique(['ai_gateway_client_id', 'external_user_id']);
+        });
+        Schema::create('ai_gateway_token_adjustments', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('ai_gateway_client_id');
+            $table->unsignedBigInteger('ai_gateway_subscription_id')->nullable();
+            $table->string('external_user_id', 120);
+            $table->unsignedBigInteger('tokens_added');
+            $table->unsignedBigInteger('previous_token_limit');
+            $table->unsignedBigInteger('new_token_limit');
+            $table->string('reason');
+            $table->string('actor_user_id', 120)->nullable();
+            $table->string('actor_name')->nullable();
+            $table->string('actor_email')->nullable();
+            $table->string('origin_base_url', 2048)->nullable();
+            $table->timestamps();
         });
         Schema::create('ai_model_pricings', function (Blueprint $table) {
             $table->id();

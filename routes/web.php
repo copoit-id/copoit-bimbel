@@ -570,6 +570,7 @@ Route::prefix('{portal}')
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
+        Route::post('user/{user}/ai-tokens', [UserController::class, 'addAiTokens'])->name('user.ai-tokens.store');
         Route::resource('user', UserController::class);
         Route::get('participant-destination-categories/official/institutions', [ParticipantDestinationCategoryController::class, 'officialInstitutions'])
             ->name('participant-destination-categories.official.institutions');
