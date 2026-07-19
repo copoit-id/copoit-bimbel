@@ -508,6 +508,9 @@ class AiGatewayFreePlanClaimTest extends TestCase
             'url' => 'https://checkout.xendit.test/invoice-123',
             'details' => ['invoice_url' => 'https://checkout.xendit.test/invoice-123'],
         ]);
+        $paymentService->shouldReceive('synchronize')->once()->andReturnUsing(
+            fn (AiGatewayTransaction $transaction): AiGatewayTransaction => $transaction,
+        );
         $this->app->instance(AiGatewayPaymentService::class, $paymentService);
 
         $response = $this->withHeader('X-AI-Gateway-Key', $key)
@@ -528,6 +531,12 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->where('external_user_id', 'participant-123')
             ->sole();
         $response->assertJsonPath('subscription_id', $subscription->id);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-123')
+            ->assertOk()
+            ->assertJsonPath('pending_payment.subscription_id', $subscription->id)
+            ->assertJsonPath('pending_payment.external_id', $response->json('external_id'));
 
         $this->assertDatabaseHas('ai_gateway_subscriptions', [
             'ai_gateway_client_id' => $client->id,

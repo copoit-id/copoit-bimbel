@@ -117,6 +117,7 @@ class AiGatewayBillingController extends Controller
             'pending_payment' => $pendingPayment ? [
                 'plan_id' => $pendingPayment->ai_gateway_plan_id,
                 'subscription_id' => $pendingPayment->ai_gateway_subscription_id,
+                'external_id' => $pendingPayment->external_id,
                 'plan_name' => $pendingPayment->plan?->name,
                 'invoice_url' => $this->paymentUrl($pendingPayment),
                 'expires_at' => $pendingPayment->created_at?->copy()->addDay()->toIso8601String(),
