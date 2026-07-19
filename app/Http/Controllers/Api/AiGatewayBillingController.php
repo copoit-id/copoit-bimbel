@@ -51,6 +51,7 @@ class AiGatewayBillingController extends Controller
             'external_user_id' => 'required|string|max:120',
         ])['external_user_id']);
         $this->syncLatestPendingPayment($client, $externalUserId);
+        $this->reconcileVerifiedPaidSubscriptions($client, $externalUserId);
         $subscriptions = AiGatewaySubscription::with('plan')
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
@@ -91,6 +92,23 @@ class AiGatewayBillingController extends Controller
                     ->orWhere('ends_at', '<=', now());
             })
             ->exists();
+        $activations = AiGatewayTransaction::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('status', 'paid')
+            ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
+            ->latest('paid_at')
+            ->limit(20)
+            ->get()
+            ->filter(fn (AiGatewayTransaction $transaction): bool => (int) data_get($transaction->details, 'activated_subscription_id', 0) > 0)
+            ->map(fn (AiGatewayTransaction $transaction): array => [
+                'external_id' => $transaction->external_id,
+                'plan_id' => $transaction->ai_gateway_plan_id,
+                'checkout_subscription_id' => $transaction->ai_gateway_subscription_id,
+                'activated_subscription_id' => (int) data_get($transaction->details, 'activated_subscription_id'),
+                'confirmation_source' => data_get($transaction->details, 'confirmation_source'),
+                'confirmed_at' => data_get($transaction->details, 'confirmed_at') ?: $transaction->paid_at?->toIso8601String(),
+            ])
+            ->values();
 
         return response()->json([
             'project' => $client->name,
@@ -112,6 +130,7 @@ class AiGatewayBillingController extends Controller
             ],
             'claimed_free_plan_ids' => $claimedFreePlanIds,
             'has_inactive_package_history' => $hasInactivePackageHistory,
+            'activations' => $activations,
         ]);
     }
 
@@ -150,6 +169,8 @@ class AiGatewayBillingController extends Controller
                 'already_claimed' => $claim['already_claimed'],
                 'invoice_url' => null,
                 'external_id' => $transaction?->external_id,
+                'subscription_id' => $subscription?->id,
+                'activated_subscription_id' => (int) data_get($transaction?->details, 'activated_subscription_id', 0) ?: null,
                 'subscription' => $subscription,
             ]);
         }
@@ -176,6 +197,7 @@ class AiGatewayBillingController extends Controller
                 'claimed' => false,
                 'invoice_url' => $this->paymentUrl($pendingTransaction),
                 'external_id' => $pendingTransaction->external_id,
+                'subscription_id' => $pendingTransaction->ai_gateway_subscription_id,
                 'reused_pending_invoice' => true,
             ]);
         }
@@ -237,6 +259,7 @@ class AiGatewayBillingController extends Controller
             'claimed' => false,
             'invoice_url' => $payment['url'],
             'external_id' => $externalId,
+            'subscription_id' => $subscription->id,
         ]);
     }
 
@@ -379,6 +402,35 @@ class AiGatewayBillingController extends Controller
 
         if ($transaction) {
             $this->paymentService->synchronize($transaction);
+        }
+    }
+
+    private function reconcileVerifiedPaidSubscriptions(AiGatewayClient $client, string $externalUserId): void
+    {
+        $transactions = AiGatewayTransaction::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('status', 'paid')
+            ->whereHas('subscription', fn ($query) => $query
+                ->where('external_user_id', $externalUserId)
+                ->where('status', 'pending'))
+            ->latest('paid_at')
+            ->limit(10)
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            $confirmationSource = data_get($transaction->details, 'confirmation_source');
+            if ($confirmationSource !== 'provider') {
+                continue;
+            }
+
+            try {
+                $this->subscriptionService->reconcilePaidTransaction($transaction, [
+                    'source' => 'gateway_status_auto',
+                    'reason' => 'Transaksi sudah terverifikasi, tetapi subscription masih pending.',
+                ]);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
         }
     }
 

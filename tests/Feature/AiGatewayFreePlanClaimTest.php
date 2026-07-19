@@ -65,7 +65,9 @@ class AiGatewayFreePlanClaimTest extends TestCase
                 'claimed' => true,
                 'already_claimed' => false,
                 'invoice_url' => null,
-            ]);
+            ])
+            ->assertJsonPath('subscription_id', fn ($id): bool => (int) $id > 0)
+            ->assertJsonPath('activated_subscription_id', fn ($id): bool => (int) $id > 0);
 
         Http::assertNothingSent();
         $this->assertDatabaseHas('ai_gateway_subscriptions', [
@@ -229,6 +231,132 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->assertJsonPath('has_inactive_package_history', false);
     }
 
+    public function test_subscription_status_repairs_verified_paid_transaction_with_pending_subscription(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan([
+            'name' => 'Pembahasan AI Rekonsiliasi',
+            'slug' => 'pembahasan-ai-rekonsiliasi',
+            'price' => 25000,
+        ]);
+        $subscription = AiGatewaySubscription::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'token_limit' => $plan->token_limit,
+            'chat_limit' => $plan->chat_limit,
+            'external_user_id' => 'participant-reconcile',
+            'status' => 'pending',
+        ]);
+        $transaction = AiGatewayTransaction::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'ai_gateway_subscription_id' => $subscription->id,
+            'external_id' => 'AIGW-RECONCILE-1',
+            'provider' => 'xendit',
+            'amount' => $plan->price,
+            'status' => 'paid',
+            'paid_at' => now(),
+            'details' => [
+                'confirmation_source' => 'provider',
+                'activated_subscription_id' => $subscription->id,
+            ],
+        ]);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-reconcile')
+            ->assertOk()
+            ->assertJsonPath('subscription.id', $subscription->id)
+            ->assertJsonPath('subscription.status', 'active')
+            ->assertJsonPath('activations.0.external_id', 'AIGW-RECONCILE-1')
+            ->assertJsonPath('activations.0.checkout_subscription_id', $subscription->id)
+            ->assertJsonPath('activations.0.activated_subscription_id', $subscription->id);
+
+        $this->assertSame('active', $subscription->fresh()->status);
+        $this->assertSame(
+            'gateway_status_auto',
+            data_get($transaction->fresh()->details, 'subscription_reconciliation.source'),
+        );
+        $tokenLimit = $subscription->fresh()->token_limit;
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-reconcile')
+            ->assertOk();
+
+        $this->assertSame($tokenLimit, $subscription->fresh()->token_limit);
+    }
+
+    public function test_subscription_status_does_not_auto_repair_unverified_legacy_payment(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan([
+            'name' => 'Pembahasan AI Legacy',
+            'slug' => 'pembahasan-ai-legacy',
+            'price' => 25000,
+        ]);
+        $subscription = AiGatewaySubscription::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'token_limit' => $plan->token_limit,
+            'chat_limit' => $plan->chat_limit,
+            'external_user_id' => 'participant-unverified',
+            'status' => 'pending',
+        ]);
+        AiGatewayTransaction::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'ai_gateway_subscription_id' => $subscription->id,
+            'external_id' => 'AIGW-UNVERIFIED-1',
+            'provider' => 'ipaymu',
+            'amount' => $plan->price,
+            'status' => 'paid',
+            'paid_at' => now(),
+            'details' => [],
+        ]);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-unverified')
+            ->assertOk()
+            ->assertJsonPath('subscription', null);
+
+        $this->assertSame('pending', $subscription->fresh()->status);
+    }
+
+    public function test_subscription_status_does_not_auto_repair_manual_confirmation_source(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan([
+            'name' => 'Pembahasan AI Manual',
+            'slug' => 'pembahasan-ai-manual',
+            'price' => 25000,
+        ]);
+        $subscription = AiGatewaySubscription::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'token_limit' => $plan->token_limit,
+            'chat_limit' => $plan->chat_limit,
+            'external_user_id' => 'participant-manual-source',
+            'status' => 'pending',
+        ]);
+        AiGatewayTransaction::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'ai_gateway_subscription_id' => $subscription->id,
+            'external_id' => 'AIGW-MANUAL-SOURCE-1',
+            'provider' => 'ipaymu',
+            'amount' => $plan->price,
+            'status' => 'paid',
+            'paid_at' => now(),
+            'details' => ['confirmation_source' => 'manual_admin'],
+        ]);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-manual-source')
+            ->assertOk()
+            ->assertJsonPath('subscription', null);
+
+        $this->assertSame('pending', $subscription->fresh()->status);
+    }
+
     public function test_revoked_free_plan_loses_access_and_can_be_claimed_again_without_deleting_history(): void
     {
         [$client, $key] = $this->gatewayClient();
@@ -382,7 +510,7 @@ class AiGatewayFreePlanClaimTest extends TestCase
         ]);
         $this->app->instance(AiGatewayPaymentService::class, $paymentService);
 
-        $this->withHeader('X-AI-Gateway-Key', $key)
+        $response = $this->withHeader('X-AI-Gateway-Key', $key)
             ->postJson('/api/ai-gateway/checkout', [
                 'plan_id' => $plan->id,
                 'external_user_id' => 'participant-123',
@@ -395,6 +523,11 @@ class AiGatewayFreePlanClaimTest extends TestCase
                 'claimed' => false,
                 'invoice_url' => 'https://checkout.xendit.test/invoice-123',
             ]);
+
+        $subscription = AiGatewaySubscription::query()
+            ->where('external_user_id', 'participant-123')
+            ->sole();
+        $response->assertJsonPath('subscription_id', $subscription->id);
 
         $this->assertDatabaseHas('ai_gateway_subscriptions', [
             'ai_gateway_client_id' => $client->id,

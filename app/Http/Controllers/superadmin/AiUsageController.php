@@ -400,6 +400,28 @@ class AiUsageController extends Controller
         return back()->with('success', 'Pembayaran berhasil di-ACC dan kuota peserta telah diaktifkan.');
     }
 
+    public function reconcileGatewayPayment(
+        Request $request,
+        AiGatewayTransaction $transaction,
+        AiGatewaySubscriptionService $subscriptionService,
+    ): RedirectResponse {
+        $actor = $request->user();
+
+        try {
+            $subscriptionService->reconcilePaidTransaction($transaction, [
+                'source' => 'manual_super_admin',
+                'reason' => 'Transaksi sudah dibayar, tetapi subscription peserta belum aktif.',
+                'actor_user_id' => $actor?->id,
+                'actor_name' => $actor?->name,
+                'actor_email' => $actor?->email,
+            ]);
+        } catch (RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return back()->with('success', 'Subscription berhasil disinkronkan tanpa membuat pembayaran atau kuota ganda.');
+    }
+
     public function rejectGatewayPayment(AiGatewayTransaction $transaction)
     {
         if ($transaction->status !== 'pending') {

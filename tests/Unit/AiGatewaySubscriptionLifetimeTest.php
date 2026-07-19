@@ -112,6 +112,32 @@ class AiGatewaySubscriptionLifetimeTest extends TestCase
         $this->assertNotNull(data_get($transaction->details, 'reset_to_pending_at'));
     }
 
+    public function test_manual_reconciliation_activates_paid_pending_subscription_only_once(): void
+    {
+        $plan = $this->createLifetimePlan();
+        $subscription = $this->createPendingSubscription($plan);
+        $transaction = $this->createTransaction($plan, $subscription);
+        $transaction->update(['status' => 'paid', 'paid_at' => now(), 'details' => []]);
+        $service = app(AiGatewaySubscriptionService::class);
+
+        $service->reconcilePaidTransaction($transaction, [
+            'source' => 'manual_super_admin',
+            'reason' => 'Pembayaran sudah diverifikasi.',
+        ]);
+        $firstTokenLimit = $subscription->fresh()->token_limit;
+        $service->reconcilePaidTransaction($transaction->fresh(), [
+            'source' => 'manual_super_admin',
+            'reason' => 'Percobaan rekonsiliasi ulang.',
+        ]);
+
+        $this->assertSame('active', $subscription->fresh()->status);
+        $this->assertSame($firstTokenLimit, $subscription->fresh()->token_limit);
+        $this->assertSame(
+            'manual_super_admin',
+            data_get($transaction->fresh()->details, 'subscription_reconciliation.source'),
+        );
+    }
+
     private function createLifetimePlan(): AiGatewayPlan
     {
         return AiGatewayPlan::create([

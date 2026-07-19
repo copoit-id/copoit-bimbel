@@ -94,6 +94,9 @@
                                 && $subscription->status === 'active'
                                 && (int) $subscription->tokens_used === 0
                                 && (int) $subscription->chats_used === 0;
+                            $canReconcilePayment = $transaction->status === 'paid'
+                                && blank($accessRevocation)
+                                && $subscription?->status === 'pending';
                         @endphp
 
                         <tr>
@@ -156,6 +159,15 @@
                                     >
                                         @csrf
                                         <button class="text-xs font-semibold text-red-600 hover:underline">Tolak</button>
+                                    </form>
+                                @elseif($canReconcilePayment)
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.reconcile', $transaction) }}"
+                                        onsubmit="return confirm('Transaksi sudah dibayar. Sinkronkan dan aktifkan paket peserta tanpa membuat pembayaran baru?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-blue-700 hover:underline">Sinkronkan paket</button>
                                     </form>
                                 @elseif($canResetLegacyPayment)
                                     <form

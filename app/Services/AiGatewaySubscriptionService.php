@@ -46,47 +46,15 @@ class AiGatewaySubscriptionService
                 return null;
             }
 
-            $pendingSubscription = AiGatewaySubscription::with('plan')->find($transaction->ai_gateway_subscription_id);
+            $pendingSubscription = AiGatewaySubscription::query()
+                ->with('plan')
+                ->lockForUpdate()
+                ->find($transaction->ai_gateway_subscription_id);
             if (! $pendingSubscription) {
                 return null;
             }
 
-            $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
-            $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
-            $durationDays = max(0, (int) ($transaction->plan?->duration_days ?? 30));
-            $activeSubscription = AiGatewaySubscription::query()
-                ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
-                ->where('external_user_id', $pendingSubscription->external_user_id)
-                ->where('ai_gateway_plan_id', $pendingSubscription->ai_gateway_plan_id)
-                ->where('status', 'active')
-                ->notExpired()
-                ->latest()
-                ->first();
-
-            if ($activeSubscription) {
-                $currentLimit = (int) ($activeSubscription->token_limit ?: $activeSubscription->plan?->token_limit ?: 0);
-                $updates = [
-                    'token_limit' => $currentLimit + $tokenCredit,
-                    'ends_at' => $durationDays === 0 || $activeSubscription->ends_at === null
-                        ? null
-                        : $activeSubscription->ends_at->copy()->addDays($durationDays),
-                ];
-                if ($chatCredit > 0) {
-                    $currentChatLimit = (int) ($activeSubscription->chat_limit ?: $activeSubscription->plan?->chat_limit ?: 0);
-                    $updates['chat_limit'] = $currentChatLimit + $chatCredit;
-                }
-                $activeSubscription->update($updates);
-                $pendingSubscription->update(['status' => 'merged']);
-            } else {
-                $pendingSubscription->update([
-                    'status' => 'active',
-                    'token_limit' => $tokenCredit,
-                    'chat_limit' => $chatCredit,
-                    'starts_at' => now(),
-                    'ends_at' => $durationDays > 0 ? now()->addDays($durationDays) : null,
-                ]);
-                $activeSubscription = $pendingSubscription;
-            }
+            $activeSubscription = $this->grantSubscriptionCredit($transaction, $pendingSubscription);
 
             $details = is_array($transaction->details) ? $transaction->details : [];
             $details['confirmation_source'] = $confirmationSource;
@@ -99,6 +67,68 @@ class AiGatewaySubscriptionService
             ]);
 
             DB::afterCommit(fn () => $this->telegramNotificationService->notifyPurchase($transaction->id));
+
+            return $activeSubscription->fresh('plan');
+        });
+    }
+
+    public function reconcilePaidTransaction(AiGatewayTransaction $transaction, array $audit = []): AiGatewaySubscription
+    {
+        return DB::transaction(function () use ($transaction, $audit): AiGatewaySubscription {
+            $transaction = AiGatewayTransaction::query()
+                ->with('plan')
+                ->lockForUpdate()
+                ->find($transaction->id);
+
+            if (! $transaction || $transaction->status !== 'paid') {
+                throw new RuntimeException('Hanya transaksi yang sudah dibayar yang dapat direkonsiliasi.');
+            }
+
+            $details = is_array($transaction->details) ? $transaction->details : [];
+            if (filled(data_get($details, 'access_revocation'))) {
+                throw new RuntimeException('Paket ini sengaja dicabut dan tidak boleh diaktifkan kembali melalui rekonsiliasi.');
+            }
+
+            $activatedSubscriptionId = (int) data_get($details, 'activated_subscription_id', 0);
+            if ($activatedSubscriptionId > 0) {
+                $activatedSubscription = AiGatewaySubscription::query()
+                    ->with('plan')
+                    ->lockForUpdate()
+                    ->find($activatedSubscriptionId);
+
+                if ($activatedSubscription?->status === 'active'
+                    && ($activatedSubscription->ends_at === null || $activatedSubscription->ends_at->isFuture())) {
+                    return $activatedSubscription;
+                }
+
+                if ($activatedSubscriptionId !== (int) $transaction->ai_gateway_subscription_id
+                    || $activatedSubscription?->status !== 'pending') {
+                    throw new RuntimeException('Subscription tujuan sudah tidak aktif karena alasan lain dan tidak aman dipulihkan otomatis.');
+                }
+            }
+
+            $pendingSubscription = AiGatewaySubscription::query()
+                ->with('plan')
+                ->lockForUpdate()
+                ->find($transaction->ai_gateway_subscription_id);
+
+            if (! $pendingSubscription || $pendingSubscription->status !== 'pending') {
+                throw new RuntimeException('Subscription pending yang cocok dengan pembayaran tidak ditemukan.');
+            }
+
+            $activeSubscription = $this->grantSubscriptionCredit($transaction, $pendingSubscription);
+            $details['activated_subscription_id'] = $activeSubscription->id;
+            $details['subscription_reconciliation'] = [
+                'reconciled_at' => now()->toISOString(),
+                'source' => $audit['source'] ?? 'manual_super_admin',
+                'reason' => $audit['reason'] ?? 'Paid transaction had an inactive subscription.',
+                'actor' => [
+                    'user_id' => filled($audit['actor_user_id'] ?? null) ? (string) $audit['actor_user_id'] : null,
+                    'name' => $audit['actor_name'] ?? null,
+                    'email' => $audit['actor_email'] ?? null,
+                ],
+            ];
+            $transaction->update(['details' => $details]);
 
             return $activeSubscription->fresh('plan');
         });
@@ -239,5 +269,51 @@ class AiGatewaySubscriptionService
     private function externalId(AiGatewayClient $client, AiGatewaySubscription $subscription): string
     {
         return 'AIGW-FREE-'.$client->id.'-'.$subscription->id.'-'.Str::upper(Str::random(8));
+    }
+
+    private function grantSubscriptionCredit(
+        AiGatewayTransaction $transaction,
+        AiGatewaySubscription $pendingSubscription,
+    ): AiGatewaySubscription {
+        $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
+        $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
+        $durationDays = max(0, (int) ($transaction->plan?->duration_days ?? 30));
+        $activeSubscription = AiGatewaySubscription::query()
+            ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
+            ->where('external_user_id', $pendingSubscription->external_user_id)
+            ->where('ai_gateway_plan_id', $pendingSubscription->ai_gateway_plan_id)
+            ->where('status', 'active')
+            ->notExpired()
+            ->latest()
+            ->lockForUpdate()
+            ->first();
+
+        if ($activeSubscription) {
+            $currentLimit = (int) ($activeSubscription->token_limit ?: $activeSubscription->plan?->token_limit ?: 0);
+            $updates = [
+                'token_limit' => $currentLimit + $tokenCredit,
+                'ends_at' => $durationDays === 0 || $activeSubscription->ends_at === null
+                    ? null
+                    : $activeSubscription->ends_at->copy()->addDays($durationDays),
+            ];
+            if ($chatCredit > 0) {
+                $currentChatLimit = (int) ($activeSubscription->chat_limit ?: $activeSubscription->plan?->chat_limit ?: 0);
+                $updates['chat_limit'] = $currentChatLimit + $chatCredit;
+            }
+            $activeSubscription->update($updates);
+            $pendingSubscription->update(['status' => 'merged']);
+
+            return $activeSubscription;
+        }
+
+        $pendingSubscription->update([
+            'status' => 'active',
+            'token_limit' => $tokenCredit,
+            'chat_limit' => $chatCredit,
+            'starts_at' => now(),
+            'ends_at' => $durationDays > 0 ? now()->addDays($durationDays) : null,
+        ]);
+
+        return $pendingSubscription;
     }
 }
