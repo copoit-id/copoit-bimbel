@@ -44,4 +44,14 @@ class AiDiscussionServiceScopeTest extends TestCase
         $this->assertStringContainsString('hanya berupa satu object JSON valid', $prompt);
         $this->assertStringContainsString('key_points', $prompt);
     }
+
+    public function test_learning_recommendation_requests_video_search_topics_without_urls(): void
+    {
+        $method = new ReflectionMethod(AiDiscussionService::class, 'systemPrompt');
+        $prompt = $method->invoke(app(AiDiscussionService::class), [], 'learning_recommendation');
+
+        $this->assertStringContainsString('video_recommendations', $prompt);
+        $this->assertStringContainsString('search_query', $prompt);
+        $this->assertStringContainsString('jangan membuat URL atau nama channel', $prompt);
+    }
 }

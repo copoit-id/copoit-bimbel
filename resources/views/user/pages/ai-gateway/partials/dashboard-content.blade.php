@@ -19,6 +19,7 @@
         && (($subscriptionTokenLimit > 0 && $subscriptionTokensUsed >= $subscriptionTokenLimit)
             || ($subscriptionChatLimit > 0 && $subscriptionChatsUsed >= $subscriptionChatLimit));
     $aiLearningReturnUrl = route('user.ai-learning.index', ['tool' => 'quota']);
+    $aiLearningOnboardingReturnUrl = route('user.ai-learning.index', ['tool' => 'note', 'onboarding' => 1]);
 @endphp
 
 <div class="space-y-6">
@@ -76,7 +77,7 @@
                     <p class="mt-2 text-2xl font-bold text-primary">{{ $isFreePlan ? 'Gratis' : 'Rp ' . number_format(data_get($plan, 'price'), 0, ',', '.') }}</p>
                     <p class="mt-1 text-sm text-gray-500">{{ data_get($plan, 'duration_days') > 0 ? 'Aktif ' . data_get($plan, 'duration_days') . ' hari' : 'Tanpa masa aktif' }}</p>
                     <p class="mt-4 text-sm text-gray-600">{{ data_get($plan, 'chat_limit') ? number_format(data_get($plan, 'chat_limit'), 0, ',', '.') . ' chat AI' : 'Chat AI unlimited sampai token habis' }}</p>
-                    <form method="POST" action="{{ route('user.ai-gateway.checkout') }}" class="mt-5">@csrf<input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}"><input type="hidden" name="return_url" value="{{ $aiLearningReturnUrl }}"><button @disabled($freePlanClaimed || $paidCheckoutBlocked) class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
+                    <form method="POST" action="{{ route('user.ai-gateway.checkout') }}" class="mt-5">@csrf<input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}"><input type="hidden" name="return_url" value="{{ $isFreePlan ? $aiLearningOnboardingReturnUrl : $aiLearningReturnUrl }}"><button @disabled($freePlanClaimed || $paidCheckoutBlocked) class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
                         @if($freePlanClaimed)
                             Sudah diklaim
                         @elseif($isFreePlan)

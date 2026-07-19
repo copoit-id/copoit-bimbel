@@ -24,7 +24,7 @@ class AiLearningToolService
         );
         $decoded = $this->decodeJson((string) ($result['message'] ?? ''));
         $payload = $this->normalize($tool, $decoded);
-        $this->assertCompletePayload($tool, $payload);
+        $this->assertCompletePayload($tool, $payload, $options);
 
         return [
             'payload' => $payload,
@@ -45,10 +45,10 @@ class AiLearningToolService
     {
         return match ($tool) {
             'note' => 'Buat catatan materi yang LENGKAP, enak dipelajari, dan terstruktur dari materi atau soal yang diberikan; bukan satu paragraf panjang atau ringkasan singkat. Buat pengantar singkat pada summary, lalu pecah penjelasan menjadi 4-6 sections. Setiap section wajib memiliki title, 1-3 paragraphs pendek yang saling menyambung, dan bullets bila ada hal yang perlu diingat. Jelaskan konsep inti, alasan, langkah memahami, contoh atau konteks, serta miskonsepsi umum bila relevan. Isi key_points dengan minimal 6 butir inti. formulas berisi rumus, definisi, atau istilah penting yang layak ditonjolkan; kosongkan bila tidak relevan. Balas HANYA JSON valid: {"title":"...","summary":"...","sections":[{"title":"...","paragraphs":["..."],"bullets":["..."]}],"key_points":["..."],"formulas":["..."]}. Akurat dan jangan tambahkan URL atau Markdown.',
-            'recommendation' => 'Analisis materi yang perlu dipelajari dari materi atau soal yang diberikan. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."]}. Jangan membuat URL atau nama sumber.',
+            'recommendation' => 'Analisis materi yang perlu dipelajari dari materi atau soal yang diberikan. Sertakan 2-3 rekomendasi topik video berupa judul dan kata kunci pencarian, bukan URL atau nama channel yang dibuat-buat. Balas HANYA JSON valid: {"title":"...","focus_topics":[{"topic":"...","reason":"...","priority":"tinggi|sedang|rendah"}],"study_plan":["..."],"video_recommendations":[{"title":"...","search_query":"...","reason":"..."}]}.',
             'question' => sprintf(
                 'Buat %d soal latihan serupa berdasarkan konsep yang diberikan dengan tingkat %s, variasi %s, dan HOTS %s. Setiap soal wajib memiliki tepat empat opsi A-D, satu jawaban benar, dan pembahasan. Balas HANYA JSON valid: {"title":"...","questions":[{"question_text":"...","options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}],"correct_answer":"A","explanation":"...","difficulty":"%s","hots_level":"%s"}]}. Jangan menyalin persis input asli.',
-                max(1, min(3, (int) ($options['question_count'] ?? 1))),
+                max(1, min(5, (int) ($options['question_count'] ?? 1))),
                 $options['difficulty'] ?? 'sedang',
                 $options['variation'] ?? 'konteks',
                 $options['hots_level'] ?? 'sedang',
@@ -117,12 +117,24 @@ class AiLearningToolService
                             : 'sedang',
                     ])->filter(fn (array $item) => $item['topic'] !== '')->values()->all(),
                 'study_plan' => $this->stringList($payload['study_plan'] ?? [], 8),
+                'video_recommendations' => collect(Arr::wrap($payload['video_recommendations'] ?? []))
+                    ->filter(fn ($item) => is_array($item))
+                    ->take(3)
+                    ->map(fn (array $item) => [
+                        'title' => $this->text($item['title'] ?? ''),
+                        'search_query' => $this->text($item['search_query'] ?? ''),
+                        'reason' => $this->text($item['reason'] ?? ''),
+                    ])->filter(fn (array $item) => $item['title'] !== '' && $item['search_query'] !== '')
+                    ->values()
+                    ->all(),
             ],
             'question' => [
                 'title' => $this->text($payload['title'] ?? 'Soal Serupa'),
-                'questions' => collect(Arr::wrap($payload['questions'] ?? []))
+                'questions' => collect(Arr::wrap(
+                    $payload['questions'] ?? (filled($payload['question_text'] ?? null) ? [$payload] : [])
+                ))
                     ->filter(fn ($item) => is_array($item))
-                    ->take(3)
+                    ->take(5)
                     ->map(fn (array $item) => $this->normalizeQuestion($item))
                     ->filter(fn (array $item) => $item['question_text'] !== ''
                         && count($item['options']) === 4
@@ -188,15 +200,20 @@ class AiLearningToolService
         ];
     }
 
-    /** @param array<string, mixed> $payload */
-    private function assertCompletePayload(string $tool, array $payload): void
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $options
+     */
+    private function assertCompletePayload(string $tool, array $payload, array $options): void
     {
+        $requestedQuestionCount = max(1, min(5, (int) ($options['question_count'] ?? 1)));
         $isComplete = match ($tool) {
             'note' => $payload['summary'] !== ''
                 && count($payload['key_points']) > 0,
-            'recommendation' => count($payload['focus_topics']) > 0
-                || count($payload['study_plan']) > 0,
-            'question' => count($payload['questions']) > 0,
+            'recommendation' => (count($payload['focus_topics']) > 0
+                || count($payload['study_plan']) > 0)
+                && count($payload['video_recommendations']) > 0,
+            'question' => count($payload['questions']) >= $requestedQuestionCount,
             'flashcard' => count($payload['cards']) > 0,
             default => false,
         };

@@ -53,8 +53,8 @@
         $aiGatewayFeatureButtonText = $isAiGatewayPackageExhausted ? 'Beli paket lagi' : 'Beli paket AI';
         $aiLearningTokensPerGeneratedQuestion = 900;
         $aiLearningMaxQuestionCount = $aiGatewayRemainingTokens === null
-            ? 3
-            : min(3, intdiv(max(0, (int) $aiGatewayRemainingTokens), $aiLearningTokensPerGeneratedQuestion));
+            ? 5
+            : min(5, intdiv(max(0, (int) $aiGatewayRemainingTokens), $aiLearningTokensPerGeneratedQuestion));
     @endphp
     <style>
         .discussion-nav-btn:hover,
@@ -1504,8 +1504,8 @@
         const tokensUsed = Number(quota.tokens_used || 0);
         const remainingTokens = tokenLimit > 0 ? Math.max(0, tokenLimit - tokensUsed) : null;
         const maxCount = remainingTokens === null
-            ? 3
-            : Math.min(3, Math.floor(remainingTokens / aiLearningTokensPerGeneratedQuestion));
+            ? 5
+            : Math.min(5, Math.floor(remainingTokens / aiLearningTokensPerGeneratedQuestion));
         const previousValue = Number(aiLearningQuestionCount.value || 1);
 
         aiLearningQuestionCount.innerHTML = '';

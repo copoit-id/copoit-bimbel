@@ -23,15 +23,23 @@ class AiLearningToolController extends Controller
     public function index(
         Request $request,
         AiGatewaySubscriptionController $aiGatewaySubscriptionController,
-    ): View
-    {
+    ): View {
         $user = $request->user();
         $currentSource = trim((string) $request->query('source', ''));
         $currentTool = in_array($request->query('tool'), ['quota', 'note', 'recommendation', 'question', 'flashcard'], true)
             ? $request->query('tool')
             : 'quota';
         $showPinned = $request->boolean('pinned') || $request->boolean('saved');
-        $gatewayDashboardData = $currentTool === 'quota'
+        $hasUsedAiLearning = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->exists();
+        if (! $hasUsedAiLearning) {
+            $hasUsedAiLearning = AiDiscussionUsageLog::query()
+                ->where('user_id', $user->id)
+                ->where('user_message', 'like', 'AI Learning Tool%')
+                ->exists();
+        }
+        $gatewayDashboardData = $currentTool === 'quota' || ! $hasUsedAiLearning
             ? $aiGatewaySubscriptionController->dashboardData($request)
             : [];
 
@@ -98,7 +106,27 @@ class AiLearningToolController extends Controller
             ->whereNotNull('saved_at')
             ->count();
 
-        return view('user.pages.ai-learning.index', compact('artifacts', 'sourceOptions', 'currentSource', 'currentTool', 'showPinned', 'pinnedArtifactsCount', 'gatewayDashboardData'));
+        $hasActiveAiGatewaySubscription = collect($gatewayDashboardData['subscriptions'] ?? [])
+            ->contains(fn ($subscription) => data_get($subscription, 'status') === 'active');
+        $hasAvailableAiGatewayTrial = (bool) data_get($gatewayDashboardData, 'trial.available', false);
+        $showAiLearningOnboarding = ! $hasUsedAiLearning
+            && ($hasActiveAiGatewaySubscription || $hasAvailableAiGatewayTrial);
+        $aiLearningOnboardingSample = [
+            'title' => 'Persamaan Linear Satu Variabel',
+            'content' => 'Soal contoh: Nilai x yang memenuhi persamaan 3x + 5 = 20 adalah ... A. 3, B. 5, C. 7, D. 15. Jelaskan konsep dan langkah penyelesaiannya dengan bahasa yang mudah dipahami.',
+        ];
+
+        return view('user.pages.ai-learning.index', compact(
+            'artifacts',
+            'sourceOptions',
+            'currentSource',
+            'currentTool',
+            'showPinned',
+            'pinnedArtifactsCount',
+            'gatewayDashboardData',
+            'showAiLearningOnboarding',
+            'aiLearningOnboardingSample',
+        ));
     }
 
     public function history(
@@ -159,7 +187,7 @@ class AiLearningToolController extends Controller
             'difficulty' => ['nullable', 'in:mudah,sedang,sulit'],
             'variation' => ['nullable', 'in:konteks,angka,hots'],
             'hots_level' => ['nullable', 'in:rendah,sedang,tinggi'],
-            'question_count' => ['nullable', 'integer', 'min:1', 'max:3'],
+            'question_count' => ['nullable', 'integer', 'min:1', 'max:5'],
         ]);
         $user = $request->user();
         $resolved = $contextService->resolve(
@@ -252,7 +280,7 @@ class AiLearningToolController extends Controller
             'difficulty' => ['nullable', 'in:mudah,sedang,sulit'],
             'variation' => ['nullable', 'in:konteks,angka,hots'],
             'hots_level' => ['nullable', 'in:rendah,sedang,tinggi'],
-            'question_count' => ['nullable', 'integer', 'min:1', 'max:3'],
+            'question_count' => ['nullable', 'integer', 'min:1', 'max:5'],
         ]);
         $user = $request->user();
         $sourceTitle = trim((string) ($data['title'] ?? '')) ?: 'Input mandiri';

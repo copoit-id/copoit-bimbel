@@ -52,9 +52,45 @@
 @endphp
 
 <div class="w-full">
+    @if(session('success'))
+        <div class="mb-5 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-800">
+            <p class="font-bold">🎉 Selamat! Paket AI gratis kamu sudah aktif.</p>
+            <p class="mt-1">Jangan berhenti di sini—coba satu soal contoh dan lihat hasilnya dalam sekitar 30 detik.</p>
+        </div>
+    @endif
+
     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div><p class="text-sm font-semibold text-primary"><i class="ri-sparkling-2-line mr-1"></i>AI Learning Tools</p><h1 class="mt-1 text-2xl font-bold text-gray-900">Ruang belajar AI</h1><p class="mt-1 text-sm text-gray-500">Pilih alat, buat hasil baru, lalu buka riwayatnya di tempat yang sama.</p></div>
     </div>
+
+    <section id="ai-onboarding-workspace" class="mb-6 hidden overflow-hidden rounded-3xl border border-primary/20 bg-white shadow-lg shadow-primary/5">
+        <div class="border-b border-primary/10 bg-gradient-to-r from-primary/10 via-white to-amber-50 px-5 py-5 sm:px-7">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div><p class="text-xs font-bold uppercase tracking-widest text-primary">Demo AI 30 detik</p><h2 class="mt-1 text-xl font-bold text-gray-900">Pembahasan soal contoh sudah siap</h2><p class="mt-1 text-sm text-gray-600">Semua hasil berikut dibuat dari soal yang sama. Kamu tidak perlu upload atau pindah menu.</p></div>
+                <div class="grid grid-cols-4 gap-2 text-center text-[11px] font-semibold sm:text-xs">
+                    @foreach(['Soal contoh', 'Pembahasan', 'Flashcard', 'Soal serupa'] as $stepIndex => $stepLabel)
+                        <div class="ai-onboarding-progress-step rounded-xl border border-gray-200 bg-white px-2 py-2 text-gray-400" data-onboarding-progress-step="{{ $stepIndex + 1 }}"><span class="mx-auto mb-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-100">{{ $stepIndex + 1 }}</span>{{ $stepLabel }}</div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        <div class="grid gap-6 p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div id="ai-onboarding-result" class="min-w-0 rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:p-5" aria-live="polite"></div>
+            <aside class="h-fit rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white"><i class="ri-sparkling-2-line text-xl"></i></span>
+                <h3 class="mt-4 font-bold text-gray-900">Berdasarkan soal ini, AI sudah menyiapkan:</h3>
+                <div class="mt-4 grid gap-2">
+                    <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="note"><span><i class="ri-check-line mr-2 text-green-600"></i>Ringkasan materi</span><i class="ri-arrow-right-s-line text-primary"></i></button>
+                    <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="flashcard"><span><i class="ri-check-line mr-2 text-green-600"></i>Flashcard</span><i class="ri-arrow-right-s-line text-primary"></i></button>
+                    <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="question"><span><i class="ri-check-line mr-2 text-green-600"></i>5 soal latihan</span><i class="ri-arrow-right-s-line text-primary"></i></button>
+                    <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="recommendation"><span><i class="ri-check-line mr-2 text-green-600"></i>Rekomendasi video belajar</span><i class="ri-arrow-right-s-line text-primary"></i></button>
+                </div>
+                <p id="ai-onboarding-workspace-error" class="mt-3 hidden text-sm text-red-600" role="alert"></p>
+                <div id="ai-onboarding-complete" class="mt-4 hidden rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800"><p class="font-bold">🎉 Onboarding selesai!</p><p class="mt-1 text-xs leading-5">Sekarang kamu bisa memakai soal atau materi milikmu sendiri di panel bawah.</p></div>
+            </aside>
+        </div>
+    </section>
 
     <div class="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-8">
         <aside class="lg:sticky lg:top-20 lg:h-fit">
@@ -78,7 +114,7 @@
                     <x-ui.input.textarea name="content" label="Soal atau materi" :required="true" minlength="20" maxlength="10000" rows="9" resize="vertical" helper="Minimal 20 karakter." placeholder="Tempel soal, teks materi, rumus, atau konsep yang ingin diolah..." class="rounded-xl leading-6" />
 
                     @if($currentTool === 'question')
-                        <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><x-ui.input.select name="question_count" label="Jumlah soal" :options="['1' => '1 soal', '2' => '2 soal', '3' => '3 soal']" value="1" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="difficulty" label="Kesulitan" :options="['mudah' => 'Mudah', 'sedang' => 'Sedang', 'sulit' => 'Sulit']" value="sedang" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="variation" label="Variasi" :options="['konteks' => 'Ubah konteks', 'angka' => 'Ubah angka', 'hots' => 'Naikkan HOTS']" value="konteks" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="hots_level" label="Level HOTS" :options="['rendah' => 'Rendah', 'sedang' => 'Sedang', 'tinggi' => 'Tinggi']" value="sedang" class="h-10 rounded-lg border-primary/20" /></div></div>
+                        <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><x-ui.input.select name="question_count" label="Jumlah soal" :options="['1' => '1 soal', '2' => '2 soal', '3' => '3 soal', '4' => '4 soal', '5' => '5 soal']" value="1" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="difficulty" label="Kesulitan" :options="['mudah' => 'Mudah', 'sedang' => 'Sedang', 'sulit' => 'Sulit']" value="sedang" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="variation" label="Variasi" :options="['konteks' => 'Ubah konteks', 'angka' => 'Ubah angka', 'hots' => 'Naikkan HOTS']" value="konteks" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="hots_level" label="Level HOTS" :options="['rendah' => 'Rendah', 'sedang' => 'Sedang', 'tinggi' => 'Tinggi']" value="sedang" class="h-10 rounded-lg border-primary/20" /></div></div>
                     @endif
 
                     <p id="ai-independent-error" class="hidden text-sm text-red-600" role="alert"></p>
@@ -108,6 +144,34 @@
     </div>
 </div>
 
+@if($showAiLearningOnboarding)
+<div id="ai-learning-onboarding-modal" class="fixed inset-0 z-[100001] overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ai-learning-onboarding-title">
+    <div class="flex min-h-full items-center justify-center">
+        <div class="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div class="bg-gradient-to-br from-primary/15 via-white to-amber-50 px-6 py-7 text-center sm:px-9">
+                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl text-white shadow-lg shadow-primary/20"><i class="ri-sparkling-2-line"></i></span>
+                <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Gratis · sekitar 30 detik</p>
+                <h2 id="ai-learning-onboarding-title" class="mt-2 text-2xl font-black text-gray-900">Yuk coba AI dalam 30 detik</h2>
+                <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-gray-600">Tidak perlu upload soal dan tidak perlu memilih menu. Cukup klik satu tombol.</p>
+            </div>
+            <div class="px-6 pb-7 sm:px-9">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    @foreach([['Klik soal contoh', 'ri-cursor-line'], ['Lihat pembahasan', 'ri-book-open-line'], ['Generate flashcard', 'ri-stack-line'], ['Generate soal serupa', 'ri-file-add-line']] as $stepIndex => [$stepLabel, $stepIcon])
+                        <div class="rounded-xl border border-gray-200 p-3 text-center"><span class="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"><i class="{{ $stepIcon }}"></i></span><p class="mt-2 text-xs font-semibold text-gray-700">{{ $stepIndex + 1 }}. {{ $stepLabel }}</p></div>
+                    @endforeach
+                </div>
+                <div class="mt-5 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left">
+                    <p class="text-xs font-bold uppercase tracking-wide text-primary">Soal contoh</p>
+                    <p class="mt-2 text-sm font-semibold leading-6 text-gray-900">{{ $aiLearningOnboardingSample['content'] }}</p>
+                </div>
+                <button id="ai-learning-onboarding-start" type="button" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-play-circle-line text-xl"></i><span>Coba dengan soal contoh</span></button>
+                <p id="ai-learning-onboarding-error" class="mt-3 hidden text-center text-sm text-red-600" role="alert"></p>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 <div id="ai-learning-artifact-modal" class="fixed inset-0 z-[99999] hidden overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><div class="flex h-full w-full items-center justify-center"><div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Riwayat AI Learning</p><p class="mt-1 text-lg font-bold text-gray-900">Detail hasil</p></div><button type="button" data-artifact-modal-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Tutup detail hasil"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-artifact-modal-content" class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6"></div></div></div></div>
 <div id="ai-learning-flashcard-modal" class="fixed inset-0 z-[100000] hidden overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl"><div class="mb-5 flex items-start justify-between"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Mode recall</p><p class="mt-1 text-lg font-semibold text-gray-900">Flashcard</p></div><button type="button" data-flashcard-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-flashcard-modal-content"></div></div></div></div>
 @endsection
@@ -125,6 +189,16 @@
     const artifactPinUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
     const artifactExpandUrlTemplate = @json(route('user.ai-learning.notes.expand', ['artifact' => 'ARTIFACT_ID']));
     const labels = { note: 'Buat Catatan Materi', recommendation: 'Buat Rekomendasi Belajar', question: 'Buat Soal Serupa', flashcard: 'Buat Flashcard' };
+    const aiLearningGenerateUrl = @json(route('user.ai-learning.generate-independent'));
+    const aiOnboardingSample = @json($aiLearningOnboardingSample);
+    const aiOnboardingModal = document.getElementById('ai-learning-onboarding-modal');
+    const aiOnboardingStart = document.getElementById('ai-learning-onboarding-start');
+    const aiOnboardingError = document.getElementById('ai-learning-onboarding-error');
+    const aiOnboardingWorkspace = document.getElementById('ai-onboarding-workspace');
+    const aiOnboardingWorkspaceError = document.getElementById('ai-onboarding-workspace-error');
+    const aiOnboardingResult = document.getElementById('ai-onboarding-result');
+    const aiOnboardingComplete = document.getElementById('ai-onboarding-complete');
+    const aiOnboardingResults = new Map();
 
     function selectedTool() { return independentForm?.querySelector('input[name="tool"]')?.value || 'note'; }
     function updateIndependentTool() {
@@ -136,6 +210,18 @@
 
     const generatedResultHtml = new Map();
 
+    async function requestIndependentGeneration(formData) {
+        const response = await fetch(aiLearningGenerateUrl, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) },
+            body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'AI belum dapat memproses input.');
+
+        return data;
+    }
+
     function renderStandaloneResult(result) {
         if (!independentResult || !independentResultWrap) return;
         const artifactId = String(result.artifact_id || 'latest');
@@ -145,6 +231,121 @@
         independentResultWrap.classList.remove('hidden');
         independentResultWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+
+    function setAiOnboardingStep(step, completed = true) {
+        const element = document.querySelector(`[data-onboarding-progress-step="${step}"]`);
+        if (!element) return;
+        element.classList.toggle('border-green-200', completed);
+        element.classList.toggle('bg-green-50', completed);
+        element.classList.toggle('text-green-700', completed);
+        element.classList.toggle('border-gray-200', !completed);
+        element.classList.toggle('bg-white', !completed);
+        element.classList.toggle('text-gray-400', !completed);
+        const badge = element.querySelector('span');
+        badge?.classList.toggle('bg-green-100', completed);
+        badge?.classList.toggle('bg-gray-100', !completed);
+        if (completed && badge) badge.innerHTML = '<i class="ri-check-line"></i>';
+    }
+
+    function onboardingFormData(tool) {
+        const formData = new FormData();
+        formData.set('tool', tool);
+        formData.set('title', aiOnboardingSample.title);
+        formData.set('content', aiOnboardingSample.content);
+        if (tool === 'question') {
+            formData.set('question_count', '5');
+            formData.set('difficulty', 'sedang');
+            formData.set('variation', 'konteks');
+            formData.set('hots_level', 'sedang');
+        }
+
+        return formData;
+    }
+
+    function showAiOnboardingResult(tool) {
+        const result = aiOnboardingResults.get(tool);
+        if (!result || !aiOnboardingResult) return;
+        aiOnboardingResult.innerHTML = result.html || '';
+        aiOnboardingResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function completeAiOnboardingIfReady() {
+        if (aiOnboardingResults.has('flashcard') && aiOnboardingResults.has('question')) {
+            aiOnboardingComplete?.classList.remove('hidden');
+        }
+    }
+
+    async function generateAiOnboardingTool(tool, button = null) {
+        aiOnboardingWorkspaceError?.classList.add('hidden');
+
+        if (aiOnboardingResults.has(tool)) {
+            showAiOnboardingResult(tool);
+            return;
+        }
+
+        const originalHtml = button?.innerHTML;
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<span><i class="ri-loader-4-line mr-2 inline-block animate-spin"></i>AI sedang menyiapkan...</span>';
+        }
+
+        try {
+            const data = await requestIndependentGeneration(onboardingFormData(tool));
+            aiOnboardingResults.set(tool, data);
+            showAiOnboardingResult(tool);
+            if (tool === 'flashcard') setAiOnboardingStep(3);
+            if (tool === 'question') setAiOnboardingStep(4);
+            completeAiOnboardingIfReady();
+            if (button) {
+                button.classList.add('border-green-200', 'bg-green-50', 'text-green-800');
+                button.innerHTML = `${originalHtml}<span class="ml-2 text-[10px] font-bold uppercase text-green-600">Siap</span>`;
+            }
+        } catch (error) {
+            if (button) button.innerHTML = originalHtml;
+            if (aiOnboardingWorkspaceError) {
+                aiOnboardingWorkspaceError.textContent = error.message || 'Hasil AI belum dapat dibuat.';
+                aiOnboardingWorkspaceError.classList.remove('hidden');
+            }
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    if (aiOnboardingModal) {
+        document.body.classList.add('overflow-hidden');
+    }
+
+    aiOnboardingStart?.addEventListener('click', async () => {
+        aiOnboardingError?.classList.add('hidden');
+        aiOnboardingStart.disabled = true;
+        const originalHtml = aiOnboardingStart.innerHTML;
+        aiOnboardingStart.innerHTML = '<i class="ri-loader-4-line animate-spin text-xl"></i><span>AI sedang membahas soal...</span>';
+
+        try {
+            const data = await requestIndependentGeneration(onboardingFormData('note'));
+            aiOnboardingResults.set('note', data);
+            setAiOnboardingStep(1);
+            setAiOnboardingStep(2);
+            aiOnboardingModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+            aiOnboardingWorkspace?.classList.remove('hidden');
+            showAiOnboardingResult('note');
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.delete('onboarding');
+            window.history.replaceState({}, '', currentUrl);
+        } catch (error) {
+            aiOnboardingStart.innerHTML = originalHtml;
+            aiOnboardingStart.disabled = false;
+            if (aiOnboardingError) {
+                aiOnboardingError.textContent = error.message || 'Demo AI belum dapat dijalankan. Coba lagi.';
+                aiOnboardingError.classList.remove('hidden');
+            }
+        }
+    });
+
+    document.querySelectorAll('.ai-onboarding-tool').forEach((button) => {
+        button.addEventListener('click', () => generateAiOnboardingTool(button.dataset.onboardingTool, button));
+    });
 
     function renderHistoryResult(html) {
         if (!artifactModal || !artifactModalContent) return;
@@ -169,9 +370,7 @@
         independentSubmit.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memproses...';
         try {
             const formData = new FormData(independentForm);
-            const response = await fetch(@json(route('user.ai-learning.generate-independent')), { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) }, body: formData });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'AI belum dapat memproses input.');
+            const data = await requestIndependentGeneration(formData);
             renderStandaloneResult(data);
         } catch (error) {
             independentError.textContent = error.message || 'AI belum dapat memproses input.';
