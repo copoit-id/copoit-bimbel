@@ -40,18 +40,16 @@ class AiGatewayTokenServiceTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_add_tokens_to_active_paid_subscription(): void
+    public function test_super_admin_can_add_tokens_to_active_paid_subscription(): void
     {
         $subscription = $this->activePaidSubscription('10', [
             'token_limit' => 10000,
             'tokens_used' => 2500,
         ]);
-        $result = app(AiGatewayTokenService::class)->addTokens(
-            $this->client,
-            '10',
-            5000,
-            ['reason' => 'Bonus testing', 'actor_name' => 'Admin Test']
-        );
+        $result = app(AiGatewayTokenService::class)->addTokens($subscription, 5000, [
+            'reason' => 'Bonus testing',
+            'actor_name' => 'Admin Test',
+        ]);
 
         $this->assertSame(10000, $result['previous_limit']);
         $this->assertSame(15000, $result['new_limit']);
@@ -66,35 +64,35 @@ class AiGatewayTokenServiceTest extends TestCase
         ]);
     }
 
-    public function test_token_summary_only_counts_active_paid_subscriptions(): void
+    public function test_tokens_cannot_be_added_to_an_unpaid_subscription(): void
     {
-        $this->activePaidSubscription('10', [
-            'token_limit' => 12000,
-            'tokens_used' => 2000,
-        ]);
-        AiGatewaySubscription::query()->create([
+        $subscription = AiGatewaySubscription::query()->create([
             'ai_gateway_client_id' => $this->client->id,
             'ai_gateway_plan_id' => $this->plan->id,
             'external_user_id' => '10',
             'status' => 'active',
             'ends_at' => now()->addMonth(),
-            'token_limit' => 50000,
+            'token_limit' => 10000,
             'tokens_used' => 0,
         ]);
 
-        $summary = app(AiGatewayTokenService::class)->summaries($this->client, [10])->get('10');
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('belum memiliki paket AI aktif');
 
-        $this->assertSame(12000, $summary['token_limit']);
-        $this->assertSame(2000, $summary['tokens_used']);
-        $this->assertSame(10000, $summary['remaining_tokens']);
+        app(AiGatewayTokenService::class)->addTokens($subscription, 1000);
     }
 
     public function test_add_tokens_is_rejected_when_user_has_no_active_package(): void
     {
+        $subscription = $this->activePaidSubscription('99', [
+            'status' => 'expired',
+            'ends_at' => now()->subDay(),
+        ]);
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('belum memiliki paket AI aktif');
 
-        app(AiGatewayTokenService::class)->addTokens($this->client, '99', 1000);
+        app(AiGatewayTokenService::class)->addTokens($subscription, 1000);
     }
 
     private function activePaidSubscription(string $externalUserId, array $overrides = []): AiGatewaySubscription

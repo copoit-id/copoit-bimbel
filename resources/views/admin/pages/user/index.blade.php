@@ -45,19 +45,6 @@
     </div>
     @endif
 
-    @if ($errors->any())
-    <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
-        <div class="flex items-start gap-2">
-            <i class="ri-error-warning-line mt-0.5 text-lg"></i>
-            <div>
-                @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-                @endforeach
-            </div>
-        </div>
-    </div>
-    @endif
-
     {{-- Alert Quota Status --}}
     @php
         $userQuota = $planQuota['user'] ?? \App\Services\PlanQuotaService::canRegisterUser();
@@ -150,7 +137,6 @@
                             <th scope="col" class="px-6 py-3">Tujuan</th>
                             <th scope="col" class="px-6 py-3">Role</th>
                             <th scope="col" class="px-6 py-3">Status</th>
-                            <th scope="col" class="px-6 py-3">Token AI</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
                             <th scope="col" class="px-6 py-3">Action</th>
                         </tr>
@@ -184,7 +170,6 @@
                             </td>
                             <td class="px-6 py-4">
                                 @php
-                                $aiTokenSummary = $aiTokenSummaries->get((string) $user->id);
                                 $roleClass = match($user->role) {
                                 'admin' => 'bg-red-100 text-red-800',
                                 'admin_demo' => 'bg-amber-100 text-amber-800',
@@ -211,20 +196,6 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4">
-                                @if($user->role === 'user' && $aiTokenSummary)
-                                <div class="whitespace-nowrap">
-                                    <p class="font-semibold text-gray-800">
-                                        {{ number_format($aiTokenSummary['remaining_tokens'], 0, ',', '.') }}
-                                    </p>
-                                    <p class="text-xs text-gray-400">
-                                        dari {{ number_format($aiTokenSummary['token_limit'], 0, ',', '.') }}
-                                    </p>
-                                </div>
-                                @else
-                                <span class="text-gray-400">-</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4">
                                 {{ optional($user->created_at)->format('Y-m-d') }}
                             </td>
                             <td class="px-6 py-4">
@@ -238,15 +209,6 @@
                                         <i class="ri-bar-chart-line"></i>
                                     </a>
                                     @if($user->role === 'user')
-                                    <button type="button"
-                                        class="ai-token-button {{ $aiTokenSummary ? 'text-violet-600 hover:text-violet-800' : 'cursor-not-allowed text-gray-300' }}"
-                                        title="{{ $aiTokenSummary ? 'Tambah token AI' : 'Belum ada paket AI aktif' }}"
-                                        data-action="{{ route('admin.user.ai-tokens.store', $user) }}"
-                                        data-user-name="{{ $user->name }}"
-                                        data-remaining-tokens="{{ $aiTokenSummary['remaining_tokens'] ?? 0 }}"
-                                        @disabled(! $aiTokenSummary)>
-                                        <i class="ri-coins-line"></i>
-                                    </button>
                                     <form action="{{ route('admin.user.login-as', $user->id) }}" method="POST" 
                                         class="inline-block"
                                         target="_blank">
@@ -273,7 +235,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>
@@ -312,10 +274,6 @@
             const bulkButton = document.getElementById('bulk-delete-button');
             const bulkCount = document.getElementById('bulk-selected-count');
             const bulkForm = document.getElementById('bulk-delete-form');
-            const aiTokenModal = document.getElementById('ai-token-modal');
-            const aiTokenForm = document.getElementById('ai-token-form');
-            const aiTokenUserName = document.getElementById('ai-token-user-name');
-            const aiTokenCurrentBalance = document.getElementById('ai-token-current-balance');
 
             function getText(el, attr) {
                 return (el.getAttribute(attr) || '').toLowerCase();
@@ -405,38 +363,6 @@
                 cb.addEventListener('change', updateBulkState);
             });
 
-            function closeAiTokenModal() {
-                aiTokenModal?.classList.add('hidden');
-                document.body.classList.remove('overflow-hidden');
-            }
-
-            document.querySelectorAll('.ai-token-button:not(:disabled)').forEach(button => {
-                button.addEventListener('click', function () {
-                    aiTokenForm.action = button.dataset.action;
-                    aiTokenUserName.textContent = button.dataset.userName;
-                    aiTokenCurrentBalance.textContent = Number(button.dataset.remainingTokens || 0)
-                        .toLocaleString('id-ID');
-                    aiTokenModal.classList.remove('hidden');
-                    document.body.classList.add('overflow-hidden');
-                    document.getElementById('ai-token-amount')?.focus();
-                });
-            });
-
-            document.querySelectorAll('[data-close-ai-token-modal]').forEach(button => {
-                button.addEventListener('click', closeAiTokenModal);
-            });
-
-            aiTokenModal?.addEventListener('click', function (event) {
-                if (event.target === aiTokenModal) {
-                    closeAiTokenModal();
-                }
-            });
-
-            document.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape') {
-                    closeAiTokenModal();
-                }
-            });
 
             if (bulkForm) {
                 bulkForm.addEventListener('submit', function (event) {
@@ -456,66 +382,6 @@
             updateBulkState();
         });
     </script>
-</div>
-
-<div id="ai-token-modal"
-    class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto bg-gray-900/60 p-4 [&:not(.hidden)]:flex"
-    role="dialog" aria-modal="true" aria-labelledby="ai-token-modal-title">
-    <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
-        <div class="flex items-start justify-between border-b border-gray-100 p-5">
-            <div>
-                <h3 id="ai-token-modal-title" class="text-lg font-bold text-gray-900">Tambah Token AI</h3>
-                <p class="mt-1 text-sm text-gray-500">Token langsung masuk ke paket AI aktif.</p>
-            </div>
-            <button type="button" data-close-ai-token-modal
-                class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-                <i class="ri-close-line text-xl"></i>
-            </button>
-        </div>
-
-        <form id="ai-token-form" method="POST" action="">
-            @csrf
-            <div class="space-y-5 p-5">
-                <div class="rounded-xl bg-violet-50 p-4">
-                    <p class="text-xs font-medium uppercase tracking-wide text-violet-500">User</p>
-                    <p id="ai-token-user-name" class="mt-1 font-semibold text-gray-900">-</p>
-                    <p class="mt-1 text-sm text-gray-600">
-                        Sisa saat ini: <span id="ai-token-current-balance" class="font-semibold">0</span> token
-                    </p>
-                </div>
-
-                <div>
-                    <label for="ai-token-amount" class="mb-2 block text-sm font-medium text-gray-800">
-                        Jumlah token
-                    </label>
-                    <input id="ai-token-amount" type="number" name="tokens" min="1" max="100000000"
-                        value="{{ old('tokens', 10000) }}" required
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary focus:ring-primary">
-                </div>
-
-                <div>
-                    <label for="ai-token-reason" class="mb-2 block text-sm font-medium text-gray-800">
-                        Alasan
-                    </label>
-                    <textarea id="ai-token-reason" name="reason" rows="3" maxlength="255" required
-                        placeholder="Contoh: Bonus event atau kompensasi"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary focus:ring-primary">{{ old('reason') }}</textarea>
-                    <p class="mt-1 text-xs text-gray-400">Disimpan pada activity log admin.</p>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-2 border-t border-gray-100 p-5">
-                <button type="button" data-close-ai-token-modal
-                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Batal
-                </button>
-                <button type="submit"
-                    class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                    Tambahkan Token
-                </button>
-            </div>
-        </form>
-    </div>
 </div>
 
 <!-- Add User Modal -->

@@ -39,10 +39,6 @@ class ActivityController extends Controller
                 'label' => 'Pengaturan',
                 'actions' => ['settings_updated'],
             ],
-            'ai' => [
-                'label' => 'Token AI',
-                'actions' => ['ai_tokens_added'],
-            ],
         ];
 
         $actionLabels = [
@@ -66,7 +62,6 @@ class ActivityController extends Controller
             'profile_updated' => 'Update profil',
             'password_changed' => 'Ganti password',
             'settings_updated' => 'Update pengaturan',
-            'ai_tokens_added' => 'Tambah token AI',
         ];
 
         $tab = $request->input('tab', 'all');

@@ -25,10 +25,6 @@ Route::post('/ai-gateway/cancel-pending', [AiGatewayBillingController::class, 'c
     ->middleware('throttle:10,1');
 Route::get('/ai-gateway/subscription', [AiGatewayBillingController::class, 'status'])
     ->middleware('throttle:60,1');
-Route::post('/ai-gateway/subscription/token-summaries', [AiGatewayBillingController::class, 'tokenSummaries'])
-    ->middleware('throttle:60,1');
-Route::post('/ai-gateway/subscription/tokens', [AiGatewayBillingController::class, 'addTokens'])
-    ->middleware('throttle:30,1');
 Route::post('/webhook/ai-gateway/xendit', [AiGatewayBillingController::class, 'webhook'])
     ->middleware('throttle:120,1')
     ->name('webhook.ai-gateway.xendit');

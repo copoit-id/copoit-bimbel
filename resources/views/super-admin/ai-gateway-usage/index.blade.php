@@ -24,6 +24,14 @@
     @if(session('success'))
         <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>
     @endif
+    @if(session('error'))
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>
+    @endif
+    @if($errors->any())
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+        </div>
+    @endif
 
     <div class="grid gap-4 md:grid-cols-3">
         <div class="rounded-xl border border-gray-200 bg-white p-5"><p class="text-sm text-gray-500">Project terdaftar</p><p class="mt-1 text-2xl font-bold text-gray-900">{{ $clients->count() }}</p></div>
@@ -82,7 +90,66 @@
 
     <div id="create-gateway-project-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold text-gray-900">Tambah project gateway</h2><p class="mt-1 text-sm text-gray-500">Project key dibuat satu kali untuk aplikasi ini.</p></div><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.add('hidden')" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><form method="POST" action="{{ route('super-admin.ai-usage.projects.store') }}" class="mt-6 space-y-4">@csrf<label class="block"><span class="text-sm font-semibold text-gray-700">Nama project</span><input name="name" required class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="Contoh: Bimbel Cabang A"></label><label class="block"><span class="text-sm font-semibold text-gray-700">Base URL project</span><input name="base_url" type="url" class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="https://bimbel-cabang-a.com"></label><label class="block"><span class="text-sm font-semibold text-gray-700">Kuota token bulanan</span><input name="monthly_token_limit" type="number" min="0" value="0" class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">Isi 0 untuk tanpa batas.</span></label><div class="flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.add('hidden')" class="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">Batal</button><button class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">Buat project & key</button></div></form></div></div></div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5"><div><h2 class="font-semibold text-gray-900">Kuota peserta yang membeli paket</h2><p class="mt-1 text-sm text-gray-500">Satu baris adalah satu pembelian peserta pada project terkait.</p></div><div class="mt-4 overflow-x-auto rounded-xl border border-gray-100"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Peserta / project</th><th class="px-4 py-3">Paket</th><th class="px-4 py-3">Status & berakhir</th><th class="px-4 py-3 text-right">Sisa chat</th><th class="px-4 py-3 text-right">Sisa token</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($subscriptions as $subscription)@php($subscriptionChatLimit = (int) ($subscription->chat_limit ?: $subscription->plan?->chat_limit ?: 0))@php($subscriptionTokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0))@php($subscriptionIsActive = $subscription->status === 'active' && ($subscription->ends_at === null || $subscription->ends_at->isFuture()))<tr><td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $subscription->external_user_name ?: 'Peserta tidak tersedia' }}</p><p class="mt-1 text-xs text-gray-500">{{ $subscription->external_user_email ?: 'ID: ' . $subscription->external_user_id }}</p><p class="mt-1 text-xs text-gray-500">{{ $subscription->client?->name ?? 'Project dihapus' }}</p></td><td class="px-4 py-3 font-medium text-gray-700">{{ $subscription->plan?->name ?? '-' }}</td><td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $subscriptionIsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">{{ ucfirst($subscription->status) }}</span><p class="mt-2 text-xs text-gray-500">{{ $subscription->ends_at?->format('d M Y H:i') ?? 'Tanpa masa aktif' }}</p></td><td class="px-4 py-3 text-right font-medium">{{ $subscriptionChatLimit > 0 ? number_format(max(0, $subscriptionChatLimit - $subscription->chats_used), 0, ',', '.') : '∞' }}</td><td class="px-4 py-3 text-right font-medium">{{ $subscriptionTokenLimit > 0 ? number_format(max(0, $subscriptionTokenLimit - $subscription->tokens_used), 0, ',', '.') : '-' }}</td></tr>@empty<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada pembelian paket oleh peserta.</td></tr>@endforelse</tbody></table></div><div class="mt-4">{{ $subscriptions->links() }}</div></div>
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div>
+            <h2 class="font-semibold text-gray-900">Kuota peserta yang membeli paket</h2>
+            <p class="mt-1 text-sm text-gray-500">Hanya super admin yang dapat menambahkan token ke subscription aktif.</p>
+        </div>
+        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+                    <tr><th class="px-4 py-3">Peserta / project</th><th class="px-4 py-3">Paket</th><th class="px-4 py-3">Status & berakhir</th><th class="px-4 py-3 text-right">Sisa chat</th><th class="px-4 py-3 text-right">Sisa token</th><th class="px-4 py-3 text-right">Aksi</th></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($subscriptions as $subscription)
+                        @php($subscriptionChatLimit = (int) ($subscription->chat_limit ?: $subscription->plan?->chat_limit ?: 0))
+                        @php($subscriptionTokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0))
+                        @php($subscriptionIsActive = $subscription->status === 'active' && ($subscription->ends_at === null || $subscription->ends_at->isFuture()))
+                        <tr>
+                            <td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $subscription->external_user_name ?: 'Peserta tidak tersedia' }}</p><p class="mt-1 text-xs text-gray-500">{{ $subscription->external_user_email ?: 'ID: ' . $subscription->external_user_id }}</p><p class="mt-1 text-xs text-gray-500">{{ $subscription->client?->name ?? 'Project dihapus' }}</p></td>
+                            <td class="px-4 py-3 font-medium text-gray-700">{{ $subscription->plan?->name ?? '-' }}</td>
+                            <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $subscriptionIsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">{{ ucfirst($subscription->status) }}</span><p class="mt-2 text-xs text-gray-500">{{ $subscription->ends_at?->format('d M Y H:i') ?? 'Tanpa masa aktif' }}</p></td>
+                            <td class="px-4 py-3 text-right font-medium">{{ $subscriptionChatLimit > 0 ? number_format(max(0, $subscriptionChatLimit - $subscription->chats_used), 0, ',', '.') : '∞' }}</td>
+                            <td class="px-4 py-3 text-right font-medium">{{ $subscriptionTokenLimit > 0 ? number_format(max(0, $subscriptionTokenLimit - $subscription->tokens_used), 0, ',', '.') : '-' }}</td>
+                            <td class="px-4 py-3 text-right">
+                                @if($subscriptionIsActive)
+                                    <button type="button" onclick="document.getElementById('add-token-{{ $subscription->id }}').classList.toggle('hidden')" class="text-xs font-semibold text-violet-600 hover:underline">Tambah token</button>
+                                    <form id="add-token-{{ $subscription->id }}" method="POST" action="{{ route('super-admin.ai-gateway-subscriptions.tokens.store', $subscription) }}" class="ml-auto mt-3 hidden w-72 space-y-3 rounded-xl border border-violet-100 bg-violet-50 p-3 text-left">
+                                        @csrf
+                                        <label class="block text-xs font-medium text-gray-700">Jumlah token<input type="number" name="tokens" min="1" max="100000000" value="10000" required class="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm"></label>
+                                        <label class="block text-xs font-medium text-gray-700">Alasan<textarea name="reason" rows="2" maxlength="255" required class="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm" placeholder="Bonus atau kompensasi"></textarea></label>
+                                        <button class="w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700">Tambahkan token</button>
+                                    </form>
+                                @else
+                                    <span class="text-xs text-gray-400">Tidak aktif</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Belum ada pembelian paket oleh peserta.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4">{{ $subscriptions->links() }}</div>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div><h2 class="font-semibold text-gray-900">Riwayat penambahan token</h2><p class="mt-1 text-sm text-gray-500">Audit jumlah token, alasan, dan super admin yang melakukan perubahan.</p></div>
+        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Waktu</th><th class="px-4 py-3">Peserta / project</th><th class="px-4 py-3 text-right">Token</th><th class="px-4 py-3">Alasan</th><th class="px-4 py-3">Super admin</th></tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($tokenAdjustments as $adjustment)
+                        <tr><td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ $adjustment->created_at->format('d M Y H:i') }}</td><td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $adjustment->subscription?->external_user_name ?: 'ID: '.$adjustment->external_user_id }}</p><p class="mt-1 text-xs text-gray-500">{{ $adjustment->client?->name ?? 'Project dihapus' }}</p></td><td class="px-4 py-3 text-right"><p class="font-semibold text-violet-700">+{{ number_format($adjustment->tokens_added, 0, ',', '.') }}</p><p class="mt-1 text-xs text-gray-500">{{ number_format($adjustment->previous_token_limit, 0, ',', '.') }} → {{ number_format($adjustment->new_token_limit, 0, ',', '.') }}</p></td><td class="px-4 py-3 text-gray-700">{{ $adjustment->reason }}</td><td class="px-4 py-3"><p class="font-medium text-gray-800">{{ $adjustment->actor_name ?: '-' }}</p><p class="mt-1 text-xs text-gray-500">{{ $adjustment->actor_email ?: '-' }}</p></td></tr>
+                    @empty
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Belum ada penambahan token.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4">{{ $tokenAdjustments->links() }}</div>
+    </div>
 
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 class="font-semibold text-gray-900">Log request gateway</h2><p class="mt-1 text-sm text-gray-500">Data dikirim saat request terjadi dan ditampilkan terpaginasikan agar tetap ringan.</p></div><form method="GET" class="flex flex-wrap gap-2"><select name="client_id" class="rounded-lg border-gray-300 text-sm"><option value="">Semua project</option>@foreach($clients as $client)<option value="{{ $client->id }}" @selected((string) request('client_id') === (string) $client->id)>{{ $client->name }}</option>@endforeach</select><select name="feature" class="rounded-lg border-gray-300 text-sm"><option value="">Semua fitur</option>@foreach($features as $feature)<option value="{{ $feature }}" @selected(request('feature') === $feature)>{{ $featureLabels[$feature] ?? ucfirst(str_replace('_', ' ', $feature)) }}</option>@endforeach</select><input type="search" name="q" value="{{ request('q') }}" class="rounded-lg border-gray-300 text-sm" placeholder="Nama, email, ID, soal"><button class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90">Filter</button></form></div>

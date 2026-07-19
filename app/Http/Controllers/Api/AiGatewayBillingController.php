@@ -10,12 +10,10 @@ use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUserTrial;
 use App\Services\AiGatewayPaymentService;
 use App\Services\AiGatewaySubscriptionService;
-use App\Services\AiGatewayTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 class AiGatewayBillingController extends Controller
 {
@@ -102,46 +100,6 @@ class AiGatewayBillingController extends Controller
             ],
             'claimed_free_plan_ids' => $claimedFreePlanIds,
         ]);
-    }
-
-    public function tokenSummaries(Request $request, AiGatewayTokenService $tokenService): JsonResponse
-    {
-        $client = $this->client($request);
-        $data = $request->validate([
-            'external_user_ids' => ['required', 'array', 'max:100'],
-            'external_user_ids.*' => ['required', 'string', 'max:120', 'distinct'],
-        ]);
-
-        return response()->json([
-            'summaries' => $tokenService->summaries($client, $data['external_user_ids'])->all(),
-        ]);
-    }
-
-    public function addTokens(Request $request, AiGatewayTokenService $tokenService): JsonResponse
-    {
-        $client = $this->client($request);
-        $data = $request->validate([
-            'external_user_id' => ['required', 'string', 'max:120'],
-            'tokens' => ['required', 'integer', 'min:1', 'max:100000000'],
-            'reason' => ['required', 'string', 'max:255'],
-            'actor_user_id' => ['nullable', 'string', 'max:120'],
-            'actor_name' => ['nullable', 'string', 'max:255'],
-            'actor_email' => ['nullable', 'email', 'max:255'],
-            'origin_base_url' => ['nullable', 'url', 'max:2048'],
-        ]);
-
-        try {
-            $result = $tokenService->addTokens(
-                $client,
-                $data['external_user_id'],
-                (int) $data['tokens'],
-                $data
-            );
-        } catch (RuntimeException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 422);
-        }
-
-        return response()->json($result);
     }
 
     public function checkout(Request $request): JsonResponse

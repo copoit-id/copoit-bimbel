@@ -6,16 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Models\AiDiscussionUsageLog;
 use App\Models\AiGatewayClient;
 use App\Models\AiGatewaySubscription;
+use App\Models\AiGatewayTokenAdjustment;
 use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUsageLog;
 use App\Models\ClientProfile;
 use App\Services\AiGatewayCostService;
 use App\Services\AiGatewaySubscriptionService;
+use App\Services\AiGatewayTokenService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class AiUsageController extends Controller
 {
@@ -205,9 +208,49 @@ class AiUsageController extends Controller
             ->paginate(20, ['*'], 'subscription_page')
             ->withQueryString();
 
+        $tokenAdjustments = AiGatewayTokenAdjustment::query()
+            ->with(['client:id,name', 'subscription:id,external_user_name,external_user_email'])
+            ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
+            ->latest()
+            ->paginate(20, ['*'], 'adjustment_page')
+            ->withQueryString();
+
         return view('super-admin.ai-gateway-usage.index', compact(
-            'clients', 'logs', 'summary', 'subscriptions', 'features', 'featureUsage', 'userFeatureUsage'
+            'clients', 'logs', 'summary', 'subscriptions', 'features', 'featureUsage', 'userFeatureUsage',
+            'tokenAdjustments'
         ));
+    }
+
+    public function addGatewaySubscriptionTokens(
+        Request $request,
+        AiGatewaySubscription $subscription,
+        AiGatewayTokenService $tokenService
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'tokens' => ['required', 'integer', 'min:1', 'max:100000000'],
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'tokens.max' => 'Penambahan token maksimal 100.000.000 per transaksi.',
+            'reason.required' => 'Alasan penambahan token wajib diisi untuk audit.',
+        ]);
+        $actor = $request->user();
+
+        try {
+            $result = $tokenService->addTokens($subscription, (int) $validated['tokens'], [
+                'reason' => $validated['reason'],
+                'actor_user_id' => $actor?->id,
+                'actor_name' => $actor?->name,
+                'actor_email' => $actor?->email,
+                'origin_base_url' => url('/'),
+            ]);
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return back()->with(
+            'success',
+            number_format($result['added_tokens'], 0, ',', '.').' token berhasil ditambahkan ke subscription peserta.'
+        );
     }
 
     public function gatewayPayments(Request $request, AiGatewayCostService $costService)

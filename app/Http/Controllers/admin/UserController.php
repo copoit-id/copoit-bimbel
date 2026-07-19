@@ -7,13 +7,10 @@ use App\Models\ParticipantDestinationCategory;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\SafeName;
-use App\Services\ActivityLogger;
-use App\Services\AiGatewayTokenClientService;
 use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
 use App\Services\TutorProfileService;
 use Carbon\Carbon;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,13 +18,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
 
 class UserController extends Controller
 {
-    public function index(Request $request, AiGatewayTokenClientService $aiGatewayTokenService): View
+    public function index(Request $request): View
     {
         $roleOptions = $this->getRoleOptions();
         $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
@@ -44,58 +40,7 @@ class UserController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $aiTokenSummaries = $activeRole === 'user'
-            ? $aiGatewayTokenService->summaries($users->pluck('id')->all())
-            : collect();
-
-        return view('admin.pages.user.index', compact(
-            'users',
-            'roleOptions',
-            'activeRole',
-            'aiTokenSummaries'
-        ));
-    }
-
-    public function addAiTokens(
-        Request $request,
-        User $user,
-        AiGatewayTokenClientService $aiGatewayTokenService
-    ): RedirectResponse {
-        if ($request->user()?->isDemoAdmin()) {
-            return back()->with('error', 'Akun demo tidak dapat menambahkan token AI.');
-        }
-
-        $validated = $request->validate([
-            'tokens' => ['required', 'integer', 'min:1', 'max:100000000'],
-            'reason' => ['required', 'string', 'max:255'],
-        ], [
-            'tokens.max' => 'Penambahan token maksimal 100.000.000 per transaksi.',
-            'reason.required' => 'Alasan penambahan token wajib diisi untuk audit.',
-        ]);
-
-        try {
-            $result = $aiGatewayTokenService->addTokens(
-                $user,
-                $request->user(),
-                (int) $validated['tokens'],
-                $validated['reason']
-            );
-        } catch (RuntimeException $exception) {
-            return back()->withInput()->with('error', $exception->getMessage());
-        }
-
-        ActivityLogger::log('ai_tokens_added', 'success', $request->user(), [
-            'target_user_id' => $user->id,
-            'target_user_name' => $user->name,
-            'target_user_email' => $user->email,
-            'reason' => $validated['reason'],
-            ...$result,
-        ], $request);
-
-        return back()->with(
-            'success',
-            number_format($result['added_tokens'], 0, ',', '.')." token AI berhasil ditambahkan ke {$user->name}."
-        );
+        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole'));
     }
 
     public function exportExcel(): BinaryFileResponse

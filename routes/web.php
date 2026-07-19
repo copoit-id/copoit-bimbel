@@ -328,6 +328,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/general-settings/telegram/test', [GeneralSettingController::class, 'testTelegram'])->name('general-settings.telegram.test');
     Route::get('/ai-usage', [AiUsageController::class, 'index'])->name('ai-usage.index');
     Route::get('/ai-gateway-usage', [AiUsageController::class, 'gatewayIndex'])->name('ai-gateway-usage.index');
+    Route::post('/ai-gateway-subscriptions/{subscription}/tokens', [AiUsageController::class, 'addGatewaySubscriptionTokens'])
+        ->name('ai-gateway-subscriptions.tokens.store');
     Route::get('/ai-gateway-payments', [AiUsageController::class, 'gatewayPayments'])->name('ai-gateway-payments.index');
     Route::post('/ai-gateway-payments/{transaction}/approve', [AiUsageController::class, 'approveGatewayPayment'])->name('ai-gateway-payments.approve');
     Route::post('/ai-gateway-payments/{transaction}/reject', [AiUsageController::class, 'rejectGatewayPayment'])->name('ai-gateway-payments.reject');
@@ -570,7 +572,6 @@ Route::prefix('{portal}')
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
-        Route::post('user/{user}/ai-tokens', [UserController::class, 'addAiTokens'])->name('user.ai-tokens.store');
         Route::resource('user', UserController::class);
         Route::get('participant-destination-categories/official/institutions', [ParticipantDestinationCategoryController::class, 'officialInstitutions'])
             ->name('participant-destination-categories.official.institutions');
