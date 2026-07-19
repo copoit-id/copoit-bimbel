@@ -75,7 +75,10 @@ class AiGatewayBillingController extends Controller
         $claimedFreePlanIds = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
+            ->where('status', 'active')
+            ->notExpired()
             ->whereNotNull('free_claim_key')
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
             ->pluck('ai_gateway_plan_id')
             ->unique()
             ->values();

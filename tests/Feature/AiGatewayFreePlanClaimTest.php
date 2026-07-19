@@ -228,6 +228,136 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->assertJsonPath('claimed_free_plan_ids.0', $plan->id);
     }
 
+    public function test_revoked_free_plan_loses_access_and_can_be_claimed_again_without_deleting_history(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan();
+        $payload = [
+            'plan_id' => $plan->id,
+            'external_user_id' => 'participant-reset',
+            'customer_name' => 'Peserta Reset',
+        ];
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', $payload)
+            ->assertOk()
+            ->assertJson(['activated' => true, 'claimed' => true]);
+
+        $subscription = AiGatewaySubscription::query()
+            ->where('external_user_id', 'participant-reset')
+            ->sole();
+        $transaction = $subscription->transactions()->sole();
+
+        app(AiGatewaySubscriptionService::class)->revokeSubscription($subscription, [
+            'reason' => 'Reset paket untuk pengujian',
+            'actor_user_id' => '1',
+            'actor_name' => 'Super Admin',
+            'actor_email' => 'superadmin@example.com',
+        ]);
+
+        $this->assertDatabaseHas('ai_gateway_subscriptions', [
+            'id' => $subscription->id,
+            'status' => 'revoked',
+            'free_claim_key' => null,
+            'revoked_reason' => 'Reset paket untuk pengujian',
+            'revoked_by_name' => 'Super Admin',
+        ]);
+        $this->assertDatabaseHas('ai_gateway_transactions', [
+            'id' => $transaction->id,
+            'status' => 'paid',
+        ]);
+        $this->assertNotNull($subscription->fresh()->revoked_at);
+        $this->assertSame(
+            'Reset paket untuk pengujian',
+            data_get($transaction->fresh()->details, 'access_revocation.reason'),
+        );
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-reset')
+            ->assertOk()
+            ->assertJsonPath('subscription', null)
+            ->assertJsonPath('subscriptions', [])
+            ->assertJsonPath('claimed_free_plan_ids', []);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/discussion', $this->discussionPayload('participant-reset'))
+            ->assertForbidden();
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', $payload)
+            ->assertOk()
+            ->assertJson([
+                'activated' => true,
+                'claimed' => true,
+                'already_claimed' => false,
+            ]);
+
+        $this->assertSame(2, AiGatewaySubscription::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('external_user_id', 'participant-reset')
+            ->count());
+        $this->assertSame(2, AiGatewayTransaction::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('status', 'paid')
+            ->count());
+    }
+
+    public function test_revoking_paid_plan_keeps_income_history_and_usage_snapshot(): void
+    {
+        [$client, $key] = $this->gatewayClient();
+        $plan = $this->freePlan([
+            'name' => 'Pembahasan AI Pro',
+            'slug' => 'pembahasan-ai-pro-revocation',
+            'price' => 25000,
+        ]);
+        $subscription = AiGatewaySubscription::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'token_limit' => 10000,
+            'chat_limit' => 0,
+            'external_user_id' => 'participant-paid-reset',
+            'external_user_name' => 'Peserta Berbayar',
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+            'tokens_used' => 1250,
+            'chats_used' => 2,
+        ]);
+        $transaction = AiGatewayTransaction::query()->create([
+            'ai_gateway_client_id' => $client->id,
+            'ai_gateway_plan_id' => $plan->id,
+            'ai_gateway_subscription_id' => $subscription->id,
+            'external_id' => 'AIGW-PAID-RESET-1',
+            'provider' => 'xendit',
+            'amount' => 25000,
+            'status' => 'paid',
+            'paid_at' => now(),
+            'details' => ['activated_subscription_id' => $subscription->id],
+        ]);
+
+        app(AiGatewaySubscriptionService::class)->revokeSubscription($subscription, [
+            'reason' => 'Refund ditangani di luar sistem',
+        ]);
+
+        $this->assertSame('revoked', $subscription->fresh()->status);
+        $this->assertSame(10000, $subscription->fresh()->token_limit);
+        $this->assertSame(1250, $subscription->fresh()->tokens_used);
+        $this->assertSame('paid', $transaction->fresh()->status);
+        $this->assertSame(25000, $transaction->fresh()->amount);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-paid-reset')
+            ->assertOk()
+            ->assertJsonPath('subscription', null);
+
+        $paymentPage = app(AiUsageController::class)->gatewayPayments(
+            Request::create('/super-admin/ai-gateway-payments'),
+            app(AiGatewayCostService::class),
+        );
+        $this->assertSame(25000, (int) $paymentPage->getData()['summary']->paid_amount);
+        $this->assertSame(25000, $paymentPage->getData()['financialSummary']['gross_income']);
+    }
+
     public function test_paid_plan_still_creates_pending_payment_invoice(): void
     {
         [$client, $key] = $this->gatewayClient();
@@ -474,6 +604,11 @@ class AiGatewayFreePlanClaimTest extends TestCase
             $table->string('status')->default('pending');
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable();
+            $table->timestamp('revoked_at')->nullable();
+            $table->string('revoked_reason')->nullable();
+            $table->string('revoked_by_user_id', 120)->nullable();
+            $table->string('revoked_by_name')->nullable();
+            $table->string('revoked_by_email')->nullable();
             $table->unsignedBigInteger('tokens_used')->default(0);
             $table->unsignedInteger('chats_used')->default(0);
             $table->timestamps();

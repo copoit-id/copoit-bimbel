@@ -92,8 +92,8 @@
 
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div>
-            <h2 class="font-semibold text-gray-900">Kuota peserta yang membeli paket</h2>
-            <p class="mt-1 text-sm text-gray-500">Hanya super admin yang dapat menambahkan token ke subscription aktif.</p>
+            <h2 class="font-semibold text-gray-900">Paket dan kuota peserta</h2>
+            <p class="mt-1 text-sm text-gray-500">Paket nonaktif tetap ditampilkan sebagai riwayat. Hanya paket aktif yang dihitung sebagai kuota peserta.</p>
         </div>
         <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
             <table class="min-w-full text-sm">
@@ -105,23 +105,31 @@
                         @php($subscriptionChatLimit = (int) ($subscription->chat_limit ?: $subscription->plan?->chat_limit ?: 0))
                         @php($subscriptionTokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0))
                         @php($subscriptionIsActive = $subscription->status === 'active' && ($subscription->ends_at === null || $subscription->ends_at->isFuture()))
+                        @php($subscriptionStatusLabel = match(true) { $subscriptionIsActive => 'Aktif', $subscription->status === 'revoked' => 'Dicabut', $subscription->status === 'active' => 'Kedaluwarsa', default => ucfirst($subscription->status) })
                         <tr>
                             <td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $subscription->external_user_name ?: 'Peserta tidak tersedia' }}</p><p class="mt-1 text-xs text-gray-500">{{ $subscription->external_user_email ?: 'ID: ' . $subscription->external_user_id }}</p><p class="mt-1 text-xs text-gray-500">{{ $subscription->client?->name ?? 'Project dihapus' }}</p></td>
                             <td class="px-4 py-3 font-medium text-gray-700">{{ $subscription->plan?->name ?? '-' }}</td>
-                            <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $subscriptionIsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">{{ ucfirst($subscription->status) }}</span><p class="mt-2 text-xs text-gray-500">{{ $subscription->ends_at?->format('d M Y H:i') ?? 'Tanpa masa aktif' }}</p></td>
-                            <td class="px-4 py-3 text-right font-medium">{{ $subscriptionChatLimit > 0 ? number_format(max(0, $subscriptionChatLimit - $subscription->chats_used), 0, ',', '.') : '∞' }}</td>
-                            <td class="px-4 py-3 text-right font-medium">{{ $subscriptionTokenLimit > 0 ? number_format(max(0, $subscriptionTokenLimit - $subscription->tokens_used), 0, ',', '.') : '-' }}</td>
+                            <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $subscriptionIsActive ? 'bg-green-100 text-green-700' : ($subscription->status === 'revoked' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600') }}">{{ $subscriptionStatusLabel }}</span>@if($subscription->status === 'revoked')<p class="mt-2 text-xs text-gray-500">Dicabut {{ $subscription->revoked_at?->format('d M Y H:i') }}</p><p class="mt-1 max-w-xs text-xs text-gray-500" title="{{ $subscription->revoked_reason }}">{{ $subscription->revoked_reason }}</p>@else<p class="mt-2 text-xs text-gray-500">{{ $subscription->ends_at?->format('d M Y H:i') ?? 'Tanpa masa aktif' }}</p>@endif</td>
+                            <td class="px-4 py-3 text-right font-medium">{{ $subscriptionIsActive ? ($subscriptionChatLimit > 0 ? number_format(max(0, $subscriptionChatLimit - $subscription->chats_used), 0, ',', '.') : '∞') : '0' }}</td>
+                            <td class="px-4 py-3 text-right font-medium">{{ $subscriptionIsActive && $subscriptionTokenLimit > 0 ? number_format(max(0, $subscriptionTokenLimit - $subscription->tokens_used), 0, ',', '.') : '0' }}</td>
                             <td class="px-4 py-3 text-right">
                                 @if($subscriptionIsActive)
                                     <button type="button" onclick="document.getElementById('add-token-{{ $subscription->id }}').classList.toggle('hidden')" class="text-xs font-semibold text-violet-600 hover:underline">Tambah token</button>
+                                    <button type="button" onclick="document.getElementById('revoke-subscription-{{ $subscription->id }}').classList.toggle('hidden')" class="ml-3 text-xs font-semibold text-red-600 hover:underline">Nonaktifkan paket</button>
                                     <form id="add-token-{{ $subscription->id }}" method="POST" action="{{ route('super-admin.ai-gateway-subscriptions.tokens.store', $subscription) }}" class="ml-auto mt-3 hidden w-72 space-y-3 rounded-xl border border-violet-100 bg-violet-50 p-3 text-left">
                                         @csrf
                                         <label class="block text-xs font-medium text-gray-700">Jumlah token<input type="number" name="tokens" min="1" max="100000000" value="10000" required class="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm"></label>
                                         <label class="block text-xs font-medium text-gray-700">Alasan<textarea name="reason" rows="2" maxlength="255" required class="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm" placeholder="Bonus atau kompensasi"></textarea></label>
                                         <button class="w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700">Tambahkan token</button>
                                     </form>
+                                    <form id="revoke-subscription-{{ $subscription->id }}" method="POST" action="{{ route('super-admin.ai-gateway-subscriptions.revoke', $subscription) }}" class="ml-auto mt-3 hidden w-72 space-y-3 rounded-xl border border-red-100 bg-red-50 p-3 text-left" onsubmit="return confirm('Paket akan langsung nonaktif dan sisa kuotanya tidak dapat digunakan. Transaksi tetap tersimpan dan peserta dapat klaim atau membeli lagi. Lanjutkan?')">
+                                        @csrf
+                                        <p class="text-xs leading-5 text-red-700">Akses dan sisa kuota dicabut. Riwayat pembayaran serta pemakaian tidak dihapus.</p>
+                                        <label class="block text-xs font-medium text-gray-700">Alasan<textarea name="reason" rows="2" maxlength="255" required class="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm" placeholder="Contoh: Reset paket untuk pengujian"></textarea></label>
+                                        <button class="w-full rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">Nonaktifkan paket</button>
+                                    </form>
                                 @else
-                                    <span class="text-xs text-gray-400">Tidak aktif</span>
+                                    <span class="text-xs text-gray-400">Tersimpan sebagai riwayat</span>
                                 @endif
                             </td>
                         </tr>

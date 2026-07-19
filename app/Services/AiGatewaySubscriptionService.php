@@ -9,6 +9,7 @@ use App\Models\AiGatewayTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 class AiGatewaySubscriptionService
 {
@@ -158,6 +159,61 @@ class AiGatewaySubscriptionService
                 'transaction' => $transaction->fresh(),
                 'already_claimed' => false,
             ];
+        });
+    }
+
+    public function revokeSubscription(AiGatewaySubscription $subscription, array $audit): AiGatewaySubscription
+    {
+        $reason = trim((string) ($audit['reason'] ?? ''));
+        if ($reason === '') {
+            throw new RuntimeException('Alasan pencabutan paket wajib diisi.');
+        }
+
+        return DB::transaction(function () use ($subscription, $audit, $reason): AiGatewaySubscription {
+            $subscription = AiGatewaySubscription::query()
+                ->with('plan')
+                ->lockForUpdate()
+                ->find($subscription->id);
+
+            if (! $subscription || $subscription->status !== 'active') {
+                throw new RuntimeException('Paket peserta sudah tidak aktif dan tidak dapat dicabut lagi.');
+            }
+
+            $revokedAt = now();
+            $actor = [
+                'user_id' => filled($audit['actor_user_id'] ?? null) ? (string) $audit['actor_user_id'] : null,
+                'name' => $audit['actor_name'] ?? null,
+                'email' => $audit['actor_email'] ?? null,
+            ];
+
+            $subscription->update([
+                'status' => 'revoked',
+                'free_claim_key' => null,
+                'revoked_at' => $revokedAt,
+                'revoked_reason' => $reason,
+                'revoked_by_user_id' => $actor['user_id'],
+                'revoked_by_name' => $actor['name'],
+                'revoked_by_email' => $actor['email'],
+            ]);
+
+            AiGatewayTransaction::query()
+                ->where('status', 'paid')
+                ->where(function ($query) use ($subscription): void {
+                    $query->where('ai_gateway_subscription_id', $subscription->id)
+                        ->orWhere('details->activated_subscription_id', $subscription->id);
+                })
+                ->get()
+                ->each(function (AiGatewayTransaction $transaction) use ($actor, $reason, $revokedAt): void {
+                    $details = is_array($transaction->details) ? $transaction->details : [];
+                    $details['access_revocation'] = [
+                        'revoked_at' => $revokedAt->toISOString(),
+                        'reason' => $reason,
+                        'actor' => $actor,
+                    ];
+                    $transaction->update(['details' => $details]);
+                });
+
+            return $subscription->fresh(['plan', 'transactions']);
         });
     }
 

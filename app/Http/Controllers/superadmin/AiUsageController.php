@@ -253,6 +253,35 @@ class AiUsageController extends Controller
         );
     }
 
+    public function revokeGatewaySubscription(
+        Request $request,
+        AiGatewaySubscription $subscription,
+        AiGatewaySubscriptionService $subscriptionService
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'reason.required' => 'Alasan pencabutan paket wajib diisi untuk audit.',
+        ]);
+        $actor = $request->user();
+
+        try {
+            $subscriptionService->revokeSubscription($subscription, [
+                'reason' => $validated['reason'],
+                'actor_user_id' => $actor?->id,
+                'actor_name' => $actor?->name,
+                'actor_email' => $actor?->email,
+            ]);
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return back()->with(
+            'success',
+            'Paket peserta berhasil dinonaktifkan. Transaksi tetap tersimpan dan peserta dapat membeli atau klaim kembali.'
+        );
+    }
+
     public function gatewayPayments(Request $request, AiGatewayCostService $costService)
     {
         $clients = AiGatewayClient::query()->orderBy('name')->get(['id', 'name']);

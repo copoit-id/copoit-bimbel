@@ -25,6 +25,11 @@ class AiGatewaySubscription extends Model
         'status',
         'starts_at',
         'ends_at',
+        'revoked_at',
+        'revoked_reason',
+        'revoked_by_user_id',
+        'revoked_by_name',
+        'revoked_by_email',
         'tokens_used',
         'chats_used',
     ];
@@ -34,6 +39,7 @@ class AiGatewaySubscription extends Model
         return [
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'revoked_at' => 'datetime',
             'token_limit' => 'integer',
             'chat_limit' => 'integer',
             'tokens_used' => 'integer',

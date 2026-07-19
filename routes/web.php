@@ -330,6 +330,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/ai-gateway-usage', [AiUsageController::class, 'gatewayIndex'])->name('ai-gateway-usage.index');
     Route::post('/ai-gateway-subscriptions/{subscription}/tokens', [AiUsageController::class, 'addGatewaySubscriptionTokens'])
         ->name('ai-gateway-subscriptions.tokens.store');
+    Route::post('/ai-gateway-subscriptions/{subscription}/revoke', [AiUsageController::class, 'revokeGatewaySubscription'])
+        ->name('ai-gateway-subscriptions.revoke');
     Route::get('/ai-gateway-payments', [AiUsageController::class, 'gatewayPayments'])->name('ai-gateway-payments.index');
     Route::post('/ai-gateway-payments/{transaction}/approve', [AiUsageController::class, 'approveGatewayPayment'])->name('ai-gateway-payments.approve');
     Route::post('/ai-gateway-payments/{transaction}/reject', [AiUsageController::class, 'rejectGatewayPayment'])->name('ai-gateway-payments.reject');

@@ -24,7 +24,7 @@ class AiGatewaySubscriptionController extends Controller
         return redirect()->route('user.ai-learning.index', $parameters);
     }
 
-    public function dashboardData(Request $request): array
+    public function dashboardData(Request $request, bool $includeUsageLogs = true): array
     {
         $user = $request->user();
         $plans = [];
@@ -53,9 +53,13 @@ class AiGatewaySubscriptionController extends Controller
         }
         $pendingPayment ??= $request->session()->get('ai_gateway_pending_payment');
 
-        $usageLogsQuery = AiDiscussionUsageLog::query()
-            ->where('user_id', $user->id);
-        $usageLogs = $usageLogsQuery->latest()->paginate(20)->withQueryString();
+        $usageLogs = $includeUsageLogs
+            ? AiDiscussionUsageLog::query()
+                ->where('user_id', $user->id)
+                ->latest()
+                ->paginate(20)
+                ->withQueryString()
+            : null;
 
         return compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'claimedFreePlanIds', 'usageLogs', 'gatewayError');
     }

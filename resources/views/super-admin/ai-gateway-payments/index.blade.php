@@ -84,6 +84,7 @@
                     @forelse($transactions as $transaction)
                         @php
                             $confirmationSource = data_get($transaction->details, 'confirmation_source');
+                            $accessRevocation = data_get($transaction->details, 'access_revocation');
                             $subscription = $transaction->subscription;
                             $isFreeClaim = $transaction->provider === 'free_claim' || (int) $transaction->amount === 0;
                             $canResetLegacyPayment = $transaction->status === 'paid'
@@ -128,6 +129,9 @@
                                         · belum ada konfirmasi pembayaran
                                     @endif
                                 </p>
+                                @if($accessRevocation)
+                                    <p class="mt-1 text-xs font-medium text-red-600">Akses paket dicabut · transaksi tetap tercatat</p>
+                                @endif
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 text-right">
                                 {{ number_format($subscription?->tokens_used ?? 0, 0, ',', '.') }} token<br>

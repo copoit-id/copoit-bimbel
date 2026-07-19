@@ -172,6 +172,25 @@
 </div>
 @endif
 
+@if($showAiPackageRequiredModal)
+<div id="ai-package-required-modal" class="fixed inset-0 z-[100001] overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ai-package-required-title">
+    <div class="flex min-h-full items-center justify-center">
+        <div class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div class="bg-gradient-to-br from-primary/15 via-white to-amber-50 px-6 py-8 text-center sm:px-9">
+                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl text-white shadow-lg shadow-primary/20"><i class="ri-lock-2-line"></i></span>
+                <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Paket AI diperlukan</p>
+                <h2 id="ai-package-required-title" class="mt-2 text-2xl font-black text-gray-900">Aktifkan paket untuk mulai belajar</h2>
+                <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-600">Akunmu belum memiliki paket AI aktif. Pilih paket atau klaim paket gratis yang tersedia untuk melanjutkan.</p>
+            </div>
+            <div class="px-6 pb-7 sm:px-9">
+                <a href="{{ route('user.ai-learning.index', ['tool' => 'quota']) }}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90"><i class="ri-shopping-bag-3-line text-xl"></i><span>Lihat & pilih paket AI</span></a>
+                <p class="mt-3 text-center text-xs leading-5 text-gray-500">Paket lama dan riwayat penggunaan tetap tersimpan, tetapi tidak dihitung sebagai kuota aktif.</p>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 <div id="ai-learning-artifact-modal" class="fixed inset-0 z-[99999] hidden overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><div class="flex h-full w-full items-center justify-center"><div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Riwayat AI Learning</p><p class="mt-1 text-lg font-bold text-gray-900">Detail hasil</p></div><button type="button" data-artifact-modal-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Tutup detail hasil"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-artifact-modal-content" class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6"></div></div></div></div>
 <div id="ai-learning-flashcard-modal" class="fixed inset-0 z-[100000] hidden overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl"><div class="mb-5 flex items-start justify-between"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Mode recall</p><p class="mt-1 text-lg font-semibold text-gray-900">Flashcard</p></div><button type="button" data-flashcard-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-flashcard-modal-content"></div></div></div></div>
 @endsection
@@ -192,6 +211,7 @@
     const aiLearningGenerateUrl = @json(route('user.ai-learning.generate-independent'));
     const aiOnboardingSample = @json($aiLearningOnboardingSample);
     const aiOnboardingModal = document.getElementById('ai-learning-onboarding-modal');
+    const aiPackageRequiredModal = document.getElementById('ai-package-required-modal');
     const aiOnboardingPanel = document.getElementById('ai-onboarding-panel');
     const aiOnboardingIntro = document.getElementById('ai-onboarding-intro');
     const aiOnboardingFlow = document.getElementById('ai-onboarding-flow');
@@ -348,7 +368,7 @@
         }
     }
 
-    if (aiOnboardingModal) {
+    if (aiOnboardingModal || aiPackageRequiredModal) {
         document.body.classList.add('overflow-hidden');
     }
 

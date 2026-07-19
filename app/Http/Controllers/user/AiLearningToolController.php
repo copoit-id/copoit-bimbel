@@ -39,9 +39,10 @@ class AiLearningToolController extends Controller
                 ->where('user_message', 'like', 'AI Learning Tool%')
                 ->exists();
         }
-        $gatewayDashboardData = $currentTool === 'quota' || ! $hasUsedAiLearning
-            ? $aiGatewaySubscriptionController->dashboardData($request)
-            : [];
+        $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData(
+            $request,
+            $currentTool === 'quota',
+        );
 
         $artifacts = AiLearningArtifact::query()
             ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
@@ -108,9 +109,17 @@ class AiLearningToolController extends Controller
 
         $hasActiveAiGatewaySubscription = collect($gatewayDashboardData['subscriptions'] ?? [])
             ->contains(fn ($subscription) => data_get($subscription, 'status') === 'active');
-        $hasAvailableAiGatewayTrial = (bool) data_get($gatewayDashboardData, 'trial.available', false);
+        $trialTokenLimit = (int) data_get($gatewayDashboardData, 'trial.token_limit', 0);
+        $trialChatLimit = (int) data_get($gatewayDashboardData, 'trial.chat_limit', 0);
+        $hasAvailableAiGatewayTrial = (bool) data_get($gatewayDashboardData, 'trial.available', false)
+            && ($trialTokenLimit === 0 || (int) data_get($gatewayDashboardData, 'trial.tokens_used', 0) < $trialTokenLimit)
+            && ($trialChatLimit === 0 || (int) data_get($gatewayDashboardData, 'trial.chats_used', 0) < $trialChatLimit);
         $showAiLearningOnboarding = ! $hasUsedAiLearning
             && ($hasActiveAiGatewaySubscription || $hasAvailableAiGatewayTrial);
+        $showAiPackageRequiredModal = $currentTool !== 'quota'
+            && ! $hasActiveAiGatewaySubscription
+            && ! $hasAvailableAiGatewayTrial
+            && blank($gatewayDashboardData['gatewayError'] ?? null);
         $aiLearningOnboardingSample = [
             'title' => 'Persamaan Linear Satu Variabel',
             'content' => 'Soal contoh: Nilai x yang memenuhi persamaan 3x + 5 = 20 adalah ... A. 3, B. 5, C. 7, D. 15. Jelaskan konsep dan langkah penyelesaiannya dengan bahasa yang mudah dipahami.',
@@ -125,6 +134,7 @@ class AiLearningToolController extends Controller
             'pinnedArtifactsCount',
             'gatewayDashboardData',
             'showAiLearningOnboarding',
+            'showAiPackageRequiredModal',
             'aiLearningOnboardingSample',
         ));
     }
