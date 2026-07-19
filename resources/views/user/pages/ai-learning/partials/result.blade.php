@@ -70,7 +70,26 @@
             <div><p class="text-sm font-semibold text-gray-800">Urutan belajar</p><ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-700">@foreach(data_get($payload, 'study_plan', []) as $step)<li>{{ $step }}</li>@endforeach</ol></div>
         @endif
         @if(collect(data_get($payload, 'video_recommendations', []))->isNotEmpty())
-            <div><p class="text-sm font-semibold text-gray-800">Rekomendasi video belajar</p><div class="mt-2 grid gap-2 md:grid-cols-2">@foreach(data_get($payload, 'video_recommendations', []) as $video)<a href="https://www.youtube.com/results?search_query={{ urlencode(data_get($video, 'search_query')) }}" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-gray-200 p-3 hover:border-primary/50 hover:bg-primary/5"><div class="flex items-start gap-2"><i class="ri-youtube-line mt-0.5 text-red-600"></i><div><p class="text-sm font-semibold text-gray-900">{{ data_get($video, 'title') }}</p><p class="mt-1 text-xs leading-5 text-gray-500">{{ data_get($video, 'reason') }}</p><p class="mt-1 text-[11px] font-medium text-primary">Cari: {{ data_get($video, 'search_query') }}</p></div></div></a>@endforeach</div></div>
+            <div>
+                <p class="text-sm font-semibold text-gray-800">Video rekomendasi belajar</p>
+                <div class="mt-2 grid gap-3 md:grid-cols-2">
+                    @foreach(data_get($payload, 'video_recommendations', []) as $video)
+                        <a href="https://www.youtube.com/results?search_query={{ urlencode(data_get($video, 'search_query')) }}" target="_blank" rel="noopener noreferrer" class="group overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-red-200 hover:shadow-md">
+                            <div class="relative aspect-video overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-red-950">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-2xl text-white shadow-xl transition group-hover:scale-110 group-hover:bg-red-500"><i class="ri-play-fill"></i></span>
+                                </div>
+                                <span class="absolute bottom-2 right-2 rounded bg-black/70 px-2 py-1 text-[10px] font-semibold text-white">Buka di YouTube</span>
+                            </div>
+                            <div class="p-3">
+                                <p class="text-sm font-semibold text-gray-900">{{ data_get($video, 'title') }}</p>
+                                <p class="mt-1 text-xs leading-5 text-gray-500">{{ data_get($video, 'reason') }}</p>
+                                <p class="mt-2 flex items-start gap-1 text-[11px] font-medium text-red-600"><i class="ri-youtube-line mt-0.5"></i><span>Cari: {{ data_get($video, 'search_query') }}</span></p>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
         @endif
         <div><p class="text-sm font-semibold text-gray-800">Materi yang disetujui admin</p><div class="mt-2 grid gap-2 md:grid-cols-2">@forelse(data_get($payload, 'materials', []) as $material)<a href="{{ data_get($material, 'url') }}" class="rounded-lg border border-gray-200 p-3 hover:border-primary/50 hover:bg-primary/5"><div class="flex items-start gap-2"><i class="{{ data_get($material, 'type') === 'video' ? 'ri-video-line' : 'ri-file-text-line' }} mt-0.5 text-primary"></i><div><p class="text-sm font-semibold text-gray-900">{{ data_get($material, 'title') }}</p><p class="mt-1 text-xs text-gray-500">{{ data_get($material, 'type_label') }} · {{ data_get($material, 'source') }}</p></div></div></a>@empty<p class="text-sm text-gray-500 md:col-span-2">Belum ada materi relevan yang telah disetujui admin.</p>@endforelse</div></div>
     @elseif($tool === 'question')
