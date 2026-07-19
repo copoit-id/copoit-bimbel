@@ -33,6 +33,7 @@ class AiGatewaySubscriptionController extends Controller
         $trial = null;
         $pendingPayment = null;
         $claimedFreePlanIds = [];
+        $hasInactivePackageHistory = false;
         $gatewayError = null;
 
         try {
@@ -45,6 +46,7 @@ class AiGatewaySubscriptionController extends Controller
             $trial = data_get($status, 'trial');
             $pendingPayment = data_get($status, 'pending_payment');
             $claimedFreePlanIds = array_map('intval', data_get($status, 'claimed_free_plan_ids', []));
+            $hasInactivePackageHistory = (bool) data_get($status, 'has_inactive_package_history', false);
             if ($subscription) {
                 $request->session()->forget('ai_gateway_pending_payment');
             }
@@ -61,7 +63,7 @@ class AiGatewaySubscriptionController extends Controller
                 ->withQueryString()
             : null;
 
-        return compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'claimedFreePlanIds', 'usageLogs', 'gatewayError');
+        return compact('plans', 'subscription', 'subscriptions', 'trial', 'pendingPayment', 'claimedFreePlanIds', 'hasInactivePackageHistory', 'usageLogs', 'gatewayError');
     }
 
     public function checkout(Request $request): RedirectResponse|JsonResponse

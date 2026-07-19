@@ -82,6 +82,15 @@ class AiGatewayBillingController extends Controller
             ->pluck('ai_gateway_plan_id')
             ->unique()
             ->values();
+        $hasInactivePackageHistory = AiGatewaySubscription::query()
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('external_user_id', $externalUserId)
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
+            ->where(function ($query): void {
+                $query->where('status', '!=', 'active')
+                    ->orWhere('ends_at', '<=', now());
+            })
+            ->exists();
 
         return response()->json([
             'project' => $client->name,
@@ -102,6 +111,7 @@ class AiGatewayBillingController extends Controller
                 'chats_used' => $trial?->chats_used ?? 0,
             ],
             'claimed_free_plan_ids' => $claimedFreePlanIds,
+            'has_inactive_package_history' => $hasInactivePackageHistory,
         ]);
     }
 

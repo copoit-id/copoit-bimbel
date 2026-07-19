@@ -195,6 +195,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
         ->middleware('throttle:10,1')
         ->name('user.ai-gateway.checkout');
     Route::get('/ai-learning-tools', [AiLearningToolController::class, 'index'])->name('user.ai-learning.index');
+    Route::post('/ai-learning-tools/onboarding/skip', [AiLearningToolController::class, 'skipOnboarding'])
+        ->middleware('throttle:10,1')
+        ->name('user.ai-learning.onboarding.skip');
     Route::post('/ai-learning-tools/generate', [AiLearningToolController::class, 'generateIndependent'])
         ->middleware('throttle:12,1')
         ->name('user.ai-learning.generate-independent');

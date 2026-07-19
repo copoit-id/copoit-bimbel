@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -30,15 +31,19 @@ class AiLearningToolController extends Controller
             ? $request->query('tool')
             : 'quota';
         $showPinned = $request->boolean('pinned') || $request->boolean('saved');
-        $hasUsedAiLearning = AiLearningArtifact::query()
+        $latestArtifactAt = AiLearningArtifact::query()
             ->where('user_id', $user->id)
-            ->exists();
-        if (! $hasUsedAiLearning) {
-            $hasUsedAiLearning = AiDiscussionUsageLog::query()
-                ->where('user_id', $user->id)
-                ->where('user_message', 'like', 'AI Learning Tool%')
-                ->exists();
-        }
+            ->max('created_at');
+        $latestLegacyUsageAt = AiDiscussionUsageLog::query()
+            ->where('user_id', $user->id)
+            ->where('user_message', 'like', 'AI Learning Tool%')
+            ->max('created_at');
+        $latestAiLearningUsageAt = collect([$latestArtifactAt, $latestLegacyUsageAt])
+            ->filter()
+            ->map(fn ($date) => Carbon::parse($date))
+            ->sortDesc()
+            ->first();
+        $hasUsedAiLearning = $latestAiLearningUsageAt !== null;
         $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData(
             $request,
             $currentTool === 'quota',
@@ -107,14 +112,48 @@ class AiLearningToolController extends Controller
             ->whereNotNull('saved_at')
             ->count();
 
-        $hasActiveAiGatewaySubscription = collect($gatewayDashboardData['subscriptions'] ?? [])
-            ->contains(fn ($subscription) => data_get($subscription, 'status') === 'active');
+        $activeAiGatewaySubscriptions = collect($gatewayDashboardData['subscriptions'] ?? [])
+            ->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
+        $hasActiveAiGatewaySubscription = $activeAiGatewaySubscriptions->isNotEmpty();
+        $latestActiveSubscriptionStartedAt = $activeAiGatewaySubscriptions
+            ->pluck('starts_at')
+            ->filter()
+            ->map(fn ($date) => Carbon::parse($date))
+            ->sortDesc()
+            ->first();
+        $activeAiGatewaySubscription = $activeAiGatewaySubscriptions
+            ->sortByDesc(fn ($subscription) => (int) data_get($subscription, 'id', 0))
+            ->first();
+        $activeAiGatewaySubscriptionId = (int) data_get($activeAiGatewaySubscription, 'id', 0);
+        $activeAiGatewaySubscriptionStartedAt = filled(data_get($activeAiGatewaySubscription, 'starts_at'))
+            ? Carbon::parse(data_get($activeAiGatewaySubscription, 'starts_at'))
+            : null;
+        $hasNewAiGatewaySubscriptionCycle = $latestActiveSubscriptionStartedAt !== null
+            && ($latestAiLearningUsageAt === null || $latestActiveSubscriptionStartedAt->greaterThan($latestAiLearningUsageAt));
+        $hasInactivePackageHistory = (bool) ($gatewayDashboardData['hasInactivePackageHistory'] ?? false);
+        $canSkipAiLearningOnboarding = $activeAiGatewaySubscriptionId > 0 && $hasInactivePackageHistory;
+        $completedOnboardingToolCount = $activeAiGatewaySubscriptionId > 0
+            ? AiLearningArtifact::query()
+                ->where('user_id', $user->id)
+                ->whereIn('tool', ['note', 'flashcard', 'question', 'recommendation'])
+                ->when($activeAiGatewaySubscriptionStartedAt, fn ($query) => $query->where('created_at', '>=', $activeAiGatewaySubscriptionStartedAt))
+                ->distinct()
+                ->count('tool')
+            : 0;
+        $hasCompletedAiLearningOnboarding = $completedOnboardingToolCount >= 4;
+        $hasSkippedAiLearningOnboarding = $activeAiGatewaySubscriptionId > 0
+            && (int) $request->session()->get('ai_learning_onboarding_skipped_subscription_id') === $activeAiGatewaySubscriptionId;
+        $requiresFirstAiLearningOnboarding = $activeAiGatewaySubscriptionId > 0
+            && ! $hasInactivePackageHistory
+            && ! $hasCompletedAiLearningOnboarding;
         $trialTokenLimit = (int) data_get($gatewayDashboardData, 'trial.token_limit', 0);
         $trialChatLimit = (int) data_get($gatewayDashboardData, 'trial.chat_limit', 0);
         $hasAvailableAiGatewayTrial = (bool) data_get($gatewayDashboardData, 'trial.available', false)
             && ($trialTokenLimit === 0 || (int) data_get($gatewayDashboardData, 'trial.tokens_used', 0) < $trialTokenLimit)
             && ($trialChatLimit === 0 || (int) data_get($gatewayDashboardData, 'trial.chats_used', 0) < $trialChatLimit);
-        $showAiLearningOnboarding = ! $hasUsedAiLearning
+        $showAiLearningOnboarding = ! $hasCompletedAiLearningOnboarding
+            && ! $hasSkippedAiLearningOnboarding
+            && ($requiresFirstAiLearningOnboarding || $request->boolean('onboarding') || ! $hasUsedAiLearning || $hasNewAiGatewaySubscriptionCycle)
             && ($hasActiveAiGatewaySubscription || $hasAvailableAiGatewayTrial);
         $showAiPackageRequiredModal = $currentTool !== 'quota'
             && ! $hasActiveAiGatewaySubscription
@@ -134,9 +173,41 @@ class AiLearningToolController extends Controller
             'pinnedArtifactsCount',
             'gatewayDashboardData',
             'showAiLearningOnboarding',
+            'canSkipAiLearningOnboarding',
+            'activeAiGatewaySubscriptionId',
             'showAiPackageRequiredModal',
             'aiLearningOnboardingSample',
         ));
+    }
+
+    public function skipOnboarding(
+        Request $request,
+        AiGatewaySubscriptionController $aiGatewaySubscriptionController,
+    ): JsonResponse {
+        $data = $request->validate([
+            'subscription_id' => ['required', 'integer', 'min:1'],
+        ]);
+        $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData($request, false);
+        $activeSubscription = collect($gatewayDashboardData['subscriptions'] ?? [])
+            ->first(fn ($subscription) => data_get($subscription, 'status') === 'active'
+                && (int) data_get($subscription, 'id') === (int) $data['subscription_id']);
+
+        if (! $activeSubscription) {
+            return response()->json(['message' => 'Paket AI aktif tidak ditemukan.'], 422);
+        }
+
+        if (! (bool) ($gatewayDashboardData['hasInactivePackageHistory'] ?? false)) {
+            return response()->json([
+                'message' => 'Tutorial wajib diselesaikan untuk penggunaan AI pertama.',
+            ], 403);
+        }
+
+        $request->session()->put(
+            'ai_learning_onboarding_skipped_subscription_id',
+            (int) $data['subscription_id'],
+        );
+
+        return response()->json(['skipped' => true]);
     }
 
     public function history(

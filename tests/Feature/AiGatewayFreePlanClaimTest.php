@@ -225,7 +225,8 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->getJson('/api/ai-gateway/subscription?external_user_id=participant-123')
             ->assertOk()
             ->assertJsonPath('subscription.ai_gateway_plan_id', $plan->id)
-            ->assertJsonPath('claimed_free_plan_ids.0', $plan->id);
+            ->assertJsonPath('claimed_free_plan_ids.0', $plan->id)
+            ->assertJsonPath('has_inactive_package_history', false);
     }
 
     public function test_revoked_free_plan_loses_access_and_can_be_claimed_again_without_deleting_history(): void
@@ -277,7 +278,8 @@ class AiGatewayFreePlanClaimTest extends TestCase
             ->assertOk()
             ->assertJsonPath('subscription', null)
             ->assertJsonPath('subscriptions', [])
-            ->assertJsonPath('claimed_free_plan_ids', []);
+            ->assertJsonPath('claimed_free_plan_ids', [])
+            ->assertJsonPath('has_inactive_package_history', true);
 
         $this->withHeader('X-AI-Gateway-Key', $key)
             ->postJson('/api/ai-gateway/discussion', $this->discussionPayload('participant-reset'))
@@ -291,6 +293,10 @@ class AiGatewayFreePlanClaimTest extends TestCase
                 'claimed' => true,
                 'already_claimed' => false,
             ]);
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-reset')
+            ->assertOk()
+            ->assertJsonPath('has_inactive_package_history', true);
 
         $this->assertSame(2, AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $client->id)

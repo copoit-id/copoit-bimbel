@@ -132,6 +132,9 @@
                         <p class="mt-2 text-sm font-semibold leading-6 text-gray-900">{{ $aiLearningOnboardingSample['content'] }}</p>
                     </div>
                     <button id="ai-learning-onboarding-start" type="button" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-play-circle-line text-xl"></i><span>Coba dengan soal contoh</span></button>
+                    @if($canSkipAiLearningOnboarding)
+                        <button id="ai-learning-onboarding-skip" type="button" data-subscription-id="{{ $activeAiGatewaySubscriptionId }}" class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-skip-forward-line"></i><span>Lewati tutorial</span></button>
+                    @endif
                     <p id="ai-learning-onboarding-error" class="mt-3 hidden text-center text-sm text-red-600" role="alert"></p>
                 </div>
             </div>
@@ -209,6 +212,7 @@
     const artifactExpandUrlTemplate = @json(route('user.ai-learning.notes.expand', ['artifact' => 'ARTIFACT_ID']));
     const labels = { note: 'Buat Catatan Materi', recommendation: 'Buat Rekomendasi Belajar', question: 'Buat Soal Serupa', flashcard: 'Buat Flashcard' };
     const aiLearningGenerateUrl = @json(route('user.ai-learning.generate-independent'));
+    const aiLearningOnboardingSkipUrl = @json(route('user.ai-learning.onboarding.skip'));
     const aiOnboardingSample = @json($aiLearningOnboardingSample);
     const aiOnboardingModal = document.getElementById('ai-learning-onboarding-modal');
     const aiPackageRequiredModal = document.getElementById('ai-package-required-modal');
@@ -216,6 +220,7 @@
     const aiOnboardingIntro = document.getElementById('ai-onboarding-intro');
     const aiOnboardingFlow = document.getElementById('ai-onboarding-flow');
     const aiOnboardingStart = document.getElementById('ai-learning-onboarding-start');
+    const aiOnboardingSkip = document.getElementById('ai-learning-onboarding-skip');
     const aiOnboardingError = document.getElementById('ai-learning-onboarding-error');
     const aiOnboardingWorkspaceError = document.getElementById('ai-onboarding-workspace-error');
     const aiOnboardingResult = document.getElementById('ai-onboarding-result');
@@ -372,6 +377,43 @@
         document.body.classList.add('overflow-hidden');
     }
 
+    function closeAiOnboarding() {
+        aiOnboardingModal?.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('onboarding');
+        window.history.replaceState({}, '', currentUrl);
+    }
+
+    aiOnboardingSkip?.addEventListener('click', async () => {
+        aiOnboardingError?.classList.add('hidden');
+        aiOnboardingSkip.disabled = true;
+        const originalHtml = aiOnboardingSkip.innerHTML;
+        aiOnboardingSkip.innerHTML = '<i class="ri-loader-4-line animate-spin"></i><span>Menyimpan...</span>';
+
+        try {
+            const response = await fetch(aiLearningOnboardingSkipUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: JSON.stringify({ subscription_id: Number(aiOnboardingSkip.dataset.subscriptionId) }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Tutorial belum dapat dilewati.');
+            closeAiOnboarding();
+        } catch (error) {
+            aiOnboardingSkip.innerHTML = originalHtml;
+            aiOnboardingSkip.disabled = false;
+            if (aiOnboardingError) {
+                aiOnboardingError.textContent = error.message || 'Tutorial belum dapat dilewati.';
+                aiOnboardingError.classList.remove('hidden');
+            }
+        }
+    });
+
     aiOnboardingStart?.addEventListener('click', async () => {
         aiOnboardingError?.classList.add('hidden');
         aiOnboardingStart.disabled = true;
@@ -407,8 +449,7 @@
     aiOnboardingFinish?.addEventListener('click', (event) => {
         if (!independentForm) return;
         event.preventDefault();
-        aiOnboardingModal?.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
+        closeAiOnboarding();
         independentForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
         window.setTimeout(() => independentForm.querySelector('[name="content"]')?.focus(), 450);
     });
