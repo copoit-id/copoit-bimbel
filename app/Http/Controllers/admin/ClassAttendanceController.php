@@ -56,13 +56,6 @@ class ClassAttendanceController extends Controller
             'status' => ['required', 'in:present,late,absent,excused'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
-        $session->loadMissing('tentor:id,honor_per_attendance');
-        abort_if(
-            in_array($validated['status'], ['present', 'late'], true)
-                && (int) ($session->tentor?->honor_per_attendance ?? 0) <= 0,
-            422,
-            'Atur honor tutor terlebih dahulu di menu Penggajian Tutor.'
-        );
 
         $existingAttendance = TutorAttendance::query()
             ->where('class_session_id', $session->id)

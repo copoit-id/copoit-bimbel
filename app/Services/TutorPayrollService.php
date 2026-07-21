@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Expense;
 use App\Models\Tentor;
 use App\Models\TutorAttendance;
 use App\Models\TutorPayroll;
@@ -134,6 +135,28 @@ class TutorPayrollService
                     fn (TutorAttendance $attendance) => $this->syncApprovedAttendance($attendance, $generatedBy)
                 );
             });
+    }
+
+    public function syncExpense(TutorPayroll $payroll, ?User $createdBy = null): void
+    {
+        if ($payroll->status !== 'paid') {
+            $payroll->expense()->delete();
+
+            return;
+        }
+
+        $payroll->load('tentor:id,name');
+
+        Expense::query()->updateOrCreate(
+            ['tutor_payroll_id' => $payroll->id],
+            [
+                'title' => 'Gaji tutor: ' . ($payroll->tentor?->name ?? 'Tutor'),
+                'amount' => $payroll->net_amount,
+                'spent_at' => $payroll->paid_at ?? now(),
+                'notes' => "Otomatis dari penggajian tutor periode {$payroll->period_start->format('d/m/Y')} - {$payroll->period_end->format('d/m/Y')}",
+                'created_by' => $createdBy?->id ?? $payroll->paid_by,
+            ]
+        );
     }
 
     private function isPayable(TutorAttendance $attendance): bool

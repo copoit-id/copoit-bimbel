@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Expense extends Model
 {
@@ -15,6 +16,7 @@ class Expense extends Model
         'spent_at',
         'notes',
         'created_by',
+        'tutor_payroll_id',
     ];
 
     protected $casts = [
@@ -22,8 +24,13 @@ class Expense extends Model
         'amount' => 'decimal:0',
     ];
 
-    public function author()
+    public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function tutorPayroll(): BelongsTo
+    {
+        return $this->belongsTo(TutorPayroll::class);
     }
 }

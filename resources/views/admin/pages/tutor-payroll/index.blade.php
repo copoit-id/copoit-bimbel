@@ -7,14 +7,7 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Penggajian Tutor</h1>
-            <p class="text-sm text-gray-500">Rekap dan nominal dihitung otomatis saat absensi Hadir/Terlambat disetujui admin.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <button type="button" data-modal-target="set-tutor-honor-modal" data-modal-toggle="set-tutor-honor-modal"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white">
-                <i class="ri-money-dollar-circle-line"></i>
-                Atur Honor Tutor
-            </button>
+            <p class="text-sm text-gray-500">{{ $activeTab === 'payroll' ? 'Rekap dan nominal dihitung otomatis saat absensi Hadir/Terlambat disetujui admin.' : 'Atur honor per kehadiran tutor. Halaman ini tidak terikat periode penggajian.' }}</p>
         </div>
     </div>
 
@@ -26,7 +19,14 @@
         <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ $errors->first() }}</div>
     @endif
 
+    <nav class="flex overflow-x-auto border-b border-gray-200" aria-label="Penggajian tutor">
+        <a href="{{ route('admin.tutor-payrolls.index', $activeTab === 'payroll' ? ['tab' => 'payroll', 'period_start' => $periodStart->toDateString(), 'period_end' => $periodEnd->toDateString()] : ['tab' => 'payroll']) }}" class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold {{ $activeTab === 'payroll' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"><i class="ri-wallet-3-line mr-1"></i>Penggajian</a>
+        <a href="{{ route('admin.tutor-payrolls.index', ['tab' => 'honor']) }}" class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold {{ $activeTab === 'honor' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"><i class="ri-money-dollar-circle-line mr-1"></i>Honor Tutor</a>
+    </nav>
+
+    @if($activeTab === 'payroll')
     <form method="GET" action="{{ route('admin.tutor-payrolls.index') }}" class="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4">
+        <input type="hidden" name="tab" value="payroll">
         <div>
             <label class="mb-1 block text-xs font-semibold text-gray-600">Mulai periode</label>
             <input type="date" name="period_start" value="{{ $periodStart->toDateString() }}" class="rounded-lg border border-gray-300 px-3 py-2">
@@ -48,11 +48,14 @@
                     <th class="px-4 py-3">Penyesuaian</th>
                     <th class="px-4 py-3">Total</th>
                     <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">Kelola</th>
+                    <th class="px-4 py-3">Pembayaran</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($payrolls as $payroll)
+                    @php
+                        $needsHonor = (int) $payroll->tentor->honor_per_attendance < 1;
+                    @endphp
                     <tr class="border-t border-gray-100 align-top">
                         <td class="px-4 py-3"><p class="font-semibold text-gray-900">{{ $payroll->tentor->name }}</p><p class="text-xs text-gray-500">Honor aktif: Rp {{ number_format($payroll->tentor->honor_per_attendance, 0, ',', '.') }} / kehadiran</p></td>
                         <td class="px-4 py-3">
@@ -65,9 +68,21 @@
                         <td class="px-4 py-3">Rp {{ number_format($payroll->gross_amount, 0, ',', '.') }}</td>
                         <td class="px-4 py-3">Rp {{ number_format($payroll->adjustment_amount, 0, ',', '.') }}</td>
                         <td class="px-4 py-3 font-semibold text-gray-900">Rp {{ number_format($payroll->net_amount, 0, ',', '.') }}</td>
-                        <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-semibold {{ $payroll->status === 'paid' ? 'bg-green-100 text-green-700' : ($payroll->status === 'approved' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700') }}">{{ ucfirst($payroll->status) }}</span></td>
                         <td class="px-4 py-3">
-                            <button type="button" data-modal-target="edit-tutor-payroll-modal-{{ $payroll->id }}" data-modal-toggle="edit-tutor-payroll-modal-{{ $payroll->id }}" class="font-semibold text-primary hover:underline">Kelola</button>
+                            @if($needsHonor)
+                                <span class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">Atur honor dulu</span>
+                            @else
+                                <span class="rounded-full px-2 py-1 text-xs font-semibold {{ $payroll->status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700' }}">{{ $payroll->status === 'paid' ? 'Lunas' : 'Draft' }}</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">
+                            @if($needsHonor)
+                                <a href="{{ route('admin.tutor-payrolls.index', ['tab' => 'honor']) }}" class="inline-flex items-center rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50">Atur honor</a>
+                            @elseif($payroll->status === 'paid')
+                                <button type="button" data-modal-target="edit-tutor-payroll-modal-{{ $payroll->id }}" data-modal-toggle="edit-tutor-payroll-modal-{{ $payroll->id }}" class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Edit pembayaran</button>
+                            @else
+                                <button type="button" data-modal-target="edit-tutor-payroll-modal-{{ $payroll->id }}" data-modal-toggle="edit-tutor-payroll-modal-{{ $payroll->id }}" class="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90">Atur pembayaran</button>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -77,44 +92,6 @@
         </table>
     </div>
     {{ $payrolls->links() }}
-</div>
-
-<div id="set-tutor-honor-modal" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0">
-    <div class="relative max-h-full w-full max-w-xl">
-        <div class="relative rounded-lg bg-white shadow">
-            <div class="flex items-center justify-between border-b p-5">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Atur Honor Tutor</h3>
-                    <p class="mt-1 text-sm text-gray-500">Honor ini dipakai otomatis setiap absensi tutor disetujui admin.</p>
-                </div>
-                <button type="button" data-modal-hide="set-tutor-honor-modal" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"><i class="ri-close-line text-xl"></i></button>
-            </div>
-            <form method="POST" action="{{ route('admin.tutor-payrolls.honor.update') }}">
-                @csrf
-                <div class="space-y-5 p-6">
-                    <div>
-                        <label class="mb-2 block text-sm font-semibold text-gray-700">Tutor</label>
-                        <select name="tentor_id" required class="w-full rounded-lg border border-gray-300 px-3 py-2.5">
-                            <option value="">Pilih Tutor</option>
-                            @foreach($tentors as $tentor)
-                                <option value="{{ $tentor->id }}" @selected((string) old('tentor_id') === (string) $tentor->id)>{{ $tentor->name }} · saat ini Rp {{ number_format($tentor->honor_per_attendance, 0, ',', '.') }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="mb-2 block text-sm font-semibold text-gray-700">Honor per Kehadiran</label>
-                        <input type="number" name="honor_per_attendance" value="{{ old('honor_per_attendance') }}" min="1" required class="w-full rounded-lg border border-gray-300 px-3 py-2.5" placeholder="Contoh: 150000">
-                        <p class="mt-2 text-xs text-gray-500">Dihitung untuk absensi berstatus Hadir atau Terlambat yang sudah disetujui admin.</p>
-                    </div>
-                </div>
-                <div class="flex items-center justify-end gap-3 border-t px-6 py-4">
-                    <button type="button" data-modal-hide="set-tutor-honor-modal" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Batal</button>
-                    <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Honor</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 @foreach($payrolls as $payroll)
 @php
@@ -186,7 +163,7 @@
     <div class="relative max-h-full w-full max-w-xl">
         <div class="relative rounded-lg bg-white shadow">
             <div class="flex items-center justify-between border-b p-5">
-                <div><h3 class="text-lg font-semibold text-gray-900">Kelola Penggajian</h3><p class="mt-1 text-sm text-gray-500">{{ $payroll->tentor->name }} · {{ $payroll->items->count() }} kehadiran</p></div>
+                <div><h3 class="text-lg font-semibold text-gray-900">Atur Pembayaran Tutor</h3><p class="mt-1 text-sm text-gray-500">{{ $payroll->tentor->name }} · {{ $payroll->items->count() }} kehadiran</p></div>
                 <button type="button" data-modal-hide="edit-tutor-payroll-modal-{{ $payroll->id }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"><i class="ri-close-line text-xl"></i></button>
             </div>
             <form method="POST" action="{{ route('admin.tutor-payrolls.update', $payroll) }}">
@@ -195,7 +172,7 @@
                 <div class="space-y-5 p-6">
                     <div class="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4 text-sm"><div><p class="text-gray-500">Bruto</p><p class="font-semibold text-gray-900">Rp {{ number_format($payroll->gross_amount, 0, ',', '.') }}</p></div><div><p class="text-gray-500">Sesi disetujui</p><p class="font-semibold text-gray-900">{{ $payroll->items->count() }} sesi</p></div></div>
                     <div><label class="mb-2 block text-sm font-semibold text-gray-700">Bonus / potongan</label><input type="number" name="adjustment_amount" value="{{ $payroll->adjustment_amount }}" required class="w-full rounded-lg border border-gray-300 px-3 py-2.5"><p class="mt-1 text-xs text-gray-500">Gunakan angka negatif untuk potongan.</p></div>
-                    <div><label class="mb-2 block text-sm font-semibold text-gray-700">Status pembayaran</label><select name="status" class="w-full rounded-lg border border-gray-300 px-3 py-2.5">@foreach(['draft' => 'Draft', 'approved' => 'Disetujui', 'paid' => 'Lunas'] as $key => $label)<option value="{{ $key }}" @selected($payroll->status === $key)>{{ $label }}</option>@endforeach</select></div>
+                    <div><label class="mb-2 block text-sm font-semibold text-gray-700">Status pembayaran</label><select name="status" class="w-full rounded-lg border border-gray-300 px-3 py-2.5">@foreach(['draft' => 'Draft', 'paid' => 'Lunas'] as $key => $label)<option value="{{ $key }}" @selected($payroll->status === $key)>{{ $label }}</option>@endforeach</select></div>
                     <div><label class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label><textarea name="notes" rows="3" class="w-full rounded-lg border border-gray-300 px-3 py-2.5" placeholder="Catatan pembayaran (opsional)">{{ $payroll->notes }}</textarea></div>
                 </div>
                 <div class="flex items-center justify-end gap-3 border-t px-6 py-4"><button type="button" data-modal-hide="edit-tutor-payroll-modal-{{ $payroll->id }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Batal</button><button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Perubahan</button></div>
@@ -204,4 +181,75 @@
     </div>
 </div>
 @endforeach
+@else
+    <div class="border border-gray-200 bg-white">
+        <div class="border-b border-gray-100 px-4 py-4 sm:px-5">
+            <h2 class="font-semibold text-gray-900">Honor per Kehadiran</h2>
+            <p class="mt-1 text-sm text-gray-500">Honor ini berlaku untuk semua kelas tutor dan langsung disinkronkan ke absensi yang sudah disetujui tetapi belum dibayar.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-xs uppercase text-gray-700">
+                    <tr>
+                        <th class="px-4 py-3">Tutor</th>
+                        <th class="px-4 py-3">Bidang</th>
+                        <th class="px-4 py-3">Honor aktif</th>
+                        <th class="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($honorTentors as $tentor)
+                        <tr class="border-t border-gray-100">
+                            <td class="px-4 py-3">
+                                <p class="font-semibold text-gray-900">{{ $tentor->name }}</p>
+                                <p class="mt-0.5 text-xs text-gray-500">{{ $tentor->email }}</p>
+                            </td>
+                            <td class="px-4 py-3">{{ $tentor->expertise ?: '-' }}</td>
+                            <td class="px-4 py-3 font-semibold text-gray-900">Rp {{ number_format($tentor->honor_per_attendance, 0, ',', '.') }} <span class="font-normal text-gray-500">/ kehadiran</span></td>
+                            <td class="px-4 py-3 text-right">
+                                <button type="button" data-modal-target="edit-tutor-honor-modal-{{ $tentor->id }}" data-modal-toggle="edit-tutor-honor-modal-{{ $tentor->id }}" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Edit honor</button>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="px-4 py-10 text-center text-gray-500">Belum ada tutor aktif.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{ $honorTentors->links() }}
+
+    @foreach($honorTentors as $tentor)
+        <div id="edit-tutor-honor-modal-{{ $tentor->id }}" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0">
+            <div class="relative max-h-full w-full max-w-md">
+                <div class="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+                    <div class="flex items-center justify-between border-b border-gray-100 p-5">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Edit Honor Tutor</h3>
+                            <p class="mt-1 text-sm text-gray-500">{{ $tentor->name }}</p>
+                        </div>
+                        <button type="button" data-modal-hide="edit-tutor-honor-modal-{{ $tentor->id }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"><i class="ri-close-line text-xl"></i></button>
+                    </div>
+                    <form method="POST" action="{{ route('admin.tutor-payrolls.honor.update') }}">
+                        @csrf
+                        <input type="hidden" name="tentor_id" value="{{ $tentor->id }}">
+                        <div class="p-5">
+                            <label for="honor_per_attendance_{{ $tentor->id }}" class="mb-2 block text-sm font-semibold text-gray-700">Honor per kehadiran</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-500">Rp</span>
+                                <input id="honor_per_attendance_{{ $tentor->id }}" type="number" name="honor_per_attendance" min="1" step="1" required value="{{ old('honor_per_attendance', $tentor->honor_per_attendance) }}" class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500">Nilai ini tidak terikat periode dan digunakan untuk setiap kehadiran tutor yang disetujui admin.</p>
+                        </div>
+                        <div class="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-4">
+                            <button type="button" data-modal-hide="edit-tutor-honor-modal-{{ $tentor->id }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Batal</button>
+                            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan honor</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endforeach
+@endif
+</div>
 @endsection

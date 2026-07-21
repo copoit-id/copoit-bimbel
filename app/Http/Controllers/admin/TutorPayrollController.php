@@ -17,6 +17,19 @@ class TutorPayrollController extends Controller
 {
     public function index(Request $request): View
     {
+        $activeTab = $request->string('tab')->toString();
+        $activeTab = in_array($activeTab, ['payroll', 'honor'], true) ? $activeTab : 'payroll';
+
+        if ($activeTab === 'honor') {
+            $honorTentors = Tentor::query()
+                ->active()
+                ->orderBy('name')
+                ->paginate(20, ['id', 'name', 'email', 'expertise', 'honor_per_attendance'], 'honor_page')
+                ->withQueryString();
+
+            return view('admin.pages.tutor-payroll.index', compact('activeTab', 'honorTentors'));
+        }
+
         $periodStart = Carbon::parse($request->input('period_start', now()->startOfMonth()->toDateString()))->startOfDay();
         $periodEnd = Carbon::parse($request->input('period_end', now()->endOfMonth()->toDateString()))->endOfDay();
 
@@ -31,7 +44,6 @@ class TutorPayrollController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $tentors = Tentor::query()->active()->orderBy('name')->get(['id', 'name', 'honor_per_attendance']);
         $pendingAttendanceCounts = TutorAttendance::query()
             ->where('approval_status', 'pending')
             ->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
@@ -55,9 +67,9 @@ class TutorPayrollController extends Controller
 
         return view('admin.pages.tutor-payroll.index', compact(
             'payrolls',
+            'activeTab',
             'periodStart',
             'periodEnd',
-            'tentors',
             'pendingAttendanceCounts',
             'attendanceDetailsByTutor',
         ));
@@ -95,26 +107,36 @@ class TutorPayrollController extends Controller
         return back()->with('success', "Honor {$tentor->name} berhasil diperbarui dan rekap absensi yang sudah disetujui telah disinkronkan otomatis.");
     }
 
-    public function update(Request $request, TutorPayroll $tutorPayroll): RedirectResponse
+    public function update(Request $request, TutorPayroll $tutorPayroll, TutorPayrollService $payrollService): RedirectResponse
     {
+        $tutorPayroll->loadMissing('tentor:id,honor_per_attendance');
+
+        if (! $tutorPayroll->tentor || (int) $tutorPayroll->tentor->honor_per_attendance < 1) {
+            return back()->with('error', 'Honor tutor belum diatur. Atur honor terlebih dahulu sebelum mengelola pembayaran.');
+        }
+
         $validated = $request->validate([
             'adjustment_amount' => ['required', 'integer', 'min:' . (-1 * (int) $tutorPayroll->gross_amount)],
-            'status' => ['required', 'in:draft,approved,paid'],
+            'status' => ['required', 'in:draft,paid'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        DB::transaction(function () use ($request, $tutorPayroll, $validated): void {
+        DB::transaction(function () use ($request, $tutorPayroll, $validated, $payrollService): void {
+            $wasPaid = $tutorPayroll->status === 'paid';
             $tutorPayroll->fill([
                 'adjustment_amount' => $validated['adjustment_amount'],
                 'net_amount' => (int) $tutorPayroll->gross_amount + (int) $validated['adjustment_amount'],
                 'status' => $validated['status'],
                 'notes' => $validated['notes'] ?? null,
-                'paid_by' => $validated['status'] === 'paid' ? $request->user()->id : null,
-                'paid_at' => $validated['status'] === 'paid' ? now() : null,
+                'paid_by' => $validated['status'] === 'paid' ? ($wasPaid ? $tutorPayroll->paid_by : $request->user()->id) : null,
+                'paid_at' => $validated['status'] === 'paid' ? ($wasPaid ? $tutorPayroll->paid_at : now()) : null,
             ]);
             $tutorPayroll->save();
+            $payrollService->syncExpense($tutorPayroll, $request->user());
         });
 
-        return back()->with('success', 'Data penggajian tutor berhasil diperbarui.');
+        return back()->with('success', $validated['status'] === 'paid'
+            ? 'Pembayaran tutor ditandai lunas dan otomatis masuk ke pengeluaran.'
+            : 'Data penggajian tutor berhasil diperbarui.');
     }
 }
