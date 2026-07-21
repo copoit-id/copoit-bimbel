@@ -119,7 +119,7 @@
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
         <p class="{{ $sectionLabelClass }} text-sm">Menu</p>
         <ul class="space-y-1 font-medium">
-            @if($canFeatureView('dashboard'))
+            @if(! $isTutor && $canFeatureView('dashboard'))
                 <li><a href="{{ route('admin.dashboard') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.dashboard') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-home-line text-[20px] {{ request()->routeIs('admin.dashboard') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Dashboard</span></a></li>
             @endif
             @if($canShowMasterMenu)
