@@ -24,7 +24,7 @@
                             <p class="text-xs font-semibold text-primary">
                                 {{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' - ' . $session->end_at->format('H:i') : '' }}
                             </p>
-                            <h2 class="mt-1 text-sm font-bold leading-snug text-gray-900">{{ $session->class?->title ?? 'Kelas' }}</h2>
+                            <h2 class="mt-1 text-sm font-bold leading-snug text-gray-900">{{ $session->schedule?->title ?? $session->class?->title ?? 'Kelas' }}</h2>
                             <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-group-line"></i>{{ $session->studyGroup?->name ?? 'Tanpa rombel' }}</p>
                             @if($session->location)
                                 <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-map-pin-line"></i>{{ $session->location }}</p>

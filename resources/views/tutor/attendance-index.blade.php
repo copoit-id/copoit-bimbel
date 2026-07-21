@@ -8,95 +8,58 @@
         <div>
             <p class="text-sm text-gray-500">Absensi untuk</p>
             <h1 class="text-2xl font-bold text-gray-900">{{ $tentor->name }}</h1>
-            <p class="text-sm text-gray-500">Pilih sesi untuk mencatat kehadiran Anda atau siswa.</p>
+            <p class="text-sm text-gray-500">Kelola absensi Anda dan siswa untuk setiap jadwal mengajar.</p>
         </div>
         <div class="rounded-lg bg-primary/10 px-4 py-3 text-sm text-primary">Kehadiran bulan ini: <strong>{{ $monthAttendances }} sesi</strong></div>
     </div>
 
-    @forelse($sessionsByDate as $date => $sessions)
-        @php
-            $dateLabel = \Carbon\Carbon::parse($date);
-        @endphp
+    <nav class="flex overflow-x-auto border-b border-gray-200" aria-label="Tampilan absensi">
+        <a href="{{ route('tutor.attendance.index', ['tab' => 'schedule']) }}"
+            class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors {{ $activeTab === 'schedule' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"
+            @if($activeTab === 'schedule') aria-current="page" @endif>
+            <i class="ri-calendar-schedule-line mr-1"></i>Per Jadwal
+        </a>
+        <a href="{{ route('tutor.attendance.index', ['tab' => 'latest']) }}"
+            class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors {{ $activeTab === 'latest' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"
+            @if($activeTab === 'latest') aria-current="page" @endif>
+            <i class="ri-sort-desc mr-1"></i>Terbaru
+        </a>
+    </nav>
+
+    @if($activeTab === 'schedule')
+        @forelse($sessionsBySchedule as $sessions)
+            @php($schedule = $sessions->first()->schedule)
+            <a href="{{ route('tutor.attendance.schedule.show', $schedule) }}" class="group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md sm:flex-row sm:items-center sm:gap-6">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-primary">Jadwal mengajar</p>
+                    <h2 class="mt-1 text-lg font-bold text-gray-900 group-hover:text-primary">{{ $schedule?->title ?? $sessions->first()->class?->title ?? 'Kelas' }}</h2>
+                    <p class="mt-2 flex items-center gap-1 text-sm text-gray-500"><i class="ri-group-line"></i> {{ $sessions->first()->studyGroup?->name ?? 'Tanpa rombel' }}</p>
+                    <p class="mt-1 flex items-center gap-1 text-xs text-gray-500"><i class="ri-calendar-event-line"></i> Sesi berikutnya: {{ $sessions->first()->start_at->locale('id')->translatedFormat('d M Y, H:i') }}</p>
+                </div>
+                <div class="mt-4 flex items-center gap-3 sm:mt-0">
+                    <span class="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary">{{ $sessions->count() }} sesi</span>
+                    <span class="inline-flex items-center gap-1 text-sm font-semibold text-primary">Buka <i class="ri-arrow-right-line text-lg"></i></span>
+                </div>
+            </a>
+        @empty
+            @include('tutor.partials.attendance-empty')
+        @endforelse
+    @else
         <section class="overflow-hidden rounded-lg border border-gray-200 bg-white">
             <header class="border-b border-gray-200 bg-gray-50 px-4 py-3">
-                <h2 class="font-bold text-gray-900">{{ $dateLabel->locale('id')->translatedFormat('l, d F Y') }}</h2>
+                <h2 class="font-bold text-gray-900">Sesi terbaru</h2>
+                <p class="mt-0.5 text-xs text-gray-500">Diurutkan dari jadwal yang paling baru.</p>
             </header>
             <div class="divide-y divide-gray-100">
-                @foreach($sessions as $session)
-                    @php
-                        $attendance = $session->tutorAttendance;
-                        $setting = $session->schedule?->attendanceSetting;
-                        $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 30);
-                        $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 60);
-                        $canAttend = $session->status === 'scheduled' && ! $attendance && now()->between($openAt, $closeAt);
-                    @endphp
-                    <article class="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <p class="text-sm font-semibold text-primary">{{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' - ' . $session->end_at->format('H:i') : '' }}</p>
-                            <h3 class="mt-1 font-bold text-gray-900">{{ $session->class?->title ?? 'Kelas' }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">Rombel: {{ $session->studyGroup?->name ?? '-' }}</p>
-                            @if($attendance)
-                                <p class="mt-1 text-xs text-green-700">Anda sudah absen {{ ucfirst($attendance->status) }} pada {{ $attendance->check_in_at?->format('H:i') }}.</p>
-                            @elseif(! $canAttend)
-                                <p class="mt-1 text-xs text-gray-500">Absensi tutor dibuka {{ $openAt->format('H:i') }} - {{ $closeAt->format('H:i') }}.</p>
-                            @endif
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            @if($canAttend)
-                                <button type="button" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90" onclick="openTutorAttendanceModal(@js(route('tutor.attendance.mark', $session)), @js($session->class?->title ?? 'Kelas'))">Absen Saya</button>
-                            @elseif($attendance)
-                                <span class="rounded-lg bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">Sudah Absen</span>
-                            @else
-                                <button type="button" disabled class="cursor-not-allowed rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-400">Absen Saya</button>
-                            @endif
-                            <a href="{{ route('tutor.attendance.show', $session) }}" class="rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white">Absen Siswa</a>
-                        </div>
-                    </article>
-                @endforeach
+                @forelse($latestSessions as $session)
+                    @include('tutor.partials.attendance-session', ['showDate' => true])
+                @empty
+                    @include('tutor.partials.attendance-empty')
+                @endforelse
             </div>
         </section>
-    @empty
-        <div class="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-12 text-center text-gray-500">Belum ada sesi kelas dalam 30 hari ke depan.</div>
-    @endforelse
+    @endif
 </div>
 
-<div id="tutor-attendance-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="tutor-attendance-title">
-    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <div class="flex items-start justify-between gap-4">
-            <div>
-                <h2 id="tutor-attendance-title" class="text-lg font-bold text-gray-900">Absen Kehadiran Saya</h2>
-                <p id="tutor-attendance-session" class="mt-1 text-sm text-gray-500"></p>
-            </div>
-            <button type="button" class="text-gray-400 hover:text-gray-700" onclick="closeTutorAttendanceModal()" aria-label="Tutup"><i class="ri-close-line text-xl"></i></button>
-        </div>
-        <form id="tutor-attendance-form" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">
-            @csrf
-            <div>
-                <label for="tutor-attendance-photo" class="mb-2 block text-sm font-medium text-gray-700">Foto kehadiran</label>
-                <input id="tutor-attendance-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="user" required class="block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
-                <p class="mt-1 text-xs text-gray-500">Ambil atau pilih foto (JPG, PNG, atau WebP; maks. 5 MB).</p>
-            </div>
-            <div class="flex justify-end gap-3">
-                <button type="button" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50" onclick="closeTutorAttendanceModal()">Batal</button>
-                <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Hadir</button>
-            </div>
-        </form>
-    </div>
-</div>
+@include('tutor.partials.attendance-modal')
 @endsection
-
-@push('scripts')
-<script>
-    function openTutorAttendanceModal(action, sessionTitle) {
-        document.getElementById('tutor-attendance-form').action = action;
-        document.getElementById('tutor-attendance-session').textContent = sessionTitle;
-        document.getElementById('tutor-attendance-modal').classList.remove('hidden');
-        document.getElementById('tutor-attendance-modal').classList.add('flex');
-    }
-
-    function closeTutorAttendanceModal() {
-        document.getElementById('tutor-attendance-modal').classList.add('hidden');
-        document.getElementById('tutor-attendance-modal').classList.remove('flex');
-    }
-</script>
-@endpush

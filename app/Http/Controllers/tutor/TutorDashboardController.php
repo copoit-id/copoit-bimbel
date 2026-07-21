@@ -4,6 +4,7 @@ namespace App\Http\Controllers\tutor;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassAttendance;
+use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\TutorAttendance;
 use App\Services\ClassAttendanceParticipantService;
@@ -57,17 +58,48 @@ class TutorDashboardController extends Controller
     public function attendanceIndex(Request $request): View
     {
         $tentor = $request->user()->tentorProfile;
-        $sessionsByDate = $this->sessionsFor($tentor->id)
-            ->whereBetween('session_date', [now()->subDay()->toDateString(), now()->addDays(30)->toDateString()])
-            ->get()
-            ->groupBy(fn (ClassSession $session) => $session->session_date->toDateString());
+        $activeTab = $request->string('tab')->toString();
+        $activeTab = in_array($activeTab, ['schedule', 'latest'], true) ? $activeTab : 'schedule';
+
+        $sessions = $this->sessionsFor($tentor->id)
+            ->whereBetween('session_date', [now()->subDays(30)->toDateString(), now()->addDays(30)->toDateString()])
+            ->get();
+
+        $sessionsBySchedule = $sessions
+            ->groupBy('class_schedule_id')
+            ->sortBy(fn ($scheduleSessions) => $scheduleSessions->first()->schedule?->title ?? $scheduleSessions->first()->class?->title ?? '')
+            ->map(fn ($scheduleSessions) => $scheduleSessions->sortBy('start_at')->values());
+
+        $latestSessions = $sessions->sortByDesc('start_at')->values();
 
         $monthAttendances = TutorAttendance::query()
             ->where('tentor_id', $tentor->id)
             ->whereHas('session', fn ($query) => $query->whereBetween('session_date', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()]))
             ->count();
 
-        return view('tutor.attendance-index', compact('tentor', 'sessionsByDate', 'monthAttendances'));
+        return view('tutor.attendance-index', compact(
+            'tentor',
+            'activeTab',
+            'sessionsBySchedule',
+            'latestSessions',
+            'monthAttendances',
+        ));
+    }
+
+    public function showAttendanceSchedule(Request $request, ClassSchedule $classSchedule): View
+    {
+        $tentor = $request->user()->tentorProfile;
+        $assignedSessions = $this->sessionsFor($tentor->id)
+            ->where('class_schedule_id', $classSchedule->id);
+
+        abort_unless($assignedSessions->exists(), 403, 'Jadwal ini bukan tugas Anda.');
+
+        $sessions = $this->sessionsFor($tentor->id)
+            ->where('class_schedule_id', $classSchedule->id)
+            ->whereBetween('session_date', [now()->subDays(30)->toDateString(), now()->addDays(30)->toDateString()])
+            ->get();
+
+        return view('tutor.attendance-schedule', compact('tentor', 'classSchedule', 'sessions'));
     }
 
     public function showSession(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): View
@@ -85,21 +117,22 @@ class TutorDashboardController extends Controller
         ]);
         $participants = $participantService->participants($session);
         $attendances = $session->attendances->keyBy('user_id');
+        $canManageStudentAttendance = $this->isAttendanceOpen($session);
 
-        return view('tutor.session-attendance', compact('tentor', 'session', 'participants', 'attendances'));
+        return view('tutor.session-attendance', compact(
+            'tentor',
+            'session',
+            'participants',
+            'attendances',
+            'canManageStudentAttendance',
+        ));
     }
 
     public function markOwnAttendance(Request $request, ClassSession $session): RedirectResponse
     {
         $tentor = $request->user()->tentorProfile;
         $this->ensureAssignedSession($session, $tentor->id);
-        abort_if($session->status === 'cancelled', 422, 'Sesi kelas dibatalkan.');
-
-        $session->loadMissing('schedule.attendanceSetting');
-        $setting = $session->schedule->attendanceSetting;
-        $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 30);
-        $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 60);
-        abort_if(now()->lt($openAt) || now()->gt($closeAt), 422, 'Absensi Tutor belum dibuka atau sudah ditutup.');
+        $this->ensureAttendanceOpen($session);
 
         $validated = $request->validate([
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
@@ -126,13 +159,16 @@ class TutorDashboardController extends Controller
             ]
         );
 
-        return redirect()->route('tutor.attendance.show', $session)->with('success', 'Kehadiran Anda berhasil dicatat.');
+        return redirect()
+            ->route('tutor.attendance.schedule.show', $session->class_schedule_id)
+            ->with('success', 'Kehadiran Anda berhasil dicatat.');
     }
 
     public function markStudentAttendance(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): RedirectResponse
     {
         $tentor = $request->user()->tentorProfile;
         $this->ensureAssignedSession($session, $tentor->id);
+        $this->ensureAttendanceOpen($session);
 
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
@@ -158,7 +194,7 @@ class TutorDashboardController extends Controller
 
     private function sessionsFor(int $tentorId, bool $includeTutorAttendance = true)
     {
-        $relations = ['class:class_id,title', 'studyGroup:id,name'];
+        $relations = ['class:class_id,title', 'schedule:id,title', 'studyGroup:id,name'];
 
         if ($includeTutorAttendance) {
             $relations = [...$relations, 'tutorAttendance', 'schedule.attendanceSetting'];
@@ -173,5 +209,29 @@ class TutorDashboardController extends Controller
     private function ensureAssignedSession(ClassSession $session, int $tentorId): void
     {
         abort_unless((int) $session->tentor_id === $tentorId, 403, 'Sesi ini bukan tugas Anda.');
+    }
+
+    private function isAttendanceOpen(ClassSession $session): bool
+    {
+        [$openAt, $closeAt] = $this->attendanceWindow($session);
+
+        return $session->status === 'scheduled' && now()->between($openAt, $closeAt);
+    }
+
+    private function ensureAttendanceOpen(ClassSession $session): void
+    {
+        abort_unless($session->status === 'scheduled', 422, 'Sesi kelas tidak dapat diabsen.');
+        abort_unless($this->isAttendanceOpen($session), 422, 'Absensi belum dibuka atau sudah ditutup.');
+    }
+
+    private function attendanceWindow(ClassSession $session): array
+    {
+        $session->loadMissing('schedule.attendanceSetting');
+        $setting = $session->schedule?->attendanceSetting;
+
+        return [
+            $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 30),
+            ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 60),
+        ];
     }
 }

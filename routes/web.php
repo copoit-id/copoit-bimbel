@@ -299,6 +299,7 @@ Route::redirect('/tutor', '/tutor/jadwal-tutor');
 Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
     Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
+    Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
     Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
     Route::post('absensi/{session}/saya', [TutorDashboardController::class, 'markOwnAttendance'])->name('attendance.mark');
     Route::post('absensi/{session}/siswa', [TutorDashboardController::class, 'markStudentAttendance'])->name('attendance.students.mark');
