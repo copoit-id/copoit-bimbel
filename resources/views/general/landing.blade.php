@@ -235,7 +235,7 @@
             <div class="lg:col-span-5 flex flex-col items-center justify-center relative mt-8 lg:mt-0">
                 <!-- Top Card: Illustration -->
                 <div class="flex items-center justify-center w-full relative z-10 animate-float-slow">
-                    <img src="{{ $landingAsset($landingValue('hero.image'), 'img/landing/hero/grafis.webp') }}"
+                    <img src="{{ asset('img/landing/hero/grafis.webp') }}"
                          alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
                          class="w-[125%] md:w-[140%] max-w-none h-auto object-contain scale-110 lg:scale-125 origin-center">
                 </div>
