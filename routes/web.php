@@ -387,7 +387,8 @@ Route::prefix('{portal}')
             ->names('recurring-bills')
             ->parameters(['tagihan-rutin' => 'recurringBill']);
         Route::post('tagihan-rutin/{recurringBill}/generate', [RecurringBillController::class, 'generate'])->name('recurring-bills.generate');
-        Route::post('tagihan-rutin/invoice/{invoice}/paid', [RecurringBillController::class, 'markPaid'])->name('recurring-bills.invoices.paid');
+        Route::get('tagihan-rutin/{recurringBill}/periode/{periodStart}', [RecurringBillController::class, 'showPeriod'])->name('recurring-bills.periods.show');
+        Route::post('tagihan-rutin/invoice/{invoice}/payments', [RecurringBillController::class, 'recordPayment'])->name('recurring-bills.invoices.payments.store');
 
         Route::resource('general/artikel', AdminArticleController::class)
             ->except(['show'])

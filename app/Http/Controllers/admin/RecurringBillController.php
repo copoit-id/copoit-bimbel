@@ -4,12 +4,15 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BillInvoice;
+use App\Models\BillInvoicePayment;
 use App\Models\ClassModel;
 use App\Models\RecurringBill;
 use App\Models\User;
 use App\Services\RecurringBillService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class RecurringBillController extends Controller
@@ -82,12 +85,52 @@ class RecurringBillController extends Controller
     public function show(RecurringBill $recurringBill): View
     {
         $recurringBill->load(['targets.user', 'targets.class']);
+        $paymentTotals = BillInvoicePayment::query()
+            ->select('bill_invoice_id', DB::raw('SUM(amount) as paid_amount'))
+            ->groupBy('bill_invoice_id');
+        $periods = $recurringBill->invoices()
+            ->leftJoinSub($paymentTotals, 'payment_totals', function ($join): void {
+                $join->on('payment_totals.bill_invoice_id', '=', 'bill_invoices.id');
+            })
+            ->whereNotNull('bill_invoices.period_start')
+            ->select([
+                'bill_invoices.period_start',
+                'bill_invoices.period_end',
+                'bill_invoices.due_date',
+            ])
+            ->selectRaw('COUNT(*) as participant_count')
+            ->selectRaw('SUM(bill_invoices.amount) as total_amount')
+            ->selectRaw('COALESCE(SUM(payment_totals.paid_amount), 0) as paid_amount')
+            ->groupBy('bill_invoices.period_start', 'bill_invoices.period_end', 'bill_invoices.due_date')
+            ->orderByDesc('bill_invoices.period_start')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.pages.recurring-bill.period-index', compact('recurringBill', 'periods'));
+    }
+
+    public function showPeriod(RecurringBill $recurringBill, string $periodStart): View
+    {
+        try {
+            $periodStart = Carbon::parse($periodStart)->toDateString();
+        } catch (\Throwable) {
+            abort(404);
+        }
+
+        $recurringBill->load(['targets.user', 'targets.class']);
         $invoices = $recurringBill->invoices()
-            ->with('user:id,name,email')
+            ->with(['user:id,name,email', 'payments'])
+            ->withSum('payments as paid_amount', 'amount')
+            ->whereDate('period_start', $periodStart)
             ->orderByDesc('due_date')
             ->paginate(20);
 
-        return view('admin.pages.recurring-bill.show', compact('recurringBill', 'invoices'));
+        abort_if($invoices->isEmpty() && $invoices->currentPage() === 1, 404);
+
+        $period = $invoices->first();
+        $isPeriodDetail = true;
+
+        return view('admin.pages.recurring-bill.show', compact('recurringBill', 'invoices', 'period', 'isPeriodDetail'));
     }
 
     public function generate(RecurringBill $recurringBill, RecurringBillService $billService): RedirectResponse
@@ -98,14 +141,24 @@ class RecurringBillController extends Controller
         return back()->with('success', "Generate invoice selesai. Invoice baru: {$created}.");
     }
 
-    public function markPaid(Request $request, BillInvoice $invoice): RedirectResponse
+    public function recordPayment(Request $request, BillInvoice $invoice, RecurringBillService $billService): RedirectResponse
     {
-        $invoice->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-            'paid_by' => $request->user()?->id,
+        $validated = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        return back()->with('success', 'Invoice ditandai lunas.');
+        $invoice = $billService->recordPayment(
+            $invoice,
+            (int) $validated['amount'],
+            $validated['payment_method'],
+            $validated['notes'] ?? null,
+            $request->user(),
+        );
+
+        return back()->with('success', $invoice->status === 'paid'
+            ? 'Pembayaran tercatat dan tagihan sudah lunas.'
+            : 'Cicilan berhasil dicatat. Sisa tagihan: Rp ' . number_format($invoice->remaining_amount, 0, ',', '.') . '.');
     }
 }

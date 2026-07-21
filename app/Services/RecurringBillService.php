@@ -3,11 +3,15 @@
 namespace App\Services;
 
 use App\Models\BillInvoice;
+use App\Models\BillInvoicePayment;
 use App\Models\RecurringBill;
+use App\Models\User;
 use App\Models\UserPackageAcces;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class RecurringBillService
 {
@@ -54,6 +58,50 @@ class RecurringBillService
             ->where('status', 'unpaid')
             ->whereDate('due_date', '<', now()->toDateString())
             ->update(['status' => 'overdue']);
+    }
+
+    public function recordPayment(BillInvoice $invoice, int $amount, string $paymentMethod, ?string $notes, ?User $paidBy = null): BillInvoice
+    {
+        return DB::transaction(function () use ($invoice, $amount, $paymentMethod, $notes, $paidBy): BillInvoice {
+            $invoice = BillInvoice::query()->lockForUpdate()->findOrFail($invoice->id);
+
+            if (in_array($invoice->status, ['paid', 'cancelled'], true)) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Invoice ini tidak dapat menerima pembayaran lagi.',
+                ]);
+            }
+
+            $paidAmount = (int) BillInvoicePayment::query()
+                ->where('bill_invoice_id', $invoice->id)
+                ->sum('amount');
+            $remainingAmount = max(0, (int) $invoice->amount - $paidAmount);
+
+            if ($amount > $remainingAmount) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Nominal cicilan melebihi sisa tagihan Rp ' . number_format($remainingAmount, 0, ',', '.') . '.',
+                ]);
+            }
+
+            BillInvoicePayment::create([
+                'bill_invoice_id' => $invoice->id,
+                'receipt_number' => $this->receiptNumber(),
+                'amount' => $amount,
+                'payment_method' => $paymentMethod,
+                'notes' => $notes,
+                'paid_at' => now(),
+                'paid_by' => $paidBy?->id,
+            ]);
+
+            $newPaidAmount = $paidAmount + $amount;
+            $isPaid = $newPaidAmount >= (int) $invoice->amount;
+            $invoice->update([
+                'status' => $isPaid ? 'paid' : 'partial',
+                'paid_at' => $isPaid ? now() : null,
+                'paid_by' => $isPaid ? $paidBy?->id : null,
+            ]);
+
+            return $invoice->fresh(['payments', 'user']);
+        });
     }
 
     private function targetUsers(RecurringBill $bill): Collection
@@ -125,5 +173,14 @@ class RecurringBillService
     private function invoiceNumber(int $billId): string
     {
         return 'INV-' . now()->format('Ymd') . '-' . $billId . '-' . Str::upper(Str::random(6));
+    }
+
+    private function receiptNumber(): string
+    {
+        do {
+            $receiptNumber = 'BILL-PAY-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6));
+        } while (BillInvoicePayment::query()->where('receipt_number', $receiptNumber)->exists());
+
+        return $receiptNumber;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
+use App\Models\BillInvoicePayment;
 use App\Models\IndividualPurchase;
 use App\Models\Material;
 use App\Models\Payment;
@@ -41,7 +42,7 @@ class PembayaranController extends Controller
         $productType = $request->get('product_type', 'all');
         $summaryMetric = $request->get('summary_metric', 'count');
         $search = trim((string) $request->get('search', ''));
-        $allowedProductTypes = ['all', 'package', 'material', 'class', 'tryout'];
+        $allowedProductTypes = ['all', 'package', 'material', 'class', 'tryout', 'recurring_bill'];
         $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
 
         if ($canManageTesKoran) {
@@ -128,6 +129,22 @@ class PembayaranController extends Controller
             })
             ->orderBy('created_at', 'desc');
 
+        $billPaymentsQuery = BillInvoicePayment::with(['invoice:id,recurring_bill_id,user_id,title,invoice_number', 'invoice.user:id,name,email'])
+            ->when($productType !== 'all' && $productType !== 'recurring_bill', fn ($query) => $query->whereRaw('1 = 0'))
+            ->when($status && $status !== 'all' && $status !== 'success', fn ($query) => $query->whereRaw('1 = 0'))
+            ->when($method, fn ($query) => $query->where('payment_method', $method))
+            ->when($search !== '', fn ($query) => $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('receipt_number', 'like', "%{$search}%")
+                    ->orWhereHas('invoice', fn ($invoiceQuery) => $invoiceQuery
+                        ->where('title', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                        )
+                    );
+            }))
+            ->orderByDesc('paid_at');
+
         $paymentRows = $paymentsQuery->get()->map(fn (Payment $payment) => [
             'id' => $payment->payment_id,
             'source' => 'package',
@@ -195,8 +212,29 @@ class PembayaranController extends Controller
             ];
         });
 
+        $billPaymentRows = $billPaymentsQuery->get()->map(fn (BillInvoicePayment $payment): array => [
+            'id' => $payment->id,
+            'source' => 'recurring_bill',
+            'transaction_id' => $payment->receipt_number,
+            'user_name' => $payment->invoice?->user?->name ?? 'Unknown User',
+            'user_email' => $payment->invoice?->user?->email ?? 'No email',
+            'item_name' => $payment->invoice?->title ?? 'Tagihan Rutin',
+            'item_type' => 'Tagihan Rutin',
+            'amount' => (int) $payment->amount,
+            'payment_method' => $payment->payment_method,
+            'status' => 'success',
+            'status_label' => 'Berhasil',
+            'status_class' => 'bg-green-100 text-green-700',
+            'detail_route' => $payment->invoice?->recurring_bill_id
+                ? route('admin.recurring-bills.show', $payment->invoice->recurring_bill_id)
+                : route('admin.pembayaran.index'),
+            'confirm_route' => null,
+            'created_at' => $payment->paid_at,
+        ]);
+
         $paymentRows = $paymentRows
             ->concat($individualRows)
+            ->concat($billPaymentRows)
             ->sortByDesc('created_at')
             ->values();
         $perPage = 15;
@@ -226,6 +264,13 @@ class PembayaranController extends Controller
                     ->distinct()
                     ->pluck('payment_method')
             )
+            ->merge(
+                BillInvoicePayment::query()
+                    ->whereNotNull('payment_method')
+                    ->select('payment_method')
+                    ->distinct()
+                    ->pluck('payment_method')
+            )
             ->filter()
             ->unique()
             ->sort()
@@ -236,6 +281,7 @@ class PembayaranController extends Controller
             'material' => 'Materi',
             'class' => 'Kelas Zoom',
             'tryout' => 'Tryout',
+            'recurring_bill' => 'Tagihan Rutin',
         ];
 
         if ($canManageTesKoran) {
@@ -275,6 +321,7 @@ class PembayaranController extends Controller
             ->mapWithKeys(function (string $key) use ($summaryMetric, $packageStatuses, $individualStatuses, $individualTypeClasses) {
                 $packageQuery = Payment::query();
                 $individualQuery = IndividualPurchase::query()->whereIn('purchasable_type', $individualTypeClasses);
+                $billPaymentQuery = BillInvoicePayment::query();
 
                 if ($packageStatuses[$key] !== null) {
                     $packageQuery->whereIn('status', $packageStatuses[$key]);
@@ -284,9 +331,13 @@ class PembayaranController extends Controller
                     $individualQuery->whereIn('status', $individualStatuses[$key]);
                 }
 
+                if (! in_array($key, ['total', 'success'], true)) {
+                    $billPaymentQuery->whereRaw('1 = 0');
+                }
+
                 $value = $summaryMetric === 'amount'
-                    ? (int) $packageQuery->sum('total_amount') + (int) $individualQuery->sum('total_amount')
-                    : $packageQuery->count() + $individualQuery->count();
+                    ? (int) $packageQuery->sum('total_amount') + (int) $individualQuery->sum('total_amount') + (int) $billPaymentQuery->sum('amount')
+                    : $packageQuery->count() + $individualQuery->count() + $billPaymentQuery->count();
 
                 return [$key => $value];
             })

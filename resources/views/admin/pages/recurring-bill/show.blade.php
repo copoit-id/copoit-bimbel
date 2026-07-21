@@ -6,13 +6,10 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
+            <a href="{{ route('admin.recurring-bills.show', $recurringBill) }}" class="mb-2 inline-flex text-sm font-medium text-gray-500 hover:text-primary"><i class="ri-arrow-left-line mr-1"></i>Semua periode</a>
             <h1 class="text-2xl font-bold text-gray-900">{{ $recurringBill->name }}</h1>
-            <p class="text-sm text-gray-500">Rp {{ number_format((float) $recurringBill->amount, 0, ',', '.') }} • {{ ucfirst($recurringBill->frequency) }}</p>
+            <p class="text-sm text-gray-500">Periode {{ $period->period_start?->translatedFormat('d M Y') }} - {{ $period->period_end?->translatedFormat('d M Y') }} · jatuh tempo {{ $period->due_date?->translatedFormat('d M Y') }}</p>
         </div>
-        <form method="POST" action="{{ route('admin.recurring-bills.generate', $recurringBill) }}">
-            @csrf
-            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">Generate Invoice</button>
-        </form>
     </div>
 
     <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -22,6 +19,7 @@
                     <th class="px-4 py-3">Invoice</th>
                     <th class="px-4 py-3">Peserta</th>
                     <th class="px-4 py-3">Nominal</th>
+                    <th class="px-4 py-3">Pembayaran</th>
                     <th class="px-4 py-3">Jatuh Tempo</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3">Aksi</th>
@@ -29,6 +27,15 @@
             </thead>
             <tbody>
                 @forelse($invoices as $invoice)
+                    @php
+                        $status = match ($invoice->status) {
+                            'paid' => ['label' => 'Lunas', 'class' => 'border-green-200 bg-green-50 text-green-700'],
+                            'partial' => ['label' => 'Cicilan', 'class' => 'border-blue-200 bg-blue-50 text-blue-700'],
+                            'overdue' => ['label' => 'Jatuh tempo', 'class' => 'border-red-200 bg-red-50 text-red-700'],
+                            'cancelled' => ['label' => 'Dibatalkan', 'class' => 'border-gray-200 bg-gray-50 text-gray-600'],
+                            default => ['label' => 'Belum dibayar', 'class' => 'border-amber-200 bg-amber-50 text-amber-700'],
+                        };
+                    @endphp
                     <tr class="border-t border-gray-100">
                         <td class="px-4 py-3">
                             <p class="font-medium text-gray-900">{{ $invoice->invoice_number }}</p>
@@ -36,14 +43,18 @@
                         </td>
                         <td class="px-4 py-3">{{ $invoice->user->name ?? '-' }}</td>
                         <td class="px-4 py-3">Rp {{ number_format((float) $invoice->amount, 0, ',', '.') }}</td>
-                        <td class="px-4 py-3">{{ $invoice->due_date->format('d M Y') }}</td>
-                        <td class="px-4 py-3">{{ ucfirst($invoice->status) }}</td>
                         <td class="px-4 py-3">
-                            @if(in_array($invoice->status, ['unpaid', 'overdue'], true))
-                                <form method="POST" action="{{ route('admin.recurring-bills.invoices.paid', $invoice) }}">
-                                    @csrf
-                                    <button class="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold text-white">Tandai Lunas</button>
-                                </form>
+                            <p class="font-medium text-gray-900">Rp {{ number_format($invoice->paid_amount, 0, ',', '.') }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500">Sisa Rp {{ number_format($invoice->remaining_amount, 0, ',', '.') }}</p>
+                            @if($invoice->payments->isNotEmpty())
+                                <p class="mt-1 text-xs font-medium text-primary">{{ $invoice->payments->count() === 1 ? '1 kali pembayaran' : 'Dicicil ' . $invoice->payments->count() . ' kali' }}</p>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">{{ $invoice->due_date->format('d M Y') }}</td>
+                        <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {{ $status['class'] }}">{{ $status['label'] }}</span></td>
+                        <td class="px-4 py-3">
+                            @if(in_array($invoice->status, ['unpaid', 'overdue', 'partial'], true))
+                                <button type="button" data-modal-target="record-bill-payment-modal-{{ $invoice->id }}" data-modal-toggle="record-bill-payment-modal-{{ $invoice->id }}" class="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90">Catat pembayaran</button>
                             @else
                                 -
                             @endif
@@ -51,7 +62,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">Belum ada invoice.</td>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">Belum ada invoice.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -59,5 +70,43 @@
     </div>
 
     {{ $invoices->links() }}
+
+    @foreach($invoices as $invoice)
+        @if(in_array($invoice->status, ['unpaid', 'overdue', 'partial'], true))
+            <div id="record-bill-payment-modal-{{ $invoice->id }}" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0">
+                <div class="relative max-h-full w-full max-w-lg">
+                    <div class="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+                        <div class="flex items-center justify-between border-b border-gray-100 p-5">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Catat Pembayaran</h3>
+                                <p class="mt-1 text-sm text-gray-500">{{ $invoice->user->name ?? '-' }} · {{ $invoice->invoice_number }}</p>
+                            </div>
+                            <button type="button" data-modal-hide="record-bill-payment-modal-{{ $invoice->id }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"><i class="ri-close-line text-xl"></i></button>
+                        </div>
+                        <form method="POST" action="{{ route('admin.recurring-bills.invoices.payments.store', $invoice) }}">
+                            @csrf
+                            <div class="space-y-4 p-5">
+                                <div class="grid grid-cols-2 gap-px border border-gray-100 bg-gray-100 text-sm">
+                                    <div class="bg-white p-3"><p class="text-xs text-gray-500">Total tagihan</p><p class="mt-1 font-semibold text-gray-900">Rp {{ number_format((float) $invoice->amount, 0, ',', '.') }}</p></div>
+                                    <div class="bg-white p-3"><p class="text-xs text-gray-500">Sisa tagihan</p><p class="mt-1 font-semibold text-primary">Rp {{ number_format($invoice->remaining_amount, 0, ',', '.') }}</p></div>
+                                </div>
+                                <div>
+                                    <label for="amount_{{ $invoice->id }}" class="mb-2 block text-sm font-semibold text-gray-700">Nominal dibayar</label>
+                                    <div class="relative"><span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-500">Rp</span><input id="amount_{{ $invoice->id }}" type="number" name="amount" min="1" max="{{ $invoice->remaining_amount }}" value="{{ old('amount', $invoice->remaining_amount) }}" required class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"></div>
+                                    <p class="mt-1 text-xs text-gray-500">Boleh diisi kurang dari sisa tagihan untuk mencatat cicilan.</p>
+                                </div>
+                                <div><label for="payment_method_{{ $invoice->id }}" class="mb-2 block text-sm font-semibold text-gray-700">Metode pembayaran</label><select id="payment_method_{{ $invoice->id }}" name="payment_method" class="w-full rounded-lg border border-gray-300 px-3 py-2.5"><option value="cash">Tunai</option><option value="transfer">Transfer bank</option><option value="qris">QRIS</option><option value="manual">Manual</option></select></div>
+                                <div><label for="notes_{{ $invoice->id }}" class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label><textarea id="notes_{{ $invoice->id }}" name="notes" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2.5" placeholder="Opsional">{{ old('notes') }}</textarea></div>
+                                @if($invoice->payments->isNotEmpty())
+                                    <div class="border-t border-gray-100 pt-4"><p class="mb-2 text-sm font-semibold text-gray-700">Riwayat cicilan</p><div class="space-y-2">@foreach($invoice->payments as $payment)<div class="flex items-center justify-between border border-gray-100 px-3 py-2 text-xs"><div><p class="font-medium text-gray-800">{{ $payment->receipt_number }} · {{ strtoupper($payment->payment_method) }}</p><p class="mt-0.5 text-gray-500">{{ $payment->paid_at->format('d M Y H:i') }}</p></div><p class="font-semibold text-gray-900">Rp {{ number_format((float) $payment->amount, 0, ',', '.') }}</p></div>@endforeach</div></div>
+                                @endif
+                            </div>
+                            <div class="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-4"><button type="button" data-modal-hide="record-bill-payment-modal-{{ $invoice->id }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Batal</button><button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan pembayaran</button></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endforeach
 </div>
 @endsection
