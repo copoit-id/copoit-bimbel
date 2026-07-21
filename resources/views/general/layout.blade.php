@@ -44,7 +44,7 @@
                     class="h-9 w-9 shrink-0 rounded-lg object-contain">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-bold text-slate-900 leading-tight">{{ $clientBranding['name'] }}</p>
-                    <p class="hidden text-[10px] text-slate-600 font-medium sm:block">Informasi dan artikel</p>
+                    <p class="hidden text-[10px] text-slate-600 font-medium sm:block">Platform Persiapan Masuk Perguruan Tinggi</p>
                 </div>
             </a>
 

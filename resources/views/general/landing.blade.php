@@ -14,17 +14,23 @@
     $landingValue = fn (string $key, mixed $default = null) => data_get($landingContent, $key, $default);
     $landingItems = fn (string $key) => data_get($landingContent, $key, data_get($landingDefaults, $key, [])) ?: [];
     $landingAsset = function (?string $path, string $fallback): string {
-        $target = $path ?: $fallback;
+        $target = trim($path ?: $fallback);
 
-        if (\Illuminate\Support\Str::startsWith($target, ['http://', 'https://', '//', '/'])) {
+        if (\Illuminate\Support\Str::startsWith($target, ['http://', 'https://', '//', 'data:'])) {
             return $target;
         }
 
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($target)) {
-            return \Illuminate\Support\Facades\Storage::url($target);
+        $normalized = ltrim($target, '/');
+
+        if (\Illuminate\Support\Str::startsWith($normalized, 'storage/')) {
+            return asset($normalized);
         }
 
-        return asset($target);
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($normalized)) {
+            return \Illuminate\Support\Facades\Storage::url($normalized);
+        }
+
+        return asset($normalized);
     };
 
     $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
@@ -229,7 +235,7 @@
             <div class="lg:col-span-5 flex flex-col items-center justify-center relative mt-8 lg:mt-0">
                 <!-- Top Card: Illustration -->
                 <div class="flex items-center justify-center w-full relative z-10 animate-float-slow">
-                    <img src="{{ asset('img/landing/hero/grafis.webp') }}"
+                    <img src="{{ $landingAsset($landingValue('hero.image'), 'img/landing/hero/grafis.webp') }}"
                          alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
                          class="w-[125%] md:w-[140%] max-w-none h-auto object-contain scale-110 lg:scale-125 origin-center">
                 </div>
@@ -537,47 +543,13 @@
 
             <!-- Grid of Cooperating Schools (Lembaga Bekerjasama) -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6">
-                <!-- SMAN 8 Jakarta -->
+                @foreach($landingItems('partners.items') as $partner)
                 <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 8 Jakarta" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 8 Jakarta</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DKI Jakarta</p>
+                    <img src="{{ $landingAsset(data_get($partner, 'logo'), 'img/logo_kampus.png') }}" alt="{{ data_get($partner, 'alt', data_get($partner, 'name', 'Logo mitra')) }}" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
+                    <p class="text-xs font-bold text-slate-800 leading-tight">{{ data_get($partner, 'name') }}</p>
+                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">{{ data_get($partner, 'location') }}</p>
                 </div>
-
-                <!-- SMAN 3 Bandung -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 3 Bandung" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 3 Bandung</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">Jawa Barat</p>
-                </div>
-
-                <!-- SMAN 1 Yogyakarta -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 1 Yogyakarta" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 1 Yogya</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DI Yogyakarta</p>
-                </div>
-
-                <!-- SMAN 5 Surabaya -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMAN 5 Surabaya" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMAN 5 Surabaya</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">Jawa Timur</p>
-                </div>
-
-                <!-- SMA Labschool -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMA Labschool" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMA Labschool</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DKI Jakarta</p>
-                </div>
-
-                <!-- SMA Kristen Yusuf -->
-                <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                    <img src="{{ asset('img/logo_kampus.png') }}" alt="Logo SMA Kristen Yusuf" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">SMA K. Yusuf</p>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">DKI Jakarta</p>
-                </div>
+                @endforeach
             </div>
         </div>
     </div>
