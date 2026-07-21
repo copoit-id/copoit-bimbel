@@ -142,6 +142,8 @@ class TutorDashboardController extends Controller
             ->where('class_session_id', $session->id)
             ->where('tentor_id', $tentor->id)
             ->first();
+        abort_if($existingAttendance?->approval_status === 'approved', 422, 'Absensi Anda sudah disetujui admin dan tidak dapat diubah.');
+
         $photoPath = $validated['photo']->store('tutor-attendance-photos', 'public');
 
         if ($existingAttendance?->photo_path && Storage::disk('public')->exists($existingAttendance->photo_path)) {
@@ -152,10 +154,13 @@ class TutorDashboardController extends Controller
             ['class_session_id' => $session->id, 'tentor_id' => $tentor->id],
             [
                 'status' => now()->gt($session->start_at) ? 'late' : 'present',
+                'approval_status' => 'pending',
                 'check_in_at' => now(),
                 'photo_path' => $photoPath,
                 'source' => 'tutor',
                 'marked_by' => $request->user()->id,
+                'approved_by' => null,
+                'approved_at' => null,
             ]
         );
 

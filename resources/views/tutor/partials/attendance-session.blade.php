@@ -17,6 +17,9 @@
         <p class="mt-1 text-sm text-gray-500">Rombel: {{ $session->studyGroup?->name ?? '-' }}</p>
         @if($attendance)
             <p class="mt-1 text-xs text-green-700">Anda sudah absen {{ ucfirst($attendance->status) }} pada {{ $attendance->check_in_at?->format('H:i') }}.</p>
+            <p class="mt-1 text-xs {{ $attendance->approval_status === 'approved' ? 'text-green-700' : 'text-amber-700' }}">
+                {{ $attendance->approval_status === 'approved' ? 'Kehadiran sudah disetujui admin.' : 'Menunggu persetujuan admin.' }}
+            </p>
         @elseif(! $canAttend)
             <p class="mt-1 text-xs text-gray-500">Absensi tutor dibuka {{ $openAt->format('H:i') }} - {{ $closeAt->format('H:i') }}.</p>
         @endif

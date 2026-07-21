@@ -141,6 +141,8 @@ class ClassScheduleController extends Controller
 
     public function show(Request $request, ClassSchedule $classSchedule, ClassAttendanceParticipantService $participantService): View
     {
+        $activeTab = $request->string('tab')->toString();
+        $activeTab = in_array($activeTab, ['tutor', 'participants'], true) ? $activeTab : 'tutor';
         $classSchedule->load(['class.tentor', 'studyGroup.tentor', 'studyGroup.users', 'tentor', 'attendanceSetting', 'destinationCategories.parent']);
         $sessionOptions = $classSchedule->sessions()
             ->orderByDesc('session_date')
@@ -178,7 +180,7 @@ class ClassScheduleController extends Controller
         $participants = collect();
         $attendances = collect();
         if ($selectedSession) {
-            $selectedSession->load(['class.packages', 'studyGroup.users', 'tentor', 'schedule.tentor', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
+            $selectedSession->load(['class.packages', 'studyGroup.users', 'tentor', 'tutorAttendance', 'schedule.tentor', 'schedule.destinationCategories.parent', 'schedule.destinationCategories.children', 'attendances.user']);
             $participants = $participantService->participants($selectedSession);
             $attendances = $selectedSession->attendances->keyBy('user_id');
         }
@@ -188,7 +190,8 @@ class ClassScheduleController extends Controller
             'sessionOptions',
             'selectedSession',
             'participants',
-            'attendances'
+            'attendances',
+            'activeTab',
         ));
     }
 

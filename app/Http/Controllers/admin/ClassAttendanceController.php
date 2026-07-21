@@ -7,6 +7,7 @@ use App\Models\ClassAttendance;
 use App\Models\ClassSession;
 use App\Models\TutorAttendance;
 use App\Services\ClassAttendanceParticipantService;
+use App\Services\TutorPayrollService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -47,7 +48,7 @@ class ClassAttendanceController extends Controller
         return back()->with('success', 'Absensi berhasil diperbarui.');
     }
 
-    public function markTutor(Request $request, ClassSession $session): RedirectResponse
+    public function markTutor(Request $request, ClassSession $session, TutorPayrollService $tutorPayrollService): RedirectResponse
     {
         abort_unless($session->tentor_id, 422, 'Sesi ini belum memiliki Tutor.');
 
@@ -55,18 +56,34 @@ class ClassAttendanceController extends Controller
             'status' => ['required', 'in:present,late,absent,excused'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+        $session->loadMissing('tentor:id,honor_per_attendance');
+        abort_if(
+            in_array($validated['status'], ['present', 'late'], true)
+                && (int) ($session->tentor?->honor_per_attendance ?? 0) <= 0,
+            422,
+            'Atur honor tutor terlebih dahulu di menu Penggajian Tutor.'
+        );
 
-        TutorAttendance::updateOrCreate(
+        $existingAttendance = TutorAttendance::query()
+            ->where('class_session_id', $session->id)
+            ->where('tentor_id', $session->tentor_id)
+            ->first();
+
+        $attendance = TutorAttendance::updateOrCreate(
             ['class_session_id' => $session->id, 'tentor_id' => $session->tentor_id],
             [
                 'status' => $validated['status'],
-                'check_in_at' => in_array($validated['status'], ['present', 'late'], true) ? now() : null,
-                'source' => 'admin',
+                'approval_status' => 'approved',
+                'check_in_at' => in_array($validated['status'], ['present', 'late'], true) ? ($existingAttendance?->check_in_at ?? now()) : null,
+                'source' => $existingAttendance?->source ?? 'admin',
                 'notes' => $validated['notes'] ?? null,
-                'marked_by' => $request->user()?->id,
+                'marked_by' => $existingAttendance?->marked_by ?? $request->user()?->id,
+                'approved_by' => $request->user()?->id,
+                'approved_at' => now(),
             ]
         );
+        $tutorPayrollService->syncApprovedAttendance($attendance, $request->user());
 
-        return back()->with('success', 'Absensi Tutor berhasil diperbarui.');
+        return back()->with('success', 'Absensi Tutor disetujui dan penggajian otomatis diperbarui.');
     }
 }

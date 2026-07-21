@@ -29,7 +29,7 @@
     @if($activeTab === 'schedule')
         @forelse($sessionsBySchedule as $sessions)
             @php($schedule = $sessions->first()->schedule)
-            <a href="{{ route('tutor.attendance.schedule.show', $schedule) }}" class="group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md sm:flex-row sm:items-center sm:gap-6">
+            <a href="{{ route('tutor.attendance.schedule.show', $schedule) }}" class="group flex flex-col justify-between border border-gray-200 bg-white p-5 transition hover:border-primary sm:flex-row sm:items-center sm:gap-6">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-primary">Jadwal mengajar</p>
                     <h2 class="mt-1 text-lg font-bold text-gray-900 group-hover:text-primary">{{ $schedule?->title ?? $sessions->first()->class?->title ?? 'Kelas' }}</h2>
@@ -45,7 +45,7 @@
             @include('tutor.partials.attendance-empty')
         @endforelse
     @else
-        <section class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <section class="overflow-hidden border border-gray-200 bg-white">
             <header class="border-b border-gray-200 bg-gray-50 px-4 py-3">
                 <h2 class="font-bold text-gray-900">Sesi terbaru</h2>
                 <p class="mt-0.5 text-xs text-gray-500">Diurutkan dari jadwal yang paling baru.</p>

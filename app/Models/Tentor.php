@@ -19,11 +19,13 @@ class Tentor extends Model
         'expertise',
         'bio',
         'is_active',
+        'honor_per_attendance',
         'user_id',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'honor_per_attendance' => 'decimal:0',
     ];
 
     public function user(): BelongsTo

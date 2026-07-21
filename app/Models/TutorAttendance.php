@@ -14,17 +14,21 @@ class TutorAttendance extends Model
         'class_session_id',
         'tentor_id',
         'status',
+        'approval_status',
         'check_in_at',
         'check_out_at',
         'photo_path',
         'source',
         'notes',
         'marked_by',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
         'check_in_at' => 'datetime',
         'check_out_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     public function session(): BelongsTo
@@ -40,5 +44,10 @@ class TutorAttendance extends Model
     public function marker(): BelongsTo
     {
         return $this->belongsTo(User::class, 'marked_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

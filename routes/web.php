@@ -571,6 +571,7 @@ Route::prefix('{portal}')
         Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
         Route::get('penggajian-tutor', [TutorPayrollController::class, 'index'])->name('tutor-payrolls.index');
         Route::post('penggajian-tutor/generate', [TutorPayrollController::class, 'generate'])->name('tutor-payrolls.generate');
+        Route::post('penggajian-tutor/honor', [TutorPayrollController::class, 'updateHonor'])->name('tutor-payrolls.honor.update');
         Route::put('penggajian-tutor/{tutorPayroll}', [TutorPayrollController::class, 'update'])->name('tutor-payrolls.update');
         Route::resource('class', ClassController::class);
         Route::resource('certification', CertificationController::class);

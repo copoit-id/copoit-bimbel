@@ -14,7 +14,7 @@
         <div class="rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">{{ $sessions->count() }} sesi ditampilkan</div>
     </div>
 
-    <section class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <section class="overflow-hidden border border-gray-200 bg-white">
         <header class="border-b border-gray-200 bg-gray-50 px-4 py-3">
             <h2 class="font-bold text-gray-900">Daftar sesi</h2>
             <p class="mt-0.5 text-xs text-gray-500">Sesi dalam 30 hari terakhir hingga 30 hari mendatang.</p>
