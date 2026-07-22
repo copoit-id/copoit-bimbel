@@ -26,7 +26,20 @@ $combinedAiPayment = array_replace(
     is_array($combinedAiPayment ?? null) ? $combinedAiPayment : [],
     is_array(session('combined_ai_payment')) ? session('combined_ai_payment') : [],
 );
-$aiGatewayPlans = collect($aiGatewayPlans ?? [])->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0)->values();
+$availableAiGatewayPlans = collect($aiGatewayPlans ?? [])
+    ->filter(fn ($plan) => (int) data_get($plan, 'token_limit', 0) > 0);
+$paidAiGatewayPlans = $availableAiGatewayPlans
+    ->filter(fn ($plan) => (int) data_get($plan, 'price', 0) > 0)
+    ->sortBy(fn ($plan) => (int) data_get($plan, 'price', 0))
+    ->values();
+$freeAiGatewayPlans = $availableAiGatewayPlans
+    ->filter(fn ($plan) => (int) data_get($plan, 'price', 0) === 0)
+    ->values();
+$aiGatewayPlans = $paidAiGatewayPlans
+    ->take(1)
+    ->concat($freeAiGatewayPlans)
+    ->concat($paidAiGatewayPlans->slice(1))
+    ->values();
 $defaultAiGatewayPlanId = (int) data_get(
     $aiGatewayPlans->first(fn ($plan) => (int) data_get($plan, 'price', 0) > 0),
     'id',
