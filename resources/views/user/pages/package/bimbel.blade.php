@@ -21,6 +21,7 @@
                     <th scope="col" class="px-6 py-3 text-center">Mentor</th>
                     <th scope="col" class="px-6 py-3 text-center">Link Zoom</th>
                     <th scope="col" class="px-6 py-3 text-center">Link Materi</th>
+                    <th scope="col" class="px-6 py-3 text-center">Chat Tutor</th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
                 </tr>
             </thead>
@@ -51,6 +52,19 @@
                                 <i class="ri-video-line text-red-500"></i>
                                 <span class="text-red-500">Baca</span>
                             </a>
+                        </div>
+                    </td>
+
+                    <td class="px-6 py-4">
+                        <div class="flex justify-center">
+                            @if($class->tentor?->user_id)
+                                <a href="{{ route('user.chat.class.show', $class) }}" class="flex items-center gap-2 border border-sky-500 px-4 py-1 rounded-xl">
+                                    <i class="ri-chat-3-line text-sky-500"></i>
+                                    <span class="text-sky-600">Chat</span>
+                                </a>
+                            @else
+                                <span class="text-xs text-gray-400">Belum tersedia</span>
+                            @endif
                         </div>
                     </td>
 

@@ -58,6 +58,11 @@ class Tentor extends Model
         return $this->hasMany(TutorPayroll::class);
     }
 
+    public function chatConversations(): HasMany
+    {
+        return $this->hasMany(ChatConversation::class, 'tentor_id');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

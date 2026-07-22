@@ -9,13 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     private const URL_LIKE_PATTERN = '~(?:https?://\\S+|www\\.\\S+|\\b[a-z0-9][a-z0-9-]{1,61}\\.[a-z]{2,}(?:\\.[a-z]{2,})?\\b)~i';
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected ?array $effectivePermissionSlugs = null;
 
@@ -148,6 +149,16 @@ class User extends Authenticatable
     public function classAccess()
     {
         return $this->hasMany(UserClassAccess::class, 'user_id');
+    }
+
+    public function studentChatConversations()
+    {
+        return $this->hasMany(ChatConversation::class, 'student_user_id');
+    }
+
+    public function tutorChatConversations()
+    {
+        return $this->hasMany(ChatConversation::class, 'tutor_user_id');
     }
 
     public function materialProgressLogs()
