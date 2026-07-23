@@ -1,16 +1,19 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Buat Tagihan Rutin')
+@section('title', isset($recurringBill) ? 'Edit Tagihan Rutin' : 'Buat Tagihan Rutin')
 
 @section('content')
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Buat Tagihan Rutin</h1>
-        <p class="text-sm text-gray-500">Buat tagihan berkala yang ditujukan langsung ke peserta pilihan Anda.</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ isset($recurringBill) ? 'Edit Tagihan Rutin' : 'Buat Tagihan Rutin' }}</h1>
+        <p class="text-sm text-gray-500">{{ isset($recurringBill) ? 'Perbarui pengaturan dan peserta sasaran tagihan berkala ini.' : 'Buat tagihan berkala yang ditujukan langsung ke peserta pilihan Anda.' }}</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.recurring-bills.store') }}" class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <form method="POST" action="{{ isset($recurringBill) ? route('admin.recurring-bills.update', $recurringBill) : route('admin.recurring-bills.store') }}" class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         @csrf
+        @isset($recurringBill)
+            @method('PUT')
+        @endisset
 
         @if($errors->any())
             <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -21,44 +24,44 @@
         <div class="grid gap-5 md:grid-cols-2">
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nama Tagihan</label>
-                <input name="name" value="{{ old('name') }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="SPP Bulanan">
+                <input name="name" value="{{ old('name', $recurringBill->name ?? '') }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="SPP Bulanan">
             </div>
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nominal</label>
-                <input type="number" name="amount" value="{{ old('amount') }}" required min="0" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: 500000">
+                <input type="number" name="amount" value="{{ old('amount', $recurringBill->amount ?? '') }}" required min="0" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: 500000">
             </div>
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Frekuensi</label>
                 <select name="frequency" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
                     @foreach(['daily' => 'Harian', 'weekly' => 'Mingguan', 'monthly' => 'Bulanan', 'yearly' => 'Tahunan'] as $key => $label)
-                        <option value="{{ $key }}" @selected(old('frequency', 'monthly') === $key)>{{ $label }}</option>
+                        <option value="{{ $key }}" @selected(old('frequency', $recurringBill->frequency ?? 'monthly') === $key)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Tanggal Jatuh Tempo Bulanan</label>
-                <input type="number" name="due_day" min="1" max="31" value="{{ old('due_day', 10) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="number" name="due_day" min="1" max="31" value="{{ old('due_day', $recurringBill->due_day ?? 10) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Mulai</label>
-                <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="date" name="start_date" value="{{ old('start_date', isset($recurringBill) ? $recurringBill->start_date?->toDateString() : now()->toDateString()) }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Selesai (Opsional)</label>
-                <input type="date" name="end_date" value="{{ old('end_date') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="date" name="end_date" value="{{ old('end_date', $recurringBill->end_date?->toDateString() ?? '') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
         </div>
 
         <div class="mt-5">
             <label class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label>
-            <textarea name="description" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Catatan tambahan tagihan...">{{ old('description') }}</textarea>
+            <textarea name="description" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Catatan tambahan tagihan...">{{ old('description', $recurringBill->description ?? '') }}</textarea>
         </div>
 
         <!-- Target Peserta (Checklist Table with Search) -->
         <div class="mt-6 border-t border-gray-100 pt-5" x-data="{
             users: @js($users),
             search: '',
-            selected: [],
+            selected: @js(old('user_ids', $selectedUserIds ?? [])),
             filteredUsers() {
                 return this.users.filter(user => 
                     user.name.toLowerCase().includes(this.search.toLowerCase()) || 
@@ -148,13 +151,13 @@
         </div>
 
         <label class="mt-6 flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+            <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $recurringBill->is_active ?? true)) class="rounded border-gray-300 text-primary focus:ring-primary">
             Aktifkan tagihan rutin ini
         </label>
 
         <div class="mt-6 flex justify-end gap-2 border-t border-gray-200 pt-5">
             <a href="{{ route('admin.recurring-bills.index') }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</a>
-            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Tagihan</button>
+            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">{{ isset($recurringBill) ? 'Simpan Perubahan' : 'Simpan Tagihan' }}</button>
         </div>
     </form>
 </div>

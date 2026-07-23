@@ -40,7 +40,21 @@
                             <td class="px-4 py-3">{{ $bill->targets_count }}</td>
                             <td class="px-4 py-3">{{ $bill->invoices_count }}</td>
                             <td class="px-4 py-3">
-                                <a href="{{ route('admin.recurring-bills.show', $bill) }}" class="text-primary hover:underline">Detail</a>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('admin.recurring-bills.show', $bill) }}" class="inline-flex items-center justify-center rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white" title="Detail tagihan" aria-label="Detail tagihan {{ $bill->name }}">
+                                        Detail
+                                    </a>
+                                    <a href="{{ route('admin.recurring-bills.edit', $bill) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400 text-amber-600 transition-colors hover:bg-amber-500 hover:text-white" title="Edit tagihan" aria-label="Edit tagihan {{ $bill->name }}">
+                                        <i class="ri-pencil-line"></i>
+                                    </a>
+                                    <form method="POST" action="{{ route('admin.recurring-bills.destroy', $bill) }}" onsubmit="return confirm(@js('Hapus tagihan rutin ' . $bill->name . '? Invoice yang sudah dibuat tetap tersimpan sebagai riwayat.'));">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-300 text-red-600 transition-colors hover:bg-red-600 hover:text-white" title="Hapus tagihan" aria-label="Hapus tagihan {{ $bill->name }}">
+                                            <i class="ri-delete-bin-line"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty

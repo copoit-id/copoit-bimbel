@@ -404,11 +404,13 @@ Route::prefix('{portal}')
             Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
         });
         Route::resource('tagihan-rutin', RecurringBillController::class)
-            ->only(['index', 'create', 'store', 'show'])
+            ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
             ->names('recurring-bills')
             ->parameters(['tagihan-rutin' => 'recurringBill']);
         Route::post('tagihan-rutin/{recurringBill}/generate', [RecurringBillController::class, 'generate'])->name('recurring-bills.generate');
         Route::get('tagihan-rutin/{recurringBill}/periode/{periodStart}', [RecurringBillController::class, 'showPeriod'])->name('recurring-bills.periods.show');
+        Route::put('tagihan-rutin/invoice/{invoice}', [RecurringBillController::class, 'updateInvoice'])->name('recurring-bills.invoices.update');
+        Route::delete('tagihan-rutin/invoice/{invoice}', [RecurringBillController::class, 'destroyInvoice'])->name('recurring-bills.invoices.destroy');
         Route::post('tagihan-rutin/invoice/{invoice}/payments', [RecurringBillController::class, 'recordPayment'])->name('recurring-bills.invoices.payments.store');
 
         Route::resource('general/artikel', AdminArticleController::class)
