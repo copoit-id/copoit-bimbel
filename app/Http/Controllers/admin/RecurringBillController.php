@@ -5,10 +5,13 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillInvoice;
 use App\Models\BillInvoicePayment;
+use App\Models\Package;
 use App\Models\RecurringBill;
+use App\Models\StudyGroup;
 use App\Models\User;
 use App\Services\RecurringBillService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,8 +36,11 @@ class RecurringBillController extends Controller
     public function create(): View
     {
         $users = User::where('role', 'user')->orderBy('name')->get(['id', 'name', 'email']);
+        $packages = $this->packageOptions();
+        $studyGroups = $this->studyGroupOptions();
+        $recurringBill = null;
 
-        return view('admin.pages.recurring-bill.create', compact('users'));
+        return view('admin.pages.recurring-bill.create', compact('users', 'packages', 'studyGroups', 'recurringBill'));
     }
 
     public function store(Request $request, RecurringBillService $billService): RedirectResponse
@@ -62,6 +68,14 @@ class RecurringBillController extends Controller
                 $bill->targets()->create(['class_id' => $classId]);
             }
 
+            foreach ($validated['package_ids'] ?? [] as $packageId) {
+                $bill->targets()->create(['package_id' => $packageId]);
+            }
+
+            foreach ($validated['study_group_ids'] ?? [] as $studyGroupId) {
+                $bill->targets()->create(['study_group_id' => $studyGroupId]);
+            }
+
             return $bill;
         });
 
@@ -75,12 +89,30 @@ class RecurringBillController extends Controller
     public function edit(RecurringBill $recurringBill): View
     {
         $users = User::where('role', 'user')->orderBy('name')->get(['id', 'name', 'email']);
+        $packages = $this->packageOptions();
+        $studyGroups = $this->studyGroupOptions();
         $selectedUserIds = $recurringBill->targets()
             ->whereNotNull('user_id')
             ->pluck('user_id')
             ->all();
+        $selectedPackageIds = $recurringBill->targets()
+            ->whereNotNull('package_id')
+            ->pluck('package_id')
+            ->all();
+        $selectedStudyGroupIds = $recurringBill->targets()
+            ->whereNotNull('study_group_id')
+            ->pluck('study_group_id')
+            ->all();
 
-        return view('admin.pages.recurring-bill.create', compact('users', 'recurringBill', 'selectedUserIds'));
+        return view('admin.pages.recurring-bill.create', compact(
+            'users',
+            'packages',
+            'studyGroups',
+            'recurringBill',
+            'selectedUserIds',
+            'selectedPackageIds',
+            'selectedStudyGroupIds',
+        ));
     }
 
     public function update(Request $request, RecurringBill $recurringBill): RedirectResponse
@@ -103,6 +135,16 @@ class RecurringBillController extends Controller
             $recurringBill->targets()->whereNotNull('user_id')->delete();
             foreach ($validated['user_ids'] ?? [] as $userId) {
                 $recurringBill->targets()->create(['user_id' => $userId]);
+            }
+
+            $recurringBill->targets()->whereNotNull('package_id')->delete();
+            foreach ($validated['package_ids'] ?? [] as $packageId) {
+                $recurringBill->targets()->create(['package_id' => $packageId]);
+            }
+
+            $recurringBill->targets()->whereNotNull('study_group_id')->delete();
+            foreach ($validated['study_group_ids'] ?? [] as $studyGroupId) {
+                $recurringBill->targets()->create(['study_group_id' => $studyGroupId]);
             }
         });
 
@@ -269,8 +311,29 @@ class RecurringBillController extends Controller
             'user_ids.*' => ['integer', 'distinct', 'exists:users,id'],
             'class_ids' => ['nullable', 'array'],
             'class_ids.*' => ['integer', 'distinct', 'exists:classes,class_id'],
+            'package_ids' => ['nullable', 'array'],
+            'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
+            'study_group_ids' => ['nullable', 'array'],
+            'study_group_ids.*' => ['integer', 'distinct', 'exists:study_groups,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
+    }
+
+    private function packageOptions(): EloquentCollection
+    {
+        return Package::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['package_id', 'name', 'price']);
+    }
+
+    private function studyGroupOptions(): EloquentCollection
+    {
+        return StudyGroup::query()
+            ->where('is_active', true)
+            ->withCount('users')
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     private function invoiceStatus(BillInvoice $invoice, int $amount, int $paidAmount, string $dueDate): string
