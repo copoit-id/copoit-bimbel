@@ -20,6 +20,7 @@ class TutorChatService
      */
     public function openForStudent(User $student, ClassModel $class): array
     {
+        $this->ensureFeatureEnabled();
         abort_if($student->isTutor(), 403, 'Akun tutor tidak dapat membuka chat sebagai siswa.');
         abort_unless($class->canUserAccess($student->id), 403, 'Anda tidak memiliki akses ke kelas ini.');
 
@@ -54,6 +55,7 @@ class TutorChatService
 
     public function ensureAccessible(User $user, ChatConversation $conversation): void
     {
+        $this->ensureFeatureEnabled();
         abort_unless($conversation->isAccessibleBy($user), 403, 'Anda tidak memiliki akses ke percakapan ini.');
     }
 
@@ -77,6 +79,8 @@ class TutorChatService
 
     public function conversationsFor(User $user): LengthAwarePaginator
     {
+        $this->ensureFeatureEnabled();
+
         return ChatConversation::query()
             ->forUser($user->id)
             ->select([
@@ -206,6 +210,11 @@ class TutorChatService
         $body = preg_replace("/\r\n?/", "\n", $body) ?? '';
 
         return trim($body);
+    }
+
+    private function ensureFeatureEnabled(): void
+    {
+        abort_unless((bool) config('client.branding.tutor_chat_enabled', false), 404);
     }
 
     private function ensureReadState(ChatConversation $conversation, int $userId): void

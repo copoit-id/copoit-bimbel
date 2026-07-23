@@ -15,7 +15,9 @@
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
             <a href="{{ route('tutor.schedule.index') }}" class="font-bold text-primary">Portal Tutor</a>
             <div class="flex items-center gap-4 text-sm">
-                <a href="{{ route('tutor.chat.index') }}" class="font-semibold text-gray-600 hover:text-primary">Chat Siswa</a>
+                @if($clientBranding['tutor_chat_enabled'] ?? false)
+                    <a href="{{ route('tutor.chat.index') }}" class="font-semibold text-gray-600 hover:text-primary">Chat Siswa</a>
+                @endif
                 <span class="hidden text-gray-600 sm:inline">{{ auth()->user()->name }}</span>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf

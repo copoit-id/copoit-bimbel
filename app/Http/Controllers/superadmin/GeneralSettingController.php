@@ -109,6 +109,7 @@ class GeneralSettingController extends Controller
             'ai_gateway_telegram_notify_paid' => ['nullable', 'boolean'],
             'class_schedule_menu_enabled' => ['nullable', 'boolean'],
             'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
+            'tutor_chat_enabled' => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($validated, $request, $profile): void {
@@ -132,6 +133,7 @@ class GeneralSettingController extends Controller
                     'ai_gateway_telegram_settings' => $this->aiGatewayTelegramSettings($request, $profile),
                     'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
                     'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
+                    'tutor_chat_enabled' => $request->boolean('tutor_chat_enabled'),
                 ]);
             }
 

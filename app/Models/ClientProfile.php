@@ -68,6 +68,7 @@ class ClientProfile extends Model
         'admin_assistant_enabled',
         'class_schedule_menu_enabled',
         'recurring_bill_menu_enabled',
+        'tutor_chat_enabled',
         'participant_destination_api_enabled',
     ];
 
@@ -98,6 +99,7 @@ class ClientProfile extends Model
         'admin_assistant_enabled' => 'boolean',
         'class_schedule_menu_enabled' => 'boolean',
         'recurring_bill_menu_enabled' => 'boolean',
+        'tutor_chat_enabled' => 'boolean',
         'participant_destination_api_enabled' => 'boolean',
     ];
 }
