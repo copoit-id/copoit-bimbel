@@ -6,7 +6,7 @@
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">{{ isset($recurringBill) ? 'Edit Tagihan Rutin' : 'Buat Tagihan Rutin' }}</h1>
-        <p class="text-sm text-gray-500">{{ isset($recurringBill) ? 'Perbarui pengaturan dan peserta sasaran tagihan berkala ini.' : 'Buat tagihan berkala yang ditujukan langsung ke peserta pilihan Anda.' }}</p>
+        <p class="text-sm text-gray-500">{{ isset($recurringBill) ? 'Perbarui pengaturan dan sumber penerima tagihan berkala ini.' : 'Buat tagihan berkala untuk peserta individual, anggota rombel, atau pemegang akses paket.' }}</p>
     </div>
 
     <form method="POST" action="{{ isset($recurringBill) ? route('admin.recurring-bills.update', $recurringBill) : route('admin.recurring-bills.store') }}" class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -119,7 +119,7 @@
             <div x-show="activeTargetTab === 'package'" class="rounded-lg border border-gray-200 p-4" role="tabpanel">
                 <div class="mb-3">
                     <h3 class="text-sm font-semibold text-gray-800">Paket</h3>
-                    <p class="text-xs text-gray-500">Peserta dengan akses paket aktif akan ditagihkan saat invoice dibuat.</p>
+                    <p class="text-xs text-gray-500">Keanggotaan dinamis: peserta yang memiliki akses paket pada periode tagihan akan otomatis ditagihkan. Peserta baru ikut tanpa dipilih ulang; invoice yang sudah dibuat tetap menjadi riwayat.</p>
                 </div>
                 <div class="max-h-96 space-y-2 overflow-y-auto pr-1">
                     <template x-for="package in packages" :key="package.id">

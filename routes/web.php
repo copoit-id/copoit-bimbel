@@ -689,6 +689,7 @@ Route::prefix('{portal}')
             Route::get('/', [PembayaranController::class, 'index'])->name('index');
             Route::get('/manual/create', [PembayaranController::class, 'createManual'])->name('manual.create');
             Route::post('/manual', [PembayaranController::class, 'storeManual'])->name('manual');
+            Route::post('/{payment}/cicilan', [PembayaranController::class, 'recordInstallment'])->name('installments.store');
             Route::get('/item/{id}', [PembayaranController::class, 'showIndividual'])->name('item.show');
             Route::post('/item/{id}/confirm', [PembayaranController::class, 'confirmIndividual'])->name('item.confirm');
             Route::post('/item/{id}/reject', [PembayaranController::class, 'rejectIndividual'])->name('item.reject');

@@ -9,19 +9,22 @@ $manualPaymentUniqueCode = (int) ($manualPaymentUniqueCode ?? 0);
     <div>
         <a href="{{ route('admin.pembayaran.index') }}" class="text-sm text-gray-500 hover:text-gray-700">← Kembali</a>
         <h1 class="text-2xl font-bold text-gray-900 mt-2">Tambah Pembayaran Manual</h1>
-        <p class="text-sm text-gray-500">Masukkan pembayaran yang dibuat secara manual.</p>
+        <p class="text-sm text-gray-500">Masukkan satu transaksi pembayaran manual untuk satu peserta dan paket yang dibelinya.</p>
     </div>
 
     <div class="bg-white border border-gray-200 rounded-lg p-6">
         <form method="POST" action="{{ route('admin.pembayaran.manual') }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             @csrf
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Email User</label>
-                <input type="email" name="email" value="{{ old('email') }}" required
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                <x-form.searchable-user-select
+                    :users="$users"
+                    :selected="old('user_id')"
+                    label="Peserta"
+                    placeholder="Pilih peserta"
+                />
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Paket</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Paket yang Dibeli</label>
                 <select name="package_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                     <option value="">Pilih Paket</option>
                     @foreach($packages as $package)
@@ -32,14 +35,32 @@ $manualPaymentUniqueCode = (int) ($manualPaymentUniqueCode ?? 0);
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Dasar</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Total Tagihan Paket</label>
                 <input id="manualAmount" type="number" name="amount" min="0" value="{{ old('amount') }}" required
                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Metode</label>
-                <input id="manualPaymentMethod" type="text" name="payment_method" value="{{ old('payment_method', 'manual') }}" required
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Metode Pembayaran</label>
+                <select id="manualPaymentMethod" name="payment_method" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    @foreach(['manual' => 'Manual', 'cash' => 'Tunai', 'transfer' => 'Transfer Bank', 'qris' => 'QRIS'] as $value => $label)
+                        <option value="{{ $value }}" @selected(old('payment_method', 'manual') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label for="manualPaymentStatus" class="block text-sm font-medium text-gray-700 mb-1">Status Pembayaran</label>
+                <select id="manualPaymentStatus" name="payment_status_choice" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="paid" @selected(old('payment_status_choice', 'paid') === 'paid')>Lunas</option>
+                    <option value="unpaid" @selected(old('payment_status_choice') === 'unpaid')>Belum Lunas</option>
+                </select>
+            </div>
+            <div id="initialPaymentField" class="hidden">
+                <label for="initialPaymentAmount" class="block text-sm font-medium text-gray-700 mb-1">Uang Diterima Sekarang</label>
+                <div class="relative">
+                    <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-500">Rp</span>
+                    <input id="initialPaymentAmount" type="number" name="initial_payment_amount" min="0" value="{{ old('initial_payment_amount', 0) }}" class="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 text-sm" placeholder="0" />
+                </div>
+                @error('initial_payment_amount')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
             <div class="md:col-span-2 {{ $paymentUniqueCodeEnabled ? '' : 'hidden' }}" id="uniqueCodeSummary">
                 <input type="hidden" name="payment_unique_code" value="{{ old('payment_unique_code', $manualPaymentUniqueCode) }}">
@@ -66,11 +87,13 @@ $manualPaymentUniqueCode = (int) ($manualPaymentUniqueCode ?? 0);
         </form>
     </div>
 </div>
-@if($paymentUniqueCodeEnabled)
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const amountInput = document.getElementById('manualAmount');
     const methodInput = document.getElementById('manualPaymentMethod');
+    const paymentStatusInput = document.getElementById('manualPaymentStatus');
+    const initialPaymentInput = document.getElementById('initialPaymentAmount');
+    const initialPaymentField = document.getElementById('initialPaymentField');
     const uniqueSummary = document.getElementById('uniqueCodeSummary');
     const uniqueCode = Number(@json((int) old('payment_unique_code', $manualPaymentUniqueCode)));
     const totalDisplay = document.getElementById('totalAmountDisplay');
@@ -83,17 +106,27 @@ document.addEventListener('DOMContentLoaded', function () {
         const amount = Number(amountInput?.value || 0);
         const method = String(methodInput?.value || '').toLowerCase();
         const useUniqueCode = method === 'manual' && amount > 0;
+        const total = amount + (useUniqueCode ? uniqueCode : 0);
 
         uniqueSummary?.classList.toggle('hidden', !useUniqueCode);
         if (totalDisplay) {
-            totalDisplay.textContent = 'Rp ' + formatNumber(amount + (useUniqueCode ? uniqueCode : 0));
+            totalDisplay.textContent = 'Rp ' + formatNumber(total);
+        }
+        if (initialPaymentInput) {
+            initialPaymentInput.max = total > 0 ? total : '';
+        }
+        if (initialPaymentField && initialPaymentInput) {
+            const isUnpaid = paymentStatusInput?.value === 'unpaid';
+            initialPaymentField.classList.toggle('hidden', !isUnpaid);
+            initialPaymentInput.disabled = !isUnpaid;
         }
     }
 
     amountInput?.addEventListener('input', refreshTotal);
     methodInput?.addEventListener('input', refreshTotal);
+    initialPaymentInput?.addEventListener('input', refreshTotal);
+    paymentStatusInput?.addEventListener('change', refreshTotal);
     refreshTotal();
 });
 </script>
-@endif
 @endsection

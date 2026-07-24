@@ -47,7 +47,7 @@
             <div class="flex items-center gap-2 text-green-600">
                 <i class="ri-check-circle-fill text-2xl"></i>
                 <div>
-                    <p class="text-lg font-bold">Pembayaran Berhasil</p>
+                    <p class="text-lg font-bold">Lunas</p>
                     <p class="text-sm">{{ $payment->paid_at ? \Carbon\Carbon::parse($payment->paid_at)->format('d M Y,
                         H:i') : '-' }}</p>
                 </div>
@@ -56,8 +56,16 @@
             <div class="flex items-center gap-2 text-yellow-600">
                 <i class="ri-time-fill text-2xl"></i>
                 <div>
-                    <p class="text-lg font-bold">Menunggu Konfirmasi</p>
-                    <p class="text-sm">Dibuat {{ $payment->created_at ? $payment->created_at->format('H:i') : '-' }}</p>
+                    <p class="text-lg font-bold">Belum Lunas</p>
+                    <p class="text-sm">Terbayar Rp {{ number_format($payment->paid_amount, 0, ',', '.') }} · Sisa Rp {{ number_format($payment->remaining_amount, 0, ',', '.') }}</p>
+                </div>
+            </div>
+            @elseif($payment->status == 'partial')
+            <div class="flex items-center gap-2 text-blue-600">
+                <i class="ri-hand-coin-fill text-2xl"></i>
+                <div>
+                    <p class="text-lg font-bold">Belum Lunas</p>
+                    <p class="text-sm">Terbayar Rp {{ number_format($payment->paid_amount, 0, ',', '.') }} · Sisa Rp {{ number_format($payment->remaining_amount, 0, ',', '.') }}</p>
                 </div>
             </div>
             @else
@@ -107,6 +115,16 @@
                 <span class="text-lg font-bold text-primary">Rp {{ number_format($payment->total_amount, 0, ',', '.')
                     }}</span>
             </div>
+            @if($payment->isManualEntry() || $payment->installments->isNotEmpty())
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-600">Total Terbayar:</span>
+                <span class="font-semibold text-green-600">Rp {{ number_format($payment->paid_amount, 0, ',', '.') }}</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-gray-600">Sisa Pembayaran:</span>
+                <span class="font-semibold {{ $payment->remaining_amount > 0 ? 'text-blue-600' : 'text-green-600' }}">Rp {{ number_format($payment->remaining_amount, 0, ',', '.') }}</span>
+            </div>
+            @endif
         </div>
     </div>
 
@@ -141,6 +159,76 @@
         </div>
     </div>
 </div>
+
+@if($payment->isManualEntry() && in_array($payment->status, ['pending', 'partial'], true))
+<div id="cicilan" class="mt-6 rounded-lg border border-blue-200 bg-blue-50/40 p-6">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-900">Catat Cicilan Paket</h3>
+            <p class="mt-1 text-sm text-gray-600">Akses paket baru aktif otomatis setelah seluruh pembayaran lunas.</p>
+        </div>
+        <div class="rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
+            <p class="text-xs text-gray-500">Sisa pembayaran</p>
+            <p class="font-bold text-primary">Rp {{ number_format($payment->remaining_amount, 0, ',', '.') }}</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ route('admin.pembayaran.installments.store', $payment) }}" class="mt-5 grid gap-4 md:grid-cols-3">
+        @csrf
+        <div>
+            <label for="installment_amount" class="mb-2 block text-sm font-semibold text-gray-700">Nominal diterima</label>
+            <div class="relative"><span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-500">Rp</span><input id="installment_amount" type="number" name="amount" min="1" max="{{ $payment->remaining_amount }}" value="{{ old('amount', $payment->remaining_amount) }}" required class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"></div>
+            @error('amount')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="installment_method" class="mb-2 block text-sm font-semibold text-gray-700">Metode</label>
+            <select id="installment_method" name="payment_method" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <option value="cash">Tunai</option>
+                <option value="transfer">Transfer bank</option>
+                <option value="qris">QRIS</option>
+                <option value="manual">Manual</option>
+            </select>
+        </div>
+        <div>
+            <label for="installment_notes" class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label>
+            <input id="installment_notes" name="notes" value="{{ old('notes') }}" maxlength="1000" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Opsional">
+        </div>
+        <div class="md:col-span-3 flex justify-end">
+            <button class="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">Simpan Cicilan</button>
+        </div>
+    </form>
+
+    @if($payment->installments->isNotEmpty())
+    <div class="mt-5 border-t border-blue-100 pt-4">
+        <h4 class="mb-3 text-sm font-semibold text-gray-800">Riwayat Cicilan</h4>
+        <div class="space-y-2">
+            @foreach($payment->installments as $installment)
+            <div class="flex items-center justify-between gap-4 rounded-lg border border-white bg-white px-3 py-2 text-sm">
+                <div>
+                    <p class="font-medium text-gray-800">{{ $installment->receipt_number }} · {{ strtoupper($installment->payment_method) }}</p>
+                    <p class="text-xs text-gray-500">{{ $installment->paid_at?->format('d M Y H:i') }} · {{ $installment->paidBy?->name ?? 'Admin' }}</p>
+                    @if($installment->notes)<p class="mt-1 text-xs text-gray-500">{{ $installment->notes }}</p>@endif
+                </div>
+                <p class="shrink-0 font-semibold text-gray-900">Rp {{ number_format($installment->amount, 0, ',', '.') }}</p>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+</div>
+@elseif($payment->installments->isNotEmpty())
+<div class="mt-6 rounded-lg border border-gray-200 bg-white p-6">
+    <h3 class="mb-3 text-lg font-semibold text-gray-900">Riwayat Pembayaran</h3>
+    <div class="space-y-2">
+        @foreach($payment->installments as $installment)
+        <div class="flex items-center justify-between gap-4 rounded-lg border border-gray-100 px-3 py-2 text-sm">
+            <span>{{ $installment->receipt_number }} · {{ $installment->paid_at?->format('d M Y H:i') }}</span>
+            <span class="font-semibold">Rp {{ number_format($installment->amount, 0, ',', '.') }}</span>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
 
 <!-- Payment Method & Proof -->
 <div class="grid grid-cols-2 gap-6 mt-6">
@@ -205,8 +293,8 @@
             <div class="flex justify-between">
                 <span class="text-gray-600">Status:</span>
                 <span
-                    class="font-medium {{ $payment->status === 'success' ? 'text-green-600' : ($payment->status === 'pending' ? 'text-yellow-600' : 'text-red-600') }}">
-                    {{ ucfirst($payment->status) }}
+                    class="font-medium {{ $payment->status === 'success' ? 'text-green-600' : 'text-primary' }}">
+                    {{ $payment->status === 'success' ? 'Lunas' : 'Belum Lunas' }}
                 </span>
             </div>
             @if($payment->paid_at)
