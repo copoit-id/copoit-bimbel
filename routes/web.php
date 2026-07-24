@@ -42,6 +42,7 @@ use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
@@ -150,6 +151,17 @@ Route::prefix('user')->group(function () {
 
 // User routes (add auth middleware)
 Route::prefix('user')->middleware('auth')->group(function () {
+
+    Route::prefix('chat')->name('user.chat.')->group(function () {
+        Route::get('kelas/{class}', [ChatController::class, 'studentShow'])->name('class.show');
+        Route::get('conversations/{conversation}/messages', [ChatController::class, 'messages'])->name('messages');
+        Route::post('conversations/{conversation}/messages', [ChatController::class, 'store'])
+            ->middleware('throttle:60,1')
+            ->name('messages.store');
+        Route::post('conversations/{conversation}/read', [ChatController::class, 'markRead'])
+            ->middleware('throttle:120,1')
+            ->name('read');
+    });
 
     // Profile routes
     Route::get('/profile', [App\Http\Controllers\user\ProfileController::class, 'index'])->name('user.profile.index');
@@ -297,6 +309,15 @@ Route::redirect('/tutor', '/tutor/jadwal-tutor');
 
 // Tutor portal: a Tutor may only access sessions assigned to their linked tentor profile.
 Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
+    Route::get('chat', [ChatController::class, 'tutorIndex'])->name('chat.index');
+    Route::get('chat/{conversation}', [ChatController::class, 'tutorShow'])->name('chat.show');
+    Route::get('chat/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
+    Route::post('chat/{conversation}/messages', [ChatController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('chat.messages.store');
+    Route::post('chat/{conversation}/read', [ChatController::class, 'markRead'])
+        ->middleware('throttle:120,1')
+        ->name('chat.read');
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
     Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
     Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
@@ -383,11 +404,13 @@ Route::prefix('{portal}')
             Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
         });
         Route::resource('tagihan-rutin', RecurringBillController::class)
-            ->only(['index', 'create', 'store', 'show'])
+            ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
             ->names('recurring-bills')
             ->parameters(['tagihan-rutin' => 'recurringBill']);
         Route::post('tagihan-rutin/{recurringBill}/generate', [RecurringBillController::class, 'generate'])->name('recurring-bills.generate');
         Route::get('tagihan-rutin/{recurringBill}/periode/{periodStart}', [RecurringBillController::class, 'showPeriod'])->name('recurring-bills.periods.show');
+        Route::put('tagihan-rutin/invoice/{invoice}', [RecurringBillController::class, 'updateInvoice'])->name('recurring-bills.invoices.update');
+        Route::delete('tagihan-rutin/invoice/{invoice}', [RecurringBillController::class, 'destroyInvoice'])->name('recurring-bills.invoices.destroy');
         Route::post('tagihan-rutin/invoice/{invoice}/payments', [RecurringBillController::class, 'recordPayment'])->name('recurring-bills.invoices.payments.store');
 
         Route::resource('general/artikel', AdminArticleController::class)

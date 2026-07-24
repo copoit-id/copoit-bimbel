@@ -17,7 +17,7 @@ class RecurringBillService
 {
     public function generateInvoices(RecurringBill $bill, ?Carbon $until = null): int
     {
-        $bill->loadMissing(['targets.user', 'targets.class.packages']);
+        $bill->loadMissing(['targets.user', 'targets.class.packages', 'targets.studyGroup.users']);
         $until ??= now()->addMonth();
         $created = 0;
 
@@ -106,27 +106,39 @@ class RecurringBillService
 
     private function targetUsers(RecurringBill $bill): Collection
     {
-        $userIds = collect();
+        $userIds = $bill->targets
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->map(fn ($userId) => (int) $userId);
 
-        foreach ($bill->targets as $target) {
-            if ($target->user_id) {
-                $userIds->push((int) $target->user_id);
-                continue;
-            }
+        $packageIds = $bill->targets
+            ->whereNotNull('package_id')
+            ->pluck('package_id')
+            ->map(fn ($packageId) => (int) $packageId);
 
-            if ($target->class_id) {
-                $packageIds = $target->class?->packages()->pluck('packages.package_id') ?? collect();
+        $legacyClassPackageIds = $bill->targets
+            ->whereNotNull('class_id')
+            ->flatMap(fn ($target) => $target->class?->packages->pluck('package_id') ?? collect())
+            ->map(fn ($packageId) => (int) $packageId);
 
-                $classUserIds = UserPackageAcces::query()
-                    ->whereIn('package_id', $packageIds)
+        $packageIds = $packageIds->merge($legacyClassPackageIds)->filter()->unique()->values();
+
+        if ($packageIds->isNotEmpty()) {
+            $userIds = $userIds->merge(
+                UserPackageAcces::query()
                     ->active()
-                    ->pluck('user_id');
-
-                $userIds = $userIds->merge($classUserIds);
-            }
+                    ->whereIn('package_id', $packageIds)
+                    ->pluck('user_id')
+                    ->map(fn ($userId) => (int) $userId)
+            );
         }
 
-        return $userIds->filter()->unique()->values();
+        $studyGroupUserIds = $bill->targets
+            ->whereNotNull('study_group_id')
+            ->flatMap(fn ($target) => $target->studyGroup?->users->pluck('id') ?? collect())
+            ->map(fn ($userId) => (int) $userId);
+
+        return $userIds->merge($studyGroupUserIds)->filter()->unique()->values();
     }
 
     private function periods(RecurringBill $bill, Carbon $until): array

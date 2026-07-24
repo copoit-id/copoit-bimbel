@@ -103,6 +103,7 @@ class AppServiceProvider extends ServiceProvider
             'admin_assistant_enabled' => false,
             'class_schedule_menu_enabled' => false,
             'recurring_bill_menu_enabled' => false,
+            'tutor_chat_enabled' => false,
             'participant_destination_api_enabled' => false,
         ];
 
@@ -168,6 +169,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
             $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
+            $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
             $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];

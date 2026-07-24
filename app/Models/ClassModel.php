@@ -70,6 +70,11 @@ class ClassModel extends Model
         return $this->hasMany(ClassSession::class, 'class_id', 'class_id');
     }
 
+    public function chatConversations(): HasMany
+    {
+        return $this->hasMany(ChatConversation::class, 'class_id', 'class_id');
+    }
+
     public function preTest()
     {
         return $this->assessments()->wherePivot('assessment_type', 'pre_test');

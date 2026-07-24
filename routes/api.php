@@ -2,12 +2,21 @@
 
 use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\Api\AiGatewayController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
+});
+
+Route::prefix('chat')->middleware('auth:sanctum')->group(function () {
+    Route::get('conversations', [ChatController::class, 'apiIndex']);
+    Route::post('conversations', [ChatController::class, 'apiOpen'])->middleware('throttle:30,1');
+    Route::get('conversations/{conversation}/messages', [ChatController::class, 'messages'])->middleware('throttle:120,1');
+    Route::post('conversations/{conversation}/messages', [ChatController::class, 'store'])->middleware('throttle:60,1');
+    Route::post('conversations/{conversation}/read', [ChatController::class, 'markRead'])->middleware('throttle:120,1');
 });
 
 Route::post('/webhook/ai-callback', [WebhookController::class, 'aiCallback'])
