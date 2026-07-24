@@ -46,12 +46,15 @@ Nginx harus mem-proxy WebSocket ke port Reverb dan meneruskan header `Upgrade` s
 Sesudah mengubah environment atau source:
 
 ```bash
-composer install --no-dev --optimize-autoloader
+composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+composer run sanctum:check --no-interaction
 npm ci && npm run build
 php artisan migrate --force
 php artisan optimize
 php artisan reverb:restart
 ```
+
+Jangan melewati `composer install`: trait `HasApiTokens` yang dipakai model `User` berasal dari package Sanctum. Perintah verifikasi harus sukses sebelum aplikasi atau PHP-FPM direstart.
 
 ## API untuk mobile
 

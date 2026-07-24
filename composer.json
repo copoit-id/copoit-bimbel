@@ -63,6 +63,9 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
+        ],
+        "sanctum:check": [
+            "@php -r \"require 'vendor/autoload.php'; exit(trait_exists('Laravel\\\\Sanctum\\\\HasApiTokens') ? 0 : 1);\""
         ]
     },
     "extra": {
