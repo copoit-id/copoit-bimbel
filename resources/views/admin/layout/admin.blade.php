@@ -39,7 +39,7 @@
     @yield('styles')
 </head>
 
-<body>
+<body data-admin-selects>
     @include('admin.components.navbar')
     @include('components.confirm-modal')
     @include('admin.components.sidebar')
