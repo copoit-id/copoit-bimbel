@@ -221,7 +221,9 @@ class QuestionBankController extends Controller
         $preview = session($this->aiPreviewSessionKey($questionBank));
         $referenceBanks = QuestionBank::query()->withCount('questions')->orderBy('name')->get(['id', 'name']);
         $referenceTryouts = Tryout::query()
-            ->withCount('tryoutDetails')
+            ->with(['tryoutDetails' => fn ($query) => $query
+                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest'])
+                ->orderBy('type_subtest')])
             ->latest('created_at')
             ->limit(100)
             ->get(['tryout_id', 'name']);
@@ -256,8 +258,11 @@ class QuestionBankController extends Controller
             'option_count' => ['required', 'integer', 'min:2', 'max:5'],
             'explanation_style' => ['required', Rule::in(['singkat', 'normal', 'detail'])],
             'instruction' => ['nullable', 'string', 'max:1500'],
+            'use_reference' => ['nullable', 'boolean'],
             'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout'])],
-            'reference_id' => ['nullable', 'integer'],
+            'reference_bank_id' => ['nullable', 'integer'],
+            'reference_tryout_id' => ['nullable', 'integer'],
+            'reference_tryout_detail_id' => ['nullable', 'integer'],
             'reference_note' => ['nullable', 'string', 'max:1500'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
         ], [], [
@@ -1203,20 +1208,24 @@ class QuestionBankController extends Controller
     /** @param array<string, mixed> $input */
     private function resolveAiReference(array $input): array
     {
-        $source = $input['reference_source'] ?? null;
-        $referenceId = (int) ($input['reference_id'] ?? 0);
-        $note = trim((string) ($input['reference_note'] ?? ''));
-
-        if (! $source && $note === '') {
-            return ['reference_examples' => [], 'reference_label' => null];
+        if (! filter_var($input['use_reference'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return ['reference_examples' => [], 'reference_label' => null, 'reference_note' => null];
         }
 
-        if ($source && $referenceId < 1) {
-            throw new \RuntimeException('Pilih bank soal atau tryout yang akan dijadikan referensi.');
+        $source = $input['reference_source'] ?? null;
+        $note = trim((string) ($input['reference_note'] ?? ''));
+
+        if (! $source) {
+            throw new \RuntimeException('Pilih sumber referensi gaya soal.');
         }
 
         if ($source === 'question_bank') {
-            $bank = QuestionBank::query()->findOrFail($referenceId, ['id', 'name']);
+            $bankId = (int) ($input['reference_bank_id'] ?? 0);
+            if ($bankId < 1) {
+                throw new \RuntimeException('Pilih bank soal yang akan dijadikan referensi.');
+            }
+
+            $bank = QuestionBank::query()->findOrFail($bankId, ['id', 'name']);
             $examples = QuestionBankQuestion::query()
                 ->with('options:id,question_bank_question_id,option_text')
                 ->where('question_bank_id', $bank->id)
@@ -1240,10 +1249,19 @@ class QuestionBankController extends Controller
         }
 
         if ($source === 'tryout') {
-            $tryout = Tryout::query()->findOrFail($referenceId, ['tryout_id', 'name']);
+            $tryoutId = (int) ($input['reference_tryout_id'] ?? 0);
+            $tryoutDetailId = (int) ($input['reference_tryout_detail_id'] ?? 0);
+            if ($tryoutId < 1 || $tryoutDetailId < 1) {
+                throw new \RuntimeException('Pilih tryout dan subtest yang akan dijadikan referensi.');
+            }
+
+            $tryout = Tryout::query()->findOrFail($tryoutId, ['tryout_id', 'name']);
+            $tryoutDetail = TryoutDetail::query()
+                ->where('tryout_id', $tryout->tryout_id)
+                ->findOrFail($tryoutDetailId, ['tryout_detail_id', 'tryout_id', 'type_subtest']);
             $examples = Question::query()
                 ->with('questionOptions:question_option_id,question_id,option_text')
-                ->whereHas('tryoutDetail', fn ($query) => $query->where('tryout_id', $tryout->tryout_id))
+                ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
                 ->latest('question_id')
                 ->limit(3)
                 ->get(['question_id', 'question_text'])
@@ -1253,12 +1271,12 @@ class QuestionBankController extends Controller
                 ])->all();
 
             if (empty($examples)) {
-                throw new \RuntimeException('Tryout referensi belum memiliki soal yang dapat dipakai.');
+                throw new \RuntimeException('Subtest tryout referensi belum memiliki soal yang dapat dipakai.');
             }
 
             return [
                 'reference_examples' => $examples,
-                'reference_label' => 'Tryout: '.$tryout->name,
+                'reference_label' => 'Tryout: '.$tryout->name.' · '.strtoupper((string) $tryoutDetail->type_subtest),
                 'reference_note' => $note,
             ];
         }

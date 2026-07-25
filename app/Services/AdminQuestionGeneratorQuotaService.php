@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\AiGatewayClient;
 use App\Models\AiGatewayPlan;
-use App\Models\AiGatewaySubscription;
-use App\Models\AiGatewayUsageLog;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class AdminQuestionGeneratorQuotaService
@@ -16,21 +15,38 @@ class AdminQuestionGeneratorQuotaService
     {
         $subscription = $this->subscriptionFor($user);
 
-        if (! $subscription) {
-            return null;
-        }
+        return $subscription ? $this->summaryFromSubscription($subscription) : null;
+    }
 
-        $tokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0);
+    public function ensureAvailable(User $user): void
+    {
+        if (! $this->summary($user)) {
+            throw new RuntimeException('Kuota AI Generator Soal belum tersedia. Beli paket atau minta Super Admin menambahkan kuota terlebih dahulu.');
+        }
+    }
+
+    /** @param array{input:int,output:int,total:int} $usage */
+    public function consume(User $user, array $usage, string $provider, string $model): array
+    {
+        $payload = $this->gatewayRequest('post', 'question-generator/consume', [
+            'external_user_id' => (string) $user->getAuthIdentifier(),
+            'external_user_name' => (string) $user->name,
+            'external_user_email' => (string) $user->email,
+            'origin_base_url' => rtrim((string) config('app.url'), '/'),
+            'provider' => $provider,
+            'model' => $model,
+            'usage' => [
+                'input' => max(0, (int) ($usage['input'] ?? 0)),
+                'output' => max(0, (int) ($usage['output'] ?? 0)),
+                'total' => max(0, (int) ($usage['total'] ?? 0)),
+            ],
+        ]);
+
+        $summary = $this->summaryFromSubscription((array) data_get($payload, 'subscription', []));
 
         return [
-            'plan_name' => $subscription->plan?->name,
-            'token_limit' => $tokenLimit,
-            'tokens_used' => (int) $subscription->tokens_used,
-            'remaining_tokens' => max(0, $tokenLimit - (int) $subscription->tokens_used),
-            'remaining_question_estimate' => $this->questionEstimate(
-                max(0, $tokenLimit - (int) $subscription->tokens_used)
-            ),
-            'ends_at' => $subscription->ends_at,
+            ...$summary,
+            'charged_tokens' => (int) data_get($payload, 'charged_tokens', 0),
         ];
     }
 
@@ -56,106 +72,62 @@ class AdminQuestionGeneratorQuotaService
         ];
     }
 
-    public function ensureAvailable(User $user): void
+    /** @return array<string, mixed>|null */
+    private function subscriptionFor(User $user): ?array
     {
-        if (! $this->subscriptionFor($user)) {
-            throw new RuntimeException('Kuota AI Generator Soal belum tersedia. Beli paket atau minta Super Admin menambahkan kuota terlebih dahulu.');
-        }
+        $payload = $this->gatewayRequest('get', 'subscription', [
+            'scope' => AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR,
+            'external_user_id' => (string) $user->getAuthIdentifier(),
+        ]);
+
+        return collect(data_get($payload, 'subscriptions', []))
+            ->filter(fn ($subscription): bool => is_array($subscription))
+            ->first(function (array $subscription): bool {
+                $tokenLimit = (int) data_get($subscription, 'token_limit', data_get($subscription, 'plan.token_limit', 0));
+
+                return $tokenLimit > (int) data_get($subscription, 'tokens_used', 0);
+            });
     }
 
-    /** @param array{input:int,output:int,total:int} $usage */
-    public function consume(User $user, array $usage, string $provider, string $model): array
+    /** @param array<string, mixed> $subscription */
+    private function summaryFromSubscription(array $subscription): array
     {
-        return DB::transaction(function () use ($user, $usage, $provider, $model): array {
-            $client = $this->client();
-            if (! $client) {
-                throw new RuntimeException('Gateway AI Generator Soal belum dikonfigurasi.');
-            }
+        $tokenLimit = (int) data_get($subscription, 'token_limit', data_get($subscription, 'plan.token_limit', 0));
+        $tokensUsed = (int) data_get($subscription, 'tokens_used', 0);
+        $remainingTokens = max(0, $tokenLimit - $tokensUsed);
 
-            $subscription = AiGatewaySubscription::query()
-                ->with('plan')
-                ->where('ai_gateway_client_id', $client->id)
-                ->where('external_user_id', (string) $user->getAuthIdentifier())
-                ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)
-                ->where('status', 'active')
-                ->notExpired()
-                ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
-                ->orderBy('ends_at')
-                ->lockForUpdate()
-                ->get()
-                ->first(fn (AiGatewaySubscription $item) => $item->hasRemainingQuota());
-
-            if (! $subscription) {
-                throw new RuntimeException('Kuota AI Generator Soal sudah habis. Silakan beli paket baru.');
-            }
-
-            $tokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0);
-            $remaining = max(0, $tokenLimit - (int) $subscription->tokens_used);
-            $total = max(1, (int) ($usage['total'] ?? 0));
-            $charged = min($total, $remaining);
-
-            $subscription->increment('tokens_used', $charged);
-            $subscription->refresh();
-
-            AiGatewayUsageLog::query()->create([
-                'ai_gateway_client_id' => $client->id,
-                'external_user_id' => (string) $user->getAuthIdentifier(),
-                'external_user_name' => $user->name,
-                'external_user_email' => $user->email,
-                'origin_base_url' => rtrim((string) config('app.url'), '/'),
-                'feature' => 'admin_question_generator',
-                'provider' => $provider,
-                'model' => $model,
-                'input_tokens' => min(max(0, (int) ($usage['input'] ?? 0)), $charged),
-                'output_tokens' => max(0, $charged - min(max(0, (int) ($usage['input'] ?? 0)), $charged)),
-                'total_tokens' => $charged,
-                'response_time_ms' => null,
-            ]);
-
-            return [
-                'plan_name' => $subscription->plan?->name,
-                'token_limit' => $tokenLimit,
-                'tokens_used' => (int) $subscription->tokens_used,
-                'remaining_tokens' => max(0, $tokenLimit - (int) $subscription->tokens_used),
-                'remaining_question_estimate' => $this->questionEstimate(
-                    max(0, $tokenLimit - (int) $subscription->tokens_used)
-                ),
-                'charged_tokens' => $charged,
-            ];
-        });
+        return [
+            'plan_name' => data_get($subscription, 'plan.name'),
+            'token_limit' => $tokenLimit,
+            'tokens_used' => $tokensUsed,
+            'remaining_tokens' => $remainingTokens,
+            'remaining_question_estimate' => $this->questionEstimate($remainingTokens),
+            'ends_at' => data_get($subscription, 'ends_at'),
+        ];
     }
 
-    private function subscriptionFor(User $user): ?AiGatewaySubscription
+    /** @return array<string, mixed> */
+    private function gatewayRequest(string $method, string $endpoint, array $data = []): array
     {
-        $client = $this->client();
-        if (! $client) {
-            return null;
-        }
-
-        return AiGatewaySubscription::query()
-            ->with('plan')
-            ->where('ai_gateway_client_id', $client->id)
-            ->where('external_user_id', (string) $user->getAuthIdentifier())
-            ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)
-            ->where('status', 'active')
-            ->notExpired()
-            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
-            ->orderBy('ends_at')
-            ->get()
-            ->first(fn (AiGatewaySubscription $item) => $item->hasRemainingQuota());
-    }
-
-    private function client(): ?AiGatewayClient
-    {
+        $discussionUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $baseUrl = Str::beforeLast($discussionUrl, '/discussion');
         $key = trim((string) config('services.ai_gateway.key'));
 
-        if ($key === '') {
-            return null;
+        if ($baseUrl === '' || $key === '') {
+            throw new RuntimeException('Gateway AI Generator Soal belum dikonfigurasi.');
         }
 
-        return AiGatewayClient::query()
-            ->where('api_key_hash', hash('sha256', $key))
-            ->where('is_active', true)
-            ->first();
+        try {
+            return Http::acceptJson()
+                ->timeout(15)
+                ->withHeaders(['X-AI-Gateway-Key' => $key])
+                ->{$method}("{$baseUrl}/{$endpoint}", $data)
+                ->throw()
+                ->json() ?? [];
+        } catch (RequestException $exception) {
+            $message = trim(strip_tags((string) $exception->response?->json('message')));
+
+            throw new RuntimeException($message !== '' ? $message : 'Gateway AI Generator Soal tidak dapat dihubungi.');
+        }
     }
 }

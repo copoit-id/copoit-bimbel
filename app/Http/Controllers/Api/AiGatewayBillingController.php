@@ -8,6 +8,7 @@ use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUserTrial;
+use App\Services\AiGatewayCostService;
 use App\Services\AiGatewayPaymentService;
 use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Http\JsonResponse;
@@ -273,6 +274,84 @@ class AiGatewayBillingController extends Controller
             'external_id' => $externalId,
             'subscription_id' => $subscription->id,
         ]);
+    }
+
+    public function consumeQuestionGenerator(Request $request, AiGatewayCostService $costService): JsonResponse
+    {
+        $client = $this->client($request);
+        $data = $request->validate([
+            'external_user_id' => ['required', 'string', 'max:120'],
+            'external_user_name' => ['nullable', 'string', 'max:255'],
+            'external_user_email' => ['nullable', 'email', 'max:255'],
+            'origin_base_url' => ['nullable', 'url', 'max:2048'],
+            'provider' => ['required', 'string', 'max:40'],
+            'model' => ['required', 'string', 'max:120'],
+            'usage' => ['required', 'array'],
+            'usage.input' => ['nullable', 'integer', 'min:0'],
+            'usage.output' => ['nullable', 'integer', 'min:0'],
+            'usage.total' => ['required', 'integer', 'min:1'],
+        ]);
+
+        return DB::transaction(function () use ($client, $data, $costService): JsonResponse {
+            $subscription = AiGatewaySubscription::query()
+                ->with('plan')
+                ->where('ai_gateway_client_id', $client->id)
+                ->where('external_user_id', trim((string) $data['external_user_id']))
+                ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)
+                ->where('status', 'active')
+                ->notExpired()
+                ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
+                ->orderBy('ends_at')
+                ->lockForUpdate()
+                ->get()
+                ->first(fn (AiGatewaySubscription $item): bool => $item->hasRemainingQuota());
+
+            if (! $subscription) {
+                return response()->json([
+                    'message' => 'Kuota AI Generator Soal tidak tersedia atau sudah habis.',
+                ], 403);
+            }
+
+            $tokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0);
+            $remainingTokens = max(0, $tokenLimit - (int) $subscription->tokens_used);
+            $chargedTokens = min($remainingTokens, (int) $data['usage']['total']);
+            $chargedInputTokens = min($chargedTokens, (int) ($data['usage']['input'] ?? 0));
+            $chargedOutputTokens = max(0, $chargedTokens - $chargedInputTokens);
+            $cost = $costService->estimate(
+                (string) $data['provider'],
+                (string) $data['model'],
+                $chargedInputTokens,
+                $chargedOutputTokens,
+            );
+
+            $subscription->increment('tokens_used', $chargedTokens);
+            $subscription->refresh();
+
+            AiGatewayUsageLog::query()->create([
+                'ai_gateway_client_id' => $client->id,
+                'external_user_id' => trim((string) $data['external_user_id']),
+                'external_user_name' => $data['external_user_name'] ?? null,
+                'external_user_email' => $data['external_user_email'] ?? null,
+                'origin_base_url' => $data['origin_base_url'] ?? $client->base_url,
+                'feature' => 'admin_question_generator',
+                'provider' => $data['provider'],
+                'model' => $data['model'],
+                'input_tokens' => $chargedInputTokens,
+                'output_tokens' => $chargedOutputTokens,
+                'total_tokens' => $chargedTokens,
+                'response_time_ms' => null,
+                'input_per_million_usd' => $cost['input_per_million_usd'] ?? null,
+                'output_per_million_usd' => $cost['output_per_million_usd'] ?? null,
+                'usd_to_idr' => $cost['usd_to_idr'] ?? null,
+                'input_cost_idr' => $cost['input_cost_idr'] ?? null,
+                'output_cost_idr' => $cost['output_cost_idr'] ?? null,
+            ]);
+
+            return response()->json([
+                'subscription' => $subscription->loadMissing('plan'),
+                'charged_tokens' => $chargedTokens,
+            ]);
+        });
     }
 
     /**

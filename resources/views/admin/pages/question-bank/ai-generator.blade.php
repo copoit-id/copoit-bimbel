@@ -1,11 +1,19 @@
 @extends('admin.layout.admin')
 @section('title', 'Generate Soal AI')
+@push('styles')
+<style>[x-cloak] { display: none !important; }</style>
+@endpush
 @section('content')
 @php
     $previewQuestions = collect($preview['questions'] ?? []);
     $requestData = $preview['request'] ?? [];
     $remainingQuestionEstimate = data_get($quota, 'remaining_question_estimate.label', '0');
     $previewRemainingQuestionEstimate = data_get($preview, 'quota.remaining_question_estimate.label', '0');
+    $initialReferenceSource = old('reference_source', $requestData['reference_source'] ?? 'question_bank');
+    $initialUseReference = (bool) old('use_reference', $requestData['use_reference'] ?? !empty($requestData['reference_source']));
+    $initialReferenceBankId = (int) old('reference_bank_id', $requestData['reference_bank_id'] ?? 0);
+    $initialReferenceTryoutId = (int) old('reference_tryout_id', $requestData['reference_tryout_id'] ?? 0);
+    $initialReferenceTryoutDetailId = (int) old('reference_tryout_detail_id', $requestData['reference_tryout_detail_id'] ?? 0);
 @endphp
 
 <div class="space-y-6">
@@ -93,14 +101,59 @@
                         class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                 </div>
 
-                <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4" x-data="{ source: @js(old('reference_source', $requestData['reference_source'] ?? '')) }">
-                    <div class="mb-3"><h3 class="font-semibold text-gray-900">Referensi Gaya Soal <span class="font-normal text-gray-400">(opsional)</span></h3><p class="mt-1 text-xs leading-5 text-gray-500">AI akan meniru tingkat kedalaman dan pola soal dari sumber pilihan, tanpa menyalin soal secara identik.</p></div>
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <div><label for="reference_source" class="mb-1 block text-sm font-medium text-gray-700">Sumber Referensi</label><select id="reference_source" name="reference_source" x-model="source" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="">Tidak memakai referensi</option><option value="question_bank">Bank soal</option><option value="tryout">Tryout</option></select></div>
-                        <div x-show="source === 'question_bank'"><label for="reference_bank_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Bank Soal</label><select id="reference_bank_id" name="reference_id" :disabled="source !== 'question_bank'" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="">Pilih bank soal</option>@foreach($referenceBanks as $referenceBank)<option value="{{ $referenceBank->id }}" @selected(old('reference_source', $requestData['reference_source'] ?? '') === 'question_bank' && (int) old('reference_id', $requestData['reference_id'] ?? 0) === $referenceBank->id)>{{ $referenceBank->name }} · {{ $referenceBank->questions_count }} soal</option>@endforeach</select></div>
-                        <div x-show="source === 'tryout'"><label for="reference_tryout_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Tryout</label><select id="reference_tryout_id" name="reference_id" :disabled="source !== 'tryout'" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="">Pilih tryout</option>@foreach($referenceTryouts as $referenceTryout)<option value="{{ $referenceTryout->tryout_id }}" @selected(old('reference_source', $requestData['reference_source'] ?? '') === 'tryout' && (int) old('reference_id', $requestData['reference_id'] ?? 0) === $referenceTryout->tryout_id)>{{ $referenceTryout->name }} · {{ $referenceTryout->tryout_details_count }} subtest</option>@endforeach</select></div>
+                <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4" x-data="{ enabled: @js($initialUseReference), source: @js($initialReferenceSource), tryoutId: @js((string) $initialReferenceTryoutId) }">
+                    <input type="hidden" name="use_reference" value="0">
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input type="checkbox" name="use_reference" value="1" x-model="enabled" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                        <span><span class="block font-semibold text-gray-900">Gunakan referensi gaya soal</span><span class="mt-1 block text-xs leading-5 text-gray-500">AI meniru tingkat kedalaman dan pola soal tanpa menyalin soal secara identik.</span></span>
+                    </label>
+
+                    <div x-show="enabled" x-cloak class="mt-4 space-y-3 border-t border-gray-200 pt-4">
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <div>
+                                <label for="reference_source" class="mb-1 block text-sm font-medium text-gray-700">Sumber Referensi</label>
+                                <select id="reference_source" name="reference_source" x-model="source" :disabled="!enabled" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+                                    <option value="question_bank">Bank soal</option>
+                                    <option value="tryout">Tryout</option>
+                                </select>
+                            </div>
+                            <div x-show="source === 'question_bank'">
+                                <label for="reference_bank_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Bank Soal</label>
+                                <select id="reference_bank_id" name="reference_bank_id" :disabled="!enabled || source !== 'question_bank'" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+                                    <option value="">Pilih bank soal</option>
+                                    @foreach($referenceBanks as $referenceBank)
+                                        <option value="{{ $referenceBank->id }}" @selected($initialReferenceBankId === $referenceBank->id)>{{ $referenceBank->name }} · {{ $referenceBank->questions_count }} soal</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div x-show="source === 'tryout'" x-cloak class="grid gap-3 md:grid-cols-2">
+                            <div>
+                                <label for="reference_tryout_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Tryout</label>
+                                <select id="reference_tryout_id" name="reference_tryout_id" x-model="tryoutId" @change="$el.form.querySelector('#reference_tryout_detail_id').value = ''" :disabled="!enabled || source !== 'tryout'" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+                                    <option value="">Pilih tryout</option>
+                                    @foreach($referenceTryouts as $referenceTryout)
+                                        <option value="{{ $referenceTryout->tryout_id }}">{{ $referenceTryout->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="reference_tryout_detail_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Subtest</label>
+                                <select id="reference_tryout_detail_id" name="reference_tryout_detail_id" :disabled="!enabled || source !== 'tryout' || !tryoutId" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+                                    <option value="">Pilih subtest</option>
+                                    @foreach($referenceTryouts as $referenceTryout)
+                                        @foreach($referenceTryout->tryoutDetails as $referenceTryoutDetail)
+                                            <option value="{{ $referenceTryoutDetail->tryout_detail_id }}" x-show="tryoutId === '{{ $referenceTryout->tryout_id }}'" @selected($initialReferenceTryoutDetailId === $referenceTryoutDetail->tryout_detail_id)>{{ strtoupper($referenceTryoutDetail->type_subtest ?: 'Subtest') }}</option>
+                                        @endforeach
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <label for="reference_note" class="block text-sm font-medium text-gray-700">Arahan terhadap Referensi <span class="font-normal text-gray-400">(opsional)</span></label>
+                        <textarea id="reference_note" name="reference_note" rows="3" :disabled="!enabled" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm" placeholder="Contoh: buat tingkat kesulitan setara, konteks berbeda, dan jangan mengulang angka/kalimat yang sama.">{{ old('reference_note', $requestData['reference_note'] ?? '') }}</textarea>
                     </div>
-                    <label for="reference_note" class="mt-3 block text-sm font-medium text-gray-700">Arahan terhadap Referensi</label><textarea id="reference_note" name="reference_note" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm" placeholder="Contoh: buat tingkat kesulitan setara, konteks berbeda, dan jangan mengulang angka/kalimat yang sama.">{{ old('reference_note', $requestData['reference_note'] ?? '') }}</textarea>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
