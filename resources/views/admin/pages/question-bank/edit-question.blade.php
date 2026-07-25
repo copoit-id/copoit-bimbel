@@ -95,8 +95,8 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Teks Soal <span class="text-red-500">*</span></label>
-                    <textarea name="question_text" rows="4" required data-summernote data-height="260"
-                        class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    <textarea name="question_text" rows="4" required
+                        class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Masukkan teks soal...">{{ old('question_text', $question->question_text) }}</textarea>
                 </div>
 
@@ -109,8 +109,8 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pembahasan / Catatan</label>
-                    <textarea name="explanation" rows="4" data-summernote data-height="260"
-                        class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    <textarea name="explanation" rows="4"
+                        class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Opsional, isi jika ingin menambahkan pembahasan.">{{ old('explanation', $question->explanation) }}</textarea>
                 </div>
 
@@ -181,8 +181,8 @@
                                 Pilihan {{ $optionKey }} @if($optionKey !== 'E') <span class="text-red-500">*</span> @endif
                             </label>
                         </div>
-                        <textarea name="option_{{ strtolower($optionKey) }}" rows="2" data-summernote data-height="160"
-                            class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        <textarea name="option_{{ strtolower($optionKey) }}" rows="2"
+                            class="ckeditor-option w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Teks pilihan">{{ $optionText }}</textarea>
                         <div class="flex items-center gap-3 custom-score-field @if(!old('use_custom_scores', ($question->custom_score ?? 'no') === 'yes')) hidden @endif">
                             <label class="text-sm text-gray-600">Skor</label>

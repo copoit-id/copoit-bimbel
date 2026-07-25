@@ -1255,6 +1255,10 @@
                 image.decoding = 'async';
             });
 
+        // Rumus dari tombol MathJax CKEditor disimpan sebagai LaTeX dan perlu
+        // dirender kembali saat kartu preview Bank Soal dimuat.
+        window.renderMathJax?.();
+
         const selectedQuestionIds = () => Array.from(checkboxes)
             .filter(cb => cb.checked)
             .map(cb => cb.value);
