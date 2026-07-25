@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\admin\AdminAssistantController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
+use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificateController;
@@ -391,6 +392,8 @@ Route::prefix('{portal}')
     ->middleware(['auth', AdminMiddleware::class, 'panel.portal', 'admin.expiry', 'permission', 'no-cache'])
     ->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
+        Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
         Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');

@@ -25,11 +25,14 @@
                     Buat draft soal pilihan ganda, review hasilnya, lalu simpan ke Bank Soal jika sudah sesuai.
                 </p>
             </div>
-            <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                <i class="ri-arrow-left-line"></i>
-                Kembali
-            </a>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('admin.question-generator.quota.index') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-coin-line"></i> Kuota AI</a>
+                <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                    <i class="ri-arrow-left-line"></i>
+                    Kembali
+                </a>
+            </div>
         </div>
     </div>
 
@@ -39,6 +42,14 @@
         - subtest <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>.
     </div>
     @endif
+
+    <div class="rounded-xl border {{ $quota ? 'border-primary/20 bg-primary/5' : 'border-amber-200 bg-amber-50' }} px-5 py-4 text-sm">
+        @if($quota)
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-gray-900">{{ $quota['plan_name'] ?? 'Paket AI Generator Soal' }}</p><p class="mt-0.5 text-gray-600">Kuota dipotong saat membuat preview, bukan saat menyimpan soal.</p></div><p class="text-lg font-bold text-primary">{{ number_format($quota['remaining_tokens'], 0, ',', '.') }} token tersisa</p></div>
+        @else
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p class="text-amber-800">Belum ada kuota AI Generator Soal aktif untuk akun ini.</p><a href="{{ route('admin.question-generator.quota.index') }}" class="font-semibold text-primary hover:underline">Lihat paket</a></div>
+        @endif
+    </div>
 
     <div class="space-y-6">
         <section class="rounded-2xl border border-border bg-white p-6 shadow-sm">
@@ -78,6 +89,16 @@
                     <input type="text" id="topic" name="topic" value="{{ old('topic', $requestData['topic'] ?? '') }}" required
                         placeholder="Contoh: Penalaran kuantitatif persentase"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                </div>
+
+                <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4" x-data="{ source: @js(old('reference_source', $requestData['reference_source'] ?? '')) }">
+                    <div class="mb-3"><h3 class="font-semibold text-gray-900">Referensi Gaya Soal <span class="font-normal text-gray-400">(opsional)</span></h3><p class="mt-1 text-xs leading-5 text-gray-500">AI akan meniru tingkat kedalaman dan pola soal dari sumber pilihan, tanpa menyalin soal secara identik.</p></div>
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div><label for="reference_source" class="mb-1 block text-sm font-medium text-gray-700">Sumber Referensi</label><select id="reference_source" name="reference_source" x-model="source" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="">Tidak memakai referensi</option><option value="question_bank">Bank soal</option><option value="tryout">Tryout</option></select></div>
+                        <div x-show="source === 'question_bank'"><label for="reference_bank_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Bank Soal</label><select id="reference_bank_id" name="reference_id" :disabled="source !== 'question_bank'" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="">Pilih bank soal</option>@foreach($referenceBanks as $referenceBank)<option value="{{ $referenceBank->id }}" @selected(old('reference_source', $requestData['reference_source'] ?? '') === 'question_bank' && (int) old('reference_id', $requestData['reference_id'] ?? 0) === $referenceBank->id)>{{ $referenceBank->name }} · {{ $referenceBank->questions_count }} soal</option>@endforeach</select></div>
+                        <div x-show="source === 'tryout'"><label for="reference_tryout_id" class="mb-1 block text-sm font-medium text-gray-700">Pilih Tryout</label><select id="reference_tryout_id" name="reference_id" :disabled="source !== 'tryout'" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"><option value="">Pilih tryout</option>@foreach($referenceTryouts as $referenceTryout)<option value="{{ $referenceTryout->tryout_id }}" @selected(old('reference_source', $requestData['reference_source'] ?? '') === 'tryout' && (int) old('reference_id', $requestData['reference_id'] ?? 0) === $referenceTryout->tryout_id)>{{ $referenceTryout->name }} · {{ $referenceTryout->tryout_details_count }} subtest</option>@endforeach</select></div>
+                    </div>
+                    <label for="reference_note" class="mt-3 block text-sm font-medium text-gray-700">Arahan terhadap Referensi</label><textarea id="reference_note" name="reference_note" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm" placeholder="Contoh: buat tingkat kesulitan setara, konteks berbeda, dan jangan mengulang angka/kalimat yang sama.">{{ old('reference_note', $requestData['reference_note'] ?? '') }}</textarea>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -126,7 +147,7 @@
                 <button type="submit"
                     class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90">
                     <i class="ri-sparkling-2-line"></i>
-                    Generate Preview
+                    Generate Preview dengan AI
                 </button>
             </form>
         </section>
@@ -179,7 +200,7 @@
                 <input type="hidden" id="questionsJson" name="questions_json">
 
                 <div class="border-y border-gray-100 bg-gray-50 px-6 py-4">
-                    <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                         <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Topik</p>
                             <p class="mt-1 truncate text-sm font-semibold text-gray-900">{{ $requestData['topic'] ?? '-' }}</p>
@@ -191,6 +212,11 @@
                         <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Model</p>
                             <p class="mt-1 truncate text-sm font-semibold text-gray-900">{{ $models[$preview['model'] ?? $defaultModel] ?? ($preview['model'] ?? $defaultModel) }}</p>
+                        </div>
+                        <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Kuota terpakai</p>
+                            <p class="mt-1 text-sm font-semibold text-primary">{{ number_format(data_get($preview, 'quota.charged_tokens', 0), 0, ',', '.') }} token</p>
+                            <p class="mt-0.5 text-xs text-gray-500">Sisa {{ number_format(data_get($preview, 'quota.remaining_tokens', 0), 0, ',', '.') }}</p>
                         </div>
                     </div>
                 </div>

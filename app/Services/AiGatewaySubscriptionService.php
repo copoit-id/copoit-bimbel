@@ -157,6 +157,7 @@ class AiGatewaySubscriptionService
                 [
                     'ai_gateway_client_id' => $client->id,
                     'ai_gateway_plan_id' => $plan->id,
+                    'scope' => $plan->scope,
                     'token_limit' => $plan->token_limit,
                     'chat_limit' => $plan->chat_limit,
                     'external_user_id' => $externalUserId,

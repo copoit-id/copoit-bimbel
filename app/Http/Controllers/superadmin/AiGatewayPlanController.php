@@ -12,19 +12,27 @@ use Illuminate\View\View;
 
 class AiGatewayPlanController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $scopes = AiGatewayPlan::scopes();
+        $activeScope = $request->query('scope', AiGatewayPlan::SCOPE_LEARNING_TOOLS);
+        abort_unless(array_key_exists($activeScope, $scopes), 404);
+
         return view('super-admin.ai-gateway-plans.index', [
             'plans' => AiGatewayPlan::query()
+                ->where('scope', $activeScope)
                 ->withCount(['subscriptions', 'transactions'])
                 ->latest()
                 ->get(),
+            'scopes' => $scopes,
+            'activeScope' => $activeScope,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
+        $data['scope'] ??= AiGatewayPlan::SCOPE_LEARNING_TOOLS;
         $data['slug'] = Str::slug($data['name']).'-'.Str::lower(Str::random(5));
         $data['is_active'] = $request->boolean('is_active');
         AiGatewayPlan::create($data);
@@ -35,6 +43,7 @@ class AiGatewayPlanController extends Controller
     public function update(Request $request, AiGatewayPlan $aiGatewayPlan): RedirectResponse
     {
         $data = $this->validated($request);
+        $data['scope'] ??= $aiGatewayPlan->scope;
         $data['is_active'] = $request->boolean('is_active');
         $aiGatewayPlan->update($data);
 
@@ -73,6 +82,7 @@ class AiGatewayPlanController extends Controller
     private function validated(Request $request): array
     {
         return $request->validate([
+            'scope' => ['nullable', 'in:'.implode(',', array_keys(AiGatewayPlan::scopes()))],
             'name' => ['required', 'string', 'max:100'],
             'price' => ['required', 'integer', 'min:0'],
             'token_limit' => ['required', 'integer', 'min:1'],
