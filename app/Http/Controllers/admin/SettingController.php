@@ -315,27 +315,6 @@ class SettingController extends Controller
             }
         }
 
-        $aiSettingsResult = $this->buildAiQuestionGeneratorSettings($request, $profile);
-        if (! empty($aiSettingsResult['errors'])) {
-            return back()
-                ->withErrors($aiSettingsResult['errors'])
-                ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key']))
-                ->with('active_tab', 'ai');
-        }
-
-        $aiDiscussionConfigurable = (bool) config('client.branding.ai_discussion_admin_configurable', false);
-        $aiDiscussionSettingsResult = $aiDiscussionConfigurable
-            ? $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], true)
-            : ['settings' => $profile->ai_discussion_settings ?? [], 'sensitive_changed' => false, 'errors' => []];
-        if (! empty($aiDiscussionSettingsResult['errors'])) {
-            return back()
-                ->withErrors($aiDiscussionSettingsResult['errors'])
-                ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key', 'ai_discussion_openai_api_key', 'ai_discussion_gemini_api_key']))
-                ->with('active_tab', 'ai');
-        }
-
-        $sensitiveChanged = $sensitiveChanged || (bool) ($aiSettingsResult['sensitive_changed'] ?? false);
-        $sensitiveChanged = $sensitiveChanged || (bool) ($aiDiscussionSettingsResult['sensitive_changed'] ?? false);
         $sensitiveChanged = $sensitiveChanged || $smtpSettingsChanged;
 
         if ($sensitiveChanged) {
@@ -431,12 +410,10 @@ class SettingController extends Controller
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['participant_destination_api_enabled'] = $request->boolean('participant_destination_api_enabled');
         $validated['enable_utbk_types'] = false;
-        unset($validated['ai_question_generator_enabled']);
-        $validated['ai_question_generator_settings'] = $aiSettingsResult['settings'];
-        if ($aiDiscussionConfigurable) {
-            $validated['ai_discussion_settings'] = $aiDiscussionSettingsResult['settings'];
-        }
         unset(
+            $validated['ai_question_generator_enabled'],
+            $validated['ai_question_generator_settings'],
+            $validated['ai_discussion_settings'],
             $validated['ai_openai_api_key'],
             $validated['ai_openai_base_url'],
             $validated['ai_openai_timeout'],

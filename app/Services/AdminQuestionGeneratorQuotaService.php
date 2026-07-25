@@ -27,7 +27,32 @@ class AdminQuestionGeneratorQuotaService
             'token_limit' => $tokenLimit,
             'tokens_used' => (int) $subscription->tokens_used,
             'remaining_tokens' => max(0, $tokenLimit - (int) $subscription->tokens_used),
+            'remaining_question_estimate' => $this->questionEstimate(
+                max(0, $tokenLimit - (int) $subscription->tokens_used)
+            ),
             'ends_at' => $subscription->ends_at,
+        ];
+    }
+
+    /**
+     * Convert the internal token quota to a conservative, customer-facing
+     * estimate. A generated multiple-choice question uses roughly 1,000
+     * combined prompt and output tokens; references and long explanations
+     * make the lower end of the range more likely.
+     *
+     * @return array{min: int, max: int, label: string}
+     */
+    public function questionEstimate(int $tokens): array
+    {
+        $maximum = max(0, (int) floor($tokens / 1000));
+        $minimum = $maximum === 0 ? 0 : max(1, (int) floor($maximum * 0.8));
+
+        return [
+            'min' => $minimum,
+            'max' => $maximum,
+            'label' => $minimum === $maximum
+                ? number_format($maximum, 0, ',', '.')
+                : number_format($minimum, 0, ',', '.').'–'.number_format($maximum, 0, ',', '.'),
         ];
     }
 
@@ -92,6 +117,9 @@ class AdminQuestionGeneratorQuotaService
                 'token_limit' => $tokenLimit,
                 'tokens_used' => (int) $subscription->tokens_used,
                 'remaining_tokens' => max(0, $tokenLimit - (int) $subscription->tokens_used),
+                'remaining_question_estimate' => $this->questionEstimate(
+                    max(0, $tokenLimit - (int) $subscription->tokens_used)
+                ),
                 'charged_tokens' => $charged,
             ];
         });

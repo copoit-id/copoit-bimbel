@@ -8,6 +8,7 @@
     $tokenLimit = $subscriptions->sum(fn ($subscription) => (int) data_get($subscription, 'token_limit', data_get($subscription, 'plan.token_limit', 0)));
     $tokensUsed = $subscriptions->sum(fn ($subscription) => (int) data_get($subscription, 'tokens_used', 0));
     $remainingTokens = max(0, $tokenLimit - $tokensUsed);
+    $questionEstimate = data_get($status, 'question_estimate', ['label' => '0']);
 @endphp
 
 <div class="mx-auto max-w-6xl space-y-6">
@@ -26,11 +27,11 @@
 
     <section class="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div><h2 class="text-lg font-semibold text-gray-900">Kuota Aktif</h2><p class="mt-1 text-sm text-gray-500">Token dipotong berdasarkan pemakaian AI saat preview dibuat; menyimpan atau membuka ulang preview tidak memotong kuota lagi.</p></div>
-            <div class="rounded-xl bg-primary/10 px-5 py-3 text-right"><p class="text-xs font-semibold uppercase tracking-wide text-primary">Sisa token</p><p class="mt-1 text-2xl font-bold text-primary">{{ number_format($remainingTokens, 0, ',', '.') }}</p></div>
+            <div><h2 class="text-lg font-semibold text-gray-900">Kapasitas Aktif</h2><p class="mt-1 text-sm text-gray-500">Kapasitas berkurang saat preview dibuat; menyimpan atau membuka ulang preview tidak mengurangi kapasitas lagi.</p></div>
+            <div class="rounded-xl bg-primary/10 px-5 py-3 text-right"><p class="text-xs font-semibold uppercase tracking-wide text-primary">Perkiraan soal tersisa</p><p class="mt-1 text-2xl font-bold text-primary">{{ data_get($questionEstimate, 'label') }} soal</p></div>
         </div>
         <div class="mt-5 h-2 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-primary" style="width: {{ $tokenLimit > 0 ? min(100, ($remainingTokens / $tokenLimit) * 100) : 0 }}%"></div></div>
-        <p class="mt-2 text-xs text-gray-500">Terpakai {{ number_format($tokensUsed, 0, ',', '.') }} dari {{ number_format($tokenLimit, 0, ',', '.') }} token.</p>
+        <p class="mt-2 text-xs text-gray-500">Estimasi dapat berubah sesuai panjang pembahasan dan penggunaan referensi soal.</p>
     </section>
 
     <section>
@@ -40,7 +41,7 @@
                 <article class="flex flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                     <h3 class="text-lg font-semibold text-gray-900">{{ data_get($plan, 'name') }}</h3>
                     <p class="mt-2 text-2xl font-bold text-primary">{{ data_get($plan, 'is_free') ? 'Gratis' : 'Rp '.number_format(data_get($plan, 'price'), 0, ',', '.') }}</p>
-                    <dl class="mt-5 space-y-2 text-sm text-gray-600"><div class="flex justify-between gap-3"><dt>Kuota AI</dt><dd class="font-semibold text-gray-900">{{ number_format(data_get($plan, 'token_limit'), 0, ',', '.') }} token</dd></div><div class="flex justify-between gap-3"><dt>Masa aktif</dt><dd class="font-semibold text-gray-900">{{ data_get($plan, 'duration_days') > 0 ? data_get($plan, 'duration_days').' hari' : 'Tanpa batas waktu' }}</dd></div><div class="flex justify-between gap-3"><dt>Fitur</dt><dd class="font-semibold text-gray-900">Generate & referensi soal</dd></div></dl>
+                    <dl class="mt-5 space-y-2 text-sm text-gray-600"><div class="flex justify-between gap-3"><dt>Perkiraan soal</dt><dd class="font-semibold text-gray-900">{{ data_get($plan, 'question_estimate.label') }} soal</dd></div><div class="flex justify-between gap-3"><dt>Masa aktif</dt><dd class="font-semibold text-gray-900">{{ data_get($plan, 'duration_days') > 0 ? data_get($plan, 'duration_days').' hari' : 'Tanpa batas waktu' }}</dd></div><div class="flex justify-between gap-3"><dt>Fitur</dt><dd class="font-semibold text-gray-900">Generate & referensi soal</dd></div></dl>
                     <form method="POST" action="{{ route('admin.question-generator.quota.checkout') }}" class="mt-6">@csrf<input type="hidden" name="plan_id" value="{{ data_get($plan, 'id') }}"><button class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">{{ data_get($plan, 'is_free') ? 'Klaim Paket' : 'Beli Kuota' }}</button></form>
                 </article>
             @empty

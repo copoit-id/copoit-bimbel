@@ -4,6 +4,8 @@
 @php
     $previewQuestions = collect($preview['questions'] ?? []);
     $requestData = $preview['request'] ?? [];
+    $remainingQuestionEstimate = data_get($quota, 'remaining_question_estimate.label', '0');
+    $previewRemainingQuestionEstimate = data_get($preview, 'quota.remaining_question_estimate.label', '0');
 @endphp
 
 <div class="space-y-6">
@@ -45,7 +47,7 @@
 
     <div class="rounded-xl border {{ $quota ? 'border-primary/20 bg-primary/5' : 'border-amber-200 bg-amber-50' }} px-5 py-4 text-sm">
         @if($quota)
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-gray-900">{{ $quota['plan_name'] ?? 'Paket AI Generator Soal' }}</p><p class="mt-0.5 text-gray-600">Kuota dipotong saat membuat preview, bukan saat menyimpan soal.</p></div><p class="text-lg font-bold text-primary">{{ number_format($quota['remaining_tokens'], 0, ',', '.') }} token tersisa</p></div>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-gray-900">{{ $quota['plan_name'] ?? 'Paket AI Generator Soal' }}</p><p class="mt-0.5 text-gray-600">Kapasitas berkurang saat membuat preview, bukan saat menyimpan soal.</p></div><p class="text-lg font-bold text-primary">{{ $remainingQuestionEstimate }} soal tersisa</p></div>
         @else
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p class="text-amber-800">Belum ada kuota AI Generator Soal aktif untuk akun ini.</p><a href="{{ route('admin.question-generator.quota.index') }}" class="font-semibold text-primary hover:underline">Lihat paket</a></div>
         @endif
@@ -214,9 +216,9 @@
                             <p class="mt-1 truncate text-sm font-semibold text-gray-900">{{ $models[$preview['model'] ?? $defaultModel] ?? ($preview['model'] ?? $defaultModel) }}</p>
                         </div>
                         <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Kuota terpakai</p>
-                            <p class="mt-1 text-sm font-semibold text-primary">{{ number_format(data_get($preview, 'quota.charged_tokens', 0), 0, ',', '.') }} token</p>
-                            <p class="mt-0.5 text-xs text-gray-500">Sisa {{ number_format(data_get($preview, 'quota.remaining_tokens', 0), 0, ',', '.') }}</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Kapasitas AI</p>
+                            <p class="mt-1 text-sm font-semibold text-primary">Preview sudah dibuat</p>
+                            <p class="mt-0.5 text-xs text-gray-500">Sisa sekitar {{ $previewRemainingQuestionEstimate }} soal</p>
                         </div>
                     </div>
                 </div>

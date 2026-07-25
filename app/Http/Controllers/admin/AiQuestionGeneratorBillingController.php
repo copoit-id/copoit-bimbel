@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiGatewayPlan;
+use App\Services\AdminQuestionGeneratorQuotaService;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,10 @@ use Illuminate\View\View;
 
 class AiQuestionGeneratorBillingController extends Controller
 {
+    public function __construct(
+        private readonly AdminQuestionGeneratorQuotaService $quotaService
+    ) {}
+
     public function index(Request $request): View
     {
         $plans = [];
@@ -25,6 +30,23 @@ class AiQuestionGeneratorBillingController extends Controller
                 'scope' => AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR,
                 'external_user_id' => (string) $request->user()->getAuthIdentifier(),
             ])->json() ?? [];
+
+            $plans = collect($plans)
+                ->map(function (array $plan): array {
+                    $plan['question_estimate'] = $this->quotaService->questionEstimate(
+                        (int) ($plan['token_limit'] ?? 0)
+                    );
+
+                    return $plan;
+                })
+                ->values()
+                ->all();
+
+            $subscriptions = collect($status['subscriptions'] ?? []);
+            $remainingTokens = max(0, $subscriptions->sum(
+                fn (array $subscription): int => max(0, (int) data_get($subscription, 'token_limit', data_get($subscription, 'plan.token_limit', 0)) - (int) data_get($subscription, 'tokens_used', 0))
+            ));
+            $status['question_estimate'] = $this->quotaService->questionEstimate($remainingTokens);
         } catch (\Throwable) {
             $error = 'Informasi paket AI Generator Soal belum dapat dimuat. Pastikan gateway AI sudah dikonfigurasi.';
         }
