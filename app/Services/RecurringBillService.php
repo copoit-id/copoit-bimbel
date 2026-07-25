@@ -22,7 +22,10 @@ class RecurringBillService
         $created = 0;
 
         foreach ($this->periods($bill, $until) as $period) {
-            foreach ($this->targetUsers($bill) as $userId) {
+            $periodStart = Carbon::parse($period['start'])->startOfDay();
+            $periodEnd = Carbon::parse($period['end'])->endOfDay();
+
+            foreach ($this->targetUsers($bill, $periodStart, $periodEnd) as $userId) {
                 $exists = BillInvoice::query()
                     ->where('recurring_bill_id', $bill->id)
                     ->where('user_id', $userId)
@@ -78,7 +81,7 @@ class RecurringBillService
 
             if ($amount > $remainingAmount) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Nominal cicilan melebihi sisa tagihan Rp ' . number_format($remainingAmount, 0, ',', '.') . '.',
+                    'amount' => 'Nominal cicilan melebihi sisa tagihan Rp '.number_format($remainingAmount, 0, ',', '.').'.',
                 ]);
             }
 
@@ -104,7 +107,14 @@ class RecurringBillService
         });
     }
 
-    private function targetUsers(RecurringBill $bill): Collection
+    /**
+     * Resolve recipients from the source targets for one billing period.
+     *
+     * Package targets intentionally resolve from user_package_access at generation
+     * time. Bill invoices are snapshots, but membership is never copied into the
+     * recurring bill itself.
+     */
+    private function targetUsers(RecurringBill $bill, Carbon $periodStart, Carbon $periodEnd): Collection
     {
         $userIds = $bill->targets
             ->whereNotNull('user_id')
@@ -126,8 +136,17 @@ class RecurringBillService
         if ($packageIds->isNotEmpty()) {
             $userIds = $userIds->merge(
                 UserPackageAcces::query()
-                    ->active()
                     ->whereIn('package_id', $packageIds)
+                    ->where('status', 'active')
+                    ->where(function ($query) use ($periodEnd): void {
+                        $query->whereNull('start_date')
+                            ->orWhere('start_date', '<=', $periodEnd);
+                    })
+                    ->where(function ($query) use ($periodStart): void {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $periodStart);
+                    })
+                    ->distinct()
                     ->pluck('user_id')
                     ->map(fn ($userId) => (int) $userId)
             );
@@ -175,7 +194,7 @@ class RecurringBillService
 
     private function dueDate(RecurringBill $bill, Carbon $periodStart, Carbon $periodEnd): Carbon
     {
-        if (!$bill->due_day || !in_array($bill->frequency, ['monthly', 'yearly'], true)) {
+        if (! $bill->due_day || ! in_array($bill->frequency, ['monthly', 'yearly'], true)) {
             return $periodEnd->copy();
         }
 
@@ -184,13 +203,13 @@ class RecurringBillService
 
     private function invoiceNumber(int $billId): string
     {
-        return 'INV-' . now()->format('Ymd') . '-' . $billId . '-' . Str::upper(Str::random(6));
+        return 'INV-'.now()->format('Ymd').'-'.$billId.'-'.Str::upper(Str::random(6));
     }
 
     private function receiptNumber(): string
     {
         do {
-            $receiptNumber = 'BILL-PAY-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6));
+            $receiptNumber = 'BILL-PAY-'.now()->format('Ymd').'-'.Str::upper(Str::random(6));
         } while (BillInvoicePayment::query()->where('receipt_number', $receiptNumber)->exists());
 
         return $receiptNumber;

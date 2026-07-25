@@ -30,6 +30,8 @@ Route::post('/ai-gateway/discussion', [AiGatewayController::class, 'discussion']
 Route::get('/ai-gateway/plans', [AiGatewayBillingController::class, 'plans']);
 Route::post('/ai-gateway/checkout', [AiGatewayBillingController::class, 'checkout'])
     ->middleware('throttle:20,1');
+Route::post('/ai-gateway/question-generator/consume', [AiGatewayBillingController::class, 'consumeQuestionGenerator'])
+    ->middleware('throttle:30,1');
 Route::post('/ai-gateway/cancel-pending', [AiGatewayBillingController::class, 'cancelPending'])
     ->middleware('throttle:10,1');
 Route::get('/ai-gateway/subscription', [AiGatewayBillingController::class, 'status'])

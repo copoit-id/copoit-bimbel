@@ -13,7 +13,7 @@ class AiQuestionGeneratorService
     public function generate(array $input): array
     {
         $model = $input['model'] ?? config('services.openai.question_model', 'gpt-5.4-mini');
-        if (!array_key_exists($model, $this->availableModels())) {
+        if (! array_key_exists($model, $this->availableModels())) {
             throw new RuntimeException('Model AI tidak aktif atau belum tersedia di pengaturan.');
         }
 
@@ -23,7 +23,7 @@ class AiQuestionGeneratorService
 
         $decoded = json_decode($response['content'], true);
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             throw new RuntimeException('Response AI tidak valid. Silakan coba generate ulang.');
         }
 
@@ -40,7 +40,7 @@ class AiQuestionGeneratorService
             'difficulty' => $input['difficulty'],
             'question_type' => 'multiple_choice',
             'questions' => $questions,
-            'usage' => $response['usage'] ?? null,
+            'usage' => $this->normalizeUsage($response['usage'] ?? []),
             'generated_at' => now()->toDateTimeString(),
         ];
     }
@@ -52,7 +52,7 @@ class AiQuestionGeneratorService
 
     public function availableModels(): array
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return [];
         }
 
@@ -64,7 +64,7 @@ class AiQuestionGeneratorService
             ])
             ->all();
 
-        if (!empty($models)) {
+        if (! empty($models)) {
             return $models;
         }
 
@@ -89,7 +89,7 @@ class AiQuestionGeneratorService
     {
         $provider = $this->providerSettings('openai');
         $apiKey = $provider['api_key'] ?? config('services.openai.api_key');
-        if (!$apiKey) {
+        if (! $apiKey) {
             throw new RuntimeException('API key OpenAI belum diatur di pengaturan AI.');
         }
 
@@ -100,7 +100,7 @@ class AiQuestionGeneratorService
                 ->acceptJson()
                 ->asJson()
                 ->timeout((int) ($provider['timeout'] ?? config('services.openai.timeout', 90)))
-                ->post(rtrim((string) ($provider['base_url'] ?? config('services.openai.base_url')), '/') . '/responses', $payload)
+                ->post(rtrim((string) ($provider['base_url'] ?? config('services.openai.base_url')), '/').'/responses', $payload)
                 ->throw()
                 ->json();
         } catch (RequestException $exception) {
@@ -108,7 +108,7 @@ class AiQuestionGeneratorService
                 ?: $exception->response?->body()
                 ?: $exception->getMessage();
 
-            throw new RuntimeException('Gagal menghubungi OpenAI: ' . Str::limit((string) $message, 300));
+            throw new RuntimeException('Gagal menghubungi OpenAI: '.Str::limit((string) $message, 300));
         }
 
         return [
@@ -122,13 +122,13 @@ class AiQuestionGeneratorService
     {
         $provider = $this->providerSettings('gemini');
         $apiKey = $provider['api_key'] ?? config('services.gemini.api_key');
-        if (!$apiKey) {
+        if (! $apiKey) {
             throw new RuntimeException('API key Gemini belum diatur di pengaturan AI.');
         }
 
         $payload = $this->buildGeminiPayload($input);
         $endpoint = rtrim((string) ($provider['base_url'] ?? config('services.gemini.base_url')), '/')
-            . '/models/' . rawurlencode($model) . ':generateContent';
+            .'/models/'.rawurlencode($model).':generateContent';
 
         try {
             $response = Http::acceptJson()
@@ -143,7 +143,7 @@ class AiQuestionGeneratorService
                 ?: $exception->response?->body()
                 ?: $exception->getMessage();
 
-            throw new RuntimeException('Gagal menghubungi Gemini: ' . Str::limit((string) $message, 300));
+            throw new RuntimeException('Gagal menghubungi Gemini: '.Str::limit((string) $message, 300));
         }
 
         return [
@@ -238,6 +238,25 @@ PROMPT;
 
         if ($extraInstruction !== '') {
             $prompt .= "\n\nInstruksi tambahan dari admin:\n{$extraInstruction}";
+        }
+
+        $referenceExamples = is_array($input['reference_examples'] ?? null) ? $input['reference_examples'] : [];
+        if ($referenceExamples !== []) {
+            $referenceLabel = trim((string) ($input['reference_label'] ?? 'Referensi soal'));
+            $prompt .= "\n\nGunakan referensi berikut hanya untuk memahami gaya, kedalaman, dan pola soal. Jangan menyalin kalimat, angka, atau pilihan jawaban secara identik.\nSumber: {$referenceLabel}";
+
+            foreach (array_slice($referenceExamples, 0, 3) as $index => $example) {
+                $question = trim((string) ($example['question'] ?? ''));
+                $options = collect($example['options'] ?? [])->filter()->implode(' | ');
+                if ($question !== '') {
+                    $prompt .= "\nContoh ".($index + 1).": {$question}".($options !== '' ? "\nOpsi contoh: {$options}" : '');
+                }
+            }
+        }
+
+        $referenceNote = trim((string) ($input['reference_note'] ?? ''));
+        if ($referenceNote !== '') {
+            $prompt .= "\n\nArahan terhadap gaya referensi:\n{$referenceNote}";
         }
 
         return $prompt;
@@ -356,11 +375,25 @@ PROMPT;
             ->all();
     }
 
+    /** @param array<string, mixed> $usage */
+    private function normalizeUsage(array $usage): array
+    {
+        $input = (int) ($usage['input_tokens'] ?? $usage['promptTokenCount'] ?? 0);
+        $output = (int) ($usage['output_tokens'] ?? $usage['candidatesTokenCount'] ?? 0);
+        $total = (int) ($usage['total_tokens'] ?? $usage['totalTokenCount'] ?? ($input + $output));
+
+        return [
+            'input' => max(0, $input),
+            'output' => max(0, $output),
+            'total' => max(0, $total),
+        ];
+    }
+
     private function settings(): array
     {
         $settings = config('client.branding.ai_question_generator_settings');
 
-        if (is_array($settings) && !empty($settings)) {
+        if (is_array($settings) && ! empty($settings)) {
             return $settings;
         }
 

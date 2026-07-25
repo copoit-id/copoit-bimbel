@@ -732,6 +732,7 @@ class AiGatewayFreePlanClaimTest extends TestCase
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
+            $table->string('scope', 40)->default('learning_tools');
             $table->unsignedBigInteger('price');
             $table->unsignedBigInteger('token_limit')->default(0);
             $table->unsignedInteger('chat_limit')->default(0);
@@ -743,6 +744,7 @@ class AiGatewayFreePlanClaimTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('ai_gateway_client_id');
             $table->unsignedBigInteger('ai_gateway_plan_id');
+            $table->string('scope', 40)->default('learning_tools');
             $table->unsignedBigInteger('token_limit')->default(0);
             $table->unsignedInteger('chat_limit')->default(0);
             $table->string('external_user_id', 120)->nullable();

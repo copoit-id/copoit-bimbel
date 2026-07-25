@@ -7,9 +7,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AiGatewayPlan extends Model
 {
+    public const SCOPE_LEARNING_TOOLS = 'learning_tools';
+
+    public const SCOPE_ADMIN_QUESTION_GENERATOR = 'admin_question_generator';
+
     protected $fillable = [
         'name',
         'slug',
+        'scope',
         'price',
         'token_limit',
         'chat_limit',
@@ -41,5 +46,13 @@ class AiGatewayPlan extends Model
     public function isFree(): bool
     {
         return $this->price === 0;
+    }
+
+    public static function scopes(): array
+    {
+        return [
+            self::SCOPE_LEARNING_TOOLS => 'AI Learning Tools',
+            self::SCOPE_ADMIN_QUESTION_GENERATOR => 'Generate Soal Admin',
+        ];
     }
 }

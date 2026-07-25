@@ -4,10 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
-use App\Models\Package;
-use App\Models\Discount;
-use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use RuntimeException;
 
 class Payment extends Model
@@ -15,7 +12,9 @@ class Payment extends Model
     use HasFactory;
 
     protected $table = 'payments';
+
     protected $guarded = [];
+
     protected $primaryKey = 'payment_id';
 
     protected $casts = [
@@ -51,9 +50,50 @@ class Payment extends Model
         return $this->hasOne(AffiliateCommission::class, 'payment_id', 'payment_id');
     }
 
+    public function installments(): HasMany
+    {
+        return $this->hasMany(PaymentInstallment::class, 'payment_id', 'payment_id')
+            ->orderByDesc('paid_at');
+    }
+
+    public function getPaidAmountAttribute(): int
+    {
+        $installmentCount = $this->attributes['installments_count'] ?? null;
+
+        if ($installmentCount !== null) {
+            return (int) $installmentCount > 0
+                ? (int) ($this->attributes['installments_paid_amount'] ?? 0)
+                : ($this->status === self::STATUS_SUCCESS ? (int) $this->total_amount : 0);
+        }
+
+        if ($this->relationLoaded('installments')) {
+            $paidAmount = (int) $this->installments->sum('amount');
+
+            return $paidAmount > 0 || $this->status !== self::STATUS_SUCCESS
+                ? $paidAmount
+                : (int) $this->total_amount;
+        }
+
+        $paidAmount = (int) $this->installments()->sum('amount');
+
+        return $paidAmount > 0 || $this->status !== self::STATUS_SUCCESS
+            ? $paidAmount
+            : (int) $this->total_amount;
+    }
+
+    public function getRemainingAmountAttribute(): int
+    {
+        return max(0, (int) $this->total_amount - $this->paid_amount);
+    }
+
+    public function isManualEntry(): bool
+    {
+        return (bool) ($this->paymentDetailsArray()['manual'] ?? false);
+    }
+
     public function getFormattedAmountAttribute(): string
     {
-        return 'Rp ' . number_format((float) $this->total_amount, 0, ',', '.');
+        return 'Rp '.number_format((float) $this->total_amount, 0, ',', '.');
     }
 
     public static function generateManualUniqueCode(array $reservedCodes = []): int
@@ -75,13 +115,13 @@ class Payment extends Model
         for ($attempt = 0; $attempt < 20; $attempt++) {
             $code = random_int(1, 999);
 
-            if (!in_array($code, $blockedCodes, true)) {
+            if (! in_array($code, $blockedCodes, true)) {
                 return $code;
             }
         }
 
         for ($code = 1; $code <= 999; $code++) {
-            if (!in_array($code, $blockedCodes, true)) {
+            if (! in_array($code, $blockedCodes, true)) {
                 return $code;
             }
         }
@@ -91,7 +131,7 @@ class Payment extends Model
 
     public static function isManualUniqueCodeAvailable(int $code): bool
     {
-        return !self::query()
+        return ! self::query()
             ->where('status', self::STATUS_PENDING)
             ->whereDate('unique_code_date', now()->toDateString())
             ->where('unique_code', $code)
@@ -121,7 +161,7 @@ class Payment extends Model
         }
 
         if ($this->payment_method === 'interactive_qris') {
-            return !empty($details['qris_paid_status']);
+            return ! empty($details['qris_paid_status']);
         }
 
         if ($this->payment_method === 'manual') {
@@ -177,7 +217,7 @@ class Payment extends Model
 
     private function hasPaidStatus(mixed $payload): bool
     {
-        if (!is_array($payload)) {
+        if (! is_array($payload)) {
             return false;
         }
 
@@ -196,8 +236,13 @@ class Payment extends Model
 
     // Status constants
     const STATUS_PENDING = 'pending';
+
+    const STATUS_PARTIAL = 'partial';
+
     const STATUS_SUCCESS = 'success';
+
     const STATUS_FAILED = 'failed';
+
     const STATUS_EXPIRED = 'expired';
 
     public function isPending()
@@ -208,6 +253,11 @@ class Payment extends Model
     public function isSuccess()
     {
         return $this->status === self::STATUS_SUCCESS;
+    }
+
+    public function isPartial(): bool
+    {
+        return $this->status === self::STATUS_PARTIAL;
     }
 
     public function isFailed()

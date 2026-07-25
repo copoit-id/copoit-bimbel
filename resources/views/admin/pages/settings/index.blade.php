@@ -20,8 +20,6 @@
 
     @php
     $settingErrorKeys = $errors->keys();
-    $aiGeneratorEnabled = (bool) ($branding['ai_question_generator_enabled'] ?? false);
-    $aiDiscussionConfigurable = (bool) ($branding['ai_discussion_admin_configurable'] ?? false);
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
@@ -64,45 +62,9 @@
     'footer_youtube'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'footer';
-    } elseif (collect($settingErrorKeys)->intersect([
-    'ai_openai_api_key',
-    'ai_openai_base_url',
-    'ai_openai_timeout',
-    'ai_gemini_api_key',
-    'ai_gemini_base_url',
-    'ai_gemini_timeout',
-    'ai_question_default_model',
-    'ai_question_models_json',
-    'ai_discussion_enabled',
-    'ai_discussion_credential_mode',
-    'ai_discussion_model',
-    'ai_discussion_openai_api_key',
-    'ai_discussion_openai_base_url',
-    'ai_discussion_openai_timeout',
-    'ai_discussion_gemini_api_key',
-    'ai_discussion_gemini_base_url',
-    'ai_discussion_gemini_timeout',
-    'ai_discussion_max_output_tokens',
-    'ai_discussion_instruction'
-    ])->isNotEmpty()) {
-    $activeSettingsTab = 'ai';
     }
     }
 
-    $aiSettings = old('ai_question_generator_settings', $profile->ai_question_generator_settings ?? ($branding['ai_question_generator_settings'] ?? []));
-    $aiProviders = is_array($aiSettings['providers'] ?? null) ? $aiSettings['providers'] : [];
-    $aiModels = is_array($aiSettings['models'] ?? null) ? $aiSettings['models'] : [
-        ['id' => 'gpt-5.4-mini', 'label' => 'OpenAI - GPT-5.4 Mini', 'provider' => 'openai', 'enabled' => true],
-        ['id' => 'gemini-2.5-flash', 'label' => 'Gemini - 2.5 Flash', 'provider' => 'gemini', 'enabled' => true],
-        ['id' => 'gemini-2.5-flash-lite', 'label' => 'Gemini - 2.5 Flash-Lite', 'provider' => 'gemini', 'enabled' => true],
-    ];
-    $aiModelsJson = old('ai_question_models_json', json_encode($aiModels, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    $aiDefaultModel = old('ai_question_default_model', $aiSettings['default_model'] ?? ($aiModels[0]['id'] ?? 'gemini-2.5-flash'));
-    $aiDiscussionSettings = old('ai_discussion_settings', $profile->ai_discussion_settings ?? ($branding['ai_discussion_settings'] ?? []));
-    $aiDiscussionProviders = is_array($aiDiscussionSettings['providers'] ?? null) ? $aiDiscussionSettings['providers'] : [];
-    $aiDiscussionEnabled = (bool) old('ai_discussion_enabled', $aiDiscussionSettings['enabled'] ?? false);
-    $aiDiscussionCredentialMode = old('ai_discussion_credential_mode', $aiDiscussionSettings['credential_mode'] ?? 'shared');
-    $aiDiscussionModel = old('ai_discussion_model', $aiDiscussionSettings['model'] ?? $aiDefaultModel);
     $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
     @endphp
 
@@ -154,10 +116,6 @@
                 <button type="button" data-settings-tab="footer"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Footer
-                </button>
-                <button type="button" data-settings-tab="ai"
-                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    AI
                 </button>
             </div>
         </div>
@@ -916,7 +874,12 @@
             </div>
         </div>
 
-        <div data-settings-panel="ai"
+        {{--
+            Konfigurasi AI dikelola penuh oleh Super Admin. Panel lama sengaja
+            tidak dirender untuk admin agar API key, model, dan limit tidak
+            dapat lagi diubah dari halaman ini.
+        --}}
+        {{-- <div data-settings-panel="ai"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'ai' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pengaturan AI</p>
@@ -1135,7 +1098,7 @@
                 </div>
             </div>
             @endif
-        </div>
+        </div> --}}
 
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"

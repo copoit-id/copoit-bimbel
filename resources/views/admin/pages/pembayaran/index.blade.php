@@ -20,7 +20,7 @@
 <form method="GET" action="{{ route('admin.pembayaran.index') }}" class="mt-6 flex flex-col sm:flex-row sm:items-center gap-2">
     <input type="hidden" name="search" value="{{ $search ?? '' }}">
     <input type="hidden" name="product_type" value="{{ $productType ?? 'all' }}">
-    <input type="hidden" name="status" value="{{ $status ?? 'pending' }}">
+    <input type="hidden" name="status" value="{{ $status ?? 'unpaid' }}">
     <input type="hidden" name="method" value="{{ $method ?? '' }}">
     <label for="summary_metric" class="text-sm font-medium text-gray-700">Tampilan ringkasan</label>
     <select id="summary_metric" name="summary_metric" onchange="this.form.submit()"
@@ -31,7 +31,7 @@
 </form>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mt-6">
     <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div>
@@ -39,6 +39,15 @@
                 <p class="text-2xl font-bold text-primary">{{ $formatSummary($summary['total'] ?? 0) }}</p>
             </div>
             <i class="ri-money-dollar-circle-line text-3xl text-primary"></i>
+        </div>
+    </div>
+    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-primary">Cicilan Berjalan</p>
+                <p class="text-2xl font-bold text-primary">{{ $formatSummary($summary['partial'] ?? 0) }}</p>
+            </div>
+            <i class="ri-hand-coin-line text-3xl text-primary"></i>
         </div>
     </div>
     <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
@@ -107,10 +116,10 @@
                     <label for="payment-status" class="block text-xs font-medium text-gray-500 mb-1">Status</label>
                     <select id="payment-status" name="status"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="all" {{ ($status ?? 'pending') === 'all' ? 'selected' : '' }}>Semua Status</option>
-                        <option value="pending" {{ ($status ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="success" {{ ($status ?? 'pending') === 'success' ? 'selected' : '' }}>Berhasil</option>
-                        <option value="failed" {{ ($status ?? 'pending') === 'failed' ? 'selected' : '' }}>Gagal</option>
+                        <option value="all" {{ ($status ?? 'unpaid') === 'all' ? 'selected' : '' }}>Semua Status</option>
+                        <option value="unpaid" {{ ($status ?? 'unpaid') === 'unpaid' ? 'selected' : '' }}>Belum Lunas</option>
+                        <option value="success" {{ ($status ?? 'unpaid') === 'success' ? 'selected' : '' }}>Lunas</option>
+                        <option value="failed" {{ ($status ?? 'unpaid') === 'failed' ? 'selected' : '' }}>Gagal</option>
                     </select>
                 </div>
                 <div class="xl:col-span-2">
@@ -147,7 +156,7 @@
                     <th scope="col" class="px-4 py-3 min-w-[180px]">Transaksi</th>
                     <th scope="col" class="px-4 py-3 min-w-[220px]">User</th>
                     <th scope="col" class="px-4 py-3 min-w-[180px]">Produk</th>
-                    <th scope="col" class="px-4 py-3 min-w-[120px]">Jumlah</th>
+                    <th scope="col" class="px-4 py-3 min-w-[180px]">Pembayaran</th>
                     <th scope="col" class="px-4 py-3 min-w-[130px]">Metode</th>
                     <th scope="col" class="px-4 py-3 min-w-[110px]">Status</th>
                     <th scope="col" class="px-4 py-3 min-w-[110px]">Tanggal</th>
@@ -179,7 +188,14 @@
                             <p class="text-sm text-gray-500">{{ $payment['item_type'] }}</p>
                         </div>
                     </td>
-                    <td class="px-4 py-4">Rp {{ number_format($payment['amount'], 0, ',', '.') }}</td>
+                    <td class="px-4 py-4">
+                        <p class="text-xs text-gray-500">Total tagihan</p>
+                        <p class="font-medium text-gray-900">Rp {{ number_format($payment['amount'], 0, ',', '.') }}</p>
+                        <p class="mt-2 text-xs text-gray-500">Uang diterima</p>
+                        <p class="font-medium text-green-700">Rp {{ number_format($payment['paid_amount'], 0, ',', '.') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">Sisa</p>
+                        <p class="font-medium {{ $payment['remaining_amount'] > 0 ? 'text-primary' : 'text-green-700' }}">Rp {{ number_format($payment['remaining_amount'], 0, ',', '.') }}</p>
+                    </td>
                     <td class="px-4 py-4">
                         <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs capitalize">
                             {{ $payment['payment_method'] }}
@@ -218,7 +234,7 @@
                     <td colspan="8" class="px-6 py-8 text-center text-gray-500 w-full">
                         <div class="flex flex-col items-center">
                             <i class="ri-money-dollar-circle-line text-4xl text-gray-300 mb-2"></i>
-                            <p>{{ ($status ?? 'pending') !== 'pending' || ($method ?? '') || ($search ?? '') || ($productType ?? 'all') !== 'all' ? 'Tidak ada transaksi sesuai filter' : 'Belum ada transaksi pembayaran pending' }}</p>
+                            <p>{{ ($status ?? 'unpaid') !== 'unpaid' || ($method ?? '') || ($search ?? '') || ($productType ?? 'all') !== 'all' ? 'Tidak ada transaksi sesuai filter' : 'Belum ada transaksi pembayaran belum lunas' }}</p>
                         </div>
                     </td>
                 </tr>

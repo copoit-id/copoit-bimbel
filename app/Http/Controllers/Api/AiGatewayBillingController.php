@@ -8,6 +8,7 @@ use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayTransaction;
 use App\Models\AiGatewayUserTrial;
+use App\Services\AiGatewayCostService;
 use App\Services\AiGatewayPaymentService;
 use App\Services\AiGatewaySubscriptionService;
 use Illuminate\Http\JsonResponse;
@@ -22,10 +23,12 @@ class AiGatewayBillingController extends Controller
         private AiGatewayPaymentService $paymentService,
     ) {}
 
-    public function plans(): JsonResponse
+    public function plans(Request $request): JsonResponse
     {
+        $scope = $this->scope($request);
         $plans = AiGatewayPlan::query()
             ->where('is_active', true)
+            ->where('scope', $scope)
             ->where('token_limit', '>', 0)
             ->orderBy('price')
             ->orderBy('id')
@@ -34,6 +37,7 @@ class AiGatewayBillingController extends Controller
                 'id' => $plan->id,
                 'name' => $plan->name,
                 'slug' => $plan->slug,
+                'scope' => $plan->scope,
                 'price' => $plan->price,
                 'is_free' => $plan->isFree(),
                 'token_limit' => $plan->token_limit,
@@ -47,6 +51,7 @@ class AiGatewayBillingController extends Controller
     public function status(Request $request): JsonResponse
     {
         $client = $this->client($request);
+        $scope = $this->scope($request);
         $externalUserId = trim((string) $request->validate([
             'external_user_id' => 'required|string|max:120',
         ])['external_user_id']);
@@ -55,6 +60,7 @@ class AiGatewayBillingController extends Controller
         $subscriptions = AiGatewaySubscription::with('plan')
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
+            ->where('scope', $scope)
             ->where('status', 'active')
             ->notExpired()
             ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
@@ -71,11 +77,13 @@ class AiGatewayBillingController extends Controller
             ->where('status', 'pending')
             ->where('created_at', '>', now()->subDay())
             ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
+            ->whereHas('plan', fn ($query) => $query->where('scope', $scope))
             ->latest()
             ->first();
         $claimedFreePlanIds = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
+            ->where('scope', $scope)
             ->where('status', 'active')
             ->notExpired()
             ->whereNotNull('free_claim_key')
@@ -86,6 +94,7 @@ class AiGatewayBillingController extends Controller
         $hasInactivePackageHistory = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
+            ->where('scope', $scope)
             ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
             ->where(function ($query): void {
                 $query->where('status', '!=', 'active')
@@ -96,6 +105,7 @@ class AiGatewayBillingController extends Controller
             ->where('ai_gateway_client_id', $client->id)
             ->where('status', 'paid')
             ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
+            ->whereHas('plan', fn ($query) => $query->where('scope', $scope))
             ->latest('paid_at')
             ->limit(20)
             ->get()
@@ -112,6 +122,7 @@ class AiGatewayBillingController extends Controller
 
         return response()->json([
             'project' => $client->name,
+            'scope' => $scope,
             'subscription' => $subscription,
             'subscriptions' => $subscriptions,
             'pending_payment' => $pendingPayment ? [
@@ -211,6 +222,7 @@ class AiGatewayBillingController extends Controller
         $subscription = AiGatewaySubscription::create([
             'ai_gateway_client_id' => $client->id,
             'ai_gateway_plan_id' => $plan->id,
+            'scope' => $plan->scope,
             'token_limit' => $plan->token_limit,
             'chat_limit' => $plan->chat_limit,
             'external_user_id' => $data['external_user_id'],
@@ -262,6 +274,84 @@ class AiGatewayBillingController extends Controller
             'external_id' => $externalId,
             'subscription_id' => $subscription->id,
         ]);
+    }
+
+    public function consumeQuestionGenerator(Request $request, AiGatewayCostService $costService): JsonResponse
+    {
+        $client = $this->client($request);
+        $data = $request->validate([
+            'external_user_id' => ['required', 'string', 'max:120'],
+            'external_user_name' => ['nullable', 'string', 'max:255'],
+            'external_user_email' => ['nullable', 'email', 'max:255'],
+            'origin_base_url' => ['nullable', 'url', 'max:2048'],
+            'provider' => ['required', 'string', 'max:40'],
+            'model' => ['required', 'string', 'max:120'],
+            'usage' => ['required', 'array'],
+            'usage.input' => ['nullable', 'integer', 'min:0'],
+            'usage.output' => ['nullable', 'integer', 'min:0'],
+            'usage.total' => ['required', 'integer', 'min:1'],
+        ]);
+
+        return DB::transaction(function () use ($client, $data, $costService): JsonResponse {
+            $subscription = AiGatewaySubscription::query()
+                ->with('plan')
+                ->where('ai_gateway_client_id', $client->id)
+                ->where('external_user_id', trim((string) $data['external_user_id']))
+                ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)
+                ->where('status', 'active')
+                ->notExpired()
+                ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
+                ->orderBy('ends_at')
+                ->lockForUpdate()
+                ->get()
+                ->first(fn (AiGatewaySubscription $item): bool => $item->hasRemainingQuota());
+
+            if (! $subscription) {
+                return response()->json([
+                    'message' => 'Kuota AI Generator Soal tidak tersedia atau sudah habis.',
+                ], 403);
+            }
+
+            $tokenLimit = (int) ($subscription->token_limit ?: $subscription->plan?->token_limit ?: 0);
+            $remainingTokens = max(0, $tokenLimit - (int) $subscription->tokens_used);
+            $chargedTokens = min($remainingTokens, (int) $data['usage']['total']);
+            $chargedInputTokens = min($chargedTokens, (int) ($data['usage']['input'] ?? 0));
+            $chargedOutputTokens = max(0, $chargedTokens - $chargedInputTokens);
+            $cost = $costService->estimate(
+                (string) $data['provider'],
+                (string) $data['model'],
+                $chargedInputTokens,
+                $chargedOutputTokens,
+            );
+
+            $subscription->increment('tokens_used', $chargedTokens);
+            $subscription->refresh();
+
+            AiGatewayUsageLog::query()->create([
+                'ai_gateway_client_id' => $client->id,
+                'external_user_id' => trim((string) $data['external_user_id']),
+                'external_user_name' => $data['external_user_name'] ?? null,
+                'external_user_email' => $data['external_user_email'] ?? null,
+                'origin_base_url' => $data['origin_base_url'] ?? $client->base_url,
+                'feature' => 'admin_question_generator',
+                'provider' => $data['provider'],
+                'model' => $data['model'],
+                'input_tokens' => $chargedInputTokens,
+                'output_tokens' => $chargedOutputTokens,
+                'total_tokens' => $chargedTokens,
+                'response_time_ms' => null,
+                'input_per_million_usd' => $cost['input_per_million_usd'] ?? null,
+                'output_per_million_usd' => $cost['output_per_million_usd'] ?? null,
+                'usd_to_idr' => $cost['usd_to_idr'] ?? null,
+                'input_cost_idr' => $cost['input_cost_idr'] ?? null,
+                'output_cost_idr' => $cost['output_cost_idr'] ?? null,
+            ]);
+
+            return response()->json([
+                'subscription' => $subscription->loadMissing('plan'),
+                'charged_tokens' => $chargedTokens,
+            ]);
+        });
     }
 
     /**
@@ -390,6 +480,15 @@ class AiGatewayBillingController extends Controller
         abort_unless($client, 401, 'Gateway key tidak valid.');
 
         return $client;
+    }
+
+    private function scope(Request $request): string
+    {
+        $data = $request->validate([
+            'scope' => ['nullable', 'in:'.implode(',', array_keys(AiGatewayPlan::scopes()))],
+        ]);
+
+        return (string) ($data['scope'] ?? AiGatewayPlan::SCOPE_LEARNING_TOOLS);
     }
 
     private function syncLatestPendingPayment(AiGatewayClient $client, string $externalUserId): void

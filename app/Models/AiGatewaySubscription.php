@@ -16,6 +16,7 @@ class AiGatewaySubscription extends Model
     protected $fillable = [
         'ai_gateway_client_id',
         'ai_gateway_plan_id',
+        'scope',
         'token_limit',
         'chat_limit',
         'external_user_id',

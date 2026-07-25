@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\admin\AdminAssistantController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
+use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificateController;
@@ -391,6 +392,8 @@ Route::prefix('{portal}')
     ->middleware(['auth', AdminMiddleware::class, 'panel.portal', 'admin.expiry', 'permission', 'no-cache'])
     ->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
+        Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
         Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
@@ -500,6 +503,7 @@ Route::prefix('{portal}')
 
             // Specific routes first (questions create/edit/update/delete)
             Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
+            Route::get('/{questionBank}/questions', [QuestionBankController::class, 'redirectToCreateQuestionForm']);
             Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
             Route::get('/{questionBank}/questions/ai-generator', [QuestionBankController::class, 'aiGeneratorForm'])->name('questions.ai-generator');
             Route::post('/{questionBank}/questions/ai-generator/preview', [QuestionBankController::class, 'previewAiQuestions'])->name('questions.ai-generator.preview');
@@ -689,6 +693,7 @@ Route::prefix('{portal}')
             Route::get('/', [PembayaranController::class, 'index'])->name('index');
             Route::get('/manual/create', [PembayaranController::class, 'createManual'])->name('manual.create');
             Route::post('/manual', [PembayaranController::class, 'storeManual'])->name('manual');
+            Route::post('/{payment}/cicilan', [PembayaranController::class, 'recordInstallment'])->name('installments.store');
             Route::get('/item/{id}', [PembayaranController::class, 'showIndividual'])->name('item.show');
             Route::post('/item/{id}/confirm', [PembayaranController::class, 'confirmIndividual'])->name('item.confirm');
             Route::post('/item/{id}/reject', [PembayaranController::class, 'rejectIndividual'])->name('item.reject');

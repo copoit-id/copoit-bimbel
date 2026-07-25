@@ -8,10 +8,13 @@ use App\Models\QuestionBank;
 use App\Models\QuestionBankQuestion;
 use App\Models\QuestionBankQuestionOption;
 use App\Models\QuestionOption;
+use App\Models\Tryout;
 use App\Models\TryoutDetail;
+use App\Services\AdminQuestionGeneratorQuotaService;
 use App\Services\AiQuestionGeneratorService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +22,7 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -202,7 +206,7 @@ class QuestionBankController extends Controller
         ]);
     }
 
-    public function aiGeneratorForm(QuestionBank $questionBank, Request $request, AiQuestionGeneratorService $aiGeneratorService)
+    public function aiGeneratorForm(QuestionBank $questionBank, Request $request, AiQuestionGeneratorService $aiGeneratorService, AdminQuestionGeneratorQuotaService $quotaService)
     {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -216,6 +220,14 @@ class QuestionBankController extends Controller
 
         $defaultModel = $aiGeneratorService->defaultModel();
         $preview = session($this->aiPreviewSessionKey($questionBank));
+        $referenceBanks = QuestionBank::query()->withCount('questions')->orderBy('name')->get(['id', 'name']);
+        $referenceTryouts = Tryout::query()
+            ->with(['tryoutDetails' => fn ($query) => $query
+                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest'])
+                ->orderBy('type_subtest')])
+            ->latest('created_at')
+            ->limit(100)
+            ->get(['tryout_id', 'name']);
 
         return view('admin.pages.question-bank.ai-generator', [
             'bank' => $questionBank,
@@ -225,10 +237,13 @@ class QuestionBankController extends Controller
             'models' => $models,
             'defaultModel' => $defaultModel,
             'preview' => $preview,
+            'referenceBanks' => $referenceBanks,
+            'referenceTryouts' => $referenceTryouts,
+            'quota' => $quotaService->summary(Auth::user()),
         ]);
     }
 
-    public function previewAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService)
+    public function previewAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService, AdminQuestionGeneratorQuotaService $quotaService)
     {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -244,6 +259,12 @@ class QuestionBankController extends Controller
             'option_count' => ['required', 'integer', 'min:2', 'max:5'],
             'explanation_style' => ['required', Rule::in(['singkat', 'normal', 'detail'])],
             'instruction' => ['nullable', 'string', 'max:1500'],
+            'use_reference' => ['nullable', 'boolean'],
+            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout'])],
+            'reference_bank_id' => ['nullable', 'integer'],
+            'reference_tryout_id' => ['nullable', 'integer'],
+            'reference_tryout_detail_id' => ['nullable', 'integer'],
+            'reference_note' => ['nullable', 'string', 'max:1500'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
         ], [], [
             'subject' => 'mata pelajaran/kategori',
@@ -255,7 +276,15 @@ class QuestionBankController extends Controller
         ]);
 
         try {
+            $quotaService->ensureAvailable(Auth::user());
+            $validated = [...$validated, ...$this->resolveAiReference($validated)];
             $preview = $aiGeneratorService->generate($validated);
+            $preview['quota'] = $quotaService->consume(
+                Auth::user(),
+                $preview['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0],
+                (string) $preview['provider'],
+                (string) $preview['model'],
+            );
             $preview['request'] = $validated;
 
             session()->put($this->aiPreviewSessionKey($questionBank), $preview);
@@ -265,7 +294,7 @@ class QuestionBankController extends Controller
                     'questionBank' => $questionBank->id,
                     'import_for' => $request->integer('import_for') ?: null,
                 ])
-                ->with('success', count($preview['questions']) . ' soal berhasil dibuat sebagai preview. Review dulu sebelum disimpan.');
+                ->with('success', count($preview['questions']).' soal berhasil dibuat sebagai preview. Review dulu sebelum disimpan.');
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -289,7 +318,7 @@ class QuestionBankController extends Controller
         ]);
 
         $questions = json_decode($validated['questions_json'], true);
-        if (!is_array($questions)) {
+        if (! is_array($questions)) {
             return back()->with('error', 'Data preview AI tidak valid. Silakan generate ulang.');
         }
 
@@ -356,7 +385,7 @@ class QuestionBankController extends Controller
 
     public function downloadImportTemplate(QuestionBank $questionBank)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         $headers = [
@@ -470,7 +499,7 @@ class QuestionBankController extends Controller
         $notesSheet->getColumnDimension('A')->setWidth(80);
         $spreadsheet->setActiveSheetIndex(0);
 
-        $filename = 'template_bank_soal_' . str($questionBank->name)->slug('_') . '_' . date('Y-m-d') . '.xlsx';
+        $filename = 'template_bank_soal_'.str($questionBank->name)->slug('_').'_'.date('Y-m-d').'.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), 'bank_soal_template_');
 
         (new Xlsx($spreadsheet))->save($tempFile);
@@ -516,8 +545,9 @@ class QuestionBankController extends Controller
                 }
 
                 $questionType = strtolower(trim((string) ($row[1] ?? '')));
-                if (!in_array($questionType, ['multiple_choice', 'essay'], true)) {
+                if (! in_array($questionType, ['multiple_choice', 'essay'], true)) {
                     $errors[] = "Baris {$rowNumber}: Tipe soal harus multiple_choice atau essay";
+
                     continue;
                 }
 
@@ -528,11 +558,13 @@ class QuestionBankController extends Controller
                         if ($questionType === 'multiple_choice') {
                             if (count($options) < 2) {
                                 $errors[] = "Baris {$rowNumber}: Minimal isi 2 pilihan jawaban";
+
                                 return;
                             }
 
-                            if (!collect($options)->contains('is_correct', true)) {
+                            if (! collect($options)->contains('is_correct', true)) {
                                 $errors[] = "Baris {$rowNumber}: Harus ada minimal 1 jawaban benar";
+
                                 return;
                             }
                         }
@@ -566,15 +598,15 @@ class QuestionBankController extends Controller
                         $importedCount++;
                     });
                 } catch (\Exception $e) {
-                    $errors[] = "Baris {$rowNumber}: " . $e->getMessage();
+                    $errors[] = "Baris {$rowNumber}: ".$e->getMessage();
                 }
             }
 
             $message = "Berhasil import {$importedCount} soal ke {$questionBank->name}";
-            if (!empty($errors)) {
-                $message .= '. Error: ' . implode(', ', array_slice($errors, 0, 3));
+            if (! empty($errors)) {
+                $message .= '. Error: '.implode(', ', array_slice($errors, 0, 3));
                 if (count($errors) > 3) {
-                    $message .= ' dan ' . (count($errors) - 3) . ' error lainnya';
+                    $message .= ' dan '.(count($errors) - 3).' error lainnya';
                 }
             }
 
@@ -585,7 +617,7 @@ class QuestionBankController extends Controller
                 ])
                 ->with($importedCount > 0 ? 'success' : 'error', $message);
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal import file: ' . $e->getMessage());
+            return back()->with('error', 'Gagal import file: '.$e->getMessage());
         }
     }
 
@@ -608,6 +640,7 @@ class QuestionBankController extends Controller
 
                 if (empty($questions)) {
                     $allErrors[] = "{$fileName}: tidak ada soal yang terbaca.";
+
                     continue;
                 }
 
@@ -622,8 +655,8 @@ class QuestionBankController extends Controller
 
             if (empty($groups)) {
                 $message = 'Tidak ada soal yang terbaca dari PPT. Pastikan file berisi teks, bukan gambar/scan.';
-                if (!empty($allErrors)) {
-                    $message .= ' ' . implode(' ', array_slice($allErrors, 0, 3));
+                if (! empty($allErrors)) {
+                    $message .= ' '.implode(' ', array_slice($allErrors, 0, 3));
                 }
 
                 return back()->with('error', $message);
@@ -642,7 +675,7 @@ class QuestionBankController extends Controller
                     'ppt_preview_token' => $previewToken,
                 ]);
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal membaca PPT: ' . $e->getMessage());
+            return back()->with('error', 'Gagal membaca PPT: '.$e->getMessage());
         }
     }
 
@@ -654,7 +687,7 @@ class QuestionBankController extends Controller
         ]);
 
         $groups = json_decode($validated['groups_json'], true);
-        if (!is_array($groups)) {
+        if (! is_array($groups)) {
             return back()->with('error', 'Data preview PPT tidak valid. Silakan upload ulang file PPT.');
         }
 
@@ -672,7 +705,7 @@ class QuestionBankController extends Controller
 
         DB::transaction(function () use ($questionBank, $groups, $targetBanks, &$importedCount, &$errors) {
             foreach ($groups as $groupIndex => $group) {
-                $fileName = trim((string) ($group['file_name'] ?? 'File ' . ($groupIndex + 1)));
+                $fileName = trim((string) ($group['file_name'] ?? 'File '.($groupIndex + 1)));
                 $targetBankId = (int) ($group['target_bank_id'] ?? $questionBank->id);
                 $targetBank = $targetBanks->get($targetBankId) ?? $questionBank;
                 $questions = is_array($group['questions'] ?? null) ? $group['questions'] : [];
@@ -686,6 +719,7 @@ class QuestionBankController extends Controller
 
                     if ($questionText === '') {
                         $errors[] = "{$fileName} soal {$rowNumber}: Teks soal wajib diisi.";
+
                         continue;
                     }
 
@@ -715,11 +749,13 @@ class QuestionBankController extends Controller
 
                     if (count($options) < 2) {
                         $errors[] = "{$fileName} soal {$rowNumber}: Minimal isi 2 pilihan jawaban.";
+
                         continue;
                     }
 
-                    if (!$correctAnswer || !collect($options)->contains('letter', $correctAnswer)) {
+                    if (! $correctAnswer || ! collect($options)->contains('letter', $correctAnswer)) {
                         $errors[] = "{$fileName} soal {$rowNumber}: Jawaban benar wajib dipilih dan harus sesuai opsi.";
+
                         continue;
                     }
 
@@ -758,10 +794,10 @@ class QuestionBankController extends Controller
         });
 
         $message = "Berhasil import {$importedCount} soal dari PPT ke {$questionBank->name}.";
-        if (!empty($errors)) {
-            $message .= ' Catatan: ' . implode(', ', array_slice($errors, 0, 3));
+        if (! empty($errors)) {
+            $message .= ' Catatan: '.implode(', ', array_slice($errors, 0, 3));
             if (count($errors) > 3) {
-                $message .= ' dan ' . (count($errors) - 3) . ' catatan lainnya';
+                $message .= ' dan '.(count($errors) - 3).' catatan lainnya';
             }
         }
 
@@ -788,7 +824,7 @@ class QuestionBankController extends Controller
     {
         // Cek quota question bank - backend validation
         $quotaCheck = PlanQuotaService::canCreateQuestionBank();
-        if (!$quotaCheck['allowed']) {
+        if (! $quotaCheck['allowed']) {
             return redirect()->route('admin.question-bank.show', $questionBank)
                 ->with('error', $quotaCheck['reason']);
         }
@@ -807,6 +843,17 @@ class QuestionBankController extends Controller
             'bank' => $questionBank,
             'importTarget' => $importTarget,
             'matchingPairs' => $matchingPairs,
+        ]);
+    }
+
+    /**
+     * Handles stale links that point to the question storage endpoint.
+     */
+    public function redirectToCreateQuestionForm(Request $request, QuestionBank $questionBank): RedirectResponse
+    {
+        return redirect()->route('admin.question-bank.questions.create', [
+            'questionBank' => $questionBank->id,
+            'import_for' => $request->integer('import_for') ?: null,
         ]);
     }
 
@@ -837,7 +884,7 @@ class QuestionBankController extends Controller
     {
         // Cek quota question bank - backend validation (hindari bypass)
         $quotaCheck = PlanQuotaService::canCreateQuestionBank();
-        if (!$quotaCheck['allowed']) {
+        if (! $quotaCheck['allowed']) {
             return redirect()->route('admin.question-bank.show', $questionBank)
                 ->with('error', $quotaCheck['reason']);
         }
@@ -1136,7 +1183,7 @@ class QuestionBankController extends Controller
         }
 
         $targetBankId = (int) $validated['target_question_bank_id'];
-        if ($questions->every(fn($question) => (int) $question->question_bank_id === $targetBankId)) {
+        if ($questions->every(fn ($question) => (int) $question->question_bank_id === $targetBankId)) {
             return back()->with('error', 'Pilih bank tujuan yang berbeda.');
         }
 
@@ -1144,7 +1191,7 @@ class QuestionBankController extends Controller
             ->whereIn('id', $questions->pluck('id'))
             ->update(['question_bank_id' => $targetBankId]);
 
-        return back()->with('success', $questions->count() . ' soal berhasil dipindahkan.');
+        return back()->with('success', $questions->count().' soal berhasil dipindahkan.');
     }
 
     public function bulkDestroyQuestions(Request $request)
@@ -1160,7 +1207,7 @@ class QuestionBankController extends Controller
             ->whereIn('id', $validated['question_ids'])
             ->delete();
 
-        return back()->with('success', $deleted . ' soal berhasil dihapus dari bank.');
+        return back()->with('success', $deleted.' soal berhasil dihapus dari bank.');
     }
 
     public function destroyQuestion(QuestionBankQuestion $question)
@@ -1170,9 +1217,88 @@ class QuestionBankController extends Controller
         return back()->with('success', 'Soal berhasil dihapus dari bank.');
     }
 
+    /** @param array<string, mixed> $input */
+    private function resolveAiReference(array $input): array
+    {
+        if (! filter_var($input['use_reference'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return ['reference_examples' => [], 'reference_label' => null, 'reference_note' => null];
+        }
+
+        $source = $input['reference_source'] ?? null;
+        $note = trim((string) ($input['reference_note'] ?? ''));
+
+        if (! $source) {
+            throw new \RuntimeException('Pilih sumber referensi gaya soal.');
+        }
+
+        if ($source === 'question_bank') {
+            $bankId = (int) ($input['reference_bank_id'] ?? 0);
+            if ($bankId < 1) {
+                throw new \RuntimeException('Pilih bank soal yang akan dijadikan referensi.');
+            }
+
+            $bank = QuestionBank::query()->findOrFail($bankId, ['id', 'name']);
+            $examples = QuestionBankQuestion::query()
+                ->with('options:id,question_bank_question_id,option_text')
+                ->where('question_bank_id', $bank->id)
+                ->latest('id')
+                ->limit(3)
+                ->get(['id', 'question_text'])
+                ->map(fn (QuestionBankQuestion $question) => [
+                    'question' => Str::limit(strip_tags((string) $question->question_text), 900),
+                    'options' => $question->options->pluck('option_text')->map(fn ($option) => Str::limit(strip_tags((string) $option), 180))->all(),
+                ])->all();
+
+            if (empty($examples)) {
+                throw new \RuntimeException('Bank soal referensi belum memiliki soal yang dapat dipakai.');
+            }
+
+            return [
+                'reference_examples' => $examples,
+                'reference_label' => 'Bank soal: '.$bank->name,
+                'reference_note' => $note,
+            ];
+        }
+
+        if ($source === 'tryout') {
+            $tryoutId = (int) ($input['reference_tryout_id'] ?? 0);
+            $tryoutDetailId = (int) ($input['reference_tryout_detail_id'] ?? 0);
+            if ($tryoutId < 1 || $tryoutDetailId < 1) {
+                throw new \RuntimeException('Pilih tryout dan subtest yang akan dijadikan referensi.');
+            }
+
+            $tryout = Tryout::query()->findOrFail($tryoutId, ['tryout_id', 'name']);
+            $tryoutDetail = TryoutDetail::query()
+                ->where('tryout_id', $tryout->tryout_id)
+                ->findOrFail($tryoutDetailId, ['tryout_detail_id', 'tryout_id', 'type_subtest']);
+            $examples = Question::query()
+                ->with('questionOptions:question_option_id,question_id,option_text')
+                ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
+                ->latest('question_id')
+                ->limit(3)
+                ->get(['question_id', 'question_text'])
+                ->map(fn (Question $question) => [
+                    'question' => Str::limit(strip_tags((string) $question->question_text), 900),
+                    'options' => $question->questionOptions->pluck('option_text')->map(fn ($option) => Str::limit(strip_tags((string) $option), 180))->all(),
+                ])->all();
+
+            if (empty($examples)) {
+                throw new \RuntimeException('Subtest tryout referensi belum memiliki soal yang dapat dipakai.');
+            }
+
+            return [
+                'reference_examples' => $examples,
+                'reference_label' => 'Tryout: '.$tryout->name.' · '.strtoupper((string) $tryoutDetail->type_subtest),
+                'reference_note' => $note,
+            ];
+        }
+
+        return ['reference_examples' => [], 'reference_label' => null, 'reference_note' => $note];
+    }
+
     private function aiPreviewSessionKey(QuestionBank $bank): string
     {
-        return 'ai_question_preview_' . $bank->id;
+        return 'ai_question_preview_'.$bank->id;
     }
 
     private function normalizeAiPreviewQuestions(array $questions): array
@@ -1287,7 +1413,7 @@ class QuestionBankController extends Controller
             $value = str_replace(',', '.', trim($value));
         }
 
-        if (!is_numeric($value)) {
+        if (! is_numeric($value)) {
             return $fallback;
         }
 
@@ -1379,14 +1505,14 @@ class QuestionBankController extends Controller
             'short_answer_case_sensitive' => ['nullable', 'boolean'],
             'essay_scoring_mode' => ['nullable', 'in:auto,manual'],
         ]);
-        
+
         // Cek Essay AI quota jika mode otomatis dipilih
         $scoringMode = $request->input('essay_scoring_mode');
         if ($scoringMode === 'auto') {
             $quotaCheck = PlanQuotaService::canUseEssayAI();
-            if (!$quotaCheck['allowed']) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'essay_scoring_mode' => $quotaCheck['reason'] ?? 'Essay AI tidak tersedia atau kuota habis.'
+            if (! $quotaCheck['allowed']) {
+                throw ValidationException::withMessages([
+                    'essay_scoring_mode' => $quotaCheck['reason'] ?? 'Essay AI tidak tersedia atau kuota habis.',
                 ]);
             }
         }
@@ -1428,12 +1554,12 @@ class QuestionBankController extends Controller
             $text = trim((string) ($row['text'] ?? ''));
             $correct = strtolower((string) ($row['correct'] ?? ''));
             $id = trim((string) ($row['id'] ?? ''));
-            if ($text === '' || !in_array($correct, ['true', 'false'], true)) {
+            if ($text === '' || ! in_array($correct, ['true', 'false'], true)) {
                 continue;
             }
 
             $statements[] = [
-                'id' => $id !== '' ? $id : 'stmt_' . ($index + 1),
+                'id' => $id !== '' ? $id : 'stmt_'.($index + 1),
                 'text' => $text,
                 'correct' => $correct,
             ];
@@ -1490,7 +1616,7 @@ class QuestionBankController extends Controller
             ? $request->input('essay_scoring_mode', 'manual')
             : 'auto';
 
-        if (!in_array($evaluationMode, ['auto', 'manual'], true)) {
+        if (! in_array($evaluationMode, ['auto', 'manual'], true)) {
             $evaluationMode = 'manual';
         }
 
@@ -1582,7 +1708,7 @@ class QuestionBankController extends Controller
             : [$correctAnswer];
 
         return collect($options)->map(function ($option) use ($useCustomScores, $correctAnswers, $request) {
-            $scoreField = 'score_' . strtolower($option['key']);
+            $scoreField = 'score_'.strtolower($option['key']);
             $isCorrect = in_array($option['key'], $correctAnswers, true);
             $weight = $useCustomScores ? (float) ($request->input($scoreField, 0)) : ($isCorrect ? 1 : 0);
 
