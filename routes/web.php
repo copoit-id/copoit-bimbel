@@ -503,6 +503,7 @@ Route::prefix('{portal}')
 
             // Specific routes first (questions create/edit/update/delete)
             Route::get('/{questionBank}/questions/create', [QuestionBankController::class, 'createQuestionForm'])->name('questions.create');
+            Route::get('/{questionBank}/questions', [QuestionBankController::class, 'redirectToCreateQuestionForm']);
             Route::post('/{questionBank}/questions', [QuestionBankController::class, 'storeQuestion'])->name('questions.store');
             Route::get('/{questionBank}/questions/ai-generator', [QuestionBankController::class, 'aiGeneratorForm'])->name('questions.ai-generator');
             Route::post('/{questionBank}/questions/ai-generator/preview', [QuestionBankController::class, 'previewAiQuestions'])->name('questions.ai-generator.preview');

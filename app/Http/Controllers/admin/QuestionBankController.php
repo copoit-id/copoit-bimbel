@@ -14,6 +14,7 @@ use App\Services\AdminQuestionGeneratorQuotaService;
 use App\Services\AiQuestionGeneratorService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -842,6 +843,17 @@ class QuestionBankController extends Controller
             'bank' => $questionBank,
             'importTarget' => $importTarget,
             'matchingPairs' => $matchingPairs,
+        ]);
+    }
+
+    /**
+     * Handles stale links that point to the question storage endpoint.
+     */
+    public function redirectToCreateQuestionForm(Request $request, QuestionBank $questionBank): RedirectResponse
+    {
+        return redirect()->route('admin.question-bank.questions.create', [
+            'questionBank' => $questionBank->id,
+            'import_for' => $request->integer('import_for') ?: null,
         ]);
     }
 
