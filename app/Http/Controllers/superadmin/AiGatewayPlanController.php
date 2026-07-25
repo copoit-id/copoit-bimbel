@@ -33,6 +33,7 @@ class AiGatewayPlanController extends Controller
     {
         $data = $this->validated($request);
         $data['scope'] ??= AiGatewayPlan::SCOPE_LEARNING_TOOLS;
+        $data = $this->normalizeScopeDefaults($data);
         $data['slug'] = Str::slug($data['name']).'-'.Str::lower(Str::random(5));
         $data['is_active'] = $request->boolean('is_active');
         AiGatewayPlan::create($data);
@@ -44,6 +45,7 @@ class AiGatewayPlanController extends Controller
     {
         $data = $this->validated($request);
         $data['scope'] ??= $aiGatewayPlan->scope;
+        $data = $this->normalizeScopeDefaults($data);
         $data['is_active'] = $request->boolean('is_active');
         $aiGatewayPlan->update($data);
 
@@ -87,9 +89,18 @@ class AiGatewayPlanController extends Controller
             'price' => ['required', 'integer', 'min:0'],
             'token_limit' => ['required', 'integer', 'min:1'],
             'chat_limit' => ['required', 'integer', 'min:0'],
-            'duration_days' => ['required', 'integer', 'min:0', 'max:3650'],
+            'duration_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
         ], [
             'token_limit.min' => 'Limit token minimal 1 agar biaya paket tetap terkendali.',
         ]);
+    }
+
+    private function normalizeScopeDefaults(array $data): array
+    {
+        if (($data['scope'] ?? null) === AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR) {
+            $data['duration_days'] = 0;
+        }
+
+        return $data;
     }
 }
