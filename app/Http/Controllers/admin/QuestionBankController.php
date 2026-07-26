@@ -220,6 +220,24 @@ class QuestionBankController extends Controller
 
         $defaultModel = $aiGeneratorService->defaultModel();
         $preview = session($this->aiPreviewSessionKey($questionBank));
+        $quota = null;
+        $gatewayError = null;
+
+        if (! $quotaService->isConfigured()) {
+            $gatewayError = 'Gateway AI Generator Soal belum dikonfigurasi. Hubungi Super Admin untuk melengkapi konfigurasi Gateway AI.';
+        } else {
+            try {
+                $quota = $quotaService->summary(Auth::user());
+            } catch (\Throwable $exception) {
+                report($exception);
+                $gatewayError = 'Gateway AI Generator Soal belum dapat dihubungi. Silakan coba lagi atau hubungi Super Admin.';
+            }
+        }
+
+        if ($gatewayError !== null) {
+            session()->flash('warning', $gatewayError);
+        }
+
         $referenceBanks = QuestionBank::query()->withCount('questions')->orderBy('name')->get(['id', 'name']);
         $referenceTryouts = Tryout::query()
             ->with(['tryoutDetails' => fn ($query) => $query
@@ -239,7 +257,8 @@ class QuestionBankController extends Controller
             'preview' => $preview,
             'referenceBanks' => $referenceBanks,
             'referenceTryouts' => $referenceTryouts,
-            'quota' => $quotaService->summary(Auth::user()),
+            'quota' => $quota,
+            'gatewayError' => $gatewayError,
         ]);
     }
 

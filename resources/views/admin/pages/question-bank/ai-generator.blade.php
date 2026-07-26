@@ -53,6 +53,16 @@
     </div>
     @endif
 
+    @if ($gatewayError)
+    <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900" role="alert">
+        <i class="ri-alert-line mt-0.5 text-lg"></i>
+        <div>
+            <p class="font-semibold">Generator Soal AI belum siap digunakan</p>
+            <p class="mt-1 text-amber-800">{{ $gatewayError }}</p>
+        </div>
+    </div>
+    @endif
+
     <div class="rounded-xl border {{ $quota ? 'border-primary/20 bg-primary/5' : 'border-amber-200 bg-amber-50' }} px-5 py-4 text-sm">
         @if($quota)
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-gray-900">{{ $quota['plan_name'] ?? 'Paket AI Generator Soal' }}</p><p class="mt-0.5 text-gray-600">Kapasitas berkurang saat membuat preview, bukan saat menyimpan soal.</p></div><p class="text-lg font-bold text-primary">{{ $remainingQuestionEstimate }} soal tersisa</p></div>
@@ -70,6 +80,7 @@
 
             <form action="{{ route('admin.question-bank.questions.ai-generator.preview', $bank->id) }}" method="POST" class="space-y-4">
                 @csrf
+                <fieldset class="space-y-4" @disabled($gatewayError)>
                 @if($importTarget)
                 <input type="hidden" name="import_for" value="{{ $importTarget }}">
                 @endif
@@ -200,10 +211,11 @@
                 </div>
 
                 <button type="submit"
-                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90">
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
                     <i class="ri-sparkling-2-line"></i>
                     Generate Preview dengan AI
                 </button>
+                </fieldset>
             </form>
         </section>
 

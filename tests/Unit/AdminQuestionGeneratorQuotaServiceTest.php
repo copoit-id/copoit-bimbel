@@ -10,6 +10,14 @@ use Tests\TestCase;
 
 class AdminQuestionGeneratorQuotaServiceTest extends TestCase
 {
+    public function test_it_detects_an_unconfigured_gateway(): void
+    {
+        config()->set('services.ai_gateway.url', null);
+        config()->set('services.ai_gateway.key', null);
+
+        $this->assertFalse(app(AdminQuestionGeneratorQuotaService::class)->isConfigured());
+    }
+
     public function test_summary_reads_the_active_generator_subscription_from_gateway(): void
     {
         config()->set('services.ai_gateway.url', 'https://gateway.test/api/ai-gateway/discussion');
