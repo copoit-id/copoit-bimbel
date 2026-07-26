@@ -11,6 +11,14 @@ use RuntimeException;
 
 class AdminQuestionGeneratorQuotaService
 {
+    public function isConfigured(): bool
+    {
+        $discussionUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $baseUrl = Str::beforeLast($discussionUrl, '/discussion');
+
+        return $baseUrl !== '' && trim((string) config('services.ai_gateway.key')) !== '';
+    }
+
     public function summary(User $user): ?array
     {
         $subscription = $this->subscriptionFor($user);
