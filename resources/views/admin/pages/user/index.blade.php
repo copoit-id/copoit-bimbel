@@ -134,7 +134,9 @@
                             </th>
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
-                            <th scope="col" class="px-6 py-3">Tujuan</th>
+                            <th scope="col" class="px-6 py-3">Tujuan Belajar</th>
+                            <th scope="col" class="px-6 py-3">Program & Kelas</th>
+                            <th scope="col" class="px-6 py-3">Kehadiran</th>
                             <th scope="col" class="px-6 py-3">Role</th>
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
@@ -145,6 +147,7 @@
                         @forelse ($users as $user)
                         <tr class="bg-white border-b border-dashed border-gray-200 user-row"
                             data-name="{{ Str::lower($user->name) }}" data-email="{{ Str::lower($user->email) }}"
+                            data-username="{{ Str::lower($user->username) }}" data-phone="{{ Str::lower($user->phone) }}"
                             data-role="{{ $user->role }}" data-status="{{ $user->status }}">
                             <td class="px-6 py-4">
                                 <input type="checkbox" name="ids[]" value="{{ $user->id }}" form="bulk-delete-form"
@@ -157,6 +160,9 @@
                                     <div>
                                         <p class="font-medium">{{ $user->name }}</p>
                                         <p class="text-sm text-gray-500">{{ $user->email }}</p>
+                                        @if($user->phone)
+                                            <p class="mt-0.5 text-xs text-gray-400"><i class="ri-phone-line"></i> {{ $user->phone }}</p>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -167,6 +173,34 @@
                                 <span class="text-gray-700">
                                     {{ $user->participant_destination_display_name ?? '-' }}
                                 </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                @php
+                                    $activePackages = $user->userPackageAccess->filter(fn ($access) => $access->is_active);
+                                    $packageNames = $activePackages->pluck('package.name')->filter()->values();
+                                    $studyGroupNames = $user->studyGroups->pluck('name')->filter()->values();
+                                @endphp
+                                <div class="space-y-1.5">
+                                    <p class="max-w-48 truncate text-sm font-medium text-gray-700" title="{{ $packageNames->implode(', ') }}">
+                                        <i class="ri-book-open-line text-primary"></i>
+                                        {{ $packageNames->isNotEmpty() ? $packageNames->implode(', ') : 'Belum ada paket aktif' }}
+                                    </p>
+                                    <p class="max-w-48 truncate text-xs text-gray-500" title="{{ $studyGroupNames->implode(', ') }}">
+                                        <i class="ri-team-line"></i>
+                                        {{ $studyGroupNames->isNotEmpty() ? $studyGroupNames->implode(', ') : 'Belum masuk rombel' }}
+                                    </p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if($user->attendance_record_count > 0)
+                                    @php $attendanceRate = round(($user->attendance_present_count / $user->attendance_record_count) * 100); @endphp
+                                    <div class="min-w-24">
+                                        <div class="mb-1 flex items-center justify-between gap-2 text-xs"><span class="font-medium text-gray-700">{{ $attendanceRate }}%</span><span class="text-gray-400">{{ $user->attendance_present_count }}/{{ $user->attendance_record_count }}</span></div>
+                                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full {{ $attendanceRate >= 80 ? 'bg-emerald-500' : ($attendanceRate >= 60 ? 'bg-amber-400' : 'bg-red-500') }}" style="width: {{ $attendanceRate }}%"></div></div>
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400">Belum ada data</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4">
                                 @php
@@ -235,7 +269,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="10" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>
@@ -287,9 +321,11 @@
                 rows.forEach(row => {
                     const name = getText(row, 'data-name');
                     const email = getText(row, 'data-email');
+                    const username = getText(row, 'data-username');
+                    const phone = getText(row, 'data-phone');
                     const s = row.getAttribute('data-status') || '';
 
-                    const matchesSearch = !q || name.includes(q) || email.includes(q);
+                    const matchesSearch = !q || name.includes(q) || email.includes(q) || username.includes(q) || phone.includes(q);
                     const matchesStatus = !status || s === status;
 
                     const show = matchesSearch && matchesStatus;
