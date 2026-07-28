@@ -30,6 +30,11 @@
     selectedAccess: @js($initialAccess),
     selectedTutor: @js((string) old('tentor_id', '')),
     get selected() { return this.options[this.selectedAccess] || null },
+    get tutorInfo() {
+        return (this.selected?.tutors || []).find(
+            tutor => String(tutor.id) === String(this.selectedTutor)
+        ) || null
+    },
 }">
     <div>
         <h1 class="text-2xl font-bold tracking-tight text-gray-900">Booking Jadwal</h1>
@@ -96,6 +101,30 @@
                         <p x-show="selected && selected.tutors.length === 0" class="mt-1 text-xs text-red-600">Belum ada tutor aktif untuk paket ini.</p>
                     </label>
 
+                    <div x-show="tutorInfo" x-cloak class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <div class="flex items-start gap-3">
+                            <template x-if="tutorInfo?.photo_url">
+                                <img :src="tutorInfo.photo_url" :alt="`Foto ${tutorInfo.name}`" loading="lazy" class="h-16 w-16 shrink-0 rounded-xl border border-gray-200 object-cover">
+                            </template>
+                            <template x-if="!tutorInfo?.photo_url">
+                                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-xl font-bold text-primary" x-text="tutorInfo?.name?.charAt(0)?.toUpperCase()"></div>
+                            </template>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-gray-900" x-text="tutorInfo?.name"></p>
+                                <p class="mt-0.5 text-xs font-semibold text-primary" x-text="tutorInfo?.expertise || 'Tutor'"></p>
+                                <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                                    <span><i class="ri-star-fill text-amber-400"></i> <span x-text="tutorInfo?.rating || 'Belum dinilai'"></span> <span x-show="tutorInfo?.review_count">(<span x-text="tutorInfo?.review_count"></span> review)</span></span>
+                                    <span x-show="tutorInfo?.experience_years !== null"><i class="ri-briefcase-line"></i> <span x-text="`${tutorInfo?.experience_years} tahun`"></span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <p x-show="tutorInfo?.bio" class="mt-3 line-clamp-3 text-xs leading-5 text-gray-600" x-text="tutorInfo?.bio"></p>
+                        <a :href="tutorInfo?.profile_url" class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+                            Lihat profil & review
+                            <i class="ri-arrow-right-line"></i>
+                        </a>
+                    </div>
+
                     <label class="block">
                         <span class="text-sm font-semibold text-gray-700">Tanggal & jam yang diinginkan</span>
                         <input type="datetime-local" name="requested_start_at" required value="{{ old('requested_start_at') }}" min="{{ now()->addMinute()->format('Y-m-d\TH:i') }}" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
@@ -131,16 +160,23 @@
             </div>
 
             @forelse($bookings as $booking)
+                @php
+                    $sessionEnd = $booking->session?->end_at ?? $booking->session?->start_at;
+                    $canReview = in_array($booking->status, ['approved', 'completed'], true)
+                        && $sessionEnd
+                        && $booking->session?->status !== 'cancelled'
+                        && $sessionEnd->isPast();
+                @endphp
                 <article class="rounded-2xl border border-gray-200 bg-white p-5">
                     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                         <div>
                             <p class="text-sm font-bold text-gray-900">{{ $booking->package->name }}</p>
-                            <p class="mt-1 text-sm text-gray-500">
+                            <a href="{{ route('user.booking.tutor.show', $booking->tentor) }}" class="mt-1 inline-flex items-center text-sm text-gray-500 hover:text-primary">
                                 <i class="ri-user-star-line mr-1"></i>{{ $booking->tentor->name }}
                                 @if($booking->tentor->expertise)
                                     <span class="text-gray-300">•</span> {{ $booking->tentor->expertise }}
                                 @endif
-                            </p>
+                            </a>
                         </div>
                         <span class="w-fit rounded-full border px-3 py-1 text-xs font-bold {{ $statusClasses[$booking->status] ?? $statusClasses['cancelled'] }}">
                             {{ $statusLabels[$booking->status] ?? ucfirst($booking->status) }}
@@ -199,6 +235,36 @@
                                 <button class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Batalkan permintaan</button>
                             </form>
                         </div>
+                    @endif
+
+                    @if($canReview)
+                        <details class="mt-4 border-t border-gray-100 pt-4" @if(!$booking->review) open @endif>
+                            <summary class="cursor-pointer text-sm font-bold text-gray-800">
+                                <i class="ri-star-line mr-1 text-amber-500"></i>
+                                {{ $booking->review ? 'Rating kamu: '.$booking->review->rating.'/5 — ubah penilaian' : 'Beri rating untuk Tutor' }}
+                            </summary>
+                            <form method="POST" action="{{ route('user.booking.review.store', $booking) }}" class="mt-4 space-y-3">
+                                @csrf
+                                <fieldset>
+                                    <legend class="text-xs font-semibold text-gray-600">Nilai pengalaman belajar</legend>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        @for($rating = 1; $rating <= 5; $rating++)
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="rating" value="{{ $rating }}" required @checked(old('rating', $booking->review?->rating) == $rating) class="peer sr-only">
+                                                <span class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 peer-checked:border-amber-400 peer-checked:bg-amber-50 peer-checked:text-amber-700">
+                                                    {{ $rating }} <i class="ri-star-fill text-amber-400"></i>
+                                                </span>
+                                            </label>
+                                        @endfor
+                                    </div>
+                                </fieldset>
+                                <label class="block">
+                                    <span class="text-xs font-semibold text-gray-600">Review <span class="font-normal text-gray-400">(opsional)</span></span>
+                                    <textarea name="comment" rows="3" maxlength="2000" placeholder="Bagikan pengalaman belajar kamu bersama Tutor ini" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">{{ old('comment', $booking->review?->comment) }}</textarea>
+                                </label>
+                                <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">Simpan penilaian</button>
+                            </form>
+                        </details>
                     @endif
                 </article>
             @empty

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\Tentor;
 use App\Services\TentorAccountService;
+use App\Services\TutorProfilePhotoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,17 +77,23 @@ class TentorController extends Controller
             ->with('success', 'Tutor berhasil diperbarui.');
     }
 
-    public function destroy(Tentor $tentor): RedirectResponse
-    {
+    public function destroy(
+        Tentor $tentor,
+        TutorProfilePhotoService $photoService
+    ): RedirectResponse {
         if ($tentor->user_id) {
             return back()->with('error', 'Tutor terhubung ke akun login. Ubah role akun tersebut dari Manajemen User terlebih dahulu.');
         }
 
-        if ($tentor->classes()->exists() || $tentor->schedules()->exists()) {
-            return back()->with('error', 'Tutor masih dipakai di kelas atau jadwal. Nonaktifkan Tutor jika tidak digunakan lagi.');
+        if ($tentor->classes()->exists()
+            || $tentor->schedules()->exists()
+            || $tentor->bookingRequests()->exists()) {
+            return back()->with('error', 'Tutor masih dipakai di kelas, jadwal, atau booking. Nonaktifkan Tutor jika tidak digunakan lagi.');
         }
 
+        $photoPath = $tentor->profile_photo_path;
         $tentor->delete();
+        $photoService->delete($photoPath);
 
         return redirect()
             ->route('admin.tentors.index')

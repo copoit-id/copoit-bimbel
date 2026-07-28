@@ -19,6 +19,12 @@ class Tentor extends Model
         'phone',
         'expertise',
         'bio',
+        'profile_photo_path',
+        'education',
+        'experience_years',
+        'experience',
+        'certifications',
+        'teaching_method',
         'is_active',
         'honor_per_attendance',
         'user_id',
@@ -27,6 +33,7 @@ class Tentor extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'honor_per_attendance' => 'decimal:0',
+        'experience_years' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -77,6 +84,16 @@ class Tentor extends Model
     public function bookingRequests(): HasMany
     {
         return $this->hasMany(ScheduleBookingRequest::class, 'tentor_id');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(TutorReview::class, 'tentor_id');
+    }
+
+    public function visibleReviews(): HasMany
+    {
+        return $this->reviews()->visible();
     }
 
     public function scopeActive(Builder $query): Builder

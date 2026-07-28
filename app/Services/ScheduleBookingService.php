@@ -86,6 +86,7 @@ class ScheduleBookingService
             $scheduledEnd = $scheduledStart->copy()->addMinutes($rule->duration_minutes);
 
             $this->ensureWithinBookingWindow($rule, $scheduledStart);
+            $this->ensureAccessCoversSession($access, $scheduledStart);
 
             if ($scheduledStart->lte(now())) {
                 throw ValidationException::withMessages([
@@ -189,7 +190,7 @@ class ScheduleBookingService
                 ->where('is_active', true)
                 ->lockForUpdate()
                 ->first();
-            $this->activeAccessFor($lockedBooking);
+            $access = $this->activeAccessFor($lockedBooking);
             $rule = PackageBookingRule::query()
                 ->where('package_id', $lockedBooking->package_id)
                 ->where('is_enabled', true)
@@ -213,6 +214,7 @@ class ScheduleBookingService
             }
 
             $this->ensureWithinBookingWindow($rule, $startAt);
+            $this->ensureAccessCoversSession($access, $startAt);
 
             $lockedBooking->update([
                 'status' => ScheduleBookingRequest::STATUS_COUNTER_PROPOSED,
@@ -416,6 +418,17 @@ class ScheduleBookingService
         if ($startAt->lt($minimumStart) || $startAt->gt($maximumStart)) {
             throw ValidationException::withMessages([
                 'scheduled_start_at' => "Waktu booking harus antara {$rule->min_notice_hours} jam hingga {$rule->max_advance_days} hari dari sekarang.",
+            ]);
+        }
+    }
+
+    private function ensureAccessCoversSession(
+        UserPackageAcces $access,
+        Carbon $startAt
+    ): void {
+        if ($access->end_date && $startAt->gt($access->end_date)) {
+            throw ValidationException::withMessages([
+                'scheduled_start_at' => 'Waktu booking melewati masa aktif paket siswa.',
             ]);
         }
     }

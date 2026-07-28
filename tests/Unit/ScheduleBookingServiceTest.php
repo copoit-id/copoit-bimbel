@@ -9,6 +9,7 @@ use App\Models\Tentor;
 use App\Models\User;
 use App\Models\UserPackageAcces;
 use App\Services\ScheduleBookingService;
+use App\Services\TutorReviewService;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -129,6 +130,68 @@ class ScheduleBookingServiceTest extends TestCase
         );
     }
 
+    public function test_student_can_review_a_finished_booking_only_once(): void
+    {
+        [$booking, $tutorUser, , , , $student] = $this->booking();
+        $approved = app(ScheduleBookingService::class)->approve(
+            $booking,
+            $tutorUser,
+            Carbon::parse('2026-07-30 13:00:00'),
+        );
+        Carbon::setTestNow('2026-07-30 15:00:00');
+        $reviewService = app(TutorReviewService::class);
+
+        $firstReview = $reviewService->save(
+            $approved,
+            $student,
+            5,
+            'Penjelasannya mudah dipahami.',
+        );
+        $updatedReview = $reviewService->save(
+            $approved,
+            $student,
+            4,
+            'Materinya jelas.',
+        );
+
+        $this->assertSame($firstReview->id, $updatedReview->id);
+        $this->assertSame(4, $updatedReview->rating);
+        $this->assertDatabaseCount('tutor_reviews', 1);
+    }
+
+    public function test_student_cannot_review_before_booking_session_ends(): void
+    {
+        [$booking, $tutorUser, , , , $student] = $this->booking();
+        $approved = app(ScheduleBookingService::class)->approve(
+            $booking,
+            $tutorUser,
+            Carbon::parse('2026-07-30 13:00:00'),
+        );
+
+        $this->expectException(ValidationException::class);
+
+        app(TutorReviewService::class)->save(
+            $approved,
+            $student,
+            5,
+            null,
+        );
+    }
+
+    public function test_booking_cannot_be_approved_after_package_access_expires(): void
+    {
+        [$booking, $tutorUser, , , $access] = $this->booking();
+        $access->update(['end_date' => '2026-07-29 23:59:00']);
+
+        $this->expectException(ValidationException::class);
+
+        app(ScheduleBookingService::class)->approve(
+            $booking,
+            $tutorUser,
+            Carbon::parse('2026-07-30 13:00:00'),
+        );
+    }
+
     /**
      * @return array{
      *   ScheduleBookingRequest,
@@ -241,6 +304,12 @@ class ScheduleBookingServiceTest extends TestCase
             $table->string('name');
             $table->string('email');
             $table->string('expertise')->nullable();
+            $table->string('profile_photo_path')->nullable();
+            $table->text('education')->nullable();
+            $table->unsignedSmallInteger('experience_years')->nullable();
+            $table->text('experience')->nullable();
+            $table->text('certifications')->nullable();
+            $table->text('teaching_method')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -342,6 +411,16 @@ class ScheduleBookingServiceTest extends TestCase
             $table->timestamp('responded_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->string('slot_key')->nullable()->unique();
+            $table->timestamps();
+        });
+        Schema::create('tutor_reviews', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('schedule_booking_request_id')->unique();
+            $table->foreignId('user_id');
+            $table->foreignId('tentor_id');
+            $table->unsignedTinyInteger('rating');
+            $table->text('comment')->nullable();
+            $table->boolean('is_visible')->default(true);
             $table->timestamps();
         });
     }

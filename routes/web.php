@@ -58,6 +58,7 @@ use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
 use App\Http\Controllers\tutor\TutorDashboardController;
+use App\Http\Controllers\tutor\TutorProfileController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
@@ -230,12 +231,17 @@ Route::prefix('user')->middleware('auth')->group(function () {
         ->name('user.class-schedule.attend');
     Route::prefix('booking-jadwal')->name('user.booking.')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
+        Route::get('/tutor/{tentor}', [UserScheduleBookingController::class, 'showTutor'])
+            ->name('tutor.show');
         Route::post('/', [UserScheduleBookingController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('store');
         Route::post('/{booking}/terima-usulan', [UserScheduleBookingController::class, 'acceptCounter'])
             ->middleware('throttle:10,1')
             ->name('accept-counter');
+        Route::post('/{booking}/review', [UserScheduleBookingController::class, 'storeReview'])
+            ->middleware('throttle:10,1')
+            ->name('review.store');
         Route::delete('/{booking}', [UserScheduleBookingController::class, 'cancel'])
             ->name('cancel');
     });
@@ -336,6 +342,8 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         ->middleware('throttle:120,1')
         ->name('chat.read');
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
+    Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
     Route::prefix('booking')->name('booking.')->group(function () {
         Route::get('/', [TutorScheduleBookingController::class, 'index'])->name('index');
         Route::post('/{booking}/setujui', [TutorScheduleBookingController::class, 'approve'])

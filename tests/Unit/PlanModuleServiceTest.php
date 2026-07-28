@@ -65,6 +65,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('schedule', $service->featureForRoute('admin.class-schedules.index'));
         $this->assertSame('schedule', $service->featureForRoute('user.class-schedule.index'));
         $this->assertSame('schedule', $service->featureForRoute('tutor.schedule.index'));
+        $this->assertSame('profile', $service->featureForRoute('tutor.profile.edit'));
         $this->assertSame('booking', $service->featureForRoute('admin.package-booking.edit'));
         $this->assertSame('booking', $service->featureForRoute('user.booking.index'));
         $this->assertSame('booking', $service->featureForRoute('tutor.booking.index'));

@@ -129,7 +129,10 @@ return [
     */
     'routes' => [
         'dashboard' => ['user.dashboard.'],
-        'profile' => ['user.profile.'],
+        'profile' => [
+            'user.profile.',
+            'tutor.profile.',
+        ],
         'user' => [
             'admin.participant-destination-categories.',
             'participant-destinations.',

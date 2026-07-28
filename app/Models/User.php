@@ -111,6 +111,11 @@ class User extends Authenticatable
         return $this->hasMany(ScheduleBookingRequest::class, 'user_id');
     }
 
+    public function tutorReviews()
+    {
+        return $this->hasMany(TutorReview::class, 'user_id');
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class, 'user_id', 'id');

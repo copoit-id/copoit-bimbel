@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ScheduleBookingRequest extends Model
 {
@@ -91,6 +92,14 @@ class ScheduleBookingRequest extends Model
     public function responder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'responded_by');
+    }
+
+    public function review(): HasOne
+    {
+        return $this->hasOne(
+            TutorReview::class,
+            'schedule_booking_request_id'
+        );
     }
 
     public function scopeConsumesQuota(Builder $query): Builder
