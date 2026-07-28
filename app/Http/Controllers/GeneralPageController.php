@@ -6,14 +6,16 @@ use App\Models\Article;
 use App\Models\GeneralPage;
 use App\Models\Package;
 use App\Models\PtnSupportingSubject;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
 class GeneralPageController extends Controller
 {
-    public function landing()
+    public function landing(): RedirectResponse|View
     {
         $page = GeneralPage::findActiveByKey('landing');
 
@@ -29,6 +31,16 @@ class GeneralPageController extends Controller
             ->take(3)
             ->values();
         $landingPackagesById = Package::query()
+            ->select([
+                'package_id',
+                'name',
+                'description',
+                'features',
+                'image',
+                'type_price',
+                'price',
+                'conditional_requirement',
+            ])
             ->whereIn('package_id', $selectedPackageIds)
             ->where('status', 'active')
             ->where('is_displayed', true)
@@ -39,8 +51,8 @@ class GeneralPageController extends Controller
             ->filter()
             ->values();
 
-        return view($this->resolveTemplateView('landing', $page, 'general.landing'), [
-            'title' => $content['title'] ?? 'Landing Page',
+        return view($this->resolveTemplateView('landing', $page, 'general.templates.landing.stan'), [
+            'title' => data_get($content, 'meta.title', 'Landing Page'),
             'page' => $page,
             'content' => $content,
             'settings' => $page?->settings ?? [],
@@ -305,183 +317,147 @@ class GeneralPageController extends Controller
 
     public static function defaultLandingContent(): array
     {
+        $whatsappNumber = preg_replace(
+            '/\D+/',
+            '',
+            (string) config('client.branding.contact_whatsapp_number', '')
+        ) ?: '628561078411';
+        $whatsappHref = "https://wa.me/{$whatsappNumber}?text=Halo%20Admin%2C%20saya%20ingin%20konsultasi%20program%20persiapan%20PKN%20STAN.";
+        $contactEmail = (string) config('client.branding.footer_email', '');
+
         return [
             'meta' => [
-                'title' => 'Persiapan Ujian UTBK SNBT & SNBP Terbaik',
+                'title' => 'Bimbel Persiapan PKN STAN & Sekolah Kedinasan',
             ],
             'hero' => [
-                'badge' => 'Bimbel Persiapan UTBK 2026 #1',
-                'title_html' => 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?',
-                'description' => 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.',
+                'badge' => 'Persiapan PKN STAN 2026',
+                'title_html' => 'Langkah lebih terarah untuk <span class="stan-highlight">tembus PKN STAN.</span>',
+                'description' => 'Persiapkan TIU, TWK, dan TKP lewat kelas terstruktur, drilling soal, serta tryout CAT yang membantu kamu membaca progres dan memperbaiki strategi.',
                 'primary_cta' => [
-                    'label' => 'Mulai Belajar Sekarang',
-                    'href' => route('login'),
+                    'label' => 'Mulai Persiapan',
+                    'href' => route('register'),
                 ],
                 'secondary_cta' => [
-                    'label' => 'Hubungi Admin',
-                    'href' => 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel',
+                    'label' => 'Konsultasi Gratis',
+                    'href' => $whatsappHref,
                 ],
                 'logo_stack' => [
-                    ['src' => 'img/logo_kampus.png', 'alt' => 'UI Logo'],
-                    ['src' => 'img/logo_kampus.png', 'alt' => 'ITB Logo'],
-                    ['src' => 'img/logo_kampus.png', 'alt' => 'UGM Logo'],
-                    ['src' => 'img/logo_kampus.png', 'alt' => 'ITS Logo'],
+                    ['src' => 'img/student_rian.png', 'alt' => 'Peserta program'],
+                    ['src' => 'img/student_nanda.png', 'alt' => 'Peserta program'],
+                    ['src' => 'img/student_farah.png', 'alt' => 'Peserta program'],
                 ],
-                'social_proof_html' => 'Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!',
-                'image' => 'img/hero_study.png',
-                'image_alt' => 'Siswa Belajar UTBK Online',
+                'social_proof_html' => 'Belajar bareng komunitas <strong>pejuang PKN STAN</strong> dari seluruh Indonesia.',
+                'image' => 'img/stan-landing-hero.webp',
+                'image_alt' => 'Siswa mempersiapkan seleksi masuk PKN STAN',
             ],
             'program' => [
-                'eyebrow' => 'Investasi Masa Depan',
-                'title' => 'Program Bimbingan Belajar Pilihan',
-                'description' => 'Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.',
+                'eyebrow' => 'Program Belajar',
+                'title' => 'Pilih ritme belajar yang paling cocok',
+                'description' => 'Mulai dari tryout mandiri hingga pendampingan intensif. Data paket, harga, fasilitas, dan thumbnail selalu mengikuti pengaturan admin.',
                 'package_ids' => [],
             ],
             'community' => [
-                'badge' => 'Support System Pejuang PTN',
-                'title' => 'Komunitas Pejuang PTN '.config('client.branding.name', 'Copoit Academy'),
-                'description' => 'Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.',
+                'badge' => 'Teman Seperjuangan',
+                'title' => 'Konsisten lebih mudah saat tidak sendirian',
+                'description' => 'Masuk ke komunitas belajar untuk diskusi soal, pengingat jadwal, informasi seleksi, dan sesi berbagi strategi bersama mentor serta peserta lain.',
                 'cta' => [
-                    'label' => 'Gabung Grup Sekarang',
-                    'href' => 'https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H',
+                    'label' => 'Gabung Komunitas',
+                    'href' => $whatsappHref,
                 ],
             ],
             'testimonials' => [
-                'eyebrow' => 'Kisah Sukses Pejuang',
-                'title' => 'Apa Kata Alumni Kami?',
-                'description' => 'Mereka telah membuktikan keakuratan data dan bimbingan kami, kini berhasil lolos ke prodi impian.',
+                'eyebrow' => 'Cerita Peserta',
+                'title' => 'Progres terasa ketika belajarnya terukur',
+                'description' => 'Pengalaman peserta selama menggunakan kelas, latihan, dan tryout di platform kami.',
                 'items' => [
                     [
-                        'quote' => 'Tryout IRT di sini bener-bener mirip dengan ujian UTBK aslinya. Ranking nasionalnya bikin aku termotivasi untuk terus mengejar ketertinggalan materi.',
+                        'quote' => 'Setelah tryout, aku langsung tahu bagian TIU mana yang masih lemah. Belajarnya jadi tidak asal banyak, tapi lebih fokus.',
                         'image' => 'img/student_rian.png',
-                        'name' => 'Rian H.',
-                        'result' => 'Lolos Teknik Sipil ITB',
+                        'name' => 'Raka A.',
+                        'result' => 'Peserta Program Intensif',
                     ],
                     [
-                        'quote' => 'Fitur Kak AI ngebantu aku banget saat ngerjain soal fisika malam-malam. Penjelasan langkah demi langkahnya mudah dipahami dan cepat responnya!',
+                        'quote' => 'Pembahasan TWK-nya runtut dan mudah diingat. Jadwal latihan juga membuat aku lebih konsisten walaupun masih sekolah.',
                         'image' => 'img/student_nanda.png',
-                        'name' => 'Nanda P.',
-                        'result' => 'Lolos Farmasi UI',
+                        'name' => 'Nadia P.',
+                        'result' => 'Peserta Kelas Online',
                     ],
                     [
-                        'quote' => 'Terima kasih program bimbingan rapot SNBP-nya. Penjelasan mentor tentang strategi memilih prodi di UI dan UGM bikin aku mantap melangkah.',
+                        'quote' => 'Simulasi CAT dan timer membantu aku membangun tempo. Sekarang lebih tenang ketika bertemu soal yang panjang.',
                         'image' => 'img/student_farah.png',
-                        'name' => 'Farah D.',
-                        'result' => 'Lolos Psikologi UGM',
-                    ],
-                    [
-                        'quote' => 'Sebagai siswa dari luar Jawa, akses materi UTBK premium di sini terjangkau dan sangat berkualitas dibandingkan bimbel tatap muka biasa.',
-                        'image' => 'img/student_alvin.png',
-                        'name' => 'Alvin K.',
-                        'result' => 'Lolos Matematika ITS',
+                        'name' => 'Farhan D.',
+                        'result' => 'Peserta Tryout CAT',
                     ],
                 ],
             ],
             'achievements' => [
-                'eyebrow' => 'Pencapaian Terbaik Kami',
-                'title' => 'Bukti Nyata Kualitas Pendampingan BimbelHub',
+                'eyebrow' => 'Fokus Materi',
+                'title' => 'Satu sistem untuk latihan yang lebih terarah',
                 'items' => [
                     [
-                        'value' => '92,4%',
-                        'label' => 'Tingkat Kelolosan Ujian',
-                        'description' => '9.240 dari total 10.000 siswa bimbingan kami berhasil lolos ke program studi & PTN pilihan ke-1 dan ke-2.',
+                        'value' => 'TIU',
+                        'label' => 'Tes Intelegensia Umum',
+                        'description' => 'Latihan kemampuan verbal, numerik, figural, dan penalaran dengan pembahasan yang mudah diikuti.',
                     ],
                     [
-                        'value' => '10.000+',
-                        'label' => 'Pejuang PTN Aktif',
-                        'description' => 'Siswa terdaftar aktif berasal dari sekolah-sekolah unggulan mitra kami di seluruh wilayah Indonesia.',
+                        'value' => 'TWK',
+                        'label' => 'Tes Wawasan Kebangsaan',
+                        'description' => 'Materi inti, rangkuman, dan drilling soal untuk memperkuat pemahaman wawasan kebangsaan.',
                     ],
                     [
-                        'value' => '50.000+',
-                        'label' => 'Bank Soal & Pembahasan',
-                        'description' => 'Koleksi bank soal terlengkap dari subtest TPS, Literasi Bahasa, dan Penalaran Matematika terupdate.',
+                        'value' => 'TKP',
+                        'label' => 'Tes Karakteristik Pribadi',
+                        'description' => 'Pahami pola penilaian dan latih pengambilan keputusan melalui studi kasus yang relevan.',
                     ],
                 ],
             ],
             'partners' => [
-                'eyebrow' => 'Lembaga & Sekolah Mitra Kerja Sama',
-                'description' => 'Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN',
-                'items' => [
-                    [
-                        'logo' => 'img/logo_kampus.png',
-                        'alt' => 'Logo SMAN 8 Jakarta',
-                        'name' => 'SMAN 8 Jakarta',
-                        'location' => 'DKI Jakarta',
-                    ],
-                    [
-                        'logo' => 'img/logo_kampus.png',
-                        'alt' => 'Logo SMAN 3 Bandung',
-                        'name' => 'SMAN 3 Bandung',
-                        'location' => 'Jawa Barat',
-                    ],
-                    [
-                        'logo' => 'img/logo_kampus.png',
-                        'alt' => 'Logo SMAN 1 Yogyakarta',
-                        'name' => 'SMAN 1 Yogya',
-                        'location' => 'DI Yogyakarta',
-                    ],
-                    [
-                        'logo' => 'img/logo_kampus.png',
-                        'alt' => 'Logo SMAN 5 Surabaya',
-                        'name' => 'SMAN 5 Surabaya',
-                        'location' => 'Jawa Timur',
-                    ],
-                    [
-                        'logo' => 'img/logo_kampus.png',
-                        'alt' => 'Logo SMA Labschool',
-                        'name' => 'SMA Labschool',
-                        'location' => 'DKI Jakarta',
-                    ],
-                    [
-                        'logo' => 'img/logo_kampus.png',
-                        'alt' => 'Logo SMA Kristen Yusuf',
-                        'name' => 'SMA K. Yusuf',
-                        'location' => 'DKI Jakarta',
-                    ],
-                ],
+                'eyebrow' => 'Dipercaya Komunitas Belajar',
+                'description' => 'Logo sekolah, komunitas, atau lembaga mitra dapat dikelola langsung dari halaman admin.',
+                'items' => [],
             ],
             'faq' => [
                 'eyebrow' => 'Pertanyaan Umum',
-                'title' => 'FAQ (Frequently Asked Questions)',
+                'title' => 'Sebelum mulai, mungkin ini yang ingin kamu tahu',
                 'items' => [
                     [
-                        'question' => 'Apakah saya bisa menggunakan platform ini secara gratis?',
-                        'answer' => 'Ya, tentu saja! Kamu bisa menggunakan akun gratis untuk melihat data statistik program studi PTN se-Indonesia serta menguji coba 1x sistem simulasi tryout awal yang kami miliki.',
+                        'question' => 'Apakah program ini khusus untuk persiapan PKN STAN?',
+                        'answer' => 'Fokus utama program adalah persiapan seleksi PKN STAN dan materi SKD yang relevan. Detail cakupan setiap program dapat dilihat pada halaman paket.',
                     ],
                     [
-                        'question' => 'Bagaimana sistem penilaian di simulasi Tryout UTBK?',
-                        'answer' => 'Sistem penilaian tryout kami menggunakan algoritma Item Response Theory (IRT) yang disesuaikan dengan aturan penilaian resmi dari panitia pelaksana seleksi SNPMB BP3 Kemendikbud. Bobot nilai setiap soal dihitung berdasarkan tingkat kesulitan riil soal tersebut.',
+                        'question' => 'Apakah tryout bisa dikerjakan lewat HP?',
+                        'answer' => 'Bisa. Platform dapat dibuka melalui HP, tablet, maupun laptop. Untuk pengalaman simulasi yang paling nyaman, gunakan perangkat dengan koneksi internet stabil.',
                     ],
                     [
-                        'question' => 'Apa itu fitur Rasionalisasi Rapor SNBP?',
-                        'answer' => 'Rasionalisasi Rapor SNBP adalah fitur analisis kelayakan nilai rapor semester 1 sampai 5. Nilai rapor kamu akan dikalkulasikan dengan bobot mata pelajaran pendukung prodi yang dituju, dipetakan secara statistik, lalu dibandingkan dengan jutaan histori pendaftar lain di PTN pilihan Anda.',
+                        'question' => 'Apa yang didapat setelah mengerjakan tryout?',
+                        'answer' => 'Kamu dapat melihat hasil, pembahasan, riwayat pengerjaan, dan fitur lain sesuai fasilitas paket yang dipilih. Informasi lengkap selalu tercantum di detail paket.',
                     ],
                     [
-                        'question' => 'Apakah pembayaran paket berlaku langganan bulanan?',
-                        'answer' => 'Tidak. Pembayaran paket bimbingan belajar (Silver maupun Gold) bersifat sekali bayar (*One-Time Payment*) di awal dan langsung aktif untuk masa kepesertaan penuh selama satu tahun penuh hingga seleksi ujian mandiri selesai.',
+                        'question' => 'Apakah ada kelas dan pendampingan mentor?',
+                        'answer' => 'Ketersediaan kelas, rekaman, grup diskusi, dan pendampingan mengikuti paket yang kamu pilih. Konsultasikan kebutuhanmu dengan admin bila masih ragu.',
                     ],
                     [
-                        'question' => 'Bagaimana asisten cerdas Kak AI membantu saya?',
-                        'answer' => 'Kak AI terintegrasi dengan model AI canggih. Kamu cukup mengetik pertanyaan atau mengunggah gambar/foto soal latihan yang sulit, dan Kak AI akan memberikan panduan penjelasan langkah-demi-langkah, rumus pelengkap, serta tips cepat mengerjakannya.',
+                        'question' => 'Bagaimana cara memilih paket yang tepat?',
+                        'answer' => 'Pilih berdasarkan waktu persiapan dan intensitas pendampingan yang kamu butuhkan. Kamu juga bisa menghubungi admin untuk konsultasi awal tanpa biaya.',
                     ],
                 ],
             ],
             'footer' => [
-                'tagline' => 'Platform Sukses Tembus PTN Impian',
-                'description' => 'Penyedia layanan bimbingan belajar, tryout IRT online nasional, pendampingan konsultasi jurusan, serta rasionalisasi rapor seleksi SNBP/SNBT terpercaya di Indonesia.',
+                'tagline' => 'Teman Bertumbuh Pejuang PKN STAN',
+                'description' => 'Platform belajar untuk membantu persiapan seleksi PKN STAN menjadi lebih terarah, konsisten, dan terukur.',
                 'navigation_title' => 'Navigasi',
-                'nav_landing_label' => 'Home Landing',
-                'nav_statistics_snbp_label' => 'Statistik PTN SNBP',
-                'nav_statistics_snbt_label' => 'Statistik PTN SNBT',
-                'nav_articles_label' => 'Insight & Artikel',
-                'nav_login_label' => 'Daftar / Login Akun',
+                'nav_landing_label' => 'Beranda',
+                'nav_statistics_snbp_label' => 'Program',
+                'nav_statistics_snbt_label' => 'Keunggulan',
+                'nav_articles_label' => 'Artikel',
+                'nav_login_label' => 'Masuk Akun',
                 'contact_title' => 'Hubungi Kami',
-                'instagram_label' => '@naufalacademy',
-                'instagram_href' => 'https://instagram.com/naufalacademy',
-                'whatsapp_label' => '+62 856-1078-411',
-                'whatsapp_href' => 'https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya',
-                'email_label' => 'team.naufalacademy@gmail.com',
-                'email_href' => 'mailto:team.naufalacademy@gmail.com',
+                'instagram_label' => 'Instagram',
+                'instagram_href' => config('client.branding.footer_instagram') ?: '#',
+                'whatsapp_label' => config('client.branding.footer_whatsapp') ?: 'WhatsApp Admin',
+                'whatsapp_href' => $whatsappHref,
+                'email_label' => $contactEmail ?: 'Email Admin',
+                'email_href' => $contactEmail ? "mailto:{$contactEmail}" : '#',
                 'terms_label' => 'Syarat & Ketentuan',
                 'terms_href' => '#',
                 'privacy_label' => 'Kebijakan Privasi',
@@ -501,7 +477,91 @@ class GeneralPageController extends Controller
 
     public static function mergeLandingContentWithDefaults(array $content): array
     {
-        return self::mergeMissingLandingDefaults(self::defaultLandingContent(), $content);
+        return self::mergeMissingLandingDefaults(
+            self::defaultLandingContent(),
+            self::upgradeLegacyLandingContent($content)
+        );
+    }
+
+    /**
+     * Keep existing tenant customizations while upgrading untouched PTN demo copy
+     * to the STAN landing experience. This does not mutate persisted JSON.
+     */
+    private static function upgradeLegacyLandingContent(array $content): array
+    {
+        $defaults = self::defaultLandingContent();
+
+        if (data_get($content, 'hero.title_html') === 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?') {
+            $content['hero'] = $defaults['hero'];
+        }
+
+        if (data_get($content, 'program.title') === 'Program Bimbingan Belajar Pilihan') {
+            $selectedPackageIds = data_get($content, 'program.package_ids', []);
+            $content['program'] = $defaults['program'];
+            $content['program']['package_ids'] = $selectedPackageIds;
+        }
+
+        if (data_get($content, 'community.badge') === 'Support System Pejuang PTN') {
+            $content['community'] = $defaults['community'];
+        }
+
+        if (data_get($content, 'testimonials.title') === 'Apa Kata Alumni Kami?') {
+            $content['testimonials'] = $defaults['testimonials'];
+        }
+
+        if (data_get($content, 'achievements.title') === 'Bukti Nyata Kualitas Pendampingan BimbelHub') {
+            $content['achievements'] = $defaults['achievements'];
+        }
+
+        if (data_get($content, 'partners.eyebrow') === 'Lembaga & Sekolah Mitra Kerja Sama') {
+            $partnerItems = data_get($content, 'partners.items', []);
+            $content['partners'] = $defaults['partners'];
+            $content['partners']['items'] = $partnerItems;
+        }
+
+        if (data_get($content, 'faq.title') === 'FAQ (Frequently Asked Questions)') {
+            $content['faq'] = $defaults['faq'];
+        }
+
+        if (data_get($content, 'footer.tagline') === 'Platform Sukses Tembus PTN Impian') {
+            $legacyFooter = $content['footer'] ?? [];
+            $content['footer'] = $defaults['footer'];
+            $legacyContactDefaults = [
+                'instagram_label' => '@naufalacademy',
+                'instagram_href' => 'https://instagram.com/naufalacademy',
+                'whatsapp_label' => '+62 856-1078-411',
+                'whatsapp_href' => 'https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya',
+                'email_label' => 'team.naufalacademy@gmail.com',
+                'email_href' => 'mailto:team.naufalacademy@gmail.com',
+            ];
+
+            foreach ($legacyContactDefaults as $contactKey => $legacyDefault) {
+                if (
+                    ! empty($legacyFooter[$contactKey])
+                    && $legacyFooter[$contactKey] !== $legacyDefault
+                ) {
+                    $content['footer'][$contactKey] = $legacyFooter[$contactKey];
+                }
+            }
+
+            foreach ([
+                'terms_label',
+                'terms_href',
+                'privacy_label',
+                'privacy_href',
+                'copyright_suffix',
+            ] as $contactKey) {
+                if (! empty($legacyFooter[$contactKey])) {
+                    $content['footer'][$contactKey] = $legacyFooter[$contactKey];
+                }
+            }
+        }
+
+        if (data_get($content, 'meta.title') === 'Persiapan Ujian UTBK SNBT & SNBP Terbaik') {
+            $content['meta'] = $defaults['meta'];
+        }
+
+        return $content;
     }
 
     private static function mergeMissingLandingDefaults(array $defaults, array $content): array
