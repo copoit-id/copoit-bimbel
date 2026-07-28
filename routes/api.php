@@ -11,7 +11,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::prefix('chat')->middleware('auth:sanctum')->group(function () {
+Route::prefix('chat')->middleware(['auth:sanctum', 'module:discussion'])->group(function () {
     Route::get('conversations', [ChatController::class, 'apiIndex']);
     Route::post('conversations', [ChatController::class, 'apiOpen'])->middleware('throttle:30,1');
     Route::get('conversations/{conversation}/messages', [ChatController::class, 'messages'])->middleware('throttle:120,1');

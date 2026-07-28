@@ -16,6 +16,18 @@ class UserClassScheduleController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user()->loadMissing('participantDestinationCategory');
+        $requestedPeriod = $request->query('period', 'week');
+        $period = is_string($requestedPeriod) ? strtolower($requestedPeriod) : 'week';
+        $period = in_array($period, ['today', 'week', 'month', 'all'], true)
+            ? $period
+            : 'week';
+        $now = now();
+        $dateRange = match ($period) {
+            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'all' => null,
+            default => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+        };
         $destinationCategoryIds = collect([
             $user->participant_destination_category_id,
             $user->participantDestinationCategory?->parent_id,
@@ -26,7 +38,7 @@ class UserClassScheduleController extends Controller
             ->active()
             ->pluck('package_id');
 
-        $sessions = ClassSession::with(['class.tentor', 'studyGroup.users', 'tentor', 'schedule.tentor', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'attendances' => function ($query) use ($user) {
+        $sessions = ClassSession::with(['class.tentor', 'tentor', 'schedule.tentor', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'attendances' => function ($query) use ($user) {
             $query->where('user_id', $user->id);
         }])
             ->where(function ($query) use ($user, $destinationCategoryIds, $packageIds) {
@@ -57,15 +69,19 @@ class UserClassScheduleController extends Controller
             })
             ->whereHas('schedule', fn ($scheduleQuery) => $scheduleQuery->where('is_active', true))
             ->where('status', 'scheduled')
-            ->whereDate('session_date', '>=', now()->toDateString())
+            ->when($dateRange, fn ($query, array $range) => $query->whereBetween('session_date', [
+                $range[0]->toDateString(),
+                $range[1]->toDateString(),
+            ]))
             ->orderBy('start_at')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         $liveClasses = ClassModel::query()
             ->with('tentor')
             ->where('status', 'upcoming')
             ->whereNotNull('schedule_time')
-            ->whereDate('schedule_time', '>=', now()->toDateString())
+            ->when($dateRange, fn ($query, array $range) => $query->whereBetween('schedule_time', $range))
             ->where(function ($query) use ($user, $packageIds) {
                 $query->whereHas('userAccess', function ($accessQuery) use ($user) {
                     $accessQuery
@@ -75,11 +91,16 @@ class UserClassScheduleController extends Controller
 
                 $query->orWhereHas('packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $packageIds));
             })
-            ->whereDoesntHave('sessions', fn ($sessionQuery) => $sessionQuery->whereDate('session_date', '>=', now()->toDateString()))
+            ->whereDoesntHave('sessions', function ($sessionQuery) use ($dateRange): void {
+                $sessionQuery->when($dateRange, fn ($query, array $range) => $query->whereBetween('session_date', [
+                    $range[0]->toDateString(),
+                    $range[1]->toDateString(),
+                ]));
+            })
             ->orderBy('schedule_time')
             ->get();
 
-        return view('user.pages.class-schedule.index', compact('sessions', 'liveClasses'));
+        return view('user.pages.class-schedule.index', compact('sessions', 'liveClasses', 'period'));
     }
 
     public function attend(Request $request, ClassSession $session): RedirectResponse

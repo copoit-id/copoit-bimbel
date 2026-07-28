@@ -575,9 +575,9 @@ Route::prefix('{portal}')
         Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
         Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
         // Legacy URLs remain available while all newly generated links use the Tutor terminology.
-        Route::get('tentor', fn () => redirect()->route('admin.tentors.index'));
-        Route::get('tentor/create', fn () => redirect()->route('admin.tentors.create'));
-        Route::get('tentor/{tentor}/edit', fn (Tentor $tentor) => redirect()->route('admin.tentors.edit', $tentor));
+        Route::get('tentor', fn () => redirect()->route('admin.tentors.index'))->middleware('module:tentor');
+        Route::get('tentor/create', fn () => redirect()->route('admin.tentors.create'))->middleware('module:tentor');
+        Route::get('tentor/{tentor}/edit', fn (Tentor $tentor) => redirect()->route('admin.tentors.edit', $tentor))->middleware('module:tentor');
         Route::get('tutor', fn () => redirect()->route('admin.user.index', ['role' => 'tutor']))
             ->name('tentors.index');
         Route::resource('tutor', TentorController::class)

@@ -7,8 +7,16 @@
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $isGuest = !$user;
-$showStatisticsDashboard = $showStatisticsDashboard ?? false;
-$showLandingDashboard = $showLandingDashboard ?? false;
+$planModules = app(\App\Services\PlanModuleService::class);
+$canShowProfile = $planModules->allows('profile');
+$canShowPackage = $planModules->allows('package');
+$canShowMaterial = $planModules->allows('material');
+$canShowTryout = $planModules->allows('tryout');
+$canShowPayments = $planModules->allows('pembayaran');
+$canShowClass = $planModules->allows('class');
+$canShowGeneralPage = $planModules->allows('general_page');
+$showStatisticsDashboard = ($showStatisticsDashboard ?? false) && $canShowGeneralPage;
+$showLandingDashboard = ($showLandingDashboard ?? false) && $canShowGeneralPage;
 $activePackages = collect($activePackages ?? []);
 $recentTryouts = collect($recentTryouts ?? []);
 $publicPackages = collect($publicPackages ?? []);
@@ -22,8 +30,8 @@ $destinationKeketatan = $destinationKeketatan ?? [
 $totalAnswered = $totalAnswered ?? 0;
 $totalCorrect = $totalCorrect ?? 0;
 $accuracyPercent = $accuracyPercent ?? 0;
-$hasUnpaid = $unpaidInvoices->isNotEmpty();
-$hasSessions = $upcomingClassSessions->isNotEmpty();
+$hasUnpaid = $canShowPayments && $unpaidInvoices->isNotEmpty();
+$hasSessions = $canShowClass && $upcomingClassSessions->isNotEmpty();
 
 // Convert hex primary color to RGB for opacity adjustments
 $primaryHex = str_replace('#', '', $primaryColor);
@@ -108,7 +116,7 @@ $primaryRgb = "$r, $g, $b";
                                 <a href="{{ route('login') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-xl transition-opacity hover:opacity-90 shadow-sm shadow-emerald-500/20" style="background-color: {{ $primaryColor }}">
                                     Masuk / Daftar
                                 </a>
-                            @else
+                            @elseif($canShowProfile)
                                 <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
                                     Ubah Target
                                 </a>
@@ -197,28 +205,36 @@ $primaryRgb = "$r, $g, $b";
 @if(!$isGuest)
 <!-- Akses Cepat -->
 <?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
+@if($canShowMaterial || $canShowTryout || $canShowPackage)
 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    @if($canShowMaterial)
     <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-video-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Video Materi</h3>
     </a>
-    
+    @endif
+
+    @if($canShowTryout)
     <a href="{{ route('user.package.tryout.list') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-file-list-3-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Tryout</h3>
     </a>
+    @endif
 
+    @if($canShowMaterial)
     <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-live-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">{{ $liveSessionLabel }}</h3>
     </a>
-    
+    @endif
+
+    @if($canShowPackage)
     <a href="{{ route('user.package.my') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-road-map-line text-xl"></i>
@@ -232,7 +248,9 @@ $primaryRgb = "$r, $g, $b";
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Beli Paket</h3>
     </a>
+    @endif
 </div>
+@endif
 
 <?php if ($hasUnpaid): ?>
 <div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
@@ -377,7 +395,7 @@ $primaryRgb = "$r, $g, $b";
                     ?>
                     <?php if ($isLiveNow): ?>
                         <a href="{{ $session->meeting_url }}" target="_blank" class="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg shadow-blue-500/20 hover:scale-105 whitespace-nowrap shrink-0" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)">
-                            <i class="ri-video-chat-line text-base animate-bounce"></i>
+                            <i class="ri-video-chat-line text-base"></i>
                             Masuk Kelas
                         </a>
                     <?php else: ?>
@@ -395,8 +413,10 @@ $primaryRgb = "$r, $g, $b";
 <?php endif; ?>
 
 <!-- Stats Grid -->
+@if($canShowPackage || $canShowTryout)
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <!-- Progress Paket -->
+    @if($canShowPackage)
     <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
             <h3 class="font-bold text-gray-800">Progress Belajar</h3>
@@ -441,8 +461,10 @@ $primaryRgb = "$r, $g, $b";
         </div>
         @endif
     </div>
-    
+    @endif
+
     <!-- Akurasi -->
+    @if($canShowTryout)
     <div class="bg-white rounded-2xl p-6 border border-gray-100">
         <h3 class="font-bold text-gray-800 mb-4">Akurasi Jawaban</h3>
         <div class="flex flex-col items-center">
@@ -462,10 +484,12 @@ $primaryRgb = "$r, $g, $b";
             </p>
         </div>
     </div>
+    @endif
 </div>
+@endif
 
 <!-- Hasil Tryout Terakhir -->
-@if($recentTryouts->count() > 0)
+@if($canShowTryout && $recentTryouts->count() > 0)
 <div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-gray-800">Hasil Tryout Terakhir</h3>
@@ -498,6 +522,7 @@ $primaryRgb = "$r, $g, $b";
 
 @else
 <!-- Guest View -->
+@if($canShowPackage)
 <div class="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
     <h3 class="font-bold text-gray-800 mb-4">Paket Tersedia</h3>
     
@@ -571,6 +596,7 @@ $primaryRgb = "$r, $g, $b";
     <p class="text-gray-400 text-center py-8">Belum ada paket tersedia</p>
     @endif
 </div>
+@endif
 @endif
 
 @if($showLandingDashboard)

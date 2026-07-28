@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\ClientProfile;
 use App\Models\Role;
+use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Support\MailSafety;
 use Illuminate\Support\Facades\Blade;
@@ -20,7 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(PlanModuleService::class);
     }
 
     /**

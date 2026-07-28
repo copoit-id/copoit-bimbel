@@ -3,9 +3,26 @@ $user = auth()->user();
 $currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
-$tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
+$planModules = app(\App\Services\PlanModuleService::class);
+$canShowDashboard = $planModules->allows('dashboard');
+$canShowProfile = $planModules->allows('profile');
+$canShowPackage = $planModules->allows('package');
+$canShowMaterial = $planModules->allows('material');
+$canShowTryout = $planModules->allows('tryout');
+$canShowTesKoran = $planModules->allows('tes_koran');
+$canShowAiLearning = $planModules->allows('ai_learning');
+$tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTesKoran;
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
+    && $planModules->allows('affiliate')
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
+$canShowBimbel = $canShowPackage || $canShowMaterial || $canShowTryout || $canShowAiLearning;
+$bimbelUrl = match (true) {
+    $canShowPackage => route('user.package.index'),
+    $canShowMaterial => route('user.material.index'),
+    $canShowTryout => route('user.package.tryout.list'),
+    default => $canShowAiLearning ? route('user.ai-learning.index') : route('landing'),
+};
+$homeUrl = $canShowDashboard ? route('user.dashboard.index') : route('landing');
 $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.tryout', $currentRoute)
     || isActive('user.package.tryout', $currentRoute)
@@ -110,7 +127,7 @@ function isActive($route, $current) {
         <div class="flex items-center justify-between h-16">
             <!-- Logo -->
             <div class="flex items-center">
-                <a href="{{ route('user.dashboard.index') }}" class="flex items-center gap-2">
+                <a href="{{ $homeUrl }}" class="flex items-center gap-2">
                     @if(!empty($clientBranding['logo_url']))
                     <img src="{{ $clientBranding['logo_url'] }}" alt="Logo" class="h-8 w-auto">
                     @else
@@ -124,31 +141,41 @@ function isActive($route, $current) {
             
             <!-- Main Navigation -->
             <div class="hidden md:flex items-center gap-1">
+                @if($canShowDashboard)
                 <a href="{{ route('user.dashboard.index') }}" 
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.dashboard', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-home-5-line mr-1.5 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}"></i>Dashboard
                 </a>
+                @endif
                 
+                @if($canShowBimbel)
                 <div class="relative group">
-                    <a href="{{ route('user.package.index') }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>Bimbel<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
+                    <a href="{{ $bimbelUrl }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>Bimbel<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
                     <div class="dropdown-menu min-w-52">
+                        @if($canShowMaterial)
                         <div class="dropdown-submenu"><a href="{{ route('user.material.index') }}" class="dropdown-item justify-between {{ isActive('user.material', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-book-open-line"></i>Materi</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.material.index') }}" class="dropdown-item">Semua Materi</a><a href="{{ route('user.material.videos') }}" class="dropdown-item">Video</a><a href="{{ route('user.material.documents') }}" class="dropdown-item">Dokumen</a><a href="{{ route('user.material.live-sessions') }}" class="dropdown-item">{{ $liveSessionLabel }}</a></div></div>
+                        @endif
+                        @if($canShowTryout)
                         <div class="dropdown-submenu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item justify-between {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.tes-kecermatan', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-file-list-3-line"></i>Tryout</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item">Daftar Tryout</a>
                             @if($tesKoranEnabled)<a href="{{ route('user.tes-koran.index') }}" class="dropdown-item">Tes Koran</a>@endif
-                            @if(\Illuminate\Support\Facades\Route::has('user.tes-kecermatan.index'))<a href="{{ route('user.tes-kecermatan.index') }}" class="dropdown-item">Tes Kecermatan</a>@endif
+                            @if($canShowTesKoran && \Illuminate\Support\Facades\Route::has('user.tes-kecermatan.index'))<a href="{{ route('user.tes-kecermatan.index') }}" class="dropdown-item">Tes Kecermatan</a>@endif
                         </div></div>
-                        <div class="dropdown-submenu"><a href="{{ route('user.package.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>Paket</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@if($user)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
+                        @endif
+                        @if($canShowPackage || $canShowAiLearning)
+                        <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>Paket</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
+                        @endif
                     </div>
                 </div>
+                @endif
 
-                @if($user)
+                @if($user && $canShowAiLearning)
                 <a href="{{ route('user.ai-learning.index') }}"
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.ai-learning', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
                     <i class="ri-sparkling-2-line mr-1.5 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}"></i>AI Learning
                 </a>
                 @endif
 
-                @if($user)
+                @if($user && $canShowPackage)
                 {{-- Paket Saya with Dropdown (paling kanan) --}}
                 <div class="relative group">
                     <a href="{{ route('user.package.my') }}" 
@@ -208,12 +235,16 @@ function isActive($route, $current) {
                             <i class="ri-shield-user-line mr-2"></i>Dashboard {{ $user->isTutor() ? 'Tutor' : 'Admin' }}
                         </a>
                         @endif
+                        @if($canShowProfile)
                         <a href="{{ route('user.profile.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-user-line mr-2"></i>Profil
                         </a>
+                        @endif
+                        @if($canShowPackage)
                         <a href="{{ route('user.package.riwayatPembelian') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-history-line mr-2"></i>Riwayat
                         </a>
+                        @endif
                         @if($canShowAffiliateMenu)
                         <a href="{{ route('user.affiliate.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-share-forward-line mr-2"></i>Affiliate
@@ -244,25 +275,32 @@ function isActive($route, $current) {
 <!-- Mobile Menu (fixed bottom) -->
 <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
     <div class="flex justify-around py-2">
+        @if($canShowDashboard)
         <a href="{{ route('user.dashboard.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.dashboard', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-home-5-line text-xl"></i>
             <span class="text-xs mt-0.5">Dashboard</span>
         </a>
+        @endif
         
-        <a href="{{ route('user.package.index') }}" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
+        @if($canShowBimbel)
+        <a href="{{ $bimbelUrl }}" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-graduation-cap-line text-xl"></i>
             <span class="text-xs mt-0.5">Bimbel</span>
         </a>
-        @if($user)
+        @endif
+        @if($user && $canShowAiLearning)
         <a href="{{ route('user.ai-learning.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.ai-learning', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-sparkling-2-line text-xl"></i>
             <span class="text-xs mt-0.5">AI Learning</span>
         </a>
+        @endif
+        @if($user && $canShowPackage)
         <a href="{{ route('user.package.my') }}" class="flex flex-col items-center p-2 {{ isActive('user.package.my', $currentRoute) || isActive('user.package.show', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.package.my', $currentRoute) || isActive('user.package.show', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-road-map-line text-xl"></i>
             <span class="text-xs mt-0.5">Paket Saya</span>
         </a>
-        @else
+        @endif
+        @if(!$user)
         <a href="{{ route('login') }}" class="flex flex-col items-center p-2 text-gray-400">
             <i class="ri-login-box-line text-xl"></i>
             <span class="text-xs mt-0.5">Masuk</span>

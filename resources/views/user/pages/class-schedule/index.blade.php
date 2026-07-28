@@ -13,6 +13,21 @@
         6 => 'Sabtu',
         7 => 'Minggu',
     ];
+    $periodTabs = [
+        'today' => 'Hari Ini',
+        'week' => 'Minggu Ini',
+        'month' => 'Bulan Ini',
+        'all' => 'Semua',
+    ];
+    $periodDescriptions = [
+        'today' => 'Jadwal kelas untuk hari ini.',
+        'week' => 'Jadwal kelas dari Senin sampai Minggu pada minggu ini.',
+        'month' => 'Jadwal kelas pada bulan ini.',
+        'all' => 'Seluruh jadwal kelas yang dapat kamu ikuti.',
+    ];
+    $visibleDays = $period === 'today'
+        ? [now()->dayOfWeekIso => $days[now()->dayOfWeekIso]]
+        : $days;
     $sessionsByDay = $sessions->getCollection()->groupBy(fn ($session) => $session->start_at->dayOfWeekIso);
     $liveClassesByDay = $liveClasses->groupBy(fn ($class) => $class->schedule_time->dayOfWeekIso);
 @endphp
@@ -20,11 +35,24 @@
 <div class="space-y-6">
     <div class="rounded-2xl border border-gray-100 bg-white p-6">
         <h1 class="text-2xl font-bold tracking-tight text-gray-900">Jadwal Kelas</h1>
-        <p class="mt-1 text-sm text-gray-500">Lihat jadwal rutin dan kelas yang dapat kamu ikuti pada minggu ini maupun minggu berikutnya.</p>
+        <p class="mt-1 text-sm text-gray-500">{{ $periodDescriptions[$period] }}</p>
+
+        <nav class="mt-5 flex flex-wrap gap-2" aria-label="Filter periode jadwal">
+            @foreach($periodTabs as $periodKey => $periodLabel)
+                <a href="{{ route('user.class-schedule.index', ['period' => $periodKey]) }}"
+                    @if($period === $periodKey) aria-current="page" @endif
+                    class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors {{ $period === $periodKey
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:text-primary' }}">
+                    {{ $periodLabel }}
+                </a>
+            @endforeach
+        </nav>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-7">
-        @foreach($days as $dayNumber => $dayName)
+    @if($sessions->isNotEmpty() || $liveClasses->isNotEmpty())
+    <div class="grid grid-cols-1 gap-4 {{ $period === 'today' ? 'lg:grid-cols-1' : 'lg:grid-cols-7' }}">
+        @foreach($visibleDays as $dayNumber => $dayName)
             @php
                 $daySessions = $sessionsByDay->get($dayNumber, collect());
                 $dayLiveClasses = $liveClassesByDay->get($dayNumber, collect());
@@ -108,12 +136,11 @@
         @endforeach
     </div>
 
-    @if($sessions->isEmpty() && $liveClasses->isEmpty())
+    {{ $sessions->links() }}
+    @else
         <div class="rounded-2xl border border-gray-100 bg-white p-8 text-center text-gray-500">
-            Belum ada jadwal kelas yang dapat kamu ikuti.
+            Belum ada jadwal kelas untuk periode {{ strtolower($periodTabs[$period]) }}.
         </div>
     @endif
-
-    {{ $sessions->links() }}
 </div>
 @endsection

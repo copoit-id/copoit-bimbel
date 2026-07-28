@@ -12,10 +12,15 @@
     $isTutor = $authUser?->isTutor() ?? false;
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
     $permissionSlugs = $authUser?->getEffectivePermissionSlugs() ?? [];
+    $planModules = app(\App\Services\PlanModuleService::class);
     $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
-    $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs): bool {
+    $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs, $planModules): bool {
         if ($isSuperAdmin) {
             return true;
+        }
+
+        if (! $planModules->allows($feature)) {
+            return false;
         }
 
         if ($feature === 'dashboard') {
@@ -57,6 +62,9 @@
         && $adminRouteExists('admin.activity.index');
     $canShowUpdateNotificationsMenu = $canFeatureView('update_notification')
         && $adminRouteExists('admin.update-notifications.index');
+    $canShowTutorScheduleMenu = $isTutor
+        && $planModules->allows('class')
+        && $adminRouteExists('tutor.schedule.index');
     $canShowMasterMenu = $canFeatureView('package')
         || $canFeatureView('tryout')
         || $canShowStudyGroupMenu
@@ -133,7 +141,7 @@
                 </ul></details></li>
             @endif
             @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 px-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isClassScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal & Absensi</span></a></li>@endif
-            @if($isTutor && $adminRouteExists('tutor.schedule.index'))
+            @if($canShowTutorScheduleMenu)
                 <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
                 <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
             @endif

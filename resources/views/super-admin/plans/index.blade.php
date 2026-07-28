@@ -29,6 +29,12 @@
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Daftar Plan</h3>
         <div class="space-y-4">
             @forelse($plans as $plan)
+                @php
+                    $moduleService = app(\App\Services\PlanModuleService::class);
+                    $modulePresetKey = $moduleService->presetForPlan($plan);
+                    $moduleAccess = $moduleService->accessForPlan($plan);
+                    $enabledModuleFeatures = collect($moduleAccess)->filter()->count();
+                @endphp
                 <div class="border border-gray-200 rounded-xl p-5">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div class="flex-1">
@@ -43,6 +49,9 @@
                                 @if(!$plan->is_active)
                                     <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded">Nonaktif</span>
                                 @endif
+                                <span class="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded">
+                                    {{ $modulePresets[$modulePresetKey]['label'] ?? 'Full Fitur' }}
+                                </span>
                             </div>
                             <p class="text-sm text-gray-500 mb-2">{{ $plan->slug }} • {{ $plan->formatted_price }} • {{ $plan->duration_days == 0 ? 'Lifetime' : $plan->duration_days . ' hari' }}</p>
                             <div class="text-sm text-gray-600 plan-description">{!! $plan->description ?? '-' !!}</div>
@@ -84,6 +93,9 @@
                                 <span class="font-medium ml-1">{{ $plan->essay_ai_limit_text }}</span>
                             </div>
                         </div>
+                        <p class="mt-3 text-xs text-gray-500">
+                            {{ $enabledModuleFeatures }} dari {{ count($moduleAccess) }} fitur modul aktif.
+                        </p>
                         @php
                             $planFeatures = array_merge([
                                 'affiliate_enabled' => false,
