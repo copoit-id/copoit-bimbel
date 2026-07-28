@@ -13,6 +13,7 @@ $canShowPackage = $planModules->allows('package');
 $canShowMaterial = $planModules->allows('material');
 $canShowTryout = $planModules->allows('tryout');
 $canShowPayments = $planModules->allows('pembayaran');
+$canShowSchedule = $planModules->allows('schedule');
 $canShowClass = $planModules->allows('class');
 $canShowGeneralPage = $planModules->allows('general_page');
 $showStatisticsDashboard = ($showStatisticsDashboard ?? false) && $canShowGeneralPage;
@@ -31,7 +32,7 @@ $totalAnswered = $totalAnswered ?? 0;
 $totalCorrect = $totalCorrect ?? 0;
 $accuracyPercent = $accuracyPercent ?? 0;
 $hasUnpaid = $canShowPayments && $unpaidInvoices->isNotEmpty();
-$hasSessions = $canShowClass && $upcomingClassSessions->isNotEmpty();
+$hasSessions = $canShowSchedule && $upcomingClassSessions->isNotEmpty();
 
 // Convert hex primary color to RGB for opacity adjustments
 $primaryHex = str_replace('#', '', $primaryColor);
@@ -302,7 +303,7 @@ $primaryRgb = "$r, $g, $b";
             </div>
             <div>
                 <h3 class="font-bold text-gray-800 text-lg">Jadwal Terdekat</h3>
-                <p class="text-xs text-gray-400">Ikuti kelas tepat waktu & jangan lupa absensi</p>
+                <p class="text-xs text-gray-400">{{ $canShowClass ? 'Ikuti kelas tepat waktu & jangan lupa absensi' : 'Lihat waktu dan lokasi kegiatan belajarmu' }}</p>
             </div>
         </div>
         <a href="{{ route('user.class-schedule.index') }}" class="text-sm font-semibold hover:underline flex items-center gap-1 shrink-0" style="color: {{ $primaryColor }}">
@@ -337,20 +338,24 @@ $primaryRgb = "$r, $g, $b";
                         </span>
                         <?php endforeach; ?>
                         
-                        <?php if ($session->meeting_url): ?>
+                        <?php if ($canShowClass && $session->meeting_url): ?>
                         <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-blue-50 text-blue-600 flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                             Online
                         </span>
-                        <?php else: ?>
+                        <?php elseif ($canShowClass): ?>
                         <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-amber-50 text-amber-600 flex items-center gap-1">
                             Offline
+                        </span>
+                        <?php else: ?>
+                        <span class="px-2 py-0.5 text-[9px] font-bold rounded bg-gray-100 text-gray-600 flex items-center gap-1">
+                            Jadwal
                         </span>
                         <?php endif; ?>
                     </div>
                     
                     <h4 class="font-bold text-gray-800 text-sm leading-snug group-hover:text-primary transition-colors truncate max-w-sm md:max-w-md">
-                        {{ $session->class->title ?? 'Kelas' }}
+                        {{ $session->schedule?->title ?? $session->class?->title ?? 'Jadwal Belajar' }}
                     </h4>
                     
                     <div class="flex items-center gap-2.5 text-xs text-gray-500 flex-wrap">
@@ -363,18 +368,25 @@ $primaryRgb = "$r, $g, $b";
                             <i class="ri-time-line mr-1 text-gray-400"></i>
                             {{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' - ' . $session->end_at->format('H:i') : '' }} WIB
                         </span>
+                        @if($session->location)
+                            <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                            <span class="flex items-center">
+                                <i class="ri-map-pin-line mr-1 text-gray-400"></i>
+                                {{ $session->location }}
+                            </span>
+                        @endif
                     </div>
                 </div>
             </div>
             
             <!-- Actions -->
             <div class="flex items-center gap-2.5 self-start sm:self-center w-full sm:w-auto shrink-0 sm:justify-end">
-                <?php if ($attendance): ?>
+                <?php if ($canShowClass && $attendance): ?>
                     <span class="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 rounded-xl flex items-center gap-1 shrink-0">
                         <i class="ri-checkbox-circle-fill text-base text-green-500"></i>
                         Hadir
                     </span>
-                <?php elseif ($canAttend): ?>
+                <?php elseif ($canShowClass && $canAttend): ?>
                     <?php if (($setting?->mode ?? 'button') === 'button'): ?>
                         <form method="POST" action="{{ route('user.class-schedule.attend', $session) }}" class="w-full sm:w-auto shrink-0">
                             @csrf
@@ -389,7 +401,7 @@ $primaryRgb = "$r, $g, $b";
                     <?php endif; ?>
                 <?php endif; ?>
                 
-                <?php if ($session->meeting_url): ?>
+                <?php if ($canShowClass && $session->meeting_url): ?>
                     <?php
                         $isLiveNow = now()->between($session->start_at->copy()->subMinutes(15), $session->end_at ?? $session->start_at->copy()->addHours(2));
                     ?>

@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
+use App\Models\DetailPackage;
+use App\Models\Package;
 use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\ClassScheduleService;
+use App\Services\PlanModuleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +20,29 @@ use Illuminate\View\View;
 
 class ClassScheduleController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, PlanModuleService $planModules): View
     {
         $activeTab = $request->query('tab', 'schedules');
-        $schedules = ClassSchedule::with(['class.tentor', 'studyGroup.tentor', 'tentor', 'attendanceSetting', 'destinationCategories.parent'])->get();
+        $canUseClass = $planModules->allows('class');
+        $activeTab = $activeTab === 'zoom' && $canUseClass ? 'zoom' : 'schedules';
+        $filteredPackage = $request->integer('package_id')
+            ? Package::query()
+                ->whereKey($request->integer('package_id'))
+                ->first(['package_id', 'name'])
+            : null;
+        $schedules = ClassSchedule::query()
+            ->with([
+                'class.tentor',
+                'studyGroup.tentor',
+                'tentor',
+                'attendanceSetting',
+                'destinationCategories.parent',
+                'packages:package_id,name',
+            ])
+            ->when($request->integer('package_id'), fn ($query, int $packageId) => $query
+                ->whereHas('packages', fn ($packageQuery) => $packageQuery
+                    ->where('packages.package_id', $packageId)))
+            ->get();
 
         $weeklySchedules = [];
         for ($i = 1; $i <= 7; $i++) {
@@ -30,37 +52,63 @@ class ClassScheduleController extends Controller
                 ->sortBy('start_time');
         }
 
-        $otherSchedules = $schedules->filter(function($s) {
+        $otherSchedules = $schedules->filter(function ($s) {
             return $s->schedule_type !== 'recurring' || $s->frequency !== 'weekly';
         });
 
-        $liveClasses = ClassModel::with('tentor')
-            ->orderBy('schedule_time', 'desc')
-            ->paginate(10, ['*'], 'kelas_page')
-            ->withQueryString();
+        $liveClasses = $canUseClass
+            ? ClassModel::with('tentor')
+                ->orderBy('schedule_time', 'desc')
+                ->paginate(10, ['*'], 'kelas_page')
+                ->withQueryString()
+            : null;
 
-        return view('admin.pages.class-schedule.index', compact('activeTab', 'weeklySchedules', 'otherSchedules', 'liveClasses'));
+        return view('admin.pages.class-schedule.index', compact(
+            'activeTab',
+            'weeklySchedules',
+            'otherSchedules',
+            'liveClasses',
+            'canUseClass',
+            'filteredPackage',
+        ));
     }
 
-    public function create(Request $request): View
+    public function create(Request $request, PlanModuleService $planModules): View
     {
         $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
+        $packages = Package::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['package_id', 'name']);
         $studyGroups = StudyGroup::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'tentor_id']);
         $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
         $preselectedDay = $request->query('day_of_week', 1);
+        $preselectedPackageId = $request->integer('package_id') ?: null;
+        $canUseClass = $planModules->allows('class');
 
-        return view('admin.pages.class-schedule.create', compact('classes', 'studyGroups', 'tentors', 'preselectedDay'));
+        return view('admin.pages.class-schedule.create', compact(
+            'classes',
+            'packages',
+            'studyGroups',
+            'tentors',
+            'preselectedDay',
+            'preselectedPackageId',
+            'canUseClass',
+        ));
     }
 
-    public function store(Request $request, ClassScheduleService $scheduleService): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        ClassScheduleService $scheduleService,
+        PlanModuleService $planModules
+    ): RedirectResponse {
         // Auto-assign or create default class if class_id is missing
-        if (!$request->has('class_id') || empty($request->input('class_id'))) {
+        if (! $request->has('class_id') || empty($request->input('class_id'))) {
             $defaultClass = ClassModel::first();
-            if (!$defaultClass) {
+            if (! $defaultClass) {
                 $defaultClass = ClassModel::create([
                     'title' => 'Kelas Umum',
                     'schedule_time' => now(),
@@ -72,13 +120,13 @@ class ClassScheduleController extends Controller
         }
 
         // Auto-assign default schedule values for weekly recurring
-        if (!$request->has('schedule_type')) {
+        if (! $request->has('schedule_type')) {
             $request->merge(['schedule_type' => 'recurring']);
         }
-        if (!$request->has('frequency')) {
+        if (! $request->has('frequency')) {
             $request->merge(['frequency' => 'weekly']);
         }
-        if (!$request->has('start_date')) {
+        if (! $request->has('start_date')) {
             $request->merge(['start_date' => now()->toDateString()]);
         }
 
@@ -102,37 +150,49 @@ class ClassScheduleController extends Controller
             'close_minutes_after' => ['required', 'integer', 'min:0', 'max:1440'],
             'destination_category_ids' => ['nullable', 'array'],
             'destination_category_ids.*' => ['integer', 'exists:participant_destination_categories,id'],
+            'package_ids' => ['nullable', 'array'],
+            'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $schedule = ClassSchedule::create([
-            'class_id' => $validated['class_id'],
-            'study_group_id' => $validated['study_group_id'] ?? null,
-            'tentor_id' => $validated['tentor_id'] ?? null,
-            'title' => $validated['title'],
-            'schedule_type' => $validated['schedule_type'],
-            'frequency' => $validated['schedule_type'] === 'recurring' ? ($validated['frequency'] ?? null) : null,
-            'day_of_week' => ($validated['frequency'] ?? null) === 'weekly' ? ($validated['day_of_week'] ?? null) : null,
-            'day_of_month' => ($validated['frequency'] ?? null) === 'monthly' ? ($validated['day_of_month'] ?? null) : null,
-            'start_time' => $validated['start_time'],
-            'end_time' => $validated['end_time'] ?? null,
-            'start_date' => $validated['start_date'],
-            'end_date' => $validated['end_date'] ?? null,
-            'meeting_url' => $validated['meeting_url'] ?? null,
-            'location' => $validated['location'] ?? null,
-            'is_active' => $request->boolean('is_active', true),
-            'created_by' => $request->user()?->id,
-        ]);
+        $canUseClass = $planModules->allows('class');
 
-        $schedule->attendanceSetting()->create([
-            'mode' => $validated['attendance_mode'],
-            'open_minutes_before' => $validated['open_minutes_before'],
-            'close_minutes_after' => $validated['close_minutes_after'],
-            'allow_admin_override' => true,
-        ]);
-        $schedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
+        DB::transaction(function () use (
+            $request,
+            $validated,
+            $scheduleService,
+            $canUseClass
+        ): void {
+            $schedule = ClassSchedule::create([
+                'class_id' => $validated['class_id'],
+                'study_group_id' => $validated['study_group_id'] ?? null,
+                'tentor_id' => $validated['tentor_id'] ?? null,
+                'title' => $validated['title'],
+                'schedule_type' => $validated['schedule_type'],
+                'frequency' => $validated['schedule_type'] === 'recurring' ? ($validated['frequency'] ?? null) : null,
+                'day_of_week' => ($validated['frequency'] ?? null) === 'weekly' ? ($validated['day_of_week'] ?? null) : null,
+                'day_of_month' => ($validated['frequency'] ?? null) === 'monthly' ? ($validated['day_of_month'] ?? null) : null,
+                'start_time' => $validated['start_time'],
+                'end_time' => $validated['end_time'] ?? null,
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'] ?? null,
+                'meeting_url' => $canUseClass ? ($validated['meeting_url'] ?? null) : null,
+                'location' => $validated['location'] ?? null,
+                'is_active' => $request->boolean('is_active', true),
+                'created_by' => $request->user()?->id,
+            ]);
 
-        $scheduleService->generateSessions($schedule);
+            $schedule->attendanceSetting()->create([
+                'mode' => $canUseClass ? $validated['attendance_mode'] : 'button',
+                'open_minutes_before' => $canUseClass ? $validated['open_minutes_before'] : 15,
+                'close_minutes_after' => $canUseClass ? $validated['close_minutes_after'] : 30,
+                'allow_admin_override' => true,
+            ]);
+            $schedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
+            $this->syncPackages($schedule, $validated['package_ids'] ?? []);
+
+            $scheduleService->generateSessions($schedule);
+        });
 
         return redirect()
             ->route('admin.class-schedules.index')
@@ -156,14 +216,14 @@ class ClassScheduleController extends Controller
                 ->first();
         }
 
-        if (!$selectedSession && $request->filled('date') && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->input('date'))) {
+        if (! $selectedSession && $request->filled('date') && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->input('date'))) {
             $selectedSession = $classSchedule->sessions()
                 ->whereDate('session_date', $request->input('date'))
                 ->orderBy('start_at')
                 ->first();
         }
 
-        if (!$selectedSession) {
+        if (! $selectedSession) {
             $selectedSession = $classSchedule->sessions()
                 ->whereDate('session_date', now()->toDateString())
                 ->orderBy('start_at')
@@ -195,10 +255,18 @@ class ClassScheduleController extends Controller
         ));
     }
 
-    public function edit(ClassSchedule $classSchedule): View
+    public function edit(ClassSchedule $classSchedule, PlanModuleService $planModules): View
     {
-        $classSchedule->load(['class', 'tentor', 'attendanceSetting', 'destinationCategories']);
+        $classSchedule->load(['class', 'tentor', 'attendanceSetting', 'destinationCategories', 'packages']);
         $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
+        $selectedPackageIds = $classSchedule->packages->pluck('package_id');
+        $packages = Package::query()
+            ->where(function ($query) use ($selectedPackageIds): void {
+                $query->where('status', 'active')
+                    ->orWhereIn('package_id', $selectedPackageIds);
+            })
+            ->orderBy('name')
+            ->get(['package_id', 'name']);
         $studyGroups = StudyGroup::query()
             ->where('is_active', true)
             ->orWhere('id', $classSchedule->study_group_id)
@@ -210,22 +278,35 @@ class ClassScheduleController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'expertise']);
         $preselectedDay = $classSchedule->day_of_week ?: 1;
+        $canUseClass = $planModules->allows('class');
 
-        return view('admin.pages.class-schedule.edit', compact('classSchedule', 'classes', 'studyGroups', 'tentors', 'preselectedDay'));
+        return view('admin.pages.class-schedule.edit', compact(
+            'classSchedule',
+            'classes',
+            'packages',
+            'studyGroups',
+            'tentors',
+            'preselectedDay',
+            'canUseClass',
+        ));
     }
 
-    public function update(Request $request, ClassSchedule $classSchedule, ClassScheduleService $scheduleService): RedirectResponse
-    {
-        if (!$request->has('class_id') || empty($request->input('class_id'))) {
+    public function update(
+        Request $request,
+        ClassSchedule $classSchedule,
+        ClassScheduleService $scheduleService,
+        PlanModuleService $planModules
+    ): RedirectResponse {
+        if (! $request->has('class_id') || empty($request->input('class_id'))) {
             $request->merge(['class_id' => $classSchedule->class_id]);
         }
-        if (!$request->has('schedule_type')) {
+        if (! $request->has('schedule_type')) {
             $request->merge(['schedule_type' => $classSchedule->schedule_type ?: 'recurring']);
         }
-        if (!$request->has('frequency')) {
+        if (! $request->has('frequency')) {
             $request->merge(['frequency' => $classSchedule->frequency ?: 'weekly']);
         }
-        if (!$request->has('start_date')) {
+        if (! $request->has('start_date')) {
             $request->merge(['start_date' => $classSchedule->start_date?->toDateString() ?: now()->toDateString()]);
         }
 
@@ -249,10 +330,14 @@ class ClassScheduleController extends Controller
             'close_minutes_after' => ['required', 'integer', 'min:0', 'max:1440'],
             'destination_category_ids' => ['nullable', 'array'],
             'destination_category_ids.*' => ['integer', 'exists:participant_destination_categories,id'],
+            'package_ids' => ['nullable', 'array'],
+            'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        DB::transaction(function () use ($request, $validated, $classSchedule, $scheduleService): void {
+        $canUseClass = $planModules->allows('class');
+
+        DB::transaction(function () use ($request, $validated, $classSchedule, $scheduleService, $canUseClass): void {
             $classSchedule->update([
                 'class_id' => $validated['class_id'],
                 'study_group_id' => $validated['study_group_id'] ?? null,
@@ -266,7 +351,9 @@ class ClassScheduleController extends Controller
                 'end_time' => $validated['end_time'] ?? null,
                 'start_date' => $validated['start_date'],
                 'end_date' => $validated['end_date'] ?? null,
-                'meeting_url' => $validated['meeting_url'] ?? null,
+                'meeting_url' => $canUseClass
+                    ? ($validated['meeting_url'] ?? null)
+                    : $classSchedule->meeting_url,
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active'),
             ]);
@@ -274,14 +361,15 @@ class ClassScheduleController extends Controller
             $classSchedule->attendanceSetting()->updateOrCreate(
                 ['class_schedule_id' => $classSchedule->id],
                 [
-                    'mode' => $validated['attendance_mode'],
-                    'open_minutes_before' => $validated['open_minutes_before'],
-                    'close_minutes_after' => $validated['close_minutes_after'],
+                    'mode' => $canUseClass ? $validated['attendance_mode'] : 'button',
+                    'open_minutes_before' => $canUseClass ? $validated['open_minutes_before'] : 15,
+                    'close_minutes_after' => $canUseClass ? $validated['close_minutes_after'] : 30,
                     'allow_admin_override' => true,
                 ]
             );
 
             $classSchedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
+            $this->syncPackages($classSchedule, $validated['package_ids'] ?? []);
             $classSchedule->sessions()
                 ->where('start_at', '>=', now())
                 ->whereDoesntHave('attendances')
@@ -298,6 +386,7 @@ class ClassScheduleController extends Controller
     public function destroy(ClassSchedule $classSchedule): RedirectResponse
     {
         $classSchedule->delete();
+
         return redirect()
             ->route('admin.class-schedules.index')
             ->with('success', 'Jadwal kelas berhasil dihapus.');
@@ -322,5 +411,52 @@ class ClassScheduleController extends Controller
         $session->update($validated);
 
         return back()->with('success', 'Data sesi kelas berhasil diperbarui.');
+    }
+
+    /**
+     * @param  array<int, int|string>  $packageIds
+     */
+    private function syncPackages(ClassSchedule $schedule, array $packageIds): void
+    {
+        $normalizedIds = collect($packageIds)
+            ->map(fn ($packageId): int => (int) $packageId)
+            ->filter()
+            ->unique()
+            ->values();
+        $type = $schedule->getMorphClass();
+
+        $existingQuery = DetailPackage::query()
+            ->where('detailable_type', $type)
+            ->where('detailable_id', $schedule->id);
+
+        if ($normalizedIds->isEmpty()) {
+            $existingQuery->delete();
+
+            return;
+        }
+
+        (clone $existingQuery)
+            ->whereNotIn('package_id', $normalizedIds)
+            ->delete();
+
+        $existingPackageIds = $existingQuery
+            ->whereIn('package_id', $normalizedIds)
+            ->pluck('package_id');
+        $now = now();
+        $rows = $normalizedIds
+            ->diff($existingPackageIds)
+            ->map(fn (int $packageId): array => [
+                'package_id' => $packageId,
+                'detailable_type' => $type,
+                'detailable_id' => $schedule->id,
+                'order' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            ->all();
+
+        if ($rows !== []) {
+            DetailPackage::query()->insertOrIgnore($rows);
+        }
     }
 }

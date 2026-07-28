@@ -1,30 +1,39 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Jadwal Kelas')
+@section('title', 'Jadwal')
 
 @section('content')
 <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 font-sans tracking-tight">Jadwal & Absensi</h1>
-            <p class="text-sm text-gray-500">Kelola jadwal rutin, jadwal sekali jalan, dan kelas Zoom lama.</p>
+            <h1 class="text-2xl font-bold text-gray-900 font-sans tracking-tight">{{ $canUseClass ? 'Jadwal & Absensi' : 'Jadwal' }}</h1>
+            <p class="text-sm text-gray-500">
+                @if($filteredPackage)
+                    Menampilkan jadwal untuk paket <span class="font-semibold text-gray-700">{{ $filteredPackage->name }}</span>.
+                    <a href="{{ route('admin.class-schedules.index') }}" class="font-semibold text-primary hover:underline">Tampilkan semua</a>
+                @else
+                    {{ $canUseClass ? 'Kelola jadwal rutin, absensi, dan kelas Zoom.' : 'Kelola jadwal rutin atau sekali jalan untuk setiap paket.' }}
+                @endif
+            </p>
         </div>
         @if($activeTab === 'zoom')
             <x-btn title="Tambah Kelas Zoom" route="{{ route('admin.class.create') }}" icon="ri-add-fill"></x-btn>
         @else
-            <x-btn title="Tambah Jadwal" route="{{ route('admin.class-schedules.create') }}" icon="ri-add-fill"></x-btn>
+            <x-btn title="Tambah Jadwal" route="{{ route('admin.class-schedules.create', request()->only('package_id')) }}" icon="ri-add-fill"></x-btn>
         @endif
     </div>
 
     <div class="flex justify-start border-b border-gray-200 overflow-x-auto">
         <a href="{{ route('admin.class-schedules.index', ['tab' => 'schedules']) }}"
             class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'schedules' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-            Jadwal & Absensi
+            {{ $canUseClass ? 'Jadwal & Absensi' : 'Jadwal' }}
         </a>
-        <a href="{{ route('admin.class-schedules.index', ['tab' => 'zoom']) }}"
-            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'zoom' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-            Kelas Zoom
-        </a>
+        @if($canUseClass)
+            <a href="{{ route('admin.class-schedules.index', ['tab' => 'zoom']) }}"
+                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'zoom' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
+                Kelas Zoom
+            </a>
+        @endif
     </div>
 
     @if (session('success'))
@@ -61,7 +70,7 @@
                 <!-- Day Header -->
                 <div class="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-gray-50 text-gray-800">
                     <span class="font-bold text-sm tracking-wide">{{ $dayInfo['label'] }}</span>
-                    <a href="{{ route('admin.class-schedules.create', ['day_of_week' => $dayNum]) }}" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-250 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200">
+                    <a href="{{ route('admin.class-schedules.create', array_filter(['day_of_week' => $dayNum, 'package_id' => request()->integer('package_id') ?: null])) }}" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-250 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200">
                         <i class="ri-add-line text-sm"></i>
                     </a>
                 </div>
@@ -94,6 +103,12 @@
                                         {{ $schedule->studyGroup->name }}
                                     </span>
                                 @endif
+                                @if($schedule->packages->isNotEmpty())
+                                    <span class="text-[11px] text-gray-500 flex items-start gap-1">
+                                        <i class="ri-price-tag-3-line mt-0.5"></i>
+                                        <span>{{ $schedule->packages->pluck('name')->join(', ') }}</span>
+                                    </span>
+                                @endif
                                 <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
                                 @if($tentorName)
                                     <span class="text-[11px] text-gray-500 flex items-center gap-1">
@@ -106,12 +121,14 @@
                             <!-- Actions -->
                             <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2 text-xs">
                                 <div class="flex items-center gap-1.5">
-                                    <a href="{{ route('admin.class-schedules.show', $schedule) }}"
-                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
-                                        title="Absen" aria-label="Absen">
-                                        <i class="ri-eye-line text-base"></i>
-                                        <span class="sr-only">Absen</span>
-                                    </a>
+                                    @if($canUseClass)
+                                        <a href="{{ route('admin.class-schedules.show', $schedule) }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                            title="Absensi" aria-label="Absensi">
+                                            <i class="ri-eye-line text-base"></i>
+                                            <span class="sr-only">Absensi</span>
+                                        </a>
+                                    @endif
                                     <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
                                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
                                         title="Edit" aria-label="Edit">
@@ -168,6 +185,9 @@
                                     @if($schedule->studyGroup)
                                         <p class="text-xs text-gray-500">Rombel: {{ $schedule->studyGroup->name }}</p>
                                     @endif
+                                    @if($schedule->packages->isNotEmpty())
+                                        <p class="text-xs text-gray-500">Paket: {{ $schedule->packages->pluck('name')->join(', ') }}</p>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
@@ -177,12 +197,14 @@
                                 <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-1.5">
-                                        <a href="{{ route('admin.class-schedules.show', $schedule) }}"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
-                                            title="Absen" aria-label="Absen">
-                                            <i class="ri-eye-line text-base"></i>
-                                            <span class="sr-only">Absen</span>
-                                        </a>
+                                        @if($canUseClass)
+                                            <a href="{{ route('admin.class-schedules.show', $schedule) }}"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
+                                                title="Absensi" aria-label="Absensi">
+                                                <i class="ri-eye-line text-base"></i>
+                                                <span class="sr-only">Absensi</span>
+                                            </a>
+                                        @endif
                                         <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
                                             class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
                                             title="Edit" aria-label="Edit">

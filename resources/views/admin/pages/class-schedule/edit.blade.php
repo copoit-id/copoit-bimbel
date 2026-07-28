@@ -1,15 +1,19 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Edit Jadwal Kelas')
+@section('title', 'Edit Jadwal')
 
 @section('content')
+@php
+    $selectedPackageIds = collect(old('package_ids', $classSchedule->packages->pluck('package_id')->all()))
+        ->map(fn ($id) => (int) $id);
+@endphp
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Edit Jadwal Kelas</h1>
-        <p class="text-sm text-gray-500">Perbarui rombel, hari, jam, dan metode absensi jadwal ini.</p>
+        <h1 class="text-2xl font-bold text-gray-900">Edit Jadwal</h1>
+        <p class="text-sm text-gray-500">Perbarui waktu dan paket peserta yang dapat melihat jadwal ini.</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.class-schedules.update', $classSchedule) }}" class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <form method="POST" action="{{ route('admin.class-schedules.update', $classSchedule) }}" class="rounded-lg border border-gray-200 bg-white p-6">
         @csrf
         @method('PUT')
 
@@ -24,7 +28,29 @@
         <div class="grid gap-5 md:grid-cols-2" x-data="{ scheduleType: '{{ old('schedule_type', $classSchedule->schedule_type ?: 'recurring') }}' }">
             <div class="md:col-span-2">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nama Jadwal</label>
-                <input type="text" name="title" value="{{ old('title', $classSchedule->title) }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: Kelas UTBK Senin Malam">
+                <input type="text" name="title" value="{{ old('title', $classSchedule->title) }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: Bimbel Reguler Senin Sore">
+            </div>
+
+            <div class="md:col-span-2">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Tersedia untuk Paket</label>
+                        <p class="mt-1 text-xs text-gray-500">Siswa dengan salah satu paket terpilih dan akses aktif dapat melihat jadwal.</p>
+                    </div>
+                    <span class="text-xs text-gray-400">Opsional</span>
+                </div>
+                <div class="grid max-h-52 gap-2 overflow-y-auto rounded-lg border border-gray-200 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                    @forelse($packages as $package)
+                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5 hover:border-primary/30 hover:bg-primary/5">
+                            <input type="checkbox" name="package_ids[]" value="{{ $package->package_id }}"
+                                @checked($selectedPackageIds->contains((int) $package->package_id))
+                                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span class="text-sm text-gray-700">{{ $package->name }}</span>
+                        </label>
+                    @empty
+                        <p class="py-3 text-sm text-gray-500 sm:col-span-2 lg:col-span-3">Belum ada paket aktif. Jadwal tetap dapat ditujukan melalui rombel.</p>
+                    @endforelse
+                </div>
             </div>
 
             <div>
@@ -90,29 +116,35 @@
                 <input type="time" name="end_time" value="{{ old('end_time', $classSchedule->end_time ? substr((string) $classSchedule->end_time, 0, 5) : '') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
-            <div class="md:col-span-2">
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>
-                <input type="url" name="meeting_url" value="{{ old('meeting_url', $classSchedule->meeting_url) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://zoom.us/...">
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Metode Absensi</label>
-                <select name="attendance_mode" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="button" @selected(old('attendance_mode', $classSchedule->attendanceSetting?->mode ?? 'button') === 'button')>Tombol saja</option>
-                    <option value="photo" @selected(old('attendance_mode', $classSchedule->attendanceSetting?->mode ?? 'button') === 'photo')>Wajib foto</option>
-                </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi dibuka sebelum jam mulai kelas">Buka sebelum (menit)</label>
-                    <input type="number" name="open_minutes_before" value="{{ old('open_minutes_before', $classSchedule->attendanceSetting?->open_minutes_before ?? 15) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+            @if($canUseClass)
+                <div class="md:col-span-2">
+                    <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>
+                    <input type="url" name="meeting_url" value="{{ old('meeting_url', $classSchedule->meeting_url) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://zoom.us/...">
                 </div>
+
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi ditutup setelah jam mulai kelas">Tutup setelah (menit)</label>
-                    <input type="number" name="close_minutes_after" value="{{ old('close_minutes_after', $classSchedule->attendanceSetting?->close_minutes_after ?? 30) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <label class="mb-2 block text-sm font-semibold text-gray-700">Metode Absensi</label>
+                    <select name="attendance_mode" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="button" @selected(old('attendance_mode', $classSchedule->attendanceSetting?->mode ?? 'button') === 'button')>Tombol saja</option>
+                        <option value="photo" @selected(old('attendance_mode', $classSchedule->attendanceSetting?->mode ?? 'button') === 'photo')>Wajib foto</option>
+                    </select>
                 </div>
-            </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi dibuka sebelum jam mulai kelas">Buka sebelum (menit)</label>
+                        <input type="number" name="open_minutes_before" value="{{ old('open_minutes_before', $classSchedule->attendanceSetting?->open_minutes_before ?? 15) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi ditutup setelah jam mulai kelas">Tutup setelah (menit)</label>
+                        <input type="number" name="close_minutes_after" value="{{ old('close_minutes_after', $classSchedule->attendanceSetting?->close_minutes_after ?? 30) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                </div>
+            @else
+                <input type="hidden" name="attendance_mode" value="button">
+                <input type="hidden" name="open_minutes_before" value="15">
+                <input type="hidden" name="close_minutes_after" value="30">
+            @endif
         </div>
 
         <label class="mt-5 flex items-center gap-2 text-sm text-gray-700">

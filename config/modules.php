@@ -27,9 +27,8 @@ return [
         ],
         'cbt' => [
             'label' => 'CAT / CBT',
-            'description' => 'Paket ujian, bank soal, tryout, hasil, dan fitur evaluasi.',
+            'description' => 'Bank soal, tryout, hasil, dan fitur evaluasi.',
             'features' => [
-                'package',
                 'question_import',
                 'ai_question_generator',
                 'question_bank',
@@ -46,9 +45,11 @@ return [
             ],
         ],
         'administration' => [
-            'label' => 'Administrasi',
-            'description' => 'Kelas, tutor, absensi, tagihan, pembayaran, dan keuangan.',
+            'label' => 'Administrasi & Operasional',
+            'description' => 'Paket, jadwal, kelas, tutor, absensi, tagihan, pembayaran, dan keuangan.',
             'features' => [
+                'package',
+                'schedule',
                 'class',
                 'tentor',
                 'tutor_payroll',
@@ -75,10 +76,23 @@ return [
     ],
 
     'presets' => [
+        'package_only' => [
+            'label' => 'Paket Only',
+            'description' => 'Katalog, pembelian, dan masa aktif paket tanpa kelas maupun CBT.',
+            'groups' => ['core'],
+            'features' => ['package'],
+        ],
+        'package_schedule' => [
+            'label' => 'Paket + Jadwal',
+            'description' => 'Paket dan jadwal belajar tanpa fitur kelas maupun CBT.',
+            'groups' => ['core'],
+            'features' => ['package', 'schedule'],
+        ],
         'cbt_only' => [
             'label' => 'CAT / CBT Only',
             'description' => 'Fitur inti dan seluruh kebutuhan CAT/CBT.',
             'groups' => ['core', 'cbt'],
+            'features' => ['package'],
         ],
         'administration_only' => [
             'label' => 'Administrasi Only',
@@ -136,13 +150,15 @@ return [
             'user.material.',
             'admin.package.material.',
         ],
+        'schedule' => [
+            'user.class-schedule.',
+            'tutor.schedule.',
+        ],
         'class' => [
             'admin.class-sessions.',
             'admin.package.class.',
-            'tutor.schedule.',
             'tutor.attendance.',
             'user.class.',
-            'user.class-schedule.',
         ],
         'discussion' => [
             'tutor.chat.',
@@ -178,5 +194,6 @@ return [
     'labels' => [
         'event' => 'Event Gratis',
         'ai_learning' => 'AI Learning Tools',
+        'schedule' => 'Jadwal',
     ],
 ];

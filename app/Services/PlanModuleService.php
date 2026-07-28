@@ -24,7 +24,7 @@ class PlanModuleService
     }
 
     /**
-     * @return array<string, array{label: string, description: string, groups: array<int, string>}>
+     * @return array<string, array{label: string, description: string, groups: array<int, string>, features?: array<int, string>}>
      */
     public function presets(): array
     {
@@ -84,6 +84,12 @@ class PlanModuleService
                 if (array_key_exists($feature, $access)) {
                     $access[$feature] = true;
                 }
+            }
+        }
+
+        foreach ((array) ($presetConfig['features'] ?? []) as $feature) {
+            if (is_string($feature) && array_key_exists($feature, $access)) {
+                $access[$feature] = true;
             }
         }
 

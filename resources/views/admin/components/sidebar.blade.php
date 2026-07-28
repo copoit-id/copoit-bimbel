@@ -13,6 +13,7 @@
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
     $permissionSlugs = $authUser?->getEffectivePermissionSlugs() ?? [];
     $planModules = app(\App\Services\PlanModuleService::class);
+    $canUseClassModule = $planModules->allows('class');
     $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
     $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs, $planModules): bool {
         if ($isSuperAdmin) {
@@ -42,7 +43,7 @@
         && $canFeatureView('affiliate')
         && $adminRouteExists('admin.affiliate.index');
     $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
-        && $canFeatureView('class')
+        && $canFeatureView('schedule')
         && $adminRouteExists('admin.class-schedules.index');
     $canShowClassZoomMenu = $canFeatureView('class')
         && $adminRouteExists('admin.class.index');
@@ -63,8 +64,11 @@
     $canShowUpdateNotificationsMenu = $canFeatureView('update_notification')
         && $adminRouteExists('admin.update-notifications.index');
     $canShowTutorScheduleMenu = $isTutor
-        && $planModules->allows('class')
+        && $planModules->allows('schedule')
         && $adminRouteExists('tutor.schedule.index');
+    $canShowTutorAttendanceMenu = $canShowTutorScheduleMenu
+        && $planModules->allows('class')
+        && $adminRouteExists('tutor.attendance.index');
     $canShowMasterMenu = $canFeatureView('package')
         || $canFeatureView('tryout')
         || $canShowStudyGroupMenu
@@ -140,10 +144,12 @@
                     @if($canFeatureView('tes_koran'))<li><a href="{{ route('admin.tes-koran.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isTesKoranActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Tes Koran</span></a></li>@endif
                 </ul></details></li>
             @endif
-            @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 px-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isClassScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal & Absensi</span></a></li>@endif
+            @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 px-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isClassScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">{{ $canUseClassModule ? 'Jadwal & Absensi' : 'Jadwal' }}</span></a></li>@endif
             @if($canShowTutorScheduleMenu)
                 <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
+                @if($canShowTutorAttendanceMenu)
                 <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
+                @endif
             @endif
             @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Bank Soal</span></a></li>@endif
             @if($canShowCategoryMenu)

@@ -16,11 +16,12 @@ class ClassAttendanceParticipantService
             'class.packages',
             'studyGroup.users',
             'schedule.destinationCategories.children',
+            'schedule.packages',
         ]);
 
         $categoryIds = $this->destinationCategoryIds($session);
 
-        if (!empty($categoryIds)) {
+        if (! empty($categoryIds)) {
             return User::query()
                 ->where('role', 'user')
                 ->whereIn('participant_destination_category_id', $categoryIds)
@@ -35,7 +36,12 @@ class ClassAttendanceParticipantService
                 ->values();
         }
 
-        $packageIds = $session->class?->packages()->pluck('packages.package_id') ?? collect();
+        $schedulePackageIds = $session->schedule->packages->pluck('package_id');
+        $packageIds = ($schedulePackageIds->isNotEmpty()
+            ? $schedulePackageIds
+            : ($session->class?->packages?->pluck('package_id') ?? collect()))
+            ->unique()
+            ->values();
 
         if ($packageIds->isEmpty()) {
             return collect();

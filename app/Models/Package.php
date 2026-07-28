@@ -4,13 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Package extends Model
 {
     use HasFactory;
 
     protected $guarded = ['package_id'];
+
     protected $primaryKey = 'package_id';
+
     protected $casts = [
         'is_active' => 'boolean',
         'is_displayed' => 'boolean',
@@ -49,6 +52,20 @@ class Package extends Model
         )->where('detail_packages.detailable_type', ClassModel::class);
     }
 
+    public function schedules(): BelongsToMany
+    {
+        $schedule = new ClassSchedule;
+
+        return $this->belongsToMany(
+            ClassSchedule::class,
+            'detail_packages',
+            'package_id',
+            'detailable_id',
+            'package_id',
+            'id'
+        )->wherePivot('detailable_type', $schedule->getMorphClass());
+    }
+
     // Other relationships
     public function userAccess()
     {
@@ -75,7 +92,7 @@ class Package extends Model
     // Accessors
     public function getFormattedPriceAttribute()
     {
-        return 'Rp ' . number_format($this->price, 0, ',', '.');
+        return 'Rp '.number_format($this->price, 0, ',', '.');
     }
 
     public function getDurationTextAttribute()
@@ -92,7 +109,7 @@ class Package extends Model
             default => 'Hari',
         };
 
-        return ((int) $this->access_duration_value) . ' ' . $unitLabel;
+        return ((int) $this->access_duration_value).' '.$unitLabel;
     }
 
     // Scopes

@@ -2,8 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Models\Plan;
 use App\Http\Middleware\EnsurePlanFeatureEnabled;
+use App\Models\Plan;
 use App\Services\PlanModuleService;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -27,14 +27,26 @@ class PlanModuleServiceTest extends TestCase
     public function test_it_builds_the_expected_module_presets(): void
     {
         $service = app(PlanModuleService::class);
+        $packageOnly = $service->presetAccess('package_only');
+        $packageSchedule = $service->presetAccess('package_schedule');
         $cbt = $service->presetAccess('cbt_only');
         $administration = $service->presetAccess('administration_only');
         $standard = $service->presetAccess('standard');
         $full = $service->presetAccess('full');
 
+        $this->assertTrue($packageOnly['package']);
+        $this->assertFalse($packageOnly['schedule']);
+        $this->assertFalse($packageOnly['class']);
+        $this->assertTrue($packageSchedule['package']);
+        $this->assertTrue($packageSchedule['schedule']);
+        $this->assertFalse($packageSchedule['class']);
+        $this->assertFalse($packageSchedule['tryout']);
         $this->assertTrue($cbt['tryout']);
+        $this->assertTrue($cbt['package']);
         $this->assertFalse($cbt['finance']);
         $this->assertTrue($administration['finance']);
+        $this->assertTrue($administration['package']);
+        $this->assertTrue($administration['schedule']);
         $this->assertFalse($administration['tryout']);
         $this->assertTrue($standard['tryout']);
         $this->assertTrue($standard['finance']);
@@ -49,6 +61,9 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('tryout', $service->featureForRoute('admin.package.tryout.index'));
         $this->assertSame('material', $service->featureForRoute('admin.package.material.index'));
         $this->assertSame('class', $service->featureForRoute('admin.package.class.index'));
+        $this->assertSame('schedule', $service->featureForRoute('admin.class-schedules.index'));
+        $this->assertSame('schedule', $service->featureForRoute('user.class-schedule.index'));
+        $this->assertSame('schedule', $service->featureForRoute('tutor.schedule.index'));
         $this->assertSame('tes_koran', $service->featureForRoute('admin.package.tes-koran.index'));
         $this->assertSame('certification', $service->featureForRoute('user.package.sertifikasi'));
         $this->assertSame('pembayaran', $service->featureForRoute('user.billing.index'));

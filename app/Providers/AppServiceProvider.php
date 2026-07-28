@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\ClassSchedule;
 use App\Models\ClientProfile;
 use App\Models\Role;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Support\MailSafety;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Relation::morphMap([
+            'schedule' => ClassSchedule::class,
+        ]);
+
         // Console jobs and unauthenticated requests fall back to the admin portal.
         // SetPanelUrlDefaults replaces this per authenticated web request.
         URL::defaults(['portal' => 'admin']);

@@ -222,7 +222,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
     Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
-    Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])->name('user.class-schedule.attend');
+    Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
+        ->middleware('module:class')
+        ->name('user.class-schedule.attend');
 
     Route::prefix('tryout')->group(function () {
         Route::get('/{id_package}/{id_tryout}/lobby', [TryoutController::class, 'indexLobby'])->name('user.tryout.lobby');
@@ -320,11 +322,13 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         ->middleware('throttle:120,1')
         ->name('chat.read');
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
-    Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
-    Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
-    Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
-    Route::post('absensi/{session}/saya', [TutorDashboardController::class, 'markOwnAttendance'])->name('attendance.mark');
-    Route::post('absensi/{session}/siswa', [TutorDashboardController::class, 'markStudentAttendance'])->name('attendance.students.mark');
+    Route::middleware('module:class')->group(function () {
+        Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
+        Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
+        Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
+        Route::post('absensi/{session}/saya', [TutorDashboardController::class, 'markOwnAttendance'])->name('attendance.mark');
+        Route::post('absensi/{session}/siswa', [TutorDashboardController::class, 'markStudentAttendance'])->name('attendance.students.mark');
+    });
 });
 
 // Webhook route (outside auth middleware) - make sure this is correct
@@ -589,14 +593,17 @@ Route::prefix('{portal}')
             ->names('study-groups')
             ->parameters(['rombel' => 'studyGroup']);
         Route::resource('jadwal-kelas', ClassScheduleController::class)
-            ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->names('class-schedules')
             ->parameters(['jadwal-kelas' => 'classSchedule']);
-        Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
-        Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
-        Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
-        Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
-        Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
+        Route::middleware('module:class')->group(function () {
+            Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])->name('class-schedules.show');
+            Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
+            Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
+            Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
+            Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
+            Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
+        });
         Route::get('penggajian-tutor', [TutorPayrollController::class, 'index'])->name('tutor-payrolls.index');
         Route::post('penggajian-tutor/generate', [TutorPayrollController::class, 'generate'])->name('tutor-payrolls.generate');
         Route::post('penggajian-tutor/honor', [TutorPayrollController::class, 'updateHonor'])->name('tutor-payrolls.honor.update');
