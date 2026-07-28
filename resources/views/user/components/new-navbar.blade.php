@@ -7,6 +7,7 @@ $planModules = app(\App\Services\PlanModuleService::class);
 $canShowDashboard = $planModules->allows('dashboard');
 $canShowProfile = $planModules->allows('profile');
 $canShowPackage = $planModules->allows('package');
+$canShowBooking = $planModules->allows('booking') && \Illuminate\Support\Facades\Route::has('user.booking.index');
 $canShowMaterial = $planModules->allows('material');
 $canShowTryout = $planModules->allows('tryout');
 $canShowTesKoran = $planModules->allows('tes_koran');
@@ -15,9 +16,10 @@ $tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTes
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && $planModules->allows('affiliate')
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
-$canShowBimbel = $canShowPackage || $canShowMaterial || $canShowTryout || $canShowAiLearning;
+$canShowBimbel = $canShowPackage || $canShowBooking || $canShowMaterial || $canShowTryout || $canShowAiLearning;
 $bimbelUrl = match (true) {
     $canShowPackage => route('user.package.index'),
+    $canShowBooking => route('user.booking.index'),
     $canShowMaterial => route('user.material.index'),
     $canShowTryout => route('user.package.tryout.list'),
     default => $canShowAiLearning ? route('user.ai-learning.index') : route('landing'),
@@ -28,6 +30,7 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.package.tryout', $currentRoute)
     || isActive('user.tes-koran', $currentRoute)
     || isActive('user.tes-kecermatan', $currentRoute)
+    || isActive('user.booking', $currentRoute)
     || $currentRoute === 'user.package.index'
     || isActive('user.ai-gateway', $currentRoute);
 
@@ -164,6 +167,9 @@ function isActive($route, $current) {
                         @if($canShowPackage || $canShowAiLearning)
                         <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>Paket</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
                         @endif
+                        @if($user && $canShowBooking)
+                        <a href="{{ route('user.booking.index') }}" class="dropdown-item {{ isActive('user.booking', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-schedule-line"></i>Booking Jadwal</a>
+                        @endif
                     </div>
                 </div>
                 @endif
@@ -187,6 +193,11 @@ function isActive($route, $current) {
                         <a href="{{ route('user.package.my') }}?tab=packages" class="dropdown-item">
                             <i class="ri-folder-3-line"></i>Daftar Paket
                         </a>
+                        @if($canShowBooking)
+                        <a href="{{ route('user.booking.index') }}" class="dropdown-item">
+                            <i class="ri-calendar-schedule-line"></i>Booking Jadwal
+                        </a>
+                        @endif
                         <div class="dropdown-divider"></div>
                         <a href="{{ route('user.package.my') }}?tab=videos" class="dropdown-item">
                             <i class="ri-video-line"></i>Video Saya
@@ -243,6 +254,11 @@ function isActive($route, $current) {
                         @if($canShowPackage)
                         <a href="{{ route('user.package.riwayatPembelian') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-history-line mr-2"></i>Riwayat
+                        </a>
+                        @endif
+                        @if($canShowBooking)
+                        <a href="{{ route('user.booking.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="ri-calendar-schedule-line mr-2"></i>Booking Jadwal
                         </a>
                         @endif
                         @if($canShowAffiliateMenu)

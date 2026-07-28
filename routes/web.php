@@ -24,6 +24,7 @@ use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
+use App\Http\Controllers\admin\PackageBookingRuleController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
@@ -55,6 +56,7 @@ use App\Http\Controllers\superadmin\PlanController;
 use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
+use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
@@ -66,6 +68,7 @@ use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\MaterialController;
 use App\Http\Controllers\user\PackageController;
+use App\Http\Controllers\user\ScheduleBookingController as UserScheduleBookingController;
 use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\user\UserBillingController;
@@ -225,6 +228,17 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
         ->middleware('module:class')
         ->name('user.class-schedule.attend');
+    Route::prefix('booking-jadwal')->name('user.booking.')->group(function () {
+        Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
+        Route::post('/', [UserScheduleBookingController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('store');
+        Route::post('/{booking}/terima-usulan', [UserScheduleBookingController::class, 'acceptCounter'])
+            ->middleware('throttle:10,1')
+            ->name('accept-counter');
+        Route::delete('/{booking}', [UserScheduleBookingController::class, 'cancel'])
+            ->name('cancel');
+    });
 
     Route::prefix('tryout')->group(function () {
         Route::get('/{id_package}/{id_tryout}/lobby', [TryoutController::class, 'indexLobby'])->name('user.tryout.lobby');
@@ -322,6 +336,18 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         ->middleware('throttle:120,1')
         ->name('chat.read');
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
+    Route::prefix('booking')->name('booking.')->group(function () {
+        Route::get('/', [TutorScheduleBookingController::class, 'index'])->name('index');
+        Route::post('/{booking}/setujui', [TutorScheduleBookingController::class, 'approve'])
+            ->middleware('throttle:20,1')
+            ->name('approve');
+        Route::post('/{booking}/tolak', [TutorScheduleBookingController::class, 'reject'])
+            ->middleware('throttle:20,1')
+            ->name('reject');
+        Route::post('/{booking}/usulkan-waktu', [TutorScheduleBookingController::class, 'propose'])
+            ->middleware('throttle:20,1')
+            ->name('propose');
+    });
     Route::middleware('module:class')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
         Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
@@ -459,6 +485,10 @@ Route::prefix('{portal}')
         Route::get('/paket/{package_id}/edit', [AdminPackageController::class, 'edit'])->name('package.edit');
         Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
         Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
+        Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
+            ->name('package-booking.edit');
+        Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
+            ->name('package-booking.update');
         Route::resource('diskon', DiscountController::class)
             ->except(['show'])
             ->names('discounts')

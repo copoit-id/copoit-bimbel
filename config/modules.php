@@ -50,6 +50,7 @@ return [
             'features' => [
                 'package',
                 'schedule',
+                'booking',
                 'class',
                 'tentor',
                 'tutor_payroll',
@@ -86,7 +87,7 @@ return [
             'label' => 'Paket + Jadwal',
             'description' => 'Paket dan jadwal belajar tanpa fitur kelas maupun CBT.',
             'groups' => ['core'],
-            'features' => ['package', 'schedule'],
+            'features' => ['package', 'schedule', 'booking'],
         ],
         'cbt_only' => [
             'label' => 'CAT / CBT Only',
@@ -154,6 +155,11 @@ return [
             'user.class-schedule.',
             'tutor.schedule.',
         ],
+        'booking' => [
+            'admin.package-booking.',
+            'user.booking.',
+            'tutor.booking.',
+        ],
         'class' => [
             'admin.class-sessions.',
             'admin.package.class.',
@@ -195,5 +201,6 @@ return [
         'event' => 'Event Gratis',
         'ai_learning' => 'AI Learning Tools',
         'schedule' => 'Jadwal',
+        'booking' => 'Booking Jadwal',
     ],
 ];

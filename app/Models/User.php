@@ -106,6 +106,11 @@ class User extends Authenticatable
         return $this->hasMany(UserPackageAcces::class, 'user_id', 'id');
     }
 
+    public function scheduleBookingRequests()
+    {
+        return $this->hasMany(ScheduleBookingRequest::class, 'user_id');
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class, 'user_id', 'id');

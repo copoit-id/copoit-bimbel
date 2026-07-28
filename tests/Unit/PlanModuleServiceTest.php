@@ -39,6 +39,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertFalse($packageOnly['class']);
         $this->assertTrue($packageSchedule['package']);
         $this->assertTrue($packageSchedule['schedule']);
+        $this->assertTrue($packageSchedule['booking']);
         $this->assertFalse($packageSchedule['class']);
         $this->assertFalse($packageSchedule['tryout']);
         $this->assertTrue($cbt['tryout']);
@@ -64,6 +65,9 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('schedule', $service->featureForRoute('admin.class-schedules.index'));
         $this->assertSame('schedule', $service->featureForRoute('user.class-schedule.index'));
         $this->assertSame('schedule', $service->featureForRoute('tutor.schedule.index'));
+        $this->assertSame('booking', $service->featureForRoute('admin.package-booking.edit'));
+        $this->assertSame('booking', $service->featureForRoute('user.booking.index'));
+        $this->assertSame('booking', $service->featureForRoute('tutor.booking.index'));
         $this->assertSame('tes_koran', $service->featureForRoute('admin.package.tes-koran.index'));
         $this->assertSame('certification', $service->featureForRoute('user.package.sertifikasi'));
         $this->assertSame('pembayaran', $service->featureForRoute('user.billing.index'));

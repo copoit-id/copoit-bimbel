@@ -5,6 +5,7 @@
     $planModules = app(\App\Services\PlanModuleService::class);
     $currentUser = auth()->user();
     $canManageSchedule = $planModules->allows('schedule') && ($currentUser?->hasPermission('schedule', 'view') ?? false);
+    $canManageBooking = $planModules->allows('booking') && ($currentUser?->hasPermission('booking', 'view') ?? false);
     $canManageClass = $planModules->allows('class') && ($currentUser?->hasPermission('class', 'view') ?? false);
     $canManageMaterial = $planModules->allows('material') && ($currentUser?->hasPermission('material', 'view') ?? false);
     $canManageTryout = $planModules->allows('tryout') && ($currentUser?->hasPermission('tryout', 'view') ?? false);
@@ -167,6 +168,13 @@
             </div>
 
             <div class="flex flex-wrap gap-2 mt-4">
+                @if($canManageBooking)
+                <a href="{{ route('admin.package-booking.edit', $package) }}"
+                    class="flex-1 min-w-[5.5rem] inline-flex items-center justify-center gap-1 text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    <i class="ri-calendar-schedule-line"></i>
+                    Booking
+                </a>
+                @endif
                 @if ($package->type_package == 'bimbel')
                 @if($canManageSchedule)
                 <a href="{{ route('admin.class-schedules.index', ['package_id' => $package->package_id]) }}"

@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Package extends Model
 {
@@ -64,6 +66,16 @@ class Package extends Model
             'package_id',
             'id'
         )->wherePivot('detailable_type', $schedule->getMorphClass());
+    }
+
+    public function bookingRule(): HasOne
+    {
+        return $this->hasOne(PackageBookingRule::class, 'package_id', 'package_id');
+    }
+
+    public function bookingRequests(): HasMany
+    {
+        return $this->hasMany(ScheduleBookingRequest::class, 'package_id', 'package_id');
     }
 
     // Other relationships

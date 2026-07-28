@@ -72,6 +72,12 @@ return [
                 'admin.class-schedules.',
             ],
         ],
+        'booking' => [
+            'label' => 'Booking Jadwal',
+            'routes' => [
+                'admin.package-booking.',
+            ],
+        ],
         'class' => [
             'label' => 'Kelas',
             'routes' => [
