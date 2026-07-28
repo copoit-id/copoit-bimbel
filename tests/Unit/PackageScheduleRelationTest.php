@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\ClassSchedule;
 use App\Models\Package;
+use App\Services\PackageScheduleAssignmentService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -61,5 +62,24 @@ class PackageScheduleRelationTest extends TestCase
             'detailable_type' => 'schedule',
             'detailable_id' => $schedule->id,
         ]);
+    }
+
+    public function test_package_schedule_assignment_is_idempotent(): void
+    {
+        $package = Package::query()->create(['name' => 'Paket Pilihan']);
+        $schedule = ClassSchedule::query()->create(['title' => 'Selasa Sore']);
+        $assignmentService = app(PackageScheduleAssignmentService::class);
+
+        $this->assertTrue($assignmentService->setSelected($package, $schedule, true));
+        $this->assertTrue($assignmentService->setSelected($package, $schedule, true));
+        $this->assertSame(1, $schedule->detailPackages()
+            ->where('package_id', $package->package_id)
+            ->count());
+
+        $this->assertFalse($assignmentService->setSelected($package, $schedule, false));
+        $this->assertFalse($assignmentService->setSelected($package, $schedule, false));
+        $this->assertSame(0, $schedule->detailPackages()
+            ->where('package_id', $package->package_id)
+            ->count());
     }
 }

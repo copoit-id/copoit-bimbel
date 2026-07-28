@@ -5,7 +5,6 @@
     $planModules = app(\App\Services\PlanModuleService::class);
     $currentUser = auth()->user();
     $canManageSchedule = $planModules->allows('schedule') && ($currentUser?->hasPermission('schedule', 'view') ?? false);
-    $canManageBooking = $planModules->allows('booking') && ($currentUser?->hasPermission('booking', 'view') ?? false);
     $canManageClass = $planModules->allows('class') && ($currentUser?->hasPermission('class', 'view') ?? false);
     $canManageMaterial = $planModules->allows('material') && ($currentUser?->hasPermission('material', 'view') ?? false);
     $canManageTryout = $planModules->allows('tryout') && ($currentUser?->hasPermission('tryout', 'view') ?? false);
@@ -168,18 +167,16 @@
             </div>
 
             <div class="flex flex-wrap gap-2 mt-4">
-                @if($canManageBooking)
-                <a href="{{ route('admin.package-booking.edit', $package) }}"
-                    class="flex-1 min-w-[5.5rem] inline-flex items-center justify-center gap-1 text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
-                    <i class="ri-calendar-schedule-line"></i>
-                    Booking
-                </a>
-                @endif
                 @if ($package->type_package == 'bimbel')
                 @if($canManageSchedule)
                 <a href="{{ route('admin.class-schedules.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
-                    Jadwal
+                    Kelas
+                </a>
+                @elseif($canManageClass)
+                <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    Kelas
                 </a>
                 @endif
                 @if($canManageMaterial)
@@ -192,12 +189,6 @@
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout
-                </a>
-                @endif
-                @if($canManageClass)
-                <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
-                    Kelas
                 </a>
                 @endif
                 @if($canManageTesKoran)

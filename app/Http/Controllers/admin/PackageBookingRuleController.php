@@ -5,53 +5,22 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\PackageBookingRule;
-use App\Models\ScheduleBookingRequest;
 use App\Models\Tentor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
 
 class PackageBookingRuleController extends Controller
 {
-    public function edit(Package $package): View
+    public function edit(Package $package): RedirectResponse
     {
-        $package->load([
-            'bookingRule.tutors:id,name,expertise',
-            'bookingRule.priceTiers',
-        ]);
-        $rule = $package->bookingRule ?? new PackageBookingRule([
-            'is_enabled' => false,
-            'session_quota' => 1,
-            'duration_minutes' => 60,
-            'min_notice_hours' => 12,
-            'max_advance_days' => 30,
-            'cancellation_hours' => 6,
-            'allow_custom_time' => true,
-            'allow_all_tutors' => true,
-            'delivery_mode' => 'offline',
-            'learning_mode' => 'personal',
-            'min_participants' => 1,
-            'max_participants' => 1,
-            'payment_deadline_hours' => 48,
-        ]);
-        $tutors = Tentor::active()
-            ->orderBy('name')
-            ->get(['id', 'name', 'expertise']);
-        $statusCounts = ScheduleBookingRequest::query()
-            ->where('package_id', $package->package_id)
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        return view('admin.pages.package.booking.edit', compact(
-            'package',
-            'rule',
-            'tutors',
-            'statusCounts',
-        ));
+        return redirect()
+            ->route('admin.class-schedules.index', [
+                'package_id' => $package->package_id,
+            ])
+            ->with('info', 'Booking custom sekarang diatur langsung dari Kelas & Jadwal.');
     }
 
     public function update(Request $request, Package $package): RedirectResponse

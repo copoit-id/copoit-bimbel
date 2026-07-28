@@ -18,7 +18,9 @@ use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -954,54 +956,61 @@ class PackageController extends Controller
         }
     }
 
-    public function toggleClass(Request $request, $package_id, $class_id)
+    public function toggleClass(Request $request, $package_id, $class_id): JsonResponse
     {
+        $validated = $request->validate([
+            'selected' => ['required', 'boolean'],
+        ]);
+
         try {
-            $package = Package::findOrFail($package_id);
-            $class = ClassModel::findOrFail($class_id);
-
-            $detailPackage = DetailPackage::where([
-                'package_id' => $package_id,
-                'detailable_type' => ClassModel::class,
-                'detailable_id' => $class_id,
-            ])->first();
-
-            if ($request->has('selected')) {
-                $shouldBeSelected = $request->boolean('selected');
-
-                if ($shouldBeSelected && ! $detailPackage) {
-                    DetailPackage::create([
-                        'package_id' => $package_id,
-                        'detailable_type' => ClassModel::class,
-                        'detailable_id' => $class_id,
-                        'order' => 0,
-                    ]);
-                    $message = 'Kelas berhasil ditambahkan ke paket';
-                } elseif (! $shouldBeSelected && $detailPackage) {
-                    $detailPackage->delete();
-                    $message = 'Kelas berhasil dihapus dari paket';
-                } else {
-                    $message = $shouldBeSelected
-                        ? 'Kelas sudah ada di paket'
-                        : 'Kelas sudah tidak ada di paket';
-                }
-            } elseif ($detailPackage) {
-                // Remove from package
-                $detailPackage->delete();
-                $message = 'Kelas berhasil dihapus dari paket';
-            } else {
-                // Add to package
-                DetailPackage::create([
-                    'package_id' => $package_id,
+            $shouldBeSelected = (bool) $validated['selected'];
+            $isSelected = DB::transaction(function () use (
+                $package_id,
+                $class_id,
+                $shouldBeSelected
+            ): bool {
+                $package = Package::query()
+                    ->whereKey($package_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $class = ClassModel::query()
+                    ->whereKey($class_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $attributes = [
+                    'package_id' => $package->package_id,
                     'detailable_type' => ClassModel::class,
-                    'detailable_id' => $class_id,
-                    'order' => 0,
-                ]);
-                $message = 'Kelas berhasil ditambahkan ke paket';
-            }
+                    'detailable_id' => $class->class_id,
+                ];
 
-            return response()->json(['success' => true, 'message' => $message]);
+                if ($shouldBeSelected) {
+                    DetailPackage::query()->insertOrIgnore([
+                        ...$attributes,
+                        'order' => 0,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    DetailPackage::query()
+                        ->where($attributes)
+                        ->delete();
+                }
+
+                return DetailPackage::query()
+                    ->where($attributes)
+                    ->exists();
+            }, 3);
+
+            return response()->json([
+                'success' => true,
+                'selected' => $isSelected,
+                'message' => $isSelected
+                    ? 'Kelas Zoom berhasil ditambahkan ke paket.'
+                    : 'Kelas Zoom berhasil dilepas dari paket.',
+            ]);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: '.$e->getMessage()], 500);
         }
     }

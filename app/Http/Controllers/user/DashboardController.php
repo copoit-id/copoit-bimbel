@@ -157,21 +157,37 @@ class DashboardController extends Controller
                 $query->where('user_id', $user->id);
             },
         ])
-            ->where(function ($query) use ($destinationCategoryIds, $activePackageIds) {
-                if ($destinationCategoryIds->isNotEmpty()) {
-                    $query->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
-                        $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
-                    });
-                }
+            ->where(function ($query) use ($user, $destinationCategoryIds, $activePackageIds) {
+                $query->whereHas('studyGroup.users', fn ($userQuery) => $userQuery
+                    ->where('users.id', $user->id));
 
-                $query->orWhereHas('schedule.packages', fn ($packageQuery) => $packageQuery
-                    ->whereIn('packages.package_id', $activePackageIds));
+                $query->orWhere(function ($nonGroupQuery) use ($user, $destinationCategoryIds, $activePackageIds) {
+                    $nonGroupQuery
+                        ->whereNull('study_group_id')
+                        ->where(function ($accessQuery) use ($user, $destinationCategoryIds, $activePackageIds) {
+                            if ($destinationCategoryIds->isNotEmpty()) {
+                                $accessQuery->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
+                                    $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
+                                });
+                            } else {
+                                $accessQuery->whereRaw('0 = 1');
+                            }
 
-                $query->orWhere(function ($fallbackQuery) use ($activePackageIds) {
-                    $fallbackQuery
-                        ->whereDoesntHave('schedule.packages')
-                        ->whereDoesntHave('schedule.destinationCategories')
-                        ->whereHas('class.packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $activePackageIds));
+                            $accessQuery->orWhereHas('class.userAccess', function ($classAccessQuery) use ($user) {
+                                $classAccessQuery
+                                    ->where('user_id', $user->id)
+                                    ->active();
+                            });
+                            $accessQuery->orWhereHas('schedule.packages', fn ($packageQuery) => $packageQuery
+                                ->whereIn('packages.package_id', $activePackageIds));
+                            $accessQuery->orWhere(function ($fallbackQuery) use ($activePackageIds) {
+                                $fallbackQuery
+                                    ->whereDoesntHave('schedule.packages')
+                                    ->whereDoesntHave('schedule.destinationCategories')
+                                    ->whereHas('class.packages', fn ($packageQuery) => $packageQuery
+                                        ->whereIn('packages.package_id', $activePackageIds));
+                            });
+                        });
                 });
             })
             ->where('status', 'scheduled')

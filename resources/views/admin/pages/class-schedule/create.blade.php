@@ -1,6 +1,6 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Buat Jadwal')
+@section('title', 'Buat Kelas & Jadwal')
 
 @section('content')
 @php
@@ -9,8 +9,8 @@
 @endphp
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Buat Jadwal</h1>
-        <p class="text-sm text-gray-500">Tentukan waktu dan paket peserta yang dapat melihat jadwal ini.</p>
+        <h1 class="text-2xl font-bold text-gray-900">Buat Kelas & Jadwal</h1>
+        <p class="text-sm text-gray-500">Pilih kelas sekali atau rutin, lalu tentukan apakah siswa boleh request jadwal custom.</p>
     </div>
 
     <form method="POST" action="{{ route('admin.class-schedules.store') }}" class="rounded-lg border border-gray-200 bg-white p-6">
@@ -22,7 +22,10 @@
             </div>
         @endif
 
-        <div class="grid gap-5 md:grid-cols-2" x-data="{ scheduleType: '{{ old('schedule_type', 'recurring') }}' }">
+        <div class="grid gap-5 md:grid-cols-2" x-data="{
+            scheduleType: @js(old('schedule_type', 'recurring')),
+            allowCustom: {{ old('allow_custom_booking', false) ? 'true' : 'false' }}
+        }">
             <!-- Nama Jadwal -->
             <div class="md:col-span-2">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nama Jadwal</label>
@@ -115,7 +118,26 @@
             <!-- Jam Selesai -->
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Jam Selesai</label>
-                <input type="time" name="end_time" value="{{ old('end_time', '20:30') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="time" name="end_time" value="{{ old('end_time', '20:30') }}" :required="allowCustom" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+            </div>
+
+            <div class="md:col-span-2 rounded-xl border border-gray-200 p-4">
+                <label class="flex cursor-pointer items-start gap-3">
+                    <input type="hidden" name="allow_custom_booking" value="0">
+                    <input type="checkbox" name="allow_custom_booking" value="1" x-model="allowCustom" class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                    <span>
+                        <span class="block text-sm font-bold text-gray-900">Izinkan siswa request jadwal custom</span>
+                        <span class="mt-1 block text-xs leading-5 text-gray-500">Siswa pemilik paket dapat mengusulkan waktu lain. Tutor tetap harus menyetujui sebelum sesi dibuat.</span>
+                    </span>
+                </label>
+                <div x-show="allowCustom" x-cloak class="mt-4 border-t border-gray-200 pt-4">
+                    <label class="block max-w-xs">
+                        <span class="text-sm font-semibold text-gray-700">Kuota request per siswa/kelompok</span>
+                        <input type="number" name="booking_session_quota" min="1" max="1000" required value="{{ old('booking_session_quota', 1) }}" class="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </label>
+                    <p class="mt-2 text-xs text-gray-500">Untuk mengaktifkan opsi ini, pilih minimal satu paket, satu Tutor, serta jam selesai.</p>
+                </div>
+                <input type="hidden" name="booking_session_quota" value="1" :disabled="allowCustom">
             </div>
 
             @if($canUseClass)
@@ -157,7 +179,7 @@
 
         <div class="mt-6 flex justify-end gap-2 border-t border-gray-200 pt-5">
             <a href="{{ route('admin.class-schedules.index') }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</a>
-            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Jadwal</button>
+            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Kelas & Jadwal</button>
         </div>
     </form>
 </div>

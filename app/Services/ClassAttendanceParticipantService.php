@@ -19,6 +19,13 @@ class ClassAttendanceParticipantService
             'schedule.packages',
         ]);
 
+        $studyGroupUsers = $session->studyGroup?->users ?? collect();
+        if ($studyGroupUsers->isNotEmpty()) {
+            return $studyGroupUsers
+                ->sortBy('name')
+                ->values();
+        }
+
         $categoryIds = $this->destinationCategoryIds($session);
 
         if (! empty($categoryIds)) {
@@ -29,31 +36,34 @@ class ClassAttendanceParticipantService
                 ->get(['id', 'name', 'email', 'participant_destination_category_id']);
         }
 
-        $studyGroupUsers = $session->studyGroup?->users ?? collect();
-        if ($studyGroupUsers->isNotEmpty()) {
-            return $studyGroupUsers
-                ->sortBy('name')
-                ->values();
-        }
-
         $schedulePackageIds = $session->schedule->packages->pluck('package_id');
         $packageIds = ($schedulePackageIds->isNotEmpty()
             ? $schedulePackageIds
             : ($session->class?->packages?->pluck('package_id') ?? collect()))
             ->unique()
             ->values();
+        $directUsers = $session->class?->userAccess()
+            ->with('user:id,name,email')
+            ->active()
+            ->get()
+            ->pluck('user')
+            ->filter()
+            ->values() ?? collect();
 
         if ($packageIds->isEmpty()) {
-            return collect();
+            return $directUsers->unique('id')->values();
         }
 
-        return UserPackageAcces::query()
+        $packageUsers = UserPackageAcces::query()
             ->with('user:id,name,email')
             ->whereIn('package_id', $packageIds)
             ->active()
             ->get()
             ->pluck('user')
-            ->filter()
+            ->filter();
+
+        return $directUsers
+            ->concat($packageUsers)
             ->unique('id')
             ->values();
     }

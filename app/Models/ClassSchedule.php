@@ -29,6 +29,8 @@ class ClassSchedule extends Model
         'location',
         'is_active',
         'created_by',
+        'allow_custom_booking',
+        'booking_session_quota',
     ];
 
     protected $casts = [
@@ -37,6 +39,8 @@ class ClassSchedule extends Model
         'day_of_week' => 'integer',
         'day_of_month' => 'integer',
         'is_active' => 'boolean',
+        'allow_custom_booking' => 'boolean',
+        'booking_session_quota' => 'integer',
     ];
 
     public function class(): BelongsTo

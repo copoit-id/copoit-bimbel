@@ -11,8 +11,11 @@ use App\Models\Package;
 use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Services\ClassAttendanceParticipantService;
+use App\Services\ClassScheduleBookingConfigurator;
 use App\Services\ClassScheduleService;
+use App\Services\PackageScheduleAssignmentService;
 use App\Services\PlanModuleService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +33,30 @@ class ClassScheduleController extends Controller
                 ->whereKey($request->integer('package_id'))
                 ->first(['package_id', 'name'])
             : null;
+        $packageOptions = Package::query()
+            ->where(function ($query) use ($filteredPackage): void {
+                $query->where('status', 'active');
+                if ($filteredPackage) {
+                    $query->orWhere('package_id', $filteredPackage->package_id);
+                }
+            })
+            ->orderBy('name')
+            ->get(['package_id', 'name']);
+        $scheduleMorphType = (new ClassSchedule)->getMorphClass();
+        $selectedScheduleIds = $filteredPackage
+            ? DetailPackage::query()
+                ->where('package_id', $filteredPackage->package_id)
+                ->where('detailable_type', $scheduleMorphType)
+                ->pluck('detailable_id')
+                ->map(fn ($id): int => (int) $id)
+            : collect();
+        $selectedClassIds = $filteredPackage
+            ? DetailPackage::query()
+                ->where('package_id', $filteredPackage->package_id)
+                ->where('detailable_type', ClassModel::class)
+                ->pluck('detailable_id')
+                ->map(fn ($id): int => (int) $id)
+            : collect();
         $schedules = ClassSchedule::query()
             ->with([
                 'class.tentor',
@@ -39,9 +66,6 @@ class ClassScheduleController extends Controller
                 'destinationCategories.parent',
                 'packages:package_id,name',
             ])
-            ->when($request->integer('package_id'), fn ($query, int $packageId) => $query
-                ->whereHas('packages', fn ($packageQuery) => $packageQuery
-                    ->where('packages.package_id', $packageId)))
             ->get();
 
         $weeklySchedules = [];
@@ -70,7 +94,35 @@ class ClassScheduleController extends Controller
             'liveClasses',
             'canUseClass',
             'filteredPackage',
+            'packageOptions',
+            'selectedScheduleIds',
+            'selectedClassIds',
         ));
+    }
+
+    public function togglePackage(
+        Request $request,
+        Package $package,
+        ClassSchedule $classSchedule,
+        PackageScheduleAssignmentService $assignmentService
+    ): JsonResponse {
+        $validated = $request->validate([
+            'selected' => ['required', 'boolean'],
+        ]);
+
+        $isSelected = $assignmentService->setSelected(
+            $package,
+            $classSchedule,
+            (bool) $validated['selected']
+        );
+
+        return response()->json([
+            'success' => true,
+            'selected' => $isSelected,
+            'message' => $isSelected
+                ? 'Jadwal berhasil ditambahkan ke paket.'
+                : 'Jadwal berhasil dilepas dari paket.',
+        ]);
     }
 
     public function create(Request $request, PlanModuleService $planModules): View
@@ -103,6 +155,7 @@ class ClassScheduleController extends Controller
     public function store(
         Request $request,
         ClassScheduleService $scheduleService,
+        ClassScheduleBookingConfigurator $bookingConfigurator,
         PlanModuleService $planModules
     ): RedirectResponse {
         // Auto-assign or create default class if class_id is missing
@@ -153,6 +206,8 @@ class ClassScheduleController extends Controller
             'package_ids' => ['nullable', 'array'],
             'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
+            'allow_custom_booking' => ['nullable', 'boolean'],
+            'booking_session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $canUseClass = $planModules->allows('class');
@@ -161,8 +216,18 @@ class ClassScheduleController extends Controller
             $request,
             $validated,
             $scheduleService,
+            $bookingConfigurator,
             $canUseClass
         ): void {
+            $packageIds = $validated['package_ids'] ?? [];
+            if ($request->boolean('allow_custom_booking')) {
+                Package::query()
+                    ->whereKey($packageIds)
+                    ->orderBy('package_id')
+                    ->lockForUpdate()
+                    ->get(['package_id']);
+                $bookingConfigurator->ensurePackagesAvailable($packageIds);
+            }
             $schedule = ClassSchedule::create([
                 'class_id' => $validated['class_id'],
                 'study_group_id' => $validated['study_group_id'] ?? null,
@@ -180,6 +245,8 @@ class ClassScheduleController extends Controller
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
                 'created_by' => $request->user()?->id,
+                'allow_custom_booking' => $request->boolean('allow_custom_booking'),
+                'booking_session_quota' => $validated['booking_session_quota'],
             ]);
 
             $schedule->attendanceSetting()->create([
@@ -190,6 +257,7 @@ class ClassScheduleController extends Controller
             ]);
             $schedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
             $this->syncPackages($schedule, $validated['package_ids'] ?? []);
+            $bookingConfigurator->sync($schedule->fresh(['packages', 'studyGroup']));
 
             $scheduleService->generateSessions($schedule);
         });
@@ -295,6 +363,7 @@ class ClassScheduleController extends Controller
         Request $request,
         ClassSchedule $classSchedule,
         ClassScheduleService $scheduleService,
+        ClassScheduleBookingConfigurator $bookingConfigurator,
         PlanModuleService $planModules
     ): RedirectResponse {
         if (! $request->has('class_id') || empty($request->input('class_id'))) {
@@ -333,11 +402,34 @@ class ClassScheduleController extends Controller
             'package_ids' => ['nullable', 'array'],
             'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
+            'allow_custom_booking' => ['nullable', 'boolean'],
+            'booking_session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $canUseClass = $planModules->allows('class');
 
-        DB::transaction(function () use ($request, $validated, $classSchedule, $scheduleService, $canUseClass): void {
+        $previousPackageIds = $classSchedule->packages()->pluck('packages.package_id')->all();
+        $wasCustom = (bool) $classSchedule->allow_custom_booking;
+
+        DB::transaction(function () use (
+            $request,
+            $validated,
+            $classSchedule,
+            $scheduleService,
+            $bookingConfigurator,
+            $canUseClass,
+            $previousPackageIds,
+            $wasCustom
+        ): void {
+            $packageIds = $validated['package_ids'] ?? [];
+            Package::query()
+                ->whereKey(array_values(array_unique([...$previousPackageIds, ...$packageIds])))
+                ->orderBy('package_id')
+                ->lockForUpdate()
+                ->get(['package_id']);
+            if ($request->boolean('allow_custom_booking')) {
+                $bookingConfigurator->ensurePackagesAvailable($packageIds, $classSchedule->id);
+            }
             $classSchedule->update([
                 'class_id' => $validated['class_id'],
                 'study_group_id' => $validated['study_group_id'] ?? null,
@@ -356,6 +448,8 @@ class ClassScheduleController extends Controller
                     : $classSchedule->meeting_url,
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active'),
+                'allow_custom_booking' => $request->boolean('allow_custom_booking'),
+                'booking_session_quota' => $validated['booking_session_quota'],
             ]);
 
             $classSchedule->attendanceSetting()->updateOrCreate(
@@ -370,6 +464,11 @@ class ClassScheduleController extends Controller
 
             $classSchedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
             $this->syncPackages($classSchedule, $validated['package_ids'] ?? []);
+            $bookingConfigurator->sync(
+                $classSchedule->fresh(['packages', 'studyGroup']),
+                $previousPackageIds,
+                $wasCustom
+            );
             $classSchedule->sessions()
                 ->where('start_at', '>=', now())
                 ->whereDoesntHave('attendances')
@@ -383,9 +482,19 @@ class ClassScheduleController extends Controller
             ->with('success', 'Jadwal kelas berhasil diperbarui.');
     }
 
-    public function destroy(ClassSchedule $classSchedule): RedirectResponse
-    {
-        $classSchedule->delete();
+    public function destroy(
+        ClassSchedule $classSchedule,
+        ClassScheduleBookingConfigurator $bookingConfigurator
+    ): RedirectResponse {
+        DB::transaction(function () use ($classSchedule, $bookingConfigurator): void {
+            $previousPackageIds = $classSchedule->packages()
+                ->pluck('packages.package_id')
+                ->all();
+            $wasCustom = (bool) $classSchedule->allow_custom_booking;
+            $classSchedule->update(['allow_custom_booking' => false]);
+            $bookingConfigurator->sync($classSchedule, $previousPackageIds, $wasCustom);
+            $classSchedule->delete();
+        });
 
         return redirect()
             ->route('admin.class-schedules.index')

@@ -538,6 +538,9 @@ Route::prefix('{portal}')
         Route::get('/paket/{package_id}/kelas/tambah', [AdminPackageController::class, 'createClass'])->name('package.class.create');
         Route::post('/paket/{package_id}/kelas/store', [AdminPackageController::class, 'storeClass'])->name('package.class.store');
         Route::post('/paket/{package_id}/kelas/{class_id}/toggle', [AdminPackageController::class, 'toggleClass'])->name('package.class.toggle');
+        Route::post('/paket/{package}/jadwal/{classSchedule}/toggle', [ClassScheduleController::class, 'togglePackage'])
+            ->middleware('module:schedule')
+            ->name('package.schedule.toggle');
 
         // Package Material Management
         Route::get('/paket/{package_id}/materi', [AdminPackageController::class, 'indexMaterial'])->name('package.material.index');

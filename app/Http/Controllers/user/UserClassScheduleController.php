@@ -50,7 +50,6 @@ class UserClassScheduleController extends Controller
                 $query->orWhere(function ($classAccessQuery) use ($user): void {
                     $classAccessQuery
                         ->whereNull('study_group_id')
-                        ->whereDoesntHave('schedule.packages')
                         ->whereHas('class.userAccess', function ($accessQuery) use ($user) {
                             $accessQuery
                                 ->where('user_id', $user->id)
@@ -182,6 +181,13 @@ class UserClassScheduleController extends Controller
 
         if ($session->study_group_id) {
             return false;
+        }
+
+        if ($session->class?->userAccess()
+            ->where('user_id', $user->id)
+            ->active()
+            ->exists()) {
+            return true;
         }
 
         if ($session->schedule->destinationCategories
