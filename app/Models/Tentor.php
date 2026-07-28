@@ -96,6 +96,16 @@ class Tentor extends Model
         return $this->reviews()->visible();
     }
 
+    public function studentFeedback(): HasMany
+    {
+        return $this->hasMany(StudentFeedback::class);
+    }
+
+    public function studentProgressReports(): HasMany
+    {
+        return $this->hasMany(StudentProgressReport::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

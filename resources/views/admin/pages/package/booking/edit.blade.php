@@ -4,6 +4,14 @@
 @php
     $selectedTutorIds = old('tutor_ids', $rule->exists ? $rule->tutors->pluck('id')->all() : []);
     $allowAllTutors = (bool) old('allow_all_tutors', $rule->allow_all_tutors);
+    $tierPrices = collect(old('price_tiers', $rule->exists
+        ? $rule->priceTiers->map(fn ($tier) => [
+            'participant_count' => $tier->participant_count,
+            'price_per_person' => $tier->price_per_person,
+        ])->all()
+        : []))->mapWithKeys(fn ($tier) => [
+            (int) $tier['participant_count'] => $tier['price_per_person'],
+        ])->all();
 @endphp
 
 <div class="mx-auto max-w-5xl space-y-6">
@@ -16,9 +24,12 @@
             <h1 class="text-2xl font-bold text-gray-900">Booking Jadwal</h1>
             <p class="mt-1 text-sm text-gray-500">Atur kuota dan tutor yang dapat dipesan untuk paket <span class="font-semibold text-gray-700">{{ $package->name }}</span>.</p>
         </div>
-        <span class="w-fit rounded-full border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600">
-            {{ $rule->is_enabled ? 'Booking aktif' : 'Booking nonaktif' }}
-        </span>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('admin.package-booking.cohorts.index') }}" class="rounded-lg border border-primary px-3 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white">Kelola kelompok</a>
+            <span class="w-fit rounded-full border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600">
+                {{ $rule->is_enabled ? 'Booking aktif' : 'Booking nonaktif' }}
+            </span>
+        </div>
     </div>
 
     @if(session('success'))
@@ -50,7 +61,22 @@
         @endforeach
     </div>
 
-    <form method="POST" action="{{ route('admin.package-booking.update', $package) }}" class="space-y-6">
+    <form
+        method="POST"
+        action="{{ route('admin.package-booking.update', $package) }}"
+        class="space-y-6"
+        x-data="{
+            learningMode: @js(old('learning_mode', $rule->learning_mode)),
+            minParticipants: Number(@js(old('min_participants', $rule->min_participants))),
+            maxParticipants: Number(@js(old('max_participants', $rule->max_participants))),
+            prices: @js($tierPrices),
+            participantCounts() {
+                const minimum = Math.max(1, Number(this.minParticipants) || 1);
+                const maximum = Math.min(20, Math.max(minimum, Number(this.maxParticipants) || minimum));
+                return Array.from({ length: maximum - minimum + 1 }, (_, index) => minimum + index);
+            }
+        }"
+    >
         @csrf
         @method('PUT')
 
@@ -65,6 +91,87 @@
                     <input type="checkbox" name="is_enabled" value="1" @checked(old('is_enabled', $rule->is_enabled)) class="peer sr-only">
                     <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-primary peer-checked:after:translate-x-5"></span>
                 </label>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+            <h2 class="font-bold text-gray-900">Format layanan dan kelompok</h2>
+            <p class="mt-1 text-sm text-gray-500">Atur paket personal, kelompok, atau keduanya tanpa membuat tipe paket baru.</p>
+
+            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                <label class="block">
+                    <span class="text-sm font-semibold text-gray-700">Pelaksanaan</span>
+                    <select name="delivery_mode" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                        <option value="offline" @selected(old('delivery_mode', $rule->delivery_mode) === 'offline')>Offline / tatap muka</option>
+                        <option value="online" @selected(old('delivery_mode', $rule->delivery_mode) === 'online')>Online</option>
+                        <option value="hybrid" @selected(old('delivery_mode', $rule->delivery_mode) === 'hybrid')>Hybrid</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-sm font-semibold text-gray-700">Model belajar</span>
+                    <select name="learning_mode" x-model="learningMode" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                        <option value="personal">Personal saja</option>
+                        <option value="group">Kelompok saja</option>
+                        <option value="both">Personal dan kelompok</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-sm font-semibold text-gray-700">Lokasi default</span>
+                    <input type="text" name="default_location" maxlength="255" value="{{ old('default_location', $rule->default_location) }}" placeholder="Contoh: Cabang Sudirman, Ruang 2" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                    <span class="mt-1 block text-xs text-gray-500">Kosongkan untuk ditentukan setelah tutor menyetujui.</span>
+                </label>
+                <label class="block">
+                    <span class="text-sm font-semibold text-gray-700">Batas pembayaran anggota</span>
+                    <div class="relative mt-2">
+                        <input type="number" name="payment_deadline_hours" min="1" max="720" required value="{{ old('payment_deadline_hours', $rule->payment_deadline_hours) }}" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-12 focus:border-primary focus:ring-primary">
+                        <span class="absolute right-3 top-2.5 text-sm text-gray-400">jam</span>
+                    </div>
+                </label>
+            </div>
+
+            <div class="mt-6 border-t border-gray-200 pt-5" x-show="learningMode === 'group' || learningMode === 'both'" x-cloak>
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold text-gray-700">Minimal anggota</span>
+                        <input type="number" name="min_participants" x-model.number="minParticipants" min="1" max="20" required value="{{ old('min_participants', $rule->min_participants) }}" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold text-gray-700">Maksimal anggota</span>
+                        <input type="number" name="max_participants" x-model.number="maxParticipants" min="1" max="20" required value="{{ old('max_participants', $rule->max_participants) }}" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                    </label>
+                </div>
+
+                <div class="mt-5">
+                    <div class="mb-3">
+                        <p class="text-sm font-semibold text-gray-700">Harga per orang</p>
+                        <p class="mt-1 text-xs text-gray-500">Harga disimpan sebagai snapshot saat kelompok dibuat, sehingga perubahan berikutnya tidak mengubah tagihan lama.</p>
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <template x-for="count in participantCounts()" :key="count">
+                            <label class="flex items-center gap-3 rounded-xl border border-gray-200 p-3">
+                                <span class="w-20 text-sm font-semibold text-gray-700" x-text="count + ' orang'"></span>
+                                <input type="hidden" :name="'price_tiers[' + count + '][participant_count]'" :value="count">
+                                <div class="relative flex-1">
+                                    <span class="absolute left-3 top-2.5 text-sm text-gray-400">Rp</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="999999999999"
+                                        x-model="prices[count]"
+                                        :name="'price_tiers[' + count + '][price_per_person]'"
+                                        class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 focus:border-primary focus:ring-primary"
+                                        required
+                                    >
+                                </div>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hidden">
+                <input type="number" name="min_participants" :value="learningMode === 'personal' ? 1 : minParticipants">
+                <input type="number" name="max_participants" :value="learningMode === 'personal' ? 1 : maxParticipants">
             </div>
         </section>
 

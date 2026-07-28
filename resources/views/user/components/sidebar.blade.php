@@ -77,6 +77,13 @@
                     <span class="ms-3">Booking Jadwal</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('user.development.index') }}"
+                   class="flex items-center py-2 px-4 {{ request()->routeIs('user.development.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-line-chart-line text-[20px] {{ request()->routeIs('user.development.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Perkembangan</span>
+                </a>
+            </li>
             @endif
             @if($canShowEvent)
             <li>

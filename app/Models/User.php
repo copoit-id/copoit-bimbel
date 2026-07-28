@@ -3,11 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -15,7 +17,7 @@ class User extends Authenticatable
 {
     private const URL_LIKE_PATTERN = '~(?:https?://\\S+|www\\.\\S+|\\b[a-z0-9][a-z0-9-]{1,61}\\.[a-z]{2,}(?:\\.[a-z]{2,})?\\b)~i';
 
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
     protected ?array $effectivePermissionSlugs = null;
@@ -192,6 +194,26 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function bookingCohortParticipants(): HasMany
+    {
+        return $this->hasMany(BookingCohortParticipant::class);
+    }
+
+    public function organizedBookingCohorts(): HasMany
+    {
+        return $this->hasMany(BookingCohort::class, 'organizer_user_id');
+    }
+
+    public function studentFeedback(): HasMany
+    {
+        return $this->hasMany(StudentFeedback::class);
+    }
+
+    public function studentProgressReports(): HasMany
+    {
+        return $this->hasMany(StudentProgressReport::class);
+    }
+
     public function participantDestinationCategory(): BelongsTo
     {
         return $this->belongsTo(ParticipantDestinationCategory::class, 'participant_destination_category_id');
@@ -211,14 +233,14 @@ class User extends Authenticatable
         }
 
         return $programName !== ''
-            ? $institutionName . ' - ' . $programName
+            ? $institutionName.' - '.$programName
             : $institutionName;
     }
 
     public function getParticipantDestinationFilterKeyAttribute(): ?string
     {
         if ($this->participantDestinationCategory) {
-            return 'db:' . $this->participantDestinationCategory->id;
+            return 'db:'.$this->participantDestinationCategory->id;
         }
 
         $source = trim((string) ($this->participant_destination_source ?? ''));
@@ -228,7 +250,7 @@ class User extends Authenticatable
             return null;
         }
 
-        return $source . ':' . $externalId;
+        return $source.':'.$externalId;
     }
 
     // Helper methods
@@ -270,7 +292,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if (!empty($this->getEffectivePermissionSlugs())) {
+        if (! empty($this->getEffectivePermissionSlugs())) {
             return true;
         }
 
@@ -304,7 +326,7 @@ class User extends Authenticatable
             return true;
         }
 
-        $slug = $feature . '.' . $action;
+        $slug = $feature.'.'.$action;
 
         return in_array($slug, $this->getEffectivePermissionSlugs(), true);
     }
@@ -325,7 +347,7 @@ class User extends Authenticatable
             ->values()
             ->all();
 
-        if (empty($slugs) && !empty($this->role)) {
+        if (empty($slugs) && ! empty($this->role)) {
             $fallbackRole = Role::query()
                 ->where('slug', $this->role)
                 ->with('permissions:id,slug')
@@ -390,7 +412,7 @@ class User extends Authenticatable
             })
             ->pluck('package_id')
             ->toArray();
-        
+
         return \DB::table('detail_packages')
             ->where('detailable_type', Material::class)
             ->where('detailable_id', $materialId)
@@ -430,7 +452,7 @@ class User extends Authenticatable
             ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where(function ($q) {
                 $q->whereNull('expires_at')
-                  ->orWhere('expires_at', '>', now());
+                    ->orWhere('expires_at', '>', now());
             })
             ->exists();
 
@@ -447,7 +469,7 @@ class User extends Authenticatable
             })
             ->pluck('package_id')
             ->toArray();
-        
+
         return \DB::table('detail_packages')
             ->where('detailable_id', $tryoutId)
             ->where('detailable_type', Tryout::class)

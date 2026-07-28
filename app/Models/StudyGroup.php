@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StudyGroup extends Model
 {
@@ -42,5 +43,20 @@ class StudyGroup extends Model
     public function sessions(): HasMany
     {
         return $this->hasMany(ClassSession::class);
+    }
+
+    public function bookingCohort(): HasOne
+    {
+        return $this->hasOne(BookingCohort::class);
+    }
+
+    public function feedback(): HasMany
+    {
+        return $this->hasMany(StudentFeedback::class);
+    }
+
+    public function progressReports(): HasMany
+    {
+        return $this->hasMany(StudentProgressReport::class);
     }
 }

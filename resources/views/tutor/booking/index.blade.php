@@ -57,6 +57,11 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <h2 class="font-bold text-gray-900">{{ $booking->user->name }}</h2>
                             <span class="rounded-full border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">{{ $booking->package->name }}</span>
+                            @if($booking->cohort)
+                                <span class="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                    Kelompok · {{ $booking->cohort->target_participants }} siswa
+                                </span>
+                            @endif
                         </div>
                         <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-500">
                             <span><i class="ri-mail-line mr-1"></i>{{ $booking->user->email }}</span>
@@ -69,6 +74,13 @@
                         {{ $statusLabels[$booking->status] ?? ucfirst($booking->status) }}
                     </span>
                 </div>
+
+                @if($booking->cohort)
+                    <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">{{ $booking->cohort->studyGroup?->name }}</p>
+                        <p class="mt-1 text-sm text-gray-600">{{ $booking->cohort->participants->pluck('user.name')->filter()->join(', ') }}</p>
+                    </div>
+                @endif
 
                 <div class="mt-5 grid gap-3 md:grid-cols-2">
                     <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">

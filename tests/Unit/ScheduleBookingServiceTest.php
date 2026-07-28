@@ -335,6 +335,12 @@ class ScheduleBookingServiceTest extends TestCase
             $table->unsignedSmallInteger('cancellation_hours')->default(6);
             $table->boolean('allow_custom_time')->default(true);
             $table->boolean('allow_all_tutors')->default(true);
+            $table->string('delivery_mode')->default('online');
+            $table->string('learning_mode')->default('personal');
+            $table->unsignedSmallInteger('min_participants')->default(1);
+            $table->unsignedSmallInteger('max_participants')->default(1);
+            $table->string('default_location')->nullable();
+            $table->unsignedSmallInteger('payment_deadline_hours')->default(48);
             $table->timestamps();
         });
         Schema::create('class_schedules', function (Blueprint $table): void {
@@ -397,6 +403,7 @@ class ScheduleBookingServiceTest extends TestCase
             $table->foreignId('user_id');
             $table->foreignId('package_id');
             $table->unsignedBigInteger('user_package_access_id');
+            $table->unsignedBigInteger('booking_cohort_id')->nullable();
             $table->foreignId('tentor_id');
             $table->dateTime('requested_start_at');
             $table->dateTime('requested_end_at');

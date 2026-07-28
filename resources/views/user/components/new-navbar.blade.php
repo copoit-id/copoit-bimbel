@@ -169,6 +169,7 @@ function isActive($route, $current) {
                         @endif
                         @if($user && $canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item {{ isActive('user.booking', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-schedule-line"></i>Booking Jadwal</a>
+                        <a href="{{ route('user.development.index') }}" class="dropdown-item {{ isActive('user.development', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-line-chart-line"></i>Perkembangan</a>
                         @endif
                     </div>
                 </div>
@@ -196,6 +197,9 @@ function isActive($route, $current) {
                         @if($canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item">
                             <i class="ri-calendar-schedule-line"></i>Booking Jadwal
+                        </a>
+                        <a href="{{ route('user.development.index') }}" class="dropdown-item">
+                            <i class="ri-line-chart-line"></i>Perkembangan
                         </a>
                         @endif
                         <div class="dropdown-divider"></div>

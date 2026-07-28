@@ -23,6 +23,12 @@ class PackageBookingRule extends Model
         'cancellation_hours',
         'allow_custom_time',
         'allow_all_tutors',
+        'delivery_mode',
+        'learning_mode',
+        'min_participants',
+        'max_participants',
+        'default_location',
+        'payment_deadline_hours',
     ];
 
     protected $casts = [
@@ -34,6 +40,9 @@ class PackageBookingRule extends Model
         'min_notice_hours' => 'integer',
         'max_advance_days' => 'integer',
         'cancellation_hours' => 'integer',
+        'min_participants' => 'integer',
+        'max_participants' => 'integer',
+        'payment_deadline_hours' => 'integer',
     ];
 
     public function package(): BelongsTo
@@ -63,5 +72,16 @@ class PackageBookingRule extends Model
             'package_id',
             'package_id'
         );
+    }
+
+    public function priceTiers(): HasMany
+    {
+        return $this->hasMany(PackageBookingPriceTier::class)
+            ->orderBy('participant_count');
+    }
+
+    public function cohorts(): HasMany
+    {
+        return $this->hasMany(BookingCohort::class);
     }
 }

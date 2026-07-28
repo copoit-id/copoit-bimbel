@@ -20,6 +20,7 @@ use App\Http\Controllers\admin\FaqController;
 use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\admin\FinanceIncomeController;
 use App\Http\Controllers\admin\GeneralPageController as AdminGeneralPageController;
+use App\Http\Controllers\admin\GroupBookingController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
@@ -57,11 +58,13 @@ use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
+use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\tutor\TutorProfileController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
+use App\Http\Controllers\user\BookingCohortController as UserBookingCohortController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
@@ -70,6 +73,7 @@ use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\MaterialController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\ScheduleBookingController as UserScheduleBookingController;
+use App\Http\Controllers\user\StudentDevelopmentController as UserStudentDevelopmentController;
 use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\user\UserBillingController;
@@ -226,11 +230,19 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
     Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
+    Route::get('/perkembangan-belajar', [UserStudentDevelopmentController::class, 'index'])
+        ->name('user.development.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
         ->middleware('module:class')
         ->name('user.class-schedule.attend');
     Route::prefix('booking-jadwal')->name('user.booking.')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
+        Route::post('/kelompok', [UserBookingCohortController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('cohort.store');
+        Route::post('/kelompok/gabung', [UserBookingCohortController::class, 'join'])
+            ->middleware('throttle:10,1')
+            ->name('cohort.join');
         Route::get('/tutor/{tentor}', [UserScheduleBookingController::class, 'showTutor'])
             ->name('tutor.show');
         Route::post('/', [UserScheduleBookingController::class, 'store'])
@@ -355,6 +367,15 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::post('/{booking}/usulkan-waktu', [TutorScheduleBookingController::class, 'propose'])
             ->middleware('throttle:20,1')
             ->name('propose');
+    });
+    Route::prefix('perkembangan')->name('development.')->group(function () {
+        Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
+        Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
+            ->middleware('throttle:30,1')
+            ->name('feedback.store');
+        Route::post('/progres', [TutorStudentDevelopmentController::class, 'storeProgress'])
+            ->middleware('throttle:30,1')
+            ->name('progress.store');
     });
     Route::middleware('module:class')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
@@ -497,6 +518,10 @@ Route::prefix('{portal}')
             ->name('package-booking.edit');
         Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
             ->name('package-booking.update');
+        Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
+            ->name('package-booking.cohorts.index');
+        Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
+            ->name('package-booking.cohorts.payments.store');
         Route::resource('diskon', DiscountController::class)
             ->except(['show'])
             ->names('discounts')

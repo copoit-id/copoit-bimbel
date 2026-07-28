@@ -26,6 +26,7 @@
                 @endif
                 @if($canShowBooking)
                     <a href="{{ route('tutor.booking.index') }}" class="font-semibold {{ request()->routeIs('tutor.booking.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Booking</a>
+                    <a href="{{ route('tutor.development.index') }}" class="font-semibold {{ request()->routeIs('tutor.development.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Perkembangan</a>
                 @endif
                 @if($clientBranding['tutor_chat_enabled'] ?? false)
                     <a href="{{ route('tutor.chat.index') }}" class="font-semibold text-gray-600 hover:text-primary">Chat Siswa</a>

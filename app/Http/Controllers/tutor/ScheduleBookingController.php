@@ -29,6 +29,8 @@ class ScheduleBookingController extends Controller
                 'user:id,name,email,phone',
                 'package:package_id,name',
                 'session:id,start_at,end_at,location,meeting_url',
+                'cohort.studyGroup:id,name',
+                'cohort.participants.user:id,name',
             ])
             ->where('tentor_id', $tentor->id)
             ->when(

@@ -30,6 +30,7 @@ class ScheduleBookingRequest extends Model
         'user_id',
         'package_id',
         'user_package_access_id',
+        'booking_cohort_id',
         'tentor_id',
         'requested_start_at',
         'requested_end_at',
@@ -72,6 +73,11 @@ class ScheduleBookingRequest extends Model
             'user_package_access_id',
             'user_package_access_id'
         );
+    }
+
+    public function cohort(): BelongsTo
+    {
+        return $this->belongsTo(BookingCohort::class, 'booking_cohort_id');
     }
 
     public function tentor(): BelongsTo

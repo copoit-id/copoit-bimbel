@@ -10,6 +10,7 @@ use App\Models\Tentor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -17,7 +18,10 @@ class PackageBookingRuleController extends Controller
 {
     public function edit(Package $package): View
     {
-        $package->load('bookingRule.tutors:id,name,expertise');
+        $package->load([
+            'bookingRule.tutors:id,name,expertise',
+            'bookingRule.priceTiers',
+        ]);
         $rule = $package->bookingRule ?? new PackageBookingRule([
             'is_enabled' => false,
             'session_quota' => 1,
@@ -27,6 +31,11 @@ class PackageBookingRuleController extends Controller
             'cancellation_hours' => 6,
             'allow_custom_time' => true,
             'allow_all_tutors' => true,
+            'delivery_mode' => 'offline',
+            'learning_mode' => 'personal',
+            'min_participants' => 1,
+            'max_participants' => 1,
+            'payment_deadline_hours' => 48,
         ]);
         $tutors = Tentor::active()
             ->orderBy('name')
@@ -58,6 +67,15 @@ class PackageBookingRuleController extends Controller
             'allow_all_tutors' => ['nullable', 'boolean'],
             'tutor_ids' => ['nullable', 'array'],
             'tutor_ids.*' => ['integer', 'distinct', 'exists:tentors,id'],
+            'delivery_mode' => ['required', Rule::in(['online', 'offline', 'hybrid'])],
+            'learning_mode' => ['required', Rule::in(['personal', 'group', 'both'])],
+            'min_participants' => ['required', 'integer', 'min:1', 'max:20'],
+            'max_participants' => ['required', 'integer', 'min:1', 'max:20', 'gte:min_participants'],
+            'default_location' => ['nullable', 'string', 'max:255'],
+            'payment_deadline_hours' => ['required', 'integer', 'min:1', 'max:720'],
+            'price_tiers' => ['nullable', 'array', 'max:20'],
+            'price_tiers.*.participant_count' => ['required', 'integer', 'min:1', 'max:20', 'distinct'],
+            'price_tiers.*.price_per_person' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
         ]);
         $allowAllTutors = $request->boolean('allow_all_tutors');
         $tutorIds = collect($validated['tutor_ids'] ?? [])
@@ -85,12 +103,31 @@ class PackageBookingRuleController extends Controller
             ]);
         }
 
+        $priceTiers = collect($validated['price_tiers'] ?? [])
+            ->filter(fn (array $tier): bool => $tier['price_per_person'] !== null)
+            ->mapWithKeys(fn (array $tier): array => [
+                (int) $tier['participant_count'] => (int) $tier['price_per_person'],
+            ]);
+        if (in_array($validated['learning_mode'], ['group', 'both'], true)) {
+            $missingCounts = collect(range(
+                (int) $validated['min_participants'],
+                (int) $validated['max_participants']
+            ))->diff($priceTiers->keys());
+
+            if ($missingCounts->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'price_tiers' => 'Harga per orang wajib diisi untuk jumlah anggota: '.$missingCounts->join(', ').'.',
+                ]);
+            }
+        }
+
         DB::transaction(function () use (
             $request,
             $package,
             $validated,
             $allowAllTutors,
-            $tutorIds
+            $tutorIds,
+            $priceTiers
         ): void {
             $rule = PackageBookingRule::query()->updateOrCreate(
                 ['package_id' => $package->package_id],
@@ -103,10 +140,25 @@ class PackageBookingRuleController extends Controller
                     'cancellation_hours' => $validated['cancellation_hours'],
                     'allow_custom_time' => $request->boolean('allow_custom_time'),
                     'allow_all_tutors' => $allowAllTutors,
+                    'delivery_mode' => $validated['delivery_mode'],
+                    'learning_mode' => $validated['learning_mode'],
+                    'min_participants' => $validated['min_participants'],
+                    'max_participants' => $validated['max_participants'],
+                    'default_location' => $validated['default_location'] ?? null,
+                    'payment_deadline_hours' => $validated['payment_deadline_hours'],
                 ]
             );
 
             $rule->tutors()->sync($allowAllTutors ? [] : $tutorIds);
+            $rule->priceTiers()
+                ->whereNotIn('participant_count', $priceTiers->keys()->all())
+                ->delete();
+            foreach ($priceTiers as $participantCount => $pricePerPerson) {
+                $rule->priceTiers()->updateOrCreate(
+                    ['participant_count' => $participantCount],
+                    ['price_per_person' => $pricePerPerson]
+                );
+            }
         });
 
         return redirect()

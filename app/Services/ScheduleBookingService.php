@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BookingCohort;
 use App\Models\ClassModel;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
@@ -46,6 +47,7 @@ class ScheduleBookingService
                 ->lockForUpdate()
                 ->first();
             $access = $this->activeAccessFor($lockedBooking);
+            $cohort = $this->readyCohortFor($lockedBooking);
             $rule = PackageBookingRule::query()
                 ->where('package_id', $lockedBooking->package_id)
                 ->where('is_enabled', true)
@@ -69,7 +71,13 @@ class ScheduleBookingService
             }
 
             $usedQuota = ScheduleBookingRequest::query()
-                ->where('user_package_access_id', $access->user_package_access_id)
+                ->when(
+                    $cohort,
+                    fn ($query) => $query->where('booking_cohort_id', $cohort->id),
+                    fn ($query) => $query
+                        ->where('user_package_access_id', $access->user_package_access_id)
+                        ->whereNull('booking_cohort_id')
+                )
                 ->where('id', '!=', $lockedBooking->id)
                 ->consumesQuota()
                 ->count();
@@ -191,6 +199,7 @@ class ScheduleBookingService
                 ->lockForUpdate()
                 ->first();
             $access = $this->activeAccessFor($lockedBooking);
+            $this->readyCohortFor($lockedBooking);
             $rule = PackageBookingRule::query()
                 ->where('package_id', $lockedBooking->package_id)
                 ->where('is_enabled', true)
@@ -300,6 +309,30 @@ class ScheduleBookingService
         return $access;
     }
 
+    private function readyCohortFor(ScheduleBookingRequest $booking): ?BookingCohort
+    {
+        if (! $booking->booking_cohort_id) {
+            return null;
+        }
+
+        $cohort = BookingCohort::query()
+            ->with('studyGroup:id,name,tentor_id')
+            ->whereKey($booking->booking_cohort_id)
+            ->where('package_id', $booking->package_id)
+            ->where('organizer_user_id', $booking->user_id)
+            ->where('status', BookingCohort::STATUS_READY)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $cohort || ! $cohort->study_group_id) {
+            throw ValidationException::withMessages([
+                'booking' => 'Kelompok belum siap dijadwalkan.',
+            ]);
+        }
+
+        return $cohort;
+    }
+
     private function ensureTutorSlotAvailable(
         int $tentorId,
         Carbon $startAt,
@@ -344,7 +377,12 @@ class ScheduleBookingService
         Carbon $endAt,
         array $sessionDetails
     ): ClassSchedule {
-        $booking->loadMissing(['user:id,name', 'package:package_id,name']);
+        $booking->loadMissing([
+            'user:id,name',
+            'package:package_id,name',
+            'cohort.studyGroup:id,name,tentor_id',
+        ]);
+        $studyGroup = $booking->cohort?->studyGroup;
         $class = $rule->class_id
             ? ClassModel::query()->find($rule->class_id)
             : null;
@@ -363,8 +401,11 @@ class ScheduleBookingService
 
         $schedule = ClassSchedule::query()->create([
             'class_id' => $class->class_id,
+            'study_group_id' => $studyGroup?->id,
             'tentor_id' => $booking->tentor_id,
-            'title' => 'Booking '.$booking->package->name.' - '.$booking->user->name,
+            'title' => $studyGroup
+                ? 'Booking '.$studyGroup->name
+                : 'Booking '.$booking->package->name.' - '.$booking->user->name,
             'schedule_type' => 'single',
             'frequency' => null,
             'start_time' => $startAt->format('H:i'),
@@ -372,7 +413,7 @@ class ScheduleBookingService
             'start_date' => $startAt->toDateString(),
             'end_date' => $startAt->toDateString(),
             'meeting_url' => $sessionDetails['meeting_url'] ?? null,
-            'location' => $sessionDetails['location'] ?? null,
+            'location' => ($sessionDetails['location'] ?? null) ?: $rule->default_location,
             'is_active' => true,
             'created_by' => $responder->id,
         ]);
@@ -382,10 +423,14 @@ class ScheduleBookingService
             'close_minutes_after' => 30,
             'allow_admin_override' => true,
         ]);
-        $schedule->detailPackages()->create([
-            'package_id' => $booking->package_id,
-            'order' => 0,
-        ]);
+        if ($studyGroup) {
+            $studyGroup->update(['tentor_id' => $booking->tentor_id]);
+        } else {
+            $schedule->detailPackages()->create([
+                'package_id' => $booking->package_id,
+                'order' => 0,
+            ]);
+        }
         $daysAhead = max(
             1,
             (int) ceil(now()->startOfDay()->diffInDays($startAt->copy()->startOfDay())) + 1

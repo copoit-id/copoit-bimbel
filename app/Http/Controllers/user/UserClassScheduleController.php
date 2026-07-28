@@ -49,6 +49,7 @@ class UserClassScheduleController extends Controller
 
                 $query->orWhere(function ($classAccessQuery) use ($user): void {
                     $classAccessQuery
+                        ->whereNull('study_group_id')
                         ->whereDoesntHave('schedule.packages')
                         ->whereHas('class.userAccess', function ($accessQuery) use ($user) {
                             $accessQuery
@@ -57,11 +58,16 @@ class UserClassScheduleController extends Controller
                         });
                 });
 
-                $query->orWhereHas('schedule.packages', fn ($packageQuery) => $packageQuery
-                    ->whereIn('packages.package_id', $packageIds));
+                $query->orWhere(function ($packageAccessQuery) use ($packageIds): void {
+                    $packageAccessQuery
+                        ->whereNull('study_group_id')
+                        ->whereHas('schedule.packages', fn ($packageQuery) => $packageQuery
+                            ->whereIn('packages.package_id', $packageIds));
+                });
 
                 $query->orWhere(function ($legacyQuery) use ($destinationCategoryIds, $packageIds) {
-                    $legacyQuery->whereDoesntHave('schedule.packages')
+                    $legacyQuery->whereNull('study_group_id')
+                        ->whereDoesntHave('schedule.packages')
                         ->whereDoesntHave('studyGroup.users')
                         ->where(function ($legacyAccessQuery) use ($destinationCategoryIds, $packageIds) {
                             if ($destinationCategoryIds->isNotEmpty()) {
@@ -172,6 +178,10 @@ class UserClassScheduleController extends Controller
 
         if ($session->studyGroup?->users?->contains('id', $user->id)) {
             return true;
+        }
+
+        if ($session->study_group_id) {
+            return false;
         }
 
         if ($session->schedule->destinationCategories

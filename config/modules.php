@@ -162,6 +162,8 @@ return [
             'admin.package-booking.',
             'user.booking.',
             'tutor.booking.',
+            'user.development.',
+            'tutor.development.',
         ],
         'class' => [
             'admin.class-sessions.',
