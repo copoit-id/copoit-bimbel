@@ -20,12 +20,13 @@ class StudentDevelopmentController extends Controller
         $tentor = $request->user()->tentorProfile;
         $groups = StudyGroup::query()
             ->where('tentor_id', $tentor->id)
-            ->with(['users:id,name,email', 'bookingCohort.package:package_id,name'])
+            ->where('status', StudyGroup::STATUS_ACTIVE)
+            ->with(['users:id,name,email', 'package:package_id,name'])
             ->orderBy('name')
             ->limit(25)
             ->get();
         $groupTargets = $groups->flatMap(function (StudyGroup $group): Collection {
-            $package = $group->bookingCohort?->package;
+            $package = $group->package;
 
             return $group->users->map(fn ($user): array => [
                 'value' => implode(':', [
@@ -40,7 +41,7 @@ class StudentDevelopmentController extends Controller
         });
         $personalTargets = ScheduleBookingRequest::query()
             ->where('tentor_id', $tentor->id)
-            ->whereNull('booking_cohort_id')
+            ->whereNull('study_group_id')
             ->whereIn('status', [
                 ScheduleBookingRequest::STATUS_APPROVED,
                 ScheduleBookingRequest::STATUS_COMPLETED,
@@ -187,10 +188,7 @@ class StudentDevelopmentController extends Controller
                 ->whereKey($groupId)
                 ->where('tentor_id', $tentorId)
                 ->whereHas('users', fn ($query) => $query->where('users.id', $userId))
-                ->when($packageId, fn ($query) => $query->whereHas(
-                    'bookingCohort',
-                    fn ($cohortQuery) => $cohortQuery->where('package_id', $packageId)
-                ))
+                ->when($packageId, fn ($query) => $query->where('package_id', $packageId))
                 ->exists()
             : ScheduleBookingRequest::query()
                 ->where('tentor_id', $tentorId)

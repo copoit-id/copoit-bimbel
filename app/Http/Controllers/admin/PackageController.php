@@ -32,6 +32,7 @@ class PackageController extends Controller
     public function index(): View
     {
         $packages = Package::query()
+            ->with('bookingRule:id,package_id,is_enabled')
             ->withCount(['schedules', 'classes', 'tryouts', 'materials'])
             ->latest('package_id')
             ->paginate(12);

@@ -78,9 +78,9 @@ class Package extends Model
         return $this->hasMany(ScheduleBookingRequest::class, 'package_id', 'package_id');
     }
 
-    public function bookingCohorts(): HasMany
+    public function studyGroups(): HasMany
     {
-        return $this->hasMany(BookingCohort::class, 'package_id', 'package_id');
+        return $this->hasMany(StudyGroup::class, 'package_id', 'package_id');
     }
 
     // Other relationships

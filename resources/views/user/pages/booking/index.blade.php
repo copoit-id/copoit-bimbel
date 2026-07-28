@@ -29,11 +29,11 @@
     options: {{ Illuminate\Support\Js::from($accessOptions) }},
     selectedAccess: @js($initialAccess),
     selectedTutor: @js((string) old('tentor_id', '')),
-    selectedCohort: @js((string) old('booking_cohort_id', '')),
+    selectedStudyGroup: @js((string) old('study_group_id', '')),
     get selected() { return this.options[this.selectedAccess] || null },
     get selectedGroup() {
-        return (this.selected?.cohorts || []).find(
-            cohort => String(cohort.id) === String(this.selectedCohort)
+        return (this.selected?.study_groups || []).find(
+            group => String(group.id) === String(this.selectedStudyGroup)
         ) || null
     },
     get usedQuota() { return this.selectedGroup?.used ?? this.selected?.used ?? 0 },
@@ -63,16 +63,16 @@
         </div>
     @endif
 
-    @if($groupPackages->isNotEmpty() || $cohorts->isNotEmpty())
+    @if($groupPackages->isNotEmpty() || $studyGroups->isNotEmpty())
         <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
-                    <h2 class="font-bold text-gray-900">Booking belajar kelompok</h2>
-                    <p class="mt-1 text-sm text-gray-500">Buat kelompok, bagikan kode undangan, lalu setiap anggota membayar melalui akunnya sendiri.</p>
+                    <h2 class="font-bold text-gray-900">Pengajuan rombel</h2>
+                    <p class="mt-1 text-sm text-gray-500">Buat rombel, ajak teman dengan kode undangan, lalu admin menyetujui sebelum tagihan tiap anggota dibuat.</p>
                 </div>
-                <form method="POST" action="{{ route('user.booking.cohort.join') }}" class="flex w-full max-w-sm gap-2">
+                <form method="POST" action="{{ route('user.booking.rombel.join') }}" class="flex w-full max-w-sm gap-2">
                     @csrf
-                    <input type="text" name="invite_code" maxlength="12" required placeholder="Kode kelompok" class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:border-primary focus:ring-primary">
+                    <input type="text" name="invite_code" maxlength="12" required placeholder="Kode rombel" class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:border-primary focus:ring-primary">
                     <button class="rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white">Gabung</button>
                 </form>
             </div>
@@ -82,53 +82,61 @@
                     @foreach($groupPackages as $groupPackage)
                         <article class="rounded-xl border border-gray-200 p-4">
                             <p class="font-bold text-gray-900">{{ $groupPackage->name }}</p>
-                            <p class="mt-1 text-xs text-gray-500">Pilih jumlah anggota. Nominal di bawah adalah harga untuk setiap akun.</p>
-                            <form method="POST" action="{{ route('user.booking.cohort.store') }}" class="mt-4 flex flex-col gap-3 sm:flex-row">
+                            <p class="mt-1 text-xs text-gray-500">Pilih jumlah anggota. Nominal di bawah adalah harga untuk setiap siswa.</p>
+                            <form method="POST" action="{{ route('user.booking.rombel.store') }}" class="mt-4 flex flex-col gap-3 sm:flex-row">
                                 @csrf
                                 <input type="hidden" name="package_id" value="{{ $groupPackage->package_id }}">
                                 <select name="participant_count" required class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
-                                    @foreach($groupPackage->bookingRule->priceTiers as $tier)
-                                        <option value="{{ $tier->participant_count }}">
-                                            {{ $tier->participant_count }} orang · Rp {{ number_format($tier->price_per_person, 0, ',', '.') }}/orang
+                                    @for($count = $groupPackage->bookingRule->min_participants; $count <= $groupPackage->bookingRule->max_participants; $count++)
+                                        @php($tier = $groupPackage->bookingRule->priceTiers->firstWhere('participant_count', $count))
+                                        <option value="{{ $count }}">
+                                            {{ $count }} orang · Rp {{ number_format($tier?->price_per_person ?? $groupPackage->price, 0, ',', '.') }}/orang
                                         </option>
-                                    @endforeach
+                                    @endfor
                                 </select>
-                                <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">Buat kelompok</button>
+                                <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">Ajukan rombel</button>
                             </form>
                         </article>
                     @endforeach
                 </div>
             @endif
 
-            @if($cohorts->isNotEmpty())
+            @if($studyGroups->isNotEmpty())
                 <div class="mt-6 border-t border-gray-200 pt-5">
-                    <h3 class="text-sm font-bold text-gray-900">Kelompok saya</h3>
+                    <h3 class="text-sm font-bold text-gray-900">Rombel saya</h3>
                     <div class="mt-3 grid gap-3 lg:grid-cols-2">
-                        @foreach($cohorts as $cohort)
+                        @foreach($studyGroups as $studyGroup)
                             @php
-                                $myParticipant = $cohort->participants->firstWhere('user_id', auth()->id());
-                                $paidCount = $cohort->participants->where('status', 'paid')->count();
+                                $myMember = $studyGroup->members->firstWhere('user_id', auth()->id());
+                                $paidCount = $studyGroup->members->where('status', 'paid')->count();
+                                $groupStatus = [
+                                    'pending_approval' => 'Menunggu persetujuan admin',
+                                    'pending_payment' => 'Menunggu pelunasan',
+                                    'active' => 'Aktif dan siap dijadwalkan',
+                                    'expired' => 'Kedaluwarsa',
+                                    'cancelled' => 'Dibatalkan',
+                                ][$studyGroup->status] ?? $studyGroup->status;
                             @endphp
                             <article class="rounded-xl border border-gray-200 p-4">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
-                                        <p class="font-bold text-gray-900">{{ $cohort->package->name }}</p>
-                                        <p class="mt-1 text-xs text-gray-500">{{ $paidCount }}/{{ $cohort->target_participants }} anggota lunas</p>
+                                        <p class="font-bold text-gray-900">{{ $studyGroup->package->name }}</p>
+                                        <p class="mt-1 text-xs text-gray-500">{{ $studyGroup->members->count() }}/{{ $studyGroup->target_participants }} anggota bergabung · {{ $paidCount }} lunas</p>
                                     </div>
                                     <span class="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-bold text-primary">
-                                        {{ $cohort->status === 'ready' ? 'Siap dijadwalkan' : 'Menunggu pelunasan' }}
+                                        {{ $groupStatus }}
                                     </span>
                                 </div>
                                 <div class="mt-3 flex items-center justify-between rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
                                     <span class="text-xs text-gray-500">Kode undangan</span>
-                                    <strong class="tracking-widest text-gray-900">{{ $cohort->invite_code }}</strong>
+                                    <strong class="tracking-widest text-gray-900">{{ $studyGroup->invite_code }}</strong>
                                 </div>
                                 <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                                     <span class="text-gray-600">
                                         Statusmu:
-                                        <strong>{{ $myParticipant?->status === 'paid' ? 'Lunas' : 'Menunggu pembayaran' }}</strong>
+                                        <strong>{{ $myMember?->status === 'paid' ? 'Lunas' : ($myMember?->status === 'awaiting_approval' ? 'Menunggu persetujuan' : 'Menunggu pembayaran') }}</strong>
                                     </span>
-                                    @if($myParticipant?->invoice && $myParticipant->invoice->status !== 'paid')
+                                    @if($myMember?->invoice && $myMember->invoice->status !== 'paid')
                                         <a href="{{ route('user.billing.index') }}" class="font-bold text-primary hover:underline">Lihat tagihan</a>
                                     @endif
                                 </div>
@@ -157,22 +165,22 @@
                     @csrf
                     <label class="block">
                         <span class="text-sm font-semibold text-gray-700">Paket</span>
-                        <select name="user_package_access_id" x-model="selectedAccess" @change="selectedTutor = ''; selectedCohort = ''" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                        <select name="user_package_access_id" x-model="selectedAccess" @change="selectedTutor = ''; selectedStudyGroup = ''" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
                             @foreach($accesses as $access)
                                 <option value="{{ $access->user_package_access_id }}">{{ $access->package->name }}</option>
                             @endforeach
                         </select>
                     </label>
 
-                    <label class="block" x-show="selected && ((selected?.cohorts || []).length > 0 || selected?.learning_mode === 'group')" x-cloak>
+                    <label class="block" x-show="selected && ((selected?.study_groups || []).length > 0 || selected?.learning_mode === 'group')" x-cloak>
                         <span class="text-sm font-semibold text-gray-700">Peserta jadwal</span>
-                        <select name="booking_cohort_id" x-model="selectedCohort" :required="selected?.learning_mode === 'group'" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                        <select name="study_group_id" x-model="selectedStudyGroup" :required="selected?.learning_mode === 'group'" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
                             <option value="" x-show="selected?.learning_mode !== 'group'">Personal</option>
-                            <template x-for="cohort in (selected?.cohorts || [])" :key="cohort.id">
-                                <option :value="cohort.id" x-text="`${cohort.label} · ${cohort.participants} orang`"></option>
+                            <template x-for="group in (selected?.study_groups || [])" :key="group.id">
+                                <option :value="group.id" x-text="`${group.label} · ${group.participants} orang`"></option>
                             </template>
                         </select>
-                        <p x-show="selected?.learning_mode === 'group' && (selected?.cohorts || []).length === 0" class="mt-1 text-xs text-red-600">Kelompok harus penuh dan seluruh anggota lunas sebelum dijadwalkan.</p>
+                        <p x-show="selected?.learning_mode === 'group' && (selected?.study_groups || []).length === 0" class="mt-1 text-xs text-red-600">Rombel harus disetujui dan seluruh anggota lunas sebelum dijadwalkan.</p>
                     </label>
 
                     <div x-show="selected" class="grid grid-cols-2 gap-3">

@@ -404,6 +404,7 @@ class ScheduleBookingServiceTest extends TestCase
             $table->foreignId('package_id');
             $table->unsignedBigInteger('user_package_access_id');
             $table->unsignedBigInteger('booking_cohort_id')->nullable();
+            $table->unsignedBigInteger('study_group_id')->nullable();
             $table->foreignId('tentor_id');
             $table->dateTime('requested_start_at');
             $table->dateTime('requested_end_at');

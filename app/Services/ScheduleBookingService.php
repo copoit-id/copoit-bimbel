@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\BookingCohort;
 use App\Models\ClassModel;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
 use App\Models\PackageBookingRule;
 use App\Models\ScheduleBookingRequest;
+use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Models\User;
 use App\Models\UserPackageAcces;
@@ -47,7 +47,7 @@ class ScheduleBookingService
                 ->lockForUpdate()
                 ->first();
             $access = $this->activeAccessFor($lockedBooking);
-            $cohort = $this->readyCohortFor($lockedBooking);
+            $studyGroup = $this->activeStudyGroupFor($lockedBooking);
             $rule = PackageBookingRule::query()
                 ->where('package_id', $lockedBooking->package_id)
                 ->where('is_enabled', true)
@@ -72,11 +72,11 @@ class ScheduleBookingService
 
             $usedQuota = ScheduleBookingRequest::query()
                 ->when(
-                    $cohort,
-                    fn ($query) => $query->where('booking_cohort_id', $cohort->id),
+                    $studyGroup,
+                    fn ($query) => $query->where('study_group_id', $studyGroup->id),
                     fn ($query) => $query
                         ->where('user_package_access_id', $access->user_package_access_id)
-                        ->whereNull('booking_cohort_id')
+                        ->whereNull('study_group_id')
                 )
                 ->where('id', '!=', $lockedBooking->id)
                 ->consumesQuota()
@@ -199,7 +199,7 @@ class ScheduleBookingService
                 ->lockForUpdate()
                 ->first();
             $access = $this->activeAccessFor($lockedBooking);
-            $this->readyCohortFor($lockedBooking);
+            $this->activeStudyGroupFor($lockedBooking);
             $rule = PackageBookingRule::query()
                 ->where('package_id', $lockedBooking->package_id)
                 ->where('is_enabled', true)
@@ -309,28 +309,27 @@ class ScheduleBookingService
         return $access;
     }
 
-    private function readyCohortFor(ScheduleBookingRequest $booking): ?BookingCohort
+    private function activeStudyGroupFor(ScheduleBookingRequest $booking): ?StudyGroup
     {
-        if (! $booking->booking_cohort_id) {
+        if (! $booking->study_group_id) {
             return null;
         }
 
-        $cohort = BookingCohort::query()
-            ->with('studyGroup:id,name,tentor_id')
-            ->whereKey($booking->booking_cohort_id)
+        $studyGroup = StudyGroup::query()
+            ->whereKey($booking->study_group_id)
             ->where('package_id', $booking->package_id)
             ->where('organizer_user_id', $booking->user_id)
-            ->where('status', BookingCohort::STATUS_READY)
+            ->where('status', StudyGroup::STATUS_ACTIVE)
             ->lockForUpdate()
             ->first();
 
-        if (! $cohort || ! $cohort->study_group_id) {
+        if (! $studyGroup) {
             throw ValidationException::withMessages([
-                'booking' => 'Kelompok belum siap dijadwalkan.',
+                'booking' => 'Rombel belum aktif untuk dijadwalkan.',
             ]);
         }
 
-        return $cohort;
+        return $studyGroup;
     }
 
     private function ensureTutorSlotAvailable(
@@ -380,9 +379,9 @@ class ScheduleBookingService
         $booking->loadMissing([
             'user:id,name',
             'package:package_id,name',
-            'cohort.studyGroup:id,name,tentor_id',
+            'studyGroup:id,name,tentor_id',
         ]);
-        $studyGroup = $booking->cohort?->studyGroup;
+        $studyGroup = $booking->studyGroup;
         $class = $rule->class_id
             ? ClassModel::query()->find($rule->class_id)
             : null;

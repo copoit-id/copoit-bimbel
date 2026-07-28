@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
-use App\Models\BookingCohort;
 use App\Models\Package;
 use App\Models\ScheduleBookingRequest;
+use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Models\User;
 use App\Models\UserPackageAcces;
@@ -25,7 +25,7 @@ class ScheduleBookingController extends Controller
     {
         $user = $request->user();
         $groupPackages = Package::query()
-            ->select(['package_id', 'name'])
+            ->select(['package_id', 'name', 'price'])
             ->active()
             ->where('is_displayed', true)
             ->whereHas('bookingRule', function ($query): void {
@@ -38,14 +38,14 @@ class ScheduleBookingController extends Controller
             ])
             ->orderBy('name')
             ->get();
-        $cohorts = BookingCohort::query()
+        $studyGroups = StudyGroup::query()
+            ->whereNotNull('package_id')
             ->with([
                 'package:package_id,name',
-                'studyGroup:id,name,tentor_id',
-                'participants.user:id,name,email',
-                'participants.invoice:id,invoice_number,amount,status,due_date',
+                'members.user:id,name,email',
+                'members.invoice:id,invoice_number,amount,status,due_date',
             ])
-            ->whereHas('participants', fn ($query) => $query->where('user_id', $user->id))
+            ->whereHas('members', fn ($query) => $query->where('user_id', $user->id))
             ->latest()
             ->limit(20)
             ->get();
@@ -78,23 +78,23 @@ class ScheduleBookingController extends Controller
         $allTutors = $tutorDirectory->values();
         $quotaUsage = ScheduleBookingRequest::query()
             ->whereIn('user_package_access_id', $accesses->pluck('user_package_access_id'))
-            ->whereNull('booking_cohort_id')
+            ->whereNull('study_group_id')
             ->consumesQuota()
             ->selectRaw('user_package_access_id, COUNT(*) as total')
             ->groupBy('user_package_access_id')
             ->pluck('total', 'user_package_access_id');
-        $cohortQuotaUsage = ScheduleBookingRequest::query()
-            ->whereIn('booking_cohort_id', $cohorts->pluck('id'))
+        $groupQuotaUsage = ScheduleBookingRequest::query()
+            ->whereIn('study_group_id', $studyGroups->pluck('id'))
             ->consumesQuota()
-            ->selectRaw('booking_cohort_id, COUNT(*) as total')
-            ->groupBy('booking_cohort_id')
-            ->pluck('total', 'booking_cohort_id');
+            ->selectRaw('study_group_id, COUNT(*) as total')
+            ->groupBy('study_group_id')
+            ->pluck('total', 'study_group_id');
         $accessOptions = $accesses->mapWithKeys(function (UserPackageAcces $access) use (
             $allTutors,
             $quotaUsage,
             $tutorDirectory,
-            $cohorts,
-            $cohortQuotaUsage
+            $studyGroups,
+            $groupQuotaUsage
         ): array {
             $rule = $access->package->bookingRule;
             $tutors = $rule->allow_all_tutors
@@ -113,15 +113,15 @@ class ScheduleBookingController extends Controller
                     'quota' => $rule->session_quota,
                     'used' => (int) $quotaUsage->get($access->user_package_access_id, 0),
                     'learning_mode' => $rule->learning_mode,
-                    'cohorts' => $cohorts
+                    'study_groups' => $studyGroups
                         ->where('package_id', $access->package_id)
                         ->where('organizer_user_id', $access->user_id)
-                        ->where('status', BookingCohort::STATUS_READY)
-                        ->map(fn (BookingCohort $cohort): array => [
-                            'id' => $cohort->id,
-                            'label' => $cohort->studyGroup?->name ?? $cohort->invite_code,
-                            'participants' => $cohort->target_participants,
-                            'used' => (int) $cohortQuotaUsage->get($cohort->id, 0),
+                        ->where('status', StudyGroup::STATUS_ACTIVE)
+                        ->map(fn (StudyGroup $group): array => [
+                            'id' => $group->id,
+                            'label' => $group->name,
+                            'participants' => $group->target_participants,
+                            'used' => (int) $groupQuotaUsage->get($group->id, 0),
                         ])->values()->all(),
                     'tutors' => $tutors->map(fn (Tentor $tutor): array => [
                         'id' => $tutor->id,
@@ -158,7 +158,7 @@ class ScheduleBookingController extends Controller
             'accessOptions',
             'bookings',
             'groupPackages',
-            'cohorts',
+            'studyGroups',
         ));
     }
 
@@ -190,7 +190,7 @@ class ScheduleBookingController extends Controller
             'tentor_id' => ['required', 'integer', 'exists:tentors,id'],
             'requested_start_at' => ['required', 'date'],
             'student_notes' => ['nullable', 'string', 'max:1000'],
-            'booking_cohort_id' => ['nullable', 'integer', 'exists:booking_cohorts,id'],
+            'study_group_id' => ['nullable', 'integer', 'exists:study_groups,id'],
         ]);
         $requestedStart = Carbon::parse($validated['requested_start_at'])->startOfMinute();
 
@@ -222,23 +222,23 @@ class ScheduleBookingController extends Controller
                 ]);
             }
 
-            $cohort = null;
-            if (! empty($validated['booking_cohort_id'])) {
-                $cohort = BookingCohort::query()
-                    ->whereKey($validated['booking_cohort_id'])
+            $studyGroup = null;
+            if (! empty($validated['study_group_id'])) {
+                $studyGroup = StudyGroup::query()
+                    ->whereKey($validated['study_group_id'])
                     ->where('package_id', $access->package_id)
                     ->where('organizer_user_id', $request->user()->id)
-                    ->where('status', BookingCohort::STATUS_READY)
+                    ->where('status', StudyGroup::STATUS_ACTIVE)
                     ->lockForUpdate()
                     ->first();
-                if (! $cohort) {
+                if (! $studyGroup) {
                     throw ValidationException::withMessages([
-                        'booking_cohort_id' => 'Kelompok tidak valid atau belum siap dijadwalkan.',
+                        'study_group_id' => 'Rombel tidak valid atau belum siap dijadwalkan.',
                     ]);
                 }
             } elseif ($rule->learning_mode === 'group') {
                 throw ValidationException::withMessages([
-                    'booking_cohort_id' => 'Pilih kelompok yang sudah lunas untuk paket ini.',
+                    'study_group_id' => 'Pilih rombel yang sudah aktif untuk paket ini.',
                 ]);
             }
 
@@ -271,10 +271,10 @@ class ScheduleBookingController extends Controller
 
             $pendingCount = ScheduleBookingRequest::query()
                 ->when(
-                    $cohort,
-                    fn ($query) => $query->where('booking_cohort_id', $cohort->id),
+                    $studyGroup,
+                    fn ($query) => $query->where('study_group_id', $studyGroup->id),
                     fn ($query) => $query->where('user_package_access_id', $access->user_package_access_id)
-                        ->whereNull('booking_cohort_id')
+                        ->whereNull('study_group_id')
                 )
                 ->awaitingResponse()
                 ->lockForUpdate()
@@ -288,10 +288,10 @@ class ScheduleBookingController extends Controller
 
             $usedQuota = ScheduleBookingRequest::query()
                 ->when(
-                    $cohort,
-                    fn ($query) => $query->where('booking_cohort_id', $cohort->id),
+                    $studyGroup,
+                    fn ($query) => $query->where('study_group_id', $studyGroup->id),
                     fn ($query) => $query->where('user_package_access_id', $access->user_package_access_id)
-                        ->whereNull('booking_cohort_id')
+                        ->whereNull('study_group_id')
                 )
                 ->consumesQuota()
                 ->count();
@@ -319,7 +319,7 @@ class ScheduleBookingController extends Controller
                 'user_id' => $request->user()->id,
                 'package_id' => $access->package_id,
                 'user_package_access_id' => $access->user_package_access_id,
-                'booking_cohort_id' => $cohort?->id,
+                'study_group_id' => $studyGroup?->id,
                 'tentor_id' => $validated['tentor_id'],
                 'requested_start_at' => $requestedStart,
                 'requested_end_at' => $requestedStart->copy()->addMinutes($rule->duration_minutes),

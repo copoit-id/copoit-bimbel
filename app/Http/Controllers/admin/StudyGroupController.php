@@ -18,7 +18,11 @@ class StudyGroupController extends Controller
         $this->abortIfStudyGroupHidden();
 
         $studyGroups = StudyGroup::query()
-            ->with('tentor')
+            ->where(function ($query): void {
+                $query->whereNull('package_id')
+                    ->orWhere('status', StudyGroup::STATUS_ACTIVE);
+            })
+            ->with(['tentor:id,name', 'package:package_id,name'])
             ->withCount(['users', 'schedules'])
             ->orderBy('name')
             ->paginate(15);
@@ -48,6 +52,7 @@ class StudyGroupController extends Controller
             $studyGroup = StudyGroup::create([
                 ...$validated,
                 'is_active' => $request->boolean('is_active', true),
+                'status' => StudyGroup::STATUS_ACTIVE,
             ]);
 
             $studyGroup->users()->sync($request->input('user_ids', []));
@@ -61,6 +66,7 @@ class StudyGroupController extends Controller
     public function edit(StudyGroup $studyGroup): View
     {
         $this->abortIfStudyGroupHidden();
+        abort_if($studyGroup->package_id, 404);
 
         $selectedUserIds = $studyGroup->users()
             ->pluck('users.id')
@@ -78,6 +84,10 @@ class StudyGroupController extends Controller
     public function update(Request $request, StudyGroup $studyGroup): RedirectResponse
     {
         $this->abortIfStudyGroupHidden();
+
+        if ($studyGroup->package_id) {
+            return back()->with('error', 'Rombel dari pengajuan paket dikelola melalui paket dan jadwalnya.');
+        }
 
         $validated = $this->validatedData($request);
 
@@ -98,6 +108,10 @@ class StudyGroupController extends Controller
     public function destroy(StudyGroup $studyGroup): RedirectResponse
     {
         $this->abortIfStudyGroupHidden();
+
+        if ($studyGroup->package_id) {
+            return back()->with('error', 'Rombel dari pengajuan paket tidak dapat dihapus dari halaman ini.');
+        }
 
         if ($studyGroup->schedules()->exists()) {
             return back()->with('error', 'Rombel masih dipakai di jadwal kelas. Nonaktifkan rombel jika tidak digunakan lagi.');

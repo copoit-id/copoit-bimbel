@@ -55,9 +55,9 @@ class BillInvoice extends Model
         return $this->hasMany(BillInvoicePayment::class)->orderByDesc('paid_at');
     }
 
-    public function cohortParticipant(): HasOne
+    public function studyGroupMember(): HasOne
     {
-        return $this->hasOne(BookingCohortParticipant::class);
+        return $this->hasOne(StudyGroupMember::class, 'bill_invoice_id');
     }
 
     public function getPaidAmountAttribute(): int

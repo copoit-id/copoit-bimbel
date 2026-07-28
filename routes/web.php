@@ -64,7 +64,6 @@ use App\Http\Controllers\tutor\TutorProfileController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
-use App\Http\Controllers\user\BookingCohortController as UserBookingCohortController;
 use App\Http\Controllers\user\CertificateValidationController;
 use App\Http\Controllers\user\DashboardController;
 use App\Http\Controllers\user\EventController;
@@ -74,6 +73,7 @@ use App\Http\Controllers\user\MaterialController;
 use App\Http\Controllers\user\PackageController;
 use App\Http\Controllers\user\ScheduleBookingController as UserScheduleBookingController;
 use App\Http\Controllers\user\StudentDevelopmentController as UserStudentDevelopmentController;
+use App\Http\Controllers\user\StudyGroupBookingController as UserStudyGroupBookingController;
 use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\user\UserBillingController;
@@ -237,12 +237,12 @@ Route::prefix('user')->middleware('auth')->group(function () {
         ->name('user.class-schedule.attend');
     Route::prefix('booking-jadwal')->name('user.booking.')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
-        Route::post('/kelompok', [UserBookingCohortController::class, 'store'])
+        Route::post('/kelompok', [UserStudyGroupBookingController::class, 'store'])
             ->middleware('throttle:10,1')
-            ->name('cohort.store');
-        Route::post('/kelompok/gabung', [UserBookingCohortController::class, 'join'])
+            ->name('rombel.store');
+        Route::post('/kelompok/gabung', [UserStudyGroupBookingController::class, 'join'])
             ->middleware('throttle:10,1')
-            ->name('cohort.join');
+            ->name('rombel.join');
         Route::get('/tutor/{tentor}', [UserScheduleBookingController::class, 'showTutor'])
             ->name('tutor.show');
         Route::post('/', [UserScheduleBookingController::class, 'store'])
@@ -522,6 +522,8 @@ Route::prefix('{portal}')
             ->name('package-booking.cohorts.index');
         Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
             ->name('package-booking.cohorts.payments.store');
+        Route::post('/paket-booking/rombel/{studyGroup}/setujui', [GroupBookingController::class, 'approve'])
+            ->name('package-booking.cohorts.approve');
         Route::resource('diskon', DiscountController::class)
             ->except(['show'])
             ->names('discounts')

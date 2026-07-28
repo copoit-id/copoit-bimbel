@@ -3,12 +3,11 @@
 namespace App\Services;
 
 use App\Models\BillInvoice;
-use App\Models\BookingCohort;
-use App\Models\BookingCohortParticipant;
 use App\Models\Package;
 use App\Models\PackageBookingPriceTier;
 use App\Models\PackageBookingRule;
 use App\Models\StudyGroup;
+use App\Models\StudyGroupMember;
 use App\Models\User;
 use App\Models\UserPackageAcces;
 use Illuminate\Support\Facades\DB;
@@ -17,256 +16,302 @@ use Illuminate\Validation\ValidationException;
 
 class GroupBookingService
 {
-    public function create(Package $package, User $organizer, int $participantCount): BookingCohort
+    public function create(Package $package, User $organizer, int $participantCount): StudyGroup
     {
-        return DB::transaction(function () use ($package, $organizer, $participantCount): BookingCohort {
+        return DB::transaction(function () use ($package, $organizer, $participantCount): StudyGroup {
             User::query()->whereKey($organizer->id)->lockForUpdate()->firstOrFail();
-            $rule = PackageBookingRule::query()
-                ->where('package_id', $package->package_id)
-                ->where('is_enabled', true)
+            $package = Package::query()
+                ->whereKey($package->package_id)
                 ->lockForUpdate()
-                ->first();
+                ->firstOrFail();
+            $rule = $this->activeGroupRule($package);
+            $this->ensureParticipantCount($rule, $participantCount);
+            $tier = $this->resolvePriceTier($package, $rule, $participantCount);
+            $this->ensureUserHasNoActiveGroup($organizer->id, $package->package_id);
 
-            if (! $rule || ! in_array($rule->learning_mode, ['group', 'both'], true)) {
-                throw ValidationException::withMessages([
-                    'package_id' => 'Paket ini belum menyediakan booking kelompok.',
-                ]);
-            }
-
-            if ($participantCount < $rule->min_participants
-                || $participantCount > $rule->max_participants) {
-                throw ValidationException::withMessages([
-                    'participant_count' => "Jumlah anggota harus {$rule->min_participants}–{$rule->max_participants} orang.",
-                ]);
-            }
-
-            $tier = PackageBookingPriceTier::query()
-                ->where('package_booking_rule_id', $rule->id)
-                ->where('participant_count', $participantCount)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $tier) {
-                throw ValidationException::withMessages([
-                    'participant_count' => 'Harga untuk jumlah anggota tersebut belum diatur.',
-                ]);
-            }
-
-            $hasActiveCohort = BookingCohortParticipant::query()
-                ->where('user_id', $organizer->id)
-                ->whereIn('status', [
-                    BookingCohortParticipant::STATUS_AWAITING_PAYMENT,
-                    BookingCohortParticipant::STATUS_PAID,
-                ])
-                ->whereHas('cohort', function ($query) use ($package): void {
-                    $query->where('package_id', $package->package_id)
-                        ->whereIn('status', [
-                            BookingCohort::STATUS_FORMING,
-                            BookingCohort::STATUS_READY,
-                        ]);
-                })
-                ->exists();
-
-            if ($hasActiveCohort) {
-                throw ValidationException::withMessages([
-                    'package_id' => 'Kamu sudah tergabung dalam kelompok aktif untuk paket ini.',
-                ]);
-            }
-
-            $cohort = BookingCohort::query()->create([
+            $inviteCode = $this->inviteCode();
+            $group = StudyGroup::query()->create([
+                'name' => $package->name.' · Pengajuan '.$inviteCode,
+                'description' => 'Rombel pengajuan dari booking paket.',
                 'package_id' => $package->package_id,
                 'package_booking_rule_id' => $rule->id,
                 'package_booking_price_tier_id' => $tier->id,
                 'organizer_user_id' => $organizer->id,
-                'invite_code' => $this->inviteCode(),
+                'invite_code' => $inviteCode,
                 'target_participants' => $participantCount,
                 'unit_price_snapshot' => $tier->price_per_person,
-                'status' => BookingCohort::STATUS_FORMING,
+                'status' => StudyGroup::STATUS_PENDING_APPROVAL,
                 'expires_at' => now()->addHours($rule->payment_deadline_hours),
+                'is_active' => false,
             ]);
 
-            $this->addParticipant($cohort, $organizer, 'organizer');
-            $this->finalizeIfReady($cohort);
+            $this->addMember($group, $organizer, 'organizer');
 
-            return $cohort->fresh([
-                'package:package_id,name',
-                'participants.user:id,name,email',
-                'participants.invoice',
-                'studyGroup',
-            ]);
+            return $group->fresh($this->groupRelations());
         }, 3);
     }
 
-    public function join(User $user, string $inviteCode): BookingCohort
+    public function join(User $user, string $inviteCode): StudyGroup
     {
-        return DB::transaction(function () use ($user, $inviteCode): BookingCohort {
+        return DB::transaction(function () use ($user, $inviteCode): StudyGroup {
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            $cohort = BookingCohort::query()
+            $group = StudyGroup::query()
                 ->with('package:package_id,name,access_duration_unit,access_duration_value')
                 ->where('invite_code', Str::upper(trim($inviteCode)))
                 ->lockForUpdate()
                 ->first();
 
-            if (! $cohort
-                || $cohort->status !== BookingCohort::STATUS_FORMING
-                || ($cohort->expires_at && $cohort->expires_at->isPast())) {
+            if (! $group
+                || $group->status !== StudyGroup::STATUS_PENDING_APPROVAL
+                || ($group->expires_at && $group->expires_at->isPast())) {
                 throw ValidationException::withMessages([
-                    'invite_code' => 'Kode kelompok tidak valid atau masa bergabung sudah berakhir.',
+                    'invite_code' => 'Kode rombel tidak valid atau masa bergabung sudah berakhir.',
                 ]);
             }
 
-            if ($cohort->participants()
+            $activeMemberCount = $group->members()
                 ->whereIn('status', [
-                    BookingCohortParticipant::STATUS_AWAITING_PAYMENT,
-                    BookingCohortParticipant::STATUS_PAID,
+                    StudyGroupMember::STATUS_AWAITING_APPROVAL,
+                    StudyGroupMember::STATUS_AWAITING_PAYMENT,
+                    StudyGroupMember::STATUS_PAID,
                 ])
-                ->count() >= $cohort->target_participants) {
+                ->count();
+            if ($activeMemberCount >= $group->target_participants) {
                 throw ValidationException::withMessages([
-                    'invite_code' => 'Kelompok ini sudah penuh.',
+                    'invite_code' => 'Rombel ini sudah penuh.',
+                ]);
+            }
+            if ($group->members()->where('user_id', $user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'invite_code' => 'Kamu sudah tergabung dalam rombel ini.',
                 ]);
             }
 
-            if ($cohort->participants()->where('user_id', $user->id)->exists()) {
+            $this->ensureUserHasNoActiveGroup($user->id, $group->package_id);
+            $this->addMember($group, $user, 'member');
+
+            return $group->fresh($this->groupRelations());
+        }, 3);
+    }
+
+    public function approve(StudyGroup $studyGroup): StudyGroup
+    {
+        return DB::transaction(function () use ($studyGroup): StudyGroup {
+            $group = StudyGroup::query()
+                ->with('package:package_id,name,access_duration_unit,access_duration_value')
+                ->lockForUpdate()
+                ->findOrFail($studyGroup->id);
+
+            if ($group->status !== StudyGroup::STATUS_PENDING_APPROVAL) {
                 throw ValidationException::withMessages([
-                    'invite_code' => 'Kamu sudah tergabung dalam kelompok ini.',
+                    'rombel' => 'Pengajuan rombel ini sudah diproses.',
+                ]);
+            }
+            if ($group->expires_at && $group->expires_at->isPast()) {
+                $group->update(['status' => StudyGroup::STATUS_EXPIRED]);
+                throw ValidationException::withMessages([
+                    'rombel' => 'Masa pengajuan rombel sudah berakhir.',
                 ]);
             }
 
-            $alreadyInPackageCohort = BookingCohortParticipant::query()
-                ->where('user_id', $user->id)
-                ->whereIn('status', [
-                    BookingCohortParticipant::STATUS_AWAITING_PAYMENT,
-                    BookingCohortParticipant::STATUS_PAID,
-                ])
-                ->whereHas('cohort', function ($query) use ($cohort): void {
-                    $query->where('package_id', $cohort->package_id)
-                        ->whereIn('status', [
-                            BookingCohort::STATUS_FORMING,
-                            BookingCohort::STATUS_READY,
-                        ]);
-                })
-                ->exists();
-
-            if ($alreadyInPackageCohort) {
+            $memberCount = $group->members()
+                ->where('status', StudyGroupMember::STATUS_AWAITING_APPROVAL)
+                ->count();
+            if ($memberCount !== $group->target_participants) {
                 throw ValidationException::withMessages([
-                    'invite_code' => 'Kamu sudah tergabung dalam kelompok aktif untuk paket ini.',
+                    'rombel' => 'Rombel harus terisi lengkap sebelum dapat disetujui.',
                 ]);
             }
 
-            $this->addParticipant($cohort, $user, 'member');
-            $this->finalizeIfReady($cohort);
-
-            return $cohort->fresh([
-                'package:package_id,name',
-                'participants.user:id,name,email',
-                'participants.invoice',
-                'studyGroup',
+            $group->update([
+                'status' => StudyGroup::STATUS_PENDING_PAYMENT,
+                'expires_at' => now()->addHours($this->paymentDeadlineHours($group)),
             ]);
+            $group->members()
+                ->where('status', StudyGroupMember::STATUS_AWAITING_APPROVAL)
+                ->update(['status' => StudyGroupMember::STATUS_AWAITING_PAYMENT]);
+
+            $group->load('members');
+            foreach ($group->members as $member) {
+                $this->prepareMemberPayment($group, $member);
+            }
+
+            $this->finalizeIfPaid($group);
+
+            return $group->fresh($this->groupRelations());
         }, 3);
     }
 
     public function syncInvoice(BillInvoice $invoice): void
     {
         DB::transaction(function () use ($invoice): void {
-            $participantReference = BookingCohortParticipant::query()
+            $memberReference = StudyGroupMember::query()
                 ->where('bill_invoice_id', $invoice->id)
-                ->first(['id', 'user_id']);
-
-            if (! $participantReference) {
+                ->first(['id', 'user_id', 'study_group_id']);
+            if (! $memberReference) {
                 return;
             }
 
-            User::query()
-                ->whereKey($participantReference->user_id)
-                ->lockForUpdate()
-                ->firstOrFail();
-            $participant = BookingCohortParticipant::query()
-                ->whereKey($participantReference->id)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $participant) {
-                return;
-            }
-
-            $cohort = BookingCohort::query()
+            User::query()->whereKey($memberReference->user_id)->lockForUpdate()->firstOrFail();
+            $member = StudyGroupMember::query()->lockForUpdate()->find($memberReference->id);
+            $lockedInvoice = BillInvoice::query()->lockForUpdate()->find($invoice->id);
+            $group = StudyGroup::query()
                 ->with('package:package_id,name,access_duration_unit,access_duration_value')
                 ->lockForUpdate()
-                ->findOrFail($participant->booking_cohort_id);
-            $lockedInvoice = BillInvoice::query()->lockForUpdate()->findOrFail($invoice->id);
+                ->find($memberReference->study_group_id);
 
-            if ($lockedInvoice->status !== 'paid'
-                || $participant->status === BookingCohortParticipant::STATUS_CANCELLED) {
+            if (! $member || ! $lockedInvoice || ! $group
+                || $lockedInvoice->status !== 'paid'
+                || $member->status === StudyGroupMember::STATUS_CANCELLED) {
                 return;
             }
 
             $access = $this->grantAccess(
-                $participant->user_id,
-                $cohort->package,
-                (int) $participant->unit_price_snapshot
+                $member->user_id,
+                $group->package,
+                (int) $member->unit_price_snapshot
             );
-            $participant->update([
-                'status' => BookingCohortParticipant::STATUS_PAID,
+            $member->update([
+                'status' => StudyGroupMember::STATUS_PAID,
                 'user_package_access_id' => $access->user_package_access_id,
                 'paid_at' => $lockedInvoice->paid_at ?? now(),
             ]);
 
-            $this->finalizeIfReady($cohort);
+            $this->finalizeIfPaid($group);
         }, 3);
     }
 
-    private function addParticipant(BookingCohort $cohort, User $user, string $role): void
+    private function activeGroupRule(Package $package): PackageBookingRule
+    {
+        $rule = PackageBookingRule::query()
+            ->where('package_id', $package->package_id)
+            ->where('is_enabled', true)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $rule || ! in_array($rule->learning_mode, ['group', 'both'], true)) {
+            throw ValidationException::withMessages([
+                'package_id' => 'Paket ini belum menyediakan rombel booking.',
+            ]);
+        }
+
+        return $rule;
+    }
+
+    private function ensureParticipantCount(PackageBookingRule $rule, int $participantCount): void
+    {
+        if ($participantCount < $rule->min_participants
+            || $participantCount > $rule->max_participants) {
+            throw ValidationException::withMessages([
+                'participant_count' => "Jumlah anggota harus {$rule->min_participants}–{$rule->max_participants} orang.",
+            ]);
+        }
+    }
+
+    private function resolvePriceTier(
+        Package $package,
+        PackageBookingRule $rule,
+        int $participantCount
+    ): PackageBookingPriceTier {
+        $tier = PackageBookingPriceTier::query()
+            ->where('package_booking_rule_id', $rule->id)
+            ->where('participant_count', $participantCount)
+            ->lockForUpdate()
+            ->first();
+
+        if ($tier) {
+            return $tier;
+        }
+
+        if (($rule->group_pricing_mode ?? 'same') === 'same') {
+            return PackageBookingPriceTier::query()->create([
+                'package_booking_rule_id' => $rule->id,
+                'participant_count' => $participantCount,
+                'price_per_person' => (int) $package->price,
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'participant_count' => 'Harga untuk jumlah anggota tersebut belum diatur.',
+        ]);
+    }
+
+    private function ensureUserHasNoActiveGroup(int $userId, int $packageId): void
+    {
+        $exists = StudyGroupMember::query()
+            ->where('user_id', $userId)
+            ->whereIn('status', [
+                StudyGroupMember::STATUS_AWAITING_APPROVAL,
+                StudyGroupMember::STATUS_AWAITING_PAYMENT,
+                StudyGroupMember::STATUS_PAID,
+            ])
+            ->whereHas('studyGroup', function ($query) use ($packageId): void {
+                $query->where('package_id', $packageId)
+                    ->whereIn('status', [
+                        StudyGroup::STATUS_PENDING_APPROVAL,
+                        StudyGroup::STATUS_PENDING_PAYMENT,
+                        StudyGroup::STATUS_ACTIVE,
+                    ]);
+            })
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'package_id' => 'Kamu sudah tergabung dalam rombel aktif untuk paket ini.',
+            ]);
+        }
+    }
+
+    private function addMember(StudyGroup $group, User $user, string $role): void
+    {
+        $group->members()->create([
+            'user_id' => $user->id,
+            'role' => $role,
+            'status' => StudyGroupMember::STATUS_AWAITING_APPROVAL,
+            'unit_price_snapshot' => $group->unit_price_snapshot,
+        ]);
+    }
+
+    private function prepareMemberPayment(StudyGroup $group, StudyGroupMember $member): void
     {
         $activeAccess = UserPackageAcces::query()
-            ->where('user_id', $user->id)
-            ->where('package_id', $cohort->package_id)
+            ->where('user_id', $member->user_id)
+            ->where('package_id', $group->package_id)
             ->active()
             ->lockForUpdate()
             ->first();
 
         if ($activeAccess) {
-            $cohort->participants()->create([
-                'user_id' => $user->id,
+            $member->update([
+                'status' => StudyGroupMember::STATUS_PAID,
                 'user_package_access_id' => $activeAccess->user_package_access_id,
-                'role' => $role,
-                'status' => BookingCohortParticipant::STATUS_PAID,
-                'unit_price_snapshot' => $cohort->unit_price_snapshot,
                 'paid_at' => now(),
             ]);
 
             return;
         }
 
-        if ((int) $cohort->unit_price_snapshot === 0) {
-            $access = $this->grantAccess($user->id, $cohort->package, 0);
-            $cohort->participants()->create([
-                'user_id' => $user->id,
+        if ((int) $member->unit_price_snapshot === 0) {
+            $access = $this->grantAccess($member->user_id, $group->package, 0);
+            $member->update([
+                'status' => StudyGroupMember::STATUS_PAID,
                 'user_package_access_id' => $access->user_package_access_id,
-                'role' => $role,
-                'status' => BookingCohortParticipant::STATUS_PAID,
-                'unit_price_snapshot' => 0,
                 'paid_at' => now(),
             ]);
 
             return;
         }
 
-        $participant = $cohort->participants()->create([
-            'user_id' => $user->id,
-            'role' => $role,
-            'status' => BookingCohortParticipant::STATUS_AWAITING_PAYMENT,
-            'unit_price_snapshot' => $cohort->unit_price_snapshot,
-        ]);
         $invoice = BillInvoice::query()->create([
-            'user_id' => $user->id,
-            'invoice_number' => $this->invoiceNumber($cohort, $user),
-            'title' => 'Paket kelompok '.$cohort->package->name,
-            'amount' => $cohort->unit_price_snapshot,
-            'due_date' => ($cohort->expires_at ?? now()->addDays(2))->toDateString(),
+            'user_id' => $member->user_id,
+            'invoice_number' => $this->invoiceNumber($group, $member),
+            'title' => 'Rombel '.$group->package->name,
+            'amount' => $member->unit_price_snapshot,
+            'due_date' => ($group->expires_at ?? now()->addDays(2))->toDateString(),
             'status' => 'unpaid',
-            'notes' => "Pembayaran per anggota kelompok {$cohort->invite_code}.",
+            'notes' => 'Pembayaran anggota rombel '.$group->invite_code.'.',
         ]);
-        $participant->update(['bill_invoice_id' => $invoice->id]);
+        $member->update(['bill_invoice_id' => $invoice->id]);
     }
 
     private function grantAccess(int $userId, Package $package, int $amount): UserPackageAcces
@@ -284,51 +329,60 @@ class GroupBookingService
                 'status' => 'active',
                 'payment_amount' => $amount,
                 'payment_status' => $amount > 0 ? 'paid' : 'free',
-                'notes' => 'Akses dari pembayaran paket kelompok.',
+                'notes' => 'Akses dari pembayaran rombel.',
                 'created_by' => null,
                 'requirement_status' => 'none',
             ]
         );
     }
 
-    private function finalizeIfReady(BookingCohort $cohort): void
+    private function finalizeIfPaid(StudyGroup $group): void
     {
-        $paidParticipants = $cohort->participants()
-            ->where('status', BookingCohortParticipant::STATUS_PAID)
-            ->get(['user_id']);
-
-        if ($paidParticipants->count() < $cohort->target_participants) {
+        $paidCount = $group->members()
+            ->where('status', StudyGroupMember::STATUS_PAID)
+            ->count();
+        if ($paidCount < $group->target_participants) {
             return;
         }
 
-        $group = $cohort->study_group_id
-            ? StudyGroup::query()->lockForUpdate()->findOrFail($cohort->study_group_id)
-            : StudyGroup::query()->create([
-                'name' => "{$cohort->package->name} · {$cohort->invite_code}",
-                'description' => "Rombel otomatis dari booking kelompok {$cohort->invite_code}.",
-                'is_active' => true,
-            ]);
-
-        $group->users()->sync($paidParticipants->pluck('user_id')->all());
-        $cohort->update([
-            'study_group_id' => $group->id,
-            'status' => BookingCohort::STATUS_READY,
+        $group->update([
+            'status' => StudyGroup::STATUS_ACTIVE,
+            'is_active' => true,
+            'expires_at' => null,
         ]);
+    }
+
+    private function paymentDeadlineHours(StudyGroup $group): int
+    {
+        return max(1, (int) ($group->rule?->payment_deadline_hours ?? 48));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function groupRelations(): array
+    {
+        return [
+            'package:package_id,name',
+            'organizer:id,name,email',
+            'members.user:id,name,email',
+            'members.invoice',
+        ];
     }
 
     private function inviteCode(): string
     {
         do {
             $code = Str::upper(Str::random(8));
-        } while (BookingCohort::query()->where('invite_code', $code)->exists());
+        } while (StudyGroup::query()->where('invite_code', $code)->exists());
 
         return $code;
     }
 
-    private function invoiceNumber(BookingCohort $cohort, User $user): string
+    private function invoiceNumber(StudyGroup $group, StudyGroupMember $member): string
     {
         do {
-            $number = "GRP-{$cohort->id}-{$user->id}-".Str::upper(Str::random(5));
+            $number = "RMB-{$group->id}-{$member->user_id}-".Str::upper(Str::random(5));
         } while (BillInvoice::query()->where('invoice_number', $number)->exists());
 
         return $number;

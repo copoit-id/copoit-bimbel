@@ -57,9 +57,9 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <h2 class="font-bold text-gray-900">{{ $booking->user->name }}</h2>
                             <span class="rounded-full border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">{{ $booking->package->name }}</span>
-                            @if($booking->cohort)
+                            @if($booking->studyGroup)
                                 <span class="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                                    Kelompok · {{ $booking->cohort->target_participants }} siswa
+                                    Rombel · {{ $booking->studyGroup->target_participants }} siswa
                                 </span>
                             @endif
                         </div>
@@ -75,10 +75,10 @@
                     </span>
                 </div>
 
-                @if($booking->cohort)
+                @if($booking->studyGroup)
                     <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">{{ $booking->cohort->studyGroup?->name }}</p>
-                        <p class="mt-1 text-sm text-gray-600">{{ $booking->cohort->participants->pluck('user.name')->filter()->join(', ') }}</p>
+                        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">{{ $booking->studyGroup->name }}</p>
+                        <p class="mt-1 text-sm text-gray-600">{{ $booking->studyGroup->members->pluck('user.name')->filter()->join(', ') }}</p>
                     </div>
                 @endif
 

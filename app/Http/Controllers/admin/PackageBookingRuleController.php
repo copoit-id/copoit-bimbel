@@ -5,133 +5,119 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\PackageBookingRule;
-use App\Models\Tentor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class PackageBookingRuleController extends Controller
 {
-    public function edit(Package $package): RedirectResponse
+    public function edit(Package $package): View|RedirectResponse
     {
-        return redirect()
-            ->route('admin.class-schedules.index', [
-                'package_id' => $package->package_id,
-            ])
-            ->with('info', 'Booking custom sekarang diatur langsung dari Kelas & Jadwal.');
+        $rule = PackageBookingRule::query()
+            ->with('priceTiers')
+            ->where('package_id', $package->package_id)
+            ->first();
+
+        if (! $rule?->is_enabled) {
+            return redirect()
+                ->route('admin.class-schedules.index', ['package_id' => $package->package_id])
+                ->with('info', 'Aktifkan request jadwal custom dari Kelas & Jadwal terlebih dahulu.');
+        }
+
+        $samePrice = old(
+            'same_price',
+            $rule->priceTiers->first()?->price_per_person ?? $package->price
+        );
+        $tierPrices = $rule->priceTiers
+            ->mapWithKeys(fn ($tier): array => [$tier->participant_count => $tier->price_per_person])
+            ->all();
+
+        return view('admin.pages.package.booking.pricing', compact(
+            'package',
+            'rule',
+            'samePrice',
+            'tierPrices'
+        ));
     }
 
     public function update(Request $request, Package $package): RedirectResponse
     {
         $validated = $request->validate([
-            'is_enabled' => ['nullable', 'boolean'],
-            'session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
-            'duration_minutes' => ['required', 'integer', 'min:15', 'max:480'],
-            'min_notice_hours' => ['required', 'integer', 'min:0', 'max:720'],
-            'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
-            'cancellation_hours' => ['required', 'integer', 'min:0', 'max:168'],
-            'allow_custom_time' => ['nullable', 'boolean'],
-            'allow_all_tutors' => ['nullable', 'boolean'],
-            'tutor_ids' => ['nullable', 'array'],
-            'tutor_ids.*' => ['integer', 'distinct', 'exists:tentors,id'],
-            'delivery_mode' => ['required', Rule::in(['online', 'offline', 'hybrid'])],
             'learning_mode' => ['required', Rule::in(['personal', 'group', 'both'])],
-            'min_participants' => ['required', 'integer', 'min:1', 'max:20'],
-            'max_participants' => ['required', 'integer', 'min:1', 'max:20', 'gte:min_participants'],
-            'default_location' => ['nullable', 'string', 'max:255'],
-            'payment_deadline_hours' => ['required', 'integer', 'min:1', 'max:720'],
-            'price_tiers' => ['nullable', 'array', 'max:20'],
-            'price_tiers.*.participant_count' => ['required', 'integer', 'min:1', 'max:20', 'distinct'],
-            'price_tiers.*.price_per_person' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
+            'min_participants' => ['required_if:learning_mode,group,both', 'nullable', 'integer', 'min:1', 'max:20'],
+            'max_participants' => ['required_if:learning_mode,group,both', 'nullable', 'integer', 'min:1', 'max:20', 'gte:min_participants'],
+            'group_pricing_mode' => ['required_if:learning_mode,group,both', 'nullable', Rule::in(['same', 'tiered'])],
+            'same_price' => ['required_if:group_pricing_mode,same', 'nullable', 'integer', 'min:0', 'max:999999999999'],
+            'tier_prices' => ['nullable', 'array', 'max:20'],
+            'tier_prices.*' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
         ]);
-        $allowAllTutors = $request->boolean('allow_all_tutors');
-        $tutorIds = collect($validated['tutor_ids'] ?? [])
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
 
-        if ($request->boolean('is_enabled') && ! $allowAllTutors && $tutorIds === []) {
-            throw ValidationException::withMessages([
-                'tutor_ids' => 'Pilih minimal satu tutor atau aktifkan Semua Tutor.',
-            ]);
-        }
-        if ($request->boolean('is_enabled')
-            && $allowAllTutors
-            && ! Tentor::active()->exists()) {
-            throw ValidationException::withMessages([
-                'allow_all_tutors' => 'Aktifkan minimal satu tutor sebelum mengaktifkan booking.',
-            ]);
-        }
-        if (! $allowAllTutors
-            && Tentor::active()->whereKey($tutorIds)->count() !== count($tutorIds)) {
-            throw ValidationException::withMessages([
-                'tutor_ids' => 'Semua tutor yang dipilih harus berstatus aktif.',
-            ]);
-        }
-
-        $priceTiers = collect($validated['price_tiers'] ?? [])
-            ->filter(fn (array $tier): bool => $tier['price_per_person'] !== null)
-            ->mapWithKeys(fn (array $tier): array => [
-                (int) $tier['participant_count'] => (int) $tier['price_per_person'],
-            ]);
-        if (in_array($validated['learning_mode'], ['group', 'both'], true)) {
+        if (($validated['learning_mode'] === 'group' || $validated['learning_mode'] === 'both')
+            && $validated['group_pricing_mode'] === 'tiered') {
             $missingCounts = collect(range(
                 (int) $validated['min_participants'],
                 (int) $validated['max_participants']
-            ))->diff($priceTiers->keys());
+            ))->filter(fn (int $count): bool => ! array_key_exists($count, $validated['tier_prices'] ?? [])
+                || $validated['tier_prices'][$count] === null
+                || $validated['tier_prices'][$count] === '');
 
             if ($missingCounts->isNotEmpty()) {
                 throw ValidationException::withMessages([
-                    'price_tiers' => 'Harga per orang wajib diisi untuk jumlah anggota: '.$missingCounts->join(', ').'.',
+                    'tier_prices' => 'Harga per siswa wajib diisi untuk jumlah: '.$missingCounts->join(', ').'.',
                 ]);
             }
         }
 
-        DB::transaction(function () use (
-            $request,
-            $package,
-            $validated,
-            $allowAllTutors,
-            $tutorIds,
-            $priceTiers
-        ): void {
-            $rule = PackageBookingRule::query()->updateOrCreate(
-                ['package_id' => $package->package_id],
-                [
-                    'is_enabled' => $request->boolean('is_enabled'),
-                    'session_quota' => $validated['session_quota'],
-                    'duration_minutes' => $validated['duration_minutes'],
-                    'min_notice_hours' => $validated['min_notice_hours'],
-                    'max_advance_days' => $validated['max_advance_days'],
-                    'cancellation_hours' => $validated['cancellation_hours'],
-                    'allow_custom_time' => $request->boolean('allow_custom_time'),
-                    'allow_all_tutors' => $allowAllTutors,
-                    'delivery_mode' => $validated['delivery_mode'],
-                    'learning_mode' => $validated['learning_mode'],
-                    'min_participants' => $validated['min_participants'],
-                    'max_participants' => $validated['max_participants'],
-                    'default_location' => $validated['default_location'] ?? null,
-                    'payment_deadline_hours' => $validated['payment_deadline_hours'],
-                ]
-            );
+        DB::transaction(function () use ($package, $validated): void {
+            $rule = PackageBookingRule::query()
+                ->where('package_id', $package->package_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $rule->tutors()->sync($allowAllTutors ? [] : $tutorIds);
+            $learningMode = $validated['learning_mode'];
+            $isGroupAvailable = in_array($learningMode, ['group', 'both'], true);
+            $minParticipants = $isGroupAvailable ? (int) $validated['min_participants'] : 1;
+            $maxParticipants = $isGroupAvailable ? (int) $validated['max_participants'] : 1;
+            $pricingMode = $isGroupAvailable ? $validated['group_pricing_mode'] : 'same';
+
+            $rule->update([
+                'learning_mode' => $learningMode,
+                'min_participants' => $minParticipants,
+                'max_participants' => $maxParticipants,
+                'group_pricing_mode' => $pricingMode,
+            ]);
+
+            if (! $isGroupAvailable) {
+                $rule->priceTiers()->delete();
+
+                return;
+            }
+
+            $participantCounts = range($minParticipants, $maxParticipants);
+            $prices = collect($participantCounts)->mapWithKeys(function (int $count) use ($validated, $pricingMode): array {
+                $price = $pricingMode === 'same'
+                    ? $validated['same_price']
+                    : ($validated['tier_prices'][$count] ?? null);
+
+                return [$count => (int) $price];
+            });
+
             $rule->priceTiers()
-                ->whereNotIn('participant_count', $priceTiers->keys()->all())
+                ->whereNotIn('participant_count', $participantCounts)
                 ->delete();
-            foreach ($priceTiers as $participantCount => $pricePerPerson) {
+            foreach ($prices as $participantCount => $pricePerPerson) {
                 $rule->priceTiers()->updateOrCreate(
                     ['participant_count' => $participantCount],
                     ['price_per_person' => $pricePerPerson]
                 );
             }
-        });
+        }, 3);
 
         return redirect()
             ->route('admin.package-booking.edit', $package)
-            ->with('success', 'Pengaturan booking paket berhasil disimpan.');
+            ->with('success', 'Pengaturan rombel dan harga per siswa berhasil disimpan.');
     }
 }

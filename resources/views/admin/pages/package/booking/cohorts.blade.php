@@ -1,6 +1,16 @@
 @extends('admin.layout.admin')
 
 @section('content')
+@php
+    $statusLabels = [
+        'pending_approval' => 'Menunggu persetujuan',
+        'pending_payment' => 'Menunggu pembayaran',
+        'active' => 'Aktif',
+        'expired' => 'Kedaluwarsa',
+        'cancelled' => 'Dibatalkan',
+    ];
+@endphp
+
 <div class="mx-auto max-w-6xl space-y-6">
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
@@ -8,16 +18,15 @@
                 <i class="ri-arrow-left-line"></i>
                 Kembali ke paket
             </a>
-            <h1 class="text-2xl font-bold text-gray-900">Kelompok Booking</h1>
-            <p class="mt-1 text-sm text-gray-500">Pantau anggota, invoice terpisah, pembayaran, dan rombel yang terbentuk.</p>
+            <h1 class="text-2xl font-bold text-gray-900">Pengajuan Rombel</h1>
+            <p class="mt-1 text-sm text-gray-500">Tinjau peserta yang diajak, setujui rombel, lalu pantau tagihan tiap siswa.</p>
         </div>
         <form method="GET">
             <select name="status" onchange="this.form.submit()" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
                 <option value="">Semua status</option>
-                <option value="forming" @selected($status === 'forming')>Menunggu anggota</option>
-                <option value="ready" @selected($status === 'ready')>Siap dijadwalkan</option>
-                <option value="expired" @selected($status === 'expired')>Kedaluwarsa</option>
-                <option value="cancelled" @selected($status === 'cancelled')>Dibatalkan</option>
+                @foreach($statusLabels as $value => $label)
+                    <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
+                @endforeach
             </select>
         </form>
     </div>
@@ -29,43 +38,63 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ $errors->first() }}</div>
     @endif
 
-    @forelse($cohorts as $cohort)
+    @forelse($studyGroups as $studyGroup)
         <section class="rounded-2xl border border-gray-200 bg-white">
-            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 sm:flex-row sm:items-start">
+            <div class="flex flex-col justify-between gap-4 border-b border-gray-200 p-5 sm:flex-row sm:items-start">
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <h2 class="font-bold text-gray-900">{{ $cohort->package->name }}</h2>
-                        <span class="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-bold text-primary">{{ strtoupper($cohort->invite_code) }}</span>
+                        <h2 class="font-bold text-gray-900">{{ $studyGroup->package->name }}</h2>
+                        <span class="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-bold text-primary">{{ $statusLabels[$studyGroup->status] ?? $studyGroup->status }}</span>
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
-                        Dibuat {{ $cohort->organizer->name }} · {{ $cohort->paid_participants_count }}/{{ $cohort->target_participants }} anggota lunas
+                        Diajukan {{ $studyGroup->organizer->name }} · {{ $studyGroup->members_count }}/{{ $studyGroup->target_participants }} peserta · {{ $studyGroup->paid_members_count }} lunas
                     </p>
+                    <p class="mt-2 text-xs font-semibold tracking-widest text-gray-600">KODE {{ $studyGroup->invite_code }}</p>
                 </div>
                 <div class="text-left sm:text-right">
-                    <p class="text-sm font-bold text-gray-900">Rp {{ number_format($cohort->unit_price_snapshot, 0, ',', '.') }}/orang</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ $cohort->status === 'ready' ? 'Rombel: '.($cohort->studyGroup?->name ?? '-') : 'Tenggat '.$cohort->expires_at?->translatedFormat('d M Y H:i') }}</p>
+                    <p class="text-sm font-bold text-gray-900">Rp {{ number_format($studyGroup->unit_price_snapshot, 0, ',', '.') }}/siswa</p>
+                    @if($studyGroup->status === 'pending_approval')
+                        @if($studyGroup->members_count === $studyGroup->target_participants)
+                            <form method="POST" action="{{ route('admin.package-booking.cohorts.approve', $studyGroup) }}" class="mt-3">
+                                @csrf
+                                <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">Setujui rombel</button>
+                            </form>
+                        @else
+                            <p class="mt-2 text-xs text-amber-700">Menunggu rombel terisi lengkap sebelum dapat disetujui.</p>
+                        @endif
+                    @elseif($studyGroup->status === 'pending_payment')
+                        <p class="mt-2 text-xs text-gray-500">Tenggat {{ $studyGroup->expires_at?->translatedFormat('d M Y H:i') ?? '-' }}</p>
+                    @endif
                 </div>
             </div>
 
             <div class="divide-y divide-gray-100">
-                @foreach($cohort->participants as $participant)
+                @foreach($studyGroup->members as $member)
+                    @php
+                        $memberStatus = [
+                            'awaiting_approval' => 'Menunggu persetujuan',
+                            'awaiting_payment' => 'Menunggu pembayaran',
+                            'paid' => 'Lunas',
+                            'cancelled' => 'Dibatalkan',
+                        ][$member->status] ?? $member->status;
+                    @endphp
                     <div class="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                         <div>
-                            <p class="text-sm font-bold text-gray-900">{{ $participant->user->name }}</p>
-                            <p class="mt-1 text-xs text-gray-500">{{ $participant->user->email }} · {{ $participant->role === 'organizer' ? 'Pembuat kelompok' : 'Anggota' }}</p>
-                            <p class="mt-2 text-xs font-semibold {{ $participant->status === 'paid' ? 'text-green-700' : 'text-amber-700' }}">
-                                {{ $participant->status === 'paid' ? 'Lunas' : 'Menunggu pembayaran' }}
-                                @if($participant->invoice)
-                                    · {{ $participant->invoice->invoice_number }}
-                                    · Sisa Rp {{ number_format($participant->invoice->remaining_amount, 0, ',', '.') }}
+                            <p class="text-sm font-bold text-gray-900">{{ $member->user->name }}</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ $member->user->email }} · {{ $member->role === 'organizer' ? 'Pengaju rombel' : 'Anggota' }}</p>
+                            <p class="mt-2 text-xs font-semibold {{ $member->status === 'paid' ? 'text-green-700' : 'text-amber-700' }}">
+                                {{ $memberStatus }}
+                                @if($member->invoice)
+                                    · {{ $member->invoice->invoice_number }}
+                                    · Sisa Rp {{ number_format($member->invoice->remaining_amount, 0, ',', '.') }}
                                 @endif
                             </p>
                         </div>
 
-                        @if($participant->invoice && $participant->invoice->status !== 'paid')
-                            <form method="POST" action="{{ route('admin.package-booking.cohorts.payments.store', $participant->invoice) }}" class="flex flex-col gap-2 sm:flex-row">
+                        @if($member->invoice && $member->invoice->status !== 'paid')
+                            <form method="POST" action="{{ route('admin.package-booking.cohorts.payments.store', $member->invoice) }}" class="flex flex-col gap-2 sm:flex-row">
                                 @csrf
-                                <input type="number" name="amount" min="1" max="{{ $participant->invoice->remaining_amount }}" value="{{ $participant->invoice->remaining_amount }}" required class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-40 focus:border-primary focus:ring-primary">
+                                <input type="number" name="amount" min="1" max="{{ $member->invoice->remaining_amount }}" value="{{ $member->invoice->remaining_amount }}" required class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm sm:w-40 focus:border-primary focus:ring-primary">
                                 <select name="payment_method" required class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
                                     <option value="transfer">Transfer</option>
                                     <option value="cash">Tunai</option>
@@ -79,9 +108,9 @@
             </div>
         </section>
     @empty
-        <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">Belum ada kelompok booking.</div>
+        <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">Belum ada pengajuan rombel.</div>
     @endforelse
 
-    {{ $cohorts->links() }}
+    {{ $studyGroups->links() }}
 </div>
 @endsection

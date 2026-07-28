@@ -191,17 +191,25 @@ class User extends Authenticatable
     public function studyGroups(): BelongsToMany
     {
         return $this->belongsToMany(StudyGroup::class, 'study_group_user')
+            ->withPivot([
+                'role',
+                'status',
+                'bill_invoice_id',
+                'user_package_access_id',
+                'unit_price_snapshot',
+                'paid_at',
+            ])
             ->withTimestamps();
     }
 
-    public function bookingCohortParticipants(): HasMany
+    public function studyGroupMembers(): HasMany
     {
-        return $this->hasMany(BookingCohortParticipant::class);
+        return $this->hasMany(StudyGroupMember::class);
     }
 
-    public function organizedBookingCohorts(): HasMany
+    public function organizedStudyGroups(): HasMany
     {
-        return $this->hasMany(BookingCohort::class, 'organizer_user_id');
+        return $this->hasMany(StudyGroup::class, 'organizer_user_id');
     }
 
     public function studentFeedback(): HasMany

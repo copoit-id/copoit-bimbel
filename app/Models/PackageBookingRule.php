@@ -29,6 +29,7 @@ class PackageBookingRule extends Model
         'max_participants',
         'default_location',
         'payment_deadline_hours',
+        'group_pricing_mode',
     ];
 
     protected $casts = [
@@ -80,8 +81,8 @@ class PackageBookingRule extends Model
             ->orderBy('participant_count');
     }
 
-    public function cohorts(): HasMany
+    public function studyGroups(): HasMany
     {
-        return $this->hasMany(BookingCohort::class);
+        return $this->hasMany(StudyGroup::class, 'package_booking_rule_id');
     }
 }

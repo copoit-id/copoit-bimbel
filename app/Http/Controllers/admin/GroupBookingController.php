@@ -4,7 +4,8 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BillInvoice;
-use App\Models\BookingCohort;
+use App\Models\StudyGroup;
+use App\Services\GroupBookingService;
 use App\Services\RecurringBillService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,27 +16,34 @@ class GroupBookingController extends Controller
     public function index(Request $request): View
     {
         $status = $request->string('status')->toString();
-        $status = in_array($status, ['forming', 'ready', 'cancelled', 'expired'], true)
+        $status = in_array($status, ['pending_approval', 'pending_payment', 'active', 'cancelled', 'expired'], true)
             ? $status
             : null;
-        $cohorts = BookingCohort::query()
+        $studyGroups = StudyGroup::query()
+            ->whereNotNull('package_id')
             ->with([
                 'package:package_id,name',
                 'organizer:id,name,email',
-                'studyGroup:id,name,tentor_id',
-                'participants.user:id,name,email,phone',
-                'participants.invoice.payments',
+                'members.user:id,name,email,phone',
+                'members.invoice.payments',
             ])
             ->withCount([
-                'participants',
-                'participants as paid_participants_count' => fn ($query) => $query->where('status', 'paid'),
+                'members',
+                'members as paid_members_count' => fn ($query) => $query->where('status', 'paid'),
             ])
             ->when($status, fn ($query) => $query->where('status', $status))
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
-        return view('admin.pages.package.booking.cohorts', compact('cohorts', 'status'));
+        return view('admin.pages.package.booking.cohorts', compact('studyGroups', 'status'));
+    }
+
+    public function approve(StudyGroup $studyGroup, GroupBookingService $groupBookingService): RedirectResponse
+    {
+        $groupBookingService->approve($studyGroup);
+
+        return back()->with('success', 'Rombel disetujui. Tagihan tiap anggota telah dibuat.');
     }
 
     public function recordPayment(
@@ -43,7 +51,7 @@ class GroupBookingController extends Controller
         BillInvoice $invoice,
         RecurringBillService $billService
     ): RedirectResponse {
-        abort_unless($invoice->cohortParticipant()->exists(), 404);
+        abort_unless($invoice->studyGroupMember()->exists(), 404);
         $validated = $request->validate([
             'amount' => ['required', 'integer', 'min:1'],
             'payment_method' => ['required', 'string', 'max:50'],
@@ -60,7 +68,7 @@ class GroupBookingController extends Controller
         return back()->with(
             'success',
             $invoice->status === 'paid'
-                ? 'Pembayaran anggota tercatat. Status kelompok diperbarui otomatis.'
+                ? 'Pembayaran anggota tercatat. Status rombel diperbarui otomatis.'
                 : 'Cicilan anggota berhasil dicatat.'
         );
     }
