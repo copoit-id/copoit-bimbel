@@ -140,7 +140,7 @@
                             <th scope="col" class="px-6 py-3">Role</th>
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
-                            <th scope="col" class="px-6 py-3">Action</th>
+                            <th scope="col" class="px-6 py-3 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="user-tbody">
@@ -233,35 +233,47 @@
                                 {{ optional($user->created_at)->format('Y-m-d') }}
                             </td>
                             <td class="px-6 py-4">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-center gap-1.5">
                                     <a href="{{ route('admin.user.show', $user->id) }}"
-                                        class="text-primary hover:text-primary/80" title="Lihat">
-                                        <i class="ri-eye-line"></i>
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Lihat detail user" aria-label="Lihat detail user">
+                                        <i class="ri-eye-line text-base"></i>
+                                        <span class="sr-only">Lihat detail user</span>
                                     </a>
                                     <a href="{{ route('admin.user.report', $user->id) }}"
-                                        class="text-amber-600 hover:text-amber-700" title="Laporan">
-                                        <i class="ri-bar-chart-line"></i>
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Lihat laporan belajar" aria-label="Lihat laporan belajar">
+                                        <i class="ri-bar-chart-line text-base"></i>
+                                        <span class="sr-only">Lihat laporan belajar</span>
                                     </a>
                                     @if($user->role === 'user')
                                     <form action="{{ route('admin.user.login-as', $user->id) }}" method="POST" 
-                                        class="inline-block"
+                                        class="inline-flex"
                                         target="_blank">
                                         @csrf
-                                        <button type="submit" class="text-primary hover:text-primary/80" title="Login As User (Tab Baru)">
-                                            <i class="ri-user-shared-line"></i>
+                                        <button type="submit"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            title="Login sebagai user di tab baru" aria-label="Login sebagai user di tab baru">
+                                            <i class="ri-user-shared-line text-base"></i>
+                                            <span class="sr-only">Login sebagai user di tab baru</span>
                                         </button>
                                     </form>
                                     @endif
                                     <a href="{{ route('admin.user.edit', array_merge(request()->query(), ['user' => $user->id])) }}"
-                                        class="text-blue-600 hover:text-blue-800" title="Edit">
-                                        <i class="ri-edit-line"></i>
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Edit user" aria-label="Edit user">
+                                        <i class="ri-edit-line text-base"></i>
+                                        <span class="sr-only">Edit user</span>
                                     </a>
                                     <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
-                                        onsubmit="return confirm('Hapus user ini?')" class="inline-block">
+                                        onsubmit="return confirm('Hapus user {{ addslashes($user->name) }}?')" class="inline-flex">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-red-600 hover:text-red-800" title="Hapus">
-                                            <i class="ri-delete-bin-line"></i>
+                                        <button type="submit"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-100"
+                                            title="Hapus user" aria-label="Hapus user">
+                                            <i class="ri-delete-bin-line text-base"></i>
+                                            <span class="sr-only">Hapus user</span>
                                         </button>
                                     </form>
                                 </div>

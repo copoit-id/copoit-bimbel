@@ -50,7 +50,7 @@
     @endif
 
     <!-- Create / Edit Form -->
-    <div class="bg-white rounded-lg shadow border border-gray-200">
+    <div class="bg-white rounded-lg border border-gray-200">
         <form action="{{ $user ? route('admin.user.update', array_merge(request()->query(), ['user' => $user->id])) : route('admin.user.store') }}" method="POST">
             @csrf
             @if ($user)
@@ -68,6 +68,20 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="email" name="email" label="Email" :value="old('email', $user->email ?? '')"
                             required />
+
+                        <x-form.input type="tel" name="phone" label="Nomor WhatsApp"
+                            :value="old('phone', $user->phone ?? '')"
+                            placeholder="Contoh: 6281234567890"
+                            helper="Wajib untuk siswa. Gunakan format 62 tanpa angka 0 atau tanda + di depan."
+                            inputmode="numeric"
+                            pattern="62[0-9]{8,14}"
+                            autocomplete="tel" />
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <x-form.input type="date" name="birthday" label="Tanggal Lahir"
+                            :value="old('birthday', $user->birthday ?? '')"
+                            max="{{ now()->toDateString() }}" />
 
                         <x-form.input type="password" name="password" label="Password {{ $user
                             ? '(biarkan kosong jika tidak diubah)' : '' }}" :required="!$user" autocomplete="new-password" />

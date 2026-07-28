@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ParticipantDestinationCategory;
+use App\Models\Payment;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\SafeName;
@@ -123,9 +124,16 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users',
             'username' => 'required|string|max:255|unique:users',
+            'phone' => ['required_if:role,user', 'nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'birthday' => ['nullable', 'date', 'before_or_equal:today', 'after_or_equal:1900-01-01'],
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+        ], [
+            'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
+            'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
+            'birthday.before_or_equal' => 'Tanggal lahir tidak boleh melewati hari ini.',
+            'birthday.after_or_equal' => 'Tanggal lahir tidak valid.',
         ]);
 
         // Kuota paket hanya berlaku untuk akun peserta, bukan akun operasional seperti Tutor.
@@ -146,6 +154,8 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'username' => $validated['username'],
+                'phone' => $validated['phone'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
                 'password' => Hash::make($validated['password']),
                 'status' => $validated['status'] ?? 'aktif',
                 'role' => $validated['role'],
@@ -255,9 +265,16 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users,email,'.$id,
             'username' => 'required|string|max:255|unique:users,username,'.$id,
+            'phone' => ['required_if:role,user', 'nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'birthday' => ['nullable', 'date', 'before_or_equal:today', 'after_or_equal:1900-01-01'],
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+        ], [
+            'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
+            'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
+            'birthday.before_or_equal' => 'Tanggal lahir tidak boleh melewati hari ini.',
+            'birthday.after_or_equal' => 'Tanggal lahir tidak valid.',
         ]);
         $destinationPayload = $destinationSelectionService->validate(
             $request,
@@ -270,6 +287,8 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'username' => $validated['username'],
+                'phone' => $validated['phone'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
                 'status' => $validated['status'],
                 'role' => $validated['role'],
                 ...$destinationPayload,
