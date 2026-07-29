@@ -1,5 +1,10 @@
 @extends('general.layout')
 
+@php
+    $articleContent = $content ?? [];
+    $articleValue = fn (string $key, mixed $default = null) => data_get($articleContent, $key, $default);
+@endphp
+
 @section('title', $article->title)
 
 @push('styles')
@@ -129,12 +134,12 @@
             <div class="lg:col-span-8">
                 <a href="{{ route('articles.index') }}" class="group inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
                     <i class="ri-arrow-left-line transition-transform duration-200 group-hover:-translate-x-1"></i>
-                    Kembali ke Artikel
+                    {{ $articleValue('show.back_label', 'Kembali ke Artikel') }}
                 </a>
 
                 <div class="mt-8">
                     <span class="inline-flex items-center gap-1 rounded-md bg-primary/5 px-2.5 py-0.5 text-xs font-semibold text-primary tracking-wide">
-                        <i class="ri-lightbulb-line"></i> Bimbel Insight
+                        <i class="ri-lightbulb-line"></i> {{ $articleValue('show.badge', 'Bimbel Insight') }}
                     </span>
                     <h1 class="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl leading-tight">
                         {{ $article->title }}
@@ -153,8 +158,8 @@
                                 {{ $article->author ? strtoupper(substr($article->author->name, 0, 1)) : 'A' }}
                             </div>
                             <div class="text-left">
-                                <p class="text-sm font-semibold text-slate-800">{{ $article->author ? $article->author->name : 'Admin' }}</p>
-                                <p class="text-xs text-slate-500">{{ $article->published_date_label }} &middot; {{ $article->reading_minutes }} menit baca</p>
+                                <p class="text-sm font-semibold text-slate-800">{{ $article->author ? $article->author->name : $articleValue('show.author_fallback', 'Admin') }}</p>
+                                <p class="text-xs text-slate-500">{{ $article->published_date_label }} &middot; {{ $article->reading_minutes }} {{ $articleValue('show.reading_suffix', 'menit baca') }}</p>
                             </div>
                         </div>
                         
@@ -170,14 +175,14 @@
                                 });
                             }
                         }">
-                            <span class="text-xs font-medium text-slate-400 mr-1 hidden sm:inline">Bagikan:</span>
+                            <span class="text-xs font-medium text-slate-400 mr-1 hidden sm:inline">{{ $articleValue('show.share_label', 'Bagikan:') }}</span>
                             
                             <!-- WA Share -->
                             <a :href="'https://api.whatsapp.com/send?text=' + encodeURIComponent(title + ' ' + url)" 
                                target="_blank"
                                rel="noopener noreferrer"
                                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-100 transition-colors"
-                               title="Bagikan ke WhatsApp">
+                               title="{{ $articleValue('show.whatsapp_share_title', 'Bagikan ke WhatsApp') }}">
                                 <i class="ri-whatsapp-line text-lg"></i>
                             </a>
 
@@ -186,7 +191,7 @@
                                target="_blank"
                                rel="noopener noreferrer"
                                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors"
-                               title="Bagikan ke Telegram">
+                               title="{{ $articleValue('show.telegram_share_title', 'Bagikan ke Telegram') }}">
                                 <i class="ri-telegram-line text-lg"></i>
                             </a>
 
@@ -195,14 +200,14 @@
                                target="_blank"
                                rel="noopener noreferrer"
                                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-350 transition-colors"
-                               title="Bagikan ke X">
+                               title="{{ $articleValue('show.x_share_title', 'Bagikan ke X') }}">
                                 <i class="ri-twitter-x-line text-base"></i>
                             </a>
 
                             <!-- Copy Link -->
                             <button @click="copyLink"
                                     class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-white text-slate-500 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-colors relative"
-                                    title="Salin Tautan">
+                                    title="{{ $articleValue('show.copy_title', 'Salin Tautan') }}">
                                 <i class="ri-link text-lg" x-show="!copied"></i>
                                 <i class="ri-check-line text-lg text-emerald-600" x-show="copied" style="display: none;"></i>
                                 
@@ -210,7 +215,7 @@
                                       x-transition 
                                       class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white border border-slate-800"
                                       style="display: none;">
-                                    Tautan disalin!
+                                    {{ $articleValue('show.copied_label', 'Tautan disalin!') }}
                                   </span>
                               </button>
                           </div>
@@ -234,10 +239,10 @@
                         {{ $article->author ? strtoupper(substr($article->author->name, 0, 1)) : 'A' }}
                     </div>
                     <div class="text-center sm:text-left space-y-2">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-primary">Penulis Artikel</p>
-                        <h3 class="text-lg font-semibold text-slate-800">{{ $article->author ? $article->author->name : 'Tim BimbelHub' }}</h3>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-primary">{{ $articleValue('show.author_heading', 'Penulis Artikel') }}</p>
+                        <h3 class="text-lg font-semibold text-slate-800">{{ $article->author ? $article->author->name : $articleValue('show.author_name_fallback', 'Tim BimbelHub') }}</h3>
                         <p class="text-sm text-slate-600 leading-relaxed">
-                            Pengajar dan kontributor ahli di {{ $clientBranding['name'] }}. Berkomitmen menyajikan wawasan akademis terbaru dan bimbingan belajar terbaik untuk kesuksesan siswa meraih kampus impian.
+                            {{ str_replace(':brand', $clientBranding['name'], $articleValue('show.author_description', 'Pengajar dan kontributor ahli di :brand. Berkomitmen menyajikan wawasan akademis terbaru dan bimbingan belajar terbaik untuk kesuksesan siswa meraih kampus impian.')) }}
                         </p>
                     </div>
                 </div>
@@ -255,17 +260,17 @@
                         
                         <div class="relative space-y-4">
                             <span class="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-md px-2.5 py-0.5 text-2xs font-bold uppercase tracking-wider text-white">
-                                Program Unggulan
+                                {{ $articleValue('show.promo_badge', 'Program Unggulan') }}
                             </span>
                             <h4 class="text-xl font-bold leading-snug">
-                                Ingin Lolos PTN Impianmu?
+                                {{ $articleValue('show.promo_title', 'Ingin Lolos PTN Impianmu?') }}
                             </h4>
                             <p class="text-xs text-white/90 leading-relaxed">
-                                Bergabunglah dengan program persiapan intensif UTBK-SNBT & Mandiri kami. Dapatkan akses tryout terakreditasi, materi lengkap, dan bimbingan guru ahli!
+                                {{ $articleValue('show.promo_description', 'Bergabunglah dengan program persiapan intensif UTBK-SNBT & Mandiri kami. Dapatkan akses tryout terakreditasi, materi lengkap, dan bimbingan guru ahli!') }}
                             </p>
                             <div class="pt-2">
                                 <a href="{{ route('user.package.index') }}" class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-sm font-bold text-primary hover:bg-slate-50 transition-colors">
-                                    Mulai Belajar Sekarang
+                                    {{ $articleValue('show.promo_cta_label', 'Mulai Belajar Sekarang') }}
                                     <i class="ri-arrow-right-line"></i>
                                 </a>
                             </div>
@@ -277,7 +282,7 @@
                     <div class="rounded-2xl border border-slate-200 bg-white p-6">
                         <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
                             <i class="ri-article-line text-primary"></i>
-                            Artikel Terpopuler
+                            {{ $articleValue('show.related_title', 'Artikel Terpopuler') }}
                         </h3>
                         <div class="mt-3 h-0.5 w-8 rounded bg-primary/30"></div>
                         

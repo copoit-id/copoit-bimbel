@@ -1,6 +1,11 @@
 @extends('general.layout')
 
-@section('title', 'Artikel')
+@php
+    $articleContent = $content ?? [];
+    $articleValue = fn (string $key, mixed $default = null) => data_get($articleContent, $key, $default);
+@endphp
+
+@section('title', $articleValue('meta.title', 'Artikel'))
 
 @section('content')
 <section class="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-br from-white via-white to-primary/5 pt-32 pb-16 sm:pt-40 sm:pb-20">
@@ -12,13 +17,13 @@
         <div class="flex flex-col items-center text-center mb-12 sm:mb-16">
             <span class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                 <i class="ri-newspaper-line text-sm"></i>
-                Bimbel News & Updates
+                {{ $articleValue('index.badge', 'Bimbel News & Updates') }}
             </span>
             <h1 class="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
-                Insight & Panduan Belajar
+                {{ $articleValue('index.title', 'Insight & Panduan Belajar') }}
             </h1>
             <p class="mt-4 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-600">
-                Kumpulan artikel terbaru, tips & trik lolos PTN, strategi ujian, serta informasi pendidikan terpercaya untuk mendukung perjalanan belajarmu.
+                {{ $articleValue('index.description', 'Kumpulan artikel terbaru, tips & trik lolos PTN, strategi ujian, serta informasi pendidikan terpercaya untuk mendukung perjalanan belajarmu.') }}
             </p>
             <div class="mt-6 h-1 w-12 rounded-full bg-primary/30"></div>
         </div>
@@ -39,13 +44,13 @@
                         @endif
                         <span class="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-900/80 backdrop-blur-md px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-white border border-white/10">
                             <span class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                            Terbaru
+                            {{ $articleValue('index.latest_label', 'Terbaru') }}
                         </span>
                     </div>
                     <div class="lg:col-span-5 flex flex-col justify-between p-6 sm:p-8 lg:p-10 bg-white">
                         <div class="space-y-4">
                             <div class="flex items-center gap-3 text-xs font-semibold text-primary">
-                                <span class="uppercase tracking-wider">Artikel Unggulan</span>
+                                <span class="uppercase tracking-wider">{{ $articleValue('index.featured_label', 'Artikel Unggulan') }}</span>
                             </div>
                             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 group-hover:text-primary transition-colors duration-200 leading-tight">
                                 {{ $featuredArticle->title }}
@@ -61,12 +66,12 @@
                                     {{ $featuredArticle->author ? strtoupper(substr($featuredArticle->author->name, 0, 1)) : 'A' }}
                                 </div>
                                 <div class="text-left">
-                                    <p class="text-sm font-semibold text-slate-900">{{ $featuredArticle->author ? $featuredArticle->author->name : 'Admin' }}</p>
-                                    <p class="text-xs text-slate-500">{{ $featuredArticle->published_date_label }} &middot; {{ $featuredArticle->reading_minutes }} mnt baca</p>
+                                    <p class="text-sm font-semibold text-slate-900">{{ $featuredArticle->author ? $featuredArticle->author->name : $articleValue('index.author_fallback', 'Admin') }}</p>
+                                    <p class="text-xs text-slate-500">{{ $featuredArticle->published_date_label }} &middot; {{ $featuredArticle->reading_minutes }} {{ $articleValue('index.reading_suffix', 'mnt baca') }}</p>
                                 </div>
                             </div>
                             <span class="inline-flex items-center gap-1 text-sm font-bold text-primary group-hover:text-primary/80 transition-colors">
-                                Baca Artikel
+                                {{ $articleValue('index.read_cta_label', 'Baca Artikel') }}
                                 <i class="ri-arrow-right-line transition-transform duration-200 group-hover:translate-x-1.5"></i>
                             </span>
                         </div>
@@ -81,12 +86,12 @@
 <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20 lg:px-8">
     <div class="flex items-center justify-between mb-10">
         <div>
-            <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">Semua Artikel</h2>
-            <p class="text-sm text-slate-500 mt-1">Jelajahi wawasan baru dari pengajar kami</p>
+            <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">{{ $articleValue('index.all_title', 'Semua Artikel') }}</h2>
+            <p class="text-sm text-slate-500 mt-1">{{ $articleValue('index.all_description', 'Jelajahi wawasan baru dari pengajar kami') }}</p>
         </div>
         <div class="h-px flex-1 bg-slate-200/80 mx-8 hidden sm:block"></div>
         <span class="text-xs font-medium text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-            Total: {{ $articles->total() }} Artikel
+            {{ $articleValue('index.total_prefix', 'Total:') }} {{ $articles->total() }} {{ $articleValue('index.total_suffix', 'Artikel') }}
         </span>
     </div>
 
@@ -110,10 +115,10 @@
                     <div class="space-y-3">
                         <div class="flex items-center gap-2 text-xs text-slate-500">
                             <span class="inline-flex items-center gap-1 font-semibold text-primary/95 bg-primary/5 px-2.5 py-0.5 rounded-md">
-                                Tips & Info
+                                {{ $articleValue('index.category_label', 'Tips & Info') }}
                             </span>
                             <span>&middot;</span>
-                            <span>{{ $article->reading_minutes }} mnt baca</span>
+                            <span>{{ $article->reading_minutes }} {{ $articleValue('index.reading_suffix', 'mnt baca') }}</span>
                         </div>
                         <h3 class="text-base font-semibold leading-snug text-slate-800 group-hover:text-primary transition-colors duration-200 line-clamp-2">
                             {{ $article->title }}
@@ -129,7 +134,7 @@
                                 {{ $article->author ? strtoupper(substr($article->author->name, 0, 1)) : 'A' }}
                             </div>
                             <span class="text-xs font-semibold text-slate-700 truncate max-w-[120px]">
-                                {{ $article->author ? $article->author->name : 'Admin' }}
+                                {{ $article->author ? $article->author->name : $articleValue('index.author_fallback', 'Admin') }}
                             </span>
                         </div>
                         <span class="text-xs text-slate-500">{{ $article->published_date_label }}</span>
@@ -149,9 +154,9 @@
             <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 border border-slate-200 text-slate-400">
                 <i class="ri-article-line text-3xl"></i>
             </div>
-            <h3 class="mt-4 text-xl font-bold text-slate-900">Belum ada artikel</h3>
+            <h3 class="mt-4 text-xl font-bold text-slate-900">{{ $articleValue('index.empty_title', 'Belum ada artikel') }}</h3>
             <p class="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
-                Artikel edukasi dan wawasan pembelajaran baru akan segera hadir. Silakan cek kembali dalam waktu dekat.
+                {{ $articleValue('index.empty_description', 'Artikel edukasi dan wawasan pembelajaran baru akan segera hadir. Silakan cek kembali dalam waktu dekat.') }}
             </p>
         </div>
     @endif

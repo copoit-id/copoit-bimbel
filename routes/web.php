@@ -381,6 +381,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::post('tagihan-rutin/{recurringBill}/generate', [RecurringBillController::class, 'generate'])->name('recurring-bills.generate');
     Route::post('tagihan-rutin/invoice/{invoice}/paid', [RecurringBillController::class, 'markPaid'])->name('recurring-bills.invoices.paid');
 
+    Route::get('/general/artikel/pengaturan', [AdminGeneralPageController::class, 'editArticles'])->name('artikel.settings.edit');
+    Route::put('/general/artikel/pengaturan', [AdminGeneralPageController::class, 'updateArticles'])->name('artikel.settings.update');
+
     Route::resource('general/artikel', AdminArticleController::class)
         ->except(['show'])
         ->names('artikel')

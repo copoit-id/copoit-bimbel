@@ -19,6 +19,7 @@
     $documentTitle = $pageTitle !== ''
         ? $pageTitle . ' - ' . $clientBranding['name']
         : $clientBranding['name'];
+    $generalValue = fn (string $key, mixed $default = null) => data_get($content ?? [], $key, $default);
 @endphp
 
 <head>
@@ -44,7 +45,7 @@
                     class="h-9 w-9 shrink-0 rounded-lg object-contain">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-bold text-slate-900 leading-tight">{{ $clientBranding['name'] }}</p>
-                    <p class="hidden text-[10px] text-slate-600 font-medium sm:block">Platform Persiapan Masuk Perguruan Tinggi</p>
+                    <p class="hidden text-[10px] text-slate-600 font-medium sm:block">{{ $generalValue('layout.tagline', 'Platform Persiapan Masuk Perguruan Tinggi') }}</p>
                 </div>
             </a>
 
@@ -52,24 +53,24 @@
                 @if($showLandingNav)
                 <a href="{{ route('landing') }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'text-primary' : '' }}">
-                    Home
+                    {{ $generalValue('layout.home_label', 'Home') }}
                 </a>
                 @endif
                 @if($showStatisticsNav)
                 <div class="group relative">
 	                    <button type="button"
 	                        class="hover:text-primary transition-colors flex items-center gap-1 {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'text-primary' : '' }}">
-	                        Statistik PTN
+	                        {{ $generalValue('layout.statistics_label', 'Statistik PTN') }}
 	                        <i class="ri-arrow-down-s-line text-base transition-transform group-hover:rotate-180"></i>
 	                    </button>
                     <div class="invisible absolute left-1/2 -translate-x-1/2 top-full z-50 mt-4 w-44 rounded-xl border border-white/60 bg-white/80 backdrop-blur-md p-2 text-slate-700 opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-hover:mt-2">
                         <a href="{{ route('statistics') }}"
                             class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/50' }}">
-                            Statistik SNBP
+                            {{ $generalValue('layout.statistics_snbp_label', 'Statistik SNBP') }}
                         </a>
                         <a href="{{ route('statistics.snbt') }}"
                             class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/50' }}">
-                            Statistik SNBT
+                            {{ $generalValue('layout.statistics_snbt_label', 'Statistik SNBT') }}
                         </a>
                     </div>
                 </div>
@@ -77,25 +78,25 @@
                 @if($showArticlesNav)
                 <a href="{{ route('articles.index') }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'text-primary' : '' }}">
-                    Artikel
+                    {{ $generalValue('layout.articles_label', 'Artikel') }}
                 </a>
                 @endif
                 @if($showTryoutNav)
                 <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'text-primary' : '' }}">
-                    Try Out
+                    {{ $generalValue('layout.tryout_label', 'Try Out') }}
                 </a>
                 @endif
                 @if($showMaterialNav)
                 <a href="{{ route('user.material.index', ['layout' => 'landing']) }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('user.material.*') ? 'text-primary' : '' }}">
-                    Kelas & Materi
+                    {{ $generalValue('layout.materials_label', 'Kelas & Materi') }}
                 </a>
                 @endif
                 @if($showPackageNav)
                 <a href="{{ route('user.package.index', ['layout' => 'landing']) }}"
                     class="hover:text-primary transition-colors {{ request()->routeIs('user.package.index', 'user.package.detail') ? 'text-primary' : '' }}">
-                    Paket
+                    {{ $generalValue('layout.packages_label', 'Paket') }}
                 </a>
                 @endif
             </nav>
@@ -104,12 +105,12 @@
                 @auth
                     <a href="{{ route('user.dashboard.index') }}"
                         class="rounded-full border border-slate-300 bg-transparent px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-white/50 transition-colors">
-                        Dashboard
+                        {{ $generalValue('layout.dashboard_label', 'Dashboard') }}
                     </a>
                 @else
                     <a href="{{ route('login') }}"
                         class="rounded-full border border-slate-300 bg-transparent px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-white/50 transition-colors">
-                        Login
+                        {{ $generalValue('layout.login_label', 'Login') }}
                     </a>
                 @endauth
             </div>
@@ -123,23 +124,23 @@
                     @if($showLandingNav)
                     <a href="{{ route('landing') }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                        Home
+                        {{ $generalValue('layout.home_label', 'Home') }}
                     </a>
                     @endif
                     @if($showStatisticsNav)
                     <details class="group/stat relative">
                         <summary class="flex cursor-pointer list-none items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('statistics', 'statistics.snbt', 'general.statistics', 'general.statistics.snbt') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                            Statistik PTN
+                            {{ $generalValue('layout.statistics_label', 'Statistik PTN') }}
                             <i class="ri-arrow-down-s-line transition-transform group-open/stat:rotate-180"></i>
                         </summary>
                         <div class="mt-1 space-y-1 pl-3">
                             <a href="{{ route('statistics') }}"
                                 class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics', 'general.statistics') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/60' }}">
-                                Statistik SNBP
+                                {{ $generalValue('layout.statistics_snbp_label', 'Statistik SNBP') }}
                             </a>
                             <a href="{{ route('statistics.snbt') }}"
                                 class="block rounded-lg px-3 py-2 text-sm {{ request()->routeIs('statistics.snbt', 'general.statistics.snbt') ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-white/60' }}">
-                                Statistik SNBT
+                                {{ $generalValue('layout.statistics_snbt_label', 'Statistik SNBT') }}
                             </a>
                         </div>
                     </details>
@@ -147,36 +148,36 @@
                     @if($showArticlesNav)
                     <a href="{{ route('articles.index') }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('articles.*', 'general.articles.*', 'general.blog.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                        Artikel
+                        {{ $generalValue('layout.articles_label', 'Artikel') }}
                     </a>
                     @endif
                     @if($showTryoutNav)
                     <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                        Try Out
+                        {{ $generalValue('layout.tryout_label', 'Try Out') }}
                     </a>
                     @endif
                     @if($showMaterialNav)
                     <a href="{{ route('user.material.index', ['layout' => 'landing']) }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('user.material.*') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                        Kelas & Materi
+                        {{ $generalValue('layout.materials_label', 'Kelas & Materi') }}
                     </a>
                     @endif
                     @if($showPackageNav)
                     <a href="{{ route('user.package.index', ['layout' => 'landing']) }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold {{ request()->routeIs('user.package.index', 'user.package.detail') ? 'bg-primary/10 text-primary' : 'hover:bg-white/60' }}">
-                        Paket
+                        {{ $generalValue('layout.packages_label', 'Paket') }}
                     </a>
                     @endif
                     @auth
                     <a href="{{ route('user.dashboard.index') }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold hover:bg-white/60">
-                        Dashboard
+                        {{ $generalValue('layout.dashboard_label', 'Dashboard') }}
                     </a>
                     @else
                     <a href="{{ route('login') }}"
                         class="block rounded-xl px-3 py-2 text-sm font-semibold hover:bg-white/60">
-                        Login
+                        {{ $generalValue('layout.login_label', 'Login') }}
                     </a>
                     @endauth
                 </div>
@@ -194,13 +195,13 @@
             <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}.</p>
             <div class="flex gap-4">
                 @if($showStatisticsNav)
-                    <a href="{{ route('statistics') }}" class="hover:text-primary">SNBP</a>
-                    <a href="{{ route('statistics.snbt') }}" class="hover:text-primary">SNBT</a>
+                    <a href="{{ route('statistics') }}" class="hover:text-primary">{{ $generalValue('layout.footer_snbp_label', 'SNBP') }}</a>
+                    <a href="{{ route('statistics.snbt') }}" class="hover:text-primary">{{ $generalValue('layout.footer_snbt_label', 'SNBT') }}</a>
                 @endif
                 @if($showArticlesNav)
-                    <a href="{{ route('articles.index') }}" class="hover:text-primary">Artikel</a>
+                    <a href="{{ route('articles.index') }}" class="hover:text-primary">{{ $generalValue('layout.articles_label', 'Artikel') }}</a>
                 @endif
-                <a href="{{ route('login') }}" class="hover:text-primary">Login</a>
+                <a href="{{ route('login') }}" class="hover:text-primary">{{ $generalValue('layout.login_label', 'Login') }}</a>
             </div>
         </div>
     </footer>

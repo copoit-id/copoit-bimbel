@@ -5,11 +5,66 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\GeneralPage;
 use App\Models\Package;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\View\View;
 
 class GeneralPageController extends Controller
 {
+    public function editArticles(): View
+    {
+        $page = GeneralPage::query()->firstOrCreate(
+            ['page_key' => 'artikel'],
+            [
+                'template_key' => 'default',
+                'content' => null,
+                'settings' => null,
+                'seo' => null,
+                'is_active' => false,
+            ]
+        );
+
+        return view('admin.pages.general.pages.articles', [
+            'page' => $page,
+            'content' => \App\Http\Controllers\GeneralPageController::mergeArticleContentWithDefaults($page->content ?? []),
+        ]);
+    }
+
+    public function updateArticles(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'content' => ['required', 'array'],
+            'content.meta' => ['required', 'array'],
+            'content.meta.title' => ['required', 'string', 'max:255'],
+            'content.layout' => ['required', 'array'],
+            'content.layout.*' => ['nullable', 'string', 'max:255'],
+            'content.index' => ['required', 'array'],
+            'content.index.*' => ['nullable', 'string', 'max:1000'],
+            'content.show' => ['required', 'array'],
+            'content.show.*' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $existingPage = GeneralPage::query()->where('page_key', 'artikel')->first();
+        $content = array_replace_recursive($existingPage?->content ?? [], $validated['content']);
+
+        GeneralPage::query()->updateOrCreate(
+            ['page_key' => 'artikel'],
+            [
+                'template_key' => $existingPage?->template_key ?? 'default',
+                'content' => $content,
+                'settings' => $existingPage?->settings ?? [],
+                'seo' => $existingPage?->seo ?? [],
+                'is_active' => $existingPage?->is_active ?? false,
+            ]
+        );
+
+        Artisan::call('view:clear');
+
+        return redirect()
+            ->route('admin.artikel.settings.edit')
+            ->with('success', 'Tampilan halaman artikel berhasil diperbarui.');
+    }
+
     public function editLanding()
     {
         $page = GeneralPage::query()->firstOrCreate(
@@ -71,7 +126,7 @@ class GeneralPageController extends Controller
 
         return redirect()
             ->route('admin.general-pages.landing.edit')
-            ->with('success', 'Landing page berhasil diperbarui pada ' . now()->format('d M Y H:i:s') . '.');
+            ->with('success', 'Landing page berhasil diperbarui pada '.now()->format('d M Y H:i:s').'.');
     }
 
     private function applyUploadedImages(Request $request, array &$content, array &$seo): void
@@ -118,7 +173,7 @@ class GeneralPageController extends Controller
     {
         $content['meta']['title'] = trim((string) data_get($content, 'meta.title', ''));
 
-        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'partners', 'faq', 'footer'] as $section) {
+        foreach (['layout', 'hero', 'program', 'community', 'testimonials', 'achievements', 'partners', 'faq', 'footer'] as $section) {
             if (! isset($content[$section]) || ! is_array($content[$section])) {
                 $content[$section] = [];
             }
@@ -160,7 +215,6 @@ class GeneralPageController extends Controller
 
         return $content;
     }
-
 
     private function cleanArray(array $items): array
     {

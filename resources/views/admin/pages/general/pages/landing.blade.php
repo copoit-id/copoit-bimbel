@@ -75,6 +75,7 @@
                 <div class="flex gap-2 overflow-x-auto text-sm font-semibold">
                     @foreach([
                         'hero' => 'Hero',
+                        'navigation' => 'Navigasi',
                         'program' => 'Program',
                         'community' => 'Komunitas',
                         'testimonials' => 'Testimoni',
@@ -182,6 +183,24 @@
                     </div>
                 </section>
 
+                <section x-show="tab === 'navigation'" class="space-y-5">
+                    <div class="grid gap-5 lg:grid-cols-2">
+                        <x-admin-input name="content[layout][tagline]" label="Tagline Header" :value="$value('layout.tagline')" />
+                        <x-admin-input name="content[layout][home_label]" label="Label Home" :value="$value('layout.home_label')" />
+                        <x-admin-input name="content[layout][statistics_label]" label="Label Statistik PTN" :value="$value('layout.statistics_label')" />
+                        <x-admin-input name="content[layout][statistics_snbp_label]" label="Label Statistik SNBP" :value="$value('layout.statistics_snbp_label')" />
+                        <x-admin-input name="content[layout][statistics_snbt_label]" label="Label Statistik SNBT" :value="$value('layout.statistics_snbt_label')" />
+                        <x-admin-input name="content[layout][footer_snbp_label]" label="Label Footer SNBP" :value="$value('layout.footer_snbp_label')" />
+                        <x-admin-input name="content[layout][footer_snbt_label]" label="Label Footer SNBT" :value="$value('layout.footer_snbt_label')" />
+                        <x-admin-input name="content[layout][articles_label]" label="Label Artikel" :value="$value('layout.articles_label')" />
+                        <x-admin-input name="content[layout][tryout_label]" label="Label Try Out" :value="$value('layout.tryout_label')" />
+                        <x-admin-input name="content[layout][materials_label]" label="Label Kelas & Materi" :value="$value('layout.materials_label')" />
+                        <x-admin-input name="content[layout][packages_label]" label="Label Paket" :value="$value('layout.packages_label')" />
+                        <x-admin-input name="content[layout][dashboard_label]" label="Label Dashboard" :value="$value('layout.dashboard_label')" />
+                        <x-admin-input name="content[layout][login_label]" label="Label Login" :value="$value('layout.login_label')" />
+                    </div>
+                </section>
+
                 <section x-show="tab === 'program'" class="space-y-5">
                     <div class="grid gap-5 lg:grid-cols-2">
                         <x-admin-input name="content[program][eyebrow]" label="Eyebrow" :value="$value('program.eyebrow')" />
@@ -190,6 +209,48 @@
                     <div>
                         <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Program</label>
                         <textarea name="content[program][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.description') }}</textarea>
+                    </div>
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <p class="mb-4 text-sm font-semibold text-gray-900">Wording Kartu & Form Paket</p>
+                        <div class="grid gap-4 lg:grid-cols-2">
+                            <x-admin-input name="content[program][paid_suffix]" label="Label Sekali Bayar" :value="$value('program.paid_suffix')" />
+                            <x-admin-input name="content[program][empty_message]" label="Pesan Program Kosong" :value="$value('program.empty_message')" />
+                            <x-admin-input name="content[program][paid_cta_label]" label="CTA Paket Berbayar" :value="$value('program.paid_cta_label')" />
+                            <x-admin-input name="content[program][conditional_cta_label]" label="CTA Gratis Bersyarat" :value="$value('program.conditional_cta_label')" />
+                            <x-admin-input name="content[program][free_cta_label]" label="CTA Paket Gratis" :value="$value('program.free_cta_label')" />
+                            <x-admin-input name="content[program][conditional_price_label]" label="Harga Gratis Bersyarat" :value="$value('program.conditional_price_label')" />
+                            <x-admin-input name="content[program][free_price_label]" label="Harga Paket Gratis" :value="$value('program.free_price_label')" />
+                            <x-admin-input name="content[program][conditional][eyebrow]" label="Eyebrow Form Syarat" :value="$value('program.conditional.eyebrow')" />
+                            <x-admin-input name="content[program][conditional][detail_title]" label="Judul Detail Syarat" :value="$value('program.conditional.detail_title')" />
+                            <x-admin-input name="content[program][conditional][proof_label]" label="Label Upload Bukti" :value="$value('program.conditional.proof_label')" />
+                            <x-admin-input name="content[program][conditional][notes_label]" label="Label Catatan" :value="$value('program.conditional.notes_label')" />
+                            <x-admin-input name="content[program][conditional][optional_label]" label="Label Opsional" :value="$value('program.conditional.optional_label')" />
+                            <x-admin-input name="content[program][conditional][notes_placeholder]" label="Placeholder Catatan" :value="$value('program.conditional.notes_placeholder')" />
+                            <x-admin-input name="content[program][conditional][cancel_label]" label="Label Batal" :value="$value('program.conditional.cancel_label')" />
+                            <x-admin-input name="content[program][conditional][submit_label]" label="Label Kirim Bukti" :value="$value('program.conditional.submit_label')" />
+                        </div>
+                        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                            <div>
+                                <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Default Paket</label>
+                                <textarea name="content[program][description_fallback]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.description_fallback') }}</textarea>
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Form Syarat</label>
+                                <textarea name="content[program][conditional][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.conditional.description') }}</textarea>
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-sm font-medium text-gray-700">Fallback Persyaratan</label>
+                                <textarea name="content[program][conditional][requirement_fallback]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.conditional.requirement_fallback') }}</textarea>
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-sm font-medium text-gray-700">Bantuan Upload Bukti</label>
+                                <textarea name="content[program][conditional][proof_help]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.conditional.proof_help') }}</textarea>
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-sm font-medium text-gray-700">Bantuan Catatan</label>
+                                <textarea name="content[program][conditional][notes_help]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('program.conditional.notes_help') }}</textarea>
+                            </div>
+                        </div>
                     </div>
                     <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
                         <div class="flex items-start gap-3">
@@ -268,6 +329,7 @@
                     <div class="grid gap-5 lg:grid-cols-2">
                         <x-admin-input name="content[testimonials][eyebrow]" label="Eyebrow" :value="$value('testimonials.eyebrow')" />
                         <x-admin-input name="content[testimonials][title]" label="Judul" :value="$value('testimonials.title')" />
+                        <x-admin-input name="content[testimonials][verified_label]" label="Label Alumni Terverifikasi" :value="$value('testimonials.verified_label')" />
                     </div>
                     <textarea name="content[testimonials][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('testimonials.description') }}</textarea>
                     <div class="flex justify-end">

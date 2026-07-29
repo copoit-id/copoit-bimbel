@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
 class GeneralPageController extends Controller
 {
@@ -251,9 +252,11 @@ class GeneralPageController extends Controller
             ->all();
     }
 
-    public function articles()
+    public function articles(): View
     {
-        abort_unless(GeneralPage::findActiveByKey('artikel'), 404);
+        $page = GeneralPage::findActiveByKey('artikel');
+
+        abort_unless($page, 404);
 
         $articles = Article::query()
             ->with('author:id,name')
@@ -267,12 +270,18 @@ class GeneralPageController extends Controller
             ->latest('published_at')
             ->first();
 
-        return view('general.articles.index', compact('articles', 'featuredArticle'));
+        return view('general.articles.index', [
+            'articles' => $articles,
+            'featuredArticle' => $featuredArticle,
+            'content' => self::mergeArticleContentWithDefaults($page->content ?? []),
+        ]);
     }
 
-    public function showArticle(string $slug)
+    public function showArticle(string $slug): View
     {
-        abort_unless(GeneralPage::findActiveByKey('artikel'), 404);
+        $page = GeneralPage::findActiveByKey('artikel');
+
+        abort_unless($page, 404);
 
         $article = Article::query()
             ->with('author:id,name')
@@ -287,7 +296,11 @@ class GeneralPageController extends Controller
             ->take(3)
             ->get();
 
-        return view('general.articles.show', compact('article', 'relatedArticles'));
+        return view('general.articles.show', [
+            'article' => $article,
+            'relatedArticles' => $relatedArticles,
+            'content' => self::mergeArticleContentWithDefaults($page->content ?? []),
+        ]);
     }
 
     private function resolveTemplateView(string $pageKey, ?GeneralPage $page, string $defaultView): string
@@ -306,6 +319,21 @@ class GeneralPageController extends Controller
     public static function defaultLandingContent(): array
     {
         return [
+            'layout' => [
+                'tagline' => 'Platform Persiapan Masuk Perguruan Tinggi',
+                'home_label' => 'Home',
+                'statistics_label' => 'Statistik PTN',
+                'statistics_snbp_label' => 'Statistik SNBP',
+                'statistics_snbt_label' => 'Statistik SNBT',
+                'footer_snbp_label' => 'SNBP',
+                'footer_snbt_label' => 'SNBT',
+                'articles_label' => 'Artikel',
+                'tryout_label' => 'Try Out',
+                'materials_label' => 'Kelas & Materi',
+                'packages_label' => 'Paket',
+                'dashboard_label' => 'Dashboard',
+                'login_label' => 'Login',
+            ],
             'meta' => [
                 'title' => 'Persiapan Ujian UTBK SNBT & SNBP Terbaik',
             ],
@@ -336,6 +364,28 @@ class GeneralPageController extends Controller
                 'title' => 'Program Bimbingan Belajar Pilihan',
                 'description' => 'Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.',
                 'package_ids' => [],
+                'paid_suffix' => 'Sekali Bayar',
+                'description_fallback' => 'Paket pembelajaran lengkap untuk mendukung target belajarmu.',
+                'empty_message' => 'Program pilihan sedang disiapkan.',
+                'paid_cta_label' => 'Lihat Paket',
+                'conditional_cta_label' => 'Lihat Persyaratan',
+                'free_cta_label' => 'Ambil Paket',
+                'conditional_price_label' => 'Gratis*',
+                'free_price_label' => 'Gratis',
+                'conditional' => [
+                    'eyebrow' => 'Syarat Paket Gratis',
+                    'description' => 'Lengkapi bukti syarat untuk mengajukan akses gratis bersyarat.',
+                    'detail_title' => 'Detail Syarat',
+                    'requirement_fallback' => 'Syarat belum ditentukan. Silakan hubungi admin.',
+                    'proof_label' => 'Upload Bukti Syarat',
+                    'proof_help' => 'Bisa pilih lebih dari satu file. Format: JPG, PNG, PDF, MP4, WEBM. Maks 2MB per file.',
+                    'notes_label' => 'Catatan untuk Admin',
+                    'optional_label' => '(opsional)',
+                    'notes_placeholder' => 'Contoh: Bukti ini dari akun Instagram saya, nama akun @...',
+                    'notes_help' => 'Catatan ini akan terlihat oleh admin saat review pengajuan.',
+                    'cancel_label' => 'Batal',
+                    'submit_label' => 'Kirim Bukti',
+                ],
             ],
             'community' => [
                 'badge' => 'Support System Pejuang PTN',
@@ -350,6 +400,7 @@ class GeneralPageController extends Controller
                 'eyebrow' => 'Kisah Sukses Pejuang',
                 'title' => 'Apa Kata Alumni Kami?',
                 'description' => 'Mereka telah membuktikan keakuratan data dan bimbingan kami, kini berhasil lolos ke prodi impian.',
+                'verified_label' => 'Alumni Terverifikasi',
                 'items' => [
                     [
                         'quote' => 'Tryout IRT di sini bener-bener mirip dengan ujian UTBK aslinya. Ranking nasionalnya bikin aku termotivasi untuk terus mengejar ketertinggalan materi.',
@@ -502,6 +553,72 @@ class GeneralPageController extends Controller
     public static function mergeLandingContentWithDefaults(array $content): array
     {
         return self::mergeMissingLandingDefaults(self::defaultLandingContent(), $content);
+    }
+
+    public static function defaultArticleContent(): array
+    {
+        return [
+            'meta' => [
+                'title' => 'Artikel',
+            ],
+            'layout' => [
+                'tagline' => 'Platform Persiapan Masuk Perguruan Tinggi',
+                'home_label' => 'Home',
+                'statistics_label' => 'Statistik PTN',
+                'statistics_snbp_label' => 'Statistik SNBP',
+                'statistics_snbt_label' => 'Statistik SNBT',
+                'footer_snbp_label' => 'SNBP',
+                'footer_snbt_label' => 'SNBT',
+                'articles_label' => 'Artikel',
+                'tryout_label' => 'Try Out',
+                'materials_label' => 'Kelas & Materi',
+                'packages_label' => 'Paket',
+                'dashboard_label' => 'Dashboard',
+                'login_label' => 'Login',
+            ],
+            'index' => [
+                'badge' => 'Bimbel News & Updates',
+                'title' => 'Insight & Panduan Belajar',
+                'description' => 'Kumpulan artikel terbaru, tips & trik lolos PTN, strategi ujian, serta informasi pendidikan terpercaya untuk mendukung perjalanan belajarmu.',
+                'latest_label' => 'Terbaru',
+                'featured_label' => 'Artikel Unggulan',
+                'read_cta_label' => 'Baca Artikel',
+                'all_title' => 'Semua Artikel',
+                'all_description' => 'Jelajahi wawasan baru dari pengajar kami',
+                'total_prefix' => 'Total:',
+                'total_suffix' => 'Artikel',
+                'category_label' => 'Tips & Info',
+                'reading_suffix' => 'mnt baca',
+                'author_fallback' => 'Admin',
+                'empty_title' => 'Belum ada artikel',
+                'empty_description' => 'Artikel edukasi dan wawasan pembelajaran baru akan segera hadir. Silakan cek kembali dalam waktu dekat.',
+            ],
+            'show' => [
+                'back_label' => 'Kembali ke Artikel',
+                'badge' => 'Bimbel Insight',
+                'reading_suffix' => 'menit baca',
+                'author_fallback' => 'Admin',
+                'share_label' => 'Bagikan:',
+                'whatsapp_share_title' => 'Bagikan ke WhatsApp',
+                'telegram_share_title' => 'Bagikan ke Telegram',
+                'x_share_title' => 'Bagikan ke X',
+                'copy_title' => 'Salin Tautan',
+                'copied_label' => 'Tautan disalin!',
+                'author_heading' => 'Penulis Artikel',
+                'author_name_fallback' => 'Tim BimbelHub',
+                'author_description' => 'Pengajar dan kontributor ahli di :brand. Berkomitmen menyajikan wawasan akademis terbaru dan bimbingan belajar terbaik untuk kesuksesan siswa meraih kampus impian.',
+                'promo_badge' => 'Program Unggulan',
+                'promo_title' => 'Ingin Lolos PTN Impianmu?',
+                'promo_description' => 'Bergabunglah dengan program persiapan intensif UTBK-SNBT & Mandiri kami. Dapatkan akses tryout terakreditasi, materi lengkap, dan bimbingan guru ahli!',
+                'promo_cta_label' => 'Mulai Belajar Sekarang',
+                'related_title' => 'Artikel Terpopuler',
+            ],
+        ];
+    }
+
+    public static function mergeArticleContentWithDefaults(array $content): array
+    {
+        return self::mergeMissingLandingDefaults(self::defaultArticleContent(), $content);
     }
 
     private static function mergeMissingLandingDefaults(array $defaults, array $content): array

@@ -292,13 +292,13 @@
                         && in_array(strtolower(pathinfo($package->image, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true);
                     $priceLabel = match ($package->type_price) {
                         'paid' => 'Rp ' . number_format($package->price, 0, ',', '.'),
-                        'free_conditional' => 'Gratis*',
-                        default => 'Gratis',
+                        'free_conditional' => $landingValue('program.conditional_price_label', 'Gratis*'),
+                        default => $landingValue('program.free_price_label', 'Gratis'),
                     };
                     $ctaLabel = match ($package->type_price) {
-                        'paid' => 'Lihat Paket',
-                        'free_conditional' => 'Lihat Persyaratan',
-                        default => 'Ambil Paket',
+                        'paid' => $landingValue('program.paid_cta_label', 'Lihat Paket'),
+                        'free_conditional' => $landingValue('program.conditional_cta_label', 'Lihat Persyaratan'),
+                        default => $landingValue('program.free_cta_label', 'Ambil Paket'),
                     };
                 @endphp
                 <article class="relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg">
@@ -326,11 +326,11 @@
                                 <div class="mt-4 flex items-baseline gap-2">
                                     <span class="text-3xl font-black text-slate-900">{{ $priceLabel }}</span>
                                     @if($package->type_price === 'paid')
-                                        <span class="text-2xs font-bold uppercase tracking-wider text-slate-400">Sekali Bayar</span>
+                                        <span class="text-2xs font-bold uppercase tracking-wider text-slate-400">{{ $landingValue('program.paid_suffix', 'Sekali Bayar') }}</span>
                                     @endif
                                 </div>
                                 <p class="mt-3 text-xs font-medium leading-relaxed text-slate-500">
-                                    {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: 'Paket pembelajaran lengkap untuk mendukung target belajarmu.'), 150) }}
+                                    {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: $landingValue('program.description_fallback', 'Paket pembelajaran lengkap untuk mendukung target belajarmu.')), 150) }}
                                 </p>
                             </div>
 
@@ -378,41 +378,41 @@
                             </button>
                             <div class="space-y-4 p-6">
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-primary">Syarat Paket Gratis</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-primary">{{ $landingValue('program.conditional.eyebrow', 'Syarat Paket Gratis') }}</p>
                                     <h3 class="mt-1 text-xl font-semibold text-gray-900">{{ $package->name }}</h3>
-                                    <p class="text-sm text-gray-500">Lengkapi bukti syarat untuk mengajukan akses gratis bersyarat.</p>
+                                    <p class="text-sm text-gray-500">{{ $landingValue('program.conditional.description', 'Lengkapi bukti syarat untuk mengajukan akses gratis bersyarat.') }}</p>
                                 </div>
 
                                 <div class="rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-gray-700">
-                                    <p class="mb-1 font-semibold text-blue-900">Detail Syarat</p>
-                                    <p class="whitespace-pre-line">{{ $package->conditional_requirement ?: 'Syarat belum ditentukan. Silakan hubungi admin.' }}</p>
+                                    <p class="mb-1 font-semibold text-blue-900">{{ $landingValue('program.conditional.detail_title', 'Detail Syarat') }}</p>
+                                    <p class="whitespace-pre-line">{{ $package->conditional_requirement ?: $landingValue('program.conditional.requirement_fallback', 'Syarat belum ditentukan. Silakan hubungi admin.') }}</p>
                                 </div>
 
                                 <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
                                     enctype="multipart/form-data" class="space-y-4">
                                     @csrf
                                     <div>
-                                        <label class="mb-2 block text-sm font-medium text-gray-700">Upload Bukti Syarat</label>
+                                        <label class="mb-2 block text-sm font-medium text-gray-700">{{ $landingValue('program.conditional.proof_label', 'Upload Bukti Syarat') }}</label>
                                         <input type="file" name="requirement_proofs[]" required multiple
                                             accept=".jpg,.jpeg,.png,.pdf,.mp4,.webm"
                                             class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        <p class="mt-2 text-xs text-gray-500">Bisa pilih lebih dari satu file. Format: JPG, PNG, PDF, MP4, WEBM. Maks 2MB per file.</p>
+                                        <p class="mt-2 text-xs text-gray-500">{{ $landingValue('program.conditional.proof_help', 'Bisa pilih lebih dari satu file. Format: JPG, PNG, PDF, MP4, WEBM. Maks 2MB per file.') }}</p>
                                     </div>
 
                                     <div>
-                                        <label class="mb-2 block text-sm font-medium text-gray-700">Catatan untuk Admin <span class="font-normal text-gray-400">(opsional)</span></label>
+                                        <label class="mb-2 block text-sm font-medium text-gray-700">{{ $landingValue('program.conditional.notes_label', 'Catatan untuk Admin') }} <span class="font-normal text-gray-400">{{ $landingValue('program.conditional.optional_label', '(opsional)') }}</span></label>
                                         <textarea name="requirement_user_notes" rows="3" maxlength="1000"
                                             class="w-full resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                            placeholder="Contoh: Bukti ini dari akun Instagram saya, nama akun @..."></textarea>
-                                        <p class="mt-2 text-xs text-gray-500">Catatan ini akan terlihat oleh admin saat review pengajuan.</p>
+                                            placeholder="{{ $landingValue('program.conditional.notes_placeholder', 'Contoh: Bukti ini dari akun Instagram saya, nama akun @...') }}"></textarea>
+                                        <p class="mt-2 text-xs text-gray-500">{{ $landingValue('program.conditional.notes_help', 'Catatan ini akan terlihat oleh admin saat review pengajuan.') }}</p>
                                     </div>
 
                                     <div class="flex items-center justify-end gap-3">
                                         <button type="button"
                                             class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                            data-landing-modal-close="landing-conditional-package-{{ $package->package_id }}">Batal</button>
+                                            data-landing-modal-close="landing-conditional-package-{{ $package->package_id }}">{{ $landingValue('program.conditional.cancel_label', 'Batal') }}</button>
                                         <button type="submit"
-                                            class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">Kirim Bukti</button>
+                                            class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">{{ $landingValue('program.conditional.submit_label', 'Kirim Bukti') }}</button>
                                     </div>
                                 </form>
                             </div>
@@ -421,7 +421,7 @@
                 @endif
             @empty
                 <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm font-medium text-slate-500">
-                    Program pilihan sedang disiapkan.
+                    {{ $landingValue('program.empty_message', 'Program pilihan sedang disiapkan.') }}
                 </div>
             @endforelse
         </div>
@@ -493,7 +493,7 @@
                         <div class="min-w-0">
                             <div class="flex items-center gap-1">
                                 <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">{{ data_get($testimonial, 'name') }}</h4>
-                                <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
+                                <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="{{ $landingValue('testimonials.verified_label', 'Alumni Terverifikasi') }}"></i>
                             </div>
                             <p class="text-[10px] text-slate-400 font-bold mt-1">{{ data_get($testimonial, 'result') }}</p>
                         </div>
@@ -536,8 +536,8 @@
         <!-- Part 2: Cooperating Institutions & Schools (Logo Lembaga yang Bekerjasama) -->
         <div class="space-y-12 border-t border-slate-100 pt-16">
             <div class="text-center">
-                <span class="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400">Lembaga & Sekolah Mitra Kerja Sama</span>
-                <p class="text-xs text-slate-400 font-medium mt-1">Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN</p>
+                <span class="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400">{{ $landingValue('partners.eyebrow', 'Lembaga & Sekolah Mitra Kerja Sama') }}</span>
+                <p class="text-xs text-slate-400 font-medium mt-1">{{ $landingValue('partners.description', 'Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN') }}</p>
                 <div class="mt-3.5 h-0.5 w-12 bg-primary/30 mx-auto rounded"></div>
             </div>
 
@@ -603,23 +603,23 @@
 
         <!-- Services Menu Link -->
         <div class="md:col-span-3 space-y-4">
-            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">Navigasi</h4>
+            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">{{ $landingValue('footer.navigation_title', 'Navigasi') }}</h4>
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90 list-disc pl-5">
-                <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">Home Landing</a></li>
+                <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_landing_label', 'Home Landing') }}</a></li>
                 @if($showStatisticsNav)
-                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">Statistik PTN SNBP</a></li>
-                    <li><a href="{{ route('statistics.snbt') }}" class="hover:text-amber-300 transition-colors">Statistik PTN SNBT</a></li>
+                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_statistics_snbp_label', 'Statistik PTN SNBP') }}</a></li>
+                    <li><a href="{{ route('statistics.snbt') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_statistics_snbt_label', 'Statistik PTN SNBT') }}</a></li>
                 @endif
                 @if($showArticlesNav)
-                    <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">Insight & Artikel</a></li>
+                    <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_articles_label', 'Insight & Artikel') }}</a></li>
                 @endif
-                <li><a href="{{ route('login') }}" class="hover:text-amber-300 transition-colors">Daftar / Login Akun</a></li>
+                <li><a href="{{ route('login') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_login_label', 'Daftar / Login Akun') }}</a></li>
             </ul>
         </div>
 
         <!-- Contact Links -->
         <div class="md:col-span-3 space-y-4">
-            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">Hubungi Kami</h4>
+            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">{{ $landingValue('footer.contact_title', 'Hubungi Kami') }}</h4>
             <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90">
                 <li>
                     <a href="{{ $landingValue('footer.instagram_href', 'https://instagram.com/naufalacademy') }}" target="_blank" rel="noopener noreferrer"
@@ -647,10 +647,10 @@
     </div>
 
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs sm:text-sm font-semibold text-slate-300 text-center">
-        <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}. Hak cipta dilindungi undang-undang.</p>
+        <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}. {{ $landingValue('footer.copyright_suffix', 'Hak cipta dilindungi undang-undang.') }}</p>
         <div class="flex gap-4 justify-center">
-            <a href="#" class="hover:text-white">Syarat & Ketentuan</a>
-            <a href="#" class="hover:text-white">Kebijakan Privasi</a>
+            <a href="{{ $landingValue('footer.terms_href', '#') }}" class="hover:text-white">{{ $landingValue('footer.terms_label', 'Syarat & Ketentuan') }}</a>
+            <a href="{{ $landingValue('footer.privacy_href', '#') }}" class="hover:text-white">{{ $landingValue('footer.privacy_label', 'Kebijakan Privasi') }}</a>
         </div>
     </div>
 </footer>
