@@ -16,17 +16,8 @@ class ClassAttendanceParticipantService
             'class.packages',
             'studyGroup.users',
             'schedule.destinationCategories.children',
+            'schedule.packages',
         ]);
-
-        $categoryIds = $this->destinationCategoryIds($session);
-
-        if (!empty($categoryIds)) {
-            return User::query()
-                ->where('role', 'user')
-                ->whereIn('participant_destination_category_id', $categoryIds)
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'participant_destination_category_id']);
-        }
 
         $studyGroupUsers = $session->studyGroup?->users ?? collect();
         if ($studyGroupUsers->isNotEmpty()) {
@@ -35,19 +26,44 @@ class ClassAttendanceParticipantService
                 ->values();
         }
 
-        $packageIds = $session->class?->packages()->pluck('packages.package_id') ?? collect();
+        $categoryIds = $this->destinationCategoryIds($session);
 
-        if ($packageIds->isEmpty()) {
-            return collect();
+        if (! empty($categoryIds)) {
+            return User::query()
+                ->where('role', 'user')
+                ->whereIn('participant_destination_category_id', $categoryIds)
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'participant_destination_category_id']);
         }
 
-        return UserPackageAcces::query()
+        $schedulePackageIds = $session->schedule->packages->pluck('package_id');
+        $packageIds = ($schedulePackageIds->isNotEmpty()
+            ? $schedulePackageIds
+            : ($session->class?->packages?->pluck('package_id') ?? collect()))
+            ->unique()
+            ->values();
+        $directUsers = $session->class?->userAccess()
+            ->with('user:id,name,email')
+            ->active()
+            ->get()
+            ->pluck('user')
+            ->filter()
+            ->values() ?? collect();
+
+        if ($packageIds->isEmpty()) {
+            return $directUsers->unique('id')->values();
+        }
+
+        $packageUsers = UserPackageAcces::query()
             ->with('user:id,name,email')
             ->whereIn('package_id', $packageIds)
             ->active()
             ->get()
             ->pluck('user')
-            ->filter()
+            ->filter();
+
+        return $directUsers
+            ->concat($packageUsers)
             ->unique('id')
             ->values();
     }

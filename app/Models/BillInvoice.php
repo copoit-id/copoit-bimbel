@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BillInvoice extends Model
 {
@@ -52,6 +53,11 @@ class BillInvoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(BillInvoicePayment::class)->orderByDesc('paid_at');
+    }
+
+    public function studyGroupMember(): HasOne
+    {
+        return $this->hasOne(StudyGroupMember::class, 'bill_invoice_id');
     }
 
     public function getPaidAmountAttribute(): int

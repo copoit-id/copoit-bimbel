@@ -11,10 +11,23 @@
     @include('components.favicon-link')
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800">
+    @php
+        $planModules = app(\App\Services\PlanModuleService::class);
+        $canShowTutorProfile = $planModules->allows('profile');
+        $canShowBooking = $planModules->allows('booking')
+            && \Illuminate\Support\Facades\Route::has('tutor.booking.index');
+    @endphp
     <header class="border-b border-gray-200 bg-white">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
             <a href="{{ route('tutor.schedule.index') }}" class="font-bold text-primary">Portal Tutor</a>
             <div class="flex items-center gap-4 text-sm">
+                @if($canShowTutorProfile)
+                    <a href="{{ route('tutor.profile.edit') }}" class="font-semibold {{ request()->routeIs('tutor.profile.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Profil</a>
+                @endif
+                @if($canShowBooking)
+                    <a href="{{ route('tutor.booking.index') }}" class="font-semibold {{ request()->routeIs('tutor.booking.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Booking</a>
+                    <a href="{{ route('tutor.development.index') }}" class="font-semibold {{ request()->routeIs('tutor.development.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Perkembangan</a>
+                @endif
                 @if($clientBranding['tutor_chat_enabled'] ?? false)
                     <a href="{{ route('tutor.chat.index') }}" class="font-semibold text-gray-600 hover:text-primary">Chat Siswa</a>
                 @endif

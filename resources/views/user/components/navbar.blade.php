@@ -9,6 +9,7 @@
     $menuTextClass = $headerPrimary ? 'text-white' : 'text-gray-900';
     $menuSubTextClass = $headerPrimary ? 'text-white/80' : 'text-gray-500';
     $dropdownBgClass = $headerPrimary ? 'bg-white text-gray-900' : 'bg-white';
+    $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
 @endphp
 
 <nav class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} z-[99998] w-full {{ $navClasses }}">
@@ -65,11 +66,13 @@
                                 : 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left';
                         @endphp
                         <ul class="py-1" role="none">
+                            @if($canShowProfile)
                             <li>
                                 <a href="{{ route('user.profile.index') }}" class="{{ $dropdownLinkClasses }}">
                                     Profile
                                 </a>
                             </li>
+                            @endif
                             <li>
                                 <form action="{{ route('logout') }}" method="POST">
                                     @csrf

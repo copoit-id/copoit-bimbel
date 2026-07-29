@@ -66,10 +66,21 @@ return [
             'label' => 'Feedback Tryout',
             'routes' => ['admin.feedback.'],
         ],
+        'schedule' => [
+            'label' => 'Jadwal',
+            'routes' => [
+                'admin.class-schedules.',
+            ],
+        ],
+        'booking' => [
+            'label' => 'Booking Jadwal',
+            'routes' => [
+                'admin.package-booking.',
+            ],
+        ],
         'class' => [
             'label' => 'Kelas',
             'routes' => [
-                'admin.class-schedules.',
                 'admin.class-attendance.',
                 'admin.study-groups.',
                 'admin.class.',

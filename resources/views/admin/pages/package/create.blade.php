@@ -25,7 +25,11 @@
 
 @section('content')
 @php
-    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+    $planModules = app(\App\Services\PlanModuleService::class);
+    $canManageTryout = $planModules->allows('tryout');
+    $canManageCertification = $planModules->allows('certification');
+    $canManageTesKoran = $planModules->allows('tes_koran')
+        && (auth()->user()?->hasPermission('tes_koran', 'view') ?? false);
 @endphp
 <div class="space-y-6">
     <!-- Page Header -->
@@ -116,11 +120,15 @@
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                 <option value="bimbel" {{ (isset($package) && $package->type_package === 'bimbel') ||
                                     old('type_package') === 'bimbel' ? 'selected' : '' }}>Bimbel</option>
-                                <option value="tryout" {{ (isset($package) && $package->type_package === 'tryout') ||
-                                    old('type_package') === 'tryout' ? 'selected' : '' }}>Tryout</option>
-                                <option value="sertifikasi" {{ (isset($package) && $package->type_package ===
-                                    'sertifikasi') || old('type_package') === 'sertifikasi' ? 'selected' : ''
-                                    }}>Sertifikasi</option>
+                                @if($canManageTryout || (isset($package) && $package->type_package === 'tryout'))
+                                    <option value="tryout" {{ (isset($package) && $package->type_package === 'tryout') ||
+                                        old('type_package') === 'tryout' ? 'selected' : '' }}>Tryout</option>
+                                @endif
+                                @if($canManageCertification || (isset($package) && $package->type_package === 'sertifikasi'))
+                                    <option value="sertifikasi" {{ (isset($package) && $package->type_package ===
+                                        'sertifikasi') || old('type_package') === 'sertifikasi' ? 'selected' : ''
+                                        }}>Sertifikasi</option>
+                                @endif
                                 @if($canManageTesKoran || (isset($package) && $package->type_package === 'tes_koran'))
                                 <option value="tes_koran" {{ (isset($package) && $package->type_package ===
                                     'tes_koran') || old('type_package') === 'tes_koran' ? 'selected' : ''

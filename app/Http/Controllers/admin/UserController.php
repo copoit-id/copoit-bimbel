@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ParticipantDestinationCategory;
+use App\Models\Payment;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\SafeName;
@@ -33,7 +34,21 @@ class UserController extends Controller
         }
 
         $users = User::query()
-            ->with('participantDestinationCategory.parent')
+            ->with([
+                'participantDestinationCategory.parent',
+                'studyGroups:id,name',
+                'userPackageAccess' => fn ($query) => $query
+                    ->select(['user_package_access_id', 'user_id', 'package_id', 'status', 'end_date'])
+                    ->with('package:package_id,name'),
+            ])
+            ->withCount([
+                'userPackageAccess as active_package_access_count' => fn ($query) => $query
+                    ->where('status', 'active')
+                    ->where(fn ($access) => $access->whereNull('end_date')->orWhere('end_date', '>', now())),
+                'classAttendances as attendance_record_count',
+                'classAttendances as attendance_present_count' => fn ($query) => $query
+                    ->whereIn('status', ['present', 'late']),
+            ])
             ->where('role', '!=', 'super_admin')
             ->when($activeRole, fn ($query) => $query->where('role', $activeRole))
             ->orderByDesc('created_at')
@@ -109,9 +124,16 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users',
             'username' => 'required|string|max:255|unique:users',
+            'phone' => ['required_if:role,user', 'nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'birthday' => ['nullable', 'date', 'before_or_equal:today', 'after_or_equal:1900-01-01'],
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+        ], [
+            'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
+            'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
+            'birthday.before_or_equal' => 'Tanggal lahir tidak boleh melewati hari ini.',
+            'birthday.after_or_equal' => 'Tanggal lahir tidak valid.',
         ]);
 
         // Kuota paket hanya berlaku untuk akun peserta, bukan akun operasional seperti Tutor.
@@ -132,6 +154,8 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'username' => $validated['username'],
+                'phone' => $validated['phone'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
                 'password' => Hash::make($validated['password']),
                 'status' => $validated['status'] ?? 'aktif',
                 'role' => $validated['role'],
@@ -149,11 +173,71 @@ class UserController extends Controller
         return redirect()->route('admin.user.index', ['role' => $user->role])->with('success', 'User created successfully.');
     }
 
-    public function show($id)
+    public function show(User $user): View
     {
-        $user = User::findOrFail($id);
+        $user->load([
+            'participantDestinationCategory.parent',
+            'referredBy:id,name,email',
+            'studyGroups:id,name,description,is_active',
+            'userPackageAccess' => fn ($query) => $query
+                ->with([
+                    'package:package_id,name,access_duration_value,access_duration_unit',
+                    'createdBy:id,name',
+                ])
+                ->orderByDesc('created_at'),
+            'payments' => fn ($query) => $query
+                ->with([
+                    'package:package_id,name',
+                    'installments' => fn ($installments) => $installments->select([
+                        'id', 'payment_id', 'amount', 'paid_at', 'payment_method',
+                    ]),
+                ])
+                ->withCount('installments')
+                ->withSum('installments', 'amount')
+                ->orderByDesc('created_at'),
+            'billInvoices' => fn ($query) => $query
+                ->with([
+                    'recurringBill:id,name',
+                    'payments' => fn ($payments) => $payments->select([
+                        'id', 'bill_invoice_id', 'amount', 'paid_at', 'payment_method', 'notes',
+                    ]),
+                ])
+                ->withSum('payments', 'amount')
+                ->orderByDesc('due_date'),
+            'classAttendances' => fn ($query) => $query
+                ->with([
+                    'session.class:class_id,title',
+                    'session.studyGroup:id,name',
+                    'session.tentor:id,name',
+                ])
+                ->orderByDesc('check_in_at')
+                ->orderByDesc('created_at'),
+            'classAccess' => fn ($query) => $query
+                ->with('class:class_id,title')
+                ->orderByDesc('created_at'),
+        ]);
 
-        return view('admin.pages.user.show', compact('user'));
+        $attendanceSummary = [
+            'total' => $user->classAttendances->count(),
+            'present' => $user->classAttendances->whereIn('status', ['present', 'late'])->count(),
+            'late' => $user->classAttendances->where('status', 'late')->count(),
+            'absent' => $user->classAttendances->where('status', 'absent')->count(),
+            'excused' => $user->classAttendances->where('status', 'excused')->count(),
+        ];
+        $attendanceSummary['rate'] = $attendanceSummary['total'] > 0
+            ? round(($attendanceSummary['present'] / $attendanceSummary['total']) * 100)
+            : null;
+
+        $paymentSummary = [
+            'paid' => (int) $user->payments
+                ->where('status', Payment::STATUS_SUCCESS)
+                ->sum(fn (Payment $payment) => $payment->paid_amount),
+            'outstanding' => (int) $user->billInvoices
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->sum(fn ($invoice) => $invoice->remaining_amount),
+        ];
+
+        return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary'));
     }
 
     public function edit($id)
@@ -181,9 +265,16 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users,email,'.$id,
             'username' => 'required|string|max:255|unique:users,username,'.$id,
+            'phone' => ['required_if:role,user', 'nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'birthday' => ['nullable', 'date', 'before_or_equal:today', 'after_or_equal:1900-01-01'],
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+        ], [
+            'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
+            'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
+            'birthday.before_or_equal' => 'Tanggal lahir tidak boleh melewati hari ini.',
+            'birthday.after_or_equal' => 'Tanggal lahir tidak valid.',
         ]);
         $destinationPayload = $destinationSelectionService->validate(
             $request,
@@ -196,6 +287,8 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'username' => $validated['username'],
+                'phone' => $validated['phone'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
                 'status' => $validated['status'],
                 'role' => $validated['role'],
                 ...$destinationPayload,

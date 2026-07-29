@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserPackageAcces extends Model
 {
@@ -35,6 +36,15 @@ class UserPackageAcces extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function bookingRequests(): HasMany
+    {
+        return $this->hasMany(
+            ScheduleBookingRequest::class,
+            'user_package_access_id',
+            'user_package_access_id'
+        );
     }
 
     // Accessors

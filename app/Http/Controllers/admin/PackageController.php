@@ -2,34 +2,41 @@
 
 namespace App\Http\Controllers\admin;
 
-use Carbon\Carbon;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\PackageRequest;
-use App\Services\PackageService;
-use App\Services\PlanQuotaService;
-use App\Services\PurchaseAccessDuration;
 use App\Models\ClassModel;
 use App\Models\DetailPackage;
-use App\Models\Package;
-use App\Models\MaterialCategory;
 use App\Models\Material;
+use App\Models\MaterialCategory;
+use App\Models\Package;
 use App\Models\Question;
 use App\Models\QuestionOption;
-use App\Models\TesKoran;
 use App\Models\Tentor;
+use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
+use App\Services\PlanModuleService;
+use App\Services\PlanQuotaService;
+use App\Services\PurchaseAccessDuration;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 Carbon::setLocale('id');
 class PackageController extends Controller
 {
-    public function index()
+    public function index(): View
     {
-        $packages = Package::all();
+        $packages = Package::query()
+            ->with('bookingRule:id,package_id,is_enabled')
+            ->withCount(['schedules', 'classes', 'tryouts', 'materials'])
+            ->latest('package_id')
+            ->paginate(12);
+
         return view('admin.pages.package.index', compact('packages'));
     }
 
@@ -37,13 +44,14 @@ class PackageController extends Controller
     {
         // Cek quota package - backend validation
         $quotaCheck = PlanQuotaService::canCreatePackage();
-        
-        if (!$quotaCheck['allowed']) {
+
+        if (! $quotaCheck['allowed']) {
             return redirect()->route('admin.package.index')
                 ->with('error', $quotaCheck['reason']);
         }
 
         $classes = ClassModel::all();
+
         return view('admin.pages.package.create', compact('classes'));
     }
 
@@ -52,22 +60,19 @@ class PackageController extends Controller
         try {
             // Cek quota package - backend validation (hindari bypass HTML)
             $quotaCheck = PlanQuotaService::canCreatePackage();
-            
-            if (!$quotaCheck['allowed']) {
+
+            if (! $quotaCheck['allowed']) {
                 return redirect()->route('admin.package.index')
                     ->with('error', $quotaCheck['reason']);
             }
 
             $allowVideoThumbnail = config('client.branding.allow_video_thumbnail', false);
 
-            $packageTypes = ['bimbel', 'tryout', 'sertifikasi'];
-            if (auth()->user()?->hasPermission('tes_koran', 'view')) {
-                $packageTypes[] = 'tes_koran';
-            }
+            $packageTypes = $this->availablePackageTypes();
 
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'type_package' => 'required|in:' . implode(',', $packageTypes),
+                'type_package' => 'required|in:'.implode(',', $packageTypes),
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'is_displayed' => 'boolean',
@@ -109,7 +114,7 @@ class PackageController extends Controller
                 ->values()
                 ->all();
 
-            $validated['features'] = !empty($features) ? json_encode($features) : null;
+            $validated['features'] = ! empty($features) ? json_encode($features) : null;
 
             $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
                 ? $validated['conditional_requirement']
@@ -120,10 +125,11 @@ class PackageController extends Controller
             }
 
             Package::create($validated);
+
             return redirect()->route('admin.package.index')->with('success', 'Paket berhasil ditambahkan.');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menambahkan paket: ' . $e->getMessage())
+                ->with('error', 'Gagal menambahkan paket: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -133,6 +139,7 @@ class PackageController extends Controller
         try {
             $package = Package::findOrFail($id);
             $classes = ClassModel::all();
+
             return view('admin.pages.package.create', compact('package', 'classes'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
@@ -147,14 +154,11 @@ class PackageController extends Controller
 
             $package = Package::findOrFail($id);
 
-            $packageTypes = ['bimbel', 'tryout', 'sertifikasi'];
-            if (auth()->user()?->hasPermission('tes_koran', 'view')) {
-                $packageTypes[] = 'tes_koran';
-            }
+            $packageTypes = $this->availablePackageTypes($package);
 
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'type_package' => 'required|in:' . implode(',', $packageTypes),
+                'type_package' => 'required|in:'.implode(',', $packageTypes),
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'is_displayed' => 'boolean',
@@ -196,7 +200,7 @@ class PackageController extends Controller
                 ->values()
                 ->all();
 
-            $validated['features'] = !empty($features) ? json_encode($features) : null;
+            $validated['features'] = ! empty($features) ? json_encode($features) : null;
 
             $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
                 ? $validated['conditional_requirement']
@@ -217,7 +221,7 @@ class PackageController extends Controller
                 ->with('success', 'Paket berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal memperbarui paket: ' . $e->getMessage())
+                ->with('error', 'Gagal memperbarui paket: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -227,11 +231,12 @@ class PackageController extends Controller
         try {
             $package = Package::findOrFail($id);
             $package->delete();
+
             return redirect()->route('admin.package.index')
                 ->with('success', 'Paket berhasil dihapus');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menghapus paket: ' . $e->getMessage());
+                ->with('error', 'Gagal menghapus paket: '.$e->getMessage());
         }
     }
 
@@ -246,6 +251,34 @@ class PackageController extends Controller
         );
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function availablePackageTypes(?Package $package = null): array
+    {
+        $planModules = app(PlanModuleService::class);
+        $types = ['bimbel'];
+
+        if ($planModules->allows('tryout')) {
+            $types[] = 'tryout';
+        }
+
+        if ($planModules->allows('certification')) {
+            $types[] = 'sertifikasi';
+        }
+
+        if ($planModules->allows('tes_koran')
+            && (auth()->user()?->hasPermission('tes_koran', 'view') ?? false)) {
+            $types[] = 'tes_koran';
+        }
+
+        if ($package?->type_package) {
+            $types[] = $package->type_package;
+        }
+
+        return array_values(array_unique($types));
+    }
+
     public function indexClass($package_id)
     {
         try {
@@ -255,7 +288,7 @@ class PackageController extends Controller
             $classes = ClassModel::with(['tentor', 'detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
-                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = classes.class_id AND package_id = ?) DESC", [ClassModel::class, $package_id])
+                ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = classes.class_id AND package_id = ?) DESC', [ClassModel::class, $package_id])
                 ->orderBy('schedule_time', 'desc')
                 ->paginate(10);
 
@@ -318,15 +351,15 @@ class PackageController extends Controller
                 'is_displayed' => $request->boolean('is_displayed', true),
                 'type_price' => $request->input('type_price', 'paid'),
                 'conditional_requirement' => $request->input('conditional_requirement'),
-                'access_duration_unit' => \App\Services\PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
-                'access_duration_value' => \App\Services\PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
+                'access_duration_unit' => PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
+                'access_duration_value' => PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
             ]);
 
             return redirect()->route('admin.package.class.index', $package_id)
-                ->with('success', 'Kelas "' . $class->title . '" berhasil ditambahkan');
+                ->with('success', 'Kelas "'.$class->title.'" berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menambahkan kelas: ' . $e->getMessage())
+                ->with('error', 'Gagal menambahkan kelas: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -340,7 +373,7 @@ class PackageController extends Controller
             $materials = Material::with(['detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
-                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = materials.material_id AND package_id = ?) DESC", [Material::class, $package_id])
+                ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = materials.material_id AND package_id = ?) DESC', [Material::class, $package_id])
                 ->orderBy('created_at', 'desc')
                 ->paginate(15);
 
@@ -370,14 +403,14 @@ class PackageController extends Controller
             if ($request->has('selected')) {
                 $shouldBeSelected = $request->boolean('selected');
 
-                if ($shouldBeSelected && !$existing) {
+                if ($shouldBeSelected && ! $existing) {
                     DetailPackage::create([
                         'package_id' => $package_id,
                         'detailable_type' => Material::class,
                         'detailable_id' => $material_id,
                     ]);
                     $message = 'Materi berhasil ditambahkan ke paket';
-                } elseif (!$shouldBeSelected && $existing) {
+                } elseif (! $shouldBeSelected && $existing) {
                     $existing->delete();
                     $message = 'Materi berhasil dihapus dari paket';
                 } else {
@@ -399,7 +432,7 @@ class PackageController extends Controller
 
             return response()->json(['success' => true, 'message' => $message]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: '.$e->getMessage()], 500);
         }
     }
 
@@ -413,7 +446,7 @@ class PackageController extends Controller
             $tesKorans = TesKoran::with(['detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
-                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tes_korans.id AND package_id = ?) DESC", [TesKoran::class, $package_id])
+                ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tes_korans.id AND package_id = ?) DESC', [TesKoran::class, $package_id])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
@@ -444,14 +477,14 @@ class PackageController extends Controller
             if ($request->has('selected')) {
                 $shouldBeSelected = $request->boolean('selected');
 
-                if ($shouldBeSelected && !$existing) {
+                if ($shouldBeSelected && ! $existing) {
                     DetailPackage::create([
                         'package_id' => $package_id,
                         'detailable_type' => TesKoran::class,
                         'detailable_id' => $tes_koran_id,
                     ]);
                     $message = 'Tes Koran berhasil ditambahkan ke paket';
-                } elseif (!$shouldBeSelected && $existing) {
+                } elseif (! $shouldBeSelected && $existing) {
                     $existing->delete();
                     $message = 'Tes Koran berhasil dihapus dari paket';
                 } else {
@@ -473,7 +506,7 @@ class PackageController extends Controller
 
             return response()->json(['success' => true, 'message' => $message]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: '.$e->getMessage()], 500);
         }
     }
 
@@ -486,7 +519,7 @@ class PackageController extends Controller
             $tryouts = Tryout::with(['tryoutDetails.questions', 'detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
-                ->orderByRaw("(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC", [Tryout::class, $package_id])
+                ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC', [Tryout::class, $package_id])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
@@ -514,6 +547,7 @@ class PackageController extends Controller
                 ->with('error', 'Paket tidak ditemukan');
         }
     }
+
     public function storeTryout(Request $request, $package_id)
     {
         $request->validate([
@@ -537,7 +571,7 @@ class PackageController extends Controller
             'enable_tab_switch_detection' => 'boolean',
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
-            'order' => 'nullable|integer|min:0'
+            'order' => 'nullable|integer|min:0',
         ]);
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
@@ -583,7 +617,7 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_tkp,
                 'passing_type' => $request->input('passing_type_tkp', 'score'),
             ]);
-        } else if ($tryout && $tryout->type_tryout == 'certification') {
+        } elseif ($tryout && $tryout->type_tryout == 'certification') {
             // Create certification subtests: writing, reading, listening
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
@@ -608,7 +642,7 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_listening ?? 60,
                 'passing_type' => $request->input('passing_type_certification', 'score'),
             ]);
-        } else if ($tryout && $tryout->type_tryout == 'twk') {
+        } elseif ($tryout && $tryout->type_tryout == 'twk') {
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
                 'type_subtest' => 'twk',
@@ -616,7 +650,7 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_twk,
                 'passing_type' => $request->input('passing_type_twk', 'score'),
             ]);
-        } else if ($tryout && $tryout->type_tryout == 'tiu') {
+        } elseif ($tryout && $tryout->type_tryout == 'tiu') {
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
                 'type_subtest' => 'tiu',
@@ -624,7 +658,7 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_tiu,
                 'passing_type' => $request->input('passing_type_tiu', 'score'),
             ]);
-        } else if ($tryout && $tryout->type_tryout == 'tkp') {
+        } elseif ($tryout && $tryout->type_tryout == 'tkp') {
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
                 'type_subtest' => 'tkp',
@@ -632,7 +666,7 @@ class PackageController extends Controller
                 'passing_score' => $request->passing_score_tkp,
                 'passing_type' => $request->input('passing_type_tkp', 'score'),
             ]);
-        } else if ($tryout) {
+        } elseif ($tryout) {
             TryoutDetail::create([
                 'tryout_id' => $tryout->tryout_id,
                 'type_subtest' => $tryout->type_tryout,
@@ -643,7 +677,7 @@ class PackageController extends Controller
         }
 
         return redirect()->route('admin.package.tryout.index', $package_id)
-            ->with('success', 'Tryout "' . $tryout->name . '" berhasil ditambahkan');
+            ->with('success', 'Tryout "'.$tryout->name.'" berhasil ditambahkan');
     }
 
     private function packageTryoutTypeOptions(): array
@@ -717,6 +751,7 @@ class PackageController extends Controller
                 ->with('error', 'Data tidak ditemukan');
         }
     }
+
     public function editSoal($package_id, $tryout_detail_id, $question_id)
     {
         try {
@@ -784,7 +819,7 @@ class PackageController extends Controller
                 ['key' => 'D', 'text' => $request->option_d],
             ];
 
-            if (!empty($request->option_e)) {
+            if (! empty($request->option_e)) {
                 $options[] = ['key' => 'E', 'text' => $request->option_e];
             }
 
@@ -794,8 +829,8 @@ class PackageController extends Controller
                 $weight = 0;
 
                 if ($request->use_custom_scores) {
-                    $scoreField = 'score_' . strtolower($option['key']);
-                    $weight = (float)($request->$scoreField ?? 0);
+                    $scoreField = 'score_'.strtolower($option['key']);
+                    $weight = (float) ($request->$scoreField ?? 0);
                 } else {
                     $weight = $isCorrect ? 1.00 : 0.00;
                 }
@@ -815,7 +850,7 @@ class PackageController extends Controller
                 ->with('success', 'Soal berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal menambahkan soal: ' . $e->getMessage())
+                ->with('error', 'Gagal menambahkan soal: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -872,7 +907,7 @@ class PackageController extends Controller
                 ['key' => 'D', 'text' => $request->option_d],
             ];
 
-            if (!empty($request->option_e)) {
+            if (! empty($request->option_e)) {
                 $newOptions[] = ['key' => 'E', 'text' => $request->option_e];
             }
 
@@ -881,8 +916,8 @@ class PackageController extends Controller
 
                 $weight = 0;
                 if ($request->use_custom_scores) {
-                    $scoreField = 'score_' . strtolower($newOption['key']);
-                    $weight = (float)($request->$scoreField ?? 0);
+                    $scoreField = 'score_'.strtolower($newOption['key']);
+                    $weight = (float) ($request->$scoreField ?? 0);
                 } else {
                     $weight = $isCorrect ? 1.00 : 0.00;
                 }
@@ -917,60 +952,67 @@ class PackageController extends Controller
                 ->with('success', 'Soal berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Gagal memperbarui soal: ' . $e->getMessage())
+                ->with('error', 'Gagal memperbarui soal: '.$e->getMessage())
                 ->withInput();
         }
     }
 
-    public function toggleClass(Request $request, $package_id, $class_id)
+    public function toggleClass(Request $request, $package_id, $class_id): JsonResponse
     {
+        $validated = $request->validate([
+            'selected' => ['required', 'boolean'],
+        ]);
+
         try {
-            $package = Package::findOrFail($package_id);
-            $class = ClassModel::findOrFail($class_id);
-
-            $detailPackage = DetailPackage::where([
-                'package_id' => $package_id,
-                'detailable_type' => ClassModel::class,
-                'detailable_id' => $class_id
-            ])->first();
-
-            if ($request->has('selected')) {
-                $shouldBeSelected = $request->boolean('selected');
-
-                if ($shouldBeSelected && !$detailPackage) {
-                    DetailPackage::create([
-                        'package_id' => $package_id,
-                        'detailable_type' => ClassModel::class,
-                        'detailable_id' => $class_id,
-                        'order' => 0
-                    ]);
-                    $message = 'Kelas berhasil ditambahkan ke paket';
-                } elseif (!$shouldBeSelected && $detailPackage) {
-                    $detailPackage->delete();
-                    $message = 'Kelas berhasil dihapus dari paket';
-                } else {
-                    $message = $shouldBeSelected
-                        ? 'Kelas sudah ada di paket'
-                        : 'Kelas sudah tidak ada di paket';
-                }
-            } elseif ($detailPackage) {
-                // Remove from package
-                $detailPackage->delete();
-                $message = 'Kelas berhasil dihapus dari paket';
-            } else {
-                // Add to package
-                DetailPackage::create([
-                    'package_id' => $package_id,
+            $shouldBeSelected = (bool) $validated['selected'];
+            $isSelected = DB::transaction(function () use (
+                $package_id,
+                $class_id,
+                $shouldBeSelected
+            ): bool {
+                $package = Package::query()
+                    ->whereKey($package_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $class = ClassModel::query()
+                    ->whereKey($class_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $attributes = [
+                    'package_id' => $package->package_id,
                     'detailable_type' => ClassModel::class,
-                    'detailable_id' => $class_id,
-                    'order' => 0
-                ]);
-                $message = 'Kelas berhasil ditambahkan ke paket';
-            }
+                    'detailable_id' => $class->class_id,
+                ];
 
-            return response()->json(['success' => true, 'message' => $message]);
+                if ($shouldBeSelected) {
+                    DetailPackage::query()->insertOrIgnore([
+                        ...$attributes,
+                        'order' => 0,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    DetailPackage::query()
+                        ->where($attributes)
+                        ->delete();
+                }
+
+                return DetailPackage::query()
+                    ->where($attributes)
+                    ->exists();
+            }, 3);
+
+            return response()->json([
+                'success' => true,
+                'selected' => $isSelected,
+                'message' => $isSelected
+                    ? 'Kelas Zoom berhasil ditambahkan ke paket.'
+                    : 'Kelas Zoom berhasil dilepas dari paket.',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            report($e);
+
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: '.$e->getMessage()], 500);
         }
     }
 
@@ -983,21 +1025,21 @@ class PackageController extends Controller
             $detailPackage = DetailPackage::where([
                 'package_id' => $package_id,
                 'detailable_type' => Tryout::class,
-                'detailable_id' => $tryout_id
+                'detailable_id' => $tryout_id,
             ])->first();
 
             if ($request->has('selected')) {
                 $shouldBeSelected = $request->boolean('selected');
 
-                if ($shouldBeSelected && !$detailPackage) {
+                if ($shouldBeSelected && ! $detailPackage) {
                     DetailPackage::create([
                         'package_id' => $package_id,
                         'detailable_type' => Tryout::class,
                         'detailable_id' => $tryout_id,
-                        'order' => 0
+                        'order' => 0,
                     ]);
                     $message = 'Tryout berhasil ditambahkan ke paket';
-                } elseif (!$shouldBeSelected && $detailPackage) {
+                } elseif (! $shouldBeSelected && $detailPackage) {
                     $detailPackage->delete();
                     $message = 'Tryout berhasil dihapus dari paket';
                 } else {
@@ -1015,14 +1057,14 @@ class PackageController extends Controller
                     'package_id' => $package_id,
                     'detailable_type' => Tryout::class,
                     'detailable_id' => $tryout_id,
-                    'order' => 0
+                    'order' => 0,
                 ]);
                 $message = 'Tryout berhasil ditambahkan ke paket';
             }
 
             return response()->json(['success' => true, 'message' => $message]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: '.$e->getMessage()], 500);
         }
     }
 }

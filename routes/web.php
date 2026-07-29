@@ -20,10 +20,12 @@ use App\Http\Controllers\admin\FaqController;
 use App\Http\Controllers\admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\admin\FinanceIncomeController;
 use App\Http\Controllers\admin\GeneralPageController as AdminGeneralPageController;
+use App\Http\Controllers\admin\GroupBookingController;
 use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
+use App\Http\Controllers\admin\PackageBookingRuleController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
@@ -55,7 +57,10 @@ use App\Http\Controllers\superadmin\PlanController;
 use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
+use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
+use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
+use App\Http\Controllers\tutor\TutorProfileController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
@@ -66,6 +71,9 @@ use App\Http\Controllers\user\FeedbackController as UserFeedbackController;
 use App\Http\Controllers\user\HelpController;
 use App\Http\Controllers\user\MaterialController;
 use App\Http\Controllers\user\PackageController;
+use App\Http\Controllers\user\ScheduleBookingController as UserScheduleBookingController;
+use App\Http\Controllers\user\StudentDevelopmentController as UserStudentDevelopmentController;
+use App\Http\Controllers\user\StudyGroupBookingController as UserStudyGroupBookingController;
 use App\Http\Controllers\user\TesKoranController as UserTesKoranController;
 use App\Http\Controllers\user\TryoutController;
 use App\Http\Controllers\user\UserBillingController;
@@ -222,7 +230,33 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
     Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
-    Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])->name('user.class-schedule.attend');
+    Route::get('/perkembangan-belajar', [UserStudentDevelopmentController::class, 'index'])
+        ->name('user.development.index');
+    Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
+        ->middleware('module:class')
+        ->name('user.class-schedule.attend');
+    Route::prefix('booking-jadwal')->name('user.booking.')->group(function () {
+        Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
+        Route::post('/kelompok', [UserStudyGroupBookingController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('rombel.store');
+        Route::post('/kelompok/gabung', [UserStudyGroupBookingController::class, 'join'])
+            ->middleware('throttle:10,1')
+            ->name('rombel.join');
+        Route::get('/tutor/{tentor}', [UserScheduleBookingController::class, 'showTutor'])
+            ->name('tutor.show');
+        Route::post('/', [UserScheduleBookingController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('store');
+        Route::post('/{booking}/terima-usulan', [UserScheduleBookingController::class, 'acceptCounter'])
+            ->middleware('throttle:10,1')
+            ->name('accept-counter');
+        Route::post('/{booking}/review', [UserScheduleBookingController::class, 'storeReview'])
+            ->middleware('throttle:10,1')
+            ->name('review.store');
+        Route::delete('/{booking}', [UserScheduleBookingController::class, 'cancel'])
+            ->name('cancel');
+    });
 
     Route::prefix('tryout')->group(function () {
         Route::get('/{id_package}/{id_tryout}/lobby', [TryoutController::class, 'indexLobby'])->name('user.tryout.lobby');
@@ -320,11 +354,36 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         ->middleware('throttle:120,1')
         ->name('chat.read');
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
-    Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
-    Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
-    Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
-    Route::post('absensi/{session}/saya', [TutorDashboardController::class, 'markOwnAttendance'])->name('attendance.mark');
-    Route::post('absensi/{session}/siswa', [TutorDashboardController::class, 'markStudentAttendance'])->name('attendance.students.mark');
+    Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
+    Route::prefix('booking')->name('booking.')->group(function () {
+        Route::get('/', [TutorScheduleBookingController::class, 'index'])->name('index');
+        Route::post('/{booking}/setujui', [TutorScheduleBookingController::class, 'approve'])
+            ->middleware('throttle:20,1')
+            ->name('approve');
+        Route::post('/{booking}/tolak', [TutorScheduleBookingController::class, 'reject'])
+            ->middleware('throttle:20,1')
+            ->name('reject');
+        Route::post('/{booking}/usulkan-waktu', [TutorScheduleBookingController::class, 'propose'])
+            ->middleware('throttle:20,1')
+            ->name('propose');
+    });
+    Route::prefix('perkembangan')->name('development.')->group(function () {
+        Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
+        Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
+            ->middleware('throttle:30,1')
+            ->name('feedback.store');
+        Route::post('/progres', [TutorStudentDevelopmentController::class, 'storeProgress'])
+            ->middleware('throttle:30,1')
+            ->name('progress.store');
+    });
+    Route::middleware('module:class')->group(function () {
+        Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
+        Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
+        Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
+        Route::post('absensi/{session}/saya', [TutorDashboardController::class, 'markOwnAttendance'])->name('attendance.mark');
+        Route::post('absensi/{session}/siswa', [TutorDashboardController::class, 'markStudentAttendance'])->name('attendance.students.mark');
+    });
 });
 
 // Webhook route (outside auth middleware) - make sure this is correct
@@ -455,6 +514,16 @@ Route::prefix('{portal}')
         Route::get('/paket/{package_id}/edit', [AdminPackageController::class, 'edit'])->name('package.edit');
         Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
         Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
+        Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
+            ->name('package-booking.edit');
+        Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
+            ->name('package-booking.update');
+        Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
+            ->name('package-booking.cohorts.index');
+        Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
+            ->name('package-booking.cohorts.payments.store');
+        Route::post('/paket-booking/rombel/{studyGroup}/setujui', [GroupBookingController::class, 'approve'])
+            ->name('package-booking.cohorts.approve');
         Route::resource('diskon', DiscountController::class)
             ->except(['show'])
             ->names('discounts')
@@ -471,6 +540,9 @@ Route::prefix('{portal}')
         Route::get('/paket/{package_id}/kelas/tambah', [AdminPackageController::class, 'createClass'])->name('package.class.create');
         Route::post('/paket/{package_id}/kelas/store', [AdminPackageController::class, 'storeClass'])->name('package.class.store');
         Route::post('/paket/{package_id}/kelas/{class_id}/toggle', [AdminPackageController::class, 'toggleClass'])->name('package.class.toggle');
+        Route::post('/paket/{package}/jadwal/{classSchedule}/toggle', [ClassScheduleController::class, 'togglePackage'])
+            ->middleware('module:schedule')
+            ->name('package.schedule.toggle');
 
         // Package Material Management
         Route::get('/paket/{package_id}/materi', [AdminPackageController::class, 'indexMaterial'])->name('package.material.index');
@@ -575,9 +647,9 @@ Route::prefix('{portal}')
         Route::post('class/{class}/assessments', [ClassController::class, 'storeAssessment'])->name('class.assessments.store');
         Route::delete('class/{class}/assessments/{assessmentType}', [ClassController::class, 'destroyAssessment'])->name('class.assessments.destroy');
         // Legacy URLs remain available while all newly generated links use the Tutor terminology.
-        Route::get('tentor', fn () => redirect()->route('admin.tentors.index'));
-        Route::get('tentor/create', fn () => redirect()->route('admin.tentors.create'));
-        Route::get('tentor/{tentor}/edit', fn (Tentor $tentor) => redirect()->route('admin.tentors.edit', $tentor));
+        Route::get('tentor', fn () => redirect()->route('admin.tentors.index'))->middleware('module:tentor');
+        Route::get('tentor/create', fn () => redirect()->route('admin.tentors.create'))->middleware('module:tentor');
+        Route::get('tentor/{tentor}/edit', fn (Tentor $tentor) => redirect()->route('admin.tentors.edit', $tentor))->middleware('module:tentor');
         Route::get('tutor', fn () => redirect()->route('admin.user.index', ['role' => 'tutor']))
             ->name('tentors.index');
         Route::resource('tutor', TentorController::class)
@@ -589,14 +661,17 @@ Route::prefix('{portal}')
             ->names('study-groups')
             ->parameters(['rombel' => 'studyGroup']);
         Route::resource('jadwal-kelas', ClassScheduleController::class)
-            ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->names('class-schedules')
             ->parameters(['jadwal-kelas' => 'classSchedule']);
-        Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
-        Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
-        Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
-        Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
-        Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
+        Route::middleware('module:class')->group(function () {
+            Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])->name('class-schedules.show');
+            Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
+            Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
+            Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
+            Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
+            Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
+        });
         Route::get('penggajian-tutor', [TutorPayrollController::class, 'index'])->name('tutor-payrolls.index');
         Route::post('penggajian-tutor/generate', [TutorPayrollController::class, 'generate'])->name('tutor-payrolls.generate');
         Route::post('penggajian-tutor/honor', [TutorPayrollController::class, 'updateHonor'])->name('tutor-payrolls.honor.update');
