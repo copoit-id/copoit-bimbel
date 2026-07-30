@@ -427,17 +427,30 @@ PROMPT;
 
     private function settings(): array
     {
-        $settings = config('client.branding.ai_question_generator_settings');
+        $profile = ClientProfile::query()->first();
+        $sharedSettings = config('client.branding.ai_question_generator_settings');
+        $sharedSettings = is_array($sharedSettings) && ! empty($sharedSettings)
+            ? $sharedSettings
+            : (is_array($profile?->ai_question_generator_settings) ? $profile->ai_question_generator_settings : []);
+        $discussionSettings = config('client.branding.ai_discussion_settings');
+        $discussionSettings = is_array($discussionSettings) && ! empty($discussionSettings)
+            ? $discussionSettings
+            : (is_array($profile?->ai_discussion_settings) ? $profile->ai_discussion_settings : []);
 
-        if (is_array($settings) && ! empty($settings)) {
-            return $settings;
+        if (! empty($discussionSettings)) {
+            $usesCustomCredentials = ($discussionSettings['credential_mode'] ?? 'shared') === 'custom';
+
+            return [
+                ...$sharedSettings,
+                'default_model' => $discussionSettings['model'] ?? ($sharedSettings['default_model'] ?? null),
+                'models' => $discussionSettings['models'] ?? ($sharedSettings['models'] ?? []),
+                'providers' => $usesCustomCredentials
+                    ? ($discussionSettings['providers'] ?? [])
+                    : ($sharedSettings['providers'] ?? []),
+            ];
         }
 
-        $profile = ClientProfile::query()->first();
-
-        return is_array($profile?->ai_question_generator_settings)
-            ? $profile->ai_question_generator_settings
-            : [];
+        return $sharedSettings;
     }
 
     private function providerSettings(string $provider): array
