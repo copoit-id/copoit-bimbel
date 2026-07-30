@@ -62,7 +62,7 @@
         <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200 h-full flex flex-col"
             data-name="{{ strtolower($tryout->name) }}" data-type="{{ strtoupper($tryout->type_tryout) }}"
             data-assessment="{{ $tryout->assessment_type ?? 'standard' }}"
-            data-status="{{ $tryout->start_date > now() ? 'akan_datang' : ($tryout->end_date < now() ? 'selesai' : 'aktif') }}">
+            data-status="{{ $tryout->start_date?->isFuture() ? 'akan_datang' : ($tryout->end_date?->isPast() ? 'selesai' : 'aktif') }}">
             @php
                 $scoringLabel = $tryout->requiresIrtScoring()
                     ? 'IRT'
@@ -114,9 +114,9 @@
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Status:</p>
-                    @if($tryout->start_date > now())
+                    @if($tryout->start_date?->isFuture())
                     <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Akan Datang</span>
-                    @elseif($tryout->end_date < now()) <span
+                    @elseif($tryout->end_date?->isPast()) <span
                         class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Selesai
                 </span>
                 @else

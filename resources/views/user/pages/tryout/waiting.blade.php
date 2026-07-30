@@ -18,7 +18,7 @@
             <div class="bg-primary/5 border border-primary/20 rounded-xl p-4 w-full">
                 <p class="text-sm text-gray-600">Perkiraan rilis nilai</p>
                 <p class="text-lg font-semibold text-primary mt-1">
-                    {{ $releaseTime ? $releaseTime->translatedFormat('d F Y H:i') : 'Segera setelah jadwal tryout berakhir' }}
+                    {{ $releaseTime ? $releaseTime->translatedFormat('d F Y H:i') : 'Setelah dirilis oleh admin' }}
                 </p>
             </div>
             <a href="{{ route('user.dashboard.index') }}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90">

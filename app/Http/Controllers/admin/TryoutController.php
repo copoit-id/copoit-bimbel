@@ -164,7 +164,7 @@ class TryoutController extends Controller
         try {
             $tryout = Tryout::create([
                 'name' => $request->name,
-                'description' => $request->description,
+                'description' => $request->input('description') ?? '',
                 'type_tryout' => $request->type_tryout,
                 'material_category_id' => $this->categoryIdForCode($request->type_tryout),
                 'assessment_type' => $request->assessment_type,
@@ -272,7 +272,7 @@ class TryoutController extends Controller
             // Update master tryout fields
             $tryout->update([
                 'name' => $request->name,
-                'description' => $request->description,
+                'description' => $request->input('description') ?? '',
                 'type_tryout' => $request->type_tryout,
                 'material_category_id' => $this->categoryIdForCode($request->type_tryout),
                 'assessment_type' => $request->assessment_type,
@@ -298,7 +298,7 @@ class TryoutController extends Controller
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 'show_leaderboard' => $request->has('show_leaderboard'),
-                'results_release_at' => $isIrtEnabled ? ($request->end_date ?? $tryout->end_date) : null,
+                'results_release_at' => $isIrtEnabled ? $request->input('end_date') : null,
                 'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
                 ...$this->accessDurationData($request),
             ]);
@@ -820,7 +820,7 @@ class TryoutController extends Controller
 
         $rules = [
             'name' => 'required|string|max:255',
-            'description' => 'required|string',
+            'description' => 'nullable|string',
             'type_tryout' => ['required', Rule::in($typeOptions)],
             'assessment_type' => ['required', Rule::in(['standard', 'pre_test', 'post_test'])],
             'section_break_duration' => 'nullable|integer|min:0|max:3600',
@@ -829,8 +829,22 @@ class TryoutController extends Controller
             'subtest_display_mode' => ['nullable', Rule::in(['per_subtest', 'combined'])],
             'user_card_display' => ['nullable', Rule::in(['icon', 'thumbnail'])],
             'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'start_date' => 'nullable|date',
+            'end_date' => [
+                'nullable',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $startDate = request()->input('start_date');
+
+                    if (blank($value) || blank($startDate)) {
+                        return;
+                    }
+
+                    if (\Carbon\Carbon::parse($value)->lte(\Carbon\Carbon::parse($startDate))) {
+                        $fail('Tanggal selesai harus setelah tanggal mulai.');
+                    }
+                },
+            ],
             'is_certification' => 'boolean',
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',

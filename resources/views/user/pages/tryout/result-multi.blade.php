@@ -5,7 +5,9 @@
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     <div class="text-center mb-6">
         <h1 class="text-3xl font-bold text-gray-800 mb-2">Hasil {{ $tryout->name }}</h1>
-        <p class="text-gray-600">{{ $tryout->description }}</p>
+        @if(filled($tryout->description))
+            <p class="text-gray-600">{{ $tryout->description }}</p>
+        @endif
     </div>
 
     <!-- Overall Score Card -->

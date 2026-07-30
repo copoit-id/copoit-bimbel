@@ -264,21 +264,19 @@
                 <!-- Schedule -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai <span
-                                class="text-red-500">*</span></label>
+                        <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai</label>
                         <input type="datetime-local" id="start_date" name="start_date"
-                            value="{{ isset($tryout) ? $tryout->start_date->format('Y-m-d\TH:i') : old('start_date') }}"
-                            required
+                            value="{{ old('start_date', isset($tryout) ? $tryout->start_date?->format('Y-m-d\TH:i') : null) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <p class="mt-1 text-xs text-gray-500">Kosongkan agar tryout dapat dimulai kapan saja.</p>
                     </div>
 
                     <div>
-                        <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Selesai <span
-                                class="text-red-500">*</span></label>
+                        <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Selesai</label>
                         <input type="datetime-local" id="end_date" name="end_date"
-                            value="{{ isset($tryout) ? $tryout->end_date->format('Y-m-d\TH:i') : old('end_date') }}"
-                            required
+                            value="{{ old('end_date', isset($tryout) ? $tryout->end_date?->format('Y-m-d\TH:i') : null) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <p class="mt-1 text-xs text-gray-500">Kosongkan agar tryout tidak memiliki batas waktu. IRT tanpa tanggal selesai dirilis manual oleh admin.</p>
                     </div>
                 </div>
 
