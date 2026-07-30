@@ -108,22 +108,14 @@
                 <p class="text-sm text-gray-500">Generate bertahap 10-25 soal agar hasilnya mudah dicek.</p>
             </div>
 
-            <form action="{{ $previewRoute }}" method="POST" class="space-y-4">
+            <form action="{{ $previewRoute }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 @csrf
                 <fieldset class="space-y-4" @disabled($gatewayError)>
                 @if($importTarget)
                 <input type="hidden" name="import_for" value="{{ $importTarget }}">
                 @endif
 
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div>
-                    <p class="mb-1 text-sm font-medium text-gray-700">Model AI</p>
-                    <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700">
-                        {{ $models[$defaultModel] ?? $defaultModel }}
-                    </div>
-                    <p class="mt-1 text-xs text-gray-500">Dipilih otomatis dari konfigurasi paket AI aktif.</p>
-                </div>
-
+                <div class="grid grid-cols-1 gap-4">
                 <div>
                     <label for="subject" class="mb-1 block text-sm font-medium text-gray-700">Mata Pelajaran / Kategori</label>
                     <input type="text" id="subject" name="subject" value="{{ old('subject', $requestData['subject'] ?? '') }}" required
@@ -152,6 +144,7 @@
                                 <select id="reference_source" name="reference_source" x-model="source" :disabled="!enabled" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
                                     <option value="question_bank">Bank soal</option>
                                     <option value="tryout">Tryout</option>
+                                    <option value="pdf">Upload PDF</option>
                                 </select>
                             </div>
                             <div x-show="source === 'question_bank'">
@@ -186,6 +179,12 @@
                                     @endforeach
                                 </select>
                             </div>
+                        </div>
+
+                        <div x-show="source === 'pdf'" x-cloak>
+                            <label for="reference_pdf" class="mb-1 block text-sm font-medium text-gray-700">File PDF Referensi</label>
+                            <input id="reference_pdf" name="reference_pdf" type="file" accept="application/pdf,.pdf" :disabled="!enabled || source !== 'pdf'" class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Maksimal 10 MB. PDF harus memiliki teks yang dapat diseleksi; file scan gambar belum didukung.</p>
                         </div>
 
                         <label for="reference_note" class="block text-sm font-medium text-gray-700">Arahan terhadap Referensi <span class="font-normal text-gray-400">(opsional)</span></label>
