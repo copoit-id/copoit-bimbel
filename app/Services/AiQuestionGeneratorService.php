@@ -48,7 +48,7 @@ class AiQuestionGeneratorService
     /** Generate only inside the trusted AI Gateway. */
     public function generateDirect(array $input): array
     {
-        $model = $input['model'] ?? config('services.openai.question_model', 'gpt-5.4-mini');
+        $model = $input['model'] ?? $this->defaultModel();
         if (! array_key_exists($model, $this->availableModels())) {
             throw new RuntimeException('Model AI tidak aktif atau belum tersedia di pengaturan.');
         }
