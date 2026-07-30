@@ -281,19 +281,30 @@ class QuestionBankController extends Controller
             'instruction' => ['nullable', 'string', 'max:1500'],
             'use_reference' => ['nullable', 'boolean'],
             'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout', 'pdf'])],
-            'reference_pdf' => ['required_if:reference_source,pdf', 'nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'reference_pdf' => [
+                Rule::requiredIf($request->boolean('use_reference') && $request->input('reference_source') === 'pdf'),
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
             'reference_bank_id' => ['nullable', 'integer'],
             'reference_tryout_id' => ['nullable', 'integer'],
             'reference_tryout_detail_id' => ['nullable', 'integer'],
             'reference_note' => ['nullable', 'string', 'max:1500'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
-        ], [], [
+        ], [
+            'reference_pdf.required' => 'Unggah file PDF setelah memilih sumber referensi PDF.',
+            'reference_pdf.mimes' => 'File referensi harus berformat PDF.',
+            'reference_pdf.max' => 'Ukuran PDF referensi maksimal 10 MB.',
+        ], [
             'subject' => 'mata pelajaran/kategori',
             'topic' => 'topik',
             'question_count' => 'jumlah soal',
             'option_count' => 'jumlah opsi',
             'explanation_style' => 'gaya pembahasan',
             'instruction' => 'instruksi tambahan',
+            'reference_pdf' => 'file PDF referensi',
         ]);
 
         try {
@@ -1336,13 +1347,16 @@ class QuestionBankController extends Controller
         return collect($questions)
             ->take(50)
             ->map(function ($question) use ($letters) {
+                $correctOption = strtoupper(trim((string) ($question['correct_option'] ?? '')));
                 $options = collect($question['options'] ?? [])
                     ->values()
-                    ->map(function ($option, $index) use ($letters) {
+                    ->map(function ($option, $index) use ($letters, $correctOption) {
+                        $label = strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? '')));
+
                         return [
-                            'label' => strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? ''))),
+                            'label' => $label,
                             'text' => trim((string) ($option['text'] ?? '')),
-                            'score' => max(0, min(999, (float) ($option['score'] ?? 0))),
+                            'score' => max(0, min(999, (float) ($option['score'] ?? ($label === $correctOption ? 1 : 0)))),
                         ];
                     })
                     ->filter(fn ($option) => $option['label'] !== '' && $option['text'] !== '')
@@ -1354,7 +1368,7 @@ class QuestionBankController extends Controller
                     'question_text' => trim((string) ($question['question_text'] ?? '')),
                     'question_score' => max(0, min(999, (float) ($question['question_score'] ?? 1))),
                     'options' => $options,
-                    'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
+                    'correct_option' => $correctOption,
                     'explanation' => trim((string) ($question['explanation'] ?? '')),
                 ];
             })

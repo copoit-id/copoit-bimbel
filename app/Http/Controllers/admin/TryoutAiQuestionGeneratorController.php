@@ -25,8 +25,7 @@ class TryoutAiQuestionGeneratorController extends Controller
     public function form(
         TryoutDetail $tryoutDetail,
         AiQuestionGeneratorService $aiGeneratorService,
-        AdminQuestionGeneratorQuotaService $quotaService,
-        AiReferencePdfService $pdfReferenceService
+        AdminQuestionGeneratorQuotaService $quotaService
     ): View {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -70,7 +69,8 @@ class TryoutAiQuestionGeneratorController extends Controller
         Request $request,
         TryoutDetail $tryoutDetail,
         AiQuestionGeneratorService $aiGeneratorService,
-        AdminQuestionGeneratorQuotaService $quotaService
+        AdminQuestionGeneratorQuotaService $quotaService,
+        AiReferencePdfService $pdfReferenceService
     ): RedirectResponse {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -190,18 +190,29 @@ class TryoutAiQuestionGeneratorController extends Controller
             'instruction' => ['nullable', 'string', 'max:1500'],
             'use_reference' => ['nullable', 'boolean'],
             'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout', 'pdf'])],
-            'reference_pdf' => ['required_if:reference_source,pdf', 'nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'reference_pdf' => [
+                Rule::requiredIf($request->boolean('use_reference') && $request->input('reference_source') === 'pdf'),
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
             'reference_bank_id' => ['nullable', 'integer'],
             'reference_tryout_id' => ['nullable', 'integer'],
             'reference_tryout_detail_id' => ['nullable', 'integer'],
             'reference_note' => ['nullable', 'string', 'max:1500'],
-        ], [], [
+        ], [
+            'reference_pdf.required' => 'Unggah file PDF setelah memilih sumber referensi PDF.',
+            'reference_pdf.mimes' => 'File referensi harus berformat PDF.',
+            'reference_pdf.max' => 'Ukuran PDF referensi maksimal 10 MB.',
+        ], [
             'subject' => 'mata pelajaran/kategori',
             'topic' => 'topik',
             'question_count' => 'jumlah soal',
             'option_count' => 'jumlah opsi',
             'explanation_style' => 'gaya pembahasan',
             'instruction' => 'instruksi tambahan',
+            'reference_pdf' => 'file PDF referensi',
         ]);
     }
 
@@ -302,13 +313,16 @@ class TryoutAiQuestionGeneratorController extends Controller
         return collect($questions)
             ->take(50)
             ->map(function ($question) use ($letters): array {
+                $correctOption = strtoupper(trim((string) ($question['correct_option'] ?? '')));
                 $options = collect($question['options'] ?? [])
                     ->values()
-                    ->map(function ($option, $index) use ($letters): array {
+                    ->map(function ($option, $index) use ($letters, $correctOption): array {
+                        $label = strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? '')));
+
                         return [
-                            'label' => strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? ''))),
+                            'label' => $label,
                             'text' => trim((string) ($option['text'] ?? '')),
-                            'score' => max(0, min(999, (float) ($option['score'] ?? 0))),
+                            'score' => max(0, min(999, (float) ($option['score'] ?? ($label === $correctOption ? 1 : 0)))),
                         ];
                     })
                     ->filter(fn (array $option): bool => $option['label'] !== '' && $option['text'] !== '')
@@ -320,7 +334,7 @@ class TryoutAiQuestionGeneratorController extends Controller
                     'question_text' => trim((string) ($question['question_text'] ?? '')),
                     'question_score' => max(0, min(999, (float) ($question['question_score'] ?? 1))),
                     'options' => $options,
-                    'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
+                    'correct_option' => $correctOption,
                     'explanation' => trim((string) ($question['explanation'] ?? '')),
                 ];
             })
