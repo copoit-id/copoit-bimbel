@@ -163,7 +163,7 @@
                     @if($canManualRelease)
                         @if($showResetButton)
                         <form action="{{ route('admin.tryout.reset-utbk', $tryout->tryout_id) }}" method="POST"
-                            onsubmit="return confirm('Reset skor IRT? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.');">
+                            onsubmit="return window.appConfirmSubmit(this, 'Reset skor IRT? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.', { title: 'Reset skor IRT', confirmText: 'Ya, reset', variant: 'danger' });">
                             @csrf
                             <button type="submit"
                                 title="Reset skor IRT agar bisa dirilis ulang"
@@ -173,7 +173,7 @@
                         </form>
                         @elseif($showReleaseButton)
                         <form action="{{ route('admin.tryout.release-utbk', $tryout->tryout_id) }}" method="POST"
-                            onsubmit="return confirm('Rilis hasil IRT sekarang? Pastikan semua peserta sudah selesai.');">
+                            onsubmit="return window.appConfirmSubmit(this, 'Rilis hasil IRT sekarang? Pastikan semua peserta sudah selesai.', { title: 'Rilis hasil IRT', confirmText: 'Ya, rilis', variant: 'warning' });">
                             @csrf
                             <button type="submit"
                                 title="Rilis nilai IRT secara manual"
@@ -191,7 +191,7 @@
                         <i class="ri-edit-line"></i>
                     </a>
                     <form action="{{ route('admin.tryout.clone', array_merge(request()->query(), ['tryout' => $tryout->tryout_id])) }}" method="POST" class="flex-1"
-                        onsubmit="return confirm('Clone tryout ini beserta semua subtest, soal, dan opsi jawaban?')">
+                        onsubmit="return window.appConfirmSubmit(this, 'Clone tryout ini beserta semua subtest, soal, dan opsi jawaban?', { title: 'Duplikat tryout', confirmText: 'Ya, duplikat', variant: 'warning' })">
                         @csrf
                         <button type="submit"
                             class="w-full flex justify-center border border-blue-500 text-blue-500 px-3 py-2 rounded-lg text-sm hover:bg-blue-500 hover:text-white transition-colors"
@@ -200,7 +200,7 @@
                         </button>
                     </form>
                     <form action="{{ route('admin.tryout.destroy', $tryout->tryout_id) }}" method="POST" class="flex-1"
-                        onsubmit="return confirm('Apakah Anda yakin ingin menghapus tryout ini?')">
+                        onsubmit="return window.appConfirmSubmit(this, 'Apakah Anda yakin ingin menghapus tryout ini?', { title: 'Hapus tryout', confirmText: 'Ya, hapus', variant: 'danger' })">
                         @csrf
                         @method('DELETE')
                         <button type="submit"
