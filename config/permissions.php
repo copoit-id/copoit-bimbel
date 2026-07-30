@@ -38,7 +38,10 @@ return [
         ],
         'ai_question_generator' => [
             'label' => 'Generate Soal AI',
-            'routes' => ['admin.question-bank.questions.ai-generator'],
+            'routes' => [
+                'admin.question-bank.questions.ai-generator',
+                'admin.question.ai-generator',
+            ],
         ],
         'question_bank' => [
             'label' => 'Bank Soal',
@@ -66,10 +69,21 @@ return [
             'label' => 'Feedback Tryout',
             'routes' => ['admin.feedback.'],
         ],
+        'schedule' => [
+            'label' => 'Jadwal',
+            'routes' => [
+                'admin.class-schedules.',
+            ],
+        ],
+        'booking' => [
+            'label' => 'Booking Jadwal',
+            'routes' => [
+                'admin.package-booking.',
+            ],
+        ],
         'class' => [
             'label' => 'Kelas',
             'routes' => [
-                'admin.class-schedules.',
                 'admin.class-attendance.',
                 'admin.study-groups.',
                 'admin.class.',

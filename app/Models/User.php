@@ -3,11 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -15,7 +17,7 @@ class User extends Authenticatable
 {
     private const URL_LIKE_PATTERN = '~(?:https?://\\S+|www\\.\\S+|\\b[a-z0-9][a-z0-9-]{1,61}\\.[a-z]{2,}(?:\\.[a-z]{2,})?\\b)~i';
 
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
     protected ?array $effectivePermissionSlugs = null;
@@ -106,6 +108,16 @@ class User extends Authenticatable
         return $this->hasMany(UserPackageAcces::class, 'user_id', 'id');
     }
 
+    public function scheduleBookingRequests()
+    {
+        return $this->hasMany(ScheduleBookingRequest::class, 'user_id');
+    }
+
+    public function tutorReviews()
+    {
+        return $this->hasMany(TutorReview::class, 'user_id');
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class, 'user_id', 'id');
@@ -179,7 +191,35 @@ class User extends Authenticatable
     public function studyGroups(): BelongsToMany
     {
         return $this->belongsToMany(StudyGroup::class, 'study_group_user')
+            ->withPivot([
+                'role',
+                'status',
+                'bill_invoice_id',
+                'user_package_access_id',
+                'unit_price_snapshot',
+                'paid_at',
+            ])
             ->withTimestamps();
+    }
+
+    public function studyGroupMembers(): HasMany
+    {
+        return $this->hasMany(StudyGroupMember::class);
+    }
+
+    public function organizedStudyGroups(): HasMany
+    {
+        return $this->hasMany(StudyGroup::class, 'organizer_user_id');
+    }
+
+    public function studentFeedback(): HasMany
+    {
+        return $this->hasMany(StudentFeedback::class);
+    }
+
+    public function studentProgressReports(): HasMany
+    {
+        return $this->hasMany(StudentProgressReport::class);
     }
 
     public function participantDestinationCategory(): BelongsTo
@@ -201,14 +241,14 @@ class User extends Authenticatable
         }
 
         return $programName !== ''
-            ? $institutionName . ' - ' . $programName
+            ? $institutionName.' - '.$programName
             : $institutionName;
     }
 
     public function getParticipantDestinationFilterKeyAttribute(): ?string
     {
         if ($this->participantDestinationCategory) {
-            return 'db:' . $this->participantDestinationCategory->id;
+            return 'db:'.$this->participantDestinationCategory->id;
         }
 
         $source = trim((string) ($this->participant_destination_source ?? ''));
@@ -218,7 +258,7 @@ class User extends Authenticatable
             return null;
         }
 
-        return $source . ':' . $externalId;
+        return $source.':'.$externalId;
     }
 
     // Helper methods
@@ -260,7 +300,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if (!empty($this->getEffectivePermissionSlugs())) {
+        if (! empty($this->getEffectivePermissionSlugs())) {
             return true;
         }
 
@@ -294,7 +334,7 @@ class User extends Authenticatable
             return true;
         }
 
-        $slug = $feature . '.' . $action;
+        $slug = $feature.'.'.$action;
 
         return in_array($slug, $this->getEffectivePermissionSlugs(), true);
     }
@@ -315,7 +355,7 @@ class User extends Authenticatable
             ->values()
             ->all();
 
-        if (empty($slugs) && !empty($this->role)) {
+        if (empty($slugs) && ! empty($this->role)) {
             $fallbackRole = Role::query()
                 ->where('slug', $this->role)
                 ->with('permissions:id,slug')
@@ -380,7 +420,7 @@ class User extends Authenticatable
             })
             ->pluck('package_id')
             ->toArray();
-        
+
         return \DB::table('detail_packages')
             ->where('detailable_type', Material::class)
             ->where('detailable_id', $materialId)
@@ -420,7 +460,7 @@ class User extends Authenticatable
             ->whereIn('access_type', ['free', 'purchased', 'paid'])
             ->where(function ($q) {
                 $q->whereNull('expires_at')
-                  ->orWhere('expires_at', '>', now());
+                    ->orWhere('expires_at', '>', now());
             })
             ->exists();
 
@@ -437,7 +477,7 @@ class User extends Authenticatable
             })
             ->pluck('package_id')
             ->toArray();
-        
+
         return \DB::table('detail_packages')
             ->where('detailable_id', $tryoutId)
             ->where('detailable_type', Tryout::class)

@@ -350,11 +350,11 @@
                     <!-- SKD Progress (if multiple subtests) -->
                     @if (isset($subtestInfo) && count($subtestInfo) > 1 && !($isCombinedSubtestView ?? false))
                         @php
-                            $isUtbkTryout =
+                            $usesIrtScoring =
                                 isset($tryout) &&
                                 method_exists($tryout, 'requiresIrtScoring') &&
                                 $tryout->requiresIrtScoring();
-                            $subtestProgressTitle = $isUtbkTryout ? 'Progress UTBK' : 'Progress SKD Full';
+                            $subtestProgressTitle = $usesIrtScoring ? 'Progress IRT' : 'Progress SKD Full';
                         @endphp
                         <div class="mb-6 p-4 bg-white border border-border mt-4 rounded-lg">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">

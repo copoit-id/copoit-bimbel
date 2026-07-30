@@ -103,6 +103,9 @@ class RecurringBillService
                 'paid_by' => $isPaid ? $paidBy?->id : null,
             ]);
 
+            $invoice = $invoice->fresh(['payments', 'user']);
+            app(GroupBookingService::class)->syncInvoice($invoice);
+
             return $invoice->fresh(['payments', 'user']);
         });
     }

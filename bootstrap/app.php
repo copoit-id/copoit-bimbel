@@ -7,6 +7,7 @@ use App\Http\Middleware\DisableBrowserCache;
 use App\Http\Middleware\EnforceConcurrentLoginLimit;
 use App\Http\Middleware\EnsureCertificateManagementEnabled;
 use App\Http\Middleware\EnsurePanelPortal;
+use App\Http\Middleware\EnsurePlanFeatureEnabled;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPanelUrlDefaults;
 use App\Http\Middleware\SuperAdminMiddleware;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             EnforceConcurrentLoginLimit::class,
             SetPanelUrlDefaults::class,
+            EnsurePlanFeatureEnabled::class,
         ]);
 
         $middleware->alias([
@@ -39,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'certificate.enabled' => EnsureCertificateManagementEnabled::class,
             'permission' => CheckPermission::class,
             'panel.portal' => EnsurePanelPortal::class,
+            'module' => EnsurePlanFeatureEnabled::class,
             'no-cache' => DisableBrowserCache::class,
         ]);
     })

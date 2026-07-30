@@ -39,6 +39,23 @@ class TryoutController extends Controller
         date_default_timezone_set('Asia/Jakarta');
     }
 
+    private function tryoutAvailabilityError(Tryout $tryout, Carbon $now): ?string
+    {
+        if (! $tryout->is_active) {
+            return 'Tryout tidak aktif.';
+        }
+
+        if ($tryout->start_date && $tryout->start_date->gt($now)) {
+            return 'Tryout belum dimulai.';
+        }
+
+        if ($tryout->end_date && $tryout->end_date->lt($now)) {
+            return 'Tryout sudah berakhir.';
+        }
+
+        return null;
+    }
+
     private function getSubtestIndex(array $subtests, array $currentSubtest): int
     {
         foreach ($subtests as $index => $info) {
@@ -820,13 +837,21 @@ class TryoutController extends Controller
                 ->where('is_active', true);
 
             if (!$hasDirectAccess) {
-                $tryoutQuery->where('start_date', '<=', $now)
-                    ->where('end_date', '>=', $now);
+                $tryoutQuery
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('start_date')
+                            ->orWhere('start_date', '<=', $now);
+                    })
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $now);
+                    });
             }
 
             $tryout = $tryoutQuery->firstOrFail();
             $package = null;
         } else {
+            $hasDirectAccess = false;
             $package = Package::findOrFail($id_package);
             $tryout = Tryout::findOrFail($id_tryout);
 
@@ -847,10 +872,10 @@ class TryoutController extends Controller
             }
         }
 
-        // Check if tryout is still active dengan timezone Jakarta
+        // Tanggal yang kosong berarti tryout tidak dibatasi pada sisi tersebut.
         $now = Carbon::now('Asia/Jakarta');
-        if (Carbon::parse($tryout->end_date)->lt($now)) {
-            return redirect()->back()->with('error', 'Tryout sudah berakhir');
+        if (! $hasDirectAccess && ($availabilityError = $this->tryoutAvailabilityError($tryout, $now))) {
+            return redirect()->back()->with('error', $availabilityError);
         }
 
         // Get tryout details untuk menampilkan info di lobby
@@ -907,13 +932,21 @@ class TryoutController extends Controller
                 ->where('is_active', true);
 
             if (!$hasDirectAccess) {
-                $tryoutQuery->where('start_date', '<=', $now)
-                    ->where('end_date', '>=', $now);
+                $tryoutQuery
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('start_date')
+                            ->orWhere('start_date', '<=', $now);
+                    })
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $now);
+                    });
             }
 
             $tryout = $tryoutQuery->firstOrFail();
             $package = null;
         } else {
+            $hasDirectAccess = false;
             $package = Package::findOrFail($id_package);
             $tryout = Tryout::findOrFail($id_tryout);
 
@@ -931,6 +964,10 @@ class TryoutController extends Controller
                 return redirect()->route('user.package.index')
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
+        }
+
+        if (! $hasDirectAccess && ($availabilityError = $this->tryoutAvailabilityError($tryout, $now))) {
+            return redirect()->back()->with('error', $availabilityError);
         }
 
         // Get all tryout details dalam urutan yang benar
@@ -2088,7 +2125,8 @@ class TryoutController extends Controller
         }
 
         $tryout->update([
-            'results_release_at' => $tryout->end_date ?? $now,
+            // Tanpa tanggal selesai, hasil IRT menunggu rilis manual admin.
+            'results_release_at' => $tryout->end_date,
         ]);
     }
 

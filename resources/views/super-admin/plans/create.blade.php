@@ -122,6 +122,8 @@
                 </div>
             </div>
 
+            @include('super-admin.plans.partials.module-access')
+
             @php
                 $planFeatures = old('plan_features', [
                     'affiliate_enabled' => false,

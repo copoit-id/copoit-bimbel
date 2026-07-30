@@ -13,7 +13,18 @@
     $dropdownLinkInactive = $sidebarPrimary ? 'text-white/80 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100';
     $emptyTextClass = $sidebarPrimary ? 'text-white/70' : 'text-gray-500';
     $secondaryColor = $clientBranding['secondary_color'] ?? '#F3F3F3';
+    $planModules = app(\App\Services\PlanModuleService::class);
+    $canShowDashboard = $planModules->allows('dashboard');
+    $canShowPackage = $planModules->allows('package');
+    $canShowBooking = $planModules->allows('booking') && \Illuminate\Support\Facades\Route::has('user.booking.index');
+    $canShowEvent = $planModules->allows('event');
+    $canShowMaterial = $planModules->allows('material');
+    $canShowTryout = $planModules->allows('tryout');
+    $canShowFaq = $planModules->allows('faq');
+    $canShowAiLearning = $planModules->allows('ai_learning');
+    $canShowCertificate = $planModules->allows('certificate');
     $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
+        && $planModules->allows('affiliate')
         && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
     if ($sidebarPrimary) {
         $emptyCtaClasses = 'block w-full py-2 px-3 text-xs text-center text-primary rounded-lg hover:opacity-90 transition-colors duration-200';
@@ -30,6 +41,7 @@
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
         <p class="{{ $sectionLabelClass }} text-sm">Home</p>
         <ul class="font-medium space-y-1">
+            @if($canShowDashboard)
             <li>
                 <a href="{{ route('user.dashboard.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.dashboard.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -38,6 +50,8 @@
                     <span class="ms-3">Dashboard</span>
                 </a>
             </li>
+            @endif
+            @if($canShowPackage)
             <li>
                 <a href="{{ route('user.package.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.package.index') || request()->routeIs('user.package.riwayatPembelian') || request()->routeIs('user.package.riwayatPembelianAktif') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -54,6 +68,24 @@
                     <span class="ms-3">Paket Saya</span>
                 </a>
             </li>
+            @endif
+            @if($canShowBooking)
+            <li>
+                <a href="{{ route('user.booking.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.booking.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-calendar-schedule-line text-[20px] {{ request()->routeIs('user.booking.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Booking Jadwal</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('user.development.index') }}"
+                   class="flex items-center py-2 px-4 {{ request()->routeIs('user.development.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-line-chart-line text-[20px] {{ request()->routeIs('user.development.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Perkembangan</span>
+                </a>
+            </li>
+            @endif
+            @if($canShowEvent)
             <li>
                 <a href="{{ route('user.event.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.event.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -62,6 +94,8 @@
                     <span class="ms-3">Event Gratis</span>
                 </a>
             </li>
+            @endif
+            @if($canShowMaterial)
             <li>
                 <button type="button"
                     class="flex items-center w-full py-2 px-4 {{ request()->routeIs('user.material.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group transition-colors duration-200"
@@ -97,6 +131,8 @@
                     </li>
                 </ul>
             </li>
+            @endif
+            @if($canShowTryout)
             <li>
                 <a href="{{ route('user.package.tryout.list') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.tryout.*') || request()->routeIs('user.package.tryout.list') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -104,6 +140,8 @@
                     <span class="ms-3">Tryout</span>
                 </a>
             </li>
+            @endif
+            @if($canShowFaq)
             <li>
                 <a href="{{ route('user.help.index') }}"
                     class="flex items-center py-2 px-4  {{ request()->routeIs('user.help.index') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -112,7 +150,8 @@
                     <span class="ms-3">{{ $clientBranding['faq_label'] ?? 'FAQ' }}</span>
                 </a>
             </li>
-            @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')))
+            @endif
+            @if($canShowAiLearning && filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')))
             <li>
                 <a href="{{ route('user.ai-gateway.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.ai-gateway.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -137,7 +176,7 @@
                 </a>
             </li>
             @endif
-            @if($clientBranding['certificate_management_enabled'] ?? true)
+            @if($canShowCertificate && ($clientBranding['certificate_management_enabled'] ?? true))
             <li>
                 <a href="{{ route('user.certificate.validation') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('user.certificate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">

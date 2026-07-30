@@ -132,6 +132,8 @@
                 </div>
             </div>
 
+            @include('super-admin.plans.partials.module-access')
+
             @php
                 $savedPlanFeatures = $plan->features_json['plan_features'] ?? [];
                 $planFeatures = old('plan_features', array_merge([

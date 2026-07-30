@@ -2,7 +2,13 @@
 
 @section('content')
 @php
-    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+    $planModules = app(\App\Services\PlanModuleService::class);
+    $currentUser = auth()->user();
+    $canManageSchedule = $planModules->allows('schedule') && ($currentUser?->hasPermission('schedule', 'view') ?? false);
+    $canManageClass = $planModules->allows('class') && ($currentUser?->hasPermission('class', 'view') ?? false);
+    $canManageMaterial = $planModules->allows('material') && ($currentUser?->hasPermission('material', 'view') ?? false);
+    $canManageTryout = $planModules->allows('tryout') && ($currentUser?->hasPermission('tryout', 'view') ?? false);
+    $canManageTesKoran = $planModules->allows('tes_koran') && ($currentUser?->hasPermission('tes_koran', 'view') ?? false);
 @endphp
 <div class="space-y-6">
     <!-- Page Header -->
@@ -55,7 +61,7 @@
     <!-- Package List -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach ($packages as $package)
-        <div class="bg-white px-5 py-5 shadow rounded-lg flex flex-col justify-between">
+        <div class="bg-white px-5 py-5 border border-gray-200 rounded-lg flex flex-col justify-between">
             <div class="flex flex-col items-start">
                 <!-- Package Image -->
                 <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
@@ -120,6 +126,21 @@
                 <p class="text-xs text-gray-500 mt-1">Syarat: {{ Str::limit($package->conditional_requirement, 80) }}</p>
                 @endif
 
+                <div class="mt-3 flex flex-wrap gap-1.5 text-xs">
+                    @if($package->schedules_count > 0)
+                        <span class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600">{{ $package->schedules_count }} jadwal</span>
+                    @endif
+                    @if($package->classes_count > 0)
+                        <span class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600">{{ $package->classes_count }} kelas</span>
+                    @endif
+                    @if($package->tryouts_count > 0)
+                        <span class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600">{{ $package->tryouts_count }} tryout</span>
+                    @endif
+                    @if($package->materials_count > 0)
+                        <span class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600">{{ $package->materials_count }} materi</span>
+                    @endif
+                </div>
+
                 @php
                     $features = [];
 
@@ -147,18 +168,35 @@
 
             <div class="flex flex-wrap gap-2 mt-4">
                 @if ($package->type_package == 'bimbel')
+                @if($canManageSchedule)
+                <a href="{{ route('admin.class-schedules.index', ['package_id' => $package->package_id]) }}"
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    Kelas
+                </a>
+                @elseif($canManageClass)
+                <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    Kelas
+                </a>
+                @endif
+                @if($package->bookingRule?->is_enabled)
+                <a href="{{ route('admin.package-booking.edit', $package) }}"
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    Harga Rombel
+                </a>
+                @endif
+                @if($canManageMaterial)
                 <a href="{{ route('admin.package.material.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Materi
                 </a>
+                @endif
+                @if($canManageTryout)
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout
                 </a>
-                <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
-                    Kelas
-                </a>
+                @endif
                 @if($canManageTesKoran)
                 <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
@@ -166,15 +204,19 @@
                 </a>
                 @endif
                 @elseif ($package->type_package == 'tryout')
+                @if($canManageTryout)
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Tryout
                 </a>
+                @endif
                 @elseif ($package->type_package == 'sertifikasi')
+                @if($canManageTryout)
                 <a href="{{ route('admin.package.tryout.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Sertifikasi
                 </a>
+                @endif
                 @elseif ($package->type_package == 'tes_koran' && $canManageTesKoran)
                 <a href="{{ route('admin.package.tes-koran.index', ['package_id' => $package->package_id]) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
@@ -208,6 +250,8 @@
         </div>
         @endforeach
     </div>
+
+    {{ $packages->links() }}
 </div>
 
 {{-- Toast Notification --}}

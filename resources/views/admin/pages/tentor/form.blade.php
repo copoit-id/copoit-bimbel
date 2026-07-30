@@ -36,8 +36,8 @@
         </div>
 
         <div class="md:col-span-2">
-            <label for="bio" class="mb-2 block text-sm font-semibold text-gray-700">Catatan / Bio</label>
-            <textarea id="bio" name="bio" rows="4" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Catatan internal tentang tentor">{{ old('bio', $tentor?->bio) }}</textarea>
+            <label for="bio" class="mb-2 block text-sm font-semibold text-gray-700">Bio Publik</label>
+            <textarea id="bio" name="bio" rows="4" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Perkenalan singkat Tutor yang dapat dilihat siswa">{{ old('bio', $tentor?->bio) }}</textarea>
         </div>
 
         <div class="md:col-span-2 border-t border-gray-200 pt-5">

@@ -12,10 +12,15 @@
     $isTutor = $authUser?->isTutor() ?? false;
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
     $permissionSlugs = $authUser?->getEffectivePermissionSlugs() ?? [];
+    $planModules = app(\App\Services\PlanModuleService::class);
     $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
-    $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs): bool {
+    $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs, $planModules): bool {
         if ($isSuperAdmin) {
             return true;
+        }
+
+        if (! $planModules->allows($feature)) {
+            return false;
         }
 
         if ($feature === 'dashboard') {
@@ -37,16 +42,16 @@
         && $canFeatureView('affiliate')
         && $adminRouteExists('admin.affiliate.index');
     $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
-        && $canFeatureView('class')
+        && $canFeatureView('schedule')
         && $adminRouteExists('admin.class-schedules.index');
-    $canShowClassZoomMenu = $canFeatureView('class')
-        && $adminRouteExists('admin.class.index');
     $canShowStudyGroupMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
         && $canFeatureView('class')
         && $adminRouteExists('admin.study-groups.index');
     $canShowRecurringBillMenu = ($clientBranding['recurring_bill_menu_enabled'] ?? false)
         && $canFeatureView('recurring_bill')
         && $adminRouteExists('admin.recurring-bills.index');
+    $canShowGroupBookingMenu = $canFeatureView('booking')
+        && $adminRouteExists('admin.package-booking.cohorts.index');
     $canShowTutorPayrollMenu = $canFeatureView('tutor_payroll')
         && $adminRouteExists('admin.tutor-payrolls.index');
     $canShowFinanceMenu = $canFeatureView('finance')
@@ -57,10 +62,17 @@
         && $adminRouteExists('admin.activity.index');
     $canShowUpdateNotificationsMenu = $canFeatureView('update_notification')
         && $adminRouteExists('admin.update-notifications.index');
+    $canShowTutorScheduleMenu = $isTutor
+        && $planModules->allows('schedule')
+        && $adminRouteExists('tutor.schedule.index');
+    $canShowTutorAttendanceMenu = $canShowTutorScheduleMenu
+        && $planModules->allows('class')
+        && $adminRouteExists('tutor.attendance.index');
     $canShowMasterMenu = $canFeatureView('package')
+        || $canShowGroupBookingMenu
+        || $canShowClassScheduleMenu
         || $canFeatureView('tryout')
         || $canShowStudyGroupMenu
-        || $canShowClassZoomMenu
         || $canShowMaterialMenu
         || $canFeatureView('tes_koran');
     $canShowCategoryMenu = $canShowMaterialCategoryMenu || $canShowDestinationCategories;
@@ -78,15 +90,18 @@
         || request()->routeIs('admin.material.edit');
     $isCategoryActive = request()->routeIs('admin.material.material-category.*')
         || ($canShowDestinationCategories && request()->routeIs('admin.participant-destination-categories.*'));
+    $isClassScheduleActive = $canShowClassScheduleMenu
+        && (request()->routeIs('admin.class-schedules.*')
+            || request()->routeIs('admin.class-attendance.*')
+            || request()->routeIs('admin.class.*'));
     $isMasterActive = request()->routeIs('admin.package.*')
+        || ($canShowGroupBookingMenu && request()->routeIs('admin.package-booking.*'))
+        || $isClassScheduleActive
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
-        || request()->routeIs('admin.class.*')
         || ($canShowStudyGroupMenu && request()->routeIs('admin.study-groups.*'))
         || request()->routeIs('admin.tes-koran.*')
         || $isMaterialManagementActive;
-    $isClassScheduleActive = $canShowClassScheduleMenu
-        && (request()->routeIs('admin.class-schedules.*') || request()->routeIs('admin.class-attendance.*'));
     $isTutorScheduleActive = $isTutor && request()->routeIs('tutor.schedule.*');
     $isTutorAttendanceActive = $isTutor && request()->routeIs('tutor.attendance.*');
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
@@ -125,17 +140,19 @@
             @if($canShowMasterMenu)
                 <li><details id="menu-master" class="group" {{ $isMasterActive ? 'open' : '' }}><summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isMasterActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;"><span class="flex items-center"><i class="ri-stack-line text-[20px] {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Manajemen Master</span></span><i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i></summary><ul class="mt-1 ms-2 space-y-1">
                     @if($canFeatureView('package'))<li><a href="{{ route('admin.package.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.package.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Paket</span></a></li>@endif
+                    @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Kelas & Jadwal</span></a></li>@endif
+                    @if($canShowGroupBookingMenu)<li><a href="{{ route('admin.package-booking.cohorts.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.package-booking.cohorts.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Pengajuan Rombel</span></a></li>@endif
                     @if($canFeatureView('tryout'))<li><a href="{{ route('admin.tryout.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Tryout</span></a></li>@endif
                     @if($canShowStudyGroupMenu)<li><a href="{{ route('admin.study-groups.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.study-groups.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Rombel / Grup Belajar</span></a></li>@endif
-                    @if($canShowClassZoomMenu)<li><a href="{{ route('admin.class.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Kelas Zoom</span></a></li>@endif
                     @if($canShowMaterialMenu)<li><a href="{{ route('admin.material.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Materi</span></a></li>@endif
                     @if($canFeatureView('tes_koran'))<li><a href="{{ route('admin.tes-koran.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isTesKoranActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Tes Koran</span></a></li>@endif
                 </ul></details></li>
             @endif
-            @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 px-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isClassScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal & Absensi</span></a></li>@endif
-            @if($isTutor && $adminRouteExists('tutor.schedule.index'))
+            @if($canShowTutorScheduleMenu)
                 <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
+                @if($canShowTutorAttendanceMenu)
                 <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
+                @endif
             @endif
             @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Bank Soal</span></a></li>@endif
             @if($canShowCategoryMenu)

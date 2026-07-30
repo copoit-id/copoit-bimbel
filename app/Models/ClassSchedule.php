@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class ClassSchedule extends Model
 {
@@ -27,6 +29,8 @@ class ClassSchedule extends Model
         'location',
         'is_active',
         'created_by',
+        'allow_custom_booking',
+        'booking_session_quota',
     ];
 
     protected $casts = [
@@ -35,11 +39,30 @@ class ClassSchedule extends Model
         'day_of_week' => 'integer',
         'day_of_month' => 'integer',
         'is_active' => 'boolean',
+        'allow_custom_booking' => 'boolean',
+        'booking_session_quota' => 'integer',
     ];
 
     public function class(): BelongsTo
     {
         return $this->belongsTo(ClassModel::class, 'class_id', 'class_id');
+    }
+
+    public function packages(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Package::class,
+            'detail_packages',
+            'detailable_id',
+            'package_id',
+            'id',
+            'package_id'
+        )->wherePivot('detailable_type', $this->getMorphClass());
+    }
+
+    public function detailPackages(): MorphMany
+    {
+        return $this->morphMany(DetailPackage::class, 'detailable');
     }
 
     public function studyGroup(): BelongsTo
@@ -70,5 +93,12 @@ class ClassSchedule extends Model
             'class_schedule_id',
             'participant_destination_category_id'
         )->withTimestamps();
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (ClassSchedule $schedule): void {
+            $schedule->detailPackages()->delete();
+        });
     }
 }

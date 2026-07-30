@@ -78,7 +78,8 @@ class SuperAdminGeneralSettingControllerTest extends TestCase
         $this->assertArrayHasKey('gpt-4o', $models);
         $this->assertArrayHasKey('gpt-4o-mini', $models);
         $this->assertArrayHasKey('gpt-5.4-mini', $models);
-        $this->assertArrayNotHasKey('gpt-4.1-mini', $models);
+        $this->assertArrayHasKey('gpt-4.1-mini', $models);
+        $this->assertFalse($models['gpt-4.1-mini']['has_pricing']);
         $this->assertArrayNotHasKey('gpt-4o-audio-preview', $models);
         $this->assertArrayNotHasKey('gpt-realtime', $models);
         $this->assertArrayHasKey('gemini-2.5-flash', $models);
