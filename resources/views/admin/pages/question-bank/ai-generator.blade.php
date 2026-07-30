@@ -185,6 +185,9 @@
                             <label for="reference_pdf" class="mb-1 block text-sm font-medium text-gray-700">File PDF Referensi</label>
                             <input id="reference_pdf" name="reference_pdf" type="file" accept="application/pdf,.pdf" :disabled="!enabled || source !== 'pdf'" class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
                             <p class="mt-1 text-xs text-gray-500">Maksimal 10 MB. PDF harus memiliki teks yang dapat diseleksi; file scan gambar belum didukung.</p>
+                            @error('reference_pdf')
+                                <p class="mt-1 text-sm text-red-600" role="alert">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <label for="reference_note" class="block text-sm font-medium text-gray-700">Arahan terhadap Referensi <span class="font-normal text-gray-400">(opsional)</span></label>

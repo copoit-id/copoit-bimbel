@@ -281,19 +281,30 @@ class QuestionBankController extends Controller
             'instruction' => ['nullable', 'string', 'max:1500'],
             'use_reference' => ['nullable', 'boolean'],
             'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout', 'pdf'])],
-            'reference_pdf' => ['required_if:reference_source,pdf', 'nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'reference_pdf' => [
+                Rule::requiredIf($request->boolean('use_reference') && $request->input('reference_source') === 'pdf'),
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
             'reference_bank_id' => ['nullable', 'integer'],
             'reference_tryout_id' => ['nullable', 'integer'],
             'reference_tryout_detail_id' => ['nullable', 'integer'],
             'reference_note' => ['nullable', 'string', 'max:1500'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
-        ], [], [
+        ], [
+            'reference_pdf.required' => 'Unggah file PDF setelah memilih sumber referensi PDF.',
+            'reference_pdf.mimes' => 'File referensi harus berformat PDF.',
+            'reference_pdf.max' => 'Ukuran PDF referensi maksimal 10 MB.',
+        ], [
             'subject' => 'mata pelajaran/kategori',
             'topic' => 'topik',
             'question_count' => 'jumlah soal',
             'option_count' => 'jumlah opsi',
             'explanation_style' => 'gaya pembahasan',
             'instruction' => 'instruksi tambahan',
+            'reference_pdf' => 'file PDF referensi',
         ]);
 
         try {
