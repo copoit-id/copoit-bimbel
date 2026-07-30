@@ -4,16 +4,57 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiGatewayClient;
+use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayUsageLog;
 use App\Models\AiGatewayUserTrial;
 use App\Services\AiDiscussionService;
+use App\Services\AiQuestionGeneratorService;
 use App\Services\AiGatewayCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AiGatewayController extends Controller
 {
+    public function questionGenerator(Request $request, AiQuestionGeneratorService $generator, AiGatewayCostService $costService): JsonResponse
+    {
+        $key = (string) $request->header('X-AI-Gateway-Key', '');
+        $client = AiGatewayClient::query()->where('api_key_hash', hash('sha256', $key))->where('is_active', true)->first();
+        abort_unless($key !== '' && $client, 401, 'Gateway key tidak valid.');
+
+        $data = $request->validate([
+            'external_user_id' => 'required|string|max:120', 'external_user_name' => 'nullable|string|max:255', 'external_user_email' => 'nullable|email|max:255',
+            'origin_base_url' => 'nullable|url|max:2048', 'subject' => 'required|string|max:120', 'topic' => 'required|string|max:180',
+            'difficulty' => 'required|in:mudah,sedang,sulit,campuran', 'question_count' => 'required|integer|min:1|max:25',
+            'option_count' => 'required|integer|min:2|max:5', 'explanation_style' => 'required|in:singkat,normal,detail',
+            'instruction' => 'nullable|string|max:1500', 'reference_examples' => 'nullable|array', 'reference_label' => 'nullable|string|max:255', 'reference_note' => 'nullable|string|max:1500',
+        ]);
+        $subscription = AiGatewaySubscription::with('plan')
+            ->where('ai_gateway_client_id', $client->id)->where('external_user_id', $data['external_user_id'])
+            ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)->where('status', 'active')->notExpired()
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))->orderBy('ends_at')->get()
+            ->first(fn (AiGatewaySubscription $item) => $item->hasRemainingQuota());
+        if (! $subscription) {
+            return response()->json(['message' => 'Kuota AI Generator Soal belum tersedia. Beli paket atau minta Super Admin menambahkan kuota terlebih dahulu.'], 403);
+        }
+
+        try {
+            unset($data['model']);
+            $result = $generator->generateDirect($data);
+        } catch (\RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $usage = $result['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0];
+        $cost = $costService->estimate((string) $result['provider'], (string) $result['model'], (int) $usage['input'], (int) $usage['output']);
+        AiGatewayUsageLog::create(['ai_gateway_client_id' => $client->id, 'external_user_id' => $data['external_user_id'], 'external_user_name' => $data['external_user_name'] ?? null, 'external_user_email' => $data['external_user_email'] ?? null, 'origin_base_url' => $data['origin_base_url'] ?? $client->base_url, 'feature' => 'admin_question_generator', 'provider' => $result['provider'], 'model' => $result['model'], 'input_tokens' => $usage['input'], 'output_tokens' => $usage['output'], 'total_tokens' => $usage['total'], 'response_time_ms' => null, 'input_per_million_usd' => $cost['input_per_million_usd'] ?? null, 'output_per_million_usd' => $cost['output_per_million_usd'] ?? null, 'usd_to_idr' => $cost['usd_to_idr'] ?? null, 'input_cost_idr' => $cost['input_cost_idr'] ?? null, 'output_cost_idr' => $cost['output_cost_idr'] ?? null]);
+        $subscription->increment('tokens_used', (int) $usage['total']);
+        $subscription->refresh();
+        $client->update(['last_used_at' => now()]);
+
+        return response()->json([...$result, 'quota' => ['token_limit' => (int) ($subscription->token_limit ?: $subscription->plan->token_limit), 'tokens_used' => (int) $subscription->tokens_used, 'remaining_tokens' => max(0, (int) ($subscription->token_limit ?: $subscription->plan->token_limit) - (int) $subscription->tokens_used)]]);
+    }
+
     public function discussion(
         Request $request,
         AiDiscussionService $ai,

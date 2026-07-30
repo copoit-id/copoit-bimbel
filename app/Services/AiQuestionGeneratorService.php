@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ClientProfile;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -11,6 +12,41 @@ use RuntimeException;
 class AiQuestionGeneratorService
 {
     public function generate(array $input): array
+    {
+        $discussionUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $baseUrl = Str::beforeLast($discussionUrl, '/discussion');
+        $gatewayKey = trim((string) config('services.ai_gateway.key'));
+        $user = Auth::user();
+
+        if ($baseUrl === '' || $gatewayKey === '' || ! $user) {
+            throw new RuntimeException('Gateway AI Generator Soal belum dikonfigurasi.');
+        }
+
+        try {
+            return Http::acceptJson()
+                ->asJson()
+                ->timeout((int) config('services.ai_gateway.timeout', 120))
+                ->withHeaders(['X-AI-Gateway-Key' => $gatewayKey])
+                ->post($baseUrl.'/question-generator/generate', [
+                    ...$input,
+                    'external_user_id' => (string) $user->getAuthIdentifier(),
+                    'external_user_name' => (string) $user->name,
+                    'external_user_email' => (string) $user->email,
+                    'origin_base_url' => rtrim((string) config('app.url'), '/'),
+                ])
+                ->throw()
+                ->json() ?? [];
+        } catch (RequestException $exception) {
+            $message = $exception->response?->json('message')
+                ?: $exception->response?->body()
+                ?: $exception->getMessage();
+
+            throw new RuntimeException(Str::limit((string) $message, 300));
+        }
+    }
+
+    /** Generate only inside the trusted AI Gateway. */
+    public function generateDirect(array $input): array
     {
         $model = $input['model'] ?? config('services.openai.question_model', 'gpt-5.4-mini');
         if (! array_key_exists($model, $this->availableModels())) {

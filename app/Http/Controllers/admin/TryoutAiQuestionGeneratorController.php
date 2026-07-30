@@ -86,12 +86,6 @@ class TryoutAiQuestionGeneratorController extends Controller
                 ...$this->resolveReference($validated),
             ];
             $preview = $aiGeneratorService->generate($validated);
-            $preview['quota'] = $quotaService->consume(
-                Auth::user(),
-                $preview['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0],
-                (string) $preview['provider'],
-                (string) $preview['model'],
-            );
             $preview['request'] = $validated;
 
             session()->put($this->previewSessionKey($tryoutDetail), $preview);
