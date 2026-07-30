@@ -11,6 +11,7 @@ use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Services\AdminQuestionGeneratorQuotaService;
 use App\Services\AiQuestionGeneratorService;
+use App\Services\AiReferencePdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +25,8 @@ class TryoutAiQuestionGeneratorController extends Controller
     public function form(
         TryoutDetail $tryoutDetail,
         AiQuestionGeneratorService $aiGeneratorService,
-        AdminQuestionGeneratorQuotaService $quotaService
+        AdminQuestionGeneratorQuotaService $quotaService,
+        AiReferencePdfService $pdfReferenceService
     ): View {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -83,7 +85,7 @@ class TryoutAiQuestionGeneratorController extends Controller
             $validated = [
                 ...$validated,
                 'model' => $model,
-                ...$this->resolveReference($validated),
+                ...$this->resolveReference($validated, $pdfReferenceService),
             ];
             $preview = $aiGeneratorService->generate($validated);
             $preview['request'] = $validated;
@@ -187,7 +189,8 @@ class TryoutAiQuestionGeneratorController extends Controller
             'explanation_style' => ['required', Rule::in(['singkat', 'normal', 'detail'])],
             'instruction' => ['nullable', 'string', 'max:1500'],
             'use_reference' => ['nullable', 'boolean'],
-            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout'])],
+            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout', 'pdf'])],
+            'reference_pdf' => ['required_if:reference_source,pdf', 'nullable', 'file', 'mimes:pdf', 'max:10240'],
             'reference_bank_id' => ['nullable', 'integer'],
             'reference_tryout_id' => ['nullable', 'integer'],
             'reference_tryout_detail_id' => ['nullable', 'integer'],
@@ -203,7 +206,7 @@ class TryoutAiQuestionGeneratorController extends Controller
     }
 
     /** @param array<string, mixed> $input */
-    private function resolveReference(array $input): array
+    private function resolveReference(array $input, AiReferencePdfService $pdfReferenceService): array
     {
         if (! filter_var($input['use_reference'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             return ['reference_examples' => [], 'reference_label' => null, 'reference_note' => null];
@@ -214,6 +217,15 @@ class TryoutAiQuestionGeneratorController extends Controller
 
         if (! $source) {
             throw new \RuntimeException('Pilih sumber referensi gaya soal.');
+        }
+
+        if ($source === 'pdf') {
+            $file = $input['reference_pdf'] ?? null;
+            if (! $file instanceof \Illuminate\Http\UploadedFile) {
+                throw new \RuntimeException('Unggah file PDF untuk referensi gaya soal.');
+            }
+
+            return ['reference_examples' => $pdfReferenceService->examples($file), 'reference_label' => 'PDF: '.$file->getClientOriginalName(), 'reference_note' => $note];
         }
 
         if ($source === 'question_bank') {
