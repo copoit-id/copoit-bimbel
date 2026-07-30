@@ -191,7 +191,7 @@ class AksesController extends Controller
             ? StudyGroup::query()
                 ->where('is_active', true)
                 ->with(['users' => function ($query) {
-                    $query->where('status', 'aktif')->orderBy('name');
+                    $query->where('users.status', 'aktif')->orderBy('users.name');
                 }])
                 ->orderBy('name')
                 ->get()

@@ -266,11 +266,11 @@ class QuestionBankController extends Controller
     {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
-        $models = array_keys($aiGeneratorService->availableModels());
+        $models = $aiGeneratorService->availableModels();
         abort_if(empty($models), 404);
+        $model = $aiGeneratorService->defaultModel();
 
         $validated = $request->validate([
-            'model' => ['required', Rule::in($models)],
             'subject' => ['required', 'string', 'max:120'],
             'topic' => ['required', 'string', 'max:180'],
             'difficulty' => ['required', Rule::in(['mudah', 'sedang', 'sulit', 'campuran'])],
@@ -296,7 +296,11 @@ class QuestionBankController extends Controller
 
         try {
             $quotaService->ensureAvailable(Auth::user());
-            $validated = [...$validated, ...$this->resolveAiReference($validated)];
+            $validated = [
+                ...$validated,
+                'model' => $model,
+                ...$this->resolveAiReference($validated),
+            ];
             $preview = $aiGeneratorService->generate($validated);
             $preview['quota'] = $quotaService->consume(
                 Auth::user(),
@@ -327,12 +331,12 @@ class QuestionBankController extends Controller
     {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
-        $models = array_keys($aiGeneratorService->availableModels());
+        $models = $aiGeneratorService->availableModels();
         abort_if(empty($models), 404);
+        $model = $aiGeneratorService->defaultModel();
 
         $validated = $request->validate([
             'questions_json' => ['required', 'string'],
-            'model' => ['required', Rule::in($models)],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
         ]);
 
@@ -347,7 +351,7 @@ class QuestionBankController extends Controller
         }
 
         $storedCount = 0;
-        DB::transaction(function () use ($questionBank, $questions, $validated, &$storedCount) {
+        DB::transaction(function () use ($questionBank, $questions, $validated, $model, &$storedCount) {
             foreach ($questions as $question) {
                 $questionScore = (float) ($question['question_score'] ?? 1);
 
@@ -360,7 +364,7 @@ class QuestionBankController extends Controller
                     'custom_score' => 'yes',
                     'metadata' => [
                         'source' => 'ai_generator',
-                        'model' => $validated['model'],
+                        'model' => $model,
                         'generated_at' => now()->toDateTimeString(),
                     ],
                     'created_by' => Auth::id(),
