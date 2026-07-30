@@ -953,3 +953,232 @@ if (document.readyState === 'loading') {
     initializeAdminSelects();
     initializeDateInputs();
 }
+
+/**
+ * Shared application dialog for JavaScript alerts and confirmations.
+ *
+ * Use `window.appAlert(message)` for notifications and
+ * `await window.appConfirm(message)` before a destructive or important action.
+ * Native `confirm()` remains available while legacy synchronous handlers are
+ * migrated one at a time.
+ */
+const initializeAppDialog = () => {
+    if (window.appDialog) {
+        return;
+    }
+
+    const queue = [];
+    let active = null;
+    let bodyWasLocked = false;
+
+    const variantStyles = {
+        info: {
+            icon: 'ri-information-line',
+            iconClass: ['bg-blue-100', 'text-blue-600'],
+            confirmClass: ['bg-primary', 'text-white', 'hover:bg-primary/90'],
+        },
+        success: {
+            icon: 'ri-checkbox-circle-line',
+            iconClass: ['bg-green-100', 'text-green-600'],
+            confirmClass: ['bg-green-600', 'text-white', 'hover:bg-green-700'],
+        },
+        warning: {
+            icon: 'ri-alert-line',
+            iconClass: ['bg-amber-100', 'text-amber-700'],
+            confirmClass: ['bg-amber-500', 'text-white', 'hover:bg-amber-600'],
+        },
+        danger: {
+            icon: 'ri-error-warning-line',
+            iconClass: ['bg-red-100', 'text-red-600'],
+            confirmClass: ['bg-red', 'text-white', 'hover:bg-red/90'],
+        },
+    };
+
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[200] hidden items-center justify-center bg-slate-950/45 px-4 py-6';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" aria-describedby="app-dialog-message">
+            <div class="p-6 text-center">
+                <div data-app-dialog-icon class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
+                    <i data-app-dialog-icon-symbol class="text-2xl" aria-hidden="true"></i>
+                </div>
+                <h2 id="app-dialog-title" data-app-dialog-title class="text-lg font-semibold text-gray-900"></h2>
+                <p id="app-dialog-message" data-app-dialog-message class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600"></p>
+            </div>
+            <div class="flex gap-3 px-6 pb-6">
+                <button type="button" data-app-dialog-cancel class="hidden flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">Batal</button>
+                <button type="button" data-app-dialog-confirm class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition">OK</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const title = modal.querySelector('[data-app-dialog-title]');
+    const message = modal.querySelector('[data-app-dialog-message]');
+    const icon = modal.querySelector('[data-app-dialog-icon]');
+    const iconSymbol = modal.querySelector('[data-app-dialog-icon-symbol]');
+    const cancelButton = modal.querySelector('[data-app-dialog-cancel]');
+    const confirmButton = modal.querySelector('[data-app-dialog-confirm]');
+
+    const close = (result) => {
+        if (!active) {
+            return;
+        }
+
+        const { resolve } = active;
+        active = null;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.setAttribute('aria-hidden', 'true');
+        if (!bodyWasLocked) {
+            document.body.classList.remove('overflow-hidden');
+        }
+        resolve(result);
+        window.setTimeout(showNext, 0);
+    };
+
+    const showNext = () => {
+        if (active || queue.length === 0) {
+            return;
+        }
+
+        active = queue.shift();
+        const variant = variantStyles[active.options.variant] || variantStyles.info;
+        title.textContent = active.options.title || (active.type === 'confirm' ? 'Konfirmasi' : 'Informasi');
+        message.textContent = active.message;
+        icon.className = `mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${variant.iconClass.join(' ')}`;
+        iconSymbol.className = `${variant.icon} text-2xl`;
+        confirmButton.textContent = active.options.confirmText || (active.type === 'confirm' ? 'Ya, lanjutkan' : 'OK');
+        confirmButton.className = `flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${variant.confirmClass.join(' ')}`;
+        cancelButton.textContent = active.options.cancelText || 'Batal';
+        cancelButton.classList.toggle('hidden', active.type !== 'confirm');
+        cancelButton.classList.toggle('flex-1', active.type === 'confirm');
+
+        bodyWasLocked = document.body.classList.contains('overflow-hidden');
+        document.body.classList.add('overflow-hidden');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.setAttribute('aria-hidden', 'false');
+        window.setTimeout(() => (active?.type === 'confirm' ? cancelButton : confirmButton).focus(), 0);
+    };
+
+    const open = (type, dialogMessage, options = {}) => new Promise((resolve) => {
+        queue.push({ type, message: String(dialogMessage ?? ''), options, resolve });
+        showNext();
+    });
+
+    confirmButton.addEventListener('click', () => close(true));
+    cancelButton.addEventListener('click', () => close(false));
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            close(false);
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && active) {
+            close(false);
+        }
+    });
+
+    window.appDialog = {
+        alert: (dialogMessage, options = {}) => open('alert', dialogMessage, options),
+        confirm: (dialogMessage, options = {}) => open('confirm', dialogMessage, options),
+    };
+    window.appAlert = window.appDialog.alert;
+    window.appConfirm = window.appDialog.confirm;
+
+    window.appConfirmSubmit = (form, dialogMessage, options = {}) => {
+        if (form.dataset.appDialogApproved === 'true') {
+            delete form.dataset.appDialogApproved;
+            return true;
+        }
+
+        window.appConfirm(dialogMessage, options).then((confirmed) => {
+            if (!confirmed) {
+                return;
+            }
+
+            form.dataset.appDialogApproved = 'true';
+            form.requestSubmit();
+        });
+
+        return false;
+    };
+
+    // Legacy alert() calls now use the application dialog.
+    window.alert = (dialogMessage) => {
+        window.appAlert(dialogMessage);
+    };
+
+    // Most legacy confirmations are called from an inline form/button handler.
+    // Native confirm() is synchronous, so cancel the first interaction, then
+    // replay that exact interaction after the asynchronous dialog is approved.
+    const nativeConfirm = window.confirm.bind(window);
+    let legacyConfirmationContext = null;
+    let bypassLegacyConfirmation = false;
+
+    const rememberLegacyConfirmationContext = (context) => {
+        legacyConfirmationContext = context;
+
+        queueMicrotask(() => {
+            if (legacyConfirmationContext === context) {
+                legacyConfirmationContext = null;
+            }
+        });
+    };
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const trigger = target?.closest('button, a, input[type="submit"], input[type="button"]');
+        if (trigger) {
+            rememberLegacyConfirmationContext({ type: 'click', trigger });
+        }
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+        rememberLegacyConfirmationContext({
+            type: 'submit',
+            form: event.target,
+            submitter: event.submitter || null,
+        });
+    }, true);
+
+    window.confirm = (dialogMessage) => {
+        if (bypassLegacyConfirmation) {
+            bypassLegacyConfirmation = false;
+            return true;
+        }
+
+        const context = legacyConfirmationContext;
+        if (!context) {
+            return nativeConfirm(dialogMessage);
+        }
+
+        window.appConfirm(dialogMessage, {
+            title: 'Konfirmasi',
+            confirmText: 'Ya, lanjutkan',
+            variant: 'warning',
+        }).then((confirmed) => {
+            if (!confirmed) {
+                return;
+            }
+
+            bypassLegacyConfirmation = true;
+            if (context.type === 'submit') {
+                context.form.requestSubmit(context.submitter || undefined);
+                return;
+            }
+
+            context.trigger.click();
+        });
+
+        return false;
+    };
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAppDialog, { once: true });
+} else {
+    initializeAppDialog();
+}

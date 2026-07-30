@@ -11,7 +11,7 @@ Artisan::command('inspire', function () {
 
 Artisan::command('utbk:release-results', function (UtbkResultReleaseService $service) {
     $service->releasePending();
-    $this->info('UTBK pending results processed.');
-})->purpose('Release UTBK results once jadwal berakhir');
+    $this->info('IRT pending results processed.');
+})->purpose('Release IRT results once jadwal berakhir');
 
 Schedule::command('utbk:release-results')->everyFiveMinutes();

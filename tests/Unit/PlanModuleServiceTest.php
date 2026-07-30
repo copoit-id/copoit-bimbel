@@ -83,6 +83,10 @@ class PlanModuleServiceTest extends TestCase
             'ai_question_generator',
             $service->featureForRoute('admin.question-bank.questions.ai-generator')
         );
+        $this->assertSame(
+            'ai_question_generator',
+            $service->featureForRoute('admin.question.ai-generator')
+        );
         $this->assertNull($service->featureForRoute('super-admin.plans.index'));
     }
 

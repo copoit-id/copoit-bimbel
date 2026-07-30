@@ -1,6 +1,6 @@
 @extends('user.layout.tryout')
 
-@section('title', 'Hasil UTBK')
+@section('title', 'Hasil IRT')
 
 @section('content')
 <div class="min-h-screen bg-gray-50 pt-30 pb-10">
@@ -8,7 +8,7 @@
         <div class="bg-white border border-border rounded-2xl p-8">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                    <p class="text-sm text-gray-500">Tryout UTBK</p>
+                    <p class="text-sm text-gray-500">Tryout IRT</p>
                     <h1 class="text-2xl font-semibold text-gray-900 mt-1">{{ $tryout->name }}</h1>
                     <p class="text-gray-500 text-sm mt-2">Attempt token: {{ $attemptToken }}</p>
                 </div>
@@ -65,7 +65,7 @@
         <div class="bg-white border border-border rounded-2xl p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-2">Catatan</h2>
             <p class="text-sm text-gray-600 leading-relaxed">
-                Nilai UTBK dihitung menggunakan pendekatan IRT sederhana. Semakin banyak peserta lain yang menjawab benar pada sebuah soal,
+                Nilai IRT dihitung menggunakan pendekatan IRT sederhana. Semakin banyak peserta lain yang menjawab benar pada sebuah soal,
                 semakin kecil bobot soal tersebut pada perhitungan nilai akhir Anda. Skor ditampilkan setelah seluruh peserta menyelesaikan tryout.
             </p>
         </div>

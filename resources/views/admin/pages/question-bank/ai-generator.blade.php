@@ -14,11 +14,35 @@
     $initialReferenceBankId = (int) old('reference_bank_id', $requestData['reference_bank_id'] ?? 0);
     $initialReferenceTryoutId = (int) old('reference_tryout_id', $requestData['reference_tryout_id'] ?? 0);
     $initialReferenceTryoutDetailId = (int) old('reference_tryout_detail_id', $requestData['reference_tryout_detail_id'] ?? 0);
+    $isTryoutGenerator = ($generatorMode ?? 'bank') === 'tryout';
+    $generatorTargetName = $isTryoutGenerator
+        ? ($tryoutDetail->tryout->name ?? 'Tryout') . ' · ' . strtoupper($tryoutDetail->type_subtest ?? 'Subtest')
+        : $bank->name;
+    $previewRoute = $isTryoutGenerator
+        ? route('admin.question.ai-generator.preview', $tryoutDetail)
+        : route('admin.question-bank.questions.ai-generator.preview', $bank->id);
+    $resetRoute = $isTryoutGenerator
+        ? route('admin.question.ai-generator.reset', $tryoutDetail)
+        : route('admin.question-bank.questions.ai-generator.reset', $bank->id);
+    $storeRoute = $isTryoutGenerator
+        ? route('admin.question.ai-generator.store', $tryoutDetail)
+        : route('admin.question-bank.questions.ai-generator.store', $bank->id);
+    $backRoute = $isTryoutGenerator
+        ? route('admin.question.index', $tryoutDetail)
+        : route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]);
+    $storageLabel = $isTryoutGenerator ? 'subtest ini' : 'Bank Soal';
 @endphp
 
 <div class="space-y-6">
     <div class="flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+            @if($isTryoutGenerator)
+            <a href="{{ route('admin.tryout.index') }}" class="text-primary hover:underline">Manajemen Tryout</a>
+            <i class="ri-arrow-right-s-line text-gray-400"></i>
+            <a href="{{ route('admin.question.index', $tryoutDetail) }}" class="text-primary hover:underline">Soal</a>
+            <i class="ri-arrow-right-s-line text-gray-400"></i>
+            <span>Generate AI</span>
+            @else
             <a href="{{ route('admin.question-bank.index', ['import_for' => $importTarget]) }}" class="text-primary hover:underline">Bank Soal</a>
             @foreach ($breadcrumbs as $item)
             <i class="ri-arrow-right-s-line text-gray-400"></i>
@@ -26,18 +50,19 @@
             @endforeach
             <i class="ri-arrow-right-s-line text-gray-400"></i>
             <span>Generate AI</span>
+            @endif
         </div>
         <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-primary">AI Question Generator</p>
-                <h1 class="text-2xl font-bold text-gray-900">Generate Soal untuk {{ $bank->name }}</h1>
+                <h1 class="text-2xl font-bold text-gray-900">Generate Soal untuk {{ $generatorTargetName }}</h1>
                 <p class="mt-1 max-w-3xl text-sm text-gray-500">
-                    Buat draft soal pilihan ganda, review hasilnya, lalu simpan ke Bank Soal jika sudah sesuai.
+                    Buat draft soal pilihan ganda, review hasilnya, lalu simpan ke {{ $storageLabel }} jika sudah sesuai.
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('admin.question-generator.quota.index') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-coin-line"></i> Kuota AI</a>
-                <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
+                <a href="{{ $backRoute }}"
                     class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                     <i class="ri-arrow-left-line"></i>
                     Kembali
@@ -48,8 +73,13 @@
 
     @if ($tryoutDetail)
     <div class="rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800">
+        @if($isTryoutGenerator)
+        Soal yang disimpan akan langsung masuk ke tryout <span class="font-semibold">{{ $tryoutDetail->tryout->name ?? '-' }}</span>
+        - subtest <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>.
+        @else
         Konteks import untuk tryout <span class="font-semibold">{{ $tryoutDetail->tryout->name ?? '-' }}</span>
         - subtest <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>.
+        @endif
     </div>
     @endif
 
@@ -78,7 +108,7 @@
                 <p class="text-sm text-gray-500">Generate bertahap 10-25 soal agar hasilnya mudah dicek.</p>
             </div>
 
-            <form action="{{ route('admin.question-bank.questions.ai-generator.preview', $bank->id) }}" method="POST" class="space-y-4">
+            <form action="{{ $previewRoute }}" method="POST" class="space-y-4">
                 @csrf
                 <fieldset class="space-y-4" @disabled($gatewayError)>
                 @if($importTarget)
@@ -87,15 +117,11 @@
 
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div>
-                    <label for="model" class="mb-1 block text-sm font-medium text-gray-700">Model AI</label>
-                    <select id="model" name="model" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                        @foreach($models as $modelId => $modelLabel)
-                        <option value="{{ $modelId }}" @selected(old('model', $requestData['model'] ?? $defaultModel) === $modelId)>
-                            {{ $modelLabel }}
-                        </option>
-                        @endforeach
-                    </select>
-                    <p class="mt-1 text-xs text-gray-500">Untuk saat ini opsi model dibatasi satu dulu supaya output stabil.</p>
+                    <p class="mb-1 text-sm font-medium text-gray-700">Model AI</p>
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700">
+                        {{ $models[$defaultModel] ?? $defaultModel }}
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Dipilih otomatis dari konfigurasi paket AI aktif.</p>
                 </div>
 
                 <div>
@@ -224,7 +250,7 @@
                 <div class="px-6 pt-6">
                     <h2 class="text-lg font-semibold text-gray-900">Preview Soal</h2>
                     <p class="text-sm text-gray-500">
-                        Edit teks jika perlu. Data belum masuk Bank Soal sebelum tombol simpan ditekan.
+                        Edit teks jika perlu. Data belum masuk {{ $storageLabel }} sebelum tombol simpan ditekan.
                     </p>
                 </div>
                 @if($previewQuestions->isNotEmpty())
@@ -233,7 +259,7 @@
                         <i class="ri-check-line"></i>
                         {{ $previewQuestions->count() }} soal siap direview
                     </span>
-                    <form action="{{ route('admin.question-bank.questions.ai-generator.reset', $bank->id) }}" method="POST" class="inline">
+                    <form action="{{ $resetRoute }}" method="POST" class="inline">
                         @csrf
                         @if($importTarget)
                         <input type="hidden" name="import_for" value="{{ $importTarget }}">
@@ -258,12 +284,11 @@
                 </p>
             </div>
             @else
-            <form id="aiPreviewStoreForm" action="{{ route('admin.question-bank.questions.ai-generator.store', $bank->id) }}" method="POST" class="space-y-4">
+            <form id="aiPreviewStoreForm" action="{{ $storeRoute }}" method="POST" class="space-y-4">
                 @csrf
                 @if($importTarget)
                 <input type="hidden" name="import_for" value="{{ $importTarget }}">
                 @endif
-                <input type="hidden" name="model" value="{{ $preview['model'] ?? $defaultModel }}">
                 <input type="hidden" id="questionsJson" name="questions_json">
 
                 <div class="border-y border-gray-100 bg-gray-50 px-6 py-4">
@@ -398,12 +423,12 @@
                 <div class="sticky bottom-0 -mx-6 mt-6 border-t border-gray-100 bg-white/95 px-6 py-4 backdrop-blur">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p class="text-xs text-gray-500">
-                            Soal valid yang disimpan akan masuk sebagai pilihan ganda dengan skor benar 1 dan salah 0.
+                            Soal valid yang disimpan akan masuk sebagai pilihan ganda dengan skor sesuai preview.
                         </p>
                         <button type="submit"
                             class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">
                             <i class="ri-save-3-line"></i>
-                            Simpan ke Bank Soal
+                            Simpan ke {{ $storageLabel }}
                         </button>
                     </div>
                 </div>
