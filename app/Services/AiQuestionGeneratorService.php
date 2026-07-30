@@ -23,7 +23,7 @@ class AiQuestionGeneratorService
         }
 
         try {
-            return Http::acceptJson()
+            $result = Http::acceptJson()
                 ->asJson()
                 ->timeout((int) config('services.ai_gateway.timeout', 120))
                 ->withHeaders(['X-AI-Gateway-Key' => $gatewayKey])
@@ -36,6 +36,12 @@ class AiQuestionGeneratorService
                 ])
                 ->throw()
                 ->json() ?? [];
+
+            if (is_array($result['questions'] ?? null)) {
+                $result['questions'] = $this->normalizeQuestions($result['questions']);
+            }
+
+            return $result;
         } catch (RequestException $exception) {
             $message = $exception->response?->json('message')
                 ?: $exception->response?->body()
@@ -270,6 +276,9 @@ Aturan:
 - Pembahasan harus menjelaskan alasan jawaban benar.
 - Jangan memasukkan nomor soal di awal teks soal.
 - Jangan gunakan markdown table.
+- Jika memakai rumus, gunakan LaTeX yang kompatibel dengan KaTeX. Gunakan hanya sintaks standar yang didukung seperti pecahan, akar, pangkat/indeks, relasi, himpunan, fungsi trigonometri/logaritma, matriks, dan simbol Yunani.
+- Simpan setiap rumus sebagai HTML persis: <span class="math-tex">\\( rumus_latex \\)</span>. Untuk rumus panjang, tetap gunakan pembungkus yang sama dan awali isi rumus dengan \\displaystyle.
+- Jangan gunakan delimiter $, $$, markdown math, atau perintah LaTeX yang tidak aman/tidak didukung seperti \\require, \\newcommand, \\def, \\gdef, \\htmlId, \\htmlClass, \\htmlStyle, atau \\includegraphics.
 PROMPT;
 
         if ($extraInstruction !== '') {
@@ -388,7 +397,7 @@ PROMPT;
                     ->map(function ($option, $index) use ($letters) {
                         return [
                             'label' => strtoupper((string) ($option['label'] ?? $letters[$index] ?? '')),
-                            'text' => trim((string) ($option['text'] ?? '')),
+                            'text' => $this->normalizeMathMarkup((string) ($option['text'] ?? '')),
                         ];
                     })
                     ->filter(fn ($option) => $option['label'] !== '' && $option['text'] !== '')
@@ -396,10 +405,10 @@ PROMPT;
                     ->all();
 
                 return [
-                    'question_text' => trim((string) ($question['question_text'] ?? '')),
+                    'question_text' => $this->normalizeMathMarkup((string) ($question['question_text'] ?? '')),
                     'options' => $options,
                     'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
-                    'explanation' => trim((string) ($question['explanation'] ?? '')),
+                    'explanation' => $this->normalizeMathMarkup((string) ($question['explanation'] ?? '')),
                 ];
             })
             ->filter(function ($question) {
@@ -409,6 +418,26 @@ PROMPT;
             })
             ->values()
             ->all();
+    }
+
+    private function normalizeMathMarkup(string $content): string
+    {
+        $content = trim($content);
+        if ($content === '' || str_contains($content, 'math-tex')) {
+            return $content;
+        }
+
+        $content = preg_replace_callback(
+            '#\\\\\\((.+?)\\\\\\)#s',
+            fn (array $matches): string => '<span class="math-tex">\\('.trim($matches[1]).'\\)</span>',
+            $content,
+        ) ?? $content;
+
+        return preg_replace_callback(
+            '#\\\\\\[(.+?)\\\\\\]#s',
+            fn (array $matches): string => '<span class="math-tex">\\(\\displaystyle '.trim($matches[1]).'\\)</span>',
+            $content,
+        ) ?? $content;
     }
 
     /** @param array<string, mixed> $usage */

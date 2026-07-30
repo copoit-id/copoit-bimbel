@@ -80,6 +80,22 @@
         CKEDITOR.config.resize_enabled = false;
         CKEDITOR.config.removeDialogTabs = 'image:advanced;link:advanced';
 
+        const removeLegacyCkeditorSecurityNotice = () => {
+            document.querySelectorAll('.cke_notification, .cke_notification_message').forEach((element) => {
+                const message = element.textContent || '';
+                if (!message.includes('This CKEditor 4.22.1') || !message.includes('not secure')) {
+                    return;
+                }
+
+                (element.closest('.cke_notification') || element).remove();
+            });
+        };
+
+        const ckeditorNoticeObserver = new MutationObserver(removeLegacyCkeditorSecurityNotice);
+        ckeditorNoticeObserver.observe(document.documentElement, { childList: true, subtree: true });
+        CKEDITOR.on('instanceReady', removeLegacyCkeditorSecurityNotice);
+        document.addEventListener('DOMContentLoaded', removeLegacyCkeditorSecurityNotice, { once: true });
+
         document.addEventListener('DOMContentLoaded', function () {
             initializeCKEditors();
 
