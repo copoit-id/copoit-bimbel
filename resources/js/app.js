@@ -1106,10 +1106,74 @@ const initializeAppDialog = () => {
         return false;
     };
 
-    // Legacy alert() calls now use the application dialog. Keep native confirm()
-    // untouched because it returns synchronously and must be migrated safely.
+    // Legacy alert() calls now use the application dialog.
     window.alert = (dialogMessage) => {
         window.appAlert(dialogMessage);
+    };
+
+    // Most legacy confirmations are called from an inline form/button handler.
+    // Native confirm() is synchronous, so cancel the first interaction, then
+    // replay that exact interaction after the asynchronous dialog is approved.
+    const nativeConfirm = window.confirm.bind(window);
+    let legacyConfirmationContext = null;
+    let bypassLegacyConfirmation = false;
+
+    const rememberLegacyConfirmationContext = (context) => {
+        legacyConfirmationContext = context;
+
+        queueMicrotask(() => {
+            if (legacyConfirmationContext === context) {
+                legacyConfirmationContext = null;
+            }
+        });
+    };
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const trigger = target?.closest('button, a, input[type="submit"], input[type="button"]');
+        if (trigger) {
+            rememberLegacyConfirmationContext({ type: 'click', trigger });
+        }
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+        rememberLegacyConfirmationContext({
+            type: 'submit',
+            form: event.target,
+            submitter: event.submitter || null,
+        });
+    }, true);
+
+    window.confirm = (dialogMessage) => {
+        if (bypassLegacyConfirmation) {
+            bypassLegacyConfirmation = false;
+            return true;
+        }
+
+        const context = legacyConfirmationContext;
+        if (!context) {
+            return nativeConfirm(dialogMessage);
+        }
+
+        window.appConfirm(dialogMessage, {
+            title: 'Konfirmasi',
+            confirmText: 'Ya, lanjutkan',
+            variant: 'warning',
+        }).then((confirmed) => {
+            if (!confirmed) {
+                return;
+            }
+
+            bypassLegacyConfirmation = true;
+            if (context.type === 'submit') {
+                context.form.requestSubmit(context.submitter || undefined);
+                return;
+            }
+
+            context.trigger.click();
+        });
+
+        return false;
     };
 };
 
