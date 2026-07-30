@@ -65,7 +65,7 @@
             data-status="{{ $tryout->start_date > now() ? 'akan_datang' : ($tryout->end_date < now() ? 'selesai' : 'aktif') }}">
             @php
                 $scoringLabel = $tryout->requiresIrtScoring()
-                    ? 'IRT UTBK'
+                    ? 'IRT'
                     : ($tryout->is_toefl ? 'TOEFL ITP' : null);
             @endphp
             <div class="flex items-center justify-between mb-3">
@@ -163,20 +163,20 @@
                     @if($canManualRelease)
                         @if($showResetButton)
                         <form action="{{ route('admin.tryout.reset-utbk', $tryout->tryout_id) }}" method="POST"
-                            onsubmit="return confirm('Reset skor UTBK? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.');">
+                            onsubmit="return confirm('Reset skor IRT? Nilai yang sudah rilis akan dihapus dan harus dirilis ulang.');">
                             @csrf
                             <button type="submit"
-                                title="Reset skor UTBK agar bisa dirilis ulang"
+                                title="Reset skor IRT agar bisa dirilis ulang"
                                 class="p-2 rounded-lg border border-red-400 text-red-500 text-sm flex items-center justify-center hover:bg-red-500 hover:text-white">
                                 <i class="ri-refresh-line text-base"></i>
                             </button>
                         </form>
                         @elseif($showReleaseButton)
                         <form action="{{ route('admin.tryout.release-utbk', $tryout->tryout_id) }}" method="POST"
-                            onsubmit="return confirm('Rilis hasil UTBK sekarang? Pastikan semua peserta sudah selesai.');">
+                            onsubmit="return confirm('Rilis hasil IRT sekarang? Pastikan semua peserta sudah selesai.');">
                             @csrf
                             <button type="submit"
-                                title="Rilis nilai UTBK secara manual"
+                                title="Rilis nilai IRT secara manual"
                                 class="p-2 rounded-lg border border-primary text-primary text-sm flex items-center justify-center hover:bg-primary hover:text-white">
                                 <i class="ri-sparkling-line text-base"></i>
                             </button>

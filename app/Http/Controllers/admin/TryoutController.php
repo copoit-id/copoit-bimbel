@@ -233,7 +233,9 @@ class TryoutController extends Controller
         }
 
         $request->validate($this->tryoutValidationRules($tryout->type_tryout));
-        $scoringMethod = $this->normalizedScoringMethod($request);
+        // Metode scoring dikunci sejak tryout dibuat agar perubahan konfigurasi
+        // tidak mengubah arti nilai dan riwayat hasil peserta.
+        $scoringMethod = $this->storedScoringMethod($tryout);
         $saleData = $this->individualSaleData($request);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
@@ -770,10 +772,6 @@ class TryoutController extends Controller
             $method = 'irt_utbk';
         }
 
-        if ($method === 'irt_utbk' && $request->type_tryout !== 'utbk_full') {
-            return 'normal';
-        }
-
         if ($method === 'toefl_itp' && ! in_array($request->type_tryout, ['certification', 'listening', 'reading', 'writing'], true)) {
             return 'normal';
         }
@@ -781,6 +779,19 @@ class TryoutController extends Controller
         return in_array($method, ['normal', 'irt_utbk', 'toefl_itp'], true)
             ? $method
             : 'normal';
+    }
+
+    private function storedScoringMethod(Tryout $tryout): string
+    {
+        if (in_array($tryout->scoring_method, ['normal', 'irt_utbk', 'toefl_itp'], true)) {
+            return $tryout->scoring_method;
+        }
+
+        if ($tryout->scoring_method === 'irt' || $tryout->is_irt) {
+            return 'irt_utbk';
+        }
+
+        return $tryout->is_toefl ? 'toefl_itp' : 'normal';
     }
 
     private function storeTryoutThumbnail(Request $request): ?string
@@ -1513,28 +1524,28 @@ class TryoutController extends Controller
     public function releaseUtbk(Tryout $tryout, UtbkResultReleaseService $service)
     {
         if (! $tryout->requiresIrtScoring()) {
-            return redirect()->back()->with('error', 'Tryout ini tidak menggunakan IRT UTBK.');
+            return redirect()->back()->with('error', 'Tryout ini tidak menggunakan IRT.');
         }
 
         $released = $service->releaseForTryout($tryout);
 
         return redirect()->back()->with(
             $released ? 'success' : 'info',
-            $released ? 'Hasil UTBK berhasil dirilis.' : 'Tidak ada jawaban pending untuk dirilis.'
+            $released ? 'Hasil IRT berhasil dirilis.' : 'Tidak ada jawaban pending untuk dirilis.'
         );
     }
 
     public function resetUtbk(Tryout $tryout, UtbkResultReleaseService $service)
     {
         if (! $tryout->requiresIrtScoring()) {
-            return redirect()->back()->with('error', 'Tryout ini tidak menggunakan IRT UTBK.');
+            return redirect()->back()->with('error', 'Tryout ini tidak menggunakan IRT.');
         }
 
         $reset = $service->resetResults($tryout);
 
         return redirect()->back()->with(
             $reset ? 'success' : 'info',
-            $reset ? 'Skor UTBK berhasil di-reset. Silakan rilis ulang.' : 'Tidak ada skor UTBK yang bisa di-reset.'
+            $reset ? 'Skor IRT berhasil di-reset. Silakan rilis ulang.' : 'Tidak ada skor IRT yang bisa di-reset.'
         );
     }
 }

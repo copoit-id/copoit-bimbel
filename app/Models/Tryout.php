@@ -48,8 +48,9 @@ class Tryout extends Model
 
     public function requiresIrtScoring(): bool
     {
-        return $this->type_tryout === 'utbk_full'
-            && ($this->scoring_method === 'irt_utbk' || $this->scoring_method === 'irt' || $this->is_irt);
+        return $this->scoring_method === 'irt_utbk'
+            || $this->scoring_method === 'irt'
+            || $this->is_irt;
     }
 
     public function hasReleasedUtbk(): bool

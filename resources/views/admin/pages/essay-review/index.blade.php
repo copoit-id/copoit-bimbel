@@ -110,7 +110,7 @@
             @php
                 $tryout = $row['tryout'];
                 $scoringLabel = $tryout->requiresIrtScoring()
-                    ? 'IRT UTBK'
+                    ? 'IRT'
                     : ($tryout->is_toefl ? 'TOEFL ITP' : null);
             @endphp
             <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200">

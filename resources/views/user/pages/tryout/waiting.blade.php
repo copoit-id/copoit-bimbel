@@ -1,6 +1,6 @@
 @extends('user.layout.tryout')
 
-@section('title', 'Menunggu Hasil UTBK')
+@section('title', 'Menunggu Hasil IRT')
 
 @section('content')
 <div class="min-h-screen flex items-center justify-center py-16 px-4">
@@ -9,10 +9,10 @@
             <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                 <i class="ri-timer-line text-2xl text-primary"></i>
             </div>
-            <h1 class="text-2xl font-semibold text-gray-900">Nilai UTBK Sedang Diproses</h1>
+            <h1 class="text-2xl font-semibold text-gray-900">Nilai IRT Sedang Diproses</h1>
             <p class="text-sm uppercase tracking-wide text-gray-500">{{ $tryout->name }}</p>
             <p class="text-gray-600 leading-relaxed">
-                Terima kasih telah menyelesaikan tryout UTBK. Sistem sedang menunggu seluruh peserta menyelesaikan ujian
+                Terima kasih telah menyelesaikan tryout. Sistem sedang menunggu seluruh peserta menyelesaikan ujian
                 untuk menghitung skor IRT. Nilai Anda akan otomatis muncul setelah periode tryout berakhir.
             </p>
             <div class="bg-primary/5 border border-primary/20 rounded-xl p-4 w-full">

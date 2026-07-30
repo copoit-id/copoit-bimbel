@@ -10,6 +10,7 @@
     $storedScoringMethod = isset($tryout) ? ($tryout->scoring_method ?? null) : null;
     $storedScoringMethod = $storedScoringMethod === 'irt' ? 'irt_utbk' : $storedScoringMethod;
     $selectedScoringMethod = old('scoring_method', $storedScoringMethod ?? (isset($tryout) && $tryout->is_irt ? 'irt_utbk' : (isset($tryout) && $tryout->is_toefl ? 'toefl_itp' : 'normal')));
+    $isScoringMethodLocked = isset($tryout);
     $selectedAccessDurationUnit = old('access_duration_unit', $tryout->access_duration_unit ?? 'forever');
     $selectedAccessDurationValue = old('access_duration_value', $tryout->access_duration_value ?? 1);
     $answerMode = old('answer_persistence_mode', $tryout->answer_persistence_mode ?? 'client_side');
@@ -381,14 +382,22 @@
                     <div class="md:col-span-2">
                         <label for="scoring_method" class="block text-sm font-medium text-gray-700 mb-2">
                             Metode Scoring
-                            <x-ui.tooltip>Metode scoring disimpan di tryout. Field lama IRT/TOEFL tetap disinkronkan otomatis.</x-ui.tooltip>
+                            <x-ui.tooltip>Metode scoring hanya dapat dipilih saat membuat tryout agar arti nilai dan riwayat hasil peserta tetap konsisten.</x-ui.tooltip>
                         </label>
+                        @if($isScoringMethodLocked)
+                            <input type="hidden" name="scoring_method" value="{{ $selectedScoringMethod }}">
+                        @endif
                         <select id="scoring_method" name="scoring_method"
+                            data-locked="{{ $isScoringMethodLocked ? 'true' : 'false' }}"
+                            @disabled($isScoringMethodLocked)
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             <option value="normal" @selected($selectedScoringMethod === 'normal')>Normal</option>
-                            <option value="irt_utbk" data-type="utbk_full" @selected($selectedScoringMethod === 'irt_utbk')>IRT UTBK</option>
+                            <option value="irt_utbk" @selected($selectedScoringMethod === 'irt_utbk')>IRT (Skala 0 - 1000)</option>
                             <option value="toefl_itp" data-type="certification,listening,reading,writing" @selected($selectedScoringMethod === 'toefl_itp')>TOEFL ITP</option>
                         </select>
+                        @if($isScoringMethodLocked)
+                            <p class="mt-1 text-xs text-gray-500">Metode scoring dikunci setelah tryout dibuat.</p>
+                        @endif
                         <p id="scoringMethodNotice" class="hidden text-xs text-amber-600 mt-1"></p>
                     </div>
                 </div>
@@ -969,6 +978,7 @@
       const typeSelect = root.querySelector('#type_tryout');
       const configSections = root.querySelectorAll('.config-section');
       const scoringMethodSelect = root.querySelector('#scoring_method');
+      const scoringMethodLocked = scoringMethodSelect?.dataset.locked === 'true';
       const scoringMethodNotice = root.querySelector('#scoringMethodNotice');
       const answerModeSelect = root.querySelector('#answer_persistence_mode');
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
@@ -1031,9 +1041,13 @@
       if (!scoringMethodSelect) return;
 
       const optionRules = {
-        irt_utbk: ['utbk_full'],
         toefl_itp: ['certification', 'listening', 'reading', 'writing']
       };
+
+      if (scoringMethodLocked) {
+        scoringMethodNotice?.classList.add('hidden');
+        return;
+      }
       const currentValue = scoringMethodSelect.value;
       let currentIsAllowed = true;
 
@@ -1053,8 +1067,8 @@
 
       if (!scoringMethodNotice) return;
 
-      if (selectedType === 'utbk_full') {
-        scoringMethodNotice.textContent = 'IRT UTBK tersedia untuk UTBK TPS Full.';
+      if (scoringMethodSelect.value === 'irt_utbk') {
+        scoringMethodNotice.textContent = 'IRT menggunakan skala skor 0 - 1000 untuk setiap subtest.';
         scoringMethodNotice.classList.remove('hidden');
       } else if (optionRules.toefl_itp.includes(selectedType)) {
         scoringMethodNotice.textContent = 'TOEFL ITP tersedia untuk Certification Full dan section TOEFL.';
