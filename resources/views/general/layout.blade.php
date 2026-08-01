@@ -76,6 +76,10 @@
                     Artikel
                 </a>
                 @endif
+                <a href="{{ route('ai-learning-tools') }}"
+                    class="rounded-lg px-3 py-2 {{ request()->routeIs('ai-learning-tools') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
+                    AI Learning
+                </a>
                 @if($showTryoutNav)
                 <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
                     class="rounded-lg px-3 py-2 hover:bg-slate-100 {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'bg-primary text-white' : '' }}">
@@ -142,6 +146,10 @@
                 Artikel
             </a>
             @endif
+            <a href="{{ route('ai-learning-tools') }}"
+                class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('ai-learning-tools') ? 'bg-primary text-white' : 'bg-white' }}">
+                AI Learning
+            </a>
             @if($showTryoutNav)
             <a href="{{ route('user.package.tryout.list', ['layout' => 'landing']) }}"
                 class="whitespace-nowrap rounded-lg px-3 py-2 {{ request()->routeIs('user.package.tryout.list', 'user.tryout.*', 'user.package.tryout.*') ? 'bg-primary text-white' : 'bg-white' }}">
@@ -179,6 +187,7 @@
                 @if($showArticlesNav)
                     <a href="{{ route('articles.index') }}" class="hover:text-primary">Artikel</a>
                 @endif
+                <a href="{{ route('ai-learning-tools') }}" class="hover:text-primary">AI Learning</a>
                 <a href="{{ route('login') }}" class="hover:text-primary">Login</a>
             </div>
         </div>

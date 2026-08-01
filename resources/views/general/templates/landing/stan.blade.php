@@ -686,6 +686,99 @@
             overflow: hidden;
         }
 
+        .stan-ai-section {
+            position: relative;
+            isolation: isolate;
+            background:
+                radial-gradient(circle at 10% 16%, color-mix(in srgb, var(--stan-primary) 58%, transparent), transparent 28%),
+                radial-gradient(circle at 88% 82%, rgba(213, 168, 63, .24), transparent 27%),
+                linear-gradient(135deg, #091426 0%, var(--stan-navy) 54%, #121b31 100%);
+        }
+
+        .stan-ai-section::before {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+            background-size: 2.5rem 2.5rem;
+            mask-image: linear-gradient(to bottom, transparent, black 14%, black 86%, transparent);
+            content: "";
+        }
+
+        .stan-ai-orb {
+            position: absolute;
+            z-index: -1;
+            border: 1px solid rgba(255, 255, 255, .11);
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        .stan-ai-orb-one {
+            top: -10rem;
+            right: -8rem;
+            width: 31rem;
+            height: 31rem;
+            box-shadow: inset 0 0 90px rgba(213, 168, 63, .08);
+            animation: stan-ai-orbit 18s linear infinite;
+        }
+
+        .stan-ai-orb-two {
+            bottom: -14rem;
+            left: -10rem;
+            width: 29rem;
+            height: 29rem;
+            border-color: color-mix(in srgb, var(--stan-primary) 45%, transparent);
+            animation: stan-ai-orbit 24s linear reverse infinite;
+        }
+
+        .stan-ai-feature {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stan-ai-feature::after {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #fcd34d, color-mix(in srgb, var(--stan-primary) 80%, #fff));
+            content: "";
+        }
+
+        .stan-ai-workspace {
+            position: relative;
+        }
+
+        .stan-ai-workspace::before {
+            position: absolute;
+            inset: -1.25rem;
+            z-index: -1;
+            border-radius: 2.6rem;
+            background: radial-gradient(circle, color-mix(in srgb, var(--stan-primary) 45%, transparent), transparent 67%);
+            filter: blur(20px);
+            content: "";
+        }
+
+        .stan-ai-scan {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stan-ai-scan::after {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: -35%;
+            width: 28%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .58), transparent);
+            transform: skewX(-24deg);
+            animation: stan-ai-scan 5s ease-in-out infinite;
+            content: "";
+        }
+
         .stan-reveal {
             opacity: 0;
             transform: translateY(22px);
@@ -713,6 +806,15 @@
 
         @keyframes stan-marquee {
             to { transform: translateX(-50%); }
+        }
+
+        @keyframes stan-ai-orbit {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes stan-ai-scan {
+            0%, 18% { left: -35%; }
+            55%, 100% { left: 112%; }
         }
 
         @media (max-width: 960px) {
@@ -842,6 +944,7 @@
             <nav class="hidden items-center gap-7 text-[13px] font-semibold text-slate-600 lg:flex" aria-label="Navigasi utama">
                 <a href="#keunggulan" class="transition-colors hover:text-primary">Keunggulan</a>
                 <a href="#roadmap" class="transition-colors hover:text-primary">Roadmap</a>
+                <a href="#ai-learning" class="transition-colors hover:text-primary">AI Learning</a>
                 <a href="#program" class="transition-colors hover:text-primary">Program</a>
                 <a href="#testimoni" class="transition-colors hover:text-primary">Testimoni</a>
                 <a href="#faq" class="transition-colors hover:text-primary">FAQ</a>
@@ -868,6 +971,7 @@
             <nav class="mx-auto flex max-w-6xl flex-col gap-1 text-sm font-semibold text-slate-700" aria-label="Navigasi seluler">
                 <a href="#keunggulan" class="rounded-xl px-3 py-3 hover:bg-slate-50">Keunggulan</a>
                 <a href="#roadmap" class="rounded-xl px-3 py-3 hover:bg-slate-50">Roadmap</a>
+                <a href="#ai-learning" class="rounded-xl px-3 py-3 hover:bg-slate-50">AI Learning</a>
                 <a href="#program" class="rounded-xl px-3 py-3 hover:bg-slate-50">Program</a>
                 <a href="#testimoni" class="rounded-xl px-3 py-3 hover:bg-slate-50">Testimoni</a>
                 <a href="#faq" class="rounded-xl px-3 py-3 hover:bg-slate-50">FAQ</a>
@@ -1098,6 +1202,104 @@
                             <p class="mt-3 text-xs font-medium leading-6 text-slate-400">{{ $step[2] }}</p>
                         </article>
                     @endforeach
+                </div>
+            </div>
+        </section>
+
+        <section id="ai-learning" class="stan-ai-section overflow-hidden py-20 text-white sm:py-28">
+            <span class="stan-ai-orb stan-ai-orb-one" aria-hidden="true"></span>
+            <span class="stan-ai-orb stan-ai-orb-two" aria-hidden="true"></span>
+            <div class="stan-shell relative">
+                <div class="mx-auto max-w-3xl text-center stan-reveal">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[.16em] text-amber-200">
+                        <i class="ri-sparkling-2-line text-sm"></i>
+                        AI Learning Tools
+                    </span>
+                    <h2 class="mt-5 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">
+                        Belajar lebih cerdas, bukan sekadar lebih lama.
+                    </h2>
+                    <p class="mx-auto mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-300 sm:text-base">
+                        Ubah materi dan soal seleksi STAN menjadi catatan, flashcard, serta latihan yang membantu kamu memahami pola soal dengan lebih terarah.
+                    </p>
+                    <div class="mt-6 flex flex-wrap justify-center gap-2 text-[10px] font-extrabold uppercase tracking-[.12em] text-slate-300">
+                        <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> Catatan cerdas</span>
+                        <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> Flashcard aktif</span>
+                        <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> Soal serupa</span>
+                    </div>
+                </div>
+
+                <div class="mt-12 grid items-center gap-10 lg:grid-cols-[.9fr_1.1fr] lg:gap-14">
+                    <div class="space-y-4 stan-reveal">
+                        @foreach([
+                            ['ri-sticky-note-line', 'Ringkas konsep penting', 'Jadikan materi panjang sebagai catatan belajar yang runtut dan mudah diulang.'],
+                            ['ri-stack-line', 'Latih ingatan aktif', 'Buat flashcard dari rumus, istilah, atau pola soal yang perlu kamu kuasai.'],
+                            ['ri-file-add-line', 'Perbanyak latihan terarah', 'Dapatkan soal serupa untuk menguji pemahaman sebelum tryout berikutnya.'],
+                        ] as $aiFeature)
+                            <article class="stan-ai-feature flex gap-4 rounded-3xl border border-white/10 bg-white/[.07] p-5 pl-6 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-amber-300/30 hover:bg-white/[.1]">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-400/15 text-xl text-amber-300">
+                                    <i class="{{ $aiFeature[0] }}"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-extrabold text-white">{{ $aiFeature[1] }}</h3>
+                                    <p class="mt-1 text-xs font-medium leading-6 text-slate-300">{{ $aiFeature[2] }}</p>
+                                </div>
+                            </article>
+                        @endforeach
+
+                        <div class="flex flex-col gap-3 pt-3 sm:flex-row">
+                            <a href="{{ route('user.ai-learning.index', ['tool' => 'note']) }}" class="stan-btn min-h-[3.25rem] bg-amber-400 px-6 text-[var(--stan-navy)] shadow-xl shadow-black/20 hover:bg-amber-300">
+                                Coba AI Learning <i class="ri-arrow-right-line"></i>
+                            </a>
+                            <a href="{{ route('ai-learning-tools') }}" class="stan-btn min-h-[3.25rem] border-white/20 bg-white/10 px-6 text-white hover:bg-white/20">
+                                Lihat cara kerjanya <i class="ri-external-link-line"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="stan-ai-workspace relative mx-auto w-full max-w-xl stan-reveal">
+                        <div class="overflow-hidden rounded-[2rem] border border-white/15 bg-white p-3 shadow-[0_28px_80px_rgba(0,0,0,.35)] sm:p-5">
+                            <div class="rounded-[1.4rem] bg-slate-50 p-4 text-slate-900 sm:p-5">
+                                <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="grid h-10 w-10 place-items-center rounded-xl bg-[var(--stan-primary)] text-xl text-white shadow-lg shadow-slate-300"><i class="ri-sparkling-2-line"></i></span>
+                                        <div>
+                                            <p class="text-sm font-extrabold">AI Study Station</p>
+                                            <p class="text-[10px] font-medium text-slate-400">Ruang belajar personalmu</p>
+                                        </div>
+                                    </div>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">Siap belajar</span>
+                                </div>
+                                <div class="mt-5 grid grid-cols-[auto_1fr] gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <span class="grid h-9 w-9 place-items-center rounded-full bg-[var(--stan-primary)] text-sm font-black text-white">1</span>
+                                        <span class="my-1 h-12 w-px bg-amber-200"></span>
+                                        <span class="grid h-9 w-9 place-items-center rounded-full bg-slate-200 text-sm font-black text-slate-500">2</span>
+                                    </div>
+                                    <div class="space-y-4">
+                                        <div class="stan-ai-scan">
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-[var(--stan-primary)]">Masukkan materi atau soal</p>
+                                            <div class="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold leading-5 text-slate-600">"Jelaskan strategi menyelesaikan soal deret angka secara cepat dan sistematis."</div>
+                                        </div>
+                                        <div>
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Pilih hasil yang kamu butuhkan</p>
+                                            <div class="mt-2 flex flex-wrap gap-2">
+                                                <span class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-[10px] font-bold text-blue-700"><i class="ri-sticky-note-line mr-1"></i>Catatan</span>
+                                                <span class="rounded-lg bg-violet-50 px-2.5 py-1.5 text-[10px] font-bold text-violet-700"><i class="ri-stack-line mr-1"></i>Flashcard</span>
+                                                <span class="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[10px] font-bold text-amber-700"><i class="ri-file-add-line mr-1"></i>Soal</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-5 flex items-center justify-between rounded-2xl bg-[var(--stan-primary)] p-4 text-white">
+                                    <div>
+                                        <p class="text-[10px] font-bold uppercase tracking-wide text-amber-100">Hasilmu siap</p>
+                                        <p class="mt-1 text-sm font-extrabold">Belajar jadi lebih terstruktur</p>
+                                    </div>
+                                    <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-2xl text-amber-200"><i class="ri-arrow-right-up-line"></i></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

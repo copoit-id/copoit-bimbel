@@ -61,6 +61,14 @@ class GeneralPageController extends Controller
         ]);
     }
 
+    /**
+     * Display the public introduction to the AI Learning Tools.
+     */
+    public function aiLearningTools(): View
+    {
+        return view('general.ai-learning-tools');
+    }
+
     public function statistics()
     {
         return $this->statisticsView('snbp');
