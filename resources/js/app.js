@@ -905,6 +905,10 @@ const initializeDateInputs = () => {
             },
             render() {
                 popover.replaceChildren();
+                popover.classList.toggle(
+                    'app-date-picker--year-picker',
+                    instance.state.viewMode === 'year',
+                );
 
                 if (instance.state.viewMode === 'year') {
                     popover.appendChild(renderYearPicker(instance));
