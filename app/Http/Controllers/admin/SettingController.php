@@ -139,6 +139,9 @@ class SettingController extends Controller
             'footer_twitter' => ['nullable', 'string', 'max:255'],
             'footer_youtube' => ['nullable', 'string', 'max:255'],
             'participant_destination_api_enabled' => ['nullable', 'boolean'],
+            'website_translation_enabled' => ['nullable', 'boolean'],
+            'website_translation_locales' => ['nullable', 'array'],
+            'website_translation_locales.*' => ['string', 'in:en,zh-CN'],
             'ai_openai_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_openai_base_url' => ['nullable', 'url', 'max:255'],
             'ai_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
@@ -409,6 +412,12 @@ class SettingController extends Controller
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['participant_destination_api_enabled'] = $request->boolean('participant_destination_api_enabled');
+        $validated['website_translation_enabled'] = $request->boolean('website_translation_enabled');
+        $validated['website_translation_locales'] = collect($validated['website_translation_locales'] ?? [])
+            ->filter(fn ($locale) => in_array($locale, ['en', 'zh-CN'], true))
+            ->unique()
+            ->values()
+            ->all();
         $validated['enable_utbk_types'] = false;
         unset(
             $validated['ai_question_generator_enabled'],

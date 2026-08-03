@@ -112,6 +112,8 @@ class AppServiceProvider extends ServiceProvider
             'recurring_bill_menu_enabled' => false,
             'tutor_chat_enabled' => false,
             'participant_destination_api_enabled' => false,
+            'website_translation_enabled' => true,
+            'website_translation_locales' => ['en', 'zh-CN'],
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -178,6 +180,10 @@ class AppServiceProvider extends ServiceProvider
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
             $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
+            $defaults['website_translation_enabled'] = (bool) ($clientProfile->website_translation_enabled ?? $defaults['website_translation_enabled']);
+            $defaults['website_translation_locales'] = is_array($clientProfile->website_translation_locales)
+                ? $clientProfile->website_translation_locales
+                : $defaults['website_translation_locales'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }

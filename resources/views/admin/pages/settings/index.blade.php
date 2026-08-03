@@ -26,6 +26,8 @@
     $activeSettingsTab = 'visual';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
+    } elseif (collect($settingErrorKeys)->intersect(['website_translation_enabled', 'website_translation_locales'])->isNotEmpty()) {
+    $activeSettingsTab = 'language';
     } elseif (collect($settingErrorKeys)->intersect([
     'payment_mode',
     'payment_bank_name',
@@ -100,6 +102,10 @@
                 <button type="button" data-settings-tab="ui"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ui' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Preferensi UI
+                </button>
+                <button type="button" data-settings-tab="language"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'language' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Bahasa
                 </button>
                 <button type="button" data-settings-tab="payment"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'payment' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
@@ -289,6 +295,62 @@
                     </div>
                 </label>
             </div>
+        </div>
+
+        <div data-settings-panel="language"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'language' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Bahasa</p>
+                <h2 class="text-xl font-semibold text-gray-900">Terjemahan Otomatis Halaman</h2>
+                <p class="text-gray-500 text-sm">Sediakan pilihan bahasa pada seluruh halaman tanpa menerjemahkan setiap teks secara manual.</p>
+            </div>
+            @php
+                $websiteTranslationEnabled = old(
+                    'website_translation_enabled',
+                    $profile->website_translation_enabled ?? ($branding['website_translation_enabled'] ?? true)
+                );
+                $websiteTranslationLocales = old(
+                    'website_translation_locales',
+                    $profile->website_translation_locales ?? ($branding['website_translation_locales'] ?? ['en', 'zh-CN'])
+                );
+                $websiteTranslationLocales = is_array($websiteTranslationLocales) ? $websiteTranslationLocales : [];
+            @endphp
+            <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                <input type="checkbox" name="website_translation_enabled" value="1"
+                    class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                    @checked((bool) $websiteTranslationEnabled)>
+                <div>
+                    <p class="font-semibold text-gray-900">Aktifkan pilihan bahasa</p>
+                    <p class="text-xs text-gray-500">User dapat memilih bahasa dari tombol di sudut kanan bawah pada setiap halaman.</p>
+                </div>
+            </label>
+            <div>
+                <p class="text-sm font-medium text-gray-900">Bahasa yang tersedia</p>
+                <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="en"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('en', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">English</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis dari Bahasa Indonesia ke English.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="zh-CN"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('zh-CN', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Mandarin (Simplified)</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke 中文（简体）.</p>
+                        </div>
+                    </label>
+                </div>
+                <p class="mt-3 text-xs text-gray-500">Form, editor, dan rumus matematika tidak diubah agar input dan fungsi tryout tetap aman.</p>
+            </div>
+            @error('website_translation_locales')
+                <p class="text-xs text-red-500">{{ $message }}</p>
+            @enderror
         </div>
 
         <div data-settings-panel="payment"

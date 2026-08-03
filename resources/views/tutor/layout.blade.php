@@ -9,6 +9,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800">
     @php
@@ -50,5 +51,6 @@
     </main>
     @vite('resources/js/app.js')
     @stack('scripts')
+    <x-website-translator />
 </body>
 </html>

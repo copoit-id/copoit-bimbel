@@ -9,6 +9,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet" />
 </head>
 
@@ -64,6 +65,7 @@
             </div>
         </div>
     </footer>
+    <x-website-translator />
 </body>
 
 </html>
