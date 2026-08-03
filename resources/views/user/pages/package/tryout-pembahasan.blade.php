@@ -819,12 +819,6 @@
                             class="ai-discussion-input min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                             maxlength="1200"
                             placeholder="Contoh: jelaskan kenapa opsi B benar">
-                        <button type="button"
-                            class="ai-discussion-voice inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Tanya dengan suara">
-                            <i class="ri-mic-line text-lg"></i>
-                            <span class="sr-only">Tanya dengan suara</span>
-                        </button>
                         <button type="submit"
                             class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
                             <i class="ri-send-plane-2-line"></i>
@@ -1043,7 +1037,7 @@
                             </section>
                         </div>
 
-                        <div class="mt-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="ai-learning-generate-area mt-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
                             <div><p class="ai-learning-action-title text-sm font-semibold text-gray-900">Siap membuat hasil baru?</p><p class="ai-learning-action-copy mt-0.5 text-xs text-gray-500">Hanya klik tombol ini yang memakai kuota AI. Riwayat tetap gratis dibuka.</p></div>
                             <button type="button" class="ai-learning-generate inline-flex min-w-60 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-sparkling-2-line text-base"></i><span class="ai-learning-generate-label">Buat Catatan Materi Sekarang</span></button>
                         </div>
@@ -1246,6 +1240,11 @@
     const aiLearningQuestionSettings = aiLearningToolsModal?.querySelector('.ai-question-settings');
     const aiLearningActionTitle = aiLearningToolsModal?.querySelector('.ai-learning-action-title');
     const aiLearningActionCopy = aiLearningToolsModal?.querySelector('.ai-learning-action-copy');
+    const aiLearningGenerateArea = aiLearningToolsModal?.querySelector('.ai-learning-generate-area');
+    const aiVoiceTutorMessages = aiLearningToolsModal?.querySelector('.ai-voice-tutor-messages');
+    const aiVoiceTutorStatus = aiLearningToolsModal?.querySelector('.ai-voice-tutor-status');
+    const aiVoiceTutorStartButton = aiLearningToolsModal?.querySelector('.ai-voice-tutor-start');
+    const aiVoiceTutorStopButton = aiLearningToolsModal?.querySelector('.ai-voice-tutor-stop');
     const aiFlashcardPreviewModal = document.getElementById('ai-flashcard-preview-modal');
     const aiFlashcardPreviewContent = aiFlashcardPreviewModal?.querySelector('.ai-flashcard-preview-content');
     const aiFlashcardPreviewTitle = aiFlashcardPreviewModal?.querySelector('.ai-flashcard-preview-title');
@@ -1277,12 +1276,18 @@
     }
 
     function updateAiLearningGenerateAction() {
+        const isVoiceTool = activeAiLearningTool === 'voice';
         const isQuestionTool = activeAiLearningTool === 'question';
         const showQuestionSettings = isQuestionTool && aiLearningQuestionSettingsOpen;
         const questionQuotaUnavailable = showQuestionSettings && Boolean(aiLearningQuestionCount?.disabled);
 
+        aiLearningGenerateArea?.classList.toggle('hidden', isVoiceTool);
         aiLearningQuestionSettings?.classList.toggle('hidden', !showQuestionSettings);
         aiLearningQuestionSettings?.setAttribute('aria-hidden', showQuestionSettings ? 'false' : 'true');
+
+        if (isVoiceTool) {
+            return;
+        }
 
         if (isQuestionTool && !showQuestionSettings) {
             if (aiLearningGenerateLabel) aiLearningGenerateLabel.textContent = 'Buat Soal Serupa';
@@ -1318,8 +1323,12 @@
             panel.classList.toggle('hidden', panel.dataset.toolPanel !== tool);
         });
         updateAiLearningGenerateAction();
-        showAiLearningResult(aiLearningResultByTool.get(tool) || '', tool);
-        if (activeAiLearningQuestionId) loadAiLearningHistory();
+        showAiLearningResult(tool === 'voice' ? '' : (aiLearningResultByTool.get(tool) || ''), tool);
+        if (tool === 'voice') {
+            renderAiVoiceTutorHistory();
+        } else if (activeAiLearningQuestionId) {
+            loadAiLearningHistory();
+        }
     }
 
     function showAiLearningResult(html, tool = activeAiLearningTool) {
@@ -1386,17 +1395,21 @@
         }
     }
 
-    function openAiLearningToolsModal(questionId) {
+    function openAiLearningToolsModal(questionId, requestedTool = null) {
+        if (activeAiLearningQuestionId && activeAiLearningQuestionId !== questionId) {
+            stopAiVoiceTutorSession();
+        }
         activeAiLearningQuestionId = questionId;
         aiLearningQuestionSettingsOpen = false;
         aiLearningError?.classList.add('hidden');
         aiLearningResultByTool.clear();
-        selectAiLearningTool(activeAiLearningTool);
+        selectAiLearningTool(requestedTool || activeAiLearningTool);
         aiLearningToolsModal?.classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
     }
 
     function closeAiLearningToolsModal() {
+        stopAiVoiceTutorSession();
         closeAiLearningResultModal();
         closeAiFlashcardPreviewModal();
         aiLearningToolsModal?.classList.add('hidden');
@@ -1419,10 +1432,248 @@
         aiFlashcardPreviewContent?.replaceChildren();
     }
 
+    const VoiceTutorRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let aiVoiceTutorRecognition = null;
+    let aiVoiceTutorVad = null;
+    let aiVoiceTutorActive = false;
+    let aiVoiceTutorProcessing = false;
+    let aiVoiceTutorAudioPlaying = false;
+    let aiVoiceTutorFinalTranscript = '';
+    let aiVoiceTutorSendTimer = null;
+    let aiVoiceTutorLiveBubble = null;
+
+    function setAiVoiceTutorStatus(message) {
+        if (aiVoiceTutorStatus) aiVoiceTutorStatus.textContent = message;
+    }
+
+    function renderAiVoiceTutorHistory() {
+        if (!aiVoiceTutorMessages || !activeAiLearningQuestionId) return;
+
+        aiVoiceTutorMessages.innerHTML = '';
+        const history = aiDiscussionHistoryByQuestion[activeAiLearningQuestionId] || [];
+        if (history.length === 0) {
+            appendAiDiscussionMessage(aiVoiceTutorMessages, 'Ceritakan bagian yang bikin mentok—aku bantu urut dari situ.', 'ai');
+            return;
+        }
+
+        history.forEach((entry) => {
+            appendAiDiscussionMessage(aiVoiceTutorMessages, entry.user_message, 'user');
+            appendAiDiscussionMessage(aiVoiceTutorMessages, entry.assistant_message, 'ai', entry.id);
+        });
+    }
+
+    function clearAiVoiceTutorPendingSend() {
+        if (aiVoiceTutorSendTimer) window.clearTimeout(aiVoiceTutorSendTimer);
+        aiVoiceTutorSendTimer = null;
+    }
+
+    function renderAiVoiceTutorLiveTranscript(text) {
+        if (!aiVoiceTutorMessages) return;
+        if (!aiVoiceTutorLiveBubble) {
+            aiVoiceTutorLiveBubble = document.createElement('div');
+            aiVoiceTutorLiveBubble.className = 'ml-auto max-w-[88%] rounded-xl bg-primary/10 px-3 py-2 text-sm italic text-primary';
+            aiVoiceTutorMessages.appendChild(aiVoiceTutorLiveBubble);
+        }
+        aiVoiceTutorLiveBubble.textContent = text ? `Kamu: ${text}` : 'Mendengarkan...';
+        aiVoiceTutorMessages.scrollTop = aiVoiceTutorMessages.scrollHeight;
+    }
+
+    function removeAiVoiceTutorLiveTranscript() {
+        aiVoiceTutorLiveBubble?.remove();
+        aiVoiceTutorLiveBubble = null;
+    }
+
+    function startAiVoiceTutorRecognition() {
+        if (!aiVoiceTutorActive || aiVoiceTutorProcessing || aiVoiceTutorAudioPlaying || !aiVoiceTutorRecognition) return;
+        try {
+            aiVoiceTutorRecognition.start();
+        } catch (_) {
+            // Recognition sedang aktif atau browser sedang menyelesaikan giliran sebelumnya.
+        }
+    }
+
+    async function initializeAiVoiceTutorVad() {
+        if (aiVoiceTutorVad || !window.vad?.MicVAD) return aiVoiceTutorVad;
+
+        try {
+            aiVoiceTutorVad = await window.vad.MicVAD.new({
+                onSpeechStart: () => {
+                    clearAiVoiceTutorPendingSend();
+                    if (aiVoiceTutorActive && !aiVoiceTutorProcessing && !aiVoiceTutorAudioPlaying) {
+                        setAiVoiceTutorStatus('Aku dengar, lanjutkan dulu ya...');
+                    }
+                },
+                onSpeechEnd: () => {
+                    if (aiVoiceTutorActive && aiVoiceTutorFinalTranscript.trim() !== '') {
+                        scheduleAiVoiceTutorSend();
+                    }
+                },
+                onnxWASMBasePath: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
+                baseAssetPath: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/',
+            });
+        } catch (_) {
+            // SpeechRecognition tetap dapat bekerja jika VAD gagal dimuat.
+            aiVoiceTutorVad = null;
+        }
+
+        return aiVoiceTutorVad;
+    }
+
+    async function startAiVoiceTutorSession() {
+        if (!activeAiLearningQuestionId || !VoiceTutorRecognition) {
+            setAiVoiceTutorStatus('Input suara belum didukung browser ini. Coba gunakan Chrome atau Edge terbaru.');
+            return;
+        }
+
+        aiVoiceTutorActive = true;
+        aiVoiceTutorStartButton?.classList.add('hidden');
+        aiVoiceTutorStopButton?.classList.remove('hidden');
+        setAiVoiceTutorStatus('Menyiapkan mikrofon...');
+
+        if (!aiVoiceTutorRecognition) {
+            aiVoiceTutorRecognition = new VoiceTutorRecognition();
+            aiVoiceTutorRecognition.lang = 'id-ID';
+            aiVoiceTutorRecognition.continuous = true;
+            aiVoiceTutorRecognition.interimResults = true;
+
+            aiVoiceTutorRecognition.onstart = () => {
+                if (aiVoiceTutorActive && !aiVoiceTutorProcessing && !aiVoiceTutorAudioPlaying) {
+                    setAiVoiceTutorStatus('Silakan bicara. Setelah kamu berhenti, Guru AI akan menjawab otomatis.');
+                }
+            };
+            aiVoiceTutorRecognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let index = event.resultIndex; index < event.results.length; index += 1) {
+                    const result = event.results[index];
+                    const transcript = result[0]?.transcript || '';
+                    if (result.isFinal) aiVoiceTutorFinalTranscript += `${transcript} `;
+                    else interimTranscript += transcript;
+                }
+                renderAiVoiceTutorLiveTranscript(`${aiVoiceTutorFinalTranscript}${interimTranscript}`.trim());
+                if (aiVoiceTutorFinalTranscript.trim() !== '') scheduleAiVoiceTutorSend();
+            };
+            aiVoiceTutorRecognition.onerror = (event) => {
+                if (event.error === 'aborted' || event.error === 'no-speech') return;
+                setAiVoiceTutorStatus('Suara belum terbaca. Coba ucapkan lagi dengan lebih dekat ke mikrofon.');
+            };
+            aiVoiceTutorRecognition.onend = () => {
+                if (aiVoiceTutorActive && !aiVoiceTutorProcessing && !aiVoiceTutorAudioPlaying) {
+                    window.setTimeout(startAiVoiceTutorRecognition, 250);
+                }
+            };
+        }
+
+        const vad = await initializeAiVoiceTutorVad();
+        try {
+            await vad?.start();
+        } catch (_) {
+            // VAD bersifat peningkat pengalaman; sesi tetap berjalan lewat SpeechRecognition.
+        }
+        startAiVoiceTutorRecognition();
+    }
+
+    function scheduleAiVoiceTutorSend() {
+        clearAiVoiceTutorPendingSend();
+        aiVoiceTutorSendTimer = window.setTimeout(sendAiVoiceTutorMessage, 900);
+    }
+
+    async function sendAiVoiceTutorMessage() {
+        const message = aiVoiceTutorFinalTranscript.trim();
+        clearAiVoiceTutorPendingSend();
+        if (!message || !activeAiLearningQuestionId || aiVoiceTutorProcessing) return;
+
+        aiVoiceTutorFinalTranscript = '';
+        aiVoiceTutorProcessing = true;
+        removeAiVoiceTutorLiveTranscript();
+        try {
+            aiVoiceTutorRecognition?.stop();
+            await aiVoiceTutorVad?.pause();
+        } catch (_) {
+            // Tidak perlu menghentikan alur jika browser telah menutup mikrofon lebih dulu.
+        }
+
+        appendAiDiscussionMessage(aiVoiceTutorMessages, message, 'user');
+        const loadingBubble = appendAiDiscussionMessage(aiVoiceTutorMessages, 'Guru AI sedang menyiapkan penjelasan...', 'loading');
+        setAiVoiceTutorStatus('Guru AI sedang menyiapkan jawaban...');
+
+        try {
+            const response = await fetch(aiDiscussionEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({
+                    question_id: activeAiLearningQuestionId,
+                    message,
+                    mode: 'voice',
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                if (String(data.message || '').includes('Paket Diskusi AI')) {
+                    loadingBubble.remove();
+                    openAiGatewayPlanModal('Paket AI diperlukan untuk memulai sesi Guru Suara.');
+                    return;
+                }
+                throw new Error(data.message || 'Guru AI belum dapat menjawab.');
+            }
+
+            loadingBubble.remove();
+            const aiMessage = data.message || 'Maaf, jawaban Guru AI belum tersedia.';
+            appendAiDiscussionMessage(aiVoiceTutorMessages, aiMessage, 'ai', data.discussion_log_id);
+            const history = aiDiscussionHistoryByQuestion[activeAiLearningQuestionId] || [];
+            history.push({ id: data.discussion_log_id, user_message: message, assistant_message: aiMessage });
+            aiDiscussionHistoryByQuestion[activeAiLearningQuestionId] = history;
+            updateAiGatewayUsageBadge(data.quota);
+            setAiVoiceTutorStatus('Guru AI sedang menjelaskan...');
+            aiVoiceTutorAudioPlaying = true;
+            await playAiDiscussionAudio(data.discussion_log_id, aiMessage);
+        } catch (error) {
+            loadingBubble.remove();
+            setAiVoiceTutorStatus(error.message || 'Guru AI belum dapat menjawab. Coba ucapkan lagi sebentar.');
+        } finally {
+            aiVoiceTutorProcessing = false;
+            aiVoiceTutorAudioPlaying = false;
+            if (aiVoiceTutorActive) {
+                setAiVoiceTutorStatus('Silakan lanjut bicara, Guru AI sedang mendengarkan.');
+                try {
+                    await aiVoiceTutorVad?.start();
+                } catch (_) {
+                    // SpeechRecognition tetap menjadi fallback otomatis.
+                }
+                startAiVoiceTutorRecognition();
+            }
+        }
+    }
+
+    function stopAiVoiceTutorSession() {
+        aiVoiceTutorActive = false;
+        aiVoiceTutorProcessing = false;
+        aiVoiceTutorAudioPlaying = false;
+        aiVoiceTutorFinalTranscript = '';
+        clearAiVoiceTutorPendingSend();
+        removeAiVoiceTutorLiveTranscript();
+        try {
+            aiVoiceTutorRecognition?.abort();
+            aiVoiceTutorVad?.pause();
+        } catch (_) {
+            // Browser mungkin sudah melepas mikrofon.
+        }
+        window.speechSynthesis?.cancel();
+        aiVoiceTutorStartButton?.classList.remove('hidden');
+        aiVoiceTutorStopButton?.classList.add('hidden');
+        setAiVoiceTutorStatus('Sesi diakhiri. Kamu bisa mulai lagi kapan pun.');
+    }
+
+    aiVoiceTutorStartButton?.addEventListener('click', startAiVoiceTutorSession);
+    aiVoiceTutorStopButton?.addEventListener('click', stopAiVoiceTutorSession);
+
     document.querySelectorAll('.ai-learning-open').forEach((button) => {
         button.addEventListener('click', () => {
             const questionId = button.closest('.ai-discussion')?.dataset.questionId;
-            if (questionId) openAiLearningToolsModal(questionId);
+            if (questionId) openAiLearningToolsModal(questionId, button.dataset.aiLearningTab || null);
         });
     });
 
@@ -1811,6 +2062,7 @@
         const submitButton = form?.querySelector('button[type="submit"]');
         const voiceButton = wrapper.querySelector('.ai-discussion-voice');
         let replyWithVoice = false;
+        let discussionMode = 'text';
 
         const history = aiDiscussionHistoryByQuestion[wrapper.dataset.questionId] || [];
         if (history.length > 0) {
@@ -1822,17 +2074,19 @@
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
         if (!SpeechRecognition) {
             voiceButton?.setAttribute('disabled', 'disabled');
             voiceButton?.setAttribute('title', 'Input suara belum didukung browser ini.');
-        } else if (voiceButton) {
+        } else {
             const recognition = new SpeechRecognition();
             recognition.lang = 'id-ID';
             recognition.interimResults = false;
             recognition.continuous = false;
 
-            voiceButton.addEventListener('click', () => {
+            voiceButton?.addEventListener('click', () => {
                 error?.classList.add('hidden');
+                discussionMode = 'voice';
                 recognition.start();
             });
 
@@ -1841,7 +2095,8 @@
                 voiceButton.innerHTML = '<i class="ri-record-circle-line animate-pulse text-lg text-red-500"></i>';
             };
             recognition.onresult = (event) => {
-                input.value = event.results[0][0].transcript;
+                const transcript = event.results[0][0].transcript;
+                input.value = transcript;
                 replyWithVoice = true;
                 form.requestSubmit();
             };
@@ -1875,6 +2130,8 @@
             }
             const shouldSpeakResponse = replyWithVoice;
             replyWithVoice = false;
+            const requestMode = discussionMode;
+            discussionMode = 'text';
 
             const userBubble = appendAiDiscussionMessage(messages, message, 'user');
             input.value = '';
@@ -1893,6 +2150,7 @@
                     body: JSON.stringify({
                         question_id: wrapper.dataset.questionId,
                         message,
+                        mode: requestMode,
                     }),
                 });
                 const data = await response.json();
@@ -1944,12 +2202,6 @@
             bubble.classList.add('ai-discussion-markdown');
             bubble.innerHTML = formatAiDiscussionMarkdown(text);
 
-            const replay = document.createElement('button');
-            replay.type = 'button';
-            replay.className = 'mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline';
-            replay.innerHTML = '<i class="ri-volume-up-line"></i> Dengarkan lagi';
-            replay.addEventListener('click', () => playAiDiscussionAudio(usageLogId, text));
-            bubble.appendChild(replay);
         } else {
             bubble.classList.add('whitespace-pre-line');
             bubble.textContent = text;
@@ -1959,9 +2211,42 @@
         return bubble;
     }
 
+    function aiDiscussionSpeechText(text) {
+        const explanation = String(text || '')
+            .split(/(?:^|\n)\s*(?:\*\*)?catatan\s+inti\s*:?(?:\*\*)?/iu)[0]
+            .replace(/\*\*([^*]+)\*\*/gu, '$1')
+            .replace(/[*#`_$<>]/gu, '')
+            .replace(/&/gu, ' dan ')
+            .replace(/=/gu, ' sama dengan ')
+            .replace(/\+/gu, ' ditambah ')
+            .replace(/÷/gu, ' dibagi ')
+            .replace(/(\d)([a-zA-Z])/gu, '$1 $2')
+            .replace(/\s+-\s+/gu, ' dikurangi ')
+            .replace(/\s+/gu, ' ')
+            .trim();
+
+        return explanation || 'Maaf, penjelasan suara belum tersedia.';
+    }
+
+    async function playAudioBlob(audioBlob) {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        await audio.play();
+        await new Promise((resolve) => {
+            audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                resolve();
+            };
+            audio.onerror = () => {
+                URL.revokeObjectURL(audioUrl);
+                resolve();
+            };
+        });
+    }
+
     async function playAiDiscussionAudio(usageLogId, text) {
         if (!Number.isInteger(Number(usageLogId))) {
-            speakAiDiscussionResponseFallback(text);
+            await speakAiDiscussionResponseFallback(text);
             return;
         }
 
@@ -1976,26 +2261,31 @@
                 body: JSON.stringify({ usage_log_id: usageLogId }),
             });
             if (!response.ok) throw new Error('TTS gagal');
-            const audioUrl = URL.createObjectURL(await response.blob());
-            const audio = new Audio(audioUrl);
-            audio.onended = () => URL.revokeObjectURL(audioUrl);
-            await audio.play();
+            await playAudioBlob(await response.blob());
             return;
         } catch (_) {
-            speakAiDiscussionResponseFallback(text);
+            await speakAiDiscussionResponseFallback(text);
         }
     }
 
     function speakAiDiscussionResponseFallback(text) {
-        if (!('speechSynthesis' in window)) return;
+        if (!('speechSynthesis' in window)) return Promise.resolve();
         window.speechSynthesis.cancel();
         const spokenText = String(text)
             .replace(/[*#`_]/g, '')
             .replace(/\n+/g, '. ');
         const utterance = new SpeechSynthesisUtterance(spokenText);
         utterance.lang = 'id-ID';
-        utterance.rate = 0.96;
-        window.speechSynthesis.speak(utterance);
+        utterance.rate = 1.08;
+        const indonesianVoice = window.speechSynthesis.getVoices()
+            .find((voice) => voice.lang?.toLowerCase().startsWith('id'));
+        if (indonesianVoice) utterance.voice = indonesianVoice;
+
+        return new Promise((resolve) => {
+            utterance.onend = resolve;
+            utterance.onerror = resolve;
+            window.speechSynthesis.speak(utterance);
+        });
     }
 
     function formatAiDiscussionMarkdown(text) {
@@ -2006,7 +2296,14 @@
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
 
-        const inline = (value) => escapeHtml(value)
+        const readableMath = (value) => String(value)
+            .replace(/\$([^$\n]+)\$/g, '$1')
+            .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1 / $2')
+            .replace(/\\(?:times|cdot)/g, '×')
+            .replace(/\\div/g, '÷')
+            .replace(/[{}\\]/g, '');
+
+        const inline = (value) => escapeHtml(readableMath(value))
             .replace(/`([^`]+)`/g, '<code>$1</code>')
             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
             .replace(/__([^_]+)__/g, '<strong>$1</strong>')

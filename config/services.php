@@ -93,6 +93,13 @@ return [
         ],
     ],
 
+    'edge_tts' => [
+        'binary' => env('EDGE_TTS_BINARY', 'edge-tts'),
+        'voice' => env('EDGE_TTS_VOICE', 'id-ID-GadisNeural'),
+        'rate' => env('EDGE_TTS_RATE', '+10%'),
+        'timeout' => env('EDGE_TTS_TIMEOUT', 30),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
