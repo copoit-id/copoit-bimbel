@@ -88,7 +88,9 @@
                                 <input type="hidden" name="package_id" value="{{ $groupPackage->package_id }}">
                                 <select name="participant_count" required class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
                                     @for($count = $groupPackage->bookingRule->min_participants; $count <= $groupPackage->bookingRule->max_participants; $count++)
-                                        @php($tier = $groupPackage->bookingRule->priceTiers->firstWhere('participant_count', $count))
+                                        @php
+                                            $tier = $groupPackage->bookingRule->priceTiers->firstWhere('participant_count', $count);
+                                        @endphp
                                         <option value="{{ $count }}">
                                             {{ $count }} orang · Rp {{ number_format($tier?->price_per_person ?? $groupPackage->price, 0, ',', '.') }}/orang
                                         </option>
