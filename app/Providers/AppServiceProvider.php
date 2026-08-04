@@ -112,8 +112,8 @@ class AppServiceProvider extends ServiceProvider
             'recurring_bill_menu_enabled' => false,
             'tutor_chat_enabled' => false,
             'participant_destination_api_enabled' => false,
-            'website_translation_enabled' => true,
-            'website_translation_locales' => ['en', 'zh-CN'],
+            'website_translation_enabled' => false,
+            'website_translation_locales' => ['en', 'zh-CN', 'ja', 'ar', 'ko'],
         ];
 
         $clientProfile = Schema::hasTable('client_profile')

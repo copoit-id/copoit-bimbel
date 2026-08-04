@@ -1,9 +1,9 @@
 @php
     $googleTranslationCookie = (string) request()->cookie('googtrans', '');
-    $enabledLocales = collect($clientBranding['website_translation_locales'] ?? ['en', 'zh-CN'])
-        ->filter(fn ($locale) => in_array($locale, ['en', 'zh-CN'], true))
+    $enabledLocales = collect($clientBranding['website_translation_locales'] ?? ['en', 'zh-CN', 'ja', 'ar', 'ko'])
+        ->filter(fn ($locale) => in_array($locale, ['en', 'zh-CN', 'ja', 'ar', 'ko'], true))
         ->all();
-    $translationPending = (bool) ($clientBranding['website_translation_enabled'] ?? true)
+    $translationPending = (bool) ($clientBranding['website_translation_enabled'] ?? false)
         && in_array(ltrim(str_replace('/id/', '', $googleTranslationCookie), '/'), $enabledLocales, true);
 @endphp
 

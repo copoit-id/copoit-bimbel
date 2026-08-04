@@ -1,7 +1,7 @@
 @php
-    $translationEnabled = (bool) ($clientBranding['website_translation_enabled'] ?? true);
-    $supportedLocales = collect($clientBranding['website_translation_locales'] ?? ['en', 'zh-CN'])
-        ->filter(fn ($locale) => in_array($locale, ['en', 'zh-CN'], true))
+    $translationEnabled = (bool) ($clientBranding['website_translation_enabled'] ?? false);
+    $supportedLocales = collect($clientBranding['website_translation_locales'] ?? ['en', 'zh-CN', 'ja', 'ar', 'ko'])
+        ->filter(fn ($locale) => in_array($locale, ['en', 'zh-CN', 'ja', 'ar', 'ko'], true))
         ->unique()
         ->values()
         ->all();
@@ -28,6 +28,15 @@
                 @endif
                 @if(in_array('zh-CN', $supportedLocales, true))
                     <button type="button" data-website-translation-locale="zh-CN" class="block w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100" role="menuitem">中文（简体）</button>
+                @endif
+                @if(in_array('ja', $supportedLocales, true))
+                    <button type="button" data-website-translation-locale="ja" class="block w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100" role="menuitem">日本語</button>
+                @endif
+                @if(in_array('ar', $supportedLocales, true))
+                    <button type="button" data-website-translation-locale="ar" class="block w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100" role="menuitem">العربية</button>
+                @endif
+                @if(in_array('ko', $supportedLocales, true))
+                    <button type="button" data-website-translation-locale="ko" class="block w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100" role="menuitem">한국어</button>
                 @endif
             </div>
         </div>
@@ -70,6 +79,9 @@
                 id: 'Indonesia',
                 en: 'English',
                 'zh-CN': '中文（简体）',
+                ja: '日本語',
+                ar: 'العربية',
+                ko: '한국어',
             };
             const pendingTranslationClass = 'website-translation-pending';
 

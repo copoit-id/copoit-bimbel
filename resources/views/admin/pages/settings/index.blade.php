@@ -307,11 +307,11 @@
             @php
                 $websiteTranslationEnabled = old(
                     'website_translation_enabled',
-                    $profile->website_translation_enabled ?? ($branding['website_translation_enabled'] ?? true)
+                    $profile->website_translation_enabled ?? ($branding['website_translation_enabled'] ?? false)
                 );
                 $websiteTranslationLocales = old(
                     'website_translation_locales',
-                    $profile->website_translation_locales ?? ($branding['website_translation_locales'] ?? ['en', 'zh-CN'])
+                    $profile->website_translation_locales ?? ($branding['website_translation_locales'] ?? ['en', 'zh-CN', 'ja', 'ar', 'ko'])
                 );
                 $websiteTranslationLocales = is_array($websiteTranslationLocales) ? $websiteTranslationLocales : [];
             @endphp
@@ -343,6 +343,33 @@
                         <div>
                             <p class="font-semibold text-gray-900">Mandarin (Simplified)</p>
                             <p class="text-xs text-gray-500">Terjemahan otomatis ke 中文（简体）.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="ja"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('ja', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Japanese</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke 日本語.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="ar"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('ar', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Arabic</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke العربية.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="ko"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('ko', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Korean</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke 한국어.</p>
                         </div>
                     </label>
                 </div>

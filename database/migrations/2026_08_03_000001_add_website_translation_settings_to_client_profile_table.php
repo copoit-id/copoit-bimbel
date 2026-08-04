@@ -14,7 +14,7 @@ return new class extends Migration
 
         Schema::table('client_profile', function (Blueprint $table): void {
             if (! Schema::hasColumn('client_profile', 'website_translation_enabled')) {
-                $table->boolean('website_translation_enabled')->default(true);
+                $table->boolean('website_translation_enabled')->default(false);
             }
 
             if (! Schema::hasColumn('client_profile', 'website_translation_locales')) {
