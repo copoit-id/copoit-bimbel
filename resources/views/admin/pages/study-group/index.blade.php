@@ -9,11 +9,21 @@
             <x-breadcrumb-item href="" title="Rombel / Grup Belajar" />
         </x-slot>
     </x-breadcrumb>
-    <x-btn title="Tambah Rombel" route="{{ route('admin.study-groups.create') }}" icon="ri-add-fill"></x-btn>
+    @if($tab === 'rombel')
+        <x-btn title="Tambah Rombel" route="{{ route('admin.study-groups.create') }}" icon="ri-add-fill"></x-btn>
+    @endif
 </div>
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
-    <x-page-desc title="Rombel / Grup Belajar" description="Kelola kumpulan peserta. Rombel dipakai di Jadwal & Absensi untuk menentukan peserta sesi."></x-page-desc>
+    <x-page-desc
+        title="Rombel / Grup Belajar"
+        description="{{ $tab === 'pengajuan' ? 'Tinjau pengajuan rombel paket, persetujuan, dan pembayaran anggota.' : 'Kelola kumpulan peserta. Rombel dipakai di Jadwal & Absensi untuk menentukan peserta sesi.' }}"
+    ></x-page-desc>
+
+    <div class="mt-6 flex w-fit rounded-lg bg-gray-100 p-1 text-sm font-semibold">
+        <a href="{{ route('admin.study-groups.index') }}" class="rounded-md px-4 py-2 {{ $tab === 'rombel' ? 'bg-white text-primary shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">Rombel Aktif</a>
+        <a href="{{ route('admin.study-groups.index', ['tab' => 'pengajuan']) }}" class="rounded-md px-4 py-2 {{ $tab === 'pengajuan' ? 'bg-white text-primary shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">Pengajuan Paket</a>
+    </div>
 
     @if (session('success'))
         <div class="mt-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -29,6 +39,9 @@
         </div>
     @endif
 
+    @if($tab === 'pengajuan')
+        @include('admin.pages.study-group.partials.applications')
+    @else
     <div class="relative overflow-x-auto mt-4">
         <table class="w-full text-sm text-left rtl:text-right text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
@@ -113,6 +126,7 @@
         <div class="flex justify-center mt-4">
             {{ $studyGroups->links() }}
         </div>
+    @endif
     @endif
 </div>
 @endsection

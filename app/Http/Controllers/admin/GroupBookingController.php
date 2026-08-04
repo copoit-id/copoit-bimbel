@@ -9,34 +9,15 @@ use App\Services\GroupBookingService;
 use App\Services\RecurringBillService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 class GroupBookingController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
-        $status = $request->string('status')->toString();
-        $status = in_array($status, ['pending_approval', 'pending_payment', 'active', 'cancelled', 'expired'], true)
-            ? $status
-            : null;
-        $studyGroups = StudyGroup::query()
-            ->whereNotNull('package_id')
-            ->with([
-                'package:package_id,name',
-                'organizer:id,name,email',
-                'members.user:id,name,email,phone',
-                'members.invoice.payments',
-            ])
-            ->withCount([
-                'members',
-                'members as paid_members_count' => fn ($query) => $query->where('status', 'paid'),
-            ])
-            ->when($status, fn ($query) => $query->where('status', $status))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
-        return view('admin.pages.package.booking.cohorts', compact('studyGroups', 'status'));
+        return redirect()->route('admin.study-groups.index', [
+            'tab' => 'pengajuan',
+            ...$request->only('status'),
+        ]);
     }
 
     public function approve(StudyGroup $studyGroup, GroupBookingService $groupBookingService): RedirectResponse

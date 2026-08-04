@@ -25,7 +25,7 @@
             <p class="mt-1 text-sm text-gray-500">Atur kuota dan tutor yang dapat dipesan untuk paket <span class="font-semibold text-gray-700">{{ $package->name }}</span>.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('admin.package-booking.cohorts.index') }}" class="rounded-lg border border-primary px-3 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white">Kelola kelompok</a>
+            <a href="{{ route('admin.study-groups.index', ['tab' => 'pengajuan']) }}" class="rounded-lg border border-primary px-3 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white">Kelola kelompok</a>
             <span class="w-fit rounded-full border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600">
                 {{ $rule->is_enabled ? 'Booking aktif' : 'Booking nonaktif' }}
             </span>
