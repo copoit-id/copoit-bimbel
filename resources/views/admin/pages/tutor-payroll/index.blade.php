@@ -20,7 +20,7 @@
     @endif
 
     <nav class="flex overflow-x-auto border-b border-gray-200" aria-label="Penggajian tutor">
-        <a href="{{ route('admin.tutor-payrolls.index', $activeTab === 'payroll' ? ['tab' => 'payroll', 'period_start' => $periodStart->toDateString(), 'period_end' => $periodEnd->toDateString()] : ['tab' => 'payroll']) }}" class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold {{ $activeTab === 'payroll' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"><i class="ri-wallet-3-line mr-1"></i>Penggajian</a>
+        <a href="{{ route('admin.tutor-payrolls.index', $activeTab === 'payroll' && $hasPeriodFilter ? ['tab' => 'payroll', 'period_start' => $periodStart->toDateString(), 'period_end' => $periodEnd->toDateString()] : ['tab' => 'payroll']) }}" class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold {{ $activeTab === 'payroll' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"><i class="ri-wallet-3-line mr-1"></i>Penggajian</a>
         <a href="{{ route('admin.tutor-payrolls.index', ['tab' => 'honor']) }}" class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold {{ $activeTab === 'honor' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"><i class="ri-money-dollar-circle-line mr-1"></i>Honor Tutor</a>
     </nav>
 
@@ -29,21 +29,33 @@
         <input type="hidden" name="tab" value="payroll">
         <div>
             <label class="mb-1 block text-xs font-semibold text-gray-600">Mulai periode</label>
-            <input type="date" name="period_start" value="{{ $periodStart->toDateString() }}" class="rounded-lg border border-gray-300 px-3 py-2">
+            <input type="date" name="period_start" value="{{ $periodStart?->toDateString() }}" class="rounded-lg border border-gray-300 px-3 py-2">
         </div>
         <div>
             <label class="mb-1 block text-xs font-semibold text-gray-600">Akhir periode</label>
-            <input type="date" name="period_end" value="{{ $periodEnd->toDateString() }}" class="rounded-lg border border-gray-300 px-3 py-2">
+            <input type="date" name="period_end" value="{{ $periodEnd?->toDateString() }}" class="rounded-lg border border-gray-300 px-3 py-2">
         </div>
-        <button class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Tampilkan</button>
+        <button class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Terapkan periode</button>
+        @if($hasPeriodFilter)
+            <a href="{{ route('admin.tutor-payrolls.index', ['tab' => 'payroll']) }}" class="px-2 py-2 text-sm font-semibold text-primary hover:underline">Reset: semua periode</a>
+        @endif
+        <p class="w-full text-xs text-gray-500">Kosongkan kedua tanggal untuk menampilkan seluruh riwayat penggajian.</p>
     </form>
+
+    <p class="text-sm text-gray-500">
+        @if($hasPeriodFilter)
+            Menampilkan rekap dengan sesi atau periode yang berada di antara {{ $periodStart->translatedFormat('d M Y') }}–{{ $periodEnd->translatedFormat('d M Y') }}.
+        @else
+            Menampilkan seluruh riwayat penggajian.
+        @endif
+    </p>
 
     <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table class="w-full text-left text-sm text-gray-600">
             <thead class="bg-gray-50 text-xs uppercase text-gray-700">
                 <tr>
                     <th class="px-4 py-3">Tutor</th>
-                    <th class="px-4 py-3">Sesi Penggajian</th>
+                    <th class="px-4 py-3">Sesi / Absensi</th>
                     <th class="px-4 py-3">Bruto</th>
                     <th class="px-4 py-3">Penyesuaian</th>
                     <th class="px-4 py-3">Total</th>
@@ -52,7 +64,7 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($payrolls as $payroll)
+                @foreach($payrolls as $payroll)
                     @php
                         $needsHonor = (int) $payroll->tentor->honor_per_attendance < 1;
                     @endphp
@@ -85,13 +97,44 @@
                             @endif
                         </td>
                     </tr>
-                @empty
-                    <tr><td colspan="7" class="px-4 py-10 text-center text-gray-500">Belum ada rekap. Rekap dibuat otomatis saat absensi tutor disetujui.</td></tr>
-                @endforelse
+                @endforeach
+                @foreach($unprocessedAttendances as $attendance)
+                    @php
+                        $sessionTitle = $attendance->session?->schedule?->title ?? $attendance->session?->class?->title ?? 'Sesi kelas';
+                        $isPayableAttendance = $attendance->approval_status === 'approved' && in_array($attendance->status, ['present', 'late'], true);
+                        $reason = $attendance->approval_status === 'pending'
+                            ? 'Menunggu persetujuan admin'
+                            : ($attendance->approval_status === 'rejected'
+                                ? 'Absensi ditolak'
+                                : ($isPayableAttendance ? 'Belum tersinkron ke rekap' : 'Tidak dihitung sebagai gaji'));
+                    @endphp
+                    <tr class="border-t border-amber-100 bg-amber-50/30 align-top">
+                        <td class="px-4 py-3"><p class="font-semibold text-gray-900">{{ $attendance->tentor?->name ?? '-' }}</p><p class="text-xs text-gray-500">Belum ada rekap payroll</p></td>
+                        <td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $sessionTitle }}</p><p class="mt-1 text-xs text-gray-500">{{ $attendance->session?->session_date?->translatedFormat('d M Y') ?? '-' }}</p></td>
+                        <td class="px-4 py-3">—</td>
+                        <td class="px-4 py-3">—</td>
+                        <td class="px-4 py-3 font-semibold text-gray-900">—</td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap gap-1.5">
+                                <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{{ ucfirst($attendance->status) }}</span>
+                                <span class="rounded-full px-2 py-1 text-xs font-semibold {{ $attendance->approval_status === 'approved' ? 'bg-green-100 text-green-700' : ($attendance->approval_status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">{{ $reason }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-xs font-medium text-gray-500">Belum dapat dibayar</td>
+                    </tr>
+                @endforeach
+                @if($payrolls->isEmpty() && $unprocessedAttendances->isEmpty())
+                    <tr><td colspan="7" class="px-4 py-10 text-center text-gray-500">Belum ada rekap atau absensi tutor pada periode ini.</td></tr>
+                @endif
             </tbody>
         </table>
     </div>
-    {{ $payrolls->links() }}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        {{ $payrolls->links() }}
+        @if($unprocessedAttendances->hasPages())
+            <div class="text-sm text-gray-500">Absensi belum masuk gaji: {{ $unprocessedAttendances->links() }}</div>
+        @endif
+    </div>
 
 @foreach($payrolls as $payroll)
 @php
