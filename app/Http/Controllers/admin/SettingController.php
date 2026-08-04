@@ -5,8 +5,11 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\ClientProfile;
 use App\Services\ActivityLogger;
+use App\Support\MailSafety;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -63,6 +66,8 @@ class SettingController extends Controller
             'ai_discussion_feature_enabled' => false,
             'ai_discussion_settings' => [],
             'participant_destination_api_enabled' => false,
+            'website_translation_enabled' => false,
+            'website_translation_locales' => ['en', 'zh-CN', 'ja', 'ar', 'ko'],
         ]);
 
         return view('admin.pages.settings.index', [
@@ -74,7 +79,13 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
-        $profile = ClientProfile::query()->first() ?? new ClientProfile();
+        if ($request->user()?->isDemoAdmin()) {
+            return redirect()
+                ->route('admin.settings.index')
+                ->with('error', 'Akun demo hanya dapat melihat pengaturan dan tidak dapat mengubahnya.');
+        }
+
+        $profile = ClientProfile::query()->first() ?? new ClientProfile;
         $paymentGatewayKeys = array_keys(config('payment_gateways.gateways', [
             'xendit' => [],
             'midtrans' => [],
@@ -88,15 +99,17 @@ class SettingController extends Controller
             'live_session_label' => ['required', 'string', 'max:80'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
-            'logo' => ['nullable', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
-            'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,svg,webp', 'max:4096'],
+            // SVG is executable XML in browsers. Do not place untrusted SVG
+            // content in the public web root.
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
+            'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,webp', 'max:4096'],
             'payment_mode' => ['required', 'in:gateway,manual'],
             'payment_bank_name' => ['nullable', 'string', 'max:255'],
             'payment_account_number' => ['nullable', 'string', 'max:100'],
             'payment_account_holder' => ['nullable', 'string', 'max:255'],
             'payment_bank_note' => ['nullable', 'string'],
             'payment_unique_code_enabled' => ['nullable', 'boolean'],
-            'payment_gateway' => ['nullable', 'in:' . implode(',', $paymentGatewayKeys)],
+            'payment_gateway' => ['nullable', 'in:'.implode(',', $paymentGatewayKeys)],
             'payment_gateway_mode' => ['nullable', 'in:sandbox,production'],
             'xendit_secret_key' => ['nullable', 'string', 'max:255'],
             'xendit_webhook_token' => ['nullable', 'string', 'max:255'],
@@ -128,6 +141,9 @@ class SettingController extends Controller
             'footer_twitter' => ['nullable', 'string', 'max:255'],
             'footer_youtube' => ['nullable', 'string', 'max:255'],
             'participant_destination_api_enabled' => ['nullable', 'boolean'],
+            'website_translation_enabled' => ['nullable', 'boolean'],
+            'website_translation_locales' => ['nullable', 'array'],
+            'website_translation_locales.*' => ['string', 'in:en,zh-CN,ja,ar,ko'],
             'ai_openai_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_openai_base_url' => ['nullable', 'url', 'max:255'],
             'ai_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
@@ -146,6 +162,11 @@ class SettingController extends Controller
             'ai_discussion_gemini_base_url' => ['nullable', 'url', 'max:255'],
             'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
             'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
+            'ai_discussion_feature_token_limits' => ['nullable', 'array'],
+            'ai_discussion_feature_token_limits.discussion' => ['nullable', 'integer', 'min:64', 'max:2000'],
+            'ai_discussion_feature_token_limits.learning_note' => ['nullable', 'integer', 'min:64', 'max:2000'],
+            'ai_discussion_feature_token_limits.learning_flashcard' => ['nullable', 'integer', 'min:64', 'max:2000'],
+            'ai_discussion_feature_token_limits.learning_question' => ['nullable', 'integer', 'min:64', 'max:2000'],
             'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
             'ai_admin_password' => ['nullable', 'string'],
         ];
@@ -156,7 +177,7 @@ class SettingController extends Controller
             $rules['payment_account_holder'] = ['required', 'string', 'max:255'];
         }
         if ($request->input('payment_mode') === 'gateway') {
-            $rules['payment_gateway'] = ['required', 'in:' . implode(',', $paymentGatewayKeys)];
+            $rules['payment_gateway'] = ['required', 'in:'.implode(',', $paymentGatewayKeys)];
             $rules['payment_gateway_mode'] = ['required', 'in:sandbox,production'];
         }
 
@@ -174,7 +195,7 @@ class SettingController extends Controller
         ) {
             try {
                 $existingQrisApiKey = (string) ($profile->interactive_qris_api_key ?? '');
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 $existingQrisApiKey = '';
             }
 
@@ -198,7 +219,7 @@ class SettingController extends Controller
         ) {
             try {
                 $existingIpaymuApiKey = (string) ($profile->ipaymu_api_key ?? '');
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 $existingIpaymuApiKey = '';
             }
 
@@ -226,12 +247,14 @@ class SettingController extends Controller
             $smtpPort = 587;
             $smtpEncryption = 'tls';
         }
-        $smtpEmail = $validated['smtp_email'] ?? $profile->smtp_email;
+        $validated['smtp_email'] = MailSafety::email($validated['smtp_email'] ?? null);
+        $validated['smtp_notification_email'] = MailSafety::email($validated['smtp_notification_email'] ?? null);
+        $smtpEmail = $validated['smtp_email'] ?? MailSafety::email($profile->smtp_email);
 
         $newPassword = trim((string) ($validated['smtp_app_password'] ?? ''));
         try {
             $existingSmtpPassword = $profile->smtp_app_password ?? null;
-        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+        } catch (DecryptException $e) {
             $existingSmtpPassword = null;
         }
         $smtpPassword = $newPassword !== '' ? $newPassword : $existingSmtpPassword;
@@ -249,6 +272,16 @@ class SettingController extends Controller
             unset($validated['smtp_app_password']);
         }
 
+        $smtpSettingsChanged = $newPassword !== ''
+            || MailSafety::email($profile->smtp_email) !== ($validated['smtp_email'] ?? null)
+            || MailSafety::email($profile->smtp_notification_email) !== ($validated['smtp_notification_email'] ?? null)
+            || ($shouldClearSmtp && (
+                ! empty($profile->smtp_host)
+                || ! empty($profile->smtp_port)
+                || ! empty($profile->smtp_encryption)
+                || ! empty($existingSmtpPassword)
+            ));
+
         $sensitiveKeys = [
             'xendit_secret_key',
             'xendit_webhook_token',
@@ -262,12 +295,13 @@ class SettingController extends Controller
             $newValue = trim((string) ($validated[$key] ?? ''));
             if ($newValue === '') {
                 unset($validated[$key]);
+
                 continue;
             }
 
             try {
                 $existingValue = (string) ($profile->{$key} ?? '');
-            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            } catch (DecryptException $e) {
                 $existingValue = '';
             }
 
@@ -286,28 +320,10 @@ class SettingController extends Controller
             }
         }
 
-        $aiSettingsResult = $this->buildAiQuestionGeneratorSettings($request, $profile);
-        if (!empty($aiSettingsResult['errors'])) {
-            return back()
-                ->withErrors($aiSettingsResult['errors'])
-                ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key']))
-                ->with('active_tab', 'ai');
-        }
-
-        $aiDiscussionFeatureEnabled = (bool) config('client.branding.ai_discussion_feature_enabled', false);
-        $aiDiscussionSettingsResult = $this->buildAiDiscussionSettings($request, $profile, $aiSettingsResult['settings'], $aiDiscussionFeatureEnabled);
-        if (!empty($aiDiscussionSettingsResult['errors'])) {
-            return back()
-                ->withErrors($aiDiscussionSettingsResult['errors'])
-                ->withInput($request->except(['admin_password', 'ai_admin_password', 'smtp_app_password', 'ai_openai_api_key', 'ai_gemini_api_key', 'ai_discussion_openai_api_key', 'ai_discussion_gemini_api_key']))
-                ->with('active_tab', 'ai');
-        }
-
-        $sensitiveChanged = $sensitiveChanged || (bool) ($aiSettingsResult['sensitive_changed'] ?? false);
-        $sensitiveChanged = $sensitiveChanged || (bool) ($aiDiscussionSettingsResult['sensitive_changed'] ?? false);
+        $sensitiveChanged = $sensitiveChanged || $smtpSettingsChanged;
 
         if ($sensitiveChanged) {
-            if (!$request->filled('admin_password') && $request->filled('ai_admin_password')) {
+            if (! $request->filled('admin_password') && $request->filled('ai_admin_password')) {
                 $request->merge(['admin_password' => $request->input('ai_admin_password')]);
             }
 
@@ -318,7 +334,7 @@ class SettingController extends Controller
             ]);
 
             $user = $request->user();
-            if (!$user || !Hash::check((string) $request->input('admin_password'), $user->password)) {
+            if (! $user || ! Hash::check((string) $request->input('admin_password'), $user->password)) {
                 return back()
                     ->withErrors(['admin_password' => 'Password admin tidak valid.'])
                     ->withInput($request->except([
@@ -336,13 +352,13 @@ class SettingController extends Controller
         }
 
         // SMTP wajib lengkap hanya jika memang dikonfigurasi/diaktifkan.
-        $smtpConfigured = !empty($profile->smtp_email) || !empty($existingSmtpPassword);
+        $smtpConfigured = ! empty($profile->smtp_email) || ! empty($existingSmtpPassword);
         $smtpRequested = $request->filled('smtp_email')
             || $request->filled('smtp_app_password')
             || $request->filled('smtp_notification_email');
         $shouldValidateSmtp = $smtpConfigured || $smtpRequested;
 
-        if ($shouldValidateSmtp && (!$smtpEmail || !$smtpPassword)) {
+        if (! $shouldClearSmtp && $shouldValidateSmtp && (! $smtpEmail || ! $smtpPassword)) {
             return back()
                 ->withErrors([
                     'smtp_email' => 'Konfigurasi SMTP belum lengkap. Isi email SMTP dan sandi aplikasi.',
@@ -350,7 +366,7 @@ class SettingController extends Controller
                 ->withInput($request->except('smtp_app_password'));
         }
 
-        if ($shouldValidateSmtp && !$shouldClearSmtp) {
+        if ($shouldValidateSmtp && ! $shouldClearSmtp) {
             $validated['smtp_host'] = $smtpHost;
             $validated['smtp_port'] = $smtpPort;
             $validated['smtp_encryption'] = $smtpEncryption;
@@ -398,11 +414,17 @@ class SettingController extends Controller
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['participant_destination_api_enabled'] = $request->boolean('participant_destination_api_enabled');
+        $validated['website_translation_enabled'] = $request->boolean('website_translation_enabled');
+        $validated['website_translation_locales'] = collect($validated['website_translation_locales'] ?? [])
+            ->filter(fn ($locale) => in_array($locale, ['en', 'zh-CN', 'ja', 'ar', 'ko'], true))
+            ->unique()
+            ->values()
+            ->all();
         $validated['enable_utbk_types'] = false;
-        unset($validated['ai_question_generator_enabled']);
-        $validated['ai_question_generator_settings'] = $aiSettingsResult['settings'];
-        $validated['ai_discussion_settings'] = $aiDiscussionSettingsResult['settings'];
         unset(
+            $validated['ai_question_generator_enabled'],
+            $validated['ai_question_generator_settings'],
+            $validated['ai_discussion_settings'],
             $validated['ai_openai_api_key'],
             $validated['ai_openai_base_url'],
             $validated['ai_openai_timeout'],
@@ -442,11 +464,13 @@ class SettingController extends Controller
         $changedFields = [];
         foreach ($validated as $key => $value) {
             if (in_array($key, $sensitiveKeys, true)) {
-                $changedFields[] = $key . ':updated';
+                $changedFields[] = $key.':updated';
+
                 continue;
             }
             if ($key === 'smtp_app_password') {
                 $changedFields[] = 'smtp_app_password:updated';
+
                 continue;
             }
             $original = $profile->exists ? $profile->getOriginal($key) : null;
@@ -464,13 +488,13 @@ class SettingController extends Controller
         try {
             $profile->save();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Gagal menyimpan pengaturan', [
+            Log::error('Gagal menyimpan pengaturan', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return back()
-                ->withErrors(['general' => 'Gagal menyimpan pengaturan: ' . $e->getMessage()])
+                ->withErrors(['general' => 'Gagal menyimpan pengaturan: '.$e->getMessage()])
                 ->withInput($request->except(['admin_password', 'smtp_app_password']))
                 ->with('active_tab', $request->input('settings_tab', 'identity'));
         }
@@ -497,7 +521,7 @@ class SettingController extends Controller
             ? json_decode($modelsJson, true)
             : ($existing['models'] ?? $this->defaultAiQuestionModels());
 
-        if (!is_array($models)) {
+        if (! is_array($models)) {
             return [
                 'settings' => $existing,
                 'sensitive_changed' => false,
@@ -518,8 +542,8 @@ class SettingController extends Controller
         $geminiKey = trim((string) $request->input('ai_gemini_api_key', ''));
         $existingOpenAiKey = (string) ($existingProviders['openai']['api_key'] ?? '');
         $existingGeminiKey = (string) ($existingProviders['gemini']['api_key'] ?? '');
-        $sensitiveChanged = ($openAiKey !== '' && !hash_equals($existingOpenAiKey, $openAiKey))
-            || ($geminiKey !== '' && !hash_equals($existingGeminiKey, $geminiKey));
+        $sensitiveChanged = ($openAiKey !== '' && ! hash_equals($existingOpenAiKey, $openAiKey))
+            || ($geminiKey !== '' && ! hash_equals($existingGeminiKey, $geminiKey));
 
         $settings = [
             'default_model' => $request->input('ai_question_default_model')
@@ -540,7 +564,7 @@ class SettingController extends Controller
         ];
 
         $modelIds = collect($models)->pluck('id')->all();
-        if (!in_array($settings['default_model'], $modelIds, true)) {
+        if (! in_array($settings['default_model'], $modelIds, true)) {
             $settings['default_model'] = $models[0]['id'];
         }
 
@@ -584,8 +608,8 @@ class SettingController extends Controller
         $existingOpenAiKey = (string) ($existingProviders['openai']['api_key'] ?? '');
         $existingGeminiKey = (string) ($existingProviders['gemini']['api_key'] ?? '');
         $sensitiveChanged = $credentialMode === 'custom' && (
-            ($openAiKey !== '' && !hash_equals($existingOpenAiKey, $openAiKey))
-            || ($geminiKey !== '' && !hash_equals($existingGeminiKey, $geminiKey))
+            ($openAiKey !== '' && ! hash_equals($existingOpenAiKey, $openAiKey))
+            || ($geminiKey !== '' && ! hash_equals($existingGeminiKey, $geminiKey))
         );
 
         $sharedModel = (string) ($sharedAiSettings['default_model'] ?? 'gemini-2.5-flash');
@@ -617,12 +641,33 @@ class SettingController extends Controller
                     ],
                 ],
                 'max_output_tokens' => max(200, min(2000, (int) $request->input('ai_discussion_max_output_tokens', $existing['max_output_tokens'] ?? 700))),
+                'feature_token_limits' => $this->featureTokenLimits($request, $existing),
                 'instruction' => trim((string) $request->input('ai_discussion_instruction', $existing['instruction'] ?? '')),
                 'models' => $sharedAiSettings['models'] ?? $this->defaultAiQuestionModels(),
             ],
             'sensitive_changed' => $sensitiveChanged,
             'errors' => [],
         ];
+    }
+
+    private function featureTokenLimits(Request $request, array $existing): array
+    {
+        $defaults = [
+            'discussion' => 700,
+            'learning_note' => 1200,
+            'learning_flashcard' => 500,
+            'learning_question' => 1800,
+        ];
+        $submitted = $request->input('ai_discussion_feature_token_limits', []);
+        $saved = is_array($existing['feature_token_limits'] ?? null) ? $existing['feature_token_limits'] : [];
+
+        return collect($defaults)->mapWithKeys(function (int $default, string $feature) use ($submitted, $saved): array {
+            $value = is_array($submitted) && array_key_exists($feature, $submitted)
+                ? $submitted[$feature]
+                : ($saved[$feature] ?? $default);
+
+            return [$feature => max(64, min(2000, (int) $value))];
+        })->all();
     }
 
     private function defaultAiQuestionModels(): array
@@ -652,14 +697,14 @@ class SettingController extends Controller
     private function storeBrandingImage($file, ?string $existingPath = null, string $prefix = 'brand'): string
     {
         $directory = public_path('logo');
-        if (!is_dir($directory)) {
+        if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 
         $extension = strtolower($file->getClientOriginalExtension() ?: 'png');
-        $filename = $prefix . '-' . now()->format('YmdHis') . '.' . $extension;
+        $filename = $prefix.'-'.now()->format('YmdHis').'.'.$extension;
 
-        $relativePath = 'logo/' . $filename;
+        $relativePath = 'logo/'.$filename;
 
         $this->deleteBrandingImage($existingPath);
 
@@ -670,7 +715,7 @@ class SettingController extends Controller
 
     private function deleteBrandingImage(?string $path): void
     {
-        if (!$path) {
+        if (! $path) {
             return;
         }
 
@@ -702,7 +747,7 @@ class SettingController extends Controller
         }
 
         if (str_starts_with($digits, '0')) {
-            return '62' . substr($digits, 1);
+            return '62'.substr($digits, 1);
         }
 
         return $digits;
@@ -719,8 +764,8 @@ class SettingController extends Controller
                     return null;
                 }
 
-                if (!Str::startsWith($url, ['http://', 'https://', '/', 'mailto:', 'tel:'])) {
-                    $url = '/' . ltrim($url, '/');
+                if (! Str::startsWith($url, ['http://', 'https://', '/', 'mailto:', 'tel:'])) {
+                    $url = '/'.ltrim($url, '/');
                 }
 
                 return [

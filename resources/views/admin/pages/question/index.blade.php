@@ -2,6 +2,14 @@
 @section('title', 'Manajemen Soal')
 @section('content')
 
+@php
+    $currentAdmin = auth()->user();
+    $canGenerateAi = ($clientBranding['ai_question_generator_enabled'] ?? false)
+        && ($currentAdmin?->isSuperAdmin()
+            || ($currentAdmin?->hasPermission('ai_question_generator', 'view')
+                && $currentAdmin?->hasPermission('ai_question_generator', 'create')));
+@endphp
+
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
@@ -30,6 +38,14 @@
                 $questions->count() }} soal</p>
         </div>
         <div class="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+            @if($canGenerateAi)
+            <a href="{{ route('admin.question.ai-generator', $tryout_detail) }}"
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2">
+                <i class="ri-sparkling-2-line"></i>
+                Generate AI
+            </a>
+            @endif
+
             <!-- Import Excel Button -->
             <button type="button" id="importBtn"
                 class="w-full sm:w-auto justify-center px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
@@ -374,6 +390,15 @@
                     <i class="ri-pencil-fill"></i>
                     Edit Soal
                 </a>
+                <form action="{{ route('admin.question.duplicate', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
+                    method="POST" class="w-full sm:w-auto">
+                    @csrf
+                    <button type="submit"
+                        class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                        <i class="ri-file-copy-2-line"></i>
+                        Duplikat Soal
+                    </button>
+                </form>
                 <form
                     action="{{ route('admin.question.destroy', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
                     method="POST" onsubmit="return confirmDelete(event)" class="w-full sm:w-auto">

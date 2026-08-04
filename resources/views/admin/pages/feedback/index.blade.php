@@ -45,9 +45,9 @@
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Status:</p>
-                    @if($tryout->start_date > now())
+                    @if($tryout->start_date?->isFuture())
                     <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Akan Datang</span>
-                    @elseif($tryout->end_date < now())
+                    @elseif($tryout->end_date?->isPast())
                     <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Selesai</span>
                     @else
                     <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>

@@ -16,8 +16,11 @@ class UtbkResultReleaseService
     {
         $now = Carbon::now('Asia/Jakarta');
 
-        $tryouts = Tryout::where('type_tryout', 'utbk_full')
-            ->where('is_irt', true)
+        $tryouts = Tryout::query()
+            ->where(function ($query) {
+                $query->where('is_irt', true)
+                    ->orWhereIn('scoring_method', ['irt_utbk', 'irt']);
+            })
             ->where(function ($query) use ($now) {
                 $query->where(function ($q) use ($now) {
                     $q->whereNotNull('results_release_at')

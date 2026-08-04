@@ -85,8 +85,19 @@ return [
         'question_model' => env('OPENAI_QUESTION_MODEL', 'gpt-5.4-mini'),
         'timeout' => env('OPENAI_TIMEOUT', 90),
         'question_models' => [
+            'gpt-5.4' => 'OpenAI - GPT-5.4',
             'gpt-5.4-mini' => 'OpenAI - GPT-5.4 Mini',
+            'gpt-5-mini' => 'OpenAI - GPT-5 Mini',
+            'gpt-4o' => 'OpenAI - GPT-4o',
+            'gpt-4o-mini' => 'OpenAI - GPT-4o Mini',
         ],
+    ],
+
+    'edge_tts' => [
+        'binary' => env('EDGE_TTS_BINARY', 'edge-tts'),
+        'voice' => env('EDGE_TTS_VOICE', 'id-ID-GadisNeural'),
+        'rate' => env('EDGE_TTS_RATE', '+10%'),
+        'timeout' => env('EDGE_TTS_TIMEOUT', 30),
     ],
 
     'gemini' => [
@@ -94,13 +105,16 @@ return [
         'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
         'timeout' => env('GEMINI_TIMEOUT', 90),
         'question_models' => [
-            'gemini-2.5-flash' => 'Gemini - 2.5 Flash',
-            'gemini-2.5-flash-lite' => 'Gemini - 2.5 Flash-Lite',
+            'gemini-3.5-flash' => 'Gemini - 3.5 Flash',
+            'gemini-3.1-flash-lite' => 'Gemini - 3.1 Flash-Lite',
         ],
     ],
     'ai_gateway' => [
         'url' => env('AI_GATEWAY_URL'),
         'key' => env('AI_GATEWAY_KEY'),
+        // Generate materi dapat memerlukan waktu lebih lama daripada request API biasa.
+        'timeout' => env('AI_GATEWAY_TIMEOUT', 120),
+        'connect_timeout' => env('AI_GATEWAY_CONNECT_TIMEOUT', 10),
     ],
 
     'ai_similarity' => [

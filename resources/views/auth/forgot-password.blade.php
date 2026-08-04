@@ -10,6 +10,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
 </head>
 
 <body class="bg-white min-h-screen flex items-center justify-center p-4">
@@ -71,6 +72,7 @@
             <p class="mt-1">hubungi admin untuk bantuan</p>
         </div>
     </div>
+    <x-website-translator />
 </body>
 
 </html>

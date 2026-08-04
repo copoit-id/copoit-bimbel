@@ -1,4 +1,10 @@
 @php
+    $portalLabel = auth()->user()?->isTutor() ? 'Tutor' : 'Admin';
+    $profileUrl = auth()->user()?->isTutor()
+        ? route('user.profile.index')
+        : route('admin.profile.index');
+    $canShowProfile = auth()->user()?->isSuperAdmin()
+        || app(\App\Services\PlanModuleService::class)->allows('profile');
     $headerPrimary = $clientBranding['header_primary_color'] ?? false;
     $navClasses = $headerPrimary ? 'bg-primary border-b border-primary text-white' : 'bg-white border-b border-gray-200';
     $toggleButtonClasses = $headerPrimary
@@ -32,7 +38,7 @@
                         alt="{{ $clientBranding['name'] }} Logo" />
                     <div class="flex min-w-0 flex-col justify-start">
                         <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>
-                        <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">Admin Panel</p>
+                        <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">{{ $portalLabel }} Panel</p>
                     </div>
                 </a>
             </div>
@@ -47,14 +53,22 @@
                 </div>
                 @endif
                 <!-- User Info -->
-                <a href="{{ route('admin.profile.index') }}" class="flex items-center gap-2 sm:gap-3">
+                @if($canShowProfile)
+                <a href="{{ $profileUrl }}" class="flex items-center gap-2 sm:gap-3">
+                @else
+                <div class="flex items-center gap-2 sm:gap-3">
+                @endif
                     <div class="hidden sm:block text-right max-w-[140px]">
-                        <p class="text-sm font-medium {{ $userNameClass }} truncate">{{ auth()->user()->name ?? 'Admin' }}</p>
-                        <p class="text-xs {{ $userRoleClass }} truncate">{{ ucfirst(auth()->user()->role ?? 'admin') }}</p>
+                        <p class="text-sm font-medium {{ $userNameClass }} truncate">{{ auth()->user()->name ?? $portalLabel }}</p>
+                        <p class="text-xs {{ $userRoleClass }} truncate">{{ ucfirst(auth()->user()->role ?? strtolower($portalLabel)) }}</p>
                     </div>
-                    <img src="https://ui-avatars.com/api/?name={{ urlencode(auth()->user()->name ?? 'Admin') }}&background=6366f1&color=fff&size=40"
+                    <img src="https://ui-avatars.com/api/?name={{ urlencode(auth()->user()->name ?? $portalLabel) }}&background=6366f1&color=fff&size=40"
                         class="w-8 h-8 rounded-full">
+                @if($canShowProfile)
                 </a>
+                @else
+                </div>
+                @endif
 
                 <!-- Logout Button -->
                 <form action="{{ route('logout') }}" method="POST" class="inline">

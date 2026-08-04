@@ -34,7 +34,7 @@
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
                     <th scope="col" class="px-6 py-3">Rombel</th>
-                    <th scope="col" class="px-6 py-3 text-center">Tentor Default</th>
+                    <th scope="col" class="px-6 py-3 text-center">Tutor Default</th>
                     <th scope="col" class="px-6 py-3 text-center">Peserta</th>
                     <th scope="col" class="px-6 py-3 text-center">Jadwal</th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
@@ -46,6 +46,9 @@
                     <tr class="bg-white border-b border-dashed border-gray-200 text-grey3">
                         <td class="px-6 py-4">
                             <p class="font-semibold text-gray-900">{{ $studyGroup->name }}</p>
+                            @if($studyGroup->package)
+                                <p class="mt-1 text-xs font-semibold text-primary">Dari paket: {{ $studyGroup->package->name }}</p>
+                            @endif
                             @if($studyGroup->description)
                                 <p class="mt-1 max-w-md truncate text-xs text-gray-500">{{ $studyGroup->description }}</p>
                             @endif
@@ -70,18 +73,22 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex justify-center items-center gap-2">
-                                <a href="{{ route('admin.study-groups.edit', $studyGroup) }}"
-                                    class="text-gray-500 hover:text-yellow-500" title="Edit rombel">
-                                    <i class="ri-edit-line text-xl"></i>
-                                </a>
-                                <form method="POST" action="{{ route('admin.study-groups.destroy', $studyGroup) }}" class="inline"
-                                    onsubmit="return confirm('Yakin ingin menghapus rombel ini?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="text-gray-500 hover:text-red-500" title="Hapus rombel">
-                                        <i class="ri-delete-bin-line text-xl"></i>
-                                    </button>
-                                </form>
+                                @if($studyGroup->package_id)
+                                    <span class="text-xs font-medium text-gray-500">Dari pengajuan paket</span>
+                                @else
+                                    <a href="{{ route('admin.study-groups.edit', $studyGroup) }}"
+                                        class="text-gray-500 hover:text-yellow-500" title="Edit rombel">
+                                        <i class="ri-edit-line text-xl"></i>
+                                    </a>
+                                    <form method="POST" action="{{ route('admin.study-groups.destroy', $studyGroup) }}" class="inline"
+                                        onsubmit="return confirm('Yakin ingin menghapus rombel ini?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="text-gray-500 hover:text-red-500" title="Hapus rombel">
+                                            <i class="ri-delete-bin-line text-xl"></i>
+                                        </button>
+                                    </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

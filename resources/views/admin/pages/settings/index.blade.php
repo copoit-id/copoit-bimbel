@@ -20,14 +20,14 @@
 
     @php
     $settingErrorKeys = $errors->keys();
-    $aiGeneratorEnabled = (bool) ($branding['ai_question_generator_enabled'] ?? false);
-    $aiDiscussionFeatureEnabled = (bool) ($branding['ai_discussion_feature_enabled'] ?? false);
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
+    } elseif (collect($settingErrorKeys)->intersect(['website_translation_enabled', 'website_translation_locales'])->isNotEmpty()) {
+    $activeSettingsTab = 'language';
     } elseif (collect($settingErrorKeys)->intersect([
     'payment_mode',
     'payment_bank_name',
@@ -64,51 +64,23 @@
     'footer_youtube'
     ])->isNotEmpty()) {
     $activeSettingsTab = 'footer';
-    } elseif (collect($settingErrorKeys)->intersect([
-    'ai_openai_api_key',
-    'ai_openai_base_url',
-    'ai_openai_timeout',
-    'ai_gemini_api_key',
-    'ai_gemini_base_url',
-    'ai_gemini_timeout',
-    'ai_question_default_model',
-    'ai_question_models_json',
-    'ai_discussion_enabled',
-    'ai_discussion_credential_mode',
-    'ai_discussion_model',
-    'ai_discussion_openai_api_key',
-    'ai_discussion_openai_base_url',
-    'ai_discussion_openai_timeout',
-    'ai_discussion_gemini_api_key',
-    'ai_discussion_gemini_base_url',
-    'ai_discussion_gemini_timeout',
-    'ai_discussion_max_output_tokens',
-    'ai_discussion_instruction'
-    ])->isNotEmpty()) {
-    $activeSettingsTab = 'ai';
     }
     }
 
-    $aiSettings = old('ai_question_generator_settings', $profile->ai_question_generator_settings ?? ($branding['ai_question_generator_settings'] ?? []));
-    $aiProviders = is_array($aiSettings['providers'] ?? null) ? $aiSettings['providers'] : [];
-    $aiModels = is_array($aiSettings['models'] ?? null) ? $aiSettings['models'] : [
-        ['id' => 'gpt-5.4-mini', 'label' => 'OpenAI - GPT-5.4 Mini', 'provider' => 'openai', 'enabled' => true],
-        ['id' => 'gemini-2.5-flash', 'label' => 'Gemini - 2.5 Flash', 'provider' => 'gemini', 'enabled' => true],
-        ['id' => 'gemini-2.5-flash-lite', 'label' => 'Gemini - 2.5 Flash-Lite', 'provider' => 'gemini', 'enabled' => true],
-    ];
-    $aiModelsJson = old('ai_question_models_json', json_encode($aiModels, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    $aiDefaultModel = old('ai_question_default_model', $aiSettings['default_model'] ?? ($aiModels[0]['id'] ?? 'gemini-2.5-flash'));
-    $aiDiscussionSettings = old('ai_discussion_settings', $profile->ai_discussion_settings ?? ($branding['ai_discussion_settings'] ?? []));
-    $aiDiscussionProviders = is_array($aiDiscussionSettings['providers'] ?? null) ? $aiDiscussionSettings['providers'] : [];
-    $aiDiscussionEnabled = (bool) old('ai_discussion_enabled', $aiDiscussionSettings['enabled'] ?? false);
-    $aiDiscussionCredentialMode = old('ai_discussion_credential_mode', $aiDiscussionSettings['credential_mode'] ?? 'shared');
-    $aiDiscussionModel = old('ai_discussion_model', $aiDiscussionSettings['model'] ?? $aiDefaultModel);
+    $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
+
+        @if ($isDemoAdmin)
+        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p class="font-semibold">Mode lihat akun demo</p>
+            <p class="mt-1">Seluruh pengaturan dikunci dan tidak dapat disimpan oleh akun demo.</p>
+        </div>
+        @endif
 
         @if ($errors->any())
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
@@ -131,6 +103,10 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ui' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Preferensi UI
                 </button>
+                <button type="button" data-settings-tab="language"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'language' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Bahasa
+                </button>
                 <button type="button" data-settings-tab="payment"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'payment' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Pembayaran
@@ -147,13 +123,10 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'footer' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Footer
                 </button>
-                <button type="button" data-settings-tab="ai"
-                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'ai' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                    AI
-                </button>
             </div>
         </div>
 
+        <fieldset @disabled($isDemoAdmin)>
         <div data-settings-panel="identity"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'identity' ? 'hidden' : '' }}">
             <div>
@@ -322,6 +295,89 @@
                     </div>
                 </label>
             </div>
+        </div>
+
+        <div data-settings-panel="language"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'language' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Bahasa</p>
+                <h2 class="text-xl font-semibold text-gray-900">Terjemahan Otomatis Halaman</h2>
+                <p class="text-gray-500 text-sm">Sediakan pilihan bahasa pada seluruh halaman tanpa menerjemahkan setiap teks secara manual.</p>
+            </div>
+            @php
+                $websiteTranslationEnabled = old(
+                    'website_translation_enabled',
+                    $profile->website_translation_enabled ?? ($branding['website_translation_enabled'] ?? false)
+                );
+                $websiteTranslationLocales = old(
+                    'website_translation_locales',
+                    $profile->website_translation_locales ?? ($branding['website_translation_locales'] ?? ['en', 'zh-CN', 'ja', 'ar', 'ko'])
+                );
+                $websiteTranslationLocales = is_array($websiteTranslationLocales) ? $websiteTranslationLocales : [];
+            @endphp
+            <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                <input type="checkbox" name="website_translation_enabled" value="1"
+                    class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                    @checked((bool) $websiteTranslationEnabled)>
+                <div>
+                    <p class="font-semibold text-gray-900">Aktifkan pilihan bahasa</p>
+                    <p class="text-xs text-gray-500">User dapat memilih bahasa dari tombol di sudut kanan bawah pada setiap halaman.</p>
+                </div>
+            </label>
+            <div>
+                <p class="text-sm font-medium text-gray-900">Bahasa yang tersedia</p>
+                <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="en"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('en', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">English</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis dari Bahasa Indonesia ke English.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="zh-CN"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('zh-CN', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Mandarin (Simplified)</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke 中文（简体）.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="ja"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('ja', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Japanese</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke 日本語.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="ar"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('ar', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Arabic</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke العربية.</p>
+                        </div>
+                    </label>
+                    <label class="flex gap-3 border border-gray-200 rounded-2xl p-4 hover:border-primary/60 transition cursor-pointer">
+                        <input type="checkbox" name="website_translation_locales[]" value="ko"
+                            class="mt-1 h-5 w-5 rounded text-primary focus:ring-primary"
+                            @checked(in_array('ko', $websiteTranslationLocales, true))>
+                        <div>
+                            <p class="font-semibold text-gray-900">Korean</p>
+                            <p class="text-xs text-gray-500">Terjemahan otomatis ke 한국어.</p>
+                        </div>
+                    </label>
+                </div>
+                <p class="mt-3 text-xs text-gray-500">Form, editor, dan rumus matematika tidak diubah agar input dan fungsi tryout tetap aman.</p>
+            </div>
+            @error('website_translation_locales')
+                <p class="text-xs text-red-500">{{ $message }}</p>
+            @enderror
         </div>
 
         <div data-settings-panel="payment"
@@ -622,7 +678,7 @@
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Password Admin</label>
                     <input type="password" name="admin_password"
                         class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Wajib diisi untuk mengubah kredensial pembayaran">
+                        placeholder="Wajib diisi untuk mengubah kredensial pembayaran atau SMTP">
                     @error('admin_password')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
@@ -907,7 +963,12 @@
             </div>
         </div>
 
-        <div data-settings-panel="ai"
+        {{--
+            Konfigurasi AI dikelola penuh oleh Super Admin. Panel lama sengaja
+            tidak dirender untuk admin agar API key, model, dan limit tidak
+            dapat lagi diubah dari halaman ini.
+        --}}
+        {{-- <div data-settings-panel="ai"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'ai' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Pengaturan AI</p>
@@ -1004,7 +1065,7 @@
             </div>
             @endif
 
-            @if($aiDiscussionFeatureEnabled)
+            @if($aiDiscussionConfigurable)
             <div class="border-t border-gray-100 pt-6 space-y-5">
                 <div>
                     <p class="font-semibold text-gray-900">Diskusi AI di Pembahasan</p>
@@ -1042,6 +1103,29 @@
                         <input type="number" name="ai_discussion_max_output_tokens" min="200" max="2000"
                             value="{{ old('ai_discussion_max_output_tokens', $aiDiscussionSettings['max_output_tokens'] ?? 700) }}"
                             class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                    </div>
+                </div>
+
+                @php
+                    $aiDiscussionFeatureLimits = is_array($aiDiscussionSettings['feature_token_limits'] ?? null) ? $aiDiscussionSettings['feature_token_limits'] : [];
+                    $aiDiscussionFeatures = [
+                        'discussion' => ['Tanya jawab', 700],
+                        'learning_note' => ['Catatan', 1200],
+                        'learning_flashcard' => ['Flashcard', 500],
+                        'learning_question' => ['Latihan mirip', 1800],
+                    ];
+                @endphp
+                <div class="rounded-2xl border border-primary/10 bg-primary/5 p-4">
+                    <p class="font-semibold text-gray-900">Batas output per fitur</p>
+                    <p class="mt-1 text-xs text-gray-500">Diterapkan server-side untuk setiap request AI.</p>
+                    <div class="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        @foreach($aiDiscussionFeatures as $feature => [$label, $default])
+                            <label class="rounded-xl border border-gray-200 bg-white p-3">
+                                <span class="block text-sm font-semibold text-gray-800">{{ $label }}</span>
+                                <input type="number" name="ai_discussion_feature_token_limits[{{ $feature }}]" min="64" max="2000" value="{{ old('ai_discussion_feature_token_limits.' . $feature, $aiDiscussionFeatureLimits[$feature] ?? $default) }}" class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
+                                <span class="mt-1 block text-xs text-gray-500">token output</span>
+                            </label>
+                        @endforeach
                     </div>
                 </div>
 
@@ -1099,11 +1183,11 @@
             @else
             <div class="border-t border-gray-100 pt-6">
                 <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                    Diskusi AI pembahasan belum diaktifkan oleh super admin. Fitur ini default mati.
+                    Pengaturan Diskusi AI Pembahasan dikelola oleh super admin.
                 </div>
             </div>
             @endif
-        </div>
+        </div> --}}
 
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url()->previous() }}"
@@ -1112,6 +1196,7 @@
                 class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary/90">Simpan
                 Pengaturan</button>
         </div>
+        </fieldset>
     </form>
 </div>
 @endsection

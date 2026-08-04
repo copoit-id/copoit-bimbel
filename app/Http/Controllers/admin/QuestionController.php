@@ -9,7 +9,9 @@ use App\Models\TryoutDetail;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
 use App\Services\PlanQuotaService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Validation\ValidationException;
@@ -456,6 +458,61 @@ class QuestionController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()
                 ->with('error', 'Gagal menghapus soal: ' . $e->getMessage());
+        }
+    }
+
+    public function duplicate(int $tryout_detail_id, int $question_id): RedirectResponse
+    {
+        $duplicatedSound = null;
+
+        try {
+            $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
+            $question = Question::query()
+                ->with('questionOptions')
+                ->where('question_id', $question_id)
+                ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
+                ->firstOrFail();
+
+            $soundPath = $question->sound;
+            if ($soundPath && Storage::disk('public')->exists($soundPath)) {
+                $extension = pathinfo($soundPath, PATHINFO_EXTENSION);
+                $duplicatedSound = 'questions/audio/'.uniqid('duplicate_', true).($extension ? '.'.$extension : '');
+
+                if (! Storage::disk('public')->copy($soundPath, $duplicatedSound)) {
+                    throw new \RuntimeException('File audio soal gagal diduplikasi.');
+                }
+
+                $soundPath = $duplicatedSound;
+            }
+
+            DB::transaction(function () use ($question, $tryoutDetail, $soundPath): void {
+                $duplicate = $question->replicate();
+                $duplicate->tryout_detail_id = $tryoutDetail->tryout_detail_id;
+                $duplicate->sound = $soundPath;
+                $duplicate->save();
+
+                foreach ($question->questionOptions as $option) {
+                    $duplicateOption = $option->replicate();
+                    $duplicateOption->question_id = $duplicate->question_id;
+                    $duplicateOption->save();
+                }
+            });
+
+            $this->recalculateTryoutDetailScores($tryoutDetail);
+
+            return redirect()
+                ->route('admin.question.index', $tryoutDetail->tryout_detail_id)
+                ->with('success', 'Soal beserta seluruh opsi dan skornya berhasil diduplikasi.');
+        } catch (\Throwable $exception) {
+            if ($duplicatedSound && Storage::disk('public')->exists($duplicatedSound)) {
+                Storage::disk('public')->delete($duplicatedSound);
+            }
+
+            report($exception);
+
+            return redirect()
+                ->route('admin.question.index', $tryout_detail_id)
+                ->with('error', 'Gagal menduplikasi soal: '.$exception->getMessage());
         }
     }
 

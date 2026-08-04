@@ -31,6 +31,7 @@
     @include('components.branding-styles')
     @include('components.favicon-link')
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <x-website-translation-head />
     @stack('styles')
 </head>
 
@@ -206,6 +207,7 @@
         </div>
     </footer>
     @endif
+    <x-website-translator />
 </body>
 
 </html>

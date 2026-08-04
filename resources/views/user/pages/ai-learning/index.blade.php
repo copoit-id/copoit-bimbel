@@ -1,0 +1,704 @@
+@extends('user.layout.new-user')
+
+@section('title', 'AI Learning Tools')
+@section('container_width', 'max-w-[96rem]')
+
+@section('content')
+<style>
+    .standalone-flashcard { perspective: 1200px; }
+    .standalone-flashcard .ai-flashcard { will-change: transform, opacity; }
+    .standalone-flashcard .ai-flashcard-inner { position: relative; min-height: 18rem; transform-style: preserve-3d; transition: transform 620ms cubic-bezier(.22, 1, .36, 1); will-change: transform; }
+    .standalone-flashcard .ai-flashcard.is-showing-back .ai-flashcard-inner { transform: rotateY(180deg); }
+    .standalone-flashcard .ai-flashcard-face { position: absolute; inset: 0; display: flex; flex-direction: column; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    .standalone-flashcard .ai-flashcard-back { transform: rotateY(180deg); }
+    .standalone-flashcard .ai-flashcard.is-entering { animation: standalone-flashcard-enter 360ms cubic-bezier(.22, 1, .36, 1); }
+    .standalone-flashcard .ai-flashcard.is-exiting-remembered { animation: standalone-flashcard-exit-right 320ms ease-in forwards; }
+    .standalone-flashcard .ai-flashcard.is-exiting-forgotten { animation: standalone-flashcard-exit-left 320ms ease-in forwards; }
+
+    @keyframes standalone-flashcard-enter {
+        from { opacity: 0; transform: translateY(22px) scale(.94) rotateY(-10deg); }
+        to { opacity: 1; transform: translateY(0) scale(1) rotateY(0); }
+    }
+
+    @keyframes standalone-flashcard-exit-right {
+        to { opacity: 0; transform: translateX(56px) rotate(4deg) scale(.94); }
+    }
+
+    @keyframes standalone-flashcard-exit-left {
+        to { opacity: 0; transform: translateX(-56px) rotate(-4deg) scale(.94); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .standalone-flashcard .ai-flashcard.is-entering,
+        .standalone-flashcard .ai-flashcard.is-exiting-remembered,
+        .standalone-flashcard .ai-flashcard.is-exiting-forgotten { animation-duration: 1ms; }
+        .standalone-flashcard .ai-flashcard-inner { transition-duration: 1ms; }
+    }
+</style>
+
+@php
+    $toolMeta = [
+        'quota' => ['label' => 'Paket & Kuota', 'icon' => 'ri-cpu-line'],
+        'note' => ['label' => 'Catatan', 'action' => 'Buat Catatan Materi', 'icon' => 'ri-sticky-note-line', 'description' => 'Susun materi lengkap dari konsep, soal, rumus, atau teks yang kamu masukkan.'],
+        'recommendation' => ['label' => 'Rekomendasi', 'action' => 'Buat Rekomendasi Belajar', 'icon' => 'ri-compass-3-line', 'description' => 'Cari fokus belajar dan langkah berikutnya dari materi yang sedang kamu pelajari.'],
+        'question' => ['label' => 'Soal Serupa', 'action' => 'Buat Soal Serupa', 'icon' => 'ri-file-add-line', 'description' => 'Buat latihan baru dari materi atau soal dengan tingkat kesulitan yang kamu pilih.'],
+        'flashcard' => ['label' => 'Flashcard', 'action' => 'Buat Flashcard', 'icon' => 'ri-stack-line', 'description' => 'Ubah materi menjadi kartu ringkas untuk latihan recall.'],
+    ];
+    $activeTool = $toolMeta[$currentTool];
+    $sourceFilterOptions = collect([
+        'independent' => 'Input mandiri',
+        'discussion' => 'Semua pembahasan',
+    ])->merge($sourceOptions->mapWithKeys(fn ($source) => [$source['value'] => $source['label']]))->all();
+@endphp
+
+<div class="w-full">
+    @if(session('success'))
+        <div class="mb-5 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-800">
+            <p class="font-bold">🎉 Selamat! Paket AI gratis kamu sudah aktif.</p>
+            <p class="mt-1">Coba satu soal contoh untuk melihat langsung cara AI membantu belajarmu.</p>
+        </div>
+    @endif
+
+    <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div><p class="text-sm font-semibold text-primary"><i class="ri-sparkling-2-line mr-1"></i>AI Learning Tools</p><h1 class="mt-1 text-2xl font-bold text-gray-900">Ruang belajar AI</h1><p class="mt-1 text-sm text-gray-500">Pilih alat, buat hasil baru, lalu buka riwayatnya di tempat yang sama.</p></div>
+    </div>
+
+    <div class="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-8">
+        <aside class="lg:sticky lg:top-20 lg:h-fit">
+            <nav class="flex gap-2 overflow-x-auto rounded-2xl border border-gray-200 bg-white p-2 lg:flex-col" aria-label="Menu AI Learning Tools">
+                @foreach($toolMeta as $toolKey => $meta)
+                    <a href="{{ route('user.ai-learning.index', ['tool' => $toolKey]) }}" class="shrink-0 rounded-xl px-3 py-2.5 text-sm font-semibold {{ $currentTool === $toolKey ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50' }}"><i class="{{ $meta['icon'] }} mr-2"></i>{{ $meta['label'] }}</a>
+                @endforeach
+            </nav>
+        </aside>
+
+        <main class="{{ $currentTool === 'quota' ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]' }}">
+            @if($currentTool === 'quota')
+                @include('user.pages.ai-gateway.partials.dashboard-content', $gatewayDashboardData)
+            @else
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                <div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><i class="{{ $activeTool['icon'] }} text-xl"></i></span><div><h2 class="text-lg font-bold text-gray-900">AI {{ $activeTool['label'] }}</h2><p class="mt-1 text-sm leading-6 text-gray-500">{{ $activeTool['description'] }}</p></div></div>
+
+                <form id="ai-learning-independent-form" class="mt-6 space-y-5">
+                    <input type="hidden" name="tool" value="{{ $currentTool }}">
+                    <x-ui.input name="title" label="Judul atau topik (opsional)" maxlength="120" icon="ri-bookmark-3-line" placeholder="Contoh: Hukum Newton" class="h-11 max-w-xl rounded-xl" />
+                    <x-ui.input.textarea name="content" label="Soal atau materi" :required="true" minlength="20" maxlength="10000" rows="9" resize="vertical" helper="Minimal 20 karakter." placeholder="Tempel soal, teks materi, rumus, atau konsep yang ingin diolah..." class="rounded-xl leading-6" />
+
+                    @if($currentTool === 'question')
+                        <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><x-ui.input.select name="question_count" label="Jumlah soal" :options="['1' => '1 soal', '2' => '2 soal', '3' => '3 soal', '4' => '4 soal', '5' => '5 soal']" value="1" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="difficulty" label="Kesulitan" :options="['mudah' => 'Mudah', 'sedang' => 'Sedang', 'sulit' => 'Sulit']" value="sedang" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="variation" label="Variasi" :options="['konteks' => 'Ubah konteks', 'angka' => 'Ubah angka', 'hots' => 'Naikkan HOTS']" value="konteks" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="hots_level" label="Level HOTS" :options="['rendah' => 'Rendah', 'sedang' => 'Sedang', 'tinggi' => 'Tinggi']" value="sedang" class="h-10 rounded-lg border-primary/20" /></div></div>
+                    @endif
+
+                    <p id="ai-independent-error" class="hidden text-sm text-red-600" role="alert"></p>
+                    <button id="ai-independent-submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-sparkling-2-line"></i><span>{{ $activeTool['action'] }}</span></button>
+                </form>
+
+                <div id="ai-independent-result-wrap" class="mt-6 hidden rounded-2xl border border-gray-200 bg-gray-50 p-5"><div class="mb-4 flex items-center justify-between"><p class="text-sm font-semibold text-gray-900">Hasil terbaru</p><span class="text-xs text-gray-400">Masuk ke riwayat</span></div><div id="ai-independent-result"></div></div>
+            </section>
+
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="text-lg font-bold text-gray-900">Riwayat {{ $activeTool['label'] }}</h2><p class="mt-1 text-sm text-gray-500">Buka hasil sebelumnya tanpa memakai token lagi.</p></div>
+                    <div class="inline-flex w-fit rounded-lg bg-gray-100 p-1 text-xs font-semibold"><a href="{{ route('user.ai-learning.index', ['tool' => $currentTool]) }}" class="rounded-md px-2.5 py-1.5 {{ ! $showPinned ? 'bg-white text-primary shadow-sm' : 'text-gray-500' }}">Riwayat</a><a href="{{ route('user.ai-learning.index', ['tool' => $currentTool, 'pinned' => 1]) }}" class="rounded-md px-2.5 py-1.5 {{ $showPinned ? 'bg-white text-primary shadow-sm' : 'text-gray-500' }}"><i class="ri-pushpin-2-line mr-1"></i>Pin ({{ $pinnedArtifactsCount }})</a></div>
+                </div>
+                <form method="GET" action="{{ route('user.ai-learning.index') }}" class="mt-4"><input type="hidden" name="tool" value="{{ $currentTool }}">@if($showPinned)<input type="hidden" name="pinned" value="1">@endif<x-ui.input.select name="source" label="Filter sumber" :options="$sourceFilterOptions" :value="$currentSource" placeholder="Semua sumber" onchange="this.form.submit()" class="h-10 rounded-xl" /></form>
+                <div id="ai-learning-history-list" class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
+                    @forelse($artifacts as $artifact)
+                        <div class="group relative"><button type="button" class="ai-learning-history-select w-full rounded-xl border border-gray-200 p-3 pr-28 text-left transition hover:border-primary/40 hover:bg-primary/5" data-artifact-id="{{ $artifact->id }}"><span class="block"><span class="block text-sm font-semibold text-gray-800">{{ $artifact->title }}</span><span class="mt-1 block text-xs text-gray-500">{{ $artifact->source_label ?: ($artifact->source_type === 'independent' ? 'Input mandiri' : 'Pembahasan tryout') }} · {{ $artifact->created_at?->translatedFormat('d M, H:i') }}</span></span></button><button type="button" class="ai-toggle-artifact-pin absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition {{ $artifact->saved_at ? 'text-primary hover:bg-amber-50 hover:text-amber-700 lg:group-hover:bg-amber-50 lg:group-hover:text-amber-700' : 'text-gray-400 hover:bg-primary/5 hover:text-primary lg:group-hover:bg-primary/5 lg:group-hover:text-primary' }}" data-artifact-id="{{ $artifact->id }}" data-pinned="{{ $artifact->saved_at ? '1' : '0' }}"><i class="{{ $artifact->saved_at ? 'ri-pushpin-2-fill' : 'ri-pushpin-2-line' }}"></i><span class="lg:group-hover:hidden">{{ $artifact->saved_at ? 'Dipin' : 'Pin' }}</span><span class="hidden lg:group-hover:inline">{{ $artifact->saved_at ? 'Lepas pin' : 'Pin hasil' }}</span></button></div>
+                        <template id="ai-learning-artifact-{{ $artifact->id }}">@include('user.pages.ai-learning.partials.result', ['artifact' => $artifact, 'payload' => $artifact->payload])</template>
+                    @empty
+                        <div class="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm leading-6 text-gray-500"><i class="{{ $activeTool['icon'] }} mb-2 block text-2xl text-gray-300"></i>{{ $showPinned ? 'Belum ada hasil yang dipin.' : 'Belum ada hasil. Buat hasil pertamamu di panel sebelah.' }}</div>
+                    @endforelse
+                </div>
+                <div class="mt-4">{{ $artifacts->links() }}</div>
+            </section>
+            @endif
+        </main>
+    </div>
+</div>
+
+@if($showAiLearningOnboarding)
+<div id="ai-learning-onboarding-modal" class="fixed inset-0 z-[100001] overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ai-learning-onboarding-title">
+    <div class="flex min-h-full items-center justify-center">
+        <div id="ai-onboarding-panel" class="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl transition-all">
+            <div id="ai-onboarding-intro" class="overflow-y-auto">
+                <div class="bg-gradient-to-br from-primary/15 via-white to-amber-50 px-6 py-7 text-center sm:px-9">
+                    <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl text-white shadow-lg shadow-primary/20"><i class="ri-sparkling-2-line"></i></span>
+                    <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Coba fitur AI</p>
+                    <h2 id="ai-learning-onboarding-title" class="mt-2 text-2xl font-black text-gray-900">Lihat cara AI membantu belajarmu</h2>
+                    <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-gray-600">Klik soal contoh, lalu lihat pembahasan dan fitur belajar lainnya langsung di sini.</p>
+                </div>
+                <div class="px-6 pb-7 sm:px-9">
+                    <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left">
+                        <p class="text-xs font-bold uppercase tracking-wide text-primary">Soal contoh</p>
+                        <p class="mt-2 text-sm font-semibold leading-6 text-gray-900">{{ $aiLearningOnboardingSample['content'] }}</p>
+                    </div>
+                    <button id="ai-learning-onboarding-start" type="button" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-play-circle-line text-xl"></i><span>Coba dengan soal contoh</span></button>
+                    @if($canSkipAiLearningOnboarding)
+                        <button id="ai-learning-onboarding-skip" type="button" data-subscription-id="{{ $activeAiGatewaySubscriptionId }}" class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-skip-forward-line"></i><span>Lewati tutorial</span></button>
+                    @endif
+                    <p id="ai-learning-onboarding-error" class="mt-3 hidden text-center text-sm text-red-600" role="alert"></p>
+                </div>
+            </div>
+
+            <div id="ai-onboarding-flow" class="hidden min-h-0 flex-1 flex-col">
+                <div class="shrink-0 border-b border-primary/10 bg-gradient-to-r from-primary/10 via-white to-amber-50 px-5 py-4 sm:px-7">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div><p class="text-xs font-bold uppercase tracking-widest text-primary">Coba fitur AI</p><h3 class="mt-1 text-xl font-bold text-gray-900">Hasil dari soal contoh</h3><p class="mt-1 text-sm text-gray-600">Pilih hasil atau coba fitur berikutnya. Semuanya tetap muncul di modal ini.</p></div>
+                        <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-semibold sm:text-xs">
+                            @foreach(['Pembahasan', 'Flashcard', 'Soal serupa', 'Rekomendasi'] as $stepIndex => $stepLabel)
+                                <div class="ai-onboarding-progress-step rounded-xl border border-gray-200 bg-white px-2 py-2 text-gray-400" data-onboarding-progress-step="{{ $stepIndex + 1 }}"><span class="mx-auto mb-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-100">{{ $stepIndex + 1 }}</span>{{ $stepLabel }}</div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_20rem]">
+                    <div id="ai-onboarding-result" class="standalone-flashcard min-w-0 rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:p-5" aria-live="polite"></div>
+                    <aside class="h-fit rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
+                        <h4 class="font-bold text-gray-900">Pilih hasil atau coba fitur lainnya</h4>
+                        <div class="mt-3 grid gap-2">
+                            <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="note"><span><i class="ri-book-open-line mr-2 text-primary"></i>Pembahasan</span><span class="ai-onboarding-tool-status text-primary"><i class="ri-arrow-right-s-line"></i></span></button>
+                            <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="flashcard"><span><i class="ri-stack-line mr-2 text-primary"></i>Flashcard</span><span class="ai-onboarding-tool-status text-primary"><i class="ri-arrow-right-s-line"></i></span></button>
+                            <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="question"><span><i class="ri-file-add-line mr-2 text-primary"></i>5 soal serupa</span><span class="ai-onboarding-tool-status text-primary"><i class="ri-arrow-right-s-line"></i></span></button>
+                            <button type="button" class="ai-onboarding-tool flex items-center justify-between rounded-xl border border-primary/20 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:border-primary hover:bg-primary/5" data-onboarding-tool="recommendation"><span><i class="ri-youtube-line mr-2 text-red-600"></i>Rekomendasi belajar</span><span class="ai-onboarding-tool-status text-primary"><i class="ri-arrow-right-s-line"></i></span></button>
+                        </div>
+                        <p id="ai-onboarding-workspace-error" class="mt-3 hidden text-sm text-red-600" role="alert"></p>
+                        <div id="ai-onboarding-complete" class="mt-4 hidden rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                            <p class="font-bold">🎉 Selesai mencoba!</p>
+                            <p class="mt-1 text-xs leading-5">Sekarang waktunya pakai soal atau materi milikmu sendiri.</p>
+                            <a id="ai-onboarding-finish" href="{{ route('user.ai-learning.index', ['tool' => 'note']) }}" class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-center text-sm font-bold text-white hover:bg-primary/90"><i class="ri-arrow-right-line"></i>Yuk coba langsung di soal kamu</a>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+@if($showAiPackageRequiredModal)
+<div id="ai-package-required-modal" class="fixed inset-0 z-[100001] overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ai-package-required-title">
+    <div class="flex min-h-full items-center justify-center">
+        <div class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div class="bg-gradient-to-br from-primary/15 via-white to-amber-50 px-6 py-8 text-center sm:px-9">
+                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl text-white shadow-lg shadow-primary/20"><i class="ri-lock-2-line"></i></span>
+                <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Paket AI diperlukan</p>
+                <h2 id="ai-package-required-title" class="mt-2 text-2xl font-black text-gray-900">Aktifkan paket untuk mulai belajar</h2>
+                <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-600">Akunmu belum memiliki paket AI aktif. Pilih paket atau klaim paket gratis yang tersedia untuk melanjutkan.</p>
+            </div>
+            <div class="px-6 pb-7 sm:px-9">
+                <a href="{{ route('user.ai-learning.index', ['tool' => 'quota']) }}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90"><i class="ri-shopping-bag-3-line text-xl"></i><span>Lihat & pilih paket AI</span></a>
+                <p class="mt-3 text-center text-xs leading-5 text-gray-500">Paket lama dan riwayat penggunaan tetap tersimpan, tetapi tidak dihitung sebagai kuota aktif.</p>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+<div id="ai-learning-artifact-modal" class="fixed inset-0 z-[99999] hidden overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><div class="flex h-full w-full items-center justify-center"><div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Riwayat AI Learning</p><p class="mt-1 text-lg font-bold text-gray-900">Detail hasil</p></div><button type="button" data-artifact-modal-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Tutup detail hasil"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-artifact-modal-content" class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6"></div></div></div></div>
+<div id="ai-learning-flashcard-modal" class="fixed inset-0 z-[100000] hidden overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl"><div class="mb-5 flex items-start justify-between"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Mode recall</p><p class="mt-1 text-lg font-semibold text-gray-900">Flashcard</p></div><button type="button" data-flashcard-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-flashcard-modal-content"></div></div></div></div>
+@endsection
+
+@push('scripts')
+<script>
+    const independentForm = document.getElementById('ai-learning-independent-form');
+    const independentSubmit = document.getElementById('ai-independent-submit');
+    const independentError = document.getElementById('ai-independent-error');
+    const independentResult = document.getElementById('ai-independent-result');
+    const independentResultWrap = document.getElementById('ai-independent-result-wrap');
+    const artifactModal = document.getElementById('ai-learning-artifact-modal');
+    const artifactModalContent = document.getElementById('ai-learning-artifact-modal-content');
+    const independentQuestionSettings = document.getElementById('ai-independent-question-settings');
+    const artifactPinUrlTemplate = @json(route('user.ai-learning.notes.save', ['artifact' => 'ARTIFACT_ID']));
+    const artifactExpandUrlTemplate = @json(route('user.ai-learning.notes.expand', ['artifact' => 'ARTIFACT_ID']));
+    const labels = { note: 'Buat Catatan Materi', recommendation: 'Buat Rekomendasi Belajar', question: 'Buat Soal Serupa', flashcard: 'Buat Flashcard' };
+    const aiLearningGenerateUrl = @json(route('user.ai-learning.generate-independent'));
+    const aiLearningOnboardingSkipUrl = @json(route('user.ai-learning.onboarding.skip'));
+    const aiOnboardingSample = @json($aiLearningOnboardingSample);
+    const aiOnboardingModal = document.getElementById('ai-learning-onboarding-modal');
+    const aiPackageRequiredModal = document.getElementById('ai-package-required-modal');
+    const aiOnboardingPanel = document.getElementById('ai-onboarding-panel');
+    const aiOnboardingIntro = document.getElementById('ai-onboarding-intro');
+    const aiOnboardingFlow = document.getElementById('ai-onboarding-flow');
+    const aiOnboardingStart = document.getElementById('ai-learning-onboarding-start');
+    const aiOnboardingSkip = document.getElementById('ai-learning-onboarding-skip');
+    const aiOnboardingError = document.getElementById('ai-learning-onboarding-error');
+    const aiOnboardingWorkspaceError = document.getElementById('ai-onboarding-workspace-error');
+    const aiOnboardingResult = document.getElementById('ai-onboarding-result');
+    const aiOnboardingComplete = document.getElementById('ai-onboarding-complete');
+    const aiOnboardingFinish = document.getElementById('ai-onboarding-finish');
+    const aiOnboardingResults = new Map();
+    const aiOnboardingProgress = { note: 1, flashcard: 2, question: 3, recommendation: 4 };
+    let aiOnboardingActiveTool = null;
+
+    function selectedTool() { return independentForm?.querySelector('input[name="tool"]')?.value || 'note'; }
+    function updateIndependentTool() {
+        const tool = selectedTool();
+        independentQuestionSettings?.classList.toggle('hidden', tool !== 'question');
+        independentSubmit?.querySelector('span')?.replaceChildren(document.createTextNode(labels[tool]));
+    }
+    updateIndependentTool();
+
+    const generatedResultHtml = new Map();
+
+    async function requestIndependentGeneration(formData) {
+        const response = await fetch(aiLearningGenerateUrl, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) },
+            body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'AI belum dapat memproses input.');
+
+        return data;
+    }
+
+    function renderStandaloneResult(result) {
+        if (!independentResult || !independentResultWrap) return;
+        const artifactId = String(result.artifact_id || 'latest');
+        generatedResultHtml.set(artifactId, result.html || '');
+        independentResult.innerHTML = '<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-700"><i class="ri-checkbox-circle-line text-xl"></i></span><div><p class="text-sm font-semibold text-gray-900">Hasil AI sudah siap</p><p data-generated-result-title class="mt-0.5 text-sm text-gray-500"></p></div></div><button type="button" class="ai-learning-open-generated-result inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90" data-artifact-id="' + artifactId + '"><i class="ri-eye-line"></i>Lihat hasil</button></div>';
+        independentResult.querySelector('[data-generated-result-title]').textContent = result.title || 'Buka hasil lengkapnya dalam modal.';
+        independentResultWrap.classList.remove('hidden');
+        independentResultWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function setAiOnboardingStep(step, completed = true) {
+        const element = document.querySelector(`[data-onboarding-progress-step="${step}"]`);
+        if (!element) return;
+        element.classList.toggle('border-green-200', completed);
+        element.classList.toggle('bg-green-50', completed);
+        element.classList.toggle('text-green-700', completed);
+        element.classList.toggle('border-gray-200', !completed);
+        element.classList.toggle('bg-white', !completed);
+        element.classList.toggle('text-gray-400', !completed);
+        const badge = element.querySelector('span');
+        badge?.classList.toggle('bg-green-100', completed);
+        badge?.classList.toggle('bg-gray-100', !completed);
+        if (badge) badge.innerHTML = completed ? '<i class="ri-check-line"></i>' : String(step);
+    }
+
+    function syncAiOnboardingState(activeTool = aiOnboardingActiveTool) {
+        aiOnboardingActiveTool = activeTool;
+        Object.entries(aiOnboardingProgress).forEach(([tool, step]) => {
+            setAiOnboardingStep(step, aiOnboardingResults.has(tool));
+        });
+
+        document.querySelectorAll('.ai-onboarding-tool').forEach((button) => {
+            const tool = button.dataset.onboardingTool;
+            const completed = aiOnboardingResults.has(tool);
+            const active = tool === aiOnboardingActiveTool;
+            const status = button.querySelector('.ai-onboarding-tool-status');
+
+            button.classList.toggle('border-green-200', completed);
+            button.classList.toggle('bg-green-50', completed);
+            button.classList.toggle('text-green-800', completed);
+            button.classList.toggle('border-primary/20', !completed);
+            button.classList.toggle('bg-white', !completed);
+            button.classList.toggle('text-gray-800', !completed);
+            button.classList.toggle('ring-2', active);
+            button.classList.toggle('ring-primary/20', active);
+
+            if (status) {
+                status.className = `ai-onboarding-tool-status ${completed ? 'text-xs font-bold text-green-700' : 'text-primary'}`;
+                status.innerHTML = completed
+                    ? '<span class="inline-flex items-center gap-1"><i class="ri-check-line"></i>Siap</span>'
+                    : '<i class="ri-arrow-right-s-line"></i>';
+            }
+        });
+    }
+
+    function onboardingFormData(tool) {
+        const formData = new FormData();
+        formData.set('tool', tool);
+        formData.set('title', aiOnboardingSample.title);
+        formData.set('content', aiOnboardingSample.content);
+        if (tool === 'question') {
+            formData.set('question_count', '5');
+            formData.set('difficulty', 'sedang');
+            formData.set('variation', 'konteks');
+            formData.set('hots_level', 'sedang');
+        }
+
+        return formData;
+    }
+
+    function showAiOnboardingResult(tool) {
+        const result = aiOnboardingResults.get(tool);
+        if (!result || !aiOnboardingResult) return;
+        let html = result.html || '';
+        if (tool === 'flashcard') {
+            const preview = document.createElement('div');
+            preview.innerHTML = html;
+            const template = preview.querySelector('.ai-flashcard-preview-template');
+            if (template instanceof HTMLTemplateElement) html = template.innerHTML;
+        }
+        aiOnboardingResult.innerHTML = html;
+        syncAiOnboardingState(tool);
+        aiOnboardingResult.closest('.overflow-y-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function completeAiOnboardingIfReady() {
+        if (Object.keys(aiOnboardingProgress).every((tool) => aiOnboardingResults.has(tool))) {
+            aiOnboardingComplete?.classList.remove('hidden');
+        }
+    }
+
+    async function generateAiOnboardingTool(tool, button = null) {
+        aiOnboardingWorkspaceError?.classList.add('hidden');
+
+        if (aiOnboardingResults.has(tool)) {
+            showAiOnboardingResult(tool);
+            return;
+        }
+
+        const status = button?.querySelector('.ai-onboarding-tool-status');
+        if (button) {
+            button.disabled = true;
+            if (status) status.innerHTML = '<i class="ri-loader-4-line inline-block animate-spin"></i>';
+        }
+
+        try {
+            const data = await requestIndependentGeneration(onboardingFormData(tool));
+            aiOnboardingResults.set(tool, data);
+            showAiOnboardingResult(tool);
+            completeAiOnboardingIfReady();
+        } catch (error) {
+            syncAiOnboardingState();
+            if (aiOnboardingWorkspaceError) {
+                aiOnboardingWorkspaceError.textContent = error.message || 'Hasil AI belum dapat dibuat.';
+                aiOnboardingWorkspaceError.classList.remove('hidden');
+            }
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    if (aiOnboardingModal || aiPackageRequiredModal) {
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeAiOnboarding() {
+        aiOnboardingModal?.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('onboarding');
+        window.history.replaceState({}, '', currentUrl);
+    }
+
+    aiOnboardingSkip?.addEventListener('click', async () => {
+        aiOnboardingError?.classList.add('hidden');
+        aiOnboardingSkip.disabled = true;
+        const originalHtml = aiOnboardingSkip.innerHTML;
+        aiOnboardingSkip.innerHTML = '<i class="ri-loader-4-line animate-spin"></i><span>Menyimpan...</span>';
+
+        try {
+            const response = await fetch(aiLearningOnboardingSkipUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: JSON.stringify({ subscription_id: Number(aiOnboardingSkip.dataset.subscriptionId) }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Tutorial belum dapat dilewati.');
+            closeAiOnboarding();
+        } catch (error) {
+            aiOnboardingSkip.innerHTML = originalHtml;
+            aiOnboardingSkip.disabled = false;
+            if (aiOnboardingError) {
+                aiOnboardingError.textContent = error.message || 'Tutorial belum dapat dilewati.';
+                aiOnboardingError.classList.remove('hidden');
+            }
+        }
+    });
+
+    aiOnboardingStart?.addEventListener('click', async () => {
+        aiOnboardingError?.classList.add('hidden');
+        aiOnboardingStart.disabled = true;
+        const originalHtml = aiOnboardingStart.innerHTML;
+        aiOnboardingStart.innerHTML = '<i class="ri-loader-4-line animate-spin text-xl"></i><span>AI sedang membahas soal...</span>';
+
+        try {
+            const data = await requestIndependentGeneration(onboardingFormData('note'));
+            aiOnboardingResults.set('note', data);
+            aiOnboardingPanel?.classList.remove('max-w-2xl');
+            aiOnboardingPanel?.classList.add('max-w-6xl');
+            aiOnboardingIntro?.classList.add('hidden');
+            aiOnboardingFlow?.classList.remove('hidden');
+            aiOnboardingFlow?.classList.add('flex');
+            showAiOnboardingResult('note');
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.delete('onboarding');
+            window.history.replaceState({}, '', currentUrl);
+        } catch (error) {
+            aiOnboardingStart.innerHTML = originalHtml;
+            aiOnboardingStart.disabled = false;
+            if (aiOnboardingError) {
+                aiOnboardingError.textContent = error.message || 'Demo AI belum dapat dijalankan. Coba lagi.';
+                aiOnboardingError.classList.remove('hidden');
+            }
+        }
+    });
+
+    document.querySelectorAll('.ai-onboarding-tool').forEach((button) => {
+        button.addEventListener('click', () => generateAiOnboardingTool(button.dataset.onboardingTool, button));
+    });
+
+    aiOnboardingFinish?.addEventListener('click', (event) => {
+        if (!independentForm) return;
+        event.preventDefault();
+        closeAiOnboarding();
+        independentForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => independentForm.querySelector('[name="content"]')?.focus(), 450);
+    });
+
+    function renderHistoryResult(html) {
+        if (!artifactModal || !artifactModalContent) return;
+        artifactModalContent.innerHTML = html;
+        artifactModal.classList.remove('hidden');
+        artifactModal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeArtifactModal() {
+        artifactModal?.classList.add('hidden');
+        artifactModal?.classList.remove('flex');
+        artifactModalContent?.replaceChildren();
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    independentForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        independentError?.classList.add('hidden');
+        independentSubmit.disabled = true;
+        const original = independentSubmit.innerHTML;
+        independentSubmit.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memproses...';
+        try {
+            const formData = new FormData(independentForm);
+            const data = await requestIndependentGeneration(formData);
+            renderStandaloneResult(data);
+        } catch (error) {
+            independentError.textContent = error.message || 'AI belum dapat memproses input.';
+            independentError.classList.remove('hidden');
+        } finally {
+            independentSubmit.innerHTML = original;
+            independentSubmit.disabled = false;
+        }
+    });
+
+    const flashcardModal = document.getElementById('ai-learning-flashcard-modal');
+    const flashcardContent = document.getElementById('ai-learning-flashcard-modal-content');
+    function closeStandaloneFlashcard() { flashcardModal?.classList.add('hidden'); flashcardContent?.replaceChildren(); }
+    function openStandaloneFlashcard(button) {
+        const root = button.closest('[data-ai-tool="flashcard"]');
+        const template = root?.querySelector('.ai-flashcard-preview-template');
+        if (!(template instanceof HTMLTemplateElement) || !flashcardContent) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'standalone-flashcard';
+        wrapper.append(template.content.cloneNode(true));
+        flashcardContent.replaceChildren(wrapper);
+        flashcardModal?.classList.remove('hidden');
+    }
+    function handleStandaloneFlashcard(event) {
+        const study = event.target.closest('.ai-flashcard-study');
+        if (!study) return;
+        const cards = Array.from(study.querySelectorAll('.ai-flashcard'));
+        const setControlsDisabled = (disabled) => {
+            study.querySelectorAll('.ai-flashcard-flip, .ai-flashcard-remember, .ai-flashcard-forgot')
+                .forEach((button) => { button.disabled = disabled; });
+        };
+        const showCard = (index) => {
+            cards.forEach((card, cardIndex) => {
+                const visible = cardIndex === index;
+                card.classList.toggle('hidden', !visible);
+                if (!visible) return;
+
+                card.classList.remove('is-exiting-remembered', 'is-exiting-forgotten', 'is-showing-back');
+                card.dataset.showing = 'front';
+                delete card.dataset.transitioning;
+                card.classList.remove('is-entering');
+                window.requestAnimationFrame(() => card.classList.add('is-entering'));
+                window.setTimeout(() => card.classList.remove('is-entering'), 380);
+            });
+            setControlsDisabled(false);
+            study.dataset.currentIndex = String(index);
+            const progress = study.querySelector('.ai-flashcard-progress');
+            if (progress) progress.textContent = `Kartu ${index + 1} dari ${cards.length}`;
+        };
+        const finishRound = () => {
+            const forgotten = cards.filter((card) => card.dataset.status === 'forgotten').length;
+            study.querySelector('.ai-flashcard-forgot')?.classList.add('hidden');
+            study.querySelector('.ai-flashcard-remember')?.classList.add('hidden');
+            const complete = study.querySelector('.ai-flashcard-complete');
+            const completeCopy = study.querySelector('.ai-flashcard-complete-copy');
+            const recall = study.querySelector('.ai-flashcard-recall');
+            complete?.classList.remove('hidden');
+            if (completeCopy) completeCopy.textContent = forgotten > 0
+                ? `${forgotten} kartu masih perlu diulang.`
+                : 'Semua kartu sudah kamu tandai ingat.';
+            recall?.classList.toggle('hidden', forgotten === 0);
+        };
+        const continueStudy = () => {
+            const nextIndex = cards.findIndex((card) => card.dataset.status === 'new');
+            if (nextIndex === -1) {
+                finishRound();
+                return;
+            }
+            showCard(nextIndex);
+        };
+        const currentCard = () => cards[Number(study.dataset.currentIndex || 0)];
+        const advanceCard = (status) => {
+            const card = currentCard();
+            if (!card || card.dataset.transitioning) return;
+
+            card.dataset.transitioning = 'true';
+            setControlsDisabled(true);
+            card.classList.add(status === 'remembered' ? 'is-exiting-remembered' : 'is-exiting-forgotten');
+            window.setTimeout(() => {
+                card.dataset.status = status;
+                card.classList.add('hidden');
+                card.classList.remove('is-exiting-remembered', 'is-exiting-forgotten');
+                delete card.dataset.transitioning;
+                continueStudy();
+            }, 330);
+        };
+
+        if (event.target.closest('.ai-flashcard-flip')) {
+            const card = currentCard();
+            if (!card || card.dataset.transitioning) return;
+            card.dataset.transitioning = 'true';
+            setControlsDisabled(true);
+            const showBack = card.dataset.showing !== 'back';
+            card.dataset.showing = showBack ? 'back' : 'front';
+            card.classList.toggle('is-showing-back', showBack);
+            window.setTimeout(() => {
+                delete card.dataset.transitioning;
+                setControlsDisabled(false);
+            }, 620);
+            return;
+        }
+        if (event.target.closest('.ai-flashcard-remember')) {
+            advanceCard('remembered');
+            return;
+        }
+        if (event.target.closest('.ai-flashcard-forgot')) {
+            advanceCard('forgotten');
+            return;
+        }
+        if (event.target.closest('.ai-flashcard-recall')) {
+            cards.forEach((card) => {
+                if (card.dataset.status === 'forgotten') card.dataset.status = 'new';
+            });
+            study.querySelector('.ai-flashcard-complete')?.classList.add('hidden');
+            study.querySelector('.ai-flashcard-forgot')?.classList.remove('hidden');
+            study.querySelector('.ai-flashcard-remember')?.classList.remove('hidden');
+            continueStudy();
+        }
+    }
+    document.addEventListener('click', (event) => {
+        const generatedResultButton = event.target.closest('.ai-learning-open-generated-result');
+        if (generatedResultButton) {
+            const html = generatedResultHtml.get(String(generatedResultButton.dataset.artifactId || ''));
+            if (html) renderHistoryResult(html);
+            return;
+        }
+        const expandToggle = event.target.closest('.ai-note-expand-toggle');
+        if (expandToggle) {
+            const panel = expandToggle.closest('[data-ai-tool="note"]')?.querySelector('.ai-note-expand-panel');
+            panel?.classList.toggle('hidden');
+            return;
+        }
+        const expandSubmit = event.target.closest('.ai-note-expand-submit');
+        if (expandSubmit) {
+            const panel = expandSubmit.closest('.ai-note-expand-panel');
+            const focus = panel?.querySelector('.ai-note-expand-focus')?.value?.trim() || '';
+            const error = panel?.querySelector('.ai-note-expand-error');
+            const original = expandSubmit.innerHTML;
+            expandSubmit.disabled = true;
+            expandSubmit.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memproses...';
+            error?.classList.add('hidden');
+            fetch(artifactExpandUrlTemplate.replace('ARTIFACT_ID', expandSubmit.dataset.artifactId), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: new URLSearchParams({ focus }),
+            })
+                .then(async (response) => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Catatan belum dapat diperdalam.');
+                    renderHistoryResult(data.html || '');
+                })
+                .catch((expandError) => {
+                    expandSubmit.disabled = false;
+                    expandSubmit.innerHTML = original;
+                    if (error) {
+                        error.textContent = expandError.message || 'Catatan belum dapat diperdalam.';
+                        error.classList.remove('hidden');
+                    }
+                });
+            return;
+        }
+        const historyPinButton = event.target.closest('.ai-toggle-artifact-pin');
+        if (historyPinButton) {
+            const shouldPin = historyPinButton.dataset.pinned !== '1';
+            historyPinButton.disabled = true;
+            historyPinButton.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Memperbarui...';
+            fetch(artifactPinUrlTemplate.replace('ARTIFACT_ID', historyPinButton.dataset.artifactId), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: new URLSearchParams({ pinned: shouldPin ? '1' : '0' }),
+            })
+                .then(async (response) => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Pin hasil AI gagal diperbarui.');
+                    window.location.reload();
+                })
+                .catch((error) => {
+                    historyPinButton.disabled = false;
+                    historyPinButton.innerHTML = '<i class="ri-error-warning-line"></i>Coba lagi';
+                    independentError.textContent = error.message || 'Pin hasil AI gagal diperbarui.';
+                    independentError.classList.remove('hidden');
+                });
+            return;
+        }
+        const history = event.target.closest('.ai-learning-history-select');
+        if (history) { const template = document.getElementById(`ai-learning-artifact-${history.dataset.artifactId}`); if (template instanceof HTMLTemplateElement) renderHistoryResult(template.innerHTML); }
+        const pinButton = event.target.closest('.ai-pin-artifact');
+        if (pinButton) {
+            pinButton.disabled = true;
+            pinButton.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>Mem-pin...';
+            fetch(artifactPinUrlTemplate.replace('ARTIFACT_ID', pinButton.dataset.artifactId), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) },
+            })
+                .then(async (response) => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Hasil AI gagal dipin.');
+                    pinButton.outerHTML = `<span class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"><i class="ri-pushpin-2-fill"></i>Dipin</span>`;
+                })
+                .catch((error) => {
+                    pinButton.disabled = false;
+                    pinButton.innerHTML = '<i class="ri-pushpin-2-line"></i>Pin';
+                    independentError.textContent = error.message || 'Hasil AI gagal dipin.';
+                    independentError.classList.remove('hidden');
+                });
+            return;
+        }
+        const preview = event.target.closest('.ai-flashcard-preview');
+        if (preview) openStandaloneFlashcard(preview);
+        if (event.target.closest('[data-artifact-modal-close]') || event.target === artifactModal) closeArtifactModal();
+        if (event.target.closest('[data-flashcard-close]') || event.target === flashcardModal) closeStandaloneFlashcard();
+        handleStandaloneFlashcard(event);
+    });
+    document.addEventListener('keydown', (event) => { if (event.key !== 'Escape') return; if (!flashcardModal?.classList.contains('hidden')) closeStandaloneFlashcard(); else if (!artifactModal?.classList.contains('hidden')) closeArtifactModal(); });
+</script>
+@endpush

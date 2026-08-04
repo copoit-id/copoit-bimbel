@@ -1255,6 +1255,10 @@
                 image.decoding = 'async';
             });
 
+        // Rumus dari tombol MathJax CKEditor disimpan sebagai LaTeX dan perlu
+        // dirender kembali saat kartu preview Bank Soal dimuat.
+        window.renderMathJax?.();
+
         const selectedQuestionIds = () => Array.from(checkboxes)
             .filter(cb => cb.checked)
             .map(cb => cb.value);
@@ -1363,7 +1367,7 @@
     function editBank(id, name, description) {
         document.getElementById('editBankName').value = name;
         document.getElementById('editBankDescription').value = description || '';
-        document.getElementById('editBankForm').action = '/admin/bank-soal/' + id;
+        document.getElementById('editBankForm').action = '{{ route('admin.question-bank.update', ['questionBank' => '__QUESTION_BANK_ID__']) }}'.replace('__QUESTION_BANK_ID__', id);
         const modal = document.getElementById('editBankModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -1375,7 +1379,7 @@
         if (totalQuestions > 0) {
             message += `\n\nPERHATIAN: Bank ini berisi ${totalQuestions} soal. Semua soal akan ikut dihapus!`;
         }
-        openConfirmModal('confirmDelete', '/admin/bank-soal/' + id, 'DELETE', message);
+        openConfirmModal('confirmDelete', '{{ route('admin.question-bank.destroy', ['questionBank' => '__QUESTION_BANK_ID__']) }}'.replace('__QUESTION_BANK_ID__', id), 'DELETE', message);
     }
 </script>
 @endpush

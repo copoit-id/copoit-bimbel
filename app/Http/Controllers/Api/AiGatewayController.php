@@ -4,38 +4,220 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiGatewayClient;
+use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
 use App\Models\AiGatewayUsageLog;
+use App\Models\AiGatewayUserTrial;
 use App\Services\AiDiscussionService;
+use App\Services\AiQuestionGeneratorService;
+use App\Services\AiGatewayCostService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AiGatewayController extends Controller
 {
-    public function discussion(Request $request, AiDiscussionService $ai)
+    public function questionGenerator(Request $request, AiQuestionGeneratorService $generator, AiGatewayCostService $costService): JsonResponse
     {
-        $key = (string) $request->header('X-AI-Gateway-Key');
-        $client = AiGatewayClient::where('api_key_hash', hash('sha256', $key))->where('is_active', true)->first();
-        abort_unless($client, 401, 'Gateway key tidak valid.');
-        $subscription = AiGatewaySubscription::with('plan')->where('ai_gateway_client_id', $client->id)->where('status', 'active')->where('ends_at', '>', now())->latest()->first();
-        if ($subscription && $subscription->plan->token_limit > 0 && $subscription->tokens_used >= $subscription->plan->token_limit) {
-            return response()->json(['message' => 'Kuota paket AI habis.'], 429);
+        $key = (string) $request->header('X-AI-Gateway-Key', '');
+        $client = AiGatewayClient::query()->where('api_key_hash', hash('sha256', $key))->where('is_active', true)->first();
+        abort_unless($key !== '' && $client, 401, 'Gateway key tidak valid.');
+
+        $data = $request->validate([
+            'external_user_id' => 'required|string|max:120', 'external_user_name' => 'nullable|string|max:255', 'external_user_email' => 'nullable|email|max:255',
+            'origin_base_url' => 'nullable|url|max:2048', 'subject' => 'required|string|max:120', 'topic' => 'required|string|max:180',
+            'difficulty' => 'required|in:mudah,sedang,sulit,campuran', 'question_count' => 'required|integer|min:1|max:25',
+            'option_count' => 'required|integer|min:2|max:5', 'explanation_style' => 'required|in:singkat,normal,detail',
+            'instruction' => 'nullable|string|max:1500', 'reference_examples' => 'nullable|array', 'reference_label' => 'nullable|string|max:255', 'reference_note' => 'nullable|string|max:1500',
+        ]);
+        $subscription = AiGatewaySubscription::with('plan')
+            ->where('ai_gateway_client_id', $client->id)->where('external_user_id', $data['external_user_id'])
+            ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)->where('status', 'active')->notExpired()
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))->orderBy('ends_at')->get()
+            ->first(fn (AiGatewaySubscription $item) => $item->hasRemainingQuota());
+        if (! $subscription) {
+            return response()->json(['message' => 'Kuota AI Generator Soal belum tersedia. Beli paket atau minta Super Admin menambahkan kuota terlebih dahulu.'], 403);
         }
-        $data = $request->validate(['message' => 'required|string|max:1200', 'external_user_id' => 'nullable|string|max:120', 'question_reference' => 'nullable|string|max:120', 'context' => 'required|array', 'context.tryout_name' => 'nullable|string|max:255', 'context.subtest_name' => 'nullable|string|max:255', 'context.question_text' => 'required|string|max:20000', 'context.question_type' => 'nullable|string|max:80', 'context.options' => 'nullable|array', 'context.selected_answer' => 'nullable|string|max:5000', 'context.explanation' => 'nullable|string|max:20000']);
-        $used = (int) AiGatewayUsageLog::where('ai_gateway_client_id', $client->id)->where('created_at', '>=', now()->startOfMonth())->sum('total_tokens');
-        if ($client->monthly_token_limit > 0 && $used >= $client->monthly_token_limit) {
-            return response()->json(['message' => 'Kuota token project ini habis.'], 429);
-        }
+
         try {
-            $result = $ai->chat($data['message'], $data['context'], true);
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            unset($data['model']);
+            $result = $generator->generateDirect($data);
+        } catch (\RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
-        AiGatewayUsageLog::create(['ai_gateway_client_id' => $client->id, 'external_user_id' => $data['external_user_id'] ?? null, 'question_reference' => $data['question_reference'] ?? null, 'provider' => $result['provider'], 'model' => $result['model'], 'input_tokens' => $result['usage']['input'], 'output_tokens' => $result['usage']['output'], 'total_tokens' => $result['usage']['total'], 'response_time_ms' => $result['response_time_ms']]);
+
+        $usage = $result['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0];
+        $cost = $costService->estimate((string) $result['provider'], (string) $result['model'], (int) $usage['input'], (int) $usage['output']);
+        AiGatewayUsageLog::create(['ai_gateway_client_id' => $client->id, 'external_user_id' => $data['external_user_id'], 'external_user_name' => $data['external_user_name'] ?? null, 'external_user_email' => $data['external_user_email'] ?? null, 'origin_base_url' => $data['origin_base_url'] ?? $client->base_url, 'feature' => 'admin_question_generator', 'provider' => $result['provider'], 'model' => $result['model'], 'input_tokens' => $usage['input'], 'output_tokens' => $usage['output'], 'total_tokens' => $usage['total'], 'response_time_ms' => null, 'input_per_million_usd' => $cost['input_per_million_usd'] ?? null, 'output_per_million_usd' => $cost['output_per_million_usd'] ?? null, 'usd_to_idr' => $cost['usd_to_idr'] ?? null, 'input_cost_idr' => $cost['input_cost_idr'] ?? null, 'output_cost_idr' => $cost['output_cost_idr'] ?? null]);
+        $subscription->increment('tokens_used', (int) $usage['total']);
+        $subscription->refresh();
+        $client->update(['last_used_at' => now()]);
+
+        return response()->json([...$result, 'quota' => ['token_limit' => (int) ($subscription->token_limit ?: $subscription->plan->token_limit), 'tokens_used' => (int) $subscription->tokens_used, 'remaining_tokens' => max(0, (int) ($subscription->token_limit ?: $subscription->plan->token_limit) - (int) $subscription->tokens_used)]]);
+    }
+
+    public function discussion(
+        Request $request,
+        AiDiscussionService $ai,
+        AiGatewayCostService $costService
+    ): JsonResponse {
+        $key = (string) $request->header('X-AI-Gateway-Key', '');
+        abort_if($key === '', 401, 'Gateway key tidak valid.');
+
+        $client = AiGatewayClient::where('api_key_hash', hash('sha256', $key))
+            ->where('is_active', true)
+            ->first();
+        abort_unless($client, 401, 'Gateway key tidak valid.');
+        $data = $request->validate([
+            'message' => 'required|string|max:1200',
+            'external_user_id' => 'required|string|max:120',
+            'external_user_name' => 'nullable|string|max:255',
+            'external_user_email' => 'nullable|email|max:255',
+            'project_base_url' => 'nullable|url|max:2048',
+            'question_reference' => 'nullable|string|max:120',
+            'feature' => 'nullable|in:discussion,learning_note,learning_recommendation,learning_question,learning_flashcard',
+            'context' => 'required|array',
+            'context.tryout_name' => 'nullable|string|max:255',
+            'context.subtest_name' => 'nullable|string|max:255',
+            'context.question_text' => 'required|string|max:20000',
+            'context.question_type' => 'nullable|string|max:80',
+            'context.options' => 'nullable|array',
+            'context.selected_answer' => 'nullable|string|max:5000',
+            'context.explanation' => 'nullable|string|max:20000',
+            'context.conversation_history' => 'nullable|array|max:4',
+            'context.conversation_history.*.user_message' => 'nullable|string|max:600',
+            'context.conversation_history.*.assistant_message' => 'nullable|string|max:1000',
+            'context.response_style' => 'nullable|in:chat,guru_suara',
+        ]);
+        $externalUserId = trim($data['external_user_id']);
+        $subscriptions = AiGatewaySubscription::with('plan')
+            ->where('ai_gateway_client_id', $client->id)
+            ->where('external_user_id', $externalUserId)
+            ->where('status', 'active')
+            ->notExpired()
+            ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
+            ->orderBy('ends_at')
+            ->get();
+        $subscription = $subscriptions->first(
+            fn (AiGatewaySubscription $item): bool => $item->hasRemainingQuota()
+        );
+        $trial = null;
+
+        if (! $subscription && $subscriptions->isNotEmpty()) {
+            return response()->json(['message' => 'Kuota paket Diskusi AI Anda habis.'], 429);
+        }
+
+        if ($subscription) {
+            $subscriptionTokenLimit = (int) ($subscription->token_limit ?: $subscription->plan->token_limit);
+            if ($subscriptionTokenLimit <= 0) {
+                return response()->json([
+                    'message' => 'Paket AI ini belum memiliki batas token yang valid. Hubungi pengelola gateway.',
+                ], 422);
+            }
+        } else {
+            if ($client->free_token_limit <= 0 && $client->free_chat_limit <= 0) {
+                return response()->json([
+                    'message' => 'Paket Diskusi AI belum aktif. Silakan beli atau klaim paket AI terlebih dahulu.',
+                ], 403);
+            }
+            $trial = AiGatewayUserTrial::firstOrCreate([
+                'ai_gateway_client_id' => $client->id,
+                'external_user_id' => $externalUserId,
+            ], [
+                'external_user_name' => $data['external_user_name'] ?? null,
+                'external_user_email' => $data['external_user_email'] ?? null,
+            ]);
+            if (
+                ($client->free_token_limit > 0 && $trial->tokens_used >= $client->free_token_limit)
+                || ($client->free_chat_limit > 0 && $trial->chats_used >= $client->free_chat_limit)
+            ) {
+                return response()->json([
+                    'message' => 'Kuota coba gratis Diskusi AI Anda sudah habis. Silakan beli paket AI untuk melanjutkan.',
+                ], 429);
+            }
+        }
+
+        $remainingTokenQuota = $subscription
+            ? max(1, $subscriptionTokenLimit - (int) $subscription->tokens_used)
+            : ($trial && $client->free_token_limit > 0
+                ? max(1, (int) $client->free_token_limit - (int) $trial->tokens_used)
+                : null);
+
+        try {
+            $result = $ai->chat(
+                $data['message'],
+                $data['context'],
+                true,
+                $remainingTokenQuota,
+                $data['feature'] ?? 'discussion',
+            );
+        } catch (\RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        if ($remainingTokenQuota !== null && (int) ($result['usage']['total'] ?? 0) > $remainingTokenQuota) {
+            $billableInput = min((int) ($result['usage']['input'] ?? 0), $remainingTokenQuota);
+            $result['usage'] = [
+                'input' => $billableInput,
+                'output' => max(0, $remainingTokenQuota - $billableInput),
+                'total' => $remainingTokenQuota,
+            ];
+        }
+
+        $cost = $costService->estimate(
+            (string) $result['provider'],
+            (string) $result['model'],
+            (int) $result['usage']['input'],
+            (int) $result['usage']['output'],
+        );
+        AiGatewayUsageLog::create([
+            'ai_gateway_client_id' => $client->id,
+            'external_user_id' => $externalUserId,
+            'external_user_name' => $data['external_user_name'] ?? null,
+            'external_user_email' => $data['external_user_email'] ?? null,
+            'origin_base_url' => $client->base_url,
+            'question_reference' => $data['question_reference'] ?? null,
+            'feature' => $data['feature'] ?? 'discussion',
+            'provider' => $result['provider'],
+            'model' => $result['model'],
+            'input_tokens' => $result['usage']['input'],
+            'output_tokens' => $result['usage']['output'],
+            'total_tokens' => $result['usage']['total'],
+            'response_time_ms' => $result['response_time_ms'],
+            'input_per_million_usd' => $cost['input_per_million_usd'] ?? null,
+            'output_per_million_usd' => $cost['output_per_million_usd'] ?? null,
+            'usd_to_idr' => $cost['usd_to_idr'] ?? null,
+            'input_cost_idr' => $cost['input_cost_idr'] ?? null,
+            'output_cost_idr' => $cost['output_cost_idr'] ?? null,
+        ]);
+
         if ($subscription) {
             $subscription->increment('tokens_used', (int) $result['usage']['total']);
+            $subscription->increment('chats_used');
+            $subscription->refresh();
+        }
+        if ($trial) {
+            $trial->increment('tokens_used', (int) $result['usage']['total']);
+            $trial->increment('chats_used');
+            $trial->refresh();
         }
         $client->update(['last_used_at' => now()]);
 
-        return response()->json($result);
+        $quota = $subscription
+            ? [
+                'type' => $subscription->free_claim_key ? 'free_package' : 'package',
+                'token_limit' => (int) ($subscription->token_limit ?: $subscription->plan->token_limit),
+                'tokens_used' => (int) $subscription->tokens_used,
+                'chat_limit' => (int) ($subscription->chat_limit ?: $subscription->plan?->chat_limit ?: 0),
+                'chats_used' => (int) $subscription->chats_used,
+            ]
+            : [
+                'type' => 'trial',
+                'token_limit' => (int) $client->free_token_limit,
+                'tokens_used' => (int) $trial->tokens_used,
+                'chat_limit' => (int) $client->free_chat_limit,
+                'chats_used' => (int) $trial->chats_used,
+            ];
+
+        return response()->json([...$result, 'quota' => $quota]);
     }
 }

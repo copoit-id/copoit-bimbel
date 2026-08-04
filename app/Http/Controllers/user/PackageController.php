@@ -16,6 +16,7 @@ use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
 use App\Models\AiDiscussionUsageLog;
+use App\Models\AiGatewayTransaction;
 use App\Models\UserAnswer;
 use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
@@ -28,16 +29,19 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogger;
 use App\Services\AiDiscussionService;
+use App\Services\AiGatewaySubscriptionService;
 use App\Services\AffiliateService;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\Process\Process;
 
 class PackageController extends Controller
 {
     public function index(Request $request)
     {
+        $this->forgetCombinedAiCheckoutAfterAiPayment($request);
         $tab = 'all';
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
@@ -119,6 +123,8 @@ class PackageController extends Controller
             ->get();
         $packageAutomaticDiscounts = $this->automaticDiscountsForPackages($packages, $automaticDiscounts);
         $affiliateDiscountPreview = $this->affiliateDiscountPreview();
+        $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+        $combinedAiPayment = Auth::check() ? $this->activeCombinedAiPayment($request) : null;
         
         return view('user.pages.package.new-index', compact(
             'packages',
@@ -130,9 +136,37 @@ class PackageController extends Controller
             'publicDiscounts',
             'packageAutomaticDiscounts',
             'affiliateDiscountPreview',
+            'aiGatewayPlans',
+            'combinedAiPayment',
             'search',
             'sort'
         ));
+    }
+
+    private function availableAiGatewayPlans(): array
+    {
+        if (! app(AiDiscussionService::class)->isEnabled()) {
+            return [];
+        }
+
+        $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
+
+        if ($gatewayBaseUrl === '' || blank(config('services.ai_gateway.key'))) {
+            return [];
+        }
+
+        try {
+            $plans = Http::acceptJson()
+                ->timeout(3)
+                ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
+                ->get("{$gatewayBaseUrl}/plans")
+                ->json();
+
+            return is_array($plans) ? $plans : [];
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     public function buyPackage(Request $request, $package_id)
@@ -344,6 +378,8 @@ class PackageController extends Controller
 
                     $pendingGatewayPayment = $this->reusablePendingPackageGatewayPayment($package);
                     if ($pendingGatewayPayment) {
+                        $this->rememberCombinedAiCheckout($request, $pendingGatewayPayment, 'package');
+
                         if ($pendingGatewayPayment->status === Payment::STATUS_SUCCESS) {
                             if ($request->expectsJson()) {
                                 return response()->json([
@@ -353,8 +389,10 @@ class PackageController extends Controller
                                 ]);
                             }
 
-                            return redirect()->route('user.package.my')
-                                ->with('success', 'Pembayaran sudah berhasil. Akses paket sudah aktif.');
+                            return $this->redirectAfterSuccessfulProductPayment(
+                                $request,
+                                'Pembayaran sudah berhasil. Akses paket sudah aktif.'
+                            );
                         }
 
                         $redirectUrl = $this->pendingGatewayPaymentRedirectUrl($pendingGatewayPayment);
@@ -375,6 +413,12 @@ class PackageController extends Controller
                     $paymentResponse = $this->createPayment($package, $discountData);
 
                     if ($paymentResponse['success']) {
+                        $this->rememberCombinedAiCheckout(
+                            $request,
+                            $paymentResponse['payment'] ?? null,
+                            'package'
+                        );
+
                         // For AJAX requests, return JSON; for native form submit, redirect directly
                         if ($request->expectsJson()) {
                             return response()->json([
@@ -963,7 +1007,7 @@ class PackageController extends Controller
                 $invoiceData = $response->json();
 
                 // Save payment record
-                Payment::create([
+                $payment = Payment::create([
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
@@ -994,7 +1038,8 @@ class PackageController extends Controller
 
                 return [
                     'success' => true,
-                    'redirect_url' => $invoiceData['invoice_url']
+                    'redirect_url' => $invoiceData['invoice_url'],
+                    'payment' => $payment,
                 ];
             } else {
                 $errorMessage = 'Gagal membuat pembayaran';
@@ -1064,7 +1109,7 @@ class PackageController extends Controller
             if ($response->successful()) {
                 $data = $response->json();
 
-                Payment::create([
+                $payment = Payment::create([
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
@@ -1096,6 +1141,7 @@ class PackageController extends Controller
                 return [
                     'success' => true,
                     'redirect_url' => $data['redirect_url'] ?? null,
+                    'payment' => $payment,
                 ];
             }
 
@@ -1192,11 +1238,13 @@ class PackageController extends Controller
 
     public function riwayatPembelian(Request $request)
     {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
         $payments = Payment::where('user_id', Auth::id())
             ->with('package')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function (Payment $payment) {
+            ->map(function (Payment $payment) use ($combinedCheckout) {
                 if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method === 'ipaymu') {
                     if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
                         $payment = $this->syncPendingIpaymuPayment($payment);
@@ -1220,6 +1268,10 @@ class PackageController extends Controller
                     } else {
                         $actionUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
                         $actionLabel = 'Lanjutkan Pembayaran';
+
+                        if ($this->isCombinedCheckoutTransaction($combinedCheckout, $payment->transaction_id)) {
+                            $actionUrl = route('user.package.payment.resume', $payment->transaction_id);
+                        }
                     }
                 }
 
@@ -1251,7 +1303,7 @@ class PackageController extends Controller
             ->with('purchasable')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function (IndividualPurchase $purchase) {
+            ->map(function (IndividualPurchase $purchase) use ($combinedCheckout) {
                 if ($purchase->status === IndividualPurchase::STATUS_PENDING && $purchase->payment_method === 'ipaymu') {
                     if (!$this->pendingIpaymuIndividualPurchaseUsesCurrentGateway($purchase)) {
                         $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
@@ -1270,6 +1322,7 @@ class PackageController extends Controller
                     'Material' => 'Materi',
                     'Tryout' => 'Tryout',
                     'TesKoran' => 'Tes Koran',
+                    'Kecermatan' => 'Tes Kecermatan',
                     default => 'Item',
                 };
                 $actionUrl = null;
@@ -1288,6 +1341,10 @@ class PackageController extends Controller
                     } else {
                         $actionUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
                         $actionLabel = 'Lanjutkan Pembayaran';
+
+                        if ($this->isCombinedCheckoutTransaction($combinedCheckout, $purchase->transaction_id)) {
+                            $actionUrl = route('user.package.payment.resume', $purchase->transaction_id);
+                        }
                     }
                 }
 
@@ -1331,6 +1388,66 @@ class PackageController extends Controller
         );
 
         return view('user.pages.package.riwayat-pembelian', compact('histories'));
+    }
+
+    public function resumeCombinedPayment(Request $request, string $transactionId): \Illuminate\Http\RedirectResponse
+    {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! $this->isCombinedCheckoutTransaction($combinedCheckout, $transactionId)) {
+            return redirect()->route('user.package.riwayatPembelian')
+                ->with('error', 'Tagihan gabungan tidak ditemukan atau sudah kedaluwarsa.');
+        }
+
+        $productPaid = false;
+        $productPaymentUrl = null;
+
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->firstOrFail();
+
+            $this->syncMidtransProductPaymentStatus($payment);
+            $payment->refresh();
+            $productPaid = $payment->status === Payment::STATUS_SUCCESS;
+            $productPaymentUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->firstOrFail();
+
+            $this->syncMidtransProductPaymentStatus($purchase);
+            $purchase->refresh();
+            $productPaid = $purchase->status === IndividualPurchase::STATUS_APPROVED;
+            $productPaymentUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
+        }
+
+        $returnUrl = $combinedCheckout['return_url'] ?? route('user.package.index');
+
+        return redirect()->to($returnUrl)->with('combined_ai_payment', [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $productPaid,
+            'product_payment_url' => $productPaid ? null : $productPaymentUrl,
+            'product_type' => $combinedCheckout['product_type'] ?? null,
+            'product_item_id' => (int) ($combinedCheckout['product_item_id'] ?? 0),
+            'ai_payment_pending' => true,
+        ]);
+    }
+
+    private function isCombinedCheckoutTransaction(mixed $combinedCheckout, string $transactionId): bool
+    {
+        if (! is_array($combinedCheckout)
+            || empty($combinedCheckout['invoice_url'])
+            || ! hash_equals((string) ($combinedCheckout['product_transaction_id'] ?? ''), $transactionId)) {
+            return false;
+        }
+
+        $expiresAt = $combinedCheckout['expires_at'] ?? null;
+
+        return ! $expiresAt || ! Carbon::parse($expiresAt)->isPast();
     }
 
     private function pendingIndividualPurchaseRedirectUrl(IndividualPurchase $purchase): ?string
@@ -1866,6 +1983,10 @@ class PackageController extends Controller
                 return redirect()->route('user.package.index')
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                abort(404);
+            }
         }
 
         // Get user attempts for this tryout dengan data yang lebih lengkap
@@ -1946,6 +2067,7 @@ class PackageController extends Controller
                         $singleAnswer->tryoutDetail->type_subtest
                     );
                     $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+                    $totalScore = $rawScore;
                     $isPassed = $this->isAttemptPassed($userAnswers, 1);
                     $totalCorrect = $singleAnswer->correct_answers ?? 0;
                     $totalWrong = $singleAnswer->wrong_answers ?? 0;
@@ -1962,7 +2084,7 @@ class PackageController extends Controller
                 'created_at' => $firstAnswer->created_at,
                 'started_at' => $firstAnswer->started_at,
                 'finished_at' => $lastAnswer->finished_at,
-                'score' => $userAnswers->count() > 1 ? round($totalScore, 0) : round($rawScore, 0),
+                'score' => round($totalScore, 0),
                 'is_passed' => $isPassed,
                 'duration' => $duration->format('%H:%I:%S'),
                 'correct_answers' => $totalCorrect,
@@ -2384,8 +2506,10 @@ class PackageController extends Controller
                 if ($payment->status === Payment::STATUS_SUCCESS) {
                     $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu return');
 
-                    return redirect()->route('user.package.my')
-                        ->with('success', 'Pembayaran berhasil. Paket sudah aktif.');
+                    return $this->redirectAfterSuccessfulProductPayment(
+                        $request,
+                        'Pembayaran berhasil. Paket sudah aktif.'
+                    );
                 }
             } catch (\Throwable $e) {
                 report($e);
@@ -2413,16 +2537,247 @@ class PackageController extends Controller
                 if ($individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
                     $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via iPaymu return');
 
-                    return redirect()->route('user.package.my')
-                        ->with('success', 'Pembayaran berhasil. Akses sudah aktif.');
+                    return $this->redirectAfterSuccessfulProductPayment(
+                        $request,
+                        'Pembayaran berhasil. Akses sudah aktif.'
+                    );
                 }
             } catch (\Throwable $e) {
                 report($e);
             }
         }
 
+        if ($combinedRedirect = $this->redirectAfterCombinedProductPaymentReturn($request)) {
+            return $combinedRedirect;
+        }
+
         return redirect()->route('user.package.riwayatPembelian')
             ->with('success', 'Terima kasih. Akses akan aktif setelah pembayaran dikonfirmasi oleh payment gateway.');
+    }
+
+    private function rememberCombinedAiCheckout(Request $request, ?Payment $payment, string $productType): void
+    {
+        if (! $request->boolean('combined_ai_checkout') || ! $payment) {
+            return;
+        }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout) || empty($combinedCheckout['invoice_url'])) {
+            return;
+        }
+
+        $combinedCheckout['product_transaction_id'] = $payment->transaction_id;
+        $combinedCheckout['product_type'] = $productType;
+        $combinedCheckout['product_item_id'] = $payment->package_id;
+        $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
+    }
+
+    private function redirectAfterSuccessfulProductPayment(Request $request, string $message): \Illuminate\Http\RedirectResponse
+    {
+        return $this->redirectAfterCombinedProductPaymentReturn($request)
+            ?? redirect()->route('user.package.my')->with('success', $message);
+    }
+
+    private function redirectAfterCombinedProductPaymentReturn(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout)
+            || empty($combinedCheckout['invoice_url'])
+            || empty($combinedCheckout['product_transaction_id'])
+            || ! Auth::check()) {
+            return null;
+        }
+
+        $expiresAt = $combinedCheckout['expires_at'] ?? null;
+        if ($expiresAt && Carbon::parse($expiresAt)->isPast()) {
+            $request->session()->forget('ai_gateway_combined_checkout');
+
+            return null;
+        }
+
+        $isSuccessful = false;
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $combinedCheckout['product_transaction_id'])
+                ->first();
+
+            if ($payment) {
+                $this->syncMidtransProductPaymentStatus($payment);
+                $payment->refresh();
+            }
+
+            if ($payment?->status === Payment::STATUS_SUCCESS) {
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via payment return');
+                $isSuccessful = true;
+            }
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $combinedCheckout['product_transaction_id'])
+                ->first();
+
+            if ($purchase) {
+                $this->syncMidtransProductPaymentStatus($purchase);
+                $purchase->refresh();
+            }
+
+            if ($purchase?->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via payment return');
+                $isSuccessful = true;
+            }
+        }
+
+        $returnUrl = $combinedCheckout['return_url'] ?? route('user.package.index');
+
+        return redirect()->to($returnUrl)->with('combined_ai_payment', [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $isSuccessful,
+            'product_payment_url' => null,
+            'product_type' => $combinedCheckout['product_type'],
+            'product_item_id' => (int) $combinedCheckout['product_item_id'],
+            'ai_payment_pending' => true,
+        ]);
+    }
+
+    private function activeCombinedAiPayment(Request $request): ?array
+    {
+        if (! app(AiDiscussionService::class)->isEnabled()) {
+            return null;
+        }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+        $transactionId = (string) data_get($combinedCheckout, 'product_transaction_id', '');
+
+        if (! Auth::check() || ! $this->isCombinedCheckoutTransaction($combinedCheckout, $transactionId)) {
+            return null;
+        }
+
+        $productPaid = false;
+        $productPaymentUrl = null;
+
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->first();
+
+            if (! $payment) {
+                return null;
+            }
+
+            $this->syncMidtransProductPaymentStatus($payment);
+            $payment->refresh();
+            $productPaid = $payment->status === Payment::STATUS_SUCCESS;
+            $productPaymentUrl = $productPaid ? null : $this->pendingGatewayPaymentRedirectUrl($payment);
+            $productItemId = (int) $payment->package_id;
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->first();
+
+            if (! $purchase) {
+                return null;
+            }
+
+            $this->syncMidtransProductPaymentStatus($purchase);
+            $purchase->refresh();
+            $productPaid = $purchase->status === IndividualPurchase::STATUS_APPROVED;
+            $productPaymentUrl = $productPaid ? null : $this->pendingIndividualPurchaseRedirectUrl($purchase);
+            $productItemId = (int) $purchase->purchasable_id;
+        } else {
+            return null;
+        }
+
+        return [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $productPaid,
+            'product_payment_url' => $productPaymentUrl,
+            'product_type' => $combinedCheckout['product_type'],
+            'product_item_id' => $productItemId,
+            'ai_payment_pending' => true,
+        ];
+    }
+
+    private function forgetCombinedAiCheckoutAfterAiPayment(Request $request): void
+    {
+        if ($request->query('payment') === 'success') {
+            $request->session()->forget('ai_gateway_combined_checkout');
+            $request->session()->forget('ai_gateway_pending_payment');
+        }
+    }
+
+    private function syncMidtransProductPaymentStatus(Payment|IndividualPurchase $payable): void
+    {
+        if ($payable->payment_method !== 'midtrans'
+            || ! in_array($payable->status, [Payment::STATUS_PENDING, IndividualPurchase::STATUS_PENDING], true)) {
+            return;
+        }
+
+        $serverKey = (string) config('services.midtrans.server_key');
+        $statusUrl = rtrim((string) config('services.midtrans.status_url'), '/');
+
+        if ($serverKey === '' || $statusUrl === '') {
+            return;
+        }
+
+        try {
+            $response = Http::withBasicAuth($serverKey, '')
+                ->acceptJson()
+                ->timeout(8)
+                ->get($statusUrl.'/'.rawurlencode($payable->transaction_id).'/status');
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            $data = $response->json();
+            $orderId = (string) data_get($data, 'order_id');
+            $signature = (string) data_get($data, 'signature_key');
+            $expectedSignature = hash('sha512', $orderId.(string) data_get($data, 'status_code').(string) data_get($data, 'gross_amount').$serverKey);
+
+            if ($orderId !== $payable->transaction_id
+                || ($signature !== '' && ! hash_equals($expectedSignature, $signature))) {
+                return;
+            }
+
+            $transactionStatus = (string) data_get($data, 'transaction_status');
+            $fraudStatus = (string) data_get($data, 'fraud_status');
+            $isPaid = in_array($transactionStatus, ['capture', 'settlement'], true)
+                && ! ($transactionStatus === 'capture' && $fraudStatus === 'challenge');
+
+            if ($payable instanceof Payment) {
+                if ($isPaid) {
+                    $payable->update(['status' => Payment::STATUS_SUCCESS, 'paid_at' => $payable->paid_at ?? now()]);
+                    $this->ensureUserPackageAccess($payable->fresh(), 'Payment confirmed via Midtrans status check');
+                } elseif ($transactionStatus === 'expire') {
+                    $payable->update(['status' => Payment::STATUS_EXPIRED]);
+                } elseif (in_array($transactionStatus, ['cancel', 'deny', 'failure'], true)) {
+                    $payable->update(['status' => Payment::STATUS_FAILED]);
+                }
+
+                return;
+            }
+
+            if ($isPaid) {
+                $payable->update(['status' => IndividualPurchase::STATUS_APPROVED, 'approved_at' => $payable->approved_at ?? now()]);
+                $this->ensureIndividualPurchaseAccess($payable->fresh(), 'Payment confirmed via Midtrans status check');
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $details = $this->paymentDetailsArray($payable->payment_details);
+                $details['auto_rejected_reason'] = $transactionStatus === 'expire'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed or cancelled.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $payable->update(['status' => IndividualPurchase::STATUS_REJECTED, 'payment_details' => $details]);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function ipaymuReturnPayment(Request $request): ?Payment
@@ -2542,9 +2897,9 @@ class PackageController extends Controller
     {
 
         $callbackToken = $request->header('X-CALLBACK-TOKEN');
-        $expectedToken = config('services.xendit.webhook_token');
+        $expectedToken = (string) config('services.xendit.webhook_token', '');
 
-        if ($callbackToken !== $expectedToken) {
+        if ($expectedToken === '' || ! is_string($callbackToken) || ! hash_equals($expectedToken, $callbackToken)) {
             return response()->json(['message' => 'Invalid callback token'], 401);
         }
 
@@ -2614,6 +2969,29 @@ class PackageController extends Controller
 
         if (!$orderId) {
             return response()->json(['message' => 'Invalid payload'], 422);
+        }
+
+        $aiTransaction = AiGatewayTransaction::query()
+            ->where('external_id', $orderId)
+            ->where('provider', 'midtrans')
+            ->first();
+
+        if ($aiTransaction) {
+            $transactionStatus = (string) $request->input('transaction_status');
+            $fraudStatus = (string) $request->input('fraud_status');
+
+            if (in_array($transactionStatus, ['capture', 'settlement'], true)) {
+                if ($transactionStatus === 'capture' && $fraudStatus === 'challenge') {
+                    return response()->json(['message' => 'OK']);
+                }
+
+                app(AiGatewaySubscriptionService::class)->activateTransaction($aiTransaction);
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $aiTransaction->update(['status' => $transactionStatus === 'expire' ? 'expired' : 'failed']);
+                $aiTransaction->subscription?->update(['status' => $transactionStatus === 'expire' ? 'expired' : 'failed']);
+            }
+
+            return response()->json(['message' => 'OK']);
         }
 
         $payment = Payment::where('transaction_id', $orderId)->first();
@@ -3187,6 +3565,10 @@ class PackageController extends Controller
                 return redirect()->route('user.package.index')
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                abort(404);
+            }
         }
 
         // Get user's latest completed answers for this tryout
@@ -3271,9 +3653,10 @@ class PackageController extends Controller
             ->where('attempt_token', $token)
             ->whereIn('question_id', $questions->pluck('question_id'))
             ->orderBy('created_at')
-            ->get(['question_id', 'user_message', 'assistant_message', 'created_at'])
+            ->get(['id', 'question_id', 'user_message', 'assistant_message', 'created_at'])
             ->groupBy('question_id')
             ->map(fn ($messages) => $messages->map(fn ($message) => [
+                'id' => $message->id,
                 'user_message' => $message->user_message,
                 'assistant_message' => $message->assistant_message,
                 'created_at' => optional($message->created_at)->toIso8601String(),
@@ -3438,6 +3821,32 @@ class PackageController extends Controller
 
         $token = $token;
         $packageRouteId = $isFreeTryout ? 'free' : $package->package_id;
+        $aiGatewaySubscription = null;
+        $aiGatewaySubscriptions = [];
+        $aiGatewayTrial = null;
+        $aiGatewayPendingPayment = null;
+        $aiGatewayPlans = [];
+        $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
+
+        if ($gatewayBaseUrl !== '' && filled(config('services.ai_gateway.key'))) {
+            try {
+                $gateway = Http::acceptJson()
+                    ->timeout(3)
+                    ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')]);
+                $gatewayStatus = $gateway
+                    ->get("{$gatewayBaseUrl}/subscription", ['external_user_id' => (string) Auth::id()])
+                    ->json();
+                $aiGatewaySubscription = data_get($gatewayStatus, 'subscription');
+                $aiGatewaySubscriptions = data_get($gatewayStatus, 'subscriptions', $aiGatewaySubscription ? [$aiGatewaySubscription] : []);
+                $aiGatewayTrial = data_get($gatewayStatus, 'trial');
+                $aiGatewayPendingPayment = data_get($gatewayStatus, 'pending_payment');
+                $aiGatewayPlans = $gateway->get("{$gatewayBaseUrl}/plans")->json() ?? [];
+            } catch (\Throwable) {
+                // Halaman pembahasan tetap tersedia bila gateway sedang tidak merespons.
+            }
+        }
+
         return view('user.pages.package.tryout-pembahasan', compact(
             'package',
             'packageRouteId',
@@ -3448,7 +3857,12 @@ class PackageController extends Controller
             'allAnswerDetails',
             'aiDiscussionHistoryByQuestion',
             'overallStats',
-            'subtestSummaries'
+            'subtestSummaries',
+            'aiGatewaySubscription',
+            'aiGatewaySubscriptions',
+            'aiGatewayTrial',
+            'aiGatewayPendingPayment',
+            'aiGatewayPlans'
         ));
     }
 
@@ -3457,6 +3871,7 @@ class PackageController extends Controller
         $validated = $request->validate([
             'question_id' => ['required', 'integer'],
             'message' => ['required', 'string', 'max:1200'],
+            'mode' => ['nullable', 'in:text,voice'],
         ]);
 
         if (!$aiDiscussionService->isEnabled()) {
@@ -3490,6 +3905,12 @@ class PackageController extends Controller
                     'message' => 'Anda tidak memiliki akses ke paket ini.',
                 ], 403);
             }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                return response()->json([
+                    'message' => 'Tryout ini tidak termasuk dalam paket tersebut.',
+                ], 403);
+            }
         }
 
         $userAnswers = \App\Models\UserAnswer::where('user_id', Auth::id())
@@ -3516,12 +3937,33 @@ class PackageController extends Controller
             ->where('question_id', $question->question_id)
             ->first();
 
+        // Kirim beberapa giliran terakhir agar pertanyaan lanjutan seperti
+        // "kenapa?" atau "kalau opsi B?" tetap dipahami dalam konteksnya.
+        // Riwayat dibatasi supaya biaya dan waktu respons tetap terjaga.
+        $conversationHistory = AiDiscussionUsageLog::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('question_id', $question->question_id)
+            ->where('attempt_token', $token)
+            ->latest('id')
+            ->limit(4)
+            ->get(['user_message', 'assistant_message'])
+            ->reverse()
+            ->values()
+            ->map(fn (AiDiscussionUsageLog $log) => [
+                'user_message' => Str::limit(trim((string) $log->user_message), 600, ''),
+                'assistant_message' => Str::limit(trim((string) $log->assistant_message), 1000, ''),
+            ])
+            ->all();
+
         try {
             $result = $aiDiscussionService->chat($validated['message'], [
                 'tryout_name' => $tryout->name,
                 'subtest_name' => $this->getSubtestName($question->tryoutDetail?->type_subtest),
                 'question' => $question,
                 'answer_detail' => $answerDetail,
+                'conversation_history' => $conversationHistory,
+                'response_style' => ($validated['mode'] ?? 'text') === 'voice' ? 'guru_suara' : 'chat',
             ]);
         } catch (\RuntimeException $exception) {
             return response()->json([
@@ -3529,7 +3971,7 @@ class PackageController extends Controller
             ], 422);
         }
 
-        AiDiscussionUsageLog::create([
+        $usageLog = AiDiscussionUsageLog::create([
             'user_id' => Auth::id(),
             'tryout_id' => $tryout->tryout_id,
             'question_id' => $question->question_id,
@@ -3544,14 +3986,28 @@ class PackageController extends Controller
             'assistant_message' => $result['message'],
         ]);
 
-        return response()->json($result);
+        return response()->json([...$result, 'discussion_log_id' => $usageLog->id]);
     }
 
     public function speakPembahasanAi(Request $request, $id_package, $id_tryout, $token)
     {
         $data = $request->validate([
-            'text' => ['required', 'string', 'max:4096'],
+            'usage_log_id' => ['required', 'integer'],
         ]);
+        $isFreeTryout = $id_package === 'free';
+        $tryout = Tryout::findOrFail($id_tryout);
+        abort_unless($tryout->show_discussion, 403);
+
+        if (! $isFreeTryout) {
+            $package = Package::findOrFail($id_package);
+            $hasAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(fn ($query) => $query->whereNull('end_date')->orWhere('end_date', '>', now()))
+                ->exists();
+            abort_unless($hasAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 403);
+        }
 
         abort_unless(UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
@@ -3559,9 +4015,27 @@ class PackageController extends Controller
             ->where('status', 'completed')
             ->exists(), 404);
 
+        $usageLog = AiDiscussionUsageLog::query()
+            ->whereKey($data['usage_log_id'])
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->whereNotNull('assistant_message')
+            ->firstOrFail();
+
+        $voiceText = Str::limit($this->voiceExplanation((string) $usageLog->assistant_message), 4000, '');
+        if ($audioPath = $this->edgeTtsAudio($voiceText)) {
+            return response()
+                ->file($audioPath, [
+                    'Content-Type' => 'audio/mpeg',
+                    'Cache-Control' => 'no-store',
+                ])
+                ->deleteFileAfterSend(true);
+        }
+
         $apiKey = (string) config('services.openai.api_key');
         if ($apiKey === '') {
-            return response()->json(['message' => 'Suara AI belum dikonfigurasi.'], 422);
+            return response()->json(['message' => 'Suara AI belum tersedia. Coba ulangi sebentar lagi.'], 422);
         }
 
         try {
@@ -3571,7 +4045,8 @@ class PackageController extends Controller
                 ->post(rtrim((string) config('services.openai.base_url'), '/') . '/audio/speech', [
                     'model' => 'tts-1-hd',
                     'voice' => 'nova',
-                    'input' => strip_tags($data['text']),
+                    'input' => $voiceText,
+                    'speed' => 1.08,
                     'response_format' => 'mp3',
                 ]);
         } catch (\Throwable $exception) {
@@ -3586,6 +4061,56 @@ class PackageController extends Controller
             'Content-Type' => 'audio/mpeg',
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    private function edgeTtsAudio(string $text): ?string
+    {
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'bimbel-ai-tts-');
+        if ($temporaryPath === false) {
+            return null;
+        }
+
+        @unlink($temporaryPath);
+        $audioPath = $temporaryPath . '.mp3';
+        $configuredBinary = (string) config('services.edge_tts.binary', 'edge-tts');
+        $homeBinary = rtrim((string) getenv('HOME'), '/') . '/.local/bin/edge-tts';
+        $binary = $configuredBinary === 'edge-tts' && is_file($homeBinary)
+            ? $homeBinary
+            : $configuredBinary;
+
+        try {
+            $process = new Process([
+                $binary,
+                '--voice', (string) config('services.edge_tts.voice', 'id-ID-GadisNeural'),
+                '--rate=' . (string) config('services.edge_tts.rate', '+10%'),
+                '--text', $text,
+                '--write-media', $audioPath,
+            ]);
+            $process->setTimeout((int) config('services.edge_tts.timeout', 30));
+            $process->run();
+
+            if ($process->isSuccessful() && is_file($audioPath) && filesize($audioPath) > 0) {
+                return $audioPath;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        @unlink($audioPath);
+
+        return null;
+    }
+
+    private function voiceExplanation(string $message): string
+    {
+        $plainText = trim(strip_tags($message));
+        $explanation = preg_split('/(?:^|\n)\s*(?:\*\*)?catatan\s+inti\s*:?(?:\*\*)?/iu', $plainText, 2)[0] ?? $plainText;
+        $explanation = (string) preg_replace('/\*\*([^*]+)\*\*/u', '$1', $explanation);
+        $explanation = str_replace(['$', '`', '#', '=', '+', '÷'], ['', '', '', ' sama dengan ', ' ditambah ', ' dibagi '], $explanation);
+        $explanation = preg_replace('/(\d)([a-zA-Z])/u', '$1 $2', $explanation);
+        $explanation = preg_replace('/\s+-\s+/u', ' dikurangi ', $explanation);
+
+        return trim((string) $explanation) ?: $plainText;
     }
 
     private function getSubtestName($type)
@@ -4048,6 +4573,7 @@ class PackageController extends Controller
      */
     public function listTryout(Request $request)
     {
+        $this->forgetCombinedAiCheckoutAfterAiPayment($request);
         $user = Auth::user();
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
@@ -4108,7 +4634,10 @@ class PackageController extends Controller
             $tryout->access_via_package = $tryout->packages->first();
         }
         
-        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort'));
+        $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+        $combinedAiPayment = $user ? $this->activeCombinedAiPayment($request) : null;
+
+        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans', 'combinedAiPayment'));
     }
 
     /**

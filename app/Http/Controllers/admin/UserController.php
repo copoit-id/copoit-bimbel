@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Role;
 use App\Models\ParticipantDestinationCategory;
+use App\Models\Payment;
+use App\Models\Role;
+use App\Models\User;
+use App\Rules\SafeName;
 use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
+use App\Services\TutorProfileService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
-use App\Rules\SafeName;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
@@ -27,12 +29,26 @@ class UserController extends Controller
         $roleOptions = $this->getRoleOptions();
         $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
 
-        if (!array_key_exists((string) $activeRole, $roleOptions)) {
+        if (! array_key_exists((string) $activeRole, $roleOptions)) {
             $activeRole = array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions);
         }
 
         $users = User::query()
-            ->with('participantDestinationCategory.parent')
+            ->with([
+                'participantDestinationCategory.parent',
+                'studyGroups:id,name',
+                'userPackageAccess' => fn ($query) => $query
+                    ->select(['user_package_access_id', 'user_id', 'package_id', 'status', 'end_date'])
+                    ->with('package:package_id,name'),
+            ])
+            ->withCount([
+                'userPackageAccess as active_package_access_count' => fn ($query) => $query
+                    ->where('status', 'active')
+                    ->where(fn ($access) => $access->whereNull('end_date')->orWhere('end_date', '>', now())),
+                'classAttendances as attendance_record_count',
+                'classAttendances as attendance_present_count' => fn ($query) => $query
+                    ->whereIn('status', ['present', 'late']),
+            ])
             ->where('role', '!=', 'super_admin')
             ->when($activeRole, fn ($query) => $query->where('role', $activeRole))
             ->orderByDesc('created_at')
@@ -44,7 +60,7 @@ class UserController extends Controller
 
     public function exportExcel(): BinaryFileResponse
     {
-        $filename = 'data-user-lengkap-' . now()->format('Ymd_His') . '.xlsx';
+        $filename = 'data-user-lengkap-'.now()->format('Ymd_His').'.xlsx';
         $userColumns = collect(Schema::getColumnListing('users'))
             ->reject(fn (string $column) => in_array($column, [
                 'id',
@@ -81,21 +97,15 @@ class UserController extends Controller
         $users = User::where('role', 'user')
             ->orderBy('name')
             ->paginate(20);
-        
+
         return view('admin.pages.user.login-as', compact('users'));
     }
 
     public function create()
     {
-        // Cek quota user - backend validation
-        $quotaCheck = PlanQuotaService::canRegisterUser();
-        if (!$quotaCheck['allowed']) {
-            return redirect()->route('admin.user.index')
-                ->with('error', $quotaCheck['reason']);
-        }
-
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
+
         return view('admin.pages.user.create', [
             'user' => null,
             'roleOptions' => $roleOptions,
@@ -103,51 +113,131 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request, ParticipantDestinationSelectionService $destinationSelectionService)
-    {
-        // Cek quota user - backend validation (hindari bypass)
-        $quotaCheck = PlanQuotaService::canRegisterUser();
-        if (!$quotaCheck['allowed']) {
-            return redirect()->route('admin.user.index')
-                ->with('error', $quotaCheck['reason']);
-        }
-
+    public function store(
+        Request $request,
+        ParticipantDestinationSelectionService $destinationSelectionService,
+        TutorProfileService $tutorProfileService
+    ) {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', new SafeName()],
+            'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users',
             'username' => 'required|string|max:255|unique:users',
+            'phone' => ['required_if:role,user', 'nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'birthday' => ['nullable', 'date', 'before_or_equal:today', 'after_or_equal:1900-01-01'],
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+        ], [
+            'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
+            'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
+            'birthday.before_or_equal' => 'Tanggal lahir tidak boleh melewati hari ini.',
+            'birthday.after_or_equal' => 'Tanggal lahir tidak valid.',
         ]);
+
+        // Kuota paket hanya berlaku untuk akun peserta, bukan akun operasional seperti Tutor.
+        if ($validated['role'] === 'user') {
+            $quotaCheck = PlanQuotaService::canRegisterUser();
+            if (! $quotaCheck['allowed']) {
+                return redirect()->route('admin.user.index')
+                    ->with('error', $quotaCheck['reason']);
+            }
+        }
         $destinationPayload = $destinationSelectionService->validate(
             $request,
-            $destinationSelectionService->isRequired()
+            $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'username' => $validated['username'],
-            'password' => Hash::make($validated['password']),
-            'status' => $validated['status'] ?? 'aktif',
-            'role' => $validated['role'],
-            ...$destinationPayload,
-        ]);
-        $role = \App\Models\Role::where('slug', $user->role)->first();
-        if ($role) {
-            $user->roles()->syncWithoutDetaching([$role->id]);
-        }
+        $user = DB::transaction(function () use ($validated, $destinationPayload, $tutorProfileService): User {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'username' => $validated['username'],
+                'phone' => $validated['phone'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
+                'password' => Hash::make($validated['password']),
+                'status' => $validated['status'] ?? 'aktif',
+                'role' => $validated['role'],
+                ...$destinationPayload,
+            ]);
+            $role = Role::where('slug', $user->role)->first();
+            if ($role) {
+                $user->roles()->syncWithoutDetaching([$role->id]);
+            }
+            $tutorProfileService->sync($user);
+
+            return $user;
+        });
 
         return redirect()->route('admin.user.index', ['role' => $user->role])->with('success', 'User created successfully.');
     }
 
-    public function show($id)
+    public function show(User $user): View
     {
-        $user = User::findOrFail($id);
-        return view('admin.pages.user.show', compact('user'));
+        $user->load([
+            'participantDestinationCategory.parent',
+            'referredBy:id,name,email',
+            'studyGroups:id,name,description,is_active',
+            'userPackageAccess' => fn ($query) => $query
+                ->with([
+                    'package:package_id,name,access_duration_value,access_duration_unit',
+                    'createdBy:id,name',
+                ])
+                ->orderByDesc('created_at'),
+            'payments' => fn ($query) => $query
+                ->with([
+                    'package:package_id,name',
+                    'installments' => fn ($installments) => $installments->select([
+                        'id', 'payment_id', 'amount', 'paid_at', 'payment_method',
+                    ]),
+                ])
+                ->withCount('installments')
+                ->withSum('installments', 'amount')
+                ->orderByDesc('created_at'),
+            'billInvoices' => fn ($query) => $query
+                ->with([
+                    'recurringBill:id,name',
+                    'payments' => fn ($payments) => $payments->select([
+                        'id', 'bill_invoice_id', 'amount', 'paid_at', 'payment_method', 'notes',
+                    ]),
+                ])
+                ->withSum('payments', 'amount')
+                ->orderByDesc('due_date'),
+            'classAttendances' => fn ($query) => $query
+                ->with([
+                    'session.class:class_id,title',
+                    'session.studyGroup:id,name',
+                    'session.tentor:id,name',
+                ])
+                ->orderByDesc('check_in_at')
+                ->orderByDesc('created_at'),
+            'classAccess' => fn ($query) => $query
+                ->with('class:class_id,title')
+                ->orderByDesc('created_at'),
+        ]);
+
+        $attendanceSummary = [
+            'total' => $user->classAttendances->count(),
+            'present' => $user->classAttendances->whereIn('status', ['present', 'late'])->count(),
+            'late' => $user->classAttendances->where('status', 'late')->count(),
+            'absent' => $user->classAttendances->where('status', 'absent')->count(),
+            'excused' => $user->classAttendances->where('status', 'excused')->count(),
+        ];
+        $attendanceSummary['rate'] = $attendanceSummary['total'] > 0
+            ? round(($attendanceSummary['present'] / $attendanceSummary['total']) * 100)
+            : null;
+
+        $paymentSummary = [
+            'paid' => (int) $user->payments
+                ->where('status', Payment::STATUS_SUCCESS)
+                ->sum(fn (Payment $payment) => $payment->paid_amount),
+            'outstanding' => (int) $user->billInvoices
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->sum(fn ($invoice) => $invoice->remaining_amount),
+        ];
+
+        return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary'));
     }
 
     public function edit($id)
@@ -155,6 +245,7 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
+
         return view('admin.pages.user.create', [
             'user' => $user,
             'roleOptions' => $roleOptions,
@@ -162,43 +253,60 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id, ParticipantDestinationSelectionService $destinationSelectionService)
-    {
+    public function update(
+        Request $request,
+        $id,
+        ParticipantDestinationSelectionService $destinationSelectionService,
+        TutorProfileService $tutorProfileService
+    ) {
         $roleOptions = $this->getRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', new SafeName()],
-            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
-            'username' => 'required|string|max:255|unique:users,username,' . $id,
+            'name' => ['required', 'string', 'max:255', new SafeName],
+            'email' => 'required|string|email|max:255|unique:users,email,'.$id,
+            'username' => 'required|string|max:255|unique:users,username,'.$id,
+            'phone' => ['required_if:role,user', 'nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'birthday' => ['nullable', 'date', 'before_or_equal:today', 'after_or_equal:1900-01-01'],
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+        ], [
+            'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
+            'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
+            'birthday.before_or_equal' => 'Tanggal lahir tidak boleh melewati hari ini.',
+            'birthday.after_or_equal' => 'Tanggal lahir tidak valid.',
         ]);
         $destinationPayload = $destinationSelectionService->validate(
             $request,
-            $destinationSelectionService->isRequired()
+            $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
 
-        $user = User::findOrFail($id);
+        $user = DB::transaction(function () use ($id, $validated, $destinationPayload, $tutorProfileService): User {
+            $user = User::findOrFail($id);
+            $user->fill([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'username' => $validated['username'],
+                'phone' => $validated['phone'] ?? null,
+                'birthday' => $validated['birthday'] ?? null,
+                'status' => $validated['status'],
+                'role' => $validated['role'],
+                ...$destinationPayload,
+            ]);
 
-        $user->fill([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'username' => $validated['username'],
-            'status' => $validated['status'],
-            'role' => $validated['role'],
-            ...$destinationPayload,
-        ]);
+            if (! empty($validated['password'])) {
+                $user->password = Hash::make($validated['password']);
+            }
 
-        if (!empty($validated['password'])) {
-            $user->password = Hash::make($validated['password']);
-        }
+            $user->save();
+            $role = Role::where('slug', $user->role)->first();
+            if ($role) {
+                $user->roles()->sync([$role->id]);
+            }
+            $tutorProfileService->sync($user);
 
-        $user->save();
-        $role = \App\Models\Role::where('slug', $user->role)->first();
-        if ($role) {
-            $user->roles()->sync([$role->id]);
-        }
+            return $user;
+        });
 
         return redirect()->route('admin.user.index', $request->query())
             ->with('success', 'User berhasil diperbarui');
@@ -240,7 +348,7 @@ class UserController extends Controller
 
         foreach ($packageColumns as $package) {
             $fields->push([
-                'key' => 'package_' . $package['id'],
+                'key' => 'package_'.$package['id'],
                 'label' => $package['name'],
                 'type' => 'computed',
             ]);
@@ -251,7 +359,7 @@ class UserController extends Controller
 
     private function exportPackageColumns(): array
     {
-        if (!Schema::hasTable('packages')) {
+        if (! Schema::hasTable('packages')) {
             return [];
         }
 
@@ -275,7 +383,7 @@ class UserController extends Controller
         $this->writeXlsxRow($sheet, 1, array_column($fields, 'label'), true);
 
         $selects = array_map(
-            fn (string $column) => 'users.' . $column . ' as ' . $column,
+            fn (string $column) => 'users.'.$column.' as '.$column,
             $userColumns
         );
 
@@ -310,7 +418,7 @@ class UserController extends Controller
         fwrite($sheet, '</sheetData></worksheet>');
         fclose($sheet);
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $zip->open($targetPath, ZipArchive::OVERWRITE);
         $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypesXml());
         $zip->addFromString('_rels/.rels', $this->xlsxRootRelsXml());
@@ -363,7 +471,7 @@ class UserController extends Controller
         $parentName = trim((string) ($user->participant_destination_parent_name ?? ''));
 
         if ($categoryName !== '') {
-            return $parentName !== '' ? $parentName . ' - ' . $categoryName : $categoryName;
+            return $parentName !== '' ? $parentName.' - '.$categoryName : $categoryName;
         }
 
         $institutionName = trim((string) ($user->participant_destination_institution_name ?? ''));
@@ -373,7 +481,7 @@ class UserController extends Controller
             return '';
         }
 
-        return $programName !== '' ? $institutionName . ' - ' . $programName : $institutionName;
+        return $programName !== '' ? $institutionName.' - '.$programName : $institutionName;
     }
 
     private function exportCell(mixed $value): string
@@ -389,7 +497,7 @@ class UserController extends Controller
         $value = (string) ($value ?? '');
 
         if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
-            return "'" . $value;
+            return "'".$value;
         }
 
         return $value;
@@ -397,12 +505,12 @@ class UserController extends Controller
 
     private function writeXlsxRow($handle, int $rowNumber, array $values, bool $isHeader = false): void
     {
-        fwrite($handle, '<row r="' . $rowNumber . '">');
+        fwrite($handle, '<row r="'.$rowNumber.'">');
 
         foreach (array_values($values) as $index => $value) {
-            $cellReference = $this->excelColumnName($index + 1) . $rowNumber;
+            $cellReference = $this->excelColumnName($index + 1).$rowNumber;
             $style = $isHeader ? ' s="1"' : '';
-            fwrite($handle, '<c r="' . $cellReference . '" t="inlineStr"' . $style . '><is><t>' . $this->escapeXml($this->exportCell($value)) . '</t></is></c>');
+            fwrite($handle, '<c r="'.$cellReference.'" t="inlineStr"'.$style.'><is><t>'.$this->escapeXml($this->exportCell($value)).'</t></is></c>');
         }
 
         fwrite($handle, '</row>');
@@ -414,7 +522,7 @@ class UserController extends Controller
 
         while ($number > 0) {
             $number--;
-            $name = chr(65 + ($number % 26)) . $name;
+            $name = chr(65 + ($number % 26)).$name;
             $number = intdiv($number, 26);
         }
 
@@ -429,50 +537,50 @@ class UserController extends Controller
     private function xlsxContentTypesXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-            . '<Default Extension="xml" ContentType="application/xml"/>'
-            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
-            . '</Types>';
+            .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            .'<Default Extension="xml" ContentType="application/xml"/>'
+            .'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            .'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            .'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            .'</Types>';
     }
 
     private function xlsxRootRelsXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-            . '</Relationships>';
+            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            .'</Relationships>';
     }
 
     private function xlsxWorkbookXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            . '<sheets><sheet name="Data User" sheetId="1" r:id="rId1"/></sheets>'
-            . '</workbook>';
+            .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            .'<sheets><sheet name="Data User" sheetId="1" r:id="rId1"/></sheets>'
+            .'</workbook>';
     }
 
     private function xlsxWorkbookRelsXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-            . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-            . '</Relationships>';
+            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            .'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            .'</Relationships>';
     }
 
     private function xlsxStylesXml(): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            . '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
-            . '<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
-            . '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
-            . '</styleSheet>';
+            .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            .'<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            .'<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
+            .'<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            .'<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+            .'</styleSheet>';
     }
 
     private function getRoleOptions(): array
@@ -499,7 +607,7 @@ class UserController extends Controller
     {
         $ids = $request->input('ids', []);
 
-        if (!is_array($ids) || count($ids) === 0) {
+        if (! is_array($ids) || count($ids) === 0) {
             return redirect()->route('admin.user.index')
                 ->with('error', 'Pilih minimal satu user untuk dihapus.');
         }
@@ -540,7 +648,7 @@ class UserController extends Controller
                 $query->where('status', 'completed')
                     ->with(['tryout', 'userAnswerDetails'])
                     ->orderBy('created_at', 'desc');
-            }
+            },
         ])->findOrFail($id);
 
         $completedTryouts = $user->userAnswers->where('status', 'completed');
@@ -552,7 +660,7 @@ class UserController extends Controller
                 'name' => $answer->tryout->name ?? 'Unknown Tryout',
                 'score' => round($answer->score ?? 0, 1),
                 'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
-                'is_passed' => $answer->is_passed ?? false
+                'is_passed' => $answer->is_passed ?? false,
             ];
         });
 
@@ -572,10 +680,10 @@ class UserController extends Controller
         foreach ($completedTryouts->take(4) as $answer) {
             $activities->push([
                 'type' => 'tryout',
-                'text' => 'Menyelesaikan tryout ' . ($answer->tryout->name ?? 'Unknown') . ' dengan skor ' . round($answer->score ?? 0, 1),
+                'text' => 'Menyelesaikan tryout '.($answer->tryout->name ?? 'Unknown').' dengan skor '.round($answer->score ?? 0, 1),
                 'icon' => 'ri-file-list-line',
                 'color' => 'blue',
-                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at)
+                'date' => Carbon::parse($answer->finished_at ?? $answer->created_at),
             ]);
         }
 
@@ -584,7 +692,7 @@ class UserController extends Controller
             'text' => 'Login ke sistem',
             'icon' => 'ri-login-box-line',
             'color' => 'green',
-            'date' => Carbon::now()->subHours(2)
+            'date' => Carbon::now()->subHours(2),
         ]);
 
         $activities = $activities->sortByDesc('date')->take(8);
@@ -593,7 +701,7 @@ class UserController extends Controller
             'total_tryouts' => $totalTryouts,
             'avg_score' => round($avgScore, 1),
             'total_certificates' => $certificates->count(),
-            'study_hours' => $totalStudyHours
+            'study_hours' => $totalStudyHours,
         ];
 
         return view('admin.pages.user.report', compact(
@@ -608,13 +716,13 @@ class UserController extends Controller
     public function loginAs($id)
     {
         $user = User::findOrFail($id);
-        
+
         // Pastikan yang login adalah admin
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
+        if (! Auth::check() || Auth::user()->role !== 'admin') {
             return redirect()->route('admin.user.index')
                 ->with('error', 'Unauthorized access.');
         }
-        
+
         // Simpan admin ID dan info ke session
         session([
             'admin_login_as' => Auth::id(),
@@ -623,24 +731,24 @@ class UserController extends Controller
             'login_as_user_name' => $user->name,
             'login_as_user_email' => $user->email,
         ]);
-        
+
         // Login sebagai user
         Auth::login($user);
-        
+
         return redirect()->route('user.dashboard.index');
     }
-    
+
     public function logoutAs()
     {
         $adminId = session('admin_login_as');
-        
-        if (!$adminId) {
+
+        if (! $adminId) {
             return redirect()->route('login');
         }
-        
+
         $admin = User::find($adminId);
-        
-        if (!$admin) {
+
+        if (! $admin) {
             session()->forget([
                 'admin_login_as',
                 'admin_name',
@@ -648,9 +756,10 @@ class UserController extends Controller
                 'login_as_user_name',
                 'login_as_user_email',
             ]);
+
             return redirect()->route('login');
         }
-        
+
         // Hapus session admin_login_as
         session()->forget([
             'admin_login_as',
@@ -659,10 +768,10 @@ class UserController extends Controller
             'login_as_user_name',
             'login_as_user_email',
         ]);
-        
+
         // Login kembali sebagai admin
         Auth::login($admin);
-        
+
         return redirect()->route('admin.user.index')
             ->with('success', 'Anda kembali login sebagai admin.');
     }

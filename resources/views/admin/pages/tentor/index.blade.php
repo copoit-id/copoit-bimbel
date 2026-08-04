@@ -1,16 +1,16 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Manajemen Tentor')
+@section('title', 'Manajemen Tutor')
 
 @section('content')
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
             <x-breadcrumb-item href="{{ route('admin.user.index') }}" title="Manajemen User" />
-            <x-breadcrumb-item href="" title="Tentor" />
+            <x-breadcrumb-item href="" title="Tutor" />
         </x-slot>
     </x-breadcrumb>
-    <x-btn title="Tambah Tentor" route="{{ route('admin.tentors.create') }}" icon="ri-add-fill"></x-btn>
+    <x-btn title="Tambah Tutor" route="{{ route('admin.tentors.create') }}" icon="ri-add-fill"></x-btn>
 </div>
 
 @include('admin.pages.user.partials.management-tabs', [
@@ -19,7 +19,7 @@
 ])
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
-    <x-page-desc title="Manajemen Tentor" description="Kelola data tentor untuk assignment kelas dan jadwal."></x-page-desc>
+    <x-page-desc title="Manajemen Tutor" description="Kelola data Tutor untuk assignment kelas dan jadwal."></x-page-desc>
 
     @if (session('success'))
         <div class="mt-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -38,7 +38,7 @@
     <form method="GET" action="{{ route('admin.tentors.index') }}" class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div class="relative">
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari tentor..."
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Tutor..."
                     class="w-full sm:w-72 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
             </div>
@@ -62,9 +62,9 @@
         </div>
 
         <div class="text-sm text-gray-500">
-            Halaman ini: <span class="font-medium text-gray-700">{{ $tentors->count() }} Tentor</span>
+            Halaman ini: <span class="font-medium text-gray-700">{{ $tentors->count() }} Tutor</span>
             <span class="mx-1 text-gray-300">•</span>
-            Total: <span class="font-medium text-gray-700">{{ $tentors->total() }} Tentor</span>
+            Total: <span class="font-medium text-gray-700">{{ $tentors->total() }} Tutor</span>
         </div>
     </form>
 
@@ -72,7 +72,7 @@
         <table class="w-full text-sm text-left rtl:text-right text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3">Tentor</th>
+                    <th scope="col" class="px-6 py-3">Tutor</th>
                     <th scope="col" class="px-6 py-3">Kontak</th>
                     <th scope="col" class="px-6 py-3">Bidang</th>
                     <th scope="col" class="px-6 py-3 text-center">Assignment</th>
@@ -109,14 +109,14 @@
                         <td class="px-6 py-4">
                             <div class="flex justify-center items-center gap-2">
                                 <a href="{{ route('admin.tentors.edit', array_merge(request()->query(), ['tentor' => $tentor->id])) }}"
-                                    class="text-gray-500 hover:text-yellow-500" title="Edit tentor">
+                                    class="text-gray-500 hover:text-yellow-500" title="Edit Tutor">
                                     <i class="ri-edit-line text-xl"></i>
                                 </a>
                                 <form method="POST" action="{{ route('admin.tentors.destroy', $tentor) }}" class="inline"
-                                    onsubmit="return confirm('Yakin ingin menghapus tentor ini?');">
+                                    onsubmit="return confirm('Yakin ingin menghapus Tutor ini?');">
                                     @csrf
                                     @method('DELETE')
-                                    <button class="text-gray-500 hover:text-red-500" title="Hapus tentor">
+                                    <button class="text-gray-500 hover:text-red-500" title="Hapus Tutor">
                                         <i class="ri-delete-bin-line text-xl"></i>
                                     </button>
                                 </form>
@@ -128,9 +128,9 @@
                         <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                             <div class="flex flex-col items-center">
                                 <i class="ri-user-star-line text-4xl text-gray-300 mb-2"></i>
-                                <p>Belum ada tentor tersedia</p>
+                                <p>Belum ada Tutor tersedia</p>
                                 <a href="{{ route('admin.tentors.create') }}" class="text-primary hover:underline mt-2">
-                                    Tambah tentor pertama
+                                    Tambah Tutor pertama
                                 </a>
                             </div>
                         </td>

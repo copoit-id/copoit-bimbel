@@ -1,0 +1,615 @@
+<?php
+
+namespace App\Http\Controllers\user;
+
+use App\Http\Controllers\Controller;
+use App\Models\AiDiscussionUsageLog;
+use App\Models\AiLearningArtifact;
+use App\Services\AiLearningContextService;
+use App\Services\AiLearningToolService;
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+use RuntimeException;
+
+class AiLearningToolController extends Controller
+{
+    public function index(
+        Request $request,
+        AiGatewaySubscriptionController $aiGatewaySubscriptionController,
+    ): View {
+        $user = $request->user();
+        $currentSource = trim((string) $request->query('source', ''));
+        $currentTool = in_array($request->query('tool'), ['quota', 'note', 'recommendation', 'question', 'flashcard'], true)
+            ? $request->query('tool')
+            : 'quota';
+        $showPinned = $request->boolean('pinned') || $request->boolean('saved');
+        $latestArtifactAt = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->max('created_at');
+        $latestLegacyUsageAt = AiDiscussionUsageLog::query()
+            ->where('user_id', $user->id)
+            ->where('user_message', 'like', 'AI Learning Tool%')
+            ->max('created_at');
+        $latestAiLearningUsageAt = collect([$latestArtifactAt, $latestLegacyUsageAt])
+            ->filter()
+            ->map(fn ($date) => Carbon::parse($date))
+            ->sortDesc()
+            ->first();
+        $hasUsedAiLearning = $latestAiLearningUsageAt !== null;
+        $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData(
+            $request,
+            $currentTool === 'quota',
+        );
+
+        $artifacts = AiLearningArtifact::query()
+            ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->when($showPinned, fn ($query) => $query->whereNotNull('saved_at'))
+            ->when($currentSource === 'independent', fn ($query) => $query->where('source_type', 'independent'))
+            ->when($currentSource === 'discussion', fn ($query) => $query->where('source_type', 'discussion'))
+            ->when(
+                str_starts_with($currentSource, 'tryout:'),
+                fn ($query) => $query->where('tryout_id', (int) Str::after($currentSource, 'tryout:')),
+            )
+            ->when(
+                $currentSource !== ''
+                    && ! in_array($currentSource, ['independent', 'discussion'], true)
+                    && ! str_starts_with($currentSource, 'tryout:'),
+                fn ($query) => $query->where('source_label', $currentSource),
+            )
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        $sourceOptions = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->select('source_type', 'source_label')
+            ->whereNotNull('source_label')
+            ->distinct()
+            ->orderBy('source_label')
+            ->get()
+            ->toBase()
+            ->map(fn (AiLearningArtifact $artifact): array => [
+                'value' => (string) $artifact->source_label,
+                'label' => (string) $artifact->source_label,
+            ]);
+        $legacyTryoutOptions = AiLearningArtifact::query()
+            ->with('tryout:tryout_id,name')
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->whereNull('source_label')
+            ->whereNotNull('tryout_id')
+            ->select('tryout_id')
+            ->distinct()
+            ->get()
+            ->toBase()
+            ->filter(fn (AiLearningArtifact $artifact) => $artifact->tryout !== null)
+            ->map(fn (AiLearningArtifact $artifact): array => [
+                'value' => 'tryout:'.$artifact->tryout_id,
+                'label' => 'Pembahasan · '.$artifact->tryout->name,
+            ])
+            ->unique('value')
+            ->values();
+        $sourceOptions = $sourceOptions
+            ->merge($legacyTryoutOptions)
+            ->unique('value')
+            ->sortBy('label')
+            ->values();
+
+        $pinnedArtifactsCount = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->where('tool', $currentTool)
+            ->whereNotNull('saved_at')
+            ->count();
+
+        $activeAiGatewaySubscriptions = collect($gatewayDashboardData['subscriptions'] ?? [])
+            ->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
+        $hasActiveAiGatewaySubscription = $activeAiGatewaySubscriptions->isNotEmpty();
+        $latestActiveSubscriptionStartedAt = $activeAiGatewaySubscriptions
+            ->pluck('starts_at')
+            ->filter()
+            ->map(fn ($date) => Carbon::parse($date))
+            ->sortDesc()
+            ->first();
+        $activeAiGatewaySubscription = $activeAiGatewaySubscriptions
+            ->sortByDesc(fn ($subscription) => (int) data_get($subscription, 'id', 0))
+            ->first();
+        $activeAiGatewaySubscriptionId = (int) data_get($activeAiGatewaySubscription, 'id', 0);
+        $activeAiGatewaySubscriptionStartedAt = filled(data_get($activeAiGatewaySubscription, 'starts_at'))
+            ? Carbon::parse(data_get($activeAiGatewaySubscription, 'starts_at'))
+            : null;
+        $hasNewAiGatewaySubscriptionCycle = $latestActiveSubscriptionStartedAt !== null
+            && ($latestAiLearningUsageAt === null || $latestActiveSubscriptionStartedAt->greaterThan($latestAiLearningUsageAt));
+        $hasInactivePackageHistory = (bool) ($gatewayDashboardData['hasInactivePackageHistory'] ?? false);
+        $canSkipAiLearningOnboarding = $activeAiGatewaySubscriptionId > 0 && $hasInactivePackageHistory;
+        $completedOnboardingToolCount = $activeAiGatewaySubscriptionId > 0
+            ? AiLearningArtifact::query()
+                ->where('user_id', $user->id)
+                ->whereIn('tool', ['note', 'flashcard', 'question', 'recommendation'])
+                ->when($activeAiGatewaySubscriptionStartedAt, fn ($query) => $query->where('created_at', '>=', $activeAiGatewaySubscriptionStartedAt))
+                ->distinct()
+                ->count('tool')
+            : 0;
+        $hasCompletedAiLearningOnboarding = $completedOnboardingToolCount >= 4;
+        $hasSkippedAiLearningOnboarding = $activeAiGatewaySubscriptionId > 0
+            && (int) $request->session()->get('ai_learning_onboarding_skipped_subscription_id') === $activeAiGatewaySubscriptionId;
+        $requiresFirstAiLearningOnboarding = $activeAiGatewaySubscriptionId > 0
+            && ! $hasInactivePackageHistory
+            && ! $hasCompletedAiLearningOnboarding;
+        $trialTokenLimit = (int) data_get($gatewayDashboardData, 'trial.token_limit', 0);
+        $trialChatLimit = (int) data_get($gatewayDashboardData, 'trial.chat_limit', 0);
+        $hasAvailableAiGatewayTrial = (bool) data_get($gatewayDashboardData, 'trial.available', false)
+            && ($trialTokenLimit === 0 || (int) data_get($gatewayDashboardData, 'trial.tokens_used', 0) < $trialTokenLimit)
+            && ($trialChatLimit === 0 || (int) data_get($gatewayDashboardData, 'trial.chats_used', 0) < $trialChatLimit);
+        $showAiLearningOnboarding = ! $hasCompletedAiLearningOnboarding
+            && ! $hasSkippedAiLearningOnboarding
+            && ($requiresFirstAiLearningOnboarding || $request->boolean('onboarding') || ! $hasUsedAiLearning || $hasNewAiGatewaySubscriptionCycle)
+            && ($hasActiveAiGatewaySubscription || $hasAvailableAiGatewayTrial);
+        $showAiPackageRequiredModal = $currentTool !== 'quota'
+            && ! $hasActiveAiGatewaySubscription
+            && ! $hasAvailableAiGatewayTrial
+            && blank($gatewayDashboardData['gatewayError'] ?? null);
+        $aiLearningOnboardingSample = [
+            'title' => 'Persamaan Linear Satu Variabel',
+            'content' => 'Soal contoh: Nilai x yang memenuhi persamaan 3x + 5 = 20 adalah ... A. 3, B. 5, C. 7, D. 15. Jelaskan konsep dan langkah penyelesaiannya dengan bahasa yang mudah dipahami.',
+        ];
+
+        return view('user.pages.ai-learning.index', compact(
+            'artifacts',
+            'sourceOptions',
+            'currentSource',
+            'currentTool',
+            'showPinned',
+            'pinnedArtifactsCount',
+            'gatewayDashboardData',
+            'showAiLearningOnboarding',
+            'canSkipAiLearningOnboarding',
+            'activeAiGatewaySubscriptionId',
+            'showAiPackageRequiredModal',
+            'aiLearningOnboardingSample',
+        ));
+    }
+
+    public function skipOnboarding(
+        Request $request,
+        AiGatewaySubscriptionController $aiGatewaySubscriptionController,
+    ): JsonResponse {
+        $data = $request->validate([
+            'subscription_id' => ['required', 'integer', 'min:1'],
+        ]);
+        $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData($request, false);
+        $activeSubscription = collect($gatewayDashboardData['subscriptions'] ?? [])
+            ->first(fn ($subscription) => data_get($subscription, 'status') === 'active'
+                && (int) data_get($subscription, 'id') === (int) $data['subscription_id']);
+
+        if (! $activeSubscription) {
+            return response()->json(['message' => 'Paket AI aktif tidak ditemukan.'], 422);
+        }
+
+        if (! (bool) ($gatewayDashboardData['hasInactivePackageHistory'] ?? false)) {
+            return response()->json([
+                'message' => 'Tutorial wajib diselesaikan untuk penggunaan AI pertama.',
+            ], 403);
+        }
+
+        $request->session()->put(
+            'ai_learning_onboarding_skipped_subscription_id',
+            (int) $data['subscription_id'],
+        );
+
+        return response()->json(['skipped' => true]);
+    }
+
+    public function history(
+        Request $request,
+        string $idPackage,
+        int $idTryout,
+        string $token,
+        AiLearningContextService $contextService,
+    ): JsonResponse {
+        $data = $request->validate([
+            'question_id' => ['required', 'integer'],
+            'tool' => ['required', 'in:note,recommendation,question,flashcard'],
+        ]);
+        $user = $request->user();
+        $resolved = $contextService->resolve(
+            $user,
+            $idPackage,
+            $idTryout,
+            $token,
+            (int) $data['question_id'],
+        );
+
+        $artifacts = AiLearningArtifact::query()
+            ->where('user_id', $user->id)
+            ->where('tryout_id', $resolved['tryout']->tryout_id)
+            ->where('question_id', $resolved['question']->question_id)
+            ->where('attempt_token', $token)
+            ->where('tool', $data['tool'])
+            ->latest()
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'artifacts' => $artifacts->map(fn (AiLearningArtifact $artifact): array => [
+                'id' => $artifact->id,
+                'tool' => $artifact->tool,
+                'title' => $artifact->title,
+                'created_at' => $artifact->created_at?->format('d M Y, H:i'),
+                'html' => view('user.pages.ai-learning.partials.result', [
+                    'artifact' => $artifact,
+                    'payload' => $artifact->payload,
+                ])->render(),
+            ])->values(),
+        ]);
+    }
+
+    public function generate(
+        Request $request,
+        string $idPackage,
+        int $idTryout,
+        string $token,
+        AiLearningContextService $contextService,
+        AiLearningToolService $toolService,
+    ): JsonResponse {
+        $data = $request->validate([
+            'question_id' => ['required', 'integer'],
+            'tool' => ['required', 'in:note,recommendation,question,flashcard'],
+            'difficulty' => ['nullable', 'in:mudah,sedang,sulit'],
+            'variation' => ['nullable', 'in:konteks,angka,hots'],
+            'hots_level' => ['nullable', 'in:rendah,sedang,tinggi'],
+            'question_count' => ['nullable', 'integer', 'min:1', 'max:5'],
+        ]);
+        $user = $request->user();
+        $resolved = $contextService->resolve(
+            $user,
+            $idPackage,
+            $idTryout,
+            $token,
+            (int) $data['question_id'],
+        );
+
+        try {
+            $result = $toolService->generate($data['tool'], [
+                'difficulty' => $data['difficulty'] ?? 'sedang',
+                'variation' => $data['variation'] ?? 'konteks',
+                'hots_level' => $data['hots_level'] ?? 'sedang',
+                'question_count' => $data['question_count'] ?? 1,
+            ], $resolved['context']);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $payload = $result['payload'];
+        if ($data['tool'] === 'recommendation') {
+            $payload['materials'] = $contextService->recommendedMaterials(
+                $user,
+                $resolved['package'],
+                $resolved['tryout'],
+                $resolved['question'],
+            );
+        }
+
+        $artifact = DB::transaction(function () use ($user, $resolved, $token, $data, $payload, $result) {
+            $artifact = AiLearningArtifact::query()->create([
+                'user_id' => $user->id,
+                'tryout_id' => $resolved['tryout']->tryout_id,
+                'question_id' => $resolved['question']->question_id,
+                'attempt_token' => $token,
+                'source_type' => 'discussion',
+                'source_label' => $resolved['package']?->name
+                    ? 'Paket · '.$resolved['package']->name
+                    : 'Pembahasan · '.$resolved['tryout']->name,
+                'tool' => $data['tool'],
+                'title' => Str::limit((string) ($payload['title'] ?? $this->toolLabel($data['tool'])), 255, ''),
+                'payload' => $payload,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+            ]);
+
+            AiDiscussionUsageLog::query()->create([
+                'user_id' => $user->id,
+                'tryout_id' => $resolved['tryout']->tryout_id,
+                'question_id' => $resolved['question']->question_id,
+                'attempt_token' => $token,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+                'response_time_ms' => $result['response_time_ms'],
+                'user_message' => 'AI Learning Tool: '.$this->toolLabel($data['tool']),
+                'assistant_message' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+
+            return $artifact;
+        });
+
+        return response()->json([
+            'artifact_id' => $artifact->id,
+            'tool' => $artifact->tool,
+            'title' => $artifact->title,
+            'html' => view('user.pages.ai-learning.partials.result', [
+                'artifact' => $artifact,
+                'payload' => $payload,
+            ])->render(),
+            'quota' => $result['quota'],
+        ]);
+    }
+
+    public function generateIndependent(
+        Request $request,
+        AiLearningToolService $toolService,
+    ): JsonResponse {
+        $data = $request->validate([
+            'tool' => ['required', 'in:note,recommendation,question,flashcard'],
+            'title' => ['nullable', 'string', 'max:120'],
+            'content' => ['required', 'string', 'min:20', 'max:10000'],
+            'difficulty' => ['nullable', 'in:mudah,sedang,sulit'],
+            'variation' => ['nullable', 'in:konteks,angka,hots'],
+            'hots_level' => ['nullable', 'in:rendah,sedang,tinggi'],
+            'question_count' => ['nullable', 'integer', 'min:1', 'max:5'],
+        ]);
+        $user = $request->user();
+        $sourceTitle = trim((string) ($data['title'] ?? '')) ?: 'Input mandiri';
+        $context = [
+            'tryout_name' => 'AI Learning Tools',
+            'subtest_name' => $sourceTitle,
+            'question_type' => 'external_input',
+            'question_text' => trim($data['content']),
+            'options' => [],
+            'selected_answer' => '-',
+            'explanation' => 'Tidak tersedia. Buat hasil belajar berdasarkan input pengguna.',
+            'question_reference' => 'external-'.$user->id,
+        ];
+
+        try {
+            $result = $toolService->generate($data['tool'], [
+                'difficulty' => $data['difficulty'] ?? 'sedang',
+                'variation' => $data['variation'] ?? 'konteks',
+                'hots_level' => $data['hots_level'] ?? 'sedang',
+                'question_count' => $data['question_count'] ?? 1,
+            ], $context);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $payload = $result['payload'];
+        if ($data['tool'] === 'recommendation') {
+            $payload['materials'] = [];
+        }
+
+        $artifact = DB::transaction(function () use ($user, $data, $sourceTitle, $payload, $result) {
+            $artifact = AiLearningArtifact::query()->create([
+                'user_id' => $user->id,
+                'source_type' => 'independent',
+                'source_label' => 'Input mandiri',
+                'tool' => $data['tool'],
+                'title' => Str::limit((string) ($payload['title'] ?? $sourceTitle), 255, ''),
+                'payload' => $payload,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+            ]);
+
+            AiDiscussionUsageLog::query()->create([
+                'user_id' => $user->id,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+                'response_time_ms' => $result['response_time_ms'],
+                'user_message' => 'AI Learning Tool mandiri: '.$this->toolLabel($data['tool']),
+                'assistant_message' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+
+            return $artifact;
+        });
+
+        return response()->json([
+            'artifact_id' => $artifact->id,
+            'tool' => $artifact->tool,
+            'title' => $artifact->title,
+            'html' => view('user.pages.ai-learning.partials.result', [
+                'artifact' => $artifact,
+                'payload' => $payload,
+            ])->render(),
+            'quota' => $result['quota'],
+        ]);
+    }
+
+    public function notes(Request $request): RedirectResponse
+    {
+        return redirect()->route('user.ai-learning.index', [
+            'tool' => 'note',
+            'pinned' => 1,
+        ]);
+    }
+
+    public function expandNote(
+        Request $request,
+        AiLearningArtifact $artifact,
+        AiLearningToolService $toolService,
+    ): JsonResponse {
+        abort_unless($artifact->user_id === $request->user()->id && $artifact->tool === 'note', 404);
+
+        $data = $request->validate([
+            'focus' => ['nullable', 'string', 'max:300'],
+        ]);
+        $focus = trim((string) ($data['focus'] ?? ''));
+        $payload = is_array($artifact->payload) ? $artifact->payload : [];
+        $context = [
+            'tryout_name' => $artifact->source_label ?: 'AI Learning Tools',
+            'subtest_name' => 'Pendalaman catatan',
+            'question_type' => 'learning_note_expansion',
+            'question_text' => (string) ($payload['title'] ?? $artifact->title ?? 'Catatan materi'),
+            'options' => [],
+            'selected_answer' => '-',
+            'explanation' => "CATATAN SEBELUMNYA (gunakan sebagai dasar, lalu buat versi yang lebih lengkap):\n"
+                .$this->noteLearningContext($payload)
+                .($focus !== '' ? "\n\nBAGIAN YANG HARUS DIPERDALAM:\n{$focus}" : ''),
+            'question_reference' => (string) ($artifact->question_id ?? 'note-'.$artifact->id),
+        ];
+
+        try {
+            $result = $toolService->generate('note', [], $context);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $newPayload = $result['payload'];
+        $expandedArtifact = DB::transaction(function () use ($request, $artifact, $newPayload, $result) {
+            $expandedArtifact = AiLearningArtifact::query()->create([
+                'user_id' => $request->user()->id,
+                'tryout_id' => $artifact->tryout_id,
+                'question_id' => $artifact->question_id,
+                'attempt_token' => $artifact->attempt_token,
+                'source_type' => $artifact->source_type ?: 'independent',
+                'source_label' => $artifact->source_label ?: 'Input mandiri',
+                'tool' => 'note',
+                'title' => Str::limit((string) ($newPayload['title'] ?? 'Pendalaman Catatan Materi'), 255, ''),
+                'payload' => $newPayload,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+            ]);
+
+            AiDiscussionUsageLog::query()->create([
+                'user_id' => $request->user()->id,
+                'tryout_id' => $artifact->tryout_id,
+                'question_id' => $artifact->question_id,
+                'attempt_token' => $artifact->attempt_token,
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'input_tokens' => $result['usage']['input'],
+                'output_tokens' => $result['usage']['output'],
+                'total_tokens' => $result['usage']['total'],
+                'response_time_ms' => $result['response_time_ms'],
+                'user_message' => 'AI Learning Tool: Perdalam Catatan Materi',
+                'assistant_message' => json_encode($newPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+
+            return $expandedArtifact;
+        });
+
+        return response()->json([
+            'artifact_id' => $expandedArtifact->id,
+            'tool' => $expandedArtifact->tool,
+            'title' => $expandedArtifact->title,
+            'html' => view('user.pages.ai-learning.partials.result', [
+                'artifact' => $expandedArtifact,
+                'payload' => $newPayload,
+            ])->render(),
+            'quota' => $result['quota'],
+        ]);
+    }
+
+    public function save(Request $request, AiLearningArtifact $artifact): JsonResponse
+    {
+        abort_unless($artifact->user_id === $request->user()->id, 404);
+        $data = $request->validate(['pinned' => ['nullable', 'boolean']]);
+        $pinned = array_key_exists('pinned', $data) ? (bool) $data['pinned'] : true;
+        $artifact->update(['saved_at' => $pinned ? ($artifact->saved_at ?? now()) : null]);
+
+        return response()->json([
+            'message' => $pinned ? 'Hasil AI berhasil dipin.' : 'Pin hasil AI dilepas.',
+            'pinned' => $pinned,
+            'saved_at' => $artifact->saved_at?->toIso8601String(),
+            'pdf_url' => $pinned && $artifact->tool === 'note'
+                ? route('user.ai-learning.notes.pdf', $artifact)
+                : null,
+        ]);
+    }
+
+    public function exportPdf(Request $request, AiLearningArtifact $artifact): Response
+    {
+        abort_unless(
+            $artifact->user_id === $request->user()->id
+                && $artifact->tool === 'note'
+                && $artifact->saved_at !== null,
+            404,
+        );
+        $artifact->loadMissing(['tryout:tryout_id,name', 'question:question_id,question_text', 'user:id,name,email']);
+
+        $options = new Options;
+        $options->set('isRemoteEnabled', false);
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml(view('user.pages.ai-learning.note-pdf', compact('artifact'))->render());
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = Str::slug($artifact->title ?: 'catatan-materi').'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function destroy(Request $request, AiLearningArtifact $artifact): JsonResponse|RedirectResponse
+    {
+        abort_unless($artifact->user_id === $request->user()->id && $artifact->tool === 'note', 404);
+        $artifact->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Catatan berhasil dihapus.']);
+        }
+
+        return back()->with('success', 'Catatan berhasil dihapus.');
+    }
+
+    private function toolLabel(string $tool): string
+    {
+        return match ($tool) {
+            'note' => 'Catatan Materi',
+            'recommendation' => 'Rekomendasi Belajar',
+            'question' => 'Generate Soal',
+            'flashcard' => 'Flashcard',
+            default => 'AI Learning Tool',
+        };
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function noteLearningContext(array $payload): string
+    {
+        $parts = [
+            (string) ($payload['title'] ?? ''),
+            (string) ($payload['summary'] ?? ''),
+        ];
+
+        foreach ($payload['sections'] ?? [] as $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+
+            $parts[] = implode("\n", array_filter([
+                (string) ($section['title'] ?? ''),
+                ...array_map('strval', is_array($section['paragraphs'] ?? null) ? $section['paragraphs'] : []),
+                ...array_map('strval', is_array($section['bullets'] ?? null) ? $section['bullets'] : []),
+            ]));
+        }
+
+        $parts[] = implode("\n", array_map('strval', is_array($payload['key_points'] ?? null) ? $payload['key_points'] : []));
+        $parts[] = implode("\n", array_map('strval', is_array($payload['formulas'] ?? null) ? $payload['formulas'] : []));
+
+        return Str::limit(implode("\n\n", array_filter($parts)), 18000, '');
+    }
+}

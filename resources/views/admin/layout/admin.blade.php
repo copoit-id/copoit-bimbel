@@ -10,7 +10,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="turbo-cache-control" content="no-cache">
-    <title>{{ $clientBranding['name'] }} - Admin Dashboard</title>
+    <title>{{ $clientBranding['name'] }} - {{ auth()->user()?->isTutor() ? 'Tutor' : 'Admin' }} Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.ckeditor.com/4.22.1/full-all/ckeditor.js"></script>
@@ -34,12 +34,13 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
     @include('admin.partials.summernote')
     @stack('styles')
     @yield('styles')
 </head>
 
-<body>
+<body data-admin-selects>
     @include('admin.components.navbar')
     @include('components.confirm-modal')
     @include('admin.components.sidebar')
@@ -50,7 +51,7 @@
         @yield('content')
     </div>
 
-    @if(config('client.branding.admin_assistant_enabled', false))
+    @if(config('client.branding.admin_assistant_enabled', false) && !auth()->user()?->isTutor())
         <x-admin.assistant />
     @endif
 
@@ -79,6 +80,22 @@
         CKEDITOR.config.skin = 'moono-lisa';
         CKEDITOR.config.resize_enabled = false;
         CKEDITOR.config.removeDialogTabs = 'image:advanced;link:advanced';
+
+        const removeLegacyCkeditorSecurityNotice = () => {
+            document.querySelectorAll('.cke_notification, .cke_notification_message').forEach((element) => {
+                const message = element.textContent || '';
+                if (!message.includes('This CKEditor 4.22.1') || !message.includes('not secure')) {
+                    return;
+                }
+
+                (element.closest('.cke_notification') || element).remove();
+            });
+        };
+
+        const ckeditorNoticeObserver = new MutationObserver(removeLegacyCkeditorSecurityNotice);
+        ckeditorNoticeObserver.observe(document.documentElement, { childList: true, subtree: true });
+        CKEDITOR.on('instanceReady', removeLegacyCkeditorSecurityNotice);
+        document.addEventListener('DOMContentLoaded', removeLegacyCkeditorSecurityNotice, { once: true });
 
         document.addEventListener('DOMContentLoaded', function () {
             initializeCKEditors();
@@ -258,6 +275,7 @@
         });
         
         // Refresh CSRF token periodically to prevent session expiry issues
+        @if(auth()->user()?->canAccessAdminPanel())
         setInterval(function() {
             fetch('{{ route("admin.dashboard") }}', {
                 method: 'HEAD',
@@ -266,8 +284,10 @@
                 }
             }).catch(function() {});
         }, 300000); // Every 5 minutes
+        @endif
     </script>
     @stack('scripts')
+    <x-website-translator />
 </body>
 
 </html>

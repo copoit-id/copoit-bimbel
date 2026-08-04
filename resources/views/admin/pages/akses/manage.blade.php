@@ -277,10 +277,14 @@ document.querySelectorAll('[data-access-panel-tab]').forEach((button) => {
     });
 });
 
-function grantAccess(userId, userName) {
+async function grantAccess(userId, userName) {
     const accessType = document.getElementById(`access_type_${userId}`).value;
     
-    if (!confirm(`Berikan/perpanjang akses ${accessType === 'free' ? 'GRATIS' : 'BERBAYAR'} kepada ${userName}?`)) {
+    if (!await window.appConfirm(`Berikan/perpanjang akses ${accessType === 'free' ? 'GRATIS' : 'BERBAYAR'} kepada ${userName}?`, {
+        title: 'Berikan akses',
+        confirmText: 'Ya, berikan',
+        variant: 'success',
+    })) {
         return;
     }
     
@@ -298,16 +302,16 @@ function grantAccess(userId, userName) {
         })
     })
     .then(res => res.json())
-    .then(data => {
+    .then(async (data) => {
         if (data.success) {
-            alert('Akses berhasil diberikan!');
+            await window.appAlert('Akses berhasil diberikan!', { title: 'Akses diberikan', variant: 'success' });
             location.reload();
         } else {
-            alert(data.message || 'Gagal memberikan akses');
+            await window.appAlert(data.message || 'Gagal memberikan akses', { title: 'Akses gagal', variant: 'danger' });
         }
     })
-    .catch(err => {
-        alert('Terjadi kesalahan: ' + err.message);
+    .catch(async (err) => {
+        await window.appAlert('Terjadi kesalahan: ' + err.message, { title: 'Akses gagal', variant: 'danger' });
     });
 }
 
@@ -341,9 +345,9 @@ document.getElementById('study_group_select')?.addEventListener('change', functi
     `;
 });
 
-function grantStudyGroupAccess() {
+async function grantStudyGroupAccess() {
     if (!canUseStudyGroupAccess) {
-        alert('Akses via rombel sedang tidak aktif.');
+        await window.appAlert('Akses via rombel sedang tidak aktif.', { title: 'Tidak tersedia', variant: 'warning' });
         return;
     }
 
@@ -352,16 +356,20 @@ function grantStudyGroupAccess() {
     const userIds = Array.from(document.querySelectorAll('input[name="rombel_user_ids[]"]:checked')).map((input) => input.value);
 
     if (!groupId) {
-        alert('Pilih rombel terlebih dahulu.');
+        await window.appAlert('Pilih rombel terlebih dahulu.', { title: 'Rombel belum dipilih', variant: 'warning' });
         return;
     }
 
     if (!userIds.length) {
-        alert('Pilih minimal satu anggota rombel.');
+        await window.appAlert('Pilih minimal satu anggota rombel.', { title: 'Anggota belum dipilih', variant: 'warning' });
         return;
     }
 
-    if (!confirm(`Berikan akses kepada ${userIds.length} anggota terpilih?`)) {
+    if (!await window.appConfirm(`Berikan akses kepada ${userIds.length} anggota terpilih?`, {
+        title: 'Berikan akses rombel',
+        confirmText: 'Ya, berikan',
+        variant: 'success',
+    })) {
         return;
     }
 
@@ -380,12 +388,15 @@ function grantStudyGroupAccess() {
         })
     })
     .then(res => res.json())
-    .then(data => {
-        alert(data.message || (data.success ? 'Akses berhasil diberikan!' : 'Gagal memberikan akses'));
+    .then(async (data) => {
+        await window.appAlert(data.message || (data.success ? 'Akses berhasil diberikan!' : 'Gagal memberikan akses'), {
+            title: data.success ? 'Akses diberikan' : 'Akses gagal',
+            variant: data.success ? 'success' : 'danger',
+        });
         if (data.success) location.reload();
     })
-    .catch(err => {
-        alert('Terjadi kesalahan: ' + err.message);
+    .catch(async (err) => {
+        await window.appAlert('Terjadi kesalahan: ' + err.message, { title: 'Akses gagal', variant: 'danger' });
     });
 }
 
@@ -398,8 +409,12 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-function revokeAccess(userId, userName) {
-    if (!confirm(`Cabut akses dari ${userName}?`)) {
+async function revokeAccess(userId, userName) {
+    if (!await window.appConfirm(`Cabut akses dari ${userName}?`, {
+        title: 'Cabut akses',
+        confirmText: 'Ya, cabut',
+        variant: 'danger',
+    })) {
         return;
     }
     
@@ -416,16 +431,16 @@ function revokeAccess(userId, userName) {
         })
     })
     .then(res => res.json())
-    .then(data => {
+    .then(async (data) => {
         if (data.success) {
-            alert('Akses berhasil dicabut!');
+            await window.appAlert('Akses berhasil dicabut!', { title: 'Akses dicabut', variant: 'success' });
             location.reload();
         } else {
-            alert(data.message || 'Gagal mencabut akses');
+            await window.appAlert(data.message || 'Gagal mencabut akses', { title: 'Akses gagal', variant: 'danger' });
         }
     })
-    .catch(err => {
-        alert('Terjadi kesalahan: ' + err.message);
+    .catch(async (err) => {
+        await window.appAlert('Terjadi kesalahan: ' + err.message, { title: 'Akses gagal', variant: 'danger' });
     });
 }
 </script>

@@ -12,7 +12,8 @@ class UserBillingController extends Controller
     public function index(Request $request): View
     {
         $invoices = BillInvoice::where('user_id', $request->user()->id)
-            ->orderByRaw("FIELD(status, 'overdue', 'unpaid', 'paid', 'cancelled')")
+            ->withSum('payments as paid_amount', 'amount')
+            ->orderByRaw("FIELD(status, 'overdue', 'unpaid', 'partial', 'paid', 'cancelled')")
             ->orderBy('due_date')
             ->paginate(15);
 

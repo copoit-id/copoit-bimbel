@@ -144,10 +144,9 @@ class CertificateController extends Controller
         ));
     }
 
-    public function view($certificateId, $token = null)
+    public function view(Request $request, $certificateId, $token = null)
     {
-        // Jika token adalah 'public', allow akses tanpa pengecekan user
-        if ($token === 'public') {
+        if ($request->hasValidSignature()) {
             $certificate = Certificate::where('certificate_id', $certificateId)
                 ->where('status', 'active')
                 ->firstOrFail();
@@ -165,10 +164,9 @@ class CertificateController extends Controller
         }
     }
 
-    public function download($certificateId, $token = null)
+    public function download(Request $request, $certificateId, $token = null)
     {
-        // Jika token adalah 'public', allow akses tanpa pengecekan user
-        if ($token === 'public') {
+        if ($request->hasValidSignature()) {
             $certificate = Certificate::where('certificate_id', $certificateId)
                 ->where('status', 'active')
                 ->firstOrFail();

@@ -1,15 +1,19 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Buat Jadwal Kelas')
+@section('title', 'Buat Kelas & Jadwal')
 
 @section('content')
+@php
+    $selectedPackageIds = collect(old('package_ids', $preselectedPackageId ? [$preselectedPackageId] : []))
+        ->map(fn ($id) => (int) $id);
+@endphp
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Buat Jadwal Kelas</h1>
-        <p class="text-sm text-gray-500">Tentukan nama jadwal, hari mingguan, jam pelaksanaan, dan metode absensi.</p>
+        <h1 class="text-2xl font-bold text-gray-900">Buat Kelas & Jadwal</h1>
+        <p class="text-sm text-gray-500">Pilih kelas sekali atau rutin, lalu tentukan apakah siswa boleh request jadwal custom.</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.class-schedules.store') }}" class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <form method="POST" action="{{ route('admin.class-schedules.store') }}" class="rounded-lg border border-gray-200 bg-white p-6">
         @csrf
 
         @if($errors->any())
@@ -18,11 +22,36 @@
             </div>
         @endif
 
-        <div class="grid gap-5 md:grid-cols-2" x-data="{ scheduleType: '{{ old('schedule_type', 'recurring') }}' }">
+        <div class="grid gap-5 md:grid-cols-2" x-data="{
+            scheduleType: @js(old('schedule_type', 'recurring')),
+            allowCustom: {{ old('allow_custom_booking', false) ? 'true' : 'false' }}
+        }">
             <!-- Nama Jadwal -->
             <div class="md:col-span-2">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nama Jadwal</label>
-                <input type="text" name="title" value="{{ old('title') }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: Kelas UTBK Senin Malam">
+                <input type="text" name="title" value="{{ old('title') }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: Bimbel Reguler Senin Sore">
+            </div>
+
+            <div class="md:col-span-2">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Tersedia untuk Paket</label>
+                        <p class="mt-1 text-xs text-gray-500">Siswa dengan salah satu paket terpilih dan akses aktif dapat melihat jadwal.</p>
+                    </div>
+                    <span class="text-xs text-gray-400">Opsional</span>
+                </div>
+                <div class="grid max-h-52 gap-2 overflow-y-auto rounded-lg border border-gray-200 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                    @forelse($packages as $package)
+                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5 hover:border-primary/30 hover:bg-primary/5">
+                            <input type="checkbox" name="package_ids[]" value="{{ $package->package_id }}"
+                                @checked($selectedPackageIds->contains((int) $package->package_id))
+                                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                            <span class="text-sm text-gray-700">{{ $package->name }}</span>
+                        </label>
+                    @empty
+                        <p class="py-3 text-sm text-gray-500 sm:col-span-2 lg:col-span-3">Belum ada paket aktif. Jadwal tetap dapat ditujukan melalui rombel.</p>
+                    @endforelse
+                </div>
             </div>
 
             <div>
@@ -36,9 +65,9 @@
             </div>
 
             <div>
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Tentor</label>
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Tutor</label>
                 <select name="tentor_id" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="">Ikuti tentor dari rombel</option>
+                    <option value="">Ikuti Tutor dari rombel</option>
                     @foreach($tentors as $tentor)
                         <option value="{{ $tentor->id }}" @selected(old('tentor_id') == $tentor->id)>
                             {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}
@@ -89,35 +118,58 @@
             <!-- Jam Selesai -->
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Jam Selesai</label>
-                <input type="time" name="end_time" value="{{ old('end_time', '20:30') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="time" name="end_time" value="{{ old('end_time', '20:30') }}" :required="allowCustom" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
-            <!-- Link Meeting -->
-            <div class="md:col-span-2">
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>
-                <input type="url" name="meeting_url" value="{{ old('meeting_url') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://zoom.us/...">
-            </div>
-
-            <!-- Metode Absensi -->
-            <div>
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Metode Absensi</label>
-                <select name="attendance_mode" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="button" @selected(old('attendance_mode') === 'button')>Tombol saja</option>
-                    <option value="photo" @selected(old('attendance_mode') === 'photo')>Wajib foto</option>
-                </select>
-            </div>
-
-            <!-- Batas Waktu Absen -->
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi dibuka sebelum jam mulai kelas">Buka sebelum (menit)</label>
-                    <input type="number" name="open_minutes_before" value="{{ old('open_minutes_before', 15) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+            <div class="md:col-span-2 rounded-xl border border-gray-200 p-4">
+                <label class="flex cursor-pointer items-start gap-3">
+                    <input type="hidden" name="allow_custom_booking" value="0">
+                    <input type="checkbox" name="allow_custom_booking" value="1" x-model="allowCustom" class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                    <span>
+                        <span class="block text-sm font-bold text-gray-900">Izinkan siswa request jadwal custom</span>
+                        <span class="mt-1 block text-xs leading-5 text-gray-500">Siswa pemilik paket dapat mengusulkan waktu lain. Tutor tetap harus menyetujui sebelum sesi dibuat.</span>
+                    </span>
+                </label>
+                <div x-show="allowCustom" x-cloak class="mt-4 border-t border-gray-200 pt-4">
+                    <label class="block max-w-xs">
+                        <span class="text-sm font-semibold text-gray-700">Kuota request per siswa/kelompok</span>
+                        <input type="number" name="booking_session_quota" min="1" max="1000" required value="{{ old('booking_session_quota', 1) }}" class="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </label>
+                    <p class="mt-2 text-xs text-gray-500">Untuk mengaktifkan opsi ini, pilih minimal satu paket, satu Tutor, serta jam selesai.</p>
                 </div>
-                <div>
-                    <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi ditutup setelah jam mulai kelas">Tutup setelah (menit)</label>
-                    <input type="number" name="close_minutes_after" value="{{ old('close_minutes_after', 30) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                </div>
+                <input type="hidden" name="booking_session_quota" value="1" :disabled="allowCustom">
             </div>
+
+            @if($canUseClass)
+                <!-- Link Meeting -->
+                <div class="md:col-span-2">
+                    <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>
+                    <input type="url" name="meeting_url" value="{{ old('meeting_url') }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://zoom.us/...">
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-semibold text-gray-700">Metode Absensi</label>
+                    <select name="attendance_mode" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="button" @selected(old('attendance_mode') === 'button')>Tombol saja</option>
+                        <option value="photo" @selected(old('attendance_mode') === 'photo')>Wajib foto</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi dibuka sebelum jam mulai kelas">Buka sebelum (menit)</label>
+                        <input type="number" name="open_minutes_before" value="{{ old('open_minutes_before', 15) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-gray-700" title="Berapa menit absensi ditutup setelah jam mulai kelas">Tutup setelah (menit)</label>
+                        <input type="number" name="close_minutes_after" value="{{ old('close_minutes_after', 30) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                </div>
+            @else
+                <input type="hidden" name="attendance_mode" value="button">
+                <input type="hidden" name="open_minutes_before" value="15">
+                <input type="hidden" name="close_minutes_after" value="30">
+            @endif
         </div>
 
         <label class="mt-5 flex items-center gap-2 text-sm text-gray-700">
@@ -127,7 +179,7 @@
 
         <div class="mt-6 flex justify-end gap-2 border-t border-gray-200 pt-5">
             <a href="{{ route('admin.class-schedules.index') }}" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Batal</a>
-            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Jadwal</button>
+            <button class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan Kelas & Jadwal</button>
         </div>
     </form>
 </div>

@@ -51,13 +51,13 @@
                     </div>
                 </div>
 
-                <!-- Tentor -->
+                <!-- Tutor -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="tentor_id" class="block text-sm font-medium text-gray-700 mb-2">Tentor</label>
                         <select id="tentor_id" name="tentor_id"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="">Pilih tentor</option>
+                            <option value="">Pilih Tutor</option>
                             @foreach($tentors as $tentor)
                                 <option value="{{ $tentor->id }}" @selected(old('tentor_id', $class->tentor_id) == $tentor->id)>
                                     {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}
@@ -69,7 +69,7 @@
                         <label for="mentor" class="block text-sm font-medium text-gray-700 mb-2">Mentor Manual</label>
                         <input type="text" id="mentor" name="mentor" value="{{ old('mentor', $class->tentor_id ? null : $class->mentor) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Diisi jika belum ada di master tentor">
+                            placeholder="Diisi jika belum ada di master Tutor">
                     </div>
                 </div>
 

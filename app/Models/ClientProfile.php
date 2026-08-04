@@ -61,11 +61,17 @@ class ClientProfile extends Model
         'footer_youtube',
         'ai_question_generator_settings',
         'ai_discussion_feature_enabled',
+        'ai_discussion_admin_configurable',
         'ai_discussion_settings',
+        'ai_gateway_payment_settings',
+        'ai_gateway_telegram_settings',
         'admin_assistant_enabled',
         'class_schedule_menu_enabled',
         'recurring_bill_menu_enabled',
+        'tutor_chat_enabled',
         'participant_destination_api_enabled',
+        'website_translation_enabled',
+        'website_translation_locales',
     ];
 
     protected $casts = [
@@ -88,10 +94,16 @@ class ClientProfile extends Model
         'ipaymu_api_key' => 'encrypted',
         'ai_question_generator_settings' => 'encrypted:array',
         'ai_discussion_feature_enabled' => 'boolean',
+        'ai_discussion_admin_configurable' => 'boolean',
         'ai_discussion_settings' => 'encrypted:array',
+        'ai_gateway_payment_settings' => 'encrypted:array',
+        'ai_gateway_telegram_settings' => 'encrypted:array',
         'admin_assistant_enabled' => 'boolean',
         'class_schedule_menu_enabled' => 'boolean',
         'recurring_bill_menu_enabled' => 'boolean',
+        'tutor_chat_enabled' => 'boolean',
         'participant_destination_api_enabled' => 'boolean',
+        'website_translation_enabled' => 'boolean',
+        'website_translation_locales' => 'array',
     ];
 }

@@ -3,19 +3,18 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
-use App\Models\Question;
-use App\Models\UserAnswerDetail;
-use App\Models\UserPackageAcces;
-use App\Models\UserAnswer;
-use App\Models\Package;
 use App\Models\BillInvoice;
 use App\Models\ClassSession;
 use App\Models\GeneralPage;
 use App\Models\MaterialProgressLog;
+use App\Models\Package;
+use App\Models\Question;
+use App\Models\UserAnswer;
+use App\Models\UserAnswerDetail;
+use App\Models\UserPackageAcces;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -29,13 +28,13 @@ class DashboardController extends Controller
         $showLandingDashboard = $this->showLandingDashboard();
 
         // If no user, just show guest view with public packages
-        if (!$user) {
+        if (! $user) {
             // Get public packages for guest view (BE logic di BE)
             $publicPackages = Package::where('status', 'active')
                 ->where('is_displayed', true)
                 ->limit(3)
                 ->get();
-            
+
             return view('user.pages.dashboard.new-index', [
                 'user' => null,
                 'activePackages' => collect(),
@@ -74,7 +73,8 @@ class DashboardController extends Controller
         $recentAttempts = $recentAnswers
             ->groupBy(function (UserAnswer $answer) {
                 $attemptKey = $answer->attempt_token ?: $answer->user_answer_id;
-                return $answer->tryout_id . '|' . $attemptKey;
+
+                return $answer->tryout_id.'|'.$attemptKey;
             })
             ->map(function ($answers) {
                 $latest = $answers->sortByDesc('created_at')->first();
@@ -124,7 +124,7 @@ class DashboardController extends Controller
             'average_score' => UserAnswer::where('user_id', $user->id)
                 ->where('status', 'completed')
                 ->whereNotNull('score')
-                ->avg('score') ?? 0
+                ->avg('score') ?? 0,
         ];
 
         // Get packages expiring soon (within 7 days)
@@ -152,21 +152,42 @@ class DashboardController extends Controller
             'class',
             'schedule.attendanceSetting',
             'schedule.destinationCategories',
+            'schedule.packages:package_id,name',
             'attendances' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
-            }
+            },
         ])
-            ->where(function ($query) use ($destinationCategoryIds, $activePackageIds) {
-                if ($destinationCategoryIds->isNotEmpty()) {
-                    $query->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
-                        $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
-                    });
-                }
+            ->where(function ($query) use ($user, $destinationCategoryIds, $activePackageIds) {
+                $query->whereHas('studyGroup.users', fn ($userQuery) => $userQuery
+                    ->where('users.id', $user->id));
 
-                $query->orWhere(function ($fallbackQuery) use ($activePackageIds) {
-                    $fallbackQuery
-                        ->whereDoesntHave('schedule.destinationCategories')
-                        ->whereHas('class.packages', fn ($packageQuery) => $packageQuery->whereIn('packages.package_id', $activePackageIds));
+                $query->orWhere(function ($nonGroupQuery) use ($user, $destinationCategoryIds, $activePackageIds) {
+                    $nonGroupQuery
+                        ->whereNull('study_group_id')
+                        ->where(function ($accessQuery) use ($user, $destinationCategoryIds, $activePackageIds) {
+                            if ($destinationCategoryIds->isNotEmpty()) {
+                                $accessQuery->whereHas('schedule.destinationCategories', function ($categoryQuery) use ($destinationCategoryIds) {
+                                    $categoryQuery->whereIn('participant_destination_categories.id', $destinationCategoryIds);
+                                });
+                            } else {
+                                $accessQuery->whereRaw('0 = 1');
+                            }
+
+                            $accessQuery->orWhereHas('class.userAccess', function ($classAccessQuery) use ($user) {
+                                $classAccessQuery
+                                    ->where('user_id', $user->id)
+                                    ->active();
+                            });
+                            $accessQuery->orWhereHas('schedule.packages', fn ($packageQuery) => $packageQuery
+                                ->whereIn('packages.package_id', $activePackageIds));
+                            $accessQuery->orWhere(function ($fallbackQuery) use ($activePackageIds) {
+                                $fallbackQuery
+                                    ->whereDoesntHave('schedule.packages')
+                                    ->whereDoesntHave('schedule.destinationCategories')
+                                    ->whereHas('class.packages', fn ($packageQuery) => $packageQuery
+                                        ->whereIn('packages.package_id', $activePackageIds));
+                            });
+                        });
                 });
             })
             ->where('status', 'scheduled')
@@ -176,16 +197,16 @@ class DashboardController extends Controller
             ->get();
 
         // Calculate accuracy stats
-        $totalAnswered = UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
+        $totalAnswered = UserAnswerDetail::whereHas('userAnswer', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })->count();
-        
-        $totalCorrect = UserAnswerDetail::whereHas('userAnswer', function($q) use ($user) {
+
+        $totalCorrect = UserAnswerDetail::whereHas('userAnswer', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })->where('is_correct', true)->count();
-        
+
         $accuracyPercent = $totalAnswered > 0 ? round(($totalCorrect / $totalAnswered) * 100) : 0;
-        
+
         // Get recent tryout results (latest 3)
         $recentTryouts = UserAnswer::where('user_id', $user->id)
             ->where('status', 'completed')
@@ -193,32 +214,36 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(3)
             ->get();
-        
+
         // Calculate package progress
         $packageProgress = [];
         foreach ($activePackages as $access) {
             $pkg = $access->package;
             $totalItems = $pkg->materials->count() + $pkg->tryouts->count();
             $completedItems = 0;
-            
+
             // Count completed materials
             foreach ($pkg->materials as $material) {
-                $progress = \App\Models\MaterialProgressLog::where('user_id', $user->id)
+                $progress = MaterialProgressLog::where('user_id', $user->id)
                     ->where('material_id', $material->material_id)
                     ->where('is_completed', true)
                     ->first();
-                if ($progress) $completedItems++;
+                if ($progress) {
+                    $completedItems++;
+                }
             }
-            
+
             // Count completed tryouts
             foreach ($pkg->tryouts as $tryout) {
                 $attempt = UserAnswer::where('user_id', $user->id)
                     ->where('tryout_id', $tryout->tryout_id)
                     ->where('status', 'completed')
                     ->first();
-                if ($attempt) $completedItems++;
+                if ($attempt) {
+                    $completedItems++;
+                }
             }
-            
+
             $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
         }
 
@@ -532,7 +557,7 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $correctIds = $question->questionOptions()
                 ->where('is_correct', true)
                 ->pluck('question_option_id')
@@ -615,6 +640,7 @@ class DashboardController extends Controller
         }
 
         $weight = (float) ($question->default_weight ?? 1);
+
         return $detail->is_correct ? max(0, $weight) : 0;
     }
 
@@ -648,6 +674,7 @@ class DashboardController extends Controller
         }
 
         $weight = (float) ($question->default_weight ?? 1);
+
         return $detail->is_correct ? max(0, $weight) : 0;
     }
 
@@ -749,6 +776,7 @@ class DashboardController extends Controller
         $passingType = $detail?->passing_type ?? 'score';
         if ($passingType === 'percentage') {
             $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+
             return $percentage >= $passingScore;
         }
 

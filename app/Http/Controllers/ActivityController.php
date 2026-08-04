@@ -65,7 +65,7 @@ class ActivityController extends Controller
         ];
 
         $tab = $request->input('tab', 'all');
-        if (!array_key_exists($tab, $tabs)) {
+        if (! array_key_exists($tab, $tabs)) {
             $tab = 'all';
         }
 
@@ -74,7 +74,7 @@ class ActivityController extends Controller
             ->latest();
 
         $tabActions = $tabs[$tab]['actions'];
-        if (!empty($tabActions)) {
+        if (! empty($tabActions)) {
             $query->whereIn('action', $tabActions);
         }
 
@@ -84,10 +84,10 @@ class ActivityController extends Controller
 
         if ($search = $request->input('q')) {
             $query->where(function ($q) use ($search) {
-                $q->where('email', 'like', '%' . $search . '%')
-                    ->orWhere('ip', 'like', '%' . $search . '%')
+                $q->where('email', 'like', '%'.$search.'%')
+                    ->orWhere('ip', 'like', '%'.$search.'%')
                     ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%' . $search . '%');
+                        $userQuery->where('name', 'like', '%'.$search.'%');
                     });
             });
         }

@@ -9,6 +9,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
     @stack('styles')
 </head>
 <body class="bg-gray-50">
@@ -27,5 +28,6 @@
     <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
     @vite('resources/js/app.js')
     @stack('scripts')
+    <x-website-translator />
 </body>
 </html>

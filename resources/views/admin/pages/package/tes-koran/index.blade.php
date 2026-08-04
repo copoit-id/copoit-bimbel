@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUI();
 
         try {
-            const response = await fetch(`/admin/paket/{{ $package->package_id }}/tes-koran/${tesKoranId}/toggle`, {
+            const response = await fetch('{{ route('admin.package.tes-koran.toggle', ['package_id' => $package->package_id, 'tes_koran_id' => '__TES_KORAN_ID__']) }}'.replace('__TES_KORAN_ID__', tesKoranId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
