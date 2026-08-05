@@ -22,6 +22,7 @@ class MaterialController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $liveSessionAvailable = $this->liveSessionAvailable();
         $categoryId = $request->get('category');
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'default');
@@ -29,8 +30,12 @@ class MaterialController extends Controller
         // Get categories with material count (only displayed materials)
         $categories = MaterialCategory::active()
             ->ordered()
-            ->withCount(['materials' => function ($query) {
+            ->withCount(['materials' => function ($query) use ($liveSessionAvailable) {
                 $query->active()->where('is_displayed', true);
+
+                if (! $liveSessionAvailable) {
+                    $query->where('type', '!=', 'live_session');
+                }
             }])
             ->get();
 
@@ -46,6 +51,10 @@ class MaterialController extends Controller
                     $query->where('user_id', $user->id);
                 }
             }]);
+
+        if (! $liveSessionAvailable) {
+            $materialsQuery->where('type', '!=', 'live_session');
+        }
 
         if ($categoryId) {
             $materialsQuery->byCategory($categoryId);
@@ -185,6 +194,8 @@ class MaterialController extends Controller
      */
     public function liveSessions(Request $request)
     {
+        abort_unless($this->liveSessionAvailable(), 404);
+
         $user = Auth::user();
         $categoryId = $request->get('category');
         $search = trim((string) $request->get('search', ''));
@@ -232,6 +243,7 @@ class MaterialController extends Controller
     public function byCategory(Request $request, $categoryId)
     {
         $user = Auth::user();
+        $liveSessionAvailable = $this->liveSessionAvailable();
         $category = MaterialCategory::active()->findOrFail($categoryId);
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'default');
@@ -241,6 +253,10 @@ class MaterialController extends Controller
             ->where('is_displayed', true)
             ->byCategory($categoryId)
             ->with(['categories', 'packages']);
+
+        if (! $liveSessionAvailable) {
+            $materialsQuery->where('type', '!=', 'live_session');
+        }
 
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
@@ -258,6 +274,8 @@ class MaterialController extends Controller
         $material = Material::active()
             ->with('categories')
             ->findOrFail($materialId);
+
+        $this->abortIfLiveSessionDisabled($material);
         
         // Check access
         if (!$user->canAccessMaterial($materialId)) {
@@ -311,6 +329,9 @@ class MaterialController extends Controller
             ->whereHas('categories', function ($query) use ($material) {
                 $query->whereIn('material_categories.category_id', $material->categories->pluck('category_id'));
             })
+            ->when(! $this->liveSessionAvailable(), function ($query) {
+                $query->where('type', '!=', 'live_session');
+            })
             ->limit(4)
             ->get();
         
@@ -324,6 +345,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $material = Material::active()->findOrFail($materialId);
+
+        $this->abortIfLiveSessionDisabled($material);
         
         // Check access
         if (!$user->canAccessMaterial($materialId)) {
@@ -369,6 +392,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $material = Material::active()->findOrFail($materialId);
+
+        $this->abortIfLiveSessionDisabled($material);
         
         // Check access
         if (!$user->canAccessMaterial($materialId)) {
@@ -426,6 +451,8 @@ class MaterialController extends Controller
     {
         $user = Auth::user();
         $material = Material::active()->findOrFail($materialId);
+
+        $this->abortIfLiveSessionDisabled($material);
         
         // Check access
         if (!$user->canAccessMaterial($materialId)) {
@@ -571,5 +598,17 @@ class MaterialController extends Controller
             'name_desc' => $query->orderBy('title', 'desc'),
             default => $query->ordered(),
         };
+    }
+
+    private function liveSessionAvailable(): bool
+    {
+        return (bool) config('client.live_session_available', false);
+    }
+
+    private function abortIfLiveSessionDisabled(Material $material): void
+    {
+        if ($material->type === 'live_session' && (! $material->is_displayed || ! $this->liveSessionAvailable())) {
+            abort(404);
+        }
     }
 }

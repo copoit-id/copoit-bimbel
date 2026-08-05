@@ -226,7 +226,7 @@ $primaryRgb = "$r, $g, $b";
     </a>
     @endif
 
-    @if($canShowMaterial)
+    @if($canShowMaterial && $liveSessionAvailable)
     <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-live-line text-xl"></i>

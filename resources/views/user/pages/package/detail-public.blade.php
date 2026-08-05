@@ -100,7 +100,7 @@ $classCount = $package->classes->count();
                         <span>{{ $totalDocuments }} Dokumen</span>
                     </div>
                     @endif
-                    @if($totalLiveSessions > 0)
+                    @if($liveSessionAvailable && $totalLiveSessions > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>
