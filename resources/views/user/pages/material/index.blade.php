@@ -73,6 +73,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <i class="ri-arrow-right-line text-gray-400 group-hover:translate-x-1 transition-transform"></i>
     </a>
     
+    @if($liveSessionAvailable)
     <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-2xl border border-gray-100 p-5 flex items-center hover:shadow-lg transition-all group">
         <div class="w-14 h-14 rounded-xl flex items-center justify-center mr-4 text-white" style="background-color: {{ $primaryColor }}">
             <i class="ri-live-line text-3xl"></i>
@@ -83,6 +84,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         </div>
         <i class="ri-arrow-right-line text-gray-400 group-hover:translate-x-1 transition-transform"></i>
     </a>
+    @endif
 </div>
 
 <!-- Categories -->

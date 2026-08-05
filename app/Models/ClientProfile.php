@@ -12,6 +12,7 @@ class ClientProfile extends Model
         'nama_bimbel',
         'faq_label',
         'live_session_label',
+        'live_session_enabled',
         'logo',
         'favicon',
         'warna_primary',
@@ -76,6 +77,7 @@ class ClientProfile extends Model
 
     protected $casts = [
         'enable_certificate_management' => 'boolean',
+        'live_session_enabled' => 'boolean',
         'header_primary_color' => 'boolean',
         'sidebar_primary_color' => 'boolean',
         'enable_utbk_types' => 'boolean',

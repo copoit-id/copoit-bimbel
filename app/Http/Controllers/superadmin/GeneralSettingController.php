@@ -67,6 +67,7 @@ class GeneralSettingController extends Controller
             'public_visibility' => ['nullable', 'array'],
             'public_visibility.*' => ['nullable', 'boolean'],
             'admin_assistant_enabled' => ['nullable', 'boolean'],
+            'live_session_enabled' => ['nullable', 'boolean'],
             'ai_discussion_feature_enabled' => ['nullable', 'boolean'],
             'ai_discussion_admin_configurable' => ['nullable', 'boolean'],
             'ai_discussion_credential_mode' => ['nullable', 'in:custom'],
@@ -126,6 +127,7 @@ class GeneralSettingController extends Controller
             if ($profile) {
                 $profile->update([
                     'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
+                    'live_session_enabled' => $request->boolean('live_session_enabled'),
                     'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
                     'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
                     'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),

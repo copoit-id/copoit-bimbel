@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\ClassSchedule;
 use App\Models\ClientProfile;
+use App\Models\Material;
 use App\Models\Role;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
             'name' => 'Copoit Academy',
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
             'primary_color' => '#1C3259',
@@ -124,6 +126,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['name'] = $clientProfile->nama_bimbel ?: $defaults['name'];
             $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
             $defaults['live_session_label'] = $clientProfile->live_session_label ?: $defaults['live_session_label'];
+            $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
@@ -227,11 +230,24 @@ class AppServiceProvider extends ServiceProvider
             'app.name' => $branding['name'],
         ]);
 
+        $liveSessionAvailable = ! $this->app->runningInConsole()
+            && request()->is('user/*')
+            && (bool) ($branding['live_session_enabled'] ?? true)
+            && Schema::hasTable('materials')
+            && Material::query()
+                ->active()
+                ->where('is_displayed', true)
+                ->byType('live_session')
+                ->exists();
+
+        config(['client.live_session_available' => $liveSessionAvailable]);
+
         $this->applyDynamicPaymentConfiguration($branding);
         $this->applyDynamicMailConfiguration($branding);
 
         view()->share('clientProfile', $clientProfile);
         view()->share('clientBranding', $branding);
+        view()->share('liveSessionAvailable', $liveSessionAvailable);
     }
 
     private function applyDynamicMailConfiguration(array $branding): void

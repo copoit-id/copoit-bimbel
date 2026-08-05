@@ -4405,6 +4405,7 @@ class PackageController extends Controller
         
         $user = Auth::user();
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $liveSessionAvailable = config('client.live_session_available', false);
         $relations = $tesKoranEnabled
             ? [
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
@@ -4446,6 +4447,10 @@ class PackageController extends Controller
         });
         
         foreach ($sortedMaterials as $material) {
+            if (! $liveSessionAvailable && $material->type === 'live_session') {
+                continue;
+            }
+
             $progress = UserMaterialAccess::where('user_id', $user->id)
                 ->where('material_id', $material->material_id)
                 ->first();
