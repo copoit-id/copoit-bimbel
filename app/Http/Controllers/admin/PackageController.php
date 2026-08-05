@@ -35,7 +35,7 @@ class PackageController extends Controller
             ->with('bookingRule:id,package_id,is_enabled')
             ->withCount(['schedules', 'classes', 'tryouts', 'materials'])
             ->latest('package_id')
-            ->paginate(12);
+            ->paginate(\App\Support\Pagination::perPage(12));
 
         return view('admin.pages.package.index', compact('packages'));
     }
@@ -290,7 +290,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = classes.class_id AND package_id = ?) DESC', [ClassModel::class, $package_id])
                 ->orderBy('schedule_time', 'desc')
-                ->paginate(10);
+                ->paginate(\App\Support\Pagination::perPage(10));
 
             $selectedClassCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', ClassModel::class)
@@ -375,7 +375,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = materials.material_id AND package_id = ?) DESC', [Material::class, $package_id])
                 ->orderBy('created_at', 'desc')
-                ->paginate(15);
+                ->paginate(\App\Support\Pagination::perPage(15));
 
             $selectedMaterialCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', Material::class)
@@ -448,7 +448,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tes_korans.id AND package_id = ?) DESC', [TesKoran::class, $package_id])
                 ->orderBy('created_at', 'desc')
-                ->paginate(10);
+                ->paginate(\App\Support\Pagination::perPage(10));
 
             $selectedTesKoranCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', TesKoran::class)
@@ -521,7 +521,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC', [Tryout::class, $package_id])
                 ->orderBy('created_at', 'desc')
-                ->paginate(10);
+                ->paginate(\App\Support\Pagination::perPage(10));
 
             $selectedTryoutCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', Tryout::class)

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Score - {{ $tryout->name }}</title>
+    <x-website-translation-head />
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -58,5 +59,6 @@
             </div>
         </div>
     </div>
+    <x-website-translator />
 </body>
 </html>

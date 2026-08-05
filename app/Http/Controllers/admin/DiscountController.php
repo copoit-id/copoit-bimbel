@@ -25,7 +25,7 @@ class DiscountController extends Controller
             ->with('tryout')
             ->where('application_type', $tab)
             ->latest()
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
 
         return view('admin.pages.discounts.index', compact('discounts', 'tab'));
     }

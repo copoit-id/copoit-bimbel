@@ -176,7 +176,7 @@ class AksesController extends Controller
             }))
             ->orderBy('name');
         
-        $allUsers = $usersQuery->paginate(20)->withQueryString();
+        $allUsers = $usersQuery->paginate(\App\Support\Pagination::perPage(20))->withQueryString();
         
         // Mark users who already have active access, while allowing expired access to be extended.
         $accessByUserId = $usersWithAccess->keyBy('user_id');

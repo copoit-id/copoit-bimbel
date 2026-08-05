@@ -53,7 +53,7 @@ class MaterialController extends Controller
 
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
-        $materials = $materialsQuery->paginate(12)->withQueryString();
+        $materials = $materialsQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
         $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         // Mark each material with access status
@@ -123,7 +123,7 @@ class MaterialController extends Controller
 
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
-        $materials = $materialsQuery->paginate(12)->withQueryString();
+        $materials = $materialsQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
         $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         foreach ($materials as $material) {
@@ -168,7 +168,7 @@ class MaterialController extends Controller
 
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
-        $materials = $materialsQuery->paginate(12)->withQueryString();
+        $materials = $materialsQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
         $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         foreach ($materials as $material) {
@@ -213,7 +213,7 @@ class MaterialController extends Controller
 
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
-        $materials = $materialsQuery->paginate(12)->withQueryString();
+        $materials = $materialsQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
         $pendingMaterialIds = $this->getPendingIndividualMaterialIds($user);
 
         foreach ($materials as $material) {
@@ -244,7 +244,7 @@ class MaterialController extends Controller
 
         $this->applyMaterialFilters($materialsQuery, $search, $sort);
 
-        $materials = $materialsQuery->paginate(12)->withQueryString();
+        $materials = $materialsQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
         
         return view('user.pages.material.by-category', compact('category', 'materials', 'search', 'sort'));
     }

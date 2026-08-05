@@ -17,11 +17,11 @@ class AffiliateController extends Controller
         $setting = AffiliateSetting::current();
         $commissions = AffiliateCommission::with(['affiliateUser', 'referredUser', 'package', 'payment'])
             ->latest()
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
         $referrals = User::with('referredBy:id,name,email,affiliate_code')
             ->whereNotNull('referred_by_user_id')
             ->latest('referred_at')
-            ->paginate(15, ['id', 'name', 'email', 'referred_by_user_id', 'referred_at'], 'referrals_page');
+            ->paginate(\App\Support\Pagination::perPage(15), ['id', 'name', 'email', 'referred_by_user_id', 'referred_at'], 'referrals_page');
 
         $summary = [
             'pending' => AffiliateCommission::where('status', AffiliateCommission::STATUS_PENDING)->sum('commission_amount'),

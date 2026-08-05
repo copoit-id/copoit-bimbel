@@ -40,7 +40,9 @@ class CertificateController extends Controller
             $query->whereDate('issued_date', '<=', $request->date_to);
         }
 
-        $certificates = $query->orderBy('issued_date', 'desc')->paginate(15);
+        $certificates = $query->orderBy('issued_date', 'desc')
+            ->paginate(\App\Support\Pagination::perPage(15))
+            ->withQueryString();
 
         return view('admin.pages.certificate.index', compact('certificates'));
     }

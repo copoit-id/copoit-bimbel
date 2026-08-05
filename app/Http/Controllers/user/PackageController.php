@@ -24,7 +24,6 @@ use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -36,6 +35,7 @@ use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\Process\Process;
 
 class PackageController extends Controller
 {
@@ -1374,7 +1374,7 @@ class PackageController extends Controller
             ->sortByDesc('created_at')
             ->values();
 
-        $perPage = 10;
+        $perPage = \App\Support\Pagination::perPage(10);
         $page = (int) $request->get('page', 1);
         $histories = new \Illuminate\Pagination\LengthAwarePaginator(
             $items->forPage($page, $perPage)->values(),
@@ -2067,6 +2067,7 @@ class PackageController extends Controller
                         $singleAnswer->tryoutDetail->type_subtest
                     );
                     $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+                    $totalScore = $rawScore;
                     $isPassed = $this->isAttemptPassed($userAnswers, 1);
                     $totalCorrect = $singleAnswer->correct_answers ?? 0;
                     $totalWrong = $singleAnswer->wrong_answers ?? 0;
@@ -2083,7 +2084,7 @@ class PackageController extends Controller
                 'created_at' => $firstAnswer->created_at,
                 'started_at' => $firstAnswer->started_at,
                 'finished_at' => $lastAnswer->finished_at,
-                'score' => $userAnswers->count() > 1 ? round($totalScore, 0) : round($rawScore, 0),
+                'score' => round($totalScore, 0),
                 'is_passed' => $isPassed,
                 'duration' => $duration->format('%H:%I:%S'),
                 'correct_answers' => $totalCorrect,
@@ -3870,6 +3871,7 @@ class PackageController extends Controller
         $validated = $request->validate([
             'question_id' => ['required', 'integer'],
             'message' => ['required', 'string', 'max:1200'],
+            'mode' => ['nullable', 'in:text,voice'],
         ]);
 
         if (!$aiDiscussionService->isEnabled()) {
@@ -3935,12 +3937,33 @@ class PackageController extends Controller
             ->where('question_id', $question->question_id)
             ->first();
 
+        // Kirim beberapa giliran terakhir agar pertanyaan lanjutan seperti
+        // "kenapa?" atau "kalau opsi B?" tetap dipahami dalam konteksnya.
+        // Riwayat dibatasi supaya biaya dan waktu respons tetap terjaga.
+        $conversationHistory = AiDiscussionUsageLog::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('question_id', $question->question_id)
+            ->where('attempt_token', $token)
+            ->latest('id')
+            ->limit(4)
+            ->get(['user_message', 'assistant_message'])
+            ->reverse()
+            ->values()
+            ->map(fn (AiDiscussionUsageLog $log) => [
+                'user_message' => Str::limit(trim((string) $log->user_message), 600, ''),
+                'assistant_message' => Str::limit(trim((string) $log->assistant_message), 1000, ''),
+            ])
+            ->all();
+
         try {
             $result = $aiDiscussionService->chat($validated['message'], [
                 'tryout_name' => $tryout->name,
                 'subtest_name' => $this->getSubtestName($question->tryoutDetail?->type_subtest),
                 'question' => $question,
                 'answer_detail' => $answerDetail,
+                'conversation_history' => $conversationHistory,
+                'response_style' => ($validated['mode'] ?? 'text') === 'voice' ? 'guru_suara' : 'chat',
             ]);
         } catch (\RuntimeException $exception) {
             return response()->json([
@@ -4000,11 +4023,20 @@ class PackageController extends Controller
             ->whereNotNull('assistant_message')
             ->firstOrFail();
 
+        $voiceText = Str::limit($this->voiceExplanation((string) $usageLog->assistant_message), 4000, '');
+        if ($audioPath = $this->edgeTtsAudio($voiceText)) {
+            return response()
+                ->file($audioPath, [
+                    'Content-Type' => 'audio/mpeg',
+                    'Cache-Control' => 'no-store',
+                ])
+                ->deleteFileAfterSend(true);
+        }
+
         $apiKey = (string) config('services.openai.api_key');
         if ($apiKey === '') {
-            return response()->json(['message' => 'Suara AI belum dikonfigurasi.'], 422);
+            return response()->json(['message' => 'Suara AI belum tersedia. Coba ulangi sebentar lagi.'], 422);
         }
-        abort_unless(Cache::add('ai-discussion-tts:' . Auth::id() . ':' . $usageLog->id, true, now()->addDay()), 429);
 
         try {
             $response = Http::withToken($apiKey)
@@ -4013,7 +4045,8 @@ class PackageController extends Controller
                 ->post(rtrim((string) config('services.openai.base_url'), '/') . '/audio/speech', [
                     'model' => 'tts-1-hd',
                     'voice' => 'nova',
-                    'input' => Str::limit(strip_tags((string) $usageLog->assistant_message), 4000, ''),
+                    'input' => $voiceText,
+                    'speed' => 1.08,
                     'response_format' => 'mp3',
                 ]);
         } catch (\Throwable $exception) {
@@ -4028,6 +4061,56 @@ class PackageController extends Controller
             'Content-Type' => 'audio/mpeg',
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    private function edgeTtsAudio(string $text): ?string
+    {
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'bimbel-ai-tts-');
+        if ($temporaryPath === false) {
+            return null;
+        }
+
+        @unlink($temporaryPath);
+        $audioPath = $temporaryPath . '.mp3';
+        $configuredBinary = (string) config('services.edge_tts.binary', 'edge-tts');
+        $homeBinary = rtrim((string) getenv('HOME'), '/') . '/.local/bin/edge-tts';
+        $binary = $configuredBinary === 'edge-tts' && is_file($homeBinary)
+            ? $homeBinary
+            : $configuredBinary;
+
+        try {
+            $process = new Process([
+                $binary,
+                '--voice', (string) config('services.edge_tts.voice', 'id-ID-GadisNeural'),
+                '--rate=' . (string) config('services.edge_tts.rate', '+10%'),
+                '--text', $text,
+                '--write-media', $audioPath,
+            ]);
+            $process->setTimeout((int) config('services.edge_tts.timeout', 30));
+            $process->run();
+
+            if ($process->isSuccessful() && is_file($audioPath) && filesize($audioPath) > 0) {
+                return $audioPath;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        @unlink($audioPath);
+
+        return null;
+    }
+
+    private function voiceExplanation(string $message): string
+    {
+        $plainText = trim(strip_tags($message));
+        $explanation = preg_split('/(?:^|\n)\s*(?:\*\*)?catatan\s+inti\s*:?(?:\*\*)?/iu', $plainText, 2)[0] ?? $plainText;
+        $explanation = (string) preg_replace('/\*\*([^*]+)\*\*/u', '$1', $explanation);
+        $explanation = str_replace(['$', '`', '#', '=', '+', '÷'], ['', '', '', ' sama dengan ', ' ditambah ', ' dibagi '], $explanation);
+        $explanation = preg_replace('/(\d)([a-zA-Z])/u', '$1 $2', $explanation);
+        $explanation = preg_replace('/\s+-\s+/u', ' dikurangi ', $explanation);
+
+        return trim((string) $explanation) ?: $plainText;
     }
 
     private function getSubtestName($type)

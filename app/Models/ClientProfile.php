@@ -70,6 +70,8 @@ class ClientProfile extends Model
         'recurring_bill_menu_enabled',
         'tutor_chat_enabled',
         'participant_destination_api_enabled',
+        'website_translation_enabled',
+        'website_translation_locales',
     ];
 
     protected $casts = [
@@ -101,5 +103,7 @@ class ClientProfile extends Model
         'recurring_bill_menu_enabled' => 'boolean',
         'tutor_chat_enabled' => 'boolean',
         'participant_destination_api_enabled' => 'boolean',
+        'website_translation_enabled' => 'boolean',
+        'website_translation_locales' => 'array',
     ];
 }

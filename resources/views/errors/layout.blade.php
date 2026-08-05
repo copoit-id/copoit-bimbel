@@ -8,6 +8,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
     <main class="mx-auto flex min-h-screen max-w-2xl items-center px-4 py-12 sm:px-6">
@@ -29,5 +30,6 @@
             </div>
         </section>
     </main>
+    <x-website-translator />
 </body>
 </html>

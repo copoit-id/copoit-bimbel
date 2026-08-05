@@ -24,32 +24,51 @@ class TutorPayrollController extends Controller
             $honorTentors = Tentor::query()
                 ->active()
                 ->orderBy('name')
-                ->paginate(20, ['id', 'name', 'email', 'expertise', 'honor_per_attendance'], 'honor_page')
+                ->paginate(\App\Support\Pagination::perPage(20), ['id', 'name', 'email', 'expertise', 'honor_per_attendance'], 'honor_page')
                 ->withQueryString();
 
             return view('admin.pages.tutor-payroll.index', compact('activeTab', 'honorTentors'));
         }
 
-        $periodStart = Carbon::parse($request->input('period_start', now()->startOfMonth()->toDateString()))->startOfDay();
-        $periodEnd = Carbon::parse($request->input('period_end', now()->endOfMonth()->toDateString()))->endOfDay();
-
-        abort_if($periodEnd->lt($periodStart), 422, 'Periode penggajian tidak valid.');
+        $validated = $request->validate([
+            'period_start' => ['nullable', 'date', 'required_with:period_end'],
+            'period_end' => ['nullable', 'date', 'required_with:period_start', 'after_or_equal:period_start'],
+        ]);
+        $hasPeriodFilter = filled($validated['period_start'] ?? null);
+        $periodStart = $hasPeriodFilter
+            ? Carbon::parse($validated['period_start'])->startOfDay()
+            : null;
+        $periodEnd = $hasPeriodFilter
+            ? Carbon::parse($validated['period_end'])->endOfDay()
+            : null;
 
         $payrolls = TutorPayroll::query()
             ->with(['tentor:id,name,honor_per_attendance', 'items'])
-            ->whereDate('period_start', $periodStart->toDateString())
-            ->whereDate('period_end', $periodEnd->toDateString())
+            ->when($hasPeriodFilter, function ($query) use ($periodStart, $periodEnd): void {
+                $query->where(function ($query) use ($periodStart, $periodEnd): void {
+                    $query->where(function ($query) use ($periodStart, $periodEnd): void {
+                        $query->whereDate('period_start', '<=', $periodEnd->toDateString())
+                            ->whereDate('period_end', '>=', $periodStart->toDateString());
+                    })->orWhereHas('items', function ($query) use ($periodStart, $periodEnd): void {
+                        $query->whereBetween('session_date', [
+                            $periodStart->toDateString(),
+                            $periodEnd->toDateString(),
+                        ]);
+                    });
+                });
+            })
             ->orderBy('status')
+            ->orderByDesc('period_end')
             ->orderBy('tentor_id')
-            ->paginate(20)
+            ->paginate(\App\Support\Pagination::perPage(20), ['*'], 'payroll_page')
             ->withQueryString();
 
         $pendingAttendanceCounts = TutorAttendance::query()
             ->where('approval_status', 'pending')
-            ->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
+            ->when($hasPeriodFilter, fn ($query) => $query->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
                 $periodStart->toDateString(),
                 $periodEnd->toDateString(),
-            ]))
+            ])))
             ->selectRaw('tentor_id, COUNT(*) as total')
             ->groupBy('tentor_id')
             ->pluck('total', 'tentor_id');
@@ -57,21 +76,38 @@ class TutorPayrollController extends Controller
         $attendanceDetailsByTutor = TutorAttendance::query()
             ->with(['session.schedule:id,title', 'session.class:class_id,title'])
             ->whereIn('tentor_id', $payrollTutorIds)
-            ->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
+            ->when($hasPeriodFilter, fn ($query) => $query->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
                 $periodStart->toDateString(),
                 $periodEnd->toDateString(),
-            ]))
+            ])))
             ->orderByDesc('check_in_at')
             ->get()
             ->groupBy('tentor_id');
+
+        $unprocessedAttendances = TutorAttendance::query()
+            ->with(['tentor:id,name', 'session.schedule:id,title', 'session.class:class_id,title'])
+            ->when($hasPeriodFilter, fn ($query) => $query->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
+                $periodStart->toDateString(),
+                $periodEnd->toDateString(),
+            ])))
+            ->where(function ($query): void {
+                $query->where('approval_status', '!=', 'approved')
+                    ->orWhereNotIn('status', ['present', 'late'])
+                    ->orWhereDoesntHave('payrollItems');
+            })
+            ->orderByDesc('check_in_at')
+            ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'attendance_page')
+            ->withQueryString();
 
         return view('admin.pages.tutor-payroll.index', compact(
             'payrolls',
             'activeTab',
             'periodStart',
             'periodEnd',
+            'hasPeriodFilter',
             'pendingAttendanceCounts',
             'attendanceDetailsByTutor',
+            'unprocessedAttendances',
         ));
     }
 

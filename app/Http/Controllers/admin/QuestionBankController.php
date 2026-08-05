@@ -145,9 +145,7 @@ class QuestionBankController extends Controller
         $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
         $questionType = $request->input('question_type', 'all');
         $questionSearch = trim((string) $request->input('search', ''));
-        $perPage = in_array($request->integer('per_page'), [5, 10, 15, 25], true)
-            ? $request->integer('per_page')
-            : 5;
+        $perPage = \App\Support\Pagination::perPage(5);
 
         $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
             $query->withCount('questions')->orderBy('created_at', $questionSortDirection);

@@ -60,8 +60,16 @@ class TryoutController extends Controller
         ],
     ];
 
-    public function index()
+    public function index(Request $request)
     {
+        $search = trim((string) $request->query('search', ''));
+        $type = strtolower((string) $request->query('type', ''));
+        $filterStatus = $request->query('status');
+
+        if (! in_array($filterStatus, ['akan_datang', 'aktif', 'selesai'], true)) {
+            $filterStatus = null;
+        }
+
         $tryouts = Tryout::with(['tryoutDetails.questions'])
             ->withCount([
                 'userAnswers as utbk_pending_count' => function ($query) {
@@ -72,8 +80,20 @@ class TryoutController extends Controller
                         ->whereNotNull('utbk_total_score');
                 },
             ])
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
+            ->when($type !== '', fn ($query) => $query->where('type_tryout', $type))
+            ->when($filterStatus === 'akan_datang', fn ($query) => $query->where('start_date', '>', now()))
+            ->when($filterStatus === 'selesai', fn ($query) => $query->where('end_date', '<', now()))
+            ->when($filterStatus === 'aktif', fn ($query) => $query
+                ->where(function ($activeQuery): void {
+                    $activeQuery->whereNull('start_date')->orWhere('start_date', '<=', now());
+                })
+                ->where(function ($activeQuery): void {
+                    $activeQuery->whereNull('end_date')->orWhere('end_date', '>=', now());
+                }))
             ->latest()
-            ->paginate(10);
+            ->paginate(\App\Support\Pagination::perPage(10))
+            ->withQueryString();
 
         $tryouts->getCollection()->each(function ($tryout) {
             $tryout->tryoutDetails->each(function ($detail) {
@@ -83,7 +103,7 @@ class TryoutController extends Controller
 
         $packages = Package::all();
 
-        return view('admin.pages.tryout.index', compact('tryouts', 'packages'));
+        return view('admin.pages.tryout.index', compact('tryouts', 'packages', 'search', 'type', 'filterStatus'));
     }
 
     private const UTBK_SINGLE_TYPES = [

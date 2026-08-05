@@ -206,7 +206,10 @@ class ScheduleBookingServiceTest extends TestCase
     {
         $student = $this->user('student', 'user');
         $tutorUser = $this->user('tutor', 'tutor');
-        $package = Package::query()->create(['name' => 'Paket Privat']);
+        $package = Package::query()->create([
+            'name' => 'Paket Privat',
+            'status' => 'active',
+        ]);
         $tentor = Tentor::query()->create([
             'user_id' => $tutorUser->id,
             'name' => 'Tutor Satu',
@@ -287,6 +290,7 @@ class ScheduleBookingServiceTest extends TestCase
         Schema::create('packages', function (Blueprint $table): void {
             $table->id('package_id');
             $table->string('name');
+            $table->string('status')->default('active');
             $table->timestamps();
         });
         Schema::create('user_package_access', function (Blueprint $table): void {

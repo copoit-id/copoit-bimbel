@@ -40,7 +40,7 @@ class ScheduleBookingController extends Controller
             )
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'counter_proposed' THEN 1 ELSE 2 END")
             ->latest('requested_start_at')
-            ->paginate(15)
+            ->paginate(\App\Support\Pagination::perPage(15))
             ->withQueryString();
         $waitingCount = ScheduleBookingRequest::query()
             ->where('tentor_id', $tentor->id)

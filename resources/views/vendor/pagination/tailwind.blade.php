@@ -1,5 +1,19 @@
 @if ($paginator->hasPages())
-    <nav role="navigation" aria-label="Pagination Navigation" class="mt-6 flex justify-center">
+    <nav role="navigation" aria-label="Pagination Navigation" class="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <form method="GET" class="flex items-center gap-2 text-sm text-gray-600">
+            @foreach (request()->query() as $key => $value)
+                @continue($key === 'per_page' || str_ends_with($key, 'page') || is_array($value))
+                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+            @endforeach
+            <label for="per-page-{{ $paginator->getPageName() }}" class="whitespace-nowrap">Tampilkan</label>
+            <select id="per-page-{{ $paginator->getPageName() }}" name="per_page" onchange="this.form.submit()"
+                class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-primary focus:ring-primary">
+                @foreach (\App\Support\Pagination::options() as $pageSize)
+                    <option value="{{ $pageSize }}" @selected($paginator->perPage() === $pageSize)>{{ $pageSize }}</option>
+                @endforeach
+            </select>
+            <span class="whitespace-nowrap">per halaman</span>
+        </form>
         <ul class="inline-flex items-center gap-1 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-sm font-medium text-gray-600 shadow-sm">
             {{-- Previous Page Link --}}
             @if ($paginator->onFirstPage())

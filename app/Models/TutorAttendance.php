@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TutorAttendance extends Model
 {
@@ -49,5 +50,10 @@ class TutorAttendance extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function payrollItems(): HasMany
+    {
+        return $this->hasMany(TutorPayrollItem::class);
     }
 }

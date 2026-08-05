@@ -100,7 +100,7 @@ class ActivityController extends Controller
             $query->whereBetween('created_at', [$startDate, $endDate]);
         }
 
-        $logs = $query->paginate(20)->withQueryString();
+        $logs = $query->paginate(\App\Support\Pagination::perPage(20))->withQueryString();
 
         $routeName = $request->route()?->getName() ?? '';
         $layout = str_starts_with($routeName, 'super-admin.')

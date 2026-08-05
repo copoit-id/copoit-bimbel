@@ -612,7 +612,8 @@ class AiGatewayFreePlanClaimTest extends TestCase
 
         $ai = Mockery::mock(AiDiscussionService::class);
         $ai->shouldReceive('chat')->once()->withArgs(
-            fn (...$arguments) => ($arguments[4] ?? null) === 'learning_note',
+            fn (...$arguments) => ($arguments[4] ?? null) === 'learning_note'
+                && data_get($arguments, '1.conversation_history.0.user_message') === 'Aku masih bingung di langkah pertama.',
         )->andReturn([
             'message' => 'Jawaban AI',
             'model' => 'test-model',
@@ -689,6 +690,10 @@ class AiGatewayFreePlanClaimTest extends TestCase
             'context' => [
                 'question_text' => 'Contoh isi soal',
                 'options' => [],
+                'conversation_history' => [[
+                    'user_message' => 'Aku masih bingung di langkah pertama.',
+                    'assistant_message' => 'Mari kita mulai dari konsep dasarnya.',
+                ]],
             ],
         ];
     }

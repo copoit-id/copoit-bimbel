@@ -19,7 +19,7 @@ class TesKoranController extends Controller
         $tesKorans = TesKoran::withCount('sheets')
             ->orderBy('created_at', 'desc')
             ->withCount('results')
-            ->paginate(20);
+            ->paginate(\App\Support\Pagination::perPage(20));
 
         return view('admin.pages.tes-koran.index', compact('tesKorans'));
     }
@@ -102,7 +102,7 @@ class TesKoranController extends Controller
         $results = TesKoranResult::where('tes_koran_id', $tesKoran->id)
             ->with('user')
             ->orderBy('total_correct', 'desc')
-            ->paginate(20);
+            ->paginate(\App\Support\Pagination::perPage(20));
 
         $statistics = [
             'total_participants' => TesKoranResult::where('tes_koran_id', $tesKoran->id)->distinct('user_id')->count(),

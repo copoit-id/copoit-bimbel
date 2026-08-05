@@ -196,7 +196,7 @@
                     </select>
                     <select name="per_page" onchange="this.form.submit()"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                        @foreach([5, 10, 15, 25] as $pageSize)
+                        @foreach(\App\Support\Pagination::options() as $pageSize)
                         <option value="{{ $pageSize }}" @selected((int) ($perPage ?? 5) === $pageSize)>
                             {{ $pageSize }} soal
                         </option>

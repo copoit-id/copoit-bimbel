@@ -83,6 +83,10 @@ class AiGatewayController extends Controller
             'context.options' => 'nullable|array',
             'context.selected_answer' => 'nullable|string|max:5000',
             'context.explanation' => 'nullable|string|max:20000',
+            'context.conversation_history' => 'nullable|array|max:4',
+            'context.conversation_history.*.user_message' => 'nullable|string|max:600',
+            'context.conversation_history.*.assistant_message' => 'nullable|string|max:1000',
+            'context.response_style' => 'nullable|in:chat,guru_suara',
         ]);
         $externalUserId = trim($data['external_user_id']);
         $subscriptions = AiGatewaySubscription::with('plan')

@@ -13,7 +13,7 @@ class FaqController extends Controller
     {
         $faqs = Faq::orderBy('sort_order')
             ->orderBy('id')
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
 
         return view('admin.pages.faq.index', compact('faqs'));
     }
