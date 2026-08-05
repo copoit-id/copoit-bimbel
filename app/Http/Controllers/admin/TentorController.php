@@ -24,7 +24,7 @@ class TentorController extends Controller
                 $query->where('is_active', $request->input('status') === 'active');
             })
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate(\App\Support\Pagination::perPage(15))
             ->withQueryString();
 
         $roleOptions = $this->getRoleOptions();

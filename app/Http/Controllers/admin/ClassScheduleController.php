@@ -83,7 +83,7 @@ class ClassScheduleController extends Controller
         $liveClasses = $canUseClass
             ? ClassModel::with('tentor')
                 ->orderBy('schedule_time', 'desc')
-                ->paginate(10, ['*'], 'kelas_page')
+                ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'kelas_page')
                 ->withQueryString()
             : null;
 

@@ -28,7 +28,7 @@ class StudyGroupController extends Controller
                 ->with(['tentor:id,name', 'package:package_id,name'])
                 ->withCount(['users', 'schedules'])
                 ->orderBy('name')
-                ->paginate(15, ['*'], 'rombel_page')
+                ->paginate(\App\Support\Pagination::perPage(15), ['*'], 'rombel_page')
                 ->withQueryString();
         }
 
@@ -57,7 +57,7 @@ class StudyGroupController extends Controller
                 ])
                 ->when($applicationStatus, fn ($query) => $query->where('status', $applicationStatus))
                 ->latest()
-                ->paginate(15, ['*'], 'pengajuan_page')
+                ->paginate(\App\Support\Pagination::perPage(15), ['*'], 'pengajuan_page')
                 ->withQueryString();
         }
 

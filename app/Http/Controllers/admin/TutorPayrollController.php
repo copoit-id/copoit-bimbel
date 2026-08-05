@@ -24,7 +24,7 @@ class TutorPayrollController extends Controller
             $honorTentors = Tentor::query()
                 ->active()
                 ->orderBy('name')
-                ->paginate(20, ['id', 'name', 'email', 'expertise', 'honor_per_attendance'], 'honor_page')
+                ->paginate(\App\Support\Pagination::perPage(20), ['id', 'name', 'email', 'expertise', 'honor_per_attendance'], 'honor_page')
                 ->withQueryString();
 
             return view('admin.pages.tutor-payroll.index', compact('activeTab', 'honorTentors'));
@@ -60,7 +60,7 @@ class TutorPayrollController extends Controller
             ->orderBy('status')
             ->orderByDesc('period_end')
             ->orderBy('tentor_id')
-            ->paginate(20, ['*'], 'payroll_page')
+            ->paginate(\App\Support\Pagination::perPage(20), ['*'], 'payroll_page')
             ->withQueryString();
 
         $pendingAttendanceCounts = TutorAttendance::query()
@@ -96,7 +96,7 @@ class TutorPayrollController extends Controller
                     ->orWhereDoesntHave('payrollItems');
             })
             ->orderByDesc('check_in_at')
-            ->paginate(10, ['*'], 'attendance_page')
+            ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'attendance_page')
             ->withQueryString();
 
         return view('admin.pages.tutor-payroll.index', compact(

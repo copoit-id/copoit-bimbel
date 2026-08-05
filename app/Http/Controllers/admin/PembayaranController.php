@@ -260,7 +260,7 @@ class PembayaranController extends Controller
             ->concat($billPaymentRows)
             ->sortByDesc('created_at')
             ->values();
-        $perPage = 15;
+        $perPage = \App\Support\Pagination::perPage(15);
         $page = LengthAwarePaginator::resolveCurrentPage();
         $payments = new LengthAwarePaginator(
             $paymentRows->forPage($page, $perPage)->values(),

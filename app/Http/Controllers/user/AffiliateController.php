@@ -18,7 +18,7 @@ class AffiliateController extends Controller
         $commissions = AffiliateCommission::with(['referredUser', 'package'])
             ->where('affiliate_user_id', $user->id)
             ->latest()
-            ->paginate(10);
+            ->paginate(\App\Support\Pagination::perPage(10));
 
         $summary = [
             'pending' => AffiliateCommission::where('affiliate_user_id', $user->id)

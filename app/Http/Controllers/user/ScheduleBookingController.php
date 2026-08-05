@@ -150,7 +150,7 @@ class ScheduleBookingController extends Controller
             ])
             ->where('user_id', $user->id)
             ->latest()
-            ->paginate(10)
+            ->paginate(\App\Support\Pagination::perPage(10))
             ->withQueryString();
 
         return view('user.pages.booking.index', compact(
@@ -177,7 +177,7 @@ class ScheduleBookingController extends Controller
                 'booking.package:package_id,name',
             ])
             ->latest()
-            ->paginate(10)
+            ->paginate(\App\Support\Pagination::perPage(10))
             ->withQueryString();
 
         return view('user.pages.booking.tutor', compact('tentor', 'reviews'));

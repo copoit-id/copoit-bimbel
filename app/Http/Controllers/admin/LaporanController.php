@@ -23,10 +23,20 @@ use Dompdf\Options;
 
 class LaporanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = trim((string) $request->query('search', ''));
+        $status = $request->query('status');
+
+        if (! in_array($status, ['active', 'inactive'], true)) {
+            $status = null;
+        }
+
         $tryouts = $this->buildTryoutReportQuery()
-            ->paginate(10);
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
+            ->when($status !== null, fn ($query) => $query->where('is_active', $status === 'active'))
+            ->paginate(\App\Support\Pagination::perPage(10))
+            ->withQueryString();
 
         $this->hydrateTryoutReport($tryouts->getCollection());
 
@@ -37,7 +47,7 @@ class LaporanController extends Controller
             'completed_attempts' => UserAnswer::where('status', 'completed')->count(),
         ];
 
-        return view('admin.pages.laporan.index', compact('tryouts', 'summary'));
+        return view('admin.pages.laporan.index', compact('tryouts', 'summary', 'search', 'status'));
     }
 
     public function exportExcel()
@@ -501,7 +511,7 @@ class LaporanController extends Controller
 
     private function paginateProctoringSnapshotAttempts($attempts, int $page): LengthAwarePaginator
     {
-        $perPage = 10;
+        $perPage = \App\Support\Pagination::perPage(10);
         $page = max(1, $page);
 
         return new LengthAwarePaginator(

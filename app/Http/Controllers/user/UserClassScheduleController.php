@@ -90,7 +90,7 @@ class UserClassScheduleController extends Controller
                 $range[1]->toDateString(),
             ]))
             ->orderBy('start_at')
-            ->paginate(15)
+            ->paginate(\App\Support\Pagination::perPage(15))
             ->withQueryString();
 
         $liveClasses = $canUseClass

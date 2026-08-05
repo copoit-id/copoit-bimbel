@@ -24,7 +24,7 @@ class RecurringBillController extends Controller
     {
         $bills = RecurringBill::withCount(['targets', 'invoices'])
             ->latest()
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
         $invoices = BillInvoice::with('user:id,name,email')
             ->latest()
             ->limit(10)
@@ -185,7 +185,7 @@ class RecurringBillController extends Controller
             ->selectRaw('COALESCE(SUM(payment_totals.paid_amount), 0) as paid_amount')
             ->groupBy('bill_invoices.period_start', 'bill_invoices.period_end', 'bill_invoices.due_date')
             ->orderByDesc('bill_invoices.period_start')
-            ->paginate(20)
+            ->paginate(\App\Support\Pagination::perPage(20))
             ->withQueryString();
 
         return view('admin.pages.recurring-bill.period-index', compact('recurringBill', 'periods'));
@@ -205,7 +205,7 @@ class RecurringBillController extends Controller
             ->withSum('payments as paid_amount', 'amount')
             ->whereDate('period_start', $periodStart)
             ->orderByDesc('due_date')
-            ->paginate(20);
+            ->paginate(\App\Support\Pagination::perPage(20));
 
         abort_if($invoices->isEmpty() && $invoices->currentPage() === 1, 404);
 

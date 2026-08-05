@@ -11,6 +11,7 @@ use App\Rules\SafeName;
 use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
 use App\Services\TutorProfileService;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,12 @@ class UserController extends Controller
     {
         $roleOptions = $this->getRoleOptions();
         $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
+        $search = trim((string) $request->query('search', ''));
+        $status = $request->query('status');
+
+        if (! in_array($status, ['aktif', 'nonaktif'], true)) {
+            $status = null;
+        }
 
         if (! array_key_exists((string) $activeRole, $roleOptions)) {
             $activeRole = array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions);
@@ -51,11 +58,20 @@ class UserController extends Controller
             ])
             ->where('role', '!=', 'super_admin')
             ->when($activeRole, fn ($query) => $query->where('role', $activeRole))
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($searchQuery) use ($search): void {
+                    $searchQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
+            ->when($status !== null, fn ($query) => $query->where('status', $status))
             ->orderByDesc('created_at')
-            ->paginate(10)
+            ->paginate(Pagination::perPage(10))
             ->withQueryString();
 
-        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole'));
+        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole', 'search', 'status'));
     }
 
     public function exportExcel(): BinaryFileResponse
@@ -92,13 +108,30 @@ class UserController extends Controller
             ->deleteFileAfterSend(true);
     }
 
-    public function loginAsPage()
+    public function loginAsPage(Request $request): View
     {
-        $users = User::where('role', 'user')
-            ->orderBy('name')
-            ->paginate(20);
+        $search = trim((string) $request->query('search', ''));
+        $status = $request->query('status', 'aktif');
 
-        return view('admin.pages.user.login-as', compact('users'));
+        if (! in_array($status, ['aktif', 'nonaktif'], true)) {
+            $status = null;
+        }
+
+        $users = User::query()
+            ->where('role', 'user')
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($searchQuery) use ($search): void {
+                    $searchQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
+                });
+            })
+            ->when($status !== null, fn ($query) => $query->where('status', $status))
+            ->orderBy('name')
+            ->paginate(Pagination::perPage(20))
+            ->withQueryString();
+
+        return view('admin.pages.user.login-as', compact('users', 'search', 'status'));
     }
 
     public function create()

@@ -27,7 +27,7 @@ class MaterialManagementController extends Controller
 
         $materials = $query->orderBy('order_number', 'asc')
             ->orderBy('created_at', 'desc')
-            ->paginate(20)
+            ->paginate(\App\Support\Pagination::perPage(20))
             ->withQueryString();
 
         return view('admin.pages.material.index', compact('materials'));
