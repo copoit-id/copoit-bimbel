@@ -27,7 +27,7 @@ class StudentDevelopmentController extends Controller
             })
             ->with(['tentor:id,name,expertise', 'studyGroup:id,name'])
             ->latest()
-            ->paginate(10, ['*'], 'feedback_page');
+            ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'feedback_page');
         $progress = StudentProgressReport::query()
             ->where('user_id', $user->id)
             ->with([
@@ -36,7 +36,7 @@ class StudentDevelopmentController extends Controller
                 'studyGroup:id,name',
             ])
             ->latest('period_end')
-            ->paginate(10, ['*'], 'progress_page');
+            ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'progress_page');
 
         return view('user.pages.development.index', compact('feedback', 'progress'));
     }

@@ -15,7 +15,7 @@ class ExpenseController extends Controller
         $expenses = Expense::with('author')
             ->orderByDesc('spent_at')
             ->orderByDesc('created_at')
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
 
         $totalExpense = Expense::sum('amount');
         $period = request()->input('period', 'month');

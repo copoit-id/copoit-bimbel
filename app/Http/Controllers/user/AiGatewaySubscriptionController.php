@@ -59,7 +59,7 @@ class AiGatewaySubscriptionController extends Controller
             ? AiDiscussionUsageLog::query()
                 ->where('user_id', $user->id)
                 ->latest()
-                ->paginate(20)
+                ->paginate(\App\Support\Pagination::perPage(20))
                 ->withQueryString()
             : null;
 

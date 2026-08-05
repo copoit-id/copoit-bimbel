@@ -13,7 +13,7 @@ class ClassController extends Controller
 {
     public function index()
     {
-        $classes = ClassModel::with('tentor')->orderBy('schedule_time', 'desc')->paginate(10);
+        $classes = ClassModel::with('tentor')->orderBy('schedule_time', 'desc')->paginate(\App\Support\Pagination::perPage(10));
 
         return view('admin.pages.class.index', compact('classes'));
     }

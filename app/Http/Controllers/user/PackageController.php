@@ -1374,7 +1374,7 @@ class PackageController extends Controller
             ->sortByDesc('created_at')
             ->values();
 
-        $perPage = 10;
+        $perPage = \App\Support\Pagination::perPage(10);
         $page = (int) $request->get('page', 1);
         $histories = new \Illuminate\Pagination\LengthAwarePaginator(
             $items->forPage($page, $perPage)->values(),

@@ -103,7 +103,7 @@ class AiUsageController extends Controller
                 'question:question_id,question_text',
             ])
             ->latest()
-            ->paginate(25)
+            ->paginate(\App\Support\Pagination::perPage(25))
             ->withQueryString();
 
         $providers = AiDiscussionUsageLog::query()->distinct()->orderBy('provider')->pluck('provider');
@@ -138,7 +138,7 @@ class AiUsageController extends Controller
                 });
             })
             ->latest()
-            ->paginate(30)
+            ->paginate(\App\Support\Pagination::perPage(30))
             ->withQueryString();
 
         $filteredLogs = AiGatewayUsageLog::query()
@@ -205,14 +205,14 @@ class AiUsageController extends Controller
             ->whereNotNull('external_user_id')
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
             ->latest()
-            ->paginate(20, ['*'], 'subscription_page')
+            ->paginate(\App\Support\Pagination::perPage(20), ['*'], 'subscription_page')
             ->withQueryString();
 
         $tokenAdjustments = AiGatewayTokenAdjustment::query()
             ->with(['client:id,name', 'subscription:id,external_user_name,external_user_email'])
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
             ->latest()
-            ->paginate(20, ['*'], 'adjustment_page')
+            ->paginate(\App\Support\Pagination::perPage(20), ['*'], 'adjustment_page')
             ->withQueryString();
 
         return view('super-admin.ai-gateway-usage.index', compact(
@@ -290,7 +290,7 @@ class AiUsageController extends Controller
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->latest()
-            ->paginate(30)
+            ->paginate(\App\Support\Pagination::perPage(30))
             ->withQueryString();
         $summary = AiGatewayTransaction::query()
             ->when($request->filled('client_id'), fn ($query) => $query->where('ai_gateway_client_id', $request->integer('client_id')))

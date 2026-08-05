@@ -19,33 +19,36 @@
 
     <!-- Search & Filter -->
     <div class="bg-white p-6 rounded-lg border border-border">
-        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+        <form method="GET" action="{{ route('admin.user.login-as-page') }}" class="mb-6 flex flex-col gap-4 sm:flex-row">
             <div class="flex-1 relative">
-                <input type="text" id="user-search" placeholder="Cari nama, email, atau username..."
+                <input type="search" name="search" value="{{ $search }}" placeholder="Cari nama, email, atau username..."
                     class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 <i class="ri-search-line absolute left-3 top-3 text-gray-400"></i>
             </div>
 
-            <select id="status-filter"
+            <select name="status"
                 class="border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 <option value="">Semua Status</option>
-                <option value="aktif" selected>Aktif</option>
-                <option value="nonaktif">Tidak Aktif</option>
+                <option value="aktif" @selected($status === 'aktif')>Aktif</option>
+                <option value="nonaktif" @selected($status === 'nonaktif')>Tidak Aktif</option>
             </select>
 
-            <button id="reset-filters"
+            <button type="submit" class="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                <i class="ri-search-line"></i> Cari
+            </button>
+            <a href="{{ route('admin.user.login-as-page') }}"
                 class="px-4 py-2.5 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                 <i class="ri-refresh-line"></i> Reset
-            </button>
-        </div>
+            </a>
+        </form>
 
         <div class="text-sm text-gray-500 mb-4">
-            Menampilkan <span class="font-medium text-gray-700" id="current-count">{{ $users->count() }}</span> dari 
+            Menampilkan <span class="font-medium text-gray-700">{{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }}</span> dari
             <span class="font-medium text-gray-700">{{ $users->total() }}</span> user
         </div>
 
         <!-- User Table -->
-        <div id="user-table-container">
+        <div>
             <div class="relative overflow-x-auto">
                 <table class="w-full text-sm text-left rtl:text-right text-gray-500" id="user-table">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
@@ -117,14 +120,6 @@
             </div>
         </div>
 
-        <div id="no-results" class="hidden text-center py-12">
-            <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <i class="ri-search-line text-4xl text-gray-400"></i>
-            </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">User tidak ditemukan</h3>
-            <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter Anda.</p>
-        </div>
-
         <!-- Pagination -->
         <div class="mt-4">
             {{ $users->withQueryString()->links() }}
@@ -132,67 +127,4 @@
     </div>
 </div>
 
-@push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('user-search');
-        const statusFilter = document.getElementById('status-filter');
-        const resetButton = document.getElementById('reset-filters');
-        const userTableContainer = document.getElementById('user-table-container');
-        const userTbody = document.getElementById('user-tbody');
-        const noResults = document.getElementById('no-results');
-        const currentCount = document.getElementById('current-count');
-
-        function filterUsers() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const statusValue = statusFilter.value;
-            const userRows = userTbody.querySelectorAll('.user-row');
-            let visibleCount = 0;
-
-            userRows.forEach(row => {
-                const name = row.dataset.name || '';
-                const email = row.dataset.email || '';
-                const username = row.dataset.username || '';
-                const status = row.dataset.status || '';
-
-                const matchesSearch = name.includes(searchTerm) || 
-                                    email.includes(searchTerm) || 
-                                    username.includes(searchTerm);
-                const matchesStatus = !statusValue || status === statusValue;
-
-                if (matchesSearch && matchesStatus) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            // Update count
-            currentCount.textContent = visibleCount;
-
-            // Show/hide no results
-            if (visibleCount === 0) {
-                userTableContainer.style.display = 'none';
-                noResults.style.display = 'block';
-            } else {
-                userTableContainer.style.display = 'block';
-                noResults.style.display = 'none';
-            }
-        }
-
-        searchInput.addEventListener('input', filterUsers);
-        statusFilter.addEventListener('change', filterUsers);
-        
-        resetButton.addEventListener('click', function() {
-            searchInput.value = '';
-            statusFilter.value = 'aktif';
-            filterUsers();
-        });
-
-        // Initial filter (show only aktif by default)
-        filterUsers();
-    });
-</script>
-@endpush
 @endsection

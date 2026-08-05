@@ -84,30 +84,35 @@
     </form>
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
-        <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-2">
+        <div class="mb-4 flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
+            <form method="GET" action="{{ route('admin.user.index') }}" class="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="role" value="{{ $activeRole }}">
                 <div class="relative">
-                    <input type="text" id="user-search" placeholder="Cari user..."
+                    <input type="search" name="search" value="{{ $search }}" placeholder="Cari nama, email, username, atau nomor HP..."
                         class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
 
-                <select id="status-filter"
+                <select name="status"
                     class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">Semua Status</option>
-                    <option value="aktif">Aktif</option>
-                    <option value="nonaktif">Tidak Aktif</option>
+                    <option value="aktif" @selected($status === 'aktif')>Aktif</option>
+                    <option value="nonaktif" @selected($status === 'nonaktif')>Tidak Aktif</option>
                 </select>
 
-                <button id="reset-filters"
+                <button type="submit"
+                    class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+                    <i class="ri-search-line"></i> Cari
+                </button>
+                <a href="{{ route('admin.user.index', ['role' => $activeRole]) }}"
                     class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50">
                     <i class="ri-refresh-line"></i> Reset
-                </button>
-            </div>
+                </a>
+            </form>
 
             <div class="flex items-center gap-3">
                 <div id="user-count" class="text-sm text-gray-500">
-                    Halaman ini: <span class="font-medium text-gray-700 current-count">{{ $users->count() }} User</span>
+                    Menampilkan: <span class="font-medium text-gray-700">{{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }}</span>
                     <span class="mx-1 text-gray-300">•</span>
                     Total {{ $roleOptions[$activeRole] ?? 'User' }}: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
                 </div>
@@ -123,7 +128,7 @@
         </div>
 
         <!-- User Table -->
-        <div id="user-table-container">
+        <div>
             <div class="relative overflow-x-auto">
                 <table class="w-full text-sm text-left rtl:text-right text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
@@ -296,71 +301,14 @@
             </div>
         </div>
 
-        <div id="no-results" class="hidden text-center py-12">
-            <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <i class="ri-user-line text-3xl text-gray-400"></i>
-            </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada user ditemukan</h3>
-            <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
-        </div>
     </div>
 
-    {{-- Client-side filter untuk data pada halaman saat ini --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const searchInput = document.getElementById('user-search');
-            const statusFilter = document.getElementById('status-filter');
-            const resetButton = document.getElementById('reset-filters');
-            const userCount = document.getElementById('user-count');
-            const tbody = document.getElementById('user-tbody');
-            const rows = Array.from(tbody.querySelectorAll('.user-row'));
-            const noResults = document.getElementById('no-results');
-            const tableContainer = document.getElementById('user-table-container');
             const selectAll = document.getElementById('select-all-users');
             const bulkButton = document.getElementById('bulk-delete-button');
             const bulkCount = document.getElementById('bulk-selected-count');
             const bulkForm = document.getElementById('bulk-delete-form');
-
-            function getText(el, attr) {
-                return (el.getAttribute(attr) || '').toLowerCase();
-            }
-
-            function applyFilters() {
-                const q = (searchInput.value || '').toLowerCase().trim();
-                const status = statusFilter.value;
-
-                let visible = 0;
-                rows.forEach(row => {
-                    const name = getText(row, 'data-name');
-                    const email = getText(row, 'data-email');
-                    const username = getText(row, 'data-username');
-                    const phone = getText(row, 'data-phone');
-                    const s = row.getAttribute('data-status') || '';
-
-                    const matchesSearch = !q || name.includes(q) || email.includes(q) || username.includes(q) || phone.includes(q);
-                    const matchesStatus = !status || s === status;
-
-                    const show = matchesSearch && matchesStatus;
-                    row.style.display = show ? '' : 'none';
-                    if (show) visible++;
-                });
-
-                // Toggle empty state
-                const anyVisible = visible > 0;
-                tableContainer.style.display = anyVisible ? 'block' : 'none';
-                noResults.classList.toggle('hidden', anyVisible);
-
-                const currentCount = userCount.querySelector('.current-count');
-                if (currentCount) {
-                    currentCount.textContent = `${visible} User`;
-                }
-            }
-
-            function resetFilters() {
-                searchInput.value = '';
-                statusFilter.value = '';
-                applyFilters();
-            }
 
             function getRowCheckboxes() {
                 return Array.from(document.querySelectorAll('.user-checkbox'));
@@ -392,10 +340,6 @@
                 }
             }
 
-            searchInput.addEventListener('input', applyFilters);
-            statusFilter.addEventListener('change', applyFilters);
-            resetButton.addEventListener('click', resetFilters);
-
             if (selectAll) {
                 selectAll.addEventListener('change', function () {
                     getRowCheckboxes().forEach(cb => {
@@ -426,7 +370,6 @@
                 });
             }
 
-            applyFilters();
             updateBulkState();
         });
     </script>

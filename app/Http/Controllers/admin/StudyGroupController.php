@@ -13,21 +13,60 @@ use Illuminate\View\View;
 
 class StudyGroupController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $this->abortIfStudyGroupHidden();
+        $tab = $request->string('tab')->toString();
+        $tab = in_array($tab, ['rombel', 'pengajuan'], true) ? $tab : 'rombel';
 
-        $studyGroups = StudyGroup::query()
-            ->where(function ($query): void {
-                $query->whereNull('package_id')
-                    ->orWhere('status', StudyGroup::STATUS_ACTIVE);
-            })
-            ->with(['tentor:id,name', 'package:package_id,name'])
-            ->withCount(['users', 'schedules'])
-            ->orderBy('name')
-            ->paginate(15);
+        $studyGroups = null;
+        if ($tab === 'rombel') {
+            $studyGroups = StudyGroup::query()
+                ->where(function ($query): void {
+                    $query->whereNull('package_id')
+                        ->orWhere('status', StudyGroup::STATUS_ACTIVE);
+                })
+                ->with(['tentor:id,name', 'package:package_id,name'])
+                ->withCount(['users', 'schedules'])
+                ->orderBy('name')
+                ->paginate(\App\Support\Pagination::perPage(15), ['*'], 'rombel_page')
+                ->withQueryString();
+        }
 
-        return view('admin.pages.study-group.index', compact('studyGroups'));
+        $applicationStatus = $request->string('status')->toString();
+        $applicationStatus = in_array($applicationStatus, [
+            StudyGroup::STATUS_PENDING_APPROVAL,
+            StudyGroup::STATUS_PENDING_PAYMENT,
+            StudyGroup::STATUS_ACTIVE,
+            StudyGroup::STATUS_CANCELLED,
+            StudyGroup::STATUS_EXPIRED,
+        ], true) ? $applicationStatus : null;
+
+        $groupApplications = null;
+        if ($tab === 'pengajuan') {
+            $groupApplications = StudyGroup::query()
+                ->whereNotNull('package_id')
+                ->with([
+                    'package:package_id,name',
+                    'organizer:id,name,email',
+                    'members.user:id,name,email,phone',
+                    'members.invoice.payments',
+                ])
+                ->withCount([
+                    'members',
+                    'members as paid_members_count' => fn ($query) => $query->where('status', 'paid'),
+                ])
+                ->when($applicationStatus, fn ($query) => $query->where('status', $applicationStatus))
+                ->latest()
+                ->paginate(\App\Support\Pagination::perPage(15), ['*'], 'pengajuan_page')
+                ->withQueryString();
+        }
+
+        return view('admin.pages.study-group.index', compact(
+            'studyGroups',
+            'tab',
+            'groupApplications',
+            'applicationStatus'
+        ));
     }
 
     public function create(): View

@@ -60,7 +60,7 @@ class FinanceIncomeController extends Controller
                 : route('admin.finance.income.index'),
         ]))->sortByDesc('paid_at')->values();
 
-        $perPage = 15;
+        $perPage = \App\Support\Pagination::perPage(15);
         $page = LengthAwarePaginator::resolveCurrentPage();
         $payments = new LengthAwarePaginator(
             $incomeRows->forPage($page, $perPage)->values(),

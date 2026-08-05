@@ -16,7 +16,7 @@ class FeedbackController extends Controller
                 $query->where('is_active', true);
             },
             'feedbackSubmissions as feedback_submissions_count'
-        ])->latest()->paginate(10);
+        ])->latest()->paginate(\App\Support\Pagination::perPage(10));
 
         return view('admin.pages.feedback.index', compact('tryouts'));
     }
@@ -37,7 +37,7 @@ class FeedbackController extends Controller
             ->withCount('answers')
             ->withAvg('answers', 'score')
             ->latest('submitted_at')
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
 
         return view('admin.pages.feedback.responses', compact('tryout', 'submissions'));
     }

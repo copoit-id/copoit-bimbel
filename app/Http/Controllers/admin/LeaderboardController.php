@@ -275,7 +275,7 @@ class LeaderboardController extends Controller
     private function buildLeaderboardPaginator($tryoutId, int $perPage = 15)
     {
         $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryoutId)->get());
-        return $this->paginateLeaderboardRows($rankings, $perPage);
+        return $this->paginateLeaderboardRows($rankings, \App\Support\Pagination::perPage($perPage));
     }
 
     private function getDestinationCategories()

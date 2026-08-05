@@ -22,7 +22,7 @@
         $tabs = collect($roleOptions ?? [])
             ->map(fn ($label, $slug) => [
                 'label' => $label,
-                'href' => route('admin.user.index', ['role' => $slug]),
+                'href' => route('admin.user.index', array_merge(request()->except(['page', 'role']), ['role' => $slug])),
                 'active' => $activeManagementTab === $slug,
             ])
             ->values()

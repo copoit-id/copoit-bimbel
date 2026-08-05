@@ -13,7 +13,7 @@ class UpdateNotificationController extends Controller
         $updates = UpdateNotification::query()
             ->orderByDesc('published_at')
             ->orderByDesc('created_at')
-            ->paginate(12);
+            ->paginate(\App\Support\Pagination::perPage(12));
 
         return view('admin.pages.update-notifications.index', compact('updates'));
     }

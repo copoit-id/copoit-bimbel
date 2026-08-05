@@ -35,7 +35,7 @@ class TesKoranController extends Controller
             default => $tesKoransQuery->orderBy('created_at', 'desc'),
         };
 
-        $tesKorans = $tesKoransQuery->paginate(12)->withQueryString();
+        $tesKorans = $tesKoransQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
 
         foreach ($tesKorans as $tesKoran) {
             $tesKoran->has_access = $user ? $tesKoran->canUserAccess($user->id) : false;
@@ -367,7 +367,7 @@ class TesKoranController extends Controller
         $results = TesKoranResult::where('user_id', Auth::id())
             ->with('tesKoran.packages')
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->paginate(\App\Support\Pagination::perPage(20));
 
         return view('user.pages.tes-koran.history', compact('results'));
     }

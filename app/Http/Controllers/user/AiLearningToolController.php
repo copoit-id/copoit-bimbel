@@ -67,7 +67,7 @@ class AiLearningToolController extends Controller
                 fn ($query) => $query->where('source_label', $currentSource),
             )
             ->latest()
-            ->paginate(15)
+            ->paginate(\App\Support\Pagination::perPage(15))
             ->withQueryString();
 
         $sourceOptions = AiLearningArtifact::query()
