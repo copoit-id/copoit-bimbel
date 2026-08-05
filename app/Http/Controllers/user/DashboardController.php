@@ -25,7 +25,11 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $showStatisticsDashboard = $this->showStatisticsDashboard();
-        $showLandingDashboard = $this->showLandingDashboard();
+        $landingPage = $this->landingPage();
+        $showLandingDashboard = $landingPage !== null;
+        $landingCommunity = $landingPage
+            ? data_get(\App\Http\Controllers\GeneralPageController::mergeLandingContentWithDefaults($landingPage->content ?: []), 'community', [])
+            : [];
 
         // If no user, just show guest view with public packages
         if (! $user) {
@@ -48,6 +52,7 @@ class DashboardController extends Controller
                 ],
                 'showStatisticsDashboard' => $showStatisticsDashboard,
                 'showLandingDashboard' => $showLandingDashboard,
+                'landingCommunity' => $landingCommunity,
             ]);
         }
 
@@ -269,7 +274,8 @@ class DashboardController extends Controller
             'upcomingClassSessions',
             'destinationKeketatan',
             'showStatisticsDashboard',
-            'showLandingDashboard'
+            'showLandingDashboard',
+            'landingCommunity'
         ));
     }
 
@@ -278,9 +284,13 @@ class DashboardController extends Controller
         return $this->isGeneralPageActive('statistik-ptn');
     }
 
-    private function showLandingDashboard(): bool
+    private function landingPage(): ?GeneralPage
     {
-        return $this->isGeneralPageActive('landing');
+        if (! Schema::hasTable('general_pages')) {
+            return null;
+        }
+
+        return GeneralPage::findActiveByKey('landing');
     }
 
     private function isGeneralPageActive(string $pageKey): bool

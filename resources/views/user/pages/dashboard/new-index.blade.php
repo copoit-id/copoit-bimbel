@@ -18,6 +18,8 @@ $canShowClass = $planModules->allows('class');
 $canShowGeneralPage = $planModules->allows('general_page');
 $showStatisticsDashboard = ($showStatisticsDashboard ?? false) && $canShowGeneralPage;
 $showLandingDashboard = ($showLandingDashboard ?? false) && $canShowGeneralPage;
+$landingCommunity = is_array($landingCommunity ?? null) ? $landingCommunity : [];
+$landingCommunityValue = fn (string $key, mixed $default = null) => data_get($landingCommunity, $key, $default);
 $activePackages = collect($activePackages ?? []);
 $recentTryouts = collect($recentTryouts ?? []);
 $publicPackages = collect($publicPackages ?? []);
@@ -623,23 +625,23 @@ $primaryRgb = "$r, $g, $b";
         <div class="lg:col-span-8 space-y-3.5">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white font-extrabold uppercase tracking-widest text-[10px] sm:text-xs">
                 <i class="ri-wechat-line text-sm"></i>
-                Support System Pejuang PTN
+                {{ $landingCommunityValue('badge', 'Support System Pejuang PTN') }}
             </div>
-            <h3 class="text-xl sm:text-2xl.5 font-black tracking-tight leading-tight">Komunitas Pejuang PTN {{ $clientBranding['name'] ?? 'Copoit Academy' }}</h3>
+            <h3 class="text-xl sm:text-2xl.5 font-black tracking-tight leading-tight">{{ $landingCommunityValue('title', 'Komunitas Pejuang PTN ' . ($clientBranding['name'] ?? 'Copoit Academy')) }}</h3>
             <p class="text-xs sm:text-sm text-slate-100/90 font-medium leading-relaxed max-w-2xl">
-                Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.
+                {{ $landingCommunityValue('description', 'Jangan berjuang sendirian! Bergabunglah di grup WhatsApp diskusi kami untuk berbagi soal, info pendaftaran PTN, konsultasi, serta webinar gratis bersama alumni terkemuka.') }}
             </p>
         </div>
 
         <!-- Right: CTA -->
         <div class="lg:col-span-4 flex lg:justify-end">
-            <a href="https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H"
+            <a href="{{ $landingCommunityValue('cta.href', 'https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H') }}"
                target="_blank"
                rel="noopener noreferrer"
                class="inline-flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-50 px-7 py-3.5 text-sm font-extrabold shadow-md hover:shadow-lg transition-all active:scale-98"
                style="color: {{ $primaryColor }}">
                 <i class="ri-whatsapp-line text-lg text-emerald-500"></i>
-                Gabung Grup Sekarang
+                {{ $landingCommunityValue('cta.label', 'Gabung Grup Sekarang') }}
             </a>
         </div>
     </div>
