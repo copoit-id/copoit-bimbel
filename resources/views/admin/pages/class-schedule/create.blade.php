@@ -10,7 +10,7 @@
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Buat Kelas & Jadwal</h1>
-        <p class="text-sm text-gray-500">Pilih kelas sekali atau rutin, lalu tentukan apakah siswa boleh request jadwal custom.</p>
+        <p class="text-sm text-gray-500">Pilih kelas sekali atau rutin, lalu atur detail jadwalnya.</p>
     </div>
 
     <form method="POST" action="{{ route('admin.class-schedules.store') }}" class="rounded-lg border border-gray-200 bg-white p-6">
@@ -24,7 +24,7 @@
 
         <div class="grid gap-5 md:grid-cols-2" x-data="{
             scheduleType: @js(old('schedule_type', 'recurring')),
-            allowCustom: {{ old('allow_custom_booking', false) ? 'true' : 'false' }}
+            allowCustom: {{ $bookingScheduleEnabled && old('allow_custom_booking', false) ? 'true' : 'false' }}
         }">
             <!-- Nama Jadwal -->
             <div class="md:col-span-2">
@@ -121,6 +121,7 @@
                 <input type="time" name="end_time" value="{{ old('end_time', '20:30') }}" :required="allowCustom" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
+            @if($bookingScheduleEnabled)
             <div class="md:col-span-2 rounded-xl border border-gray-200 p-4">
                 <label class="flex cursor-pointer items-start gap-3">
                     <input type="hidden" name="allow_custom_booking" value="0">
@@ -139,6 +140,7 @@
                 </div>
                 <input type="hidden" name="booking_session_quota" value="1" :disabled="allowCustom">
             </div>
+            @endif
 
             @if($canUseClass)
                 <!-- Link Meeting -->

@@ -22,7 +22,9 @@
 
     <div class="mt-6 flex w-fit rounded-lg bg-gray-100 p-1 text-sm font-semibold">
         <a href="{{ route('admin.study-groups.index') }}" class="rounded-md px-4 py-2 {{ $tab === 'rombel' ? 'bg-white text-primary shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">Rombel Aktif</a>
-        <a href="{{ route('admin.study-groups.index', ['tab' => 'pengajuan']) }}" class="rounded-md px-4 py-2 {{ $tab === 'pengajuan' ? 'bg-white text-primary shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">Pengajuan Paket</a>
+        @if($bookingScheduleEnabled)
+            <a href="{{ route('admin.study-groups.index', ['tab' => 'pengajuan']) }}" class="rounded-md px-4 py-2 {{ $tab === 'pengajuan' ? 'bg-white text-primary shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">Pengajuan Paket</a>
+        @endif
     </div>
 
     @if (session('success'))

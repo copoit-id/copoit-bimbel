@@ -134,7 +134,7 @@
                                 <h3 class="font-bold text-gray-900 text-sm leading-snug group-hover:text-primary transition-colors">
                                     {{ $schedule->title }}
                                 </h3>
-                                @if($schedule->allow_custom_booking)
+                                @if(($clientBranding['booking_schedule_enabled'] ?? false) && $schedule->allow_custom_booking)
                                     <span class="w-fit rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary">
                                         Bisa request custom · {{ $schedule->booking_session_quota }} sesi
                                     </span>
@@ -260,7 +260,7 @@
                                     <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
                                         {{ ucfirst($schedule->schedule_type) }}
                                     </span>
-                                    @if($schedule->allow_custom_booking)
+                                    @if(($clientBranding['booking_schedule_enabled'] ?? false) && $schedule->allow_custom_booking)
                                         <span class="ml-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">Custom</span>
                                     @endif
                                 </td>

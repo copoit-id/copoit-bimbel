@@ -113,6 +113,8 @@ class AppServiceProvider extends ServiceProvider
             'class_schedule_menu_enabled' => false,
             'recurring_bill_menu_enabled' => false,
             'tutor_chat_enabled' => false,
+            'booking_schedule_enabled' => false,
+            'learning_progress_enabled' => false,
             'participant_destination_api_enabled' => false,
             'website_translation_enabled' => false,
             'website_translation_locales' => ['en', 'zh-CN', 'ja', 'ar', 'ko'],
@@ -182,6 +184,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
+            $defaults['booking_schedule_enabled'] = (bool) ($clientProfile->booking_schedule_enabled ?? $defaults['booking_schedule_enabled']);
+            $defaults['learning_progress_enabled'] = (bool) ($clientProfile->learning_progress_enabled ?? $defaults['learning_progress_enabled']);
             $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
             $defaults['website_translation_enabled'] = (bool) ($clientProfile->website_translation_enabled ?? $defaults['website_translation_enabled']);
             $defaults['website_translation_locales'] = is_array($clientProfile->website_translation_locales)

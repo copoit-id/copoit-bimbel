@@ -6,6 +6,7 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DisableBrowserCache;
 use App\Http\Middleware\EnforceConcurrentLoginLimit;
 use App\Http\Middleware\EnsureCertificateManagementEnabled;
+use App\Http\Middleware\EnsureClientFeatureEnabled;
 use App\Http\Middleware\EnsurePanelPortal;
 use App\Http\Middleware\EnsurePlanFeatureEnabled;
 use App\Http\Middleware\SecurityHeaders;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tutor' => TutorMiddleware::class,
             'super-admin' => SuperAdminMiddleware::class,
             'certificate.enabled' => EnsureCertificateManagementEnabled::class,
+            'client-feature' => EnsureClientFeatureEnabled::class,
             'permission' => CheckPermission::class,
             'panel.portal' => EnsurePanelPortal::class,
             'module' => EnsurePlanFeatureEnabled::class,

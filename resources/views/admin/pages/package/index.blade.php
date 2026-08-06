@@ -9,6 +9,9 @@
     $canManageMaterial = $planModules->allows('material') && ($currentUser?->hasPermission('material', 'view') ?? false);
     $canManageTryout = $planModules->allows('tryout') && ($currentUser?->hasPermission('tryout', 'view') ?? false);
     $canManageTesKoran = $planModules->allows('tes_koran') && ($currentUser?->hasPermission('tes_koran', 'view') ?? false);
+    $canManageBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
+        && $planModules->allows('booking')
+        && ($currentUser?->hasPermission('booking', 'view') ?? false);
 @endphp
 <div class="space-y-6">
     <!-- Page Header -->
@@ -179,7 +182,7 @@
                     Kelas
                 </a>
                 @endif
-                @if($package->bookingRule?->is_enabled)
+                @if($canManageBooking && $package->bookingRule?->is_enabled)
                 <a href="{{ route('admin.package-booking.edit', $package) }}"
                     class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
                     Harga Rombel

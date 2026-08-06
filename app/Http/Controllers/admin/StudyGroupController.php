@@ -16,7 +16,10 @@ class StudyGroupController extends Controller
     public function index(Request $request): View
     {
         $tab = $request->string('tab')->toString();
-        $tab = in_array($tab, ['rombel', 'pengajuan'], true) ? $tab : 'rombel';
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $tab = in_array($tab, ['rombel', 'pengajuan'], true) && ($tab !== 'pengajuan' || $bookingScheduleEnabled)
+            ? $tab
+            : 'rombel';
 
         $studyGroups = null;
         if ($tab === 'rombel') {
@@ -65,7 +68,8 @@ class StudyGroupController extends Controller
             'studyGroups',
             'tab',
             'groupApplications',
-            'applicationStatus'
+            'applicationStatus',
+            'bookingScheduleEnabled'
         ));
     }
 
