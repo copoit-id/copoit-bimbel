@@ -279,7 +279,7 @@ class GeneralPageController extends Controller
             ->with('author:id,name')
             ->published()
             ->latest('published_at')
-            ->paginate(9);
+            ->paginate(\App\Support\Pagination::perPage(9));
 
         $featuredArticle = Article::query()
             ->with('author:id,name')

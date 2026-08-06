@@ -16,7 +16,12 @@
     $planModules = app(\App\Services\PlanModuleService::class);
     $canShowDashboard = $planModules->allows('dashboard');
     $canShowPackage = $planModules->allows('package');
-    $canShowBooking = $planModules->allows('booking') && \Illuminate\Support\Facades\Route::has('user.booking.index');
+    $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
+        && $planModules->allows('booking')
+        && \Illuminate\Support\Facades\Route::has('user.booking.index');
+    $canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
+        && $planModules->allows('booking')
+        && \Illuminate\Support\Facades\Route::has('user.development.index');
     $canShowEvent = $planModules->allows('event');
     $canShowMaterial = $planModules->allows('material');
     $canShowTryout = $planModules->allows('tryout');
@@ -77,6 +82,8 @@
                     <span class="ms-3">Booking Jadwal</span>
                 </a>
             </li>
+            @endif
+            @if($canShowLearningProgress)
             <li>
                 <a href="{{ route('user.development.index') }}"
                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.development.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
@@ -124,11 +131,13 @@
                             <i class="ri-file-text-line text-[16px] mr-2"></i>Belajar (PDF)
                         </a>
                     </li>
+                    @if($liveSessionAvailable)
                     <li>
                         <a href="{{ route('user.material.live-sessions') }}" class="flex items-center w-full py-2 px-4 pl-11 rounded-lg transition-colors duration-200 {{ request()->routeIs('user.material.live-sessions') ? $dropdownLinkActive : $dropdownLinkInactive }}">
                             <i class="ri-live-line text-[16px] mr-2"></i>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}
                         </a>
                     </li>
+                    @endif
                 </ul>
             </li>
             @endif

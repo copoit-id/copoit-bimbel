@@ -17,43 +17,46 @@
 
     <!-- Filter Section -->
     <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
+        <form method="GET" action="{{ route('admin.tryout.index') }}" class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
                 <div class="relative w-full sm:w-auto">
-                    <input type="text" id="tryout-search" placeholder="Cari tryout..."
+                    <input type="search" name="search" value="{{ $search }}" placeholder="Cari tryout..."
                         class="pl-10 pr-4 py-2 w-full sm:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <select id="type-filter"
+                    <select name="type"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">Semua Tipe</option>
-                        <option value="TIU">TIU</option>
-                        <option value="TWK">TWK</option>
-                        <option value="TKP">TKP</option>
-                        <option value="TPA">TPA</option>
-                        <option value="TBI">TBI</option>
-                        <option value="SKD_FULL">SKD Full</option>
-                        <option value="GENERAL">General</option>
-                        <option value="CERTIFICATION">Certification</option>
+                        <option value="tiu" @selected($type === 'tiu')>TIU</option>
+                        <option value="twk" @selected($type === 'twk')>TWK</option>
+                        <option value="tkp" @selected($type === 'tkp')>TKP</option>
+                        <option value="tpa" @selected($type === 'tpa')>TPA</option>
+                        <option value="tbi" @selected($type === 'tbi')>TBI</option>
+                        <option value="skd_full" @selected($type === 'skd_full')>SKD Full</option>
+                        <option value="general" @selected($type === 'general')>General</option>
+                        <option value="certification" @selected($type === 'certification')>Certification</option>
                     </select>
-                    <select id="status-filter"
+                    <select name="status"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">Semua Status</option>
-                        <option value="akan_datang">Akan Datang</option>
-                        <option value="aktif">Aktif</option>
-                        <option value="selesai">Selesai</option>
+                        <option value="akan_datang" @selected($filterStatus === 'akan_datang')>Akan Datang</option>
+                        <option value="aktif" @selected($filterStatus === 'aktif')>Aktif</option>
+                        <option value="selesai" @selected($filterStatus === 'selesai')>Selesai</option>
                     </select>
                 </div>
-                <button id="reset-tryout-filters"
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 w-full sm:w-auto">
+                    <i class="ri-search-line"></i> Cari
+                </button>
+                <a href="{{ route('admin.tryout.index') }}"
                     class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
                     <i class="ri-refresh-line"></i> Reset
-                </button>
+                </a>
             </div>
-            <div id="tryout-count" class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
+            <div class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
                 Total: <span class="font-medium text-gray-700">{{ $tryouts->total() }} Tryout</span>
             </div>
-        </div>
+        </form>
     </div>
 
     <!-- Tryout Cards -->
@@ -288,17 +291,6 @@
         @endforelse
     </div>
 
-    <!-- No Results Message -->
-    <div id="no-tryout-results" class="hidden col-span-full">
-        <div class="text-center py-12">
-            <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <i class="ri-search-line text-3xl text-gray-400"></i>
-            </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada tryout ditemukan</h3>
-            <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
-        </div>
-    </div>
-
     <!-- Pagination -->
     @if($tryouts->hasPages())
     <div class="flex justify-center">
@@ -306,71 +298,4 @@
     </div>
     @endif
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('tryout-search');
-    const typeFilter = document.getElementById('type-filter');
-    const statusFilter = document.getElementById('status-filter');
-    const resetButton = document.getElementById('reset-tryout-filters');
-    const tryoutCount = document.getElementById('tryout-count');
-    const tryoutCards = document.querySelectorAll('.tryout-card');
-    const tryoutGrid = document.getElementById('tryout-grid');
-    const noResults = document.getElementById('no-tryout-results');
-
-    function filterTryouts() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const selectedType = typeFilter.value;
-        const selectedStatus = statusFilter.value;
-
-        let visibleCount = 0;
-
-        tryoutCards.forEach(card => {
-            const tryoutName = card.dataset.name || '';
-            const tryoutType = card.dataset.type || '';
-            const tryoutStatus = card.dataset.status || '';
-
-            const matchesSearch = tryoutName.includes(searchTerm);
-            const matchesType = !selectedType || tryoutType === selectedType;
-            const matchesStatus = !selectedStatus || tryoutStatus === selectedStatus;
-
-            if (matchesSearch && matchesType && matchesStatus) {
-                card.style.display = 'block';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
-        });
-
-        // Show/hide no results message
-        if (visibleCount === 0 && tryoutCards.length > 0) {
-            noResults.classList.remove('hidden');
-            tryoutGrid.style.display = 'none';
-        } else {
-            noResults.classList.add('hidden');
-            tryoutGrid.style.display = 'grid';
-        }
-
-        updateTryoutCount(visibleCount);
-    }
-
-    function updateTryoutCount(count) {
-        tryoutCount.innerHTML = `Total: <span class="font-medium text-gray-700">${count} Tryout</span>`;
-    }
-
-    function resetFilters() {
-        searchInput.value = '';
-        typeFilter.value = '';
-        statusFilter.value = '';
-        filterTryouts();
-    }
-
-    // Event listeners
-    searchInput.addEventListener('input', filterTryouts);
-    typeFilter.addEventListener('change', filterTryouts);
-    statusFilter.addEventListener('change', filterTryouts);
-    resetButton.addEventListener('click', resetFilters);
-
-    console.log('Tryout management scripts loaded');
-});
-</script>
 @endsection

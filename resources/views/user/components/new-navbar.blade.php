@@ -7,7 +7,12 @@ $planModules = app(\App\Services\PlanModuleService::class);
 $canShowDashboard = $planModules->allows('dashboard');
 $canShowProfile = $planModules->allows('profile');
 $canShowPackage = $planModules->allows('package');
-$canShowBooking = $planModules->allows('booking') && \Illuminate\Support\Facades\Route::has('user.booking.index');
+$canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
+    && $planModules->allows('booking')
+    && \Illuminate\Support\Facades\Route::has('user.booking.index');
+$canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
+    && $planModules->allows('booking')
+    && \Illuminate\Support\Facades\Route::has('user.development.index');
 $canShowMaterial = $planModules->allows('material');
 $canShowTryout = $planModules->allows('tryout');
 $canShowTesKoran = $planModules->allows('tes_koran');
@@ -16,10 +21,11 @@ $tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTes
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && $planModules->allows('affiliate')
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
-$canShowBimbel = $canShowPackage || $canShowBooking || $canShowMaterial || $canShowTryout || $canShowAiLearning;
+$canShowBimbel = $canShowPackage || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
 $bimbelUrl = match (true) {
     $canShowPackage => route('user.package.index'),
     $canShowBooking => route('user.booking.index'),
+    $canShowLearningProgress => route('user.development.index'),
     $canShowMaterial => route('user.material.index'),
     $canShowTryout => route('user.package.tryout.list'),
     default => $canShowAiLearning ? route('user.ai-learning.index') : route('landing'),
@@ -31,6 +37,7 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.tes-koran', $currentRoute)
     || isActive('user.tes-kecermatan', $currentRoute)
     || isActive('user.booking', $currentRoute)
+    || isActive('user.development', $currentRoute)
     || $currentRoute === 'user.package.index'
     || isActive('user.ai-gateway', $currentRoute);
 
@@ -156,7 +163,7 @@ function isActive($route, $current) {
                     <a href="{{ $bimbelUrl }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>Bimbel<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
                     <div class="dropdown-menu min-w-52">
                         @if($canShowMaterial)
-                        <div class="dropdown-submenu"><a href="{{ route('user.material.index') }}" class="dropdown-item justify-between {{ isActive('user.material', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-book-open-line"></i>Materi</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.material.index') }}" class="dropdown-item">Semua Materi</a><a href="{{ route('user.material.videos') }}" class="dropdown-item">Video</a><a href="{{ route('user.material.documents') }}" class="dropdown-item">Dokumen</a><a href="{{ route('user.material.live-sessions') }}" class="dropdown-item">{{ $liveSessionLabel }}</a></div></div>
+                        <div class="dropdown-submenu"><a href="{{ route('user.material.index') }}" class="dropdown-item justify-between {{ isActive('user.material', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-book-open-line"></i>Materi</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.material.index') }}" class="dropdown-item">Semua Materi</a><a href="{{ route('user.material.videos') }}" class="dropdown-item">Video</a><a href="{{ route('user.material.documents') }}" class="dropdown-item">Dokumen</a>@if($liveSessionAvailable)<a href="{{ route('user.material.live-sessions') }}" class="dropdown-item">{{ $liveSessionLabel }}</a>@endif</div></div>
                         @endif
                         @if($canShowTryout)
                         <div class="dropdown-submenu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item justify-between {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.tes-kecermatan', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-file-list-3-line"></i>Tryout</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item">Daftar Tryout</a>
@@ -169,6 +176,8 @@ function isActive($route, $current) {
                         @endif
                         @if($user && $canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item {{ isActive('user.booking', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-schedule-line"></i>Booking Jadwal</a>
+                        @endif
+                        @if($user && $canShowLearningProgress)
                         <a href="{{ route('user.development.index') }}" class="dropdown-item {{ isActive('user.development', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-line-chart-line"></i>Perkembangan</a>
                         @endif
                     </div>
@@ -198,6 +207,8 @@ function isActive($route, $current) {
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item">
                             <i class="ri-calendar-schedule-line"></i>Booking Jadwal
                         </a>
+                        @endif
+                        @if($canShowLearningProgress)
                         <a href="{{ route('user.development.index') }}" class="dropdown-item">
                             <i class="ri-line-chart-line"></i>Perkembangan
                         </a>
@@ -263,6 +274,11 @@ function isActive($route, $current) {
                         @if($canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <i class="ri-calendar-schedule-line mr-2"></i>Booking Jadwal
+                        </a>
+                        @endif
+                        @if($canShowLearningProgress)
+                        <a href="{{ route('user.development.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="ri-line-chart-line mr-2"></i>Perkembangan
                         </a>
                         @endif
                         @if($canShowAffiliateMenu)

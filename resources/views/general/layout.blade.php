@@ -29,6 +29,7 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
     @stack('styles')
 </head>
 
@@ -193,6 +194,7 @@
         </div>
     </footer>
     @endif
+    <x-website-translator />
 </body>
 
 </html>

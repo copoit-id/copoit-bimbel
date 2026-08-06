@@ -43,21 +43,18 @@ $activeTab = request('tab', 'berbayar');
 
 @php
 if ($activeTab == 'berbayar') {
-    $packages = \App\Models\Package::where('is_active', true)
-        ->where('status', 'active')
+    $packages = \App\Models\Package::where('status', 'active')
         ->where('is_displayed', true)
         ->where('type_price', 'paid')
         ->get();
 } elseif ($activeTab == 'gratis') {
-    $packages = \App\Models\Package::where('is_active', true)
-        ->where('status', 'active')
+    $packages = \App\Models\Package::where('status', 'active')
         ->where('is_displayed', true)
         ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
         ->get();
 } else {
     // Event tab
-    $packages = \App\Models\Package::where('is_active', true)
-        ->where('status', 'active')
+    $packages = \App\Models\Package::where('status', 'active')
         ->where('is_displayed', true)
         ->where(function($query) {
             $query->where('type_package', 'event')

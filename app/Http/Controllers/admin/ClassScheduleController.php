@@ -83,7 +83,7 @@ class ClassScheduleController extends Controller
         $liveClasses = $canUseClass
             ? ClassModel::with('tentor')
                 ->orderBy('schedule_time', 'desc')
-                ->paginate(10, ['*'], 'kelas_page')
+                ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'kelas_page')
                 ->withQueryString()
             : null;
 
@@ -140,6 +140,7 @@ class ClassScheduleController extends Controller
         $preselectedDay = $request->query('day_of_week', 1);
         $preselectedPackageId = $request->integer('package_id') ?: null;
         $canUseClass = $planModules->allows('class');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
 
         return view('admin.pages.class-schedule.create', compact(
             'classes',
@@ -149,6 +150,7 @@ class ClassScheduleController extends Controller
             'preselectedDay',
             'preselectedPackageId',
             'canUseClass',
+            'bookingScheduleEnabled',
         ));
     }
 
@@ -207,20 +209,23 @@ class ClassScheduleController extends Controller
             'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
             'allow_custom_booking' => ['nullable', 'boolean'],
-            'booking_session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
+            'booking_session_quota' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $canUseClass = $planModules->allows('class');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $allowCustomBooking = $bookingScheduleEnabled && $request->boolean('allow_custom_booking');
 
         DB::transaction(function () use (
             $request,
             $validated,
             $scheduleService,
             $bookingConfigurator,
-            $canUseClass
+            $canUseClass,
+            $allowCustomBooking
         ): void {
             $packageIds = $validated['package_ids'] ?? [];
-            if ($request->boolean('allow_custom_booking')) {
+            if ($allowCustomBooking) {
                 Package::query()
                     ->whereKey($packageIds)
                     ->orderBy('package_id')
@@ -245,8 +250,10 @@ class ClassScheduleController extends Controller
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
                 'created_by' => $request->user()?->id,
-                'allow_custom_booking' => $request->boolean('allow_custom_booking'),
-                'booking_session_quota' => $validated['booking_session_quota'],
+                'allow_custom_booking' => $allowCustomBooking,
+                'booking_session_quota' => $allowCustomBooking
+                    ? (int) ($validated['booking_session_quota'] ?? 1)
+                    : 1,
             ]);
 
             $schedule->attendanceSetting()->create([
@@ -347,6 +354,7 @@ class ClassScheduleController extends Controller
             ->get(['id', 'name', 'expertise']);
         $preselectedDay = $classSchedule->day_of_week ?: 1;
         $canUseClass = $planModules->allows('class');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
 
         return view('admin.pages.class-schedule.edit', compact(
             'classSchedule',
@@ -356,6 +364,7 @@ class ClassScheduleController extends Controller
             'tentors',
             'preselectedDay',
             'canUseClass',
+            'bookingScheduleEnabled',
         ));
     }
 
@@ -403,10 +412,14 @@ class ClassScheduleController extends Controller
             'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
             'allow_custom_booking' => ['nullable', 'boolean'],
-            'booking_session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
+            'booking_session_quota' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $canUseClass = $planModules->allows('class');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $allowCustomBooking = $bookingScheduleEnabled
+            ? $request->boolean('allow_custom_booking')
+            : (bool) $classSchedule->allow_custom_booking;
 
         $previousPackageIds = $classSchedule->packages()->pluck('packages.package_id')->all();
         $wasCustom = (bool) $classSchedule->allow_custom_booking;
@@ -418,6 +431,7 @@ class ClassScheduleController extends Controller
             $scheduleService,
             $bookingConfigurator,
             $canUseClass,
+            $allowCustomBooking,
             $previousPackageIds,
             $wasCustom
         ): void {
@@ -427,7 +441,7 @@ class ClassScheduleController extends Controller
                 ->orderBy('package_id')
                 ->lockForUpdate()
                 ->get(['package_id']);
-            if ($request->boolean('allow_custom_booking')) {
+            if ($allowCustomBooking) {
                 $bookingConfigurator->ensurePackagesAvailable($packageIds, $classSchedule->id);
             }
             $classSchedule->update([
@@ -448,8 +462,10 @@ class ClassScheduleController extends Controller
                     : $classSchedule->meeting_url,
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active'),
-                'allow_custom_booking' => $request->boolean('allow_custom_booking'),
-                'booking_session_quota' => $validated['booking_session_quota'],
+                'allow_custom_booking' => $allowCustomBooking,
+                'booking_session_quota' => $allowCustomBooking
+                    ? (int) ($validated['booking_session_quota'] ?? $classSchedule->booking_session_quota ?? 1)
+                    : 1,
             ]);
 
             $classSchedule->attendanceSetting()->updateOrCreate(

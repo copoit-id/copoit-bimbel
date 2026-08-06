@@ -6,6 +6,7 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DisableBrowserCache;
 use App\Http\Middleware\EnforceConcurrentLoginLimit;
 use App\Http\Middleware\EnsureCertificateManagementEnabled;
+use App\Http\Middleware\EnsureClientFeatureEnabled;
 use App\Http\Middleware\EnsurePanelPortal;
 use App\Http\Middleware\EnsurePlanFeatureEnabled;
 use App\Http\Middleware\SecurityHeaders;
@@ -15,6 +16,8 @@ use App\Http\Middleware\TutorMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tutor' => TutorMiddleware::class,
             'super-admin' => SuperAdminMiddleware::class,
             'certificate.enabled' => EnsureCertificateManagementEnabled::class,
+            'client-feature' => EnsureClientFeatureEnabled::class,
             'permission' => CheckPermission::class,
             'panel.portal' => EnsurePanelPortal::class,
             'module' => EnsurePlanFeatureEnabled::class,
@@ -46,5 +50,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->respond(function (Response $response, \Throwable $exception, Request $request): Response {
+            if ($response->getStatusCode() === 419 && ! $request->expectsJson()) {
+                return redirect()
+                    ->route('login')
+                    ->with('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
+            }
+
+            return $response;
+        });
     })->create();

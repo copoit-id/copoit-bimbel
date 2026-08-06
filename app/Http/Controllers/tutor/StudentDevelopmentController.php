@@ -69,12 +69,12 @@ class StudentDevelopmentController extends Controller
             ->where('tentor_id', $tentor->id)
             ->with(['user:id,name', 'studyGroup:id,name'])
             ->latest()
-            ->paginate(10, ['*'], 'feedback_page');
+            ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'feedback_page');
         $progressHistory = StudentProgressReport::query()
             ->where('tentor_id', $tentor->id)
             ->with(['user:id,name', 'package:package_id,name', 'studyGroup:id,name'])
             ->latest('period_end')
-            ->paginate(10, ['*'], 'progress_page');
+            ->paginate(\App\Support\Pagination::perPage(10), ['*'], 'progress_page');
 
         return view('tutor.development.index', compact(
             'groups',

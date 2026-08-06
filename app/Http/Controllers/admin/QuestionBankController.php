@@ -12,6 +12,7 @@ use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Services\AdminQuestionGeneratorQuotaService;
 use App\Services\AiQuestionGeneratorService;
+use App\Services\AiReferencePdfService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
 use Illuminate\Http\RedirectResponse;
@@ -144,9 +145,7 @@ class QuestionBankController extends Controller
         $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
         $questionType = $request->input('question_type', 'all');
         $questionSearch = trim((string) $request->input('search', ''));
-        $perPage = in_array($request->integer('per_page'), [5, 10, 15, 25], true)
-            ? $request->integer('per_page')
-            : 5;
+        $perPage = \App\Support\Pagination::perPage(5);
 
         $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
             $query->withCount('questions')->orderBy('created_at', $questionSortDirection);
@@ -262,7 +261,7 @@ class QuestionBankController extends Controller
         ]);
     }
 
-    public function previewAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService, AdminQuestionGeneratorQuotaService $quotaService)
+    public function previewAiQuestions(Request $request, QuestionBank $questionBank, AiQuestionGeneratorService $aiGeneratorService, AdminQuestionGeneratorQuotaService $quotaService, AiReferencePdfService $pdfReferenceService)
     {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -279,19 +278,31 @@ class QuestionBankController extends Controller
             'explanation_style' => ['required', Rule::in(['singkat', 'normal', 'detail'])],
             'instruction' => ['nullable', 'string', 'max:1500'],
             'use_reference' => ['nullable', 'boolean'],
-            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout'])],
+            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout', 'pdf'])],
+            'reference_pdf' => [
+                Rule::requiredIf($request->boolean('use_reference') && $request->input('reference_source') === 'pdf'),
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
             'reference_bank_id' => ['nullable', 'integer'],
             'reference_tryout_id' => ['nullable', 'integer'],
             'reference_tryout_detail_id' => ['nullable', 'integer'],
             'reference_note' => ['nullable', 'string', 'max:1500'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
-        ], [], [
+        ], [
+            'reference_pdf.required' => 'Unggah file PDF setelah memilih sumber referensi PDF.',
+            'reference_pdf.mimes' => 'File referensi harus berformat PDF.',
+            'reference_pdf.max' => 'Ukuran PDF referensi maksimal 10 MB.',
+        ], [
             'subject' => 'mata pelajaran/kategori',
             'topic' => 'topik',
             'question_count' => 'jumlah soal',
             'option_count' => 'jumlah opsi',
             'explanation_style' => 'gaya pembahasan',
             'instruction' => 'instruksi tambahan',
+            'reference_pdf' => 'file PDF referensi',
         ]);
 
         try {
@@ -299,15 +310,9 @@ class QuestionBankController extends Controller
             $validated = [
                 ...$validated,
                 'model' => $model,
-                ...$this->resolveAiReference($validated),
+                ...$this->resolveAiReference($validated, $pdfReferenceService),
             ];
             $preview = $aiGeneratorService->generate($validated);
-            $preview['quota'] = $quotaService->consume(
-                Auth::user(),
-                $preview['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0],
-                (string) $preview['provider'],
-                (string) $preview['model'],
-            );
             $preview['request'] = $validated;
 
             session()->put($this->aiPreviewSessionKey($questionBank), $preview);
@@ -1241,7 +1246,7 @@ class QuestionBankController extends Controller
     }
 
     /** @param array<string, mixed> $input */
-    private function resolveAiReference(array $input): array
+    private function resolveAiReference(array $input, AiReferencePdfService $pdfReferenceService): array
     {
         if (! filter_var($input['use_reference'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             return ['reference_examples' => [], 'reference_label' => null, 'reference_note' => null];
@@ -1252,6 +1257,15 @@ class QuestionBankController extends Controller
 
         if (! $source) {
             throw new \RuntimeException('Pilih sumber referensi gaya soal.');
+        }
+
+        if ($source === 'pdf') {
+            $file = $input['reference_pdf'] ?? null;
+            if (! $file instanceof \Illuminate\Http\UploadedFile) {
+                throw new \RuntimeException('Unggah file PDF untuk referensi gaya soal.');
+            }
+
+            return ['reference_examples' => $pdfReferenceService->examples($file), 'reference_label' => 'PDF: '.$file->getClientOriginalName(), 'reference_note' => $note];
         }
 
         if ($source === 'question_bank') {
@@ -1331,13 +1345,16 @@ class QuestionBankController extends Controller
         return collect($questions)
             ->take(50)
             ->map(function ($question) use ($letters) {
+                $correctOption = strtoupper(trim((string) ($question['correct_option'] ?? '')));
                 $options = collect($question['options'] ?? [])
                     ->values()
-                    ->map(function ($option, $index) use ($letters) {
+                    ->map(function ($option, $index) use ($letters, $correctOption) {
+                        $label = strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? '')));
+
                         return [
-                            'label' => strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? ''))),
+                            'label' => $label,
                             'text' => trim((string) ($option['text'] ?? '')),
-                            'score' => max(0, min(999, (float) ($option['score'] ?? 0))),
+                            'score' => max(0, min(999, (float) ($option['score'] ?? ($label === $correctOption ? 1 : 0)))),
                         ];
                     })
                     ->filter(fn ($option) => $option['label'] !== '' && $option['text'] !== '')
@@ -1349,7 +1366,7 @@ class QuestionBankController extends Controller
                     'question_text' => trim((string) ($question['question_text'] ?? '')),
                     'question_score' => max(0, min(999, (float) ($question['question_score'] ?? 1))),
                     'options' => $options,
-                    'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
+                    'correct_option' => $correctOption,
                     'explanation' => trim((string) ($question['explanation'] ?? '')),
                 ];
             })

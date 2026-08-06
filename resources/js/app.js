@@ -509,22 +509,82 @@ const initializeDateInputs = () => {
             minute,
             viewYear: parsed.getFullYear(),
             viewMonth: parsed.getMonth(),
+            viewMode: 'calendar',
+            yearPickerReturn: 'calendar',
         };
     };
 
-    const renderHeader = (instance, title, onPrevious, onNext) => {
+    const renderHeader = (instance, title, onPrevious, onNext, onTitleClick = null) => {
         const header = createElement('div', 'app-date-picker__header');
         const previous = createElement('button', 'app-date-picker__nav');
-        const heading = createElement('p', 'app-date-picker__title', title);
+        const heading = createElement(
+            onTitleClick ? 'button' : 'p',
+            onTitleClick ? 'app-date-picker__title app-date-picker__title-button' : 'app-date-picker__title',
+            title,
+        );
         const next = createElement('button', 'app-date-picker__nav');
 
         setButtonIcon(previous, 'ri-arrow-left-s-line', 'Sebelumnya');
         setButtonIcon(next, 'ri-arrow-right-s-line', 'Berikutnya');
         previous.addEventListener('click', onPrevious);
         next.addEventListener('click', onNext);
+        if (onTitleClick) {
+            heading.type = 'button';
+            heading.setAttribute('aria-label', 'Pilih tahun');
+            heading.addEventListener('click', onTitleClick);
+        }
         header.append(previous, heading, next);
 
         return header;
+    };
+
+    const yearFromValue = (value) => {
+        const year = Number(value?.slice(0, 4));
+        return Number.isInteger(year) && year > 0 ? year : null;
+    };
+
+    const yearOptions = (instance) => {
+        const currentYear = new Date().getFullYear();
+        const selectedYear = yearFromValue(instance.state.selectedDate);
+        const minYear = yearFromValue(instance.input.min);
+        const maxYear = yearFromValue(instance.input.max);
+        const startYear = minYear || Math.min(1900, instance.state.viewYear, selectedYear || Infinity);
+        const endYear = maxYear || Math.max(currentYear + 100, instance.state.viewYear, selectedYear || 0);
+
+        return Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index);
+    };
+
+    const renderYearPicker = (instance) => {
+        const container = createElement('div', 'app-date-picker__calendar');
+        const header = createElement('div', 'app-date-picker__header');
+        const back = createElement('button', 'app-date-picker__nav');
+        const title = createElement('p', 'app-date-picker__title', 'Pilih tahun');
+        const spacer = createElement('span', 'app-date-picker__header-spacer');
+        const select = createElement('select', 'app-date-picker__year-select');
+
+        setButtonIcon(back, 'ri-arrow-left-s-line', 'Kembali ke kalender');
+        back.addEventListener('click', () => {
+            instance.state.viewMode = instance.state.yearPickerReturn || 'calendar';
+            instance.render();
+        });
+
+        yearOptions(instance).forEach((year) => {
+            const option = document.createElement('option');
+            option.value = String(year);
+            option.textContent = String(year);
+            option.selected = year === instance.state.viewYear;
+            select.appendChild(option);
+        });
+        select.setAttribute('aria-label', 'Pilih tahun');
+        select.addEventListener('change', () => {
+            instance.state.viewYear = Number(select.value);
+            instance.state.viewMode = instance.state.yearPickerReturn || 'calendar';
+            instance.render();
+        });
+
+        header.append(back, title, spacer);
+        container.append(header, select);
+        return container;
     };
 
     const renderCalendar = (instance) => {
@@ -547,6 +607,11 @@ const initializeDateInputs = () => {
                     instance.state.viewMonth = 0;
                     instance.state.viewYear += 1;
                 }
+                instance.render();
+            },
+            () => {
+                instance.state.yearPickerReturn = 'calendar';
+                instance.state.viewMode = 'year';
                 instance.render();
             },
         );
@@ -614,6 +679,11 @@ const initializeDateInputs = () => {
             },
             () => {
                 instance.state.viewYear += 1;
+                instance.render();
+            },
+            () => {
+                instance.state.yearPickerReturn = 'month';
+                instance.state.viewMode = 'year';
                 instance.render();
             },
         );
@@ -835,8 +905,14 @@ const initializeDateInputs = () => {
             },
             render() {
                 popover.replaceChildren();
+                popover.classList.toggle(
+                    'app-date-picker--year-picker',
+                    instance.state.viewMode === 'year',
+                );
 
-                if (input.type === 'month') {
+                if (instance.state.viewMode === 'year') {
+                    popover.appendChild(renderYearPicker(instance));
+                } else if (input.type === 'month') {
                     popover.appendChild(renderMonthPicker(instance));
                 } else {
                     if (input.type !== 'time') {

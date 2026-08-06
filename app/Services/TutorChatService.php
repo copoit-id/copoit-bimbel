@@ -95,7 +95,7 @@ class TutorChatService
             ])
             ->orderByDesc('last_message_at')
             ->orderByDesc('id')
-            ->paginate(30);
+            ->paginate(\App\Support\Pagination::perPage(30));
     }
 
     /**

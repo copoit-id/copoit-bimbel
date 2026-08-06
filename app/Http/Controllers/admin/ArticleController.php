@@ -28,7 +28,7 @@ class ArticleController extends Controller
                 $query->where('status', $status);
             })
             ->latest()
-            ->paginate(12)
+            ->paginate(\App\Support\Pagination::perPage(12))
             ->withQueryString();
 
         $counts = [

@@ -11,6 +11,7 @@ use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Services\AdminQuestionGeneratorQuotaService;
 use App\Services\AiQuestionGeneratorService;
+use App\Services\AiReferencePdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -68,7 +69,8 @@ class TryoutAiQuestionGeneratorController extends Controller
         Request $request,
         TryoutDetail $tryoutDetail,
         AiQuestionGeneratorService $aiGeneratorService,
-        AdminQuestionGeneratorQuotaService $quotaService
+        AdminQuestionGeneratorQuotaService $quotaService,
+        AiReferencePdfService $pdfReferenceService
     ): RedirectResponse {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
@@ -83,15 +85,9 @@ class TryoutAiQuestionGeneratorController extends Controller
             $validated = [
                 ...$validated,
                 'model' => $model,
-                ...$this->resolveReference($validated),
+                ...$this->resolveReference($validated, $pdfReferenceService),
             ];
             $preview = $aiGeneratorService->generate($validated);
-            $preview['quota'] = $quotaService->consume(
-                Auth::user(),
-                $preview['usage'] ?? ['input' => 0, 'output' => 0, 'total' => 0],
-                (string) $preview['provider'],
-                (string) $preview['model'],
-            );
             $preview['request'] = $validated;
 
             session()->put($this->previewSessionKey($tryoutDetail), $preview);
@@ -193,23 +189,35 @@ class TryoutAiQuestionGeneratorController extends Controller
             'explanation_style' => ['required', Rule::in(['singkat', 'normal', 'detail'])],
             'instruction' => ['nullable', 'string', 'max:1500'],
             'use_reference' => ['nullable', 'boolean'],
-            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout'])],
+            'reference_source' => ['nullable', Rule::in(['question_bank', 'tryout', 'pdf'])],
+            'reference_pdf' => [
+                Rule::requiredIf($request->boolean('use_reference') && $request->input('reference_source') === 'pdf'),
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
             'reference_bank_id' => ['nullable', 'integer'],
             'reference_tryout_id' => ['nullable', 'integer'],
             'reference_tryout_detail_id' => ['nullable', 'integer'],
             'reference_note' => ['nullable', 'string', 'max:1500'],
-        ], [], [
+        ], [
+            'reference_pdf.required' => 'Unggah file PDF setelah memilih sumber referensi PDF.',
+            'reference_pdf.mimes' => 'File referensi harus berformat PDF.',
+            'reference_pdf.max' => 'Ukuran PDF referensi maksimal 10 MB.',
+        ], [
             'subject' => 'mata pelajaran/kategori',
             'topic' => 'topik',
             'question_count' => 'jumlah soal',
             'option_count' => 'jumlah opsi',
             'explanation_style' => 'gaya pembahasan',
             'instruction' => 'instruksi tambahan',
+            'reference_pdf' => 'file PDF referensi',
         ]);
     }
 
     /** @param array<string, mixed> $input */
-    private function resolveReference(array $input): array
+    private function resolveReference(array $input, AiReferencePdfService $pdfReferenceService): array
     {
         if (! filter_var($input['use_reference'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             return ['reference_examples' => [], 'reference_label' => null, 'reference_note' => null];
@@ -220,6 +228,15 @@ class TryoutAiQuestionGeneratorController extends Controller
 
         if (! $source) {
             throw new \RuntimeException('Pilih sumber referensi gaya soal.');
+        }
+
+        if ($source === 'pdf') {
+            $file = $input['reference_pdf'] ?? null;
+            if (! $file instanceof \Illuminate\Http\UploadedFile) {
+                throw new \RuntimeException('Unggah file PDF untuk referensi gaya soal.');
+            }
+
+            return ['reference_examples' => $pdfReferenceService->examples($file), 'reference_label' => 'PDF: '.$file->getClientOriginalName(), 'reference_note' => $note];
         }
 
         if ($source === 'question_bank') {
@@ -296,13 +313,16 @@ class TryoutAiQuestionGeneratorController extends Controller
         return collect($questions)
             ->take(50)
             ->map(function ($question) use ($letters): array {
+                $correctOption = strtoupper(trim((string) ($question['correct_option'] ?? '')));
                 $options = collect($question['options'] ?? [])
                     ->values()
-                    ->map(function ($option, $index) use ($letters): array {
+                    ->map(function ($option, $index) use ($letters, $correctOption): array {
+                        $label = strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? '')));
+
                         return [
-                            'label' => strtoupper(trim((string) ($option['label'] ?? $letters[$index] ?? ''))),
+                            'label' => $label,
                             'text' => trim((string) ($option['text'] ?? '')),
-                            'score' => max(0, min(999, (float) ($option['score'] ?? 0))),
+                            'score' => max(0, min(999, (float) ($option['score'] ?? ($label === $correctOption ? 1 : 0)))),
                         ];
                     })
                     ->filter(fn (array $option): bool => $option['label'] !== '' && $option['text'] !== '')
@@ -314,7 +334,7 @@ class TryoutAiQuestionGeneratorController extends Controller
                     'question_text' => trim((string) ($question['question_text'] ?? '')),
                     'question_score' => max(0, min(999, (float) ($question['question_score'] ?? 1))),
                     'options' => $options,
-                    'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
+                    'correct_option' => $correctOption,
                     'explanation' => trim((string) ($question['explanation'] ?? '')),
                 ];
             })

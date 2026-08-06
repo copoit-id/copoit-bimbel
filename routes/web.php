@@ -233,11 +233,12 @@ Route::prefix('user')->middleware('auth')->group(function () {
     Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
     Route::get('/perkembangan-belajar', [UserStudentDevelopmentController::class, 'index'])
+        ->middleware('client-feature:learning-progress')
         ->name('user.development.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
         ->middleware('module:class')
         ->name('user.class-schedule.attend');
-    Route::prefix('booking-jadwal')->name('user.booking.')->group(function () {
+    Route::prefix('booking-jadwal')->name('user.booking.')->middleware('client-feature:schedule-booking')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
         Route::post('/kelompok', [UserStudyGroupBookingController::class, 'store'])
             ->middleware('throttle:10,1')
@@ -358,7 +359,7 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
     Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
-    Route::prefix('booking')->name('booking.')->group(function () {
+    Route::prefix('booking')->name('booking.')->middleware('client-feature:schedule-booking')->group(function () {
         Route::get('/', [TutorScheduleBookingController::class, 'index'])->name('index');
         Route::post('/{booking}/setujui', [TutorScheduleBookingController::class, 'approve'])
             ->middleware('throttle:20,1')
@@ -370,7 +371,7 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
             ->middleware('throttle:20,1')
             ->name('propose');
     });
-    Route::prefix('perkembangan')->name('development.')->group(function () {
+    Route::prefix('perkembangan')->name('development.')->middleware('client-feature:learning-progress')->group(function () {
         Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
         Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
             ->middleware('throttle:30,1')
@@ -516,16 +517,18 @@ Route::prefix('{portal}')
         Route::get('/paket/{package_id}/edit', [AdminPackageController::class, 'edit'])->name('package.edit');
         Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
         Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
-        Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
-            ->name('package-booking.edit');
-        Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
-            ->name('package-booking.update');
-        Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
-            ->name('package-booking.cohorts.index');
-        Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
-            ->name('package-booking.cohorts.payments.store');
-        Route::post('/paket-booking/rombel/{studyGroup}/setujui', [GroupBookingController::class, 'approve'])
-            ->name('package-booking.cohorts.approve');
+        Route::middleware('client-feature:schedule-booking')->group(function (): void {
+            Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
+                ->name('package-booking.edit');
+            Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
+                ->name('package-booking.update');
+            Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
+                ->name('package-booking.cohorts.index');
+            Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
+                ->name('package-booking.cohorts.payments.store');
+            Route::post('/paket-booking/rombel/{studyGroup}/setujui', [GroupBookingController::class, 'approve'])
+                ->name('package-booking.cohorts.approve');
+        });
         Route::resource('diskon', DiscountController::class)
             ->except(['show'])
             ->names('discounts')

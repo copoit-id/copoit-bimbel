@@ -9,13 +9,18 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800">
     @php
         $planModules = app(\App\Services\PlanModuleService::class);
         $canShowTutorProfile = $planModules->allows('profile');
-        $canShowBooking = $planModules->allows('booking')
+        $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
+            && $planModules->allows('booking')
             && \Illuminate\Support\Facades\Route::has('tutor.booking.index');
+        $canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
+            && $planModules->allows('booking')
+            && \Illuminate\Support\Facades\Route::has('tutor.development.index');
     @endphp
     <header class="border-b border-gray-200 bg-white">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
@@ -26,6 +31,8 @@
                 @endif
                 @if($canShowBooking)
                     <a href="{{ route('tutor.booking.index') }}" class="font-semibold {{ request()->routeIs('tutor.booking.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Booking</a>
+                @endif
+                @if($canShowLearningProgress)
                     <a href="{{ route('tutor.development.index') }}" class="font-semibold {{ request()->routeIs('tutor.development.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Perkembangan</a>
                 @endif
                 @if($clientBranding['tutor_chat_enabled'] ?? false)
@@ -50,5 +57,6 @@
     </main>
     @vite('resources/js/app.js')
     @stack('scripts')
+    <x-website-translator />
 </body>
 </html>

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ClientProfile;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -12,7 +13,48 @@ class AiQuestionGeneratorService
 {
     public function generate(array $input): array
     {
-        $model = $input['model'] ?? config('services.openai.question_model', 'gpt-5.4-mini');
+        $discussionUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $baseUrl = Str::beforeLast($discussionUrl, '/discussion');
+        $gatewayKey = trim((string) config('services.ai_gateway.key'));
+        $user = Auth::user();
+
+        if ($baseUrl === '' || $gatewayKey === '' || ! $user) {
+            throw new RuntimeException('Gateway AI Generator Soal belum dikonfigurasi.');
+        }
+
+        try {
+            $result = Http::acceptJson()
+                ->asJson()
+                ->timeout((int) config('services.ai_gateway.timeout', 120))
+                ->withHeaders(['X-AI-Gateway-Key' => $gatewayKey])
+                ->post($baseUrl.'/question-generator/generate', [
+                    ...$input,
+                    'external_user_id' => (string) $user->getAuthIdentifier(),
+                    'external_user_name' => (string) $user->name,
+                    'external_user_email' => (string) $user->email,
+                    'origin_base_url' => rtrim((string) config('app.url'), '/'),
+                ])
+                ->throw()
+                ->json() ?? [];
+
+            if (is_array($result['questions'] ?? null)) {
+                $result['questions'] = $this->normalizeQuestions($result['questions']);
+            }
+
+            return $result;
+        } catch (RequestException $exception) {
+            $message = $exception->response?->json('message')
+                ?: $exception->response?->body()
+                ?: $exception->getMessage();
+
+            throw new RuntimeException(Str::limit((string) $message, 300));
+        }
+    }
+
+    /** Generate only inside the trusted AI Gateway. */
+    public function generateDirect(array $input): array
+    {
+        $model = $input['model'] ?? $this->defaultModel();
         if (! array_key_exists($model, $this->availableModels())) {
             throw new RuntimeException('Model AI tidak aktif atau belum tersedia di pengaturan.');
         }
@@ -234,6 +276,9 @@ Aturan:
 - Pembahasan harus menjelaskan alasan jawaban benar.
 - Jangan memasukkan nomor soal di awal teks soal.
 - Jangan gunakan markdown table.
+- Jika memakai rumus, gunakan LaTeX yang kompatibel dengan KaTeX. Gunakan hanya sintaks standar yang didukung seperti pecahan, akar, pangkat/indeks, relasi, himpunan, fungsi trigonometri/logaritma, matriks, dan simbol Yunani.
+- Simpan setiap rumus sebagai HTML persis: <span class="math-tex">\\( rumus_latex \\)</span>. Untuk rumus panjang, tetap gunakan pembungkus yang sama dan awali isi rumus dengan \\displaystyle.
+- Jangan gunakan delimiter $, $$, markdown math, atau perintah LaTeX yang tidak aman/tidak didukung seperti \\require, \\newcommand, \\def, \\gdef, \\htmlId, \\htmlClass, \\htmlStyle, atau \\includegraphics.
 PROMPT;
 
         if ($extraInstruction !== '') {
@@ -352,7 +397,7 @@ PROMPT;
                     ->map(function ($option, $index) use ($letters) {
                         return [
                             'label' => strtoupper((string) ($option['label'] ?? $letters[$index] ?? '')),
-                            'text' => trim((string) ($option['text'] ?? '')),
+                            'text' => $this->normalizeMathMarkup((string) ($option['text'] ?? '')),
                         ];
                     })
                     ->filter(fn ($option) => $option['label'] !== '' && $option['text'] !== '')
@@ -360,10 +405,10 @@ PROMPT;
                     ->all();
 
                 return [
-                    'question_text' => trim((string) ($question['question_text'] ?? '')),
+                    'question_text' => $this->normalizeMathMarkup((string) ($question['question_text'] ?? '')),
                     'options' => $options,
                     'correct_option' => strtoupper(trim((string) ($question['correct_option'] ?? ''))),
-                    'explanation' => trim((string) ($question['explanation'] ?? '')),
+                    'explanation' => $this->normalizeMathMarkup((string) ($question['explanation'] ?? '')),
                 ];
             })
             ->filter(function ($question) {
@@ -373,6 +418,26 @@ PROMPT;
             })
             ->values()
             ->all();
+    }
+
+    private function normalizeMathMarkup(string $content): string
+    {
+        $content = trim($content);
+        if ($content === '' || str_contains($content, 'math-tex')) {
+            return $content;
+        }
+
+        $content = preg_replace_callback(
+            '#\\\\\\((.+?)\\\\\\)#s',
+            fn (array $matches): string => '<span class="math-tex">\\('.trim($matches[1]).'\\)</span>',
+            $content,
+        ) ?? $content;
+
+        return preg_replace_callback(
+            '#\\\\\\[(.+?)\\\\\\]#s',
+            fn (array $matches): string => '<span class="math-tex">\\(\\displaystyle '.trim($matches[1]).'\\)</span>',
+            $content,
+        ) ?? $content;
     }
 
     /** @param array<string, mixed> $usage */
@@ -391,17 +456,30 @@ PROMPT;
 
     private function settings(): array
     {
-        $settings = config('client.branding.ai_question_generator_settings');
+        $profile = ClientProfile::query()->first();
+        $sharedSettings = config('client.branding.ai_question_generator_settings');
+        $sharedSettings = is_array($sharedSettings) && ! empty($sharedSettings)
+            ? $sharedSettings
+            : (is_array($profile?->ai_question_generator_settings) ? $profile->ai_question_generator_settings : []);
+        $discussionSettings = config('client.branding.ai_discussion_settings');
+        $discussionSettings = is_array($discussionSettings) && ! empty($discussionSettings)
+            ? $discussionSettings
+            : (is_array($profile?->ai_discussion_settings) ? $profile->ai_discussion_settings : []);
 
-        if (is_array($settings) && ! empty($settings)) {
-            return $settings;
+        if (! empty($discussionSettings)) {
+            $usesCustomCredentials = ($discussionSettings['credential_mode'] ?? 'shared') === 'custom';
+
+            return [
+                ...$sharedSettings,
+                'default_model' => $discussionSettings['model'] ?? ($sharedSettings['default_model'] ?? null),
+                'models' => $discussionSettings['models'] ?? ($sharedSettings['models'] ?? []),
+                'providers' => $usesCustomCredentials
+                    ? ($discussionSettings['providers'] ?? [])
+                    : ($sharedSettings['providers'] ?? []),
+            ];
         }
 
-        $profile = ClientProfile::query()->first();
-
-        return is_array($profile?->ai_question_generator_settings)
-            ? $profile->ai_question_generator_settings
-            : [];
+        return $sharedSettings;
     }
 
     private function providerSettings(string $provider): array

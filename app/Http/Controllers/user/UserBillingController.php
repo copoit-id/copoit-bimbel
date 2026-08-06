@@ -15,7 +15,7 @@ class UserBillingController extends Controller
             ->withSum('payments as paid_amount', 'amount')
             ->orderByRaw("FIELD(status, 'overdue', 'unpaid', 'partial', 'paid', 'cancelled')")
             ->orderBy('due_date')
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
 
         return view('user.pages.billing.index', compact('invoices'));
     }

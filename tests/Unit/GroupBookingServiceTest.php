@@ -86,6 +86,18 @@ class GroupBookingServiceTest extends TestCase
         ]);
     }
 
+    public function test_active_package_scope_uses_the_status_column(): void
+    {
+        $activePackage = $this->package('Paket Aktif', 100000);
+        $inactivePackage = $this->package('Paket Nonaktif', 100000);
+        $inactivePackage->update(['status' => 'inactive']);
+
+        $this->assertSame(
+            [$activePackage->package_id],
+            Package::query()->active()->pluck('package_id')->all()
+        );
+    }
+
     public function test_join_is_rejected_after_target_capacity_is_reached(): void
     {
         $organizer = $this->user('organizer');
@@ -110,7 +122,7 @@ class GroupBookingServiceTest extends TestCase
         $package = Package::query()->create([
             'name' => $name,
             'price' => $price,
-            'is_active' => true,
+            'status' => 'active',
             'is_displayed' => true,
             'access_duration_unit' => 'month',
             'access_duration_value' => 1,
@@ -163,7 +175,7 @@ class GroupBookingServiceTest extends TestCase
             $table->id('package_id');
             $table->string('name');
             $table->unsignedBigInteger('price')->default(0);
-            $table->boolean('is_active')->default(true);
+            $table->string('status')->default('active');
             $table->boolean('is_displayed')->default(true);
             $table->string('access_duration_unit')->default('forever');
             $table->unsignedInteger('access_duration_value')->nullable();

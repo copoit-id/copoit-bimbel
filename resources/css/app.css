@@ -398,6 +398,10 @@ body {
     display: none;
 }
 
+.app-date-picker--year-picker {
+    overflow: visible;
+}
+
 .app-date-picker__header {
     display: grid;
     grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
@@ -415,6 +419,50 @@ body {
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.app-date-picker__title-button {
+    display: inline-flex;
+    width: 100%;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    padding: 0 0.5rem;
+    cursor: pointer;
+}
+
+.app-date-picker__title-button:hover,
+.app-date-picker__title-button:focus-visible {
+    background: color-mix(in srgb, var(--client-color-primary, #1C3259) 9%, white);
+    color: var(--client-color-primary, #1C3259);
+    outline: none;
+}
+
+.app-date-picker__header-spacer {
+    width: 2.25rem;
+    height: 2.25rem;
+}
+
+.app-date-picker__year-select {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 0.65rem 0.75rem;
+    color: #111827;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.app-date-picker__year-select:focus-visible {
+    border-color: var(--client-color-primary, #1C3259);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--client-color-primary, #1C3259) 20%, transparent);
 }
 
 .app-date-picker__nav {

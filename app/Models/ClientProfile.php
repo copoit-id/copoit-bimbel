@@ -12,6 +12,7 @@ class ClientProfile extends Model
         'nama_bimbel',
         'faq_label',
         'live_session_label',
+        'live_session_enabled',
         'logo',
         'favicon',
         'warna_primary',
@@ -69,11 +70,16 @@ class ClientProfile extends Model
         'class_schedule_menu_enabled',
         'recurring_bill_menu_enabled',
         'tutor_chat_enabled',
+        'booking_schedule_enabled',
+        'learning_progress_enabled',
         'participant_destination_api_enabled',
+        'website_translation_enabled',
+        'website_translation_locales',
     ];
 
     protected $casts = [
         'enable_certificate_management' => 'boolean',
+        'live_session_enabled' => 'boolean',
         'header_primary_color' => 'boolean',
         'sidebar_primary_color' => 'boolean',
         'enable_utbk_types' => 'boolean',
@@ -100,6 +106,10 @@ class ClientProfile extends Model
         'class_schedule_menu_enabled' => 'boolean',
         'recurring_bill_menu_enabled' => 'boolean',
         'tutor_chat_enabled' => 'boolean',
+        'booking_schedule_enabled' => 'boolean',
+        'learning_progress_enabled' => 'boolean',
         'participant_destination_api_enabled' => 'boolean',
+        'website_translation_enabled' => 'boolean',
+        'website_translation_locales' => 'array',
     ];
 }

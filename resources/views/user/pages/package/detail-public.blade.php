@@ -80,7 +80,22 @@ $classCount = $package->classes->count();
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div class="flex-1">
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">{{ $package->name }}</h2>
-                <div class="text-gray-600 mb-4 package-description">{!! $package->description ?? 'Paket pembelajaran lengkap untuk meningkatkan skill dan persiapan ujianmu.' !!}</div>
+                @php
+                    $packageDescription = $package->description ?? 'Paket pembelajaran lengkap untuk meningkatkan skill dan persiapan ujianmu.';
+                    $packageDescriptionNeedsToggle = mb_strlen($packageDescription) > 240
+                        || substr_count(str_replace("\r\n", "\n", $packageDescription), "\n") > 4;
+                @endphp
+                @if($packageDescriptionNeedsToggle)
+                <div x-data="{ expanded: false }" class="mb-4">
+                    <p class="whitespace-pre-line text-gray-600" :style="expanded ? null : 'display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden;'">{{ $packageDescription }}</p>
+                    <button type="button" @click="expanded = !expanded" class="mt-2 inline-flex items-center gap-1 text-sm font-semibold hover:opacity-75" style="color: {{ $primaryColor }}" :aria-expanded="expanded.toString()">
+                        <span x-text="expanded ? 'Sembunyikan' : 'Lihat lengkap'"></span>
+                        <i class="ri-arrow-down-s-line text-base transition-transform" :class="{ 'rotate-180': expanded }"></i>
+                    </button>
+                </div>
+                @else
+                <div class="text-gray-600 mb-4 whitespace-pre-line">{{ $packageDescription }}</div>
+                @endif
                 
                 <!-- Stats -->
                 <div class="flex flex-wrap gap-4">
@@ -100,7 +115,7 @@ $classCount = $package->classes->count();
                         <span>{{ $totalDocuments }} Dokumen</span>
                     </div>
                     @endif
-                    @if($totalLiveSessions > 0)
+                    @if($liveSessionAvailable && $totalLiveSessions > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>

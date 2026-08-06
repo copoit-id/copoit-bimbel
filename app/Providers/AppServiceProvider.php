@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\ClassSchedule;
 use App\Models\ClientProfile;
+use App\Models\Material;
 use App\Models\Role;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
             'name' => 'Copoit Academy',
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
             'primary_color' => '#1C3259',
@@ -111,7 +113,11 @@ class AppServiceProvider extends ServiceProvider
             'class_schedule_menu_enabled' => false,
             'recurring_bill_menu_enabled' => false,
             'tutor_chat_enabled' => false,
+            'booking_schedule_enabled' => false,
+            'learning_progress_enabled' => false,
             'participant_destination_api_enabled' => false,
+            'website_translation_enabled' => false,
+            'website_translation_locales' => ['en', 'zh-CN', 'ja', 'ar', 'ko'],
         ];
 
         $clientProfile = Schema::hasTable('client_profile')
@@ -122,6 +128,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['name'] = $clientProfile->nama_bimbel ?: $defaults['name'];
             $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
             $defaults['live_session_label'] = $clientProfile->live_session_label ?: $defaults['live_session_label'];
+            $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
@@ -177,7 +184,13 @@ class AppServiceProvider extends ServiceProvider
             $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
+            $defaults['booking_schedule_enabled'] = (bool) ($clientProfile->booking_schedule_enabled ?? $defaults['booking_schedule_enabled']);
+            $defaults['learning_progress_enabled'] = (bool) ($clientProfile->learning_progress_enabled ?? $defaults['learning_progress_enabled']);
             $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
+            $defaults['website_translation_enabled'] = (bool) ($clientProfile->website_translation_enabled ?? $defaults['website_translation_enabled']);
+            $defaults['website_translation_locales'] = is_array($clientProfile->website_translation_locales)
+                ? $clientProfile->website_translation_locales
+                : $defaults['website_translation_locales'];
         } else {
             $defaults['favicon'] = $defaults['favicon'] ?: $defaults['logo'];
         }
@@ -221,11 +234,24 @@ class AppServiceProvider extends ServiceProvider
             'app.name' => $branding['name'],
         ]);
 
+        $liveSessionAvailable = ! $this->app->runningInConsole()
+            && request()->is('user/*')
+            && (bool) ($branding['live_session_enabled'] ?? true)
+            && Schema::hasTable('materials')
+            && Material::query()
+                ->active()
+                ->where('is_displayed', true)
+                ->byType('live_session')
+                ->exists();
+
+        config(['client.live_session_available' => $liveSessionAvailable]);
+
         $this->applyDynamicPaymentConfiguration($branding);
         $this->applyDynamicMailConfiguration($branding);
 
         view()->share('clientProfile', $clientProfile);
         view()->share('clientBranding', $branding);
+        view()->share('liveSessionAvailable', $liveSessionAvailable);
     }
 
     private function applyDynamicMailConfiguration(array $branding): void

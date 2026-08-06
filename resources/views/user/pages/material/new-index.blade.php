@@ -51,9 +51,11 @@ $paymentBankNote = $clientBranding['payment_bank_note'] ?? '';
     <a href="{{ route('user.material.documents') }}" class="px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 whitespace-nowrap">
         <i class="ri-file-text-line mr-1"></i>Dokumen
     </a>
+    @if($liveSessionAvailable)
     <a href="{{ route('user.material.live-sessions') }}" class="px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 whitespace-nowrap">
         <i class="ri-live-line mr-1"></i>Live
     </a>
+    @endif
 </div>
 
 <!-- Categories Filter -->
