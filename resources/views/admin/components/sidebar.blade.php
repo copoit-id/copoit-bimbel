@@ -44,9 +44,11 @@
     $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
         && $canFeatureView('schedule')
         && $adminRouteExists('admin.class-schedules.index');
+    $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
+        && $canFeatureView('booking');
     $canShowStudyGroupMenu = (
         (($clientBranding['class_schedule_menu_enabled'] ?? false) && $canFeatureView('class'))
-        || $canFeatureView('booking')
+        || $canShowBooking
     ) && $adminRouteExists('admin.study-groups.index');
     $canShowRecurringBillMenu = ($clientBranding['recurring_bill_menu_enabled'] ?? false)
         && $canFeatureView('recurring_bill')

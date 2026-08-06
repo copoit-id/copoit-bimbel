@@ -10,7 +10,7 @@
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Edit Kelas & Jadwal</h1>
-        <p class="text-sm text-gray-500">Perbarui pola kelas, peserta, dan izin request jadwal custom.</p>
+        <p class="text-sm text-gray-500">Perbarui pola kelas dan peserta sesuai kebutuhan.</p>
     </div>
 
     <form method="POST" action="{{ route('admin.class-schedules.update', $classSchedule) }}" class="rounded-lg border border-gray-200 bg-white p-6">
@@ -27,7 +27,7 @@
 
         <div class="grid gap-5 md:grid-cols-2" x-data="{
             scheduleType: @js(old('schedule_type', $classSchedule->schedule_type ?: 'recurring')),
-            allowCustom: {{ old('allow_custom_booking', $classSchedule->allow_custom_booking) ? 'true' : 'false' }}
+            allowCustom: {{ $bookingScheduleEnabled && old('allow_custom_booking', $classSchedule->allow_custom_booking) ? 'true' : 'false' }}
         }">
             <div class="md:col-span-2">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nama Jadwal</label>
@@ -119,6 +119,7 @@
                 <input type="time" name="end_time" value="{{ old('end_time', $classSchedule->end_time ? substr((string) $classSchedule->end_time, 0, 5) : '') }}" :required="allowCustom" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
+            @if($bookingScheduleEnabled)
             <div class="md:col-span-2 rounded-xl border border-gray-200 p-4">
                 <label class="flex cursor-pointer items-start gap-3">
                     <input type="hidden" name="allow_custom_booking" value="0">
@@ -137,6 +138,7 @@
                 </div>
                 <input type="hidden" name="booking_session_quota" value="1" :disabled="allowCustom">
             </div>
+            @endif
 
             @if($canUseClass)
                 <div class="md:col-span-2">

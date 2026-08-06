@@ -50,6 +50,38 @@
             </label>
         </div>
 
+        <div @class(['mb-6 grid gap-4 md:grid-cols-2', 'hidden' => $activeSettingsTab !== 'general'])>
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Booking Jadwal</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Tampilkan dan aktifkan booking jadwal untuk siswa, tutor, serta pengaturan booking di Admin. Default fitur ini mati.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="booking_schedule_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('booking_schedule_enabled', (bool) ($clientProfile?->booking_schedule_enabled ?? false)))>
+                    Tampilkan
+                </span>
+            </label>
+
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Perkembangan Belajar</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Tampilkan perkembangan belajar untuk siswa dan form pencatatan perkembangan oleh tutor. Default fitur ini mati.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="learning_progress_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('learning_progress_enabled', (bool) ($clientProfile?->learning_progress_enabled ?? false)))>
+                    Tampilkan
+                </span>
+            </label>
+        </div>
+
         <div @class(['mb-6', 'hidden' => $activeSettingsTab !== 'general'])>
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
