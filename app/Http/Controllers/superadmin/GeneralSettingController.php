@@ -43,7 +43,8 @@ class GeneralSettingController extends Controller
 
     public function update(Request $request)
     {
-        $profile = ClientProfile::query()->first();
+        $settingsTab = $this->activeSettingsTab($request->input('settings_tab'));
+        $profile = ClientProfile::query()->firstOrCreate();
         $openAiModels = $this->availableOpenAiDiscussionModels($profile);
         $geminiModels = $this->availableGeminiDiscussionModels($profile);
         $aiDiscussionModels = $this->aiDiscussionModels([...$openAiModels, ...$geminiModels]);
@@ -71,7 +72,9 @@ class GeneralSettingController extends Controller
             'ai_discussion_feature_enabled' => ['nullable', 'boolean'],
             'ai_discussion_admin_configurable' => ['nullable', 'boolean'],
             'ai_discussion_credential_mode' => ['nullable', 'in:custom'],
-            'ai_discussion_model' => ['required', Rule::in($selectableModels)],
+            'ai_discussion_model' => $settingsTab === 'ai'
+                ? ['required', Rule::in($selectableModels)]
+                : ['nullable', Rule::in($selectableModels)],
             'ai_discussion_openai_api_key' => ['nullable', 'string', 'max:1000'],
             'ai_discussion_openai_base_url' => ['nullable', 'url', 'max:255'],
             'ai_discussion_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
@@ -91,8 +94,8 @@ class GeneralSettingController extends Controller
             'ai_model_pricings.*.input_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'ai_model_pricings.*.output_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'ai_model_pricings.*.usd_to_idr' => ['nullable', 'numeric', 'min:1', 'max:1000000'],
-            'ai_gateway_payment_gateway' => ['required', 'in:xendit,midtrans,ipaymu,interactive_qris'],
-            'ai_gateway_payment_gateway_mode' => ['required', 'in:sandbox,production'],
+            'ai_gateway_payment_gateway' => [$settingsTab === 'payment' ? 'required' : 'nullable', 'in:xendit,midtrans,ipaymu,interactive_qris'],
+            'ai_gateway_payment_gateway_mode' => [$settingsTab === 'payment' ? 'required' : 'nullable', 'in:sandbox,production'],
             'ai_gateway_xendit_secret_key' => ['nullable', 'string', 'max:255'],
             'ai_gateway_xendit_webhook_token' => ['nullable', 'string', 'max:255'],
             'ai_gateway_midtrans_server_key' => ['nullable', 'string', 'max:255'],
@@ -115,26 +118,21 @@ class GeneralSettingController extends Controller
             'learning_progress_enabled' => ['nullable', 'boolean'],
         ]);
 
-        DB::transaction(function () use ($validated, $request, $profile): void {
-            foreach ($this->pageLabels() as $pageKey => $label) {
-                GeneralPage::query()->updateOrCreate(
-                    ['page_key' => $pageKey],
-                    [
-                        'template_key' => 'default',
-                        'is_active' => (bool) data_get($validated, "public_visibility.{$pageKey}", false),
-                    ]
-                );
-            }
+        DB::transaction(function () use ($validated, $request, $profile, $settingsTab): void {
+            if ($settingsTab === 'general') {
+                foreach ($this->pageLabels() as $pageKey => $label) {
+                    GeneralPage::query()->updateOrCreate(
+                        ['page_key' => $pageKey],
+                        [
+                            'template_key' => 'default',
+                            'is_active' => (bool) data_get($validated, "public_visibility.{$pageKey}", false),
+                        ]
+                    );
+                }
 
-            if ($profile) {
                 $profile->update([
                     'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
                     'live_session_enabled' => $request->boolean('live_session_enabled'),
-                    'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
-                    'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
-                    'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
-                    'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
-                    'ai_gateway_telegram_settings' => $this->aiGatewayTelegramSettings($request, $profile),
                     'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
                     'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
                     'tutor_chat_enabled' => $request->boolean('tutor_chat_enabled'),
@@ -143,7 +141,29 @@ class GeneralSettingController extends Controller
                 ]);
             }
 
-            $this->syncAiModelPricings($validated['ai_model_pricings'] ?? []);
+            if ($settingsTab === 'ai') {
+                $profile->update([
+                    'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
+                    'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
+                    'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
+                ]);
+            }
+
+            if ($settingsTab === 'payment') {
+                $profile->update([
+                    'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
+                ]);
+            }
+
+            if ($settingsTab === 'notification') {
+                $profile->update([
+                    'ai_gateway_telegram_settings' => $this->aiGatewayTelegramSettings($request, $profile),
+                ]);
+            }
+
+            if ($settingsTab === 'pricing') {
+                $this->syncAiModelPricings($validated['ai_model_pricings'] ?? []);
+            }
         });
         $this->aiGatewayCostService->forgetCachedPricing();
 

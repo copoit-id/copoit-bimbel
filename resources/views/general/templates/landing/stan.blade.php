@@ -95,6 +95,22 @@
             backdrop-filter: blur(16px);
         }
 
+        .stan-header:not(.is-scrolled):not(.is-open) a:not(.stan-btn),
+        .stan-header:not(.is-scrolled):not(.is-open) .stan-header-brand {
+            color: rgba(255, 255, 255, .92) !important;
+        }
+
+        .stan-header:not(.is-scrolled):not(.is-open) .stan-header-subtitle {
+            color: rgba(220, 233, 255, .58) !important;
+        }
+
+        .stan-header:not(.is-scrolled):not(.is-open) .stan-header-dashboard,
+        .stan-header:not(.is-scrolled):not(.is-open) [data-stan-menu-toggle] {
+            border-color: rgba(255, 255, 255, .22) !important;
+            background: rgba(7, 25, 65, .42) !important;
+            color: #fff !important;
+        }
+
         .stan-scroll-progress {
             position: absolute;
             right: 0;
@@ -120,14 +136,15 @@
             overflow: hidden;
             padding: 9.5rem 0 6rem;
             background:
-                radial-gradient(circle at 8% 15%, color-mix(in srgb, var(--stan-primary) 14%, transparent), transparent 30%),
-                radial-gradient(circle at 92% 8%, rgba(213, 168, 63, .15), transparent 25%),
-                linear-gradient(135deg, #fff 0%, #faf9f6 50%, #f2f5f9 100%);
+                radial-gradient(ellipse 60% 78% at 76% 58%, rgba(10, 80, 198, .88) 0%, rgba(4, 37, 108, .42) 46%, transparent 74%),
+                radial-gradient(circle at 35% 35%, rgba(36, 109, 255, .2), transparent 29%),
+                linear-gradient(122deg, #02091f 0%, #061b4c 51%, #020a25 100%);
+            color: #fff;
         }
 
         .stan-hero-orb {
             position: absolute;
-            border: 1px solid rgba(213, 168, 63, .2);
+            border: 1px solid rgba(97, 175, 255, .25);
             border-radius: 999px;
             pointer-events: none;
         }
@@ -138,8 +155,9 @@
             width: 28rem;
             height: 28rem;
             box-shadow:
-                0 0 0 4rem rgba(213, 168, 63, .025),
-                0 0 0 8rem rgba(16, 35, 63, .018);
+                0 0 0 4rem rgba(54, 133, 255, .04),
+                0 0 0 8rem rgba(54, 133, 255, .025),
+                0 0 90px rgba(40, 125, 255, .32);
         }
 
         .stan-hero-orb-two {
@@ -155,11 +173,28 @@
             position: absolute;
             inset: 0;
             background-image:
-                linear-gradient(rgba(16, 35, 63, .045) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(16, 35, 63, .045) 1px, transparent 1px);
-            background-size: 40px 40px;
-            mask-image: linear-gradient(to bottom, #000, transparent 88%);
+                linear-gradient(133deg, transparent 0 52%, rgba(99, 176, 255, .08) 52.06%, transparent 52.14% 100%),
+                repeating-linear-gradient(133deg, transparent 0 112px, rgba(100, 163, 255, .045) 113px, transparent 114px 235px),
+                linear-gradient(45deg, transparent 0 72%, rgba(100, 163, 255, .05) 72.08%, transparent 72.16% 100%);
             content: "";
+            opacity: .9;
+            pointer-events: none;
+        }
+
+        .stan-hero::after {
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 7% 18%, rgba(255, 255, 255, .9) 0 1px, transparent 1.8px),
+                radial-gradient(circle at 18% 76%, rgba(102, 185, 255, .9) 0 1px, transparent 2px),
+                radial-gradient(circle at 33% 23%, rgba(255, 255, 255, .65) 0 1px, transparent 1.8px),
+                radial-gradient(circle at 47% 72%, rgba(105, 198, 255, .75) 0 1.2px, transparent 2.2px),
+                radial-gradient(circle at 59% 15%, rgba(255, 255, 255, .7) 0 1px, transparent 1.8px),
+                radial-gradient(circle at 70% 84%, rgba(105, 198, 255, .9) 0 1px, transparent 2px),
+                radial-gradient(circle at 88% 32%, rgba(255, 255, 255, .85) 0 1.1px, transparent 2px),
+                radial-gradient(circle at 94% 66%, rgba(115, 197, 255, .95) 0 1px, transparent 2px);
+            content: "";
+            opacity: .8;
             pointer-events: none;
         }
 
@@ -169,17 +204,18 @@
             grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
             align-items: center;
             gap: clamp(2.5rem, 6vw, 5rem);
+            z-index: 1;
         }
 
         .stan-eyebrow {
             display: inline-flex;
             align-items: center;
             gap: .55rem;
-            border: 1px solid color-mix(in srgb, var(--stan-primary) 20%, transparent);
+            border: 1px solid rgba(255, 255, 255, .24);
             border-radius: 999px;
-            background: color-mix(in srgb, var(--stan-primary) 7%, white);
+            background: rgba(255, 255, 255, .1);
             padding: .5rem .8rem;
-            color: var(--stan-primary);
+            color: rgba(255, 255, 255, .92);
             font-size: .72rem;
             font-weight: 800;
             letter-spacing: .1em;
@@ -197,7 +233,7 @@
         .stan-hero-title {
             max-width: 670px;
             margin: 1.4rem 0 1.25rem;
-            color: var(--stan-navy);
+            color: #fff;
             font-size: clamp(2.7rem, 4.6vw, 4.2rem);
             font-weight: 800;
             letter-spacing: -.055em;
@@ -207,7 +243,7 @@
 
         .stan-highlight {
             position: relative;
-            color: var(--stan-primary);
+            color: #f7bd35;
         }
 
         .stan-highlight::after {
@@ -217,7 +253,7 @@
             left: 0;
             height: .16em;
             border-radius: 999px;
-            background: var(--stan-gold);
+            background: #f7bd35;
             content: "";
             opacity: .7;
             transform: rotate(-1.5deg);
@@ -226,10 +262,18 @@
 
         .stan-hero-copy {
             max-width: 610px;
-            color: var(--stan-muted);
+            color: rgba(223, 233, 255, .82);
             font-size: clamp(.98rem, 1.7vw, 1.12rem);
             font-weight: 500;
             line-height: 1.85;
+        }
+
+        .stan-hero-copy-wrap > .mt-9 {
+            border-color: rgba(255, 255, 255, .16) !important;
+        }
+
+        .stan-hero-copy-wrap > .mt-9 p {
+            color: rgba(220, 233, 255, .72) !important;
         }
 
         .stan-btn {
@@ -252,19 +296,19 @@
         }
 
         .stan-btn-primary {
-            background: var(--stan-primary);
-            box-shadow: 0 12px 28px color-mix(in srgb, var(--stan-primary) 24%, transparent);
-            color: #fff;
+            background: #f7bd35;
+            box-shadow: 0 14px 32px rgba(247, 189, 53, .24);
+            color: #071632;
         }
 
         .stan-btn-primary:hover {
-            background: var(--stan-navy);
+            background: #ffd05c;
         }
 
         .stan-btn-secondary {
-            border-color: #d8dee8;
-            background: rgba(255, 255, 255, .82);
-            color: var(--stan-navy);
+            border-color: rgba(255, 255, 255, .28);
+            background: rgba(8, 29, 76, .42);
+            color: #fff;
         }
 
         .stan-visual {
@@ -276,7 +320,7 @@
         .stan-visual::before {
             position: absolute;
             inset: -1.2rem 1.8rem 1.8rem -1.2rem;
-            border: 1px solid rgba(213, 168, 63, .32);
+            border: 1px solid rgba(110, 190, 255, .42);
             border-radius: 2.4rem;
             content: "";
             transform: rotate(-2.5deg);
@@ -287,10 +331,10 @@
             position: relative;
             overflow: hidden;
             aspect-ratio: 1.14;
-            border: 8px solid rgba(255, 255, 255, .85);
+            border: 8px solid rgba(255, 255, 255, .16);
             border-radius: 2rem;
             background: #e8edf3;
-            box-shadow: 0 28px 80px rgba(16, 35, 63, .17);
+            box-shadow: 0 32px 90px rgba(0, 4, 24, .48), 0 0 50px rgba(56, 135, 255, .14);
         }
 
         .stan-visual-frame img,
@@ -936,8 +980,8 @@
             <a href="{{ route('landing') }}" class="flex min-w-0 items-center gap-3" aria-label="{{ $clientBranding['name'] }} - Beranda">
                 <img src="{{ $clientBranding['logo_url'] }}" alt="" class="h-10 w-10 rounded-xl bg-white object-contain p-1 shadow-sm">
                 <div class="min-w-0">
-                    <p class="truncate text-[15px] font-extrabold leading-tight text-slate-900">{{ $clientBranding['name'] }}</p>
-                    <p class="mt-0.5 hidden text-[10px] font-bold uppercase tracking-[.16em] text-slate-500 sm:block">PKN STAN Preparation</p>
+                    <p class="stan-header-brand truncate text-[15px] font-extrabold leading-tight text-slate-900">{{ $clientBranding['name'] }}</p>
+                    <p class="stan-header-subtitle mt-0.5 hidden text-[10px] font-bold uppercase tracking-[.16em] text-slate-500 sm:block">PKN STAN Preparation</p>
                 </div>
             </a>
 
@@ -951,7 +995,7 @@
             </nav>
 
             <div class="hidden items-center gap-2 lg:flex">
-                <a href="{{ $dashboardHref }}" class="stan-btn min-h-[2.7rem] border-slate-200 bg-white px-4 text-slate-700">
+                <a href="{{ $dashboardHref }}" class="stan-btn stan-header-dashboard min-h-[2.7rem] border-slate-200 bg-white px-4 text-slate-700">
                     {{ $dashboardLabel }}
                 </a>
                 @guest
