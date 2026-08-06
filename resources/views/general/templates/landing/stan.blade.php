@@ -28,6 +28,14 @@
     $testimonials = $landingItems('testimonials.items');
     $partners = $landingItems('partners.items');
     $faqs = $landingItems('faq.items');
+    $marqueeItems = $landingItems('marquee.items');
+    $featureItems = $landingItems('features.items');
+    $dashboardBenefits = $landingItems('dashboard.benefits');
+    $dashboardStats = $landingItems('dashboard.stats');
+    $roadmapItems = $landingItems('roadmap.items');
+    $aiLearningChips = $landingItems('ai_learning.chips');
+    $aiLearningItems = $landingItems('ai_learning.items');
+    $aiWorkspaceOutputItems = $landingItems('ai_learning.workspace.output_items');
     $termsHref = $landingValue('footer.terms_href');
     $termsHref = $termsHref && $termsHref !== '#' ? $termsHref : route('public.terms.id');
     $privacyHref = $landingValue('footer.privacy_href');
@@ -1081,28 +1089,28 @@
                     <div class="stan-live-card" aria-label="Fitur kelas interaktif">
                         <span class="stan-live-pulse"><i class="ri-live-line"></i></span>
                         <div>
-                            <p class="text-[10px] font-extrabold uppercase tracking-[.1em] text-slate-900">Kelas interaktif</p>
-                            <p class="mt-0.5 text-[9px] font-semibold text-slate-400">Belajar & tanya langsung</p>
+                            <p class="text-[10px] font-extrabold uppercase tracking-[.1em] text-slate-900">{{ $landingValue('hero.live_card.title', 'Kelas interaktif') }}</p>
+                            <p class="mt-0.5 text-[9px] font-semibold text-slate-400">{{ $landingValue('hero.live_card.description', 'Belajar & tanya langsung') }}</p>
                         </div>
                     </div>
                     <div class="stan-score-card" aria-label="Contoh ringkasan progres belajar">
                         <div class="mb-3 flex items-center justify-between gap-2">
                             <div>
-                                <p class="text-[9px] font-extrabold uppercase tracking-[.13em] text-slate-400">Progress latihan</p>
-                                <p class="mt-1 text-sm font-extrabold text-slate-900">Makin konsisten</p>
+                                <p class="text-[9px] font-extrabold uppercase tracking-[.13em] text-slate-400">{{ $landingValue('hero.score_card.eyebrow', 'Progress latihan') }}</p>
+                                <p class="mt-1 text-sm font-extrabold text-slate-900">{{ $landingValue('hero.score_card.title', 'Makin konsisten') }}</p>
                             </div>
                             <span class="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
                                 <i class="ri-line-chart-line"></i>
                             </span>
                         </div>
                         <div class="space-y-2.5">
-                            @foreach([['TIU', 84], ['TWK', 72], ['TKP', 90]] as [$label, $score])
+                            @foreach($landingItems('hero.score_card.items') as $scoreItem)
                                 <div>
                                     <div class="mb-1 flex justify-between text-[9px] font-bold text-slate-500">
-                                        <span>{{ $label }}</span>
-                                        <span>{{ $score }}%</span>
+                                        <span>{{ data_get($scoreItem, 'label') }}</span>
+                                        <span>{{ data_get($scoreItem, 'score') }}%</span>
                                     </div>
-                                    <div class="stan-score-bar"><span style="width: {{ $score }}%"></span></div>
+                                    <div class="stan-score-bar"><span style="width: {{ data_get($scoreItem, 'score') }}%"></span></div>
                                 </div>
                             @endforeach
                         </div>
@@ -1115,15 +1123,8 @@
             <div class="stan-marquee-track">
                 @foreach([1, 2] as $marqueeGroup)
                     <div class="stan-marquee-group" @if($marqueeGroup === 2) aria-hidden="true" @endif>
-                        @foreach([
-                            ['ri-brain-line', 'Penalaran numerik'],
-                            ['ri-book-2-line', 'Wawasan kebangsaan'],
-                            ['ri-user-heart-line', 'Karakteristik pribadi'],
-                            ['ri-timer-flash-line', 'Simulasi CAT'],
-                            ['ri-bar-chart-grouped-line', 'Analisis nilai'],
-                            ['ri-discuss-line', 'Diskusi mentor'],
-                        ] as $marqueeItem)
-                            <span class="stan-marquee-item"><i class="{{ $marqueeItem[0] }}"></i>{{ $marqueeItem[1] }}</span>
+                        @foreach($marqueeItems as $marqueeItem)
+                            <span class="stan-marquee-item"><i class="{{ data_get($marqueeItem, 'icon', 'ri-checkbox-circle-line') }}"></i>{{ data_get($marqueeItem, 'label') }}</span>
                         @endforeach
                     </div>
                 @endforeach
@@ -1151,26 +1152,21 @@
         <section id="keunggulan" class="stan-section bg-white">
             <div class="stan-shell">
                 <div class="mx-auto max-w-3xl text-center stan-reveal">
-                    <span class="stan-kicker">Sistem Belajar</span>
-                    <h2 class="stan-heading">Bukan sekadar banyak soal.<br>Belajar harus punya arah.</h2>
+                    <span class="stan-kicker">{{ $landingValue('features.eyebrow', 'Sistem Belajar') }}</span>
+                    <h2 class="stan-heading">{!! $landingValue('features.title_html', data_get($landingDefaults, 'features.title_html')) !!}</h2>
                     <p class="mx-auto mt-5 max-w-2xl text-sm font-medium leading-7 text-slate-500 sm:text-base">
-                        Setiap aktivitas dirancang agar kamu tahu apa yang sudah kuat, apa yang harus diperbaiki, dan langkah berikutnya.
+                        {{ $landingValue('features.description', data_get($landingDefaults, 'features.description')) }}
                     </p>
                 </div>
 
                 <div class="stan-bento mt-12">
-                    @foreach([
-                        ['ri-computer-line', 'Tryout rasa ujian', 'Simulasi CAT dengan timer membantu kamu membangun fokus dan tempo pengerjaan.'],
-                        ['ri-pie-chart-2-line', 'Analisis progres', 'Baca hasil per materi dan gunakan datanya untuk menentukan prioritas belajar.'],
-                        ['ri-book-open-line', 'Pembahasan runtut', 'Pahami cara berpikir di balik jawaban, bukan sekadar menghafal opsi benar.'],
-                        ['ri-team-line', 'Support system', 'Tetap konsisten bersama mentor dan komunitas peserta seperjuangan.'],
-                    ] as $featureIndex => $feature)
+                    @foreach($featureItems as $featureIndex => $feature)
                         <article class="stan-card stan-feature-card stan-reveal">
                             <span class="stan-feature-number">0{{ $featureIndex + 1 }}</span>
-                            <span class="stan-icon-box"><i class="{{ $feature[0] }}"></i></span>
+                            <span class="stan-icon-box"><i class="{{ data_get($feature, 'icon', 'ri-checkbox-circle-line') }}"></i></span>
                             <div class="relative z-[1] mt-12 max-w-md">
-                                <h3 class="text-lg font-extrabold text-slate-900">{{ $feature[1] }}</h3>
-                                <p class="mt-3 text-sm font-medium leading-7 text-slate-500">{{ $feature[2] }}</p>
+                                <h3 class="text-lg font-extrabold text-slate-900">{{ data_get($feature, 'title') }}</h3>
+                                <p class="mt-3 text-sm font-medium leading-7 text-slate-500">{{ data_get($feature, 'description') }}</p>
                             </div>
                         </article>
                     @endforeach
@@ -1179,41 +1175,41 @@
                 <div class="mt-16 overflow-hidden rounded-[2rem] bg-[var(--stan-navy)] p-5 text-white shadow-2xl sm:p-8 lg:p-10 stan-reveal">
                     <div class="grid items-center gap-10 lg:grid-cols-[.8fr_1.2fr]">
                         <div>
-                            <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.14em] text-amber-300">Dashboard Belajar</span>
-                            <h3 class="mt-5 text-2xl font-extrabold leading-tight sm:text-3xl">Semua progresmu dalam satu tempat.</h3>
-                            <p class="mt-4 text-sm font-medium leading-7 text-slate-300">Akses paket, jadwal, materi, tryout, riwayat nilai, dan pembahasan tanpa alur yang membingungkan.</p>
+                            <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.14em] text-amber-300">{{ $landingValue('dashboard.badge', 'Dashboard Belajar') }}</span>
+                            <h3 class="mt-5 text-2xl font-extrabold leading-tight sm:text-3xl">{{ $landingValue('dashboard.title', data_get($landingDefaults, 'dashboard.title')) }}</h3>
+                            <p class="mt-4 text-sm font-medium leading-7 text-slate-300">{{ $landingValue('dashboard.description', data_get($landingDefaults, 'dashboard.description')) }}</p>
                             <ul class="mt-6 space-y-3 text-sm font-semibold text-slate-200">
-                                <li class="flex gap-3"><i class="ri-checkbox-circle-fill text-amber-400"></i> Riwayat latihan tersimpan rapi</li>
-                                <li class="flex gap-3"><i class="ri-checkbox-circle-fill text-amber-400"></i> Bisa diakses dari HP maupun laptop</li>
-                                <li class="flex gap-3"><i class="ri-checkbox-circle-fill text-amber-400"></i> Materi mengikuti fasilitas paket</li>
+                                @foreach($dashboardBenefits as $dashboardBenefit)
+                                    <li class="flex gap-3"><i class="ri-checkbox-circle-fill text-amber-400"></i> {{ $dashboardBenefit }}</li>
+                                @endforeach
                             </ul>
                         </div>
                         <div class="rounded-2xl border border-white/10 bg-white p-4 text-slate-900 shadow-2xl sm:p-5">
                             <div class="mb-5 flex items-center justify-between">
                                 <div>
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ringkasan belajar</p>
-                                    <p class="mt-1 text-base font-extrabold">Halo, Pejuang STAN!</p>
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $landingValue('dashboard.summary_label', 'Ringkasan belajar') }}</p>
+                                    <p class="mt-1 text-base font-extrabold">{{ $landingValue('dashboard.greeting', 'Halo, Pejuang STAN!') }}</p>
                                 </div>
                                 <span class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-primary"><i class="ri-user-smile-line"></i></span>
                             </div>
                             <div class="grid grid-cols-3 gap-2.5">
-                                @foreach([['ri-file-list-3-line', 'Tryout', '6 aktif'], ['ri-time-line', 'Belajar', '12 jam'], ['ri-award-line', 'Target', 'Terukur']] as $stat)
+                                @foreach($dashboardStats as $stat)
                                     <div class="rounded-xl bg-slate-50 p-3">
-                                        <i class="{{ $stat[0] }} text-lg text-primary"></i>
-                                        <p class="mt-3 text-[9px] font-bold uppercase tracking-wide text-slate-400">{{ $stat[1] }}</p>
-                                        <p class="mt-1 text-xs font-extrabold text-slate-800">{{ $stat[2] }}</p>
+                                        <i class="{{ data_get($stat, 'icon', 'ri-bar-chart-line') }} text-lg text-primary"></i>
+                                        <p class="mt-3 text-[9px] font-bold uppercase tracking-wide text-slate-400">{{ data_get($stat, 'label') }}</p>
+                                        <p class="mt-1 text-xs font-extrabold text-slate-800">{{ data_get($stat, 'value') }}</p>
                                     </div>
                                 @endforeach
                             </div>
                             <div class="mt-3 rounded-xl border border-slate-100 p-4">
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <p class="text-xs font-extrabold">Target pekan ini</p>
-                                        <p class="mt-1 text-[10px] text-slate-400">4 dari 5 latihan selesai</p>
+                                        <p class="text-xs font-extrabold">{{ $landingValue('dashboard.target_label', 'Target pekan ini') }}</p>
+                                        <p class="mt-1 text-[10px] text-slate-400">{{ $landingValue('dashboard.target_description', '4 dari 5 latihan selesai') }}</p>
                                     </div>
-                                    <span class="text-sm font-black text-primary">80%</span>
+                                    <span class="text-sm font-black text-primary">{{ $landingValue('dashboard.target_percentage', 80) }}%</span>
                                 </div>
-                                <div class="stan-score-bar mt-3 h-2"><span style="width: 80%"></span></div>
+                                <div class="stan-score-bar mt-3 h-2"><span style="width: {{ $landingValue('dashboard.target_percentage', 80) }}%"></span></div>
                             </div>
                         </div>
                     </div>
@@ -1225,25 +1221,20 @@
             <div class="stan-shell relative">
                 <div class="grid items-end gap-8 lg:grid-cols-[1fr_.75fr] stan-reveal">
                     <div class="max-w-3xl">
-                        <span class="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-amber-300">Roadmap Persiapan</span>
-                        <h2 class="mt-5 text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">Dari “mulai dari mana?”<br>jadi siap menghadapi ujian.</h2>
+                        <span class="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-amber-300">{{ $landingValue('roadmap.badge', 'Roadmap Persiapan') }}</span>
+                        <h2 class="mt-5 text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">{!! $landingValue('roadmap.title_html', data_get($landingDefaults, 'roadmap.title_html')) !!}</h2>
                     </div>
-                    <p class="text-sm font-medium leading-7 text-slate-300">Alur belajar dibuat sederhana supaya setiap pekan punya fokus, target, dan evaluasi yang jelas.</p>
+                    <p class="text-sm font-medium leading-7 text-slate-300">{{ $landingValue('roadmap.description', data_get($landingDefaults, 'roadmap.description')) }}</p>
                 </div>
 
                 <div class="stan-roadmap-grid mt-12">
                     <span class="stan-roadmap-line" aria-hidden="true"></span>
-                    @foreach([
-                        ['ri-focus-2-line', 'Ukur kemampuan', 'Mulai dari tryout diagnostik untuk membaca posisi awalmu.'],
-                        ['ri-route-line', 'Susun prioritas', 'Fokuskan latihan pada materi yang paling perlu dikuatkan.'],
-                        ['ri-repeat-2-line', 'Latihan konsisten', 'Jalankan drilling, kelas, dan pembahasan secara bertahap.'],
-                        ['ri-flag-2-line', 'Simulasi & evaluasi', 'Uji strategi, tempo, lalu perbaiki sebelum hari seleksi.'],
-                    ] as $stepIndex => $step)
+                    @foreach($roadmapItems as $stepIndex => $step)
                         <article class="stan-roadmap-step stan-reveal">
                             <span class="stan-roadmap-index">0{{ $stepIndex + 1 }}</span>
-                            <i class="{{ $step[0] }} mt-8 block text-2xl text-amber-300"></i>
-                            <h3 class="mt-4 text-base font-extrabold">{{ $step[1] }}</h3>
-                            <p class="mt-3 text-xs font-medium leading-6 text-slate-400">{{ $step[2] }}</p>
+                            <i class="{{ data_get($step, 'icon', 'ri-route-line') }} mt-8 block text-2xl text-amber-300"></i>
+                            <h3 class="mt-4 text-base font-extrabold">{{ data_get($step, 'title') }}</h3>
+                            <p class="mt-3 text-xs font-medium leading-6 text-slate-400">{{ data_get($step, 'description') }}</p>
                         </article>
                     @endforeach
                 </div>
@@ -1257,45 +1248,41 @@
                 <div class="mx-auto max-w-3xl text-center stan-reveal">
                     <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[.16em] text-amber-200">
                         <i class="ri-sparkling-2-line text-sm"></i>
-                        AI Learning Tools
+                        {{ $landingValue('ai_learning.badge', 'AI Learning Tools') }}
                     </span>
                     <h2 class="mt-5 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">
-                        Belajar lebih cerdas, bukan sekadar lebih lama.
+                        {{ $landingValue('ai_learning.title', data_get($landingDefaults, 'ai_learning.title')) }}
                     </h2>
                     <p class="mx-auto mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-300 sm:text-base">
-                        Ubah materi dan soal seleksi STAN menjadi catatan, flashcard, serta latihan yang membantu kamu memahami pola soal dengan lebih terarah.
+                        {{ $landingValue('ai_learning.description', data_get($landingDefaults, 'ai_learning.description')) }}
                     </p>
                     <div class="mt-6 flex flex-wrap justify-center gap-2 text-[10px] font-extrabold uppercase tracking-[.12em] text-slate-300">
-                        <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> Catatan cerdas</span>
-                        <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> Flashcard aktif</span>
-                        <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> Soal serupa</span>
+                        @foreach($aiLearningChips as $aiLearningChip)
+                            <span class="rounded-full border border-white/10 bg-white/[.06] px-3 py-2"><i class="ri-check-line mr-1 text-amber-300"></i> {{ $aiLearningChip }}</span>
+                        @endforeach
                     </div>
                 </div>
 
                 <div class="mt-12 grid items-center gap-10 lg:grid-cols-[.9fr_1.1fr] lg:gap-14">
                     <div class="space-y-4 stan-reveal">
-                        @foreach([
-                            ['ri-sticky-note-line', 'Ringkas konsep penting', 'Jadikan materi panjang sebagai catatan belajar yang runtut dan mudah diulang.'],
-                            ['ri-stack-line', 'Latih ingatan aktif', 'Buat flashcard dari rumus, istilah, atau pola soal yang perlu kamu kuasai.'],
-                            ['ri-file-add-line', 'Perbanyak latihan terarah', 'Dapatkan soal serupa untuk menguji pemahaman sebelum tryout berikutnya.'],
-                        ] as $aiFeature)
+                        @foreach($aiLearningItems as $aiFeature)
                             <article class="stan-ai-feature flex gap-4 rounded-3xl border border-white/10 bg-white/[.07] p-5 pl-6 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-amber-300/30 hover:bg-white/[.1]">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-400/15 text-xl text-amber-300">
-                                    <i class="{{ $aiFeature[0] }}"></i>
+                                    <i class="{{ data_get($aiFeature, 'icon', 'ri-sparkling-2-line') }}"></i>
                                 </span>
                                 <div>
-                                    <h3 class="font-extrabold text-white">{{ $aiFeature[1] }}</h3>
-                                    <p class="mt-1 text-xs font-medium leading-6 text-slate-300">{{ $aiFeature[2] }}</p>
+                                    <h3 class="font-extrabold text-white">{{ data_get($aiFeature, 'title') }}</h3>
+                                    <p class="mt-1 text-xs font-medium leading-6 text-slate-300">{{ data_get($aiFeature, 'description') }}</p>
                                 </div>
                             </article>
                         @endforeach
 
                         <div class="flex flex-col gap-3 pt-3 sm:flex-row">
-                            <a href="{{ route('user.ai-learning.index', ['tool' => 'note']) }}" class="stan-btn min-h-[3.25rem] bg-amber-400 px-6 text-[var(--stan-navy)] shadow-xl shadow-black/20 hover:bg-amber-300">
-                                Coba AI Learning <i class="ri-arrow-right-line"></i>
+                            <a href="{{ $landingValue('ai_learning.primary_cta.href', route('user.ai-learning.index', ['tool' => 'note'])) }}" class="stan-btn min-h-[3.25rem] bg-amber-400 px-6 text-[var(--stan-navy)] shadow-xl shadow-black/20 hover:bg-amber-300">
+                                {{ $landingValue('ai_learning.primary_cta.label', 'Coba AI Learning') }} <i class="ri-arrow-right-line"></i>
                             </a>
-                            <a href="{{ route('ai-learning-tools') }}" class="stan-btn min-h-[3.25rem] border-white/20 bg-white/10 px-6 text-white hover:bg-white/20">
-                                Lihat cara kerjanya <i class="ri-external-link-line"></i>
+                            <a href="{{ $landingValue('ai_learning.secondary_cta.href', route('ai-learning-tools')) }}" class="stan-btn min-h-[3.25rem] border-white/20 bg-white/10 px-6 text-white hover:bg-white/20">
+                                {{ $landingValue('ai_learning.secondary_cta.label', 'Lihat cara kerjanya') }} <i class="ri-external-link-line"></i>
                             </a>
                         </div>
                     </div>
@@ -1307,11 +1294,11 @@
                                     <div class="flex items-center gap-3">
                                         <span class="grid h-10 w-10 place-items-center rounded-xl bg-[var(--stan-primary)] text-xl text-white shadow-lg shadow-slate-300"><i class="ri-sparkling-2-line"></i></span>
                                         <div>
-                                            <p class="text-sm font-extrabold">AI Study Station</p>
-                                            <p class="text-[10px] font-medium text-slate-400">Ruang belajar personalmu</p>
+                                            <p class="text-sm font-extrabold">{{ $landingValue('ai_learning.workspace.title', 'AI Study Station') }}</p>
+                                            <p class="text-[10px] font-medium text-slate-400">{{ $landingValue('ai_learning.workspace.subtitle', 'Ruang belajar personalmu') }}</p>
                                         </div>
                                     </div>
-                                    <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">Siap belajar</span>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">{{ $landingValue('ai_learning.workspace.status', 'Siap belajar') }}</span>
                                 </div>
                                 <div class="mt-5 grid grid-cols-[auto_1fr] gap-3">
                                     <div class="flex flex-col items-center">
@@ -1321,23 +1308,23 @@
                                     </div>
                                     <div class="space-y-4">
                                         <div class="stan-ai-scan">
-                                            <p class="text-[10px] font-bold uppercase tracking-wide text-[var(--stan-primary)]">Masukkan materi atau soal</p>
-                                            <div class="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold leading-5 text-slate-600">"Jelaskan strategi menyelesaikan soal deret angka secara cepat dan sistematis."</div>
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-[var(--stan-primary)]">{{ $landingValue('ai_learning.workspace.input_label', 'Masukkan materi atau soal') }}</p>
+                                            <div class="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold leading-5 text-slate-600">{{ $landingValue('ai_learning.workspace.input_text', data_get($landingDefaults, 'ai_learning.workspace.input_text')) }}</div>
                                         </div>
                                         <div>
-                                            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Pilih hasil yang kamu butuhkan</p>
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">{{ $landingValue('ai_learning.workspace.output_label', 'Pilih hasil yang kamu butuhkan') }}</p>
                                             <div class="mt-2 flex flex-wrap gap-2">
-                                                <span class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-[10px] font-bold text-blue-700"><i class="ri-sticky-note-line mr-1"></i>Catatan</span>
-                                                <span class="rounded-lg bg-violet-50 px-2.5 py-1.5 text-[10px] font-bold text-violet-700"><i class="ri-stack-line mr-1"></i>Flashcard</span>
-                                                <span class="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[10px] font-bold text-amber-700"><i class="ri-file-add-line mr-1"></i>Soal</span>
+                                                @foreach($aiWorkspaceOutputItems as $outputIndex => $outputItem)
+                                                    <span @class(['rounded-lg px-2.5 py-1.5 text-[10px] font-bold', 'bg-blue-50 text-blue-700' => $outputIndex % 3 === 0, 'bg-violet-50 text-violet-700' => $outputIndex % 3 === 1, 'bg-amber-50 text-amber-700' => $outputIndex % 3 === 2])><i class="ri-checkbox-circle-line mr-1"></i>{{ $outputItem }}</span>
+                                                @endforeach
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="mt-5 flex items-center justify-between rounded-2xl bg-[var(--stan-primary)] p-4 text-white">
                                     <div>
-                                        <p class="text-[10px] font-bold uppercase tracking-wide text-amber-100">Hasilmu siap</p>
-                                        <p class="mt-1 text-sm font-extrabold">Belajar jadi lebih terstruktur</p>
+                                        <p class="text-[10px] font-bold uppercase tracking-wide text-amber-100">{{ $landingValue('ai_learning.workspace.result_label', 'Hasilmu siap') }}</p>
+                                        <p class="mt-1 text-sm font-extrabold">{{ $landingValue('ai_learning.workspace.result_text', 'Belajar jadi lebih terstruktur') }}</p>
                                     </div>
                                     <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-2xl text-amber-200"><i class="ri-arrow-right-up-line"></i></span>
                                 </div>
@@ -1565,14 +1552,14 @@
 
         <section class="bg-white py-8 sm:py-12">
             <div class="stan-cta stan-shell overflow-hidden rounded-[2rem] px-6 py-12 text-center text-white shadow-2xl sm:px-12 sm:py-16 stan-reveal">
-                <span class="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-amber-300">Mulai Hari Ini</span>
-                <h2 class="mx-auto mt-5 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">Target besar dimulai dari latihan pertama yang konsisten.</h2>
-                <p class="mx-auto mt-4 max-w-xl text-sm font-medium leading-7 text-white/75">Buat akun, pilih program, dan mulai ukur progres persiapan PKN STAN-mu.</p>
+                <span class="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-amber-300">{{ $landingValue('cta.badge', 'Mulai Hari Ini') }}</span>
+                <h2 class="mx-auto mt-5 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">{{ $landingValue('cta.title', data_get($landingDefaults, 'cta.title')) }}</h2>
+                <p class="mx-auto mt-4 max-w-xl text-sm font-medium leading-7 text-white/75">{{ $landingValue('cta.description', data_get($landingDefaults, 'cta.description')) }}</p>
                 <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                    <a href="{{ $landingValue('hero.primary_cta.href', route('register')) }}" class="stan-btn bg-white text-[var(--stan-primary)] shadow-xl">
-                        {{ $landingValue('hero.primary_cta.label', 'Mulai Persiapan') }} <i class="ri-arrow-right-line"></i>
+                    <a href="{{ $landingValue('cta.primary_cta.href', route('register')) }}" class="stan-btn bg-white text-[var(--stan-primary)] shadow-xl">
+                        {{ $landingValue('cta.primary_cta.label', 'Mulai Persiapan') }} <i class="ri-arrow-right-line"></i>
                     </a>
-                    <a href="#program" class="stan-btn border-white/20 bg-white/10 text-white">Lihat program</a>
+                    <a href="{{ $landingValue('cta.secondary_cta.href', '#program') }}" class="stan-btn border-white/20 bg-white/10 text-white">{{ $landingValue('cta.secondary_cta.label', 'Lihat program') }}</a>
                 </div>
             </div>
         </section>
@@ -1593,11 +1580,11 @@
             <div class="md:col-span-3 md:col-start-7">
                 <p class="text-xs font-extrabold uppercase tracking-[.13em] text-slate-300">{{ $landingValue('footer.navigation_title', 'Navigasi') }}</p>
                 <ul class="mt-5 space-y-3 text-xs font-semibold text-slate-400">
-                    <li><a href="#keunggulan" class="hover:text-white">Keunggulan</a></li>
-                    <li><a href="#roadmap" class="hover:text-white">Roadmap</a></li>
-                    <li><a href="#program" class="hover:text-white">Program</a></li>
-                    <li><a href="#testimoni" class="hover:text-white">Testimoni</a></li>
-                    <li><a href="#faq" class="hover:text-white">FAQ</a></li>
+                    <li><a href="#keunggulan" class="hover:text-white">{{ $landingValue('footer.nav_features_label', 'Keunggulan') }}</a></li>
+                    <li><a href="#roadmap" class="hover:text-white">{{ $landingValue('footer.nav_roadmap_label', 'Roadmap') }}</a></li>
+                    <li><a href="#program" class="hover:text-white">{{ $landingValue('footer.nav_program_label', 'Program') }}</a></li>
+                    <li><a href="#testimoni" class="hover:text-white">{{ $landingValue('footer.nav_testimonials_label', 'Testimoni') }}</a></li>
+                    <li><a href="#faq" class="hover:text-white">{{ $landingValue('footer.nav_faq_label', 'FAQ') }}</a></li>
                     <li><a href="{{ route('login') }}" class="hover:text-white">{{ $landingValue('footer.nav_login_label', 'Masuk Akun') }}</a></li>
                 </ul>
             </div>

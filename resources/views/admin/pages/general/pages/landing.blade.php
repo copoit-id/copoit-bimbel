@@ -75,6 +75,7 @@
                 <div class="flex gap-2 overflow-x-auto text-sm font-semibold">
                     @foreach([
                         'hero' => 'Hero',
+                        'content' => 'Konten Utama',
                         'program' => 'Program',
                         'community' => 'Komunitas',
                         'testimonials' => 'Testimoni',
@@ -129,6 +130,21 @@
                         <label class="mb-2 block text-sm font-medium text-gray-700">Social Proof HTML</label>
                         <textarea name="content[hero][social_proof_html]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('hero.social_proof_html') }}</textarea>
                     </div>
+                    <div class="grid gap-5 lg:grid-cols-2">
+                        <x-admin-input name="content[hero][live_card][title]" label="Judul Kartu Hero" :value="$value('hero.live_card.title')" />
+                        <x-admin-input name="content[hero][live_card][description]" label="Deskripsi Kartu Hero" :value="$value('hero.live_card.description')" />
+                        <x-admin-input name="content[hero][score_card][eyebrow]" label="Eyebrow Progres Hero" :value="$value('hero.score_card.eyebrow')" />
+                        <x-admin-input name="content[hero][score_card][title]" label="Judul Progres Hero" :value="$value('hero.score_card.title')" />
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-3">
+                        @for($index = 0; $index < 3; $index++)
+                            <div class="rounded-lg border border-gray-200 p-3">
+                                <p class="mb-3 text-sm font-semibold text-gray-800">Nilai progres {{ $index + 1 }}</p>
+                                <input name="content[hero][score_card][items][{{ $index }}][label]" value="{{ old("content.hero.score_card.items.$index.label", data_get($content, "hero.score_card.items.$index.label")) }}" placeholder="Label" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                <input type="number" min="0" max="100" name="content[hero][score_card][items][{{ $index }}][score]" value="{{ old("content.hero.score_card.items.$index.score", data_get($content, "hero.score_card.items.$index.score")) }}" placeholder="Nilai 0-100" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                            </div>
+                        @endfor
+                    </div>
                     <div>
                         <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -179,6 +195,137 @@
                                 </div>
                             </template>
                         </div>
+                    </div>
+                </section>
+
+                <section x-show="tab === 'content'" class="space-y-8">
+                    <div class="space-y-5 rounded-xl border border-gray-200 p-5">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Running Text & Keunggulan</h3>
+                            <p class="mt-1 text-xs text-gray-500">Ikon menggunakan nama Remix Icon, contoh: <code>ri-brain-line</code>.</p>
+                        </div>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <x-admin-input name="content[features][eyebrow]" label="Eyebrow Keunggulan" :value="$value('features.eyebrow')" />
+                            <x-admin-input name="content[features][title_html]" label="Judul Keunggulan (boleh HTML)" :value="$value('features.title_html')" />
+                        </div>
+                        <textarea name="content[features][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('features.description') }}</textarea>
+                        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            @for($index = 0; $index < 6; $index++)
+                                <div class="rounded-lg border border-gray-200 p-3">
+                                    <p class="mb-3 text-sm font-semibold text-gray-800">Running text {{ $index + 1 }}</p>
+                                    <input name="content[marquee][items][{{ $index }}][icon]" value="{{ old("content.marquee.items.$index.icon", data_get($content, "marquee.items.$index.icon")) }}" placeholder="Icon" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <input name="content[marquee][items][{{ $index }}][label]" value="{{ old("content.marquee.items.$index.label", data_get($content, "marquee.items.$index.label")) }}" placeholder="Label" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                </div>
+                            @endfor
+                        </div>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            @for($index = 0; $index < 4; $index++)
+                                <div class="rounded-lg border border-gray-200 p-4">
+                                    <p class="mb-3 text-sm font-semibold text-gray-800">Kartu keunggulan {{ $index + 1 }}</p>
+                                    <div class="space-y-2">
+                                        <input name="content[features][items][{{ $index }}][icon]" value="{{ old("content.features.items.$index.icon", data_get($content, "features.items.$index.icon")) }}" placeholder="Icon" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        <input name="content[features][items][{{ $index }}][title]" value="{{ old("content.features.items.$index.title", data_get($content, "features.items.$index.title")) }}" placeholder="Judul" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        <textarea name="content[features][items][{{ $index }}][description]" rows="3" placeholder="Deskripsi" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">{{ old("content.features.items.$index.description", data_get($content, "features.items.$index.description")) }}</textarea>
+                                    </div>
+                                </div>
+                            @endfor
+                        </div>
+                    </div>
+
+                    <div class="space-y-5 rounded-xl border border-gray-200 p-5">
+                        <h3 class="font-semibold text-gray-900">Preview Dashboard Belajar</h3>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <x-admin-input name="content[dashboard][badge]" label="Badge" :value="$value('dashboard.badge')" />
+                            <x-admin-input name="content[dashboard][title]" label="Judul" :value="$value('dashboard.title')" />
+                            <x-admin-input name="content[dashboard][summary_label]" label="Label Ringkasan" :value="$value('dashboard.summary_label')" />
+                            <x-admin-input name="content[dashboard][greeting]" label="Sapaan" :value="$value('dashboard.greeting')" />
+                        </div>
+                        <textarea name="content[dashboard][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm">{{ $value('dashboard.description') }}</textarea>
+                        <div class="grid gap-4 md:grid-cols-3">
+                            @for($index = 0; $index < 3; $index++)
+                                <div class="rounded-lg border border-gray-200 p-3">
+                                    <p class="mb-3 text-sm font-semibold text-gray-800">Poin & statistik {{ $index + 1 }}</p>
+                                    <input name="content[dashboard][benefits][{{ $index }}]" value="{{ old("content.dashboard.benefits.$index", data_get($content, "dashboard.benefits.$index")) }}" placeholder="Poin manfaat" class="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <input name="content[dashboard][stats][{{ $index }}][icon]" value="{{ old("content.dashboard.stats.$index.icon", data_get($content, "dashboard.stats.$index.icon")) }}" placeholder="Icon statistik" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <input name="content[dashboard][stats][{{ $index }}][label]" value="{{ old("content.dashboard.stats.$index.label", data_get($content, "dashboard.stats.$index.label")) }}" placeholder="Label statistik" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <input name="content[dashboard][stats][{{ $index }}][value]" value="{{ old("content.dashboard.stats.$index.value", data_get($content, "dashboard.stats.$index.value")) }}" placeholder="Nilai statistik" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                </div>
+                            @endfor
+                        </div>
+                        <div class="grid gap-5 lg:grid-cols-3">
+                            <x-admin-input name="content[dashboard][target_label]" label="Judul Target" :value="$value('dashboard.target_label')" />
+                            <x-admin-input name="content[dashboard][target_description]" label="Deskripsi Target" :value="$value('dashboard.target_description')" />
+                            <x-admin-input name="content[dashboard][target_percentage]" label="Persentase Target (0-100)" type="number" min="0" max="100" :value="$value('dashboard.target_percentage')" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-5 rounded-xl border border-gray-200 p-5">
+                        <h3 class="font-semibold text-gray-900">Roadmap Persiapan</h3>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <x-admin-input name="content[roadmap][badge]" label="Badge" :value="$value('roadmap.badge')" />
+                            <x-admin-input name="content[roadmap][title_html]" label="Judul (boleh HTML)" :value="$value('roadmap.title_html')" />
+                        </div>
+                        <textarea name="content[roadmap][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm">{{ $value('roadmap.description') }}</textarea>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            @for($index = 0; $index < 4; $index++)
+                                <div class="rounded-lg border border-gray-200 p-4">
+                                    <p class="mb-3 text-sm font-semibold text-gray-800">Langkah {{ $index + 1 }}</p>
+                                    <div class="space-y-2">
+                                        <input name="content[roadmap][items][{{ $index }}][icon]" value="{{ old("content.roadmap.items.$index.icon", data_get($content, "roadmap.items.$index.icon")) }}" placeholder="Icon" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        <input name="content[roadmap][items][{{ $index }}][title]" value="{{ old("content.roadmap.items.$index.title", data_get($content, "roadmap.items.$index.title")) }}" placeholder="Judul" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        <textarea name="content[roadmap][items][{{ $index }}][description]" rows="3" placeholder="Deskripsi" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">{{ old("content.roadmap.items.$index.description", data_get($content, "roadmap.items.$index.description")) }}</textarea>
+                                    </div>
+                                </div>
+                            @endfor
+                        </div>
+                    </div>
+
+                    <div class="space-y-5 rounded-xl border border-gray-200 p-5">
+                        <h3 class="font-semibold text-gray-900">AI Learning</h3>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <x-admin-input name="content[ai_learning][badge]" label="Badge" :value="$value('ai_learning.badge')" />
+                            <x-admin-input name="content[ai_learning][title]" label="Judul" :value="$value('ai_learning.title')" />
+                        </div>
+                        <textarea name="content[ai_learning][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm">{{ $value('ai_learning.description') }}</textarea>
+                        <div class="grid gap-4 md:grid-cols-3">
+                            @for($index = 0; $index < 3; $index++)
+                                <div class="rounded-lg border border-gray-200 p-3">
+                                    <input name="content[ai_learning][chips][{{ $index }}]" value="{{ old("content.ai_learning.chips.$index", data_get($content, "ai_learning.chips.$index")) }}" placeholder="Label chip" class="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <input name="content[ai_learning][items][{{ $index }}][icon]" value="{{ old("content.ai_learning.items.$index.icon", data_get($content, "ai_learning.items.$index.icon")) }}" placeholder="Icon" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <input name="content[ai_learning][items][{{ $index }}][title]" value="{{ old("content.ai_learning.items.$index.title", data_get($content, "ai_learning.items.$index.title")) }}" placeholder="Judul fitur" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <textarea name="content[ai_learning][items][{{ $index }}][description]" rows="3" placeholder="Deskripsi fitur" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">{{ old("content.ai_learning.items.$index.description", data_get($content, "ai_learning.items.$index.description")) }}</textarea>
+                                </div>
+                            @endfor
+                        </div>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <x-admin-input name="content[ai_learning][primary_cta][label]" label="CTA Utama" :value="$value('ai_learning.primary_cta.label')" />
+                            <x-admin-input name="content[ai_learning][primary_cta][href]" label="URL CTA Utama" :value="$value('ai_learning.primary_cta.href')" />
+                            <x-admin-input name="content[ai_learning][secondary_cta][label]" label="CTA Kedua" :value="$value('ai_learning.secondary_cta.label')" />
+                            <x-admin-input name="content[ai_learning][secondary_cta][href]" label="URL CTA Kedua" :value="$value('ai_learning.secondary_cta.href')" />
+                        </div>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            @foreach(['title' => 'Judul workspace', 'subtitle' => 'Subjudul workspace', 'status' => 'Status workspace', 'input_label' => 'Label input', 'input_text' => 'Contoh input', 'output_label' => 'Label output', 'result_label' => 'Label hasil', 'result_text' => 'Teks hasil'] as $key => $label)
+                                <x-admin-input name="content[ai_learning][workspace][{{ $key }}]" :label="$label" :value="$value('ai_learning.workspace.' . $key)" />
+                            @endforeach
+                        </div>
+                        <div class="grid gap-4 md:grid-cols-3">
+                            @for($index = 0; $index < 3; $index++)
+                                <x-admin-input name="content[ai_learning][workspace][output_items][{{ $index }}]" :label="'Output ' . ($index + 1)" :value="old('content.ai_learning.workspace.output_items.' . $index, data_get($content, 'ai_learning.workspace.output_items.' . $index))" />
+                            @endfor
+                        </div>
+                    </div>
+
+                    <div class="space-y-5 rounded-xl border border-gray-200 p-5">
+                        <h3 class="font-semibold text-gray-900">CTA Penutup</h3>
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            <x-admin-input name="content[cta][badge]" label="Badge" :value="$value('cta.badge')" />
+                            <x-admin-input name="content[cta][title]" label="Judul" :value="$value('cta.title')" />
+                            <x-admin-input name="content[cta][primary_cta][label]" label="CTA Utama" :value="$value('cta.primary_cta.label')" />
+                            <x-admin-input name="content[cta][primary_cta][href]" label="URL CTA Utama" :value="$value('cta.primary_cta.href')" />
+                            <x-admin-input name="content[cta][secondary_cta][label]" label="CTA Kedua" :value="$value('cta.secondary_cta.label')" />
+                            <x-admin-input name="content[cta][secondary_cta][href]" label="URL CTA Kedua" :value="$value('cta.secondary_cta.href')" />
+                        </div>
+                        <textarea name="content[cta][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm">{{ $value('cta.description') }}</textarea>
                     </div>
                 </section>
 
@@ -408,6 +555,11 @@
                         <x-admin-input name="content[footer][nav_statistics_snbt_label]" label="Label Statistik SNBT" :value="$value('footer.nav_statistics_snbt_label')" />
                         <x-admin-input name="content[footer][nav_articles_label]" label="Label Artikel" :value="$value('footer.nav_articles_label')" />
                         <x-admin-input name="content[footer][nav_login_label]" label="Label Login" :value="$value('footer.nav_login_label')" />
+                        <x-admin-input name="content[footer][nav_features_label]" label="Label Keunggulan" :value="$value('footer.nav_features_label')" />
+                        <x-admin-input name="content[footer][nav_roadmap_label]" label="Label Roadmap" :value="$value('footer.nav_roadmap_label')" />
+                        <x-admin-input name="content[footer][nav_program_label]" label="Label Program" :value="$value('footer.nav_program_label')" />
+                        <x-admin-input name="content[footer][nav_testimonials_label]" label="Label Testimoni" :value="$value('footer.nav_testimonials_label')" />
+                        <x-admin-input name="content[footer][nav_faq_label]" label="Label FAQ" :value="$value('footer.nav_faq_label')" />
                         <x-admin-input name="content[footer][contact_title]" label="Judul Kontak" :value="$value('footer.contact_title')" />
                         <x-admin-input name="content[footer][instagram_label]" label="Instagram Label" :value="$value('footer.instagram_label')" />
                         <x-admin-input name="content[footer][instagram_href]" label="Instagram URL" :value="$value('footer.instagram_href')" />

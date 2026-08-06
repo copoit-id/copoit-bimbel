@@ -118,7 +118,7 @@ class GeneralPageController extends Controller
     {
         $content['meta']['title'] = trim((string) data_get($content, 'meta.title', ''));
 
-        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'partners', 'faq', 'footer'] as $section) {
+        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'marquee', 'features', 'dashboard', 'roadmap', 'ai_learning', 'partners', 'faq', 'cta', 'footer'] as $section) {
             if (! isset($content[$section]) || ! is_array($content[$section])) {
                 $content[$section] = [];
             }
@@ -137,6 +137,16 @@ class GeneralPageController extends Controller
             data_get($content, 'hero.logo_stack', []),
             fn ($item) => is_array($item) && trim((string) ($item['src'] ?? '')) !== ''
         ));
+
+        $content['hero']['score_card']['items'] = array_values(array_filter(
+            data_get($content, 'hero.score_card.items', []),
+            fn ($item) => is_array($item) && trim((string) ($item['label'] ?? '')) !== ''
+        ));
+        $content['hero']['score_card']['items'] = array_map(function (array $item): array {
+            $item['score'] = min(100, max(0, (int) ($item['score'] ?? 0)));
+
+            return $item;
+        }, $content['hero']['score_card']['items']);
 
         $content['testimonials']['items'] = array_values(array_filter(
             data_get($content, 'testimonials.items', []),
@@ -157,6 +167,22 @@ class GeneralPageController extends Controller
             data_get($content, 'faq.items', []),
             fn ($item) => is_array($item) && (trim((string) ($item['question'] ?? '')) !== '' || trim((string) ($item['answer'] ?? '')) !== '')
         ));
+
+        foreach (['marquee.items', 'features.items', 'roadmap.items', 'ai_learning.items', 'dashboard.stats'] as $key) {
+            data_set($content, $key, array_values(array_filter(
+                data_get($content, $key, []),
+                fn ($item) => is_array($item) && collect($item)->contains(fn ($value) => trim((string) $value) !== '')
+            )));
+        }
+
+        foreach (['dashboard.benefits', 'ai_learning.chips', 'ai_learning.workspace.output_items'] as $key) {
+            data_set($content, $key, array_values(array_filter(
+                data_get($content, $key, []),
+                fn ($item) => trim((string) $item) !== ''
+            )));
+        }
+
+        $content['dashboard']['target_percentage'] = min(100, max(0, (int) data_get($content, 'dashboard.target_percentage', 0)));
 
         return $content;
     }
