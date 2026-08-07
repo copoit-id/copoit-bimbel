@@ -49,6 +49,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
+use App\Http\Controllers\parent\ParentPortalController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
@@ -135,6 +136,16 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 // Route untuk logout as (admin kembali ke akun admin)
 Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
+
+// Parent portal: read-only access to students explicitly linked by Admin.
+Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'no-cache'])->group(function (): void {
+    Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
+    Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');
+    Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
+    Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');
+    Route::get('/laporan-cetak', [ParentPortalController::class, 'report'])->name('report');
+});
 
 // Public user routes (no auth required)
 Route::prefix('user')->group(function () {

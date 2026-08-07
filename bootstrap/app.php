@@ -10,6 +10,7 @@ use App\Http\Middleware\EnsureClientFeatureEnabled;
 use App\Http\Middleware\EnsurePanelPortal;
 use App\Http\Middleware\EnsurePlanFeatureEnabled;
 use App\Http\Middleware\EnsureTutorContentOwnership;
+use App\Http\Middleware\ParentMiddleware;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPanelUrlDefaults;
 use App\Http\Middleware\SuperAdminMiddleware;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => AdminMiddleware::class,
             'admin.expiry' => AdminExpiryMiddleware::class,
             'tutor' => TutorMiddleware::class,
+            'parent' => ParentMiddleware::class,
             'super-admin' => SuperAdminMiddleware::class,
             'certificate.enabled' => EnsureCertificateManagementEnabled::class,
             'client-feature' => EnsureClientFeatureEnabled::class,

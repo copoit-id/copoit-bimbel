@@ -95,6 +95,24 @@
                             :value="old('status', $user->status ?? 'aktif')" required />
                     </div>
 
+                    @php($selectedChildIds = collect(old('child_ids', $user?->children?->pluck('id')->all() ?? []))->map(fn ($id) => (int) $id)->all())
+                    <section class="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Tautkan anak ke akun Orang Tua</h3>
+                            <p class="mt-1 text-sm text-gray-500">Diisi khusus jika role akun ini adalah Orang Tua. Akun tersebut hanya dapat melihat data siswa yang dipilih di bawah.</p>
+                        </div>
+                        <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            @forelse($childOptions ?? [] as $childOption)
+                                <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700">
+                                    <input type="checkbox" name="child_ids[]" value="{{ $childOption->id }}" @checked(in_array((int) $childOption->id, $selectedChildIds, true)) class="mt-0.5 rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span><span class="block font-semibold">{{ $childOption->name }}</span><span class="block text-xs text-gray-400">{{ $childOption->email }}</span></span>
+                                </label>
+                            @empty
+                                <p class="text-sm text-gray-500">Belum ada akun siswa yang dapat ditautkan.</p>
+                            @endforelse
+                        </div>
+                    </section>
+
                     <div>
                         @php
                             $selectedDestinationId = (int) old('participant_destination_category_id', $user->participant_destination_category_id ?? null);

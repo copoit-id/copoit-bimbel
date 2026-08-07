@@ -138,11 +138,13 @@ class UserController extends Controller
     {
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
+        $childOptions = $this->getStudentOptions();
 
         return view('admin.pages.user.create', [
             'user' => null,
             'roleOptions' => $roleOptions,
             'destinationCategories' => $destinationCategories,
+            'childOptions' => $childOptions,
         ]);
     }
 
@@ -162,6 +164,8 @@ class UserController extends Controller
             'password' => 'required|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+            'child_ids' => ['nullable', 'array'],
+            'child_ids.*' => ['integer', Rule::exists('users', 'id')->where('role', 'user')],
         ], [
             'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
             'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
@@ -198,6 +202,7 @@ class UserController extends Controller
             if ($role) {
                 $user->roles()->syncWithoutDetaching([$role->id]);
             }
+            $user->children()->sync($user->isParent() ? ($validated['child_ids'] ?? []) : []);
             $tutorProfileService->sync($user);
 
             return $user;
@@ -275,14 +280,16 @@ class UserController extends Controller
 
     public function edit($id)
     {
-        $user = User::findOrFail($id);
+        $user = User::with('children:id,name')->findOrFail($id);
         $roleOptions = $this->getRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
+        $childOptions = $this->getStudentOptions($user->id);
 
         return view('admin.pages.user.create', [
             'user' => $user,
             'roleOptions' => $roleOptions,
             'destinationCategories' => $destinationCategories,
+            'childOptions' => $childOptions,
         ]);
     }
 
@@ -303,6 +310,8 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
             'status' => 'required|in:aktif,nonaktif',
             'role' => ['required', Rule::in($roleSlugs)],
+            'child_ids' => ['nullable', 'array'],
+            'child_ids.*' => ['integer', Rule::exists('users', 'id')->where('role', 'user')],
         ], [
             'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
             'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
@@ -336,6 +345,7 @@ class UserController extends Controller
             if ($role) {
                 $user->roles()->sync([$role->id]);
             }
+            $user->children()->sync($user->isParent() ? ($validated['child_ids'] ?? []) : []);
             $tutorProfileService->sync($user);
 
             return $user;
@@ -634,6 +644,15 @@ class UserController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+    }
+
+    private function getStudentOptions(?int $excludedUserId = null)
+    {
+        return User::query()
+            ->where('role', 'user')
+            ->when($excludedUserId, fn ($query) => $query->whereKeyNot($excludedUserId))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
     }
 
     public function bulkDestroy(Request $request)
