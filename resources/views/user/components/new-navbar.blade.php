@@ -3,6 +3,7 @@ $user = auth()->user();
 $currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
+$bimbelNavLabel = $clientBranding['bimbel_nav_label'] ?? 'Bimbel';
 $planModules = app(\App\Services\PlanModuleService::class);
 $canShowDashboard = $planModules->allows('dashboard');
 $canShowProfile = $planModules->allows('profile');
@@ -165,7 +166,7 @@ function isActive($route, $current) {
                 
                 @if($canShowBimbel)
                 <div class="relative group">
-                    <a href="{{ $bimbelUrl }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>Bimbel<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
+                    <a href="{{ $bimbelUrl }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>{{ $bimbelNavLabel }}<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
                     <div class="dropdown-menu min-w-52">
                         @if($canShowMaterial)
                         <div class="dropdown-submenu"><a href="{{ route('user.material.index') }}" class="dropdown-item justify-between {{ isActive('user.material', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-book-open-line"></i>Materi</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.material.index') }}" class="dropdown-item">Semua Materi</a><a href="{{ route('user.material.videos') }}" class="dropdown-item">Video</a><a href="{{ route('user.material.documents') }}" class="dropdown-item">Dokumen</a>@if($liveSessionAvailable)<a href="{{ route('user.material.live-sessions') }}" class="dropdown-item">{{ $liveSessionLabel }}</a>@endif</div></div>
@@ -327,8 +328,8 @@ function isActive($route, $current) {
         x-transition:leave-end="translate-y-2 opacity-0"
         class="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
         <div class="flex items-center justify-between px-3 py-2">
-            <span class="text-sm font-semibold text-gray-800">Menu Bimbel</span>
-            <button type="button" @click="bimbelOpen = false" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100" aria-label="Tutup menu Bimbel">
+            <span class="text-sm font-semibold text-gray-800">Menu {{ $bimbelNavLabel }}</span>
+            <button type="button" @click="bimbelOpen = false" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100" aria-label="Tutup menu {{ $bimbelNavLabel }}">
                 <i class="ri-close-line text-lg"></i>
             </button>
         </div>
@@ -374,7 +375,7 @@ function isActive($route, $current) {
         @if($canShowBimbel)
         <button type="button" @click="bimbelOpen = !bimbelOpen" :aria-expanded="bimbelOpen.toString()" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-graduation-cap-line text-xl"></i>
-            <span class="text-xs mt-0.5">Bimbel</span>
+            <span class="text-xs mt-0.5">{{ $bimbelNavLabel }}</span>
         </button>
         @endif
         @if($user && $canShowAiLearning)

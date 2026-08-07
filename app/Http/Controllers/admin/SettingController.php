@@ -24,6 +24,7 @@ class SettingController extends Controller
             'name' => config('app.name'),
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'bimbel_nav_label' => 'Bimbel',
             'logo_url' => asset('img/logo/logo-copoit.png'),
             'favicon_url' => asset('img/logo/logo-copoit.png'),
             'primary_color' => '#1C3259',
@@ -97,6 +98,7 @@ class SettingController extends Controller
             'nama_bimbel' => ['required', 'string', 'max:255'],
             'faq_label' => ['required', 'string', 'max:80'],
             'live_session_label' => ['required', 'string', 'max:80'],
+            'bimbel_nav_label' => ['required', 'string', 'max:80'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             // SVG is executable XML in browsers. Do not place untrusted SVG
@@ -395,6 +397,7 @@ class SettingController extends Controller
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
         $validated['faq_label'] = trim((string) ($validated['faq_label'] ?? '')) ?: 'FAQ';
         $validated['live_session_label'] = trim((string) ($validated['live_session_label'] ?? '')) ?: 'Kelas Belajar';
+        $validated['bimbel_nav_label'] = trim((string) ($validated['bimbel_nav_label'] ?? '')) ?: 'Bimbel';
         $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
         $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
         $validated['concurrent_login_limit'] = max(1, (int) ($validated['concurrent_login_limit'] ?? 1));

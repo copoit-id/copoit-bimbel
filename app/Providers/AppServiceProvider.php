@@ -48,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
             'name' => 'Copoit Academy',
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'bimbel_nav_label' => 'Bimbel',
             'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
@@ -127,6 +128,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['name'] = $clientProfile->nama_bimbel ?: $defaults['name'];
             $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
             $defaults['live_session_label'] = $clientProfile->live_session_label ?: $defaults['live_session_label'];
+            $defaults['bimbel_nav_label'] = $clientProfile->bimbel_nav_label ?: $defaults['bimbel_nav_label'];
             $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
