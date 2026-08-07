@@ -192,9 +192,6 @@
             @if($canShowTutorChatMenu)
                 <li><a href="{{ route('tutor.chat.index') }}" class="flex items-center py-2 px-4 {{ $isTutorChatActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-chat-3-line text-[20px] {{ $isTutorChatActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Chat Siswa</span></a></li>
             @endif
-            @if($canShowTutorProfileMenu)
-                <li><a href="{{ route('tutor.profile.edit') }}" class="flex items-center py-2 px-4 {{ $isTutorProfileActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-user-settings-line text-[20px] {{ $isTutorProfileActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Profil Saya</span></a></li>
-            @endif
             @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">{{ $isTutorContentIsolated ? 'Bank Soal Saya' : 'Bank Soal' }}</span></a></li>@endif
             @if($canShowCategoryMenu)
                 <li><details id="menu-category" class="group" {{ $isCategoryActive ? 'open' : '' }}><summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isCategoryActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;"><span class="flex items-center"><i class="ri-folder-settings-line text-[20px] {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Kategori</span></span><i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i></summary><ul class="mt-1 ms-2 space-y-1">
@@ -237,6 +234,9 @@
             @if($clientBranding['certificate_management_enabled'] ?? true)@if($canFeatureView('certificate'))<li><a href="{{ route('admin.certificate.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.certificate.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-award-line text-[20px] {{ request()->routeIs('admin.certificate.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Manajemen Sertifikat</span></a></li>@endif @endif
             @if($canShowUpdateNotificationsMenu)<li><a href="{{ route('admin.update-notifications.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.update-notifications.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-notification-3-line text-[20px] {{ request()->routeIs('admin.update-notifications.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Notifikasi Update</span></a></li>@endif
             @if($canFeatureView('settings'))<li><a href="{{ route('admin.settings.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.settings.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-settings-3-line text-[20px] {{ request()->routeIs('admin.settings.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Pengaturan</span></a></li>@endif
+            @if($canShowTutorProfileMenu)
+                <li><a href="{{ route('tutor.profile.edit') }}" class="flex items-center py-2 px-4 {{ $isTutorProfileActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-user-settings-line text-[20px] {{ $isTutorProfileActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Profil Saya</span></a></li>
+            @endif
         </ul>
     </div>
 </aside>
