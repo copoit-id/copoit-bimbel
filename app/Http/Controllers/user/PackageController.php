@@ -4327,6 +4327,7 @@ class PackageController extends Controller
 
         $videoMaterials = $myMaterials->where('type', 'video')->values();
         $documentMaterials = $myMaterials->where('type', 'document')->values();
+        $liveSessionMaterials = $myMaterials->where('type', 'live_session')->values();
 
         $completedMaterialIds = UserMaterialAccess::where('user_id', $user->id)
             ->where('status', 'completed')
@@ -4383,6 +4384,7 @@ class PackageController extends Controller
             'myClasses',
             'videoMaterials',
             'documentMaterials',
+            'liveSessionMaterials',
             'myTryouts',
             'myTesKorans',
             'packageProgress',

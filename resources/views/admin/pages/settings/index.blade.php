@@ -24,7 +24,7 @@
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
-    } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label'])->isNotEmpty()) {
+    } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
     $activeSettingsTab = 'wording';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
@@ -69,6 +69,11 @@
     }
     }
 
+    $activeWordingTab = old('wording_tab', session('active_wording_tab', 'general'));
+    if ($errors->isNotEmpty() && collect($settingErrorKeys)->intersect(['bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
+    $activeWordingTab = 'navbar';
+    }
+
     $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
     @endphp
 
@@ -76,6 +81,7 @@
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
+        <input type="hidden" name="wording_tab" id="wording_tab" value="{{ $activeWordingTab }}">
 
         @if ($isDemoAdmin)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -194,18 +200,19 @@
                 <h2 class="text-xl font-semibold text-gray-900">Label Menu & Fitur</h2>
                 <p class="text-gray-500 text-sm">Sesuaikan istilah yang tampil kepada pengguna tanpa mengubah fungsi sistem.</p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Navbar Bimbel</label>
-                    <input type="text" name="bimbel_nav_label"
-                        value="{{ old('bimbel_nav_label', $profile->bimbel_nav_label ?? ($branding['bimbel_nav_label'] ?? 'Bimbel')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Belajar" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah label menu Bimbel pada navbar user, desktop, dan mobile.</p>
-                    @error('bimbel_nav_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
+
+            <div class="flex flex-wrap gap-2 border-b border-gray-100 pb-4">
+                <button type="button" data-wording-tab="general"
+                    class="wording-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeWordingTab === 'general' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Umum
+                </button>
+                <button type="button" data-wording-tab="navbar"
+                    class="wording-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeWordingTab === 'navbar' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Navbar
+                </button>
+            </div>
+
+            <div data-wording-panel="general" class="wording-tab-panel grid grid-cols-1 md:grid-cols-2 gap-6 {{ $activeWordingTab !== 'general' ? 'hidden' : '' }}">
                 <div>
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
                     <input type="text" name="live_session_label"
@@ -225,6 +232,53 @@
                         placeholder="Contoh: Informasi" required>
                     <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan.</p>
                     @error('faq_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
+            <div data-wording-panel="navbar" class="wording-tab-panel grid grid-cols-1 md:grid-cols-2 gap-6 {{ $activeWordingTab !== 'navbar' ? 'hidden' : '' }}">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Navbar Bimbel</label>
+                    <input type="text" name="bimbel_nav_label"
+                        value="{{ old('bimbel_nav_label', $profile->bimbel_nav_label ?? ($branding['bimbel_nav_label'] ?? 'Bimbel')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah label menu Bimbel pada navbar user, desktop, dan mobile.</p>
+                    @error('bimbel_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Materi</label>
+                    <input type="text" name="material_nav_label"
+                        value="{{ old('material_nav_label', $profile->material_nav_label ?? ($branding['material_nav_label'] ?? 'Kelas & Materi')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas & Materi" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu materi di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('material_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Paket</label>
+                    <input type="text" name="package_nav_label"
+                        value="{{ old('package_nav_label', $profile->package_nav_label ?? ($branding['package_nav_label'] ?? 'Paket Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Paket Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu paket di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('package_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Try Out</label>
+                    <input type="text" name="tryout_nav_label"
+                        value="{{ old('tryout_nav_label', $profile->tryout_nav_label ?? ($branding['tryout_nav_label'] ?? 'Ujian & Try Out')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Ujian & Try Out" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu try out di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('tryout_nav_label')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
@@ -1263,6 +1317,38 @@
         });
 
         setActiveTab(settingsTabInput?.value || 'identity');
+
+        const wordingTabInput = document.getElementById('wording_tab');
+        const wordingTabButtons = document.querySelectorAll('[data-wording-tab]');
+        const wordingPanels = document.querySelectorAll('[data-wording-panel]');
+
+        const setActiveWordingTab = (tab) => {
+            wordingTabButtons.forEach((button) => {
+                const isActive = button.getAttribute('data-wording-tab') === tab;
+                button.classList.toggle('bg-primary', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-100', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+                button.classList.toggle('hover:bg-gray-200', !isActive);
+            });
+
+            wordingPanels.forEach((panel) => {
+                const isActive = panel.getAttribute('data-wording-panel') === tab;
+                panel.classList.toggle('hidden', !isActive);
+            });
+
+            if (wordingTabInput) {
+                wordingTabInput.value = tab;
+            }
+        };
+
+        wordingTabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                setActiveWordingTab(button.getAttribute('data-wording-tab'));
+            });
+        });
+
+        setActiveWordingTab(wordingTabInput?.value || 'general');
 
         document.querySelectorAll('input[data-preview-target]').forEach(input => {
             input.addEventListener('change', (event) => {
