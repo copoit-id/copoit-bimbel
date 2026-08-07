@@ -344,7 +344,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 });
 
 // Keep the former short URL working for existing bookmarks.
-Route::redirect('/tutor', '/tutor/jadwal-tutor');
+Route::redirect('/tutor', '/tutor/jadwal-tutor/dashboard');
 
 // Tutor portal: a Tutor may only access sessions assigned to their linked tentor profile.
 Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
@@ -357,7 +357,8 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     Route::post('chat/{conversation}/read', [ChatController::class, 'markRead'])
         ->middleware('throttle:120,1')
         ->name('chat.read');
-    Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
+    Route::get('dashboard', [TutorDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
     Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
     Route::prefix('booking')->name('booking.')->middleware('client-feature:schedule-booking')->group(function () {

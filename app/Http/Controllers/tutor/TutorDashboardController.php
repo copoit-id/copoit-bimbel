@@ -25,40 +25,6 @@ class TutorDashboardController extends Controller
         $bookingEnabled = (bool) config('client.branding.booking_schedule_enabled', false)
             && $planModules->allows('booking');
         $payrollEnabled = $planModules->allows('tutor_payroll');
-        $weekStart = now()->startOfWeek();
-        $weekEnd = $weekStart->copy()->endOfWeek();
-        $weeklySessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
-            ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-            ->get()
-            ->groupBy(fn (ClassSession $session) => $session->start_at->isoWeekday());
-
-        if ($weeklySessions->isEmpty()) {
-            $nextSession = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
-                ->where('start_at', '>=', now()->startOfDay())
-                ->first();
-
-            if ($nextSession) {
-                $weekStart = $nextSession->start_at->copy()->startOfWeek();
-                $weekEnd = $weekStart->copy()->endOfWeek();
-                $weeklySessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
-                    ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-                    ->get()
-                    ->groupBy(fn (ClassSession $session) => $session->start_at->isoWeekday());
-            }
-        }
-
-        $weekDates = collect(range(1, 7))
-            ->mapWithKeys(fn (int $day) => [$day => $weekStart->copy()->addDays($day - 1)]);
-        $dayLabels = [
-            1 => 'Senin',
-            2 => 'Selasa',
-            3 => 'Rabu',
-            4 => 'Kamis',
-            5 => 'Jumat',
-            6 => 'Sabtu',
-            7 => 'Minggu',
-        ];
-
         $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();
         $monthSessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
@@ -131,9 +97,6 @@ class TutorDashboardController extends Controller
 
         return view('tutor.dashboard', compact(
             'tentor',
-            'weeklySessions',
-            'weekDates',
-            'dayLabels',
             'bookingEnabled',
             'payrollEnabled',
             'monthSessions',
@@ -143,6 +106,17 @@ class TutorDashboardController extends Controller
             'payrollSummary',
             'recentPayrolls',
         ));
+    }
+
+    public function schedule(Request $request): View
+    {
+        $tentor = $request->user()->tentorProfile;
+        $schedule = $this->weeklyScheduleData($tentor->id);
+
+        return view('tutor.schedule', [
+            'tentor' => $tentor,
+            ...$schedule,
+        ]);
     }
 
     public function attendanceIndex(Request $request): View
@@ -299,6 +273,46 @@ class TutorDashboardController extends Controller
             ->with($relations)
             ->where('tentor_id', $tentorId)
             ->orderBy('start_at');
+    }
+
+    private function weeklyScheduleData(int $tentorId): array
+    {
+        $weekStart = now()->startOfWeek();
+        $weekEnd = $weekStart->copy()->endOfWeek();
+        $weeklySessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)
+            ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->get()
+            ->groupBy(fn (ClassSession $session) => $session->start_at->isoWeekday());
+
+        if ($weeklySessions->isEmpty()) {
+            $nextSession = $this->sessionsFor($tentorId, includeTutorAttendance: false)
+                ->where('start_at', '>=', now()->startOfDay())
+                ->first();
+
+            if ($nextSession) {
+                $weekStart = $nextSession->start_at->copy()->startOfWeek();
+                $weekEnd = $weekStart->copy()->endOfWeek();
+                $weeklySessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)
+                    ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+                    ->get()
+                    ->groupBy(fn (ClassSession $session) => $session->start_at->isoWeekday());
+            }
+        }
+
+        return [
+            'weeklySessions' => $weeklySessions,
+            'weekDates' => collect(range(1, 7))
+                ->mapWithKeys(fn (int $day) => [$day => $weekStart->copy()->addDays($day - 1)]),
+            'dayLabels' => [
+                1 => 'Senin',
+                2 => 'Selasa',
+                3 => 'Rabu',
+                4 => 'Kamis',
+                5 => 'Jumat',
+                6 => 'Sabtu',
+                7 => 'Minggu',
+            ],
+        ];
     }
 
     private function ensureAssignedSession(ClassSession $session, int $tentorId): void
