@@ -39,6 +39,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertFalse($packageOnly['class']);
         $this->assertTrue($packageSchedule['package']);
         $this->assertTrue($packageSchedule['schedule']);
+        $this->assertFalse($packageSchedule['attendance']);
         $this->assertTrue($packageSchedule['booking']);
         $this->assertFalse($packageSchedule['class']);
         $this->assertFalse($packageSchedule['tryout']);
@@ -48,6 +49,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertTrue($administration['finance']);
         $this->assertTrue($administration['package']);
         $this->assertTrue($administration['schedule']);
+        $this->assertTrue($administration['attendance']);
         $this->assertFalse($administration['tryout']);
         $this->assertTrue($standard['tryout']);
         $this->assertTrue($standard['finance']);
@@ -64,6 +66,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('class', $service->featureForRoute('admin.package.class.index'));
         $this->assertSame('schedule', $service->featureForRoute('admin.class-schedules.index'));
         $this->assertSame('schedule', $service->featureForRoute('user.class-schedule.index'));
+        $this->assertSame('attendance', $service->featureForRoute('user.class-schedule.attend'));
         $this->assertSame('schedule', $service->featureForRoute('tutor.schedule.index'));
         $this->assertSame('profile', $service->featureForRoute('tutor.profile.edit'));
         $this->assertSame('booking', $service->featureForRoute('admin.package-booking.edit'));
@@ -74,7 +77,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('pembayaran', $service->featureForRoute('user.billing.index'));
         $this->assertSame('discussion', $service->featureForRoute('user.chat.messages'));
         $this->assertSame('discussion', $service->featureForRoute('tutor.chat.messages'));
-        $this->assertSame('class', $service->featureForRoute('tutor.attendance.index'));
+        $this->assertSame('attendance', $service->featureForRoute('tutor.attendance.index'));
         $this->assertSame('laporan', $service->featureForRoute('laporan.live-score.public'));
         $this->assertSame('artikel', $service->featureForRoute('general.articles.index'));
         $this->assertSame('general_page', $service->featureForRoute('general.statistics'));
@@ -109,6 +112,23 @@ class PlanModuleServiceTest extends TestCase
         $this->assertFalse($access['tryout']);
         $this->assertTrue($access['question_bank']);
         $this->assertFalse($access['finance']);
+    }
+
+    public function test_existing_custom_plans_inherit_class_access_for_attendance(): void
+    {
+        $service = app(PlanModuleService::class);
+        $plan = new Plan([
+            'features_json' => [
+                'module_access' => [
+                    'preset' => 'custom',
+                    'features' => [
+                        'class' => true,
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertTrue($service->accessForPlan($plan)['attendance']);
     }
 
     public function test_middleware_rejects_a_disabled_route_feature(): void

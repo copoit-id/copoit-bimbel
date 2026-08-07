@@ -289,21 +289,6 @@
         <div @class(['mb-6 grid gap-4 md:grid-cols-2', 'hidden' => $activeSettingsTab !== 'general'])>
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
-                    <span class="block text-base font-semibold text-gray-900">Menu Jadwal, Absensi & Rombel</span>
-                    <span class="mt-1 block text-sm text-gray-500">
-                        Tampilkan menu jadwal kelas, absensi, rombel, dan assign akses via rombel. Default fitur ini mati.
-                    </span>
-                </span>
-                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
-                    <input type="checkbox" name="class_schedule_menu_enabled" value="1"
-                        class="rounded border-gray-300 text-primary focus:ring-primary"
-                        @checked(old('class_schedule_menu_enabled', (bool) ($clientProfile?->class_schedule_menu_enabled ?? false)))>
-                    Tampilkan
-                </span>
-            </label>
-
-            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
-                <span>
                     <span class="block text-base font-semibold text-gray-900">Menu Tagihan Rutin</span>
                     <span class="mt-1 block text-sm text-gray-500">
                         Tampilkan menu tagihan rutin di sidebar keuangan admin. Default fitur ini mati.

@@ -70,9 +70,16 @@ return [
             'routes' => ['admin.feedback.'],
         ],
         'schedule' => [
-            'label' => 'Jadwal',
+            'label' => 'Kelas & Jadwal',
             'routes' => [
                 'admin.class-schedules.',
+            ],
+        ],
+        'attendance' => [
+            'label' => 'Absensi Kelas',
+            'routes' => [
+                'admin.class-attendance.',
+                'admin.class-schedules.show',
             ],
         ],
         'booking' => [
@@ -82,9 +89,8 @@ return [
             ],
         ],
         'class' => [
-            'label' => 'Kelas',
+            'label' => 'Kelas Live & Rombel',
             'routes' => [
-                'admin.class-attendance.',
                 'admin.study-groups.',
                 'admin.class.',
             ],

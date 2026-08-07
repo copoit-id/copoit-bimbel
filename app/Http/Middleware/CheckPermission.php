@@ -52,17 +52,20 @@ class CheckPermission
     private function resolveFeature(string $routeName): ?string
     {
         $features = config('permissions.features', []);
+        $resolvedFeature = null;
+        $bestMatchLength = -1;
 
         foreach ($features as $featureKey => $feature) {
             $prefixes = (array) ($feature['routes'] ?? []);
             foreach ($prefixes as $prefix) {
-                if (Str::startsWith($routeName, $prefix)) {
-                    return $featureKey;
+                if (Str::startsWith($routeName, $prefix) && strlen($prefix) > $bestMatchLength) {
+                    $resolvedFeature = $featureKey;
+                    $bestMatchLength = strlen($prefix);
                 }
             }
         }
 
-        return null;
+        return $resolvedFeature;
     }
 
     private function resolveAction(string $method, string $routeName): ?string

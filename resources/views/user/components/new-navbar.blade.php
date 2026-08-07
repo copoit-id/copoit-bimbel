@@ -16,7 +16,9 @@ $canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? fals
 $canShowMaterial = $planModules->allows('material');
 $canShowTryout = $planModules->allows('tryout');
 $canShowTesKoran = $planModules->allows('tes_koran');
-$canShowAiLearning = $planModules->allows('ai_learning');
+$canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
+    && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
+$canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
 $tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTesKoran;
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && $planModules->allows('affiliate')

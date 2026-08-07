@@ -140,7 +140,7 @@
             </div>
             @endif
 
-            @if($canUseClass)
+            @if($canUseAttendance)
                 <div class="md:col-span-2">
                     <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>
                     <input type="url" name="meeting_url" value="{{ old('meeting_url', $classSchedule->meeting_url) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://zoom.us/...">

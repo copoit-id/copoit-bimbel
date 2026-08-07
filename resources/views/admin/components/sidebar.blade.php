@@ -41,15 +41,12 @@
     $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
         && $canFeatureView('affiliate')
         && $adminRouteExists('admin.affiliate.index');
-    $canShowClassScheduleMenu = ($clientBranding['class_schedule_menu_enabled'] ?? false)
-        && $canFeatureView('schedule')
+    $canShowClassScheduleMenu = $canFeatureView('schedule')
         && $adminRouteExists('admin.class-schedules.index');
     $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
         && $canFeatureView('booking');
-    $canShowStudyGroupMenu = (
-        (($clientBranding['class_schedule_menu_enabled'] ?? false) && $canFeatureView('class'))
-        || $canShowBooking
-    ) && $adminRouteExists('admin.study-groups.index');
+    $canShowStudyGroupMenu = $canFeatureView('class')
+        && $adminRouteExists('admin.study-groups.index');
     $canShowRecurringBillMenu = ($clientBranding['recurring_bill_menu_enabled'] ?? false)
         && $canFeatureView('recurring_bill')
         && $adminRouteExists('admin.recurring-bills.index');
@@ -67,7 +64,7 @@
         && $planModules->allows('schedule')
         && $adminRouteExists('tutor.schedule.index');
     $canShowTutorAttendanceMenu = $canShowTutorScheduleMenu
-        && $planModules->allows('class')
+        && $planModules->allows('attendance')
         && $adminRouteExists('tutor.attendance.index');
     $canShowMasterMenu = $canFeatureView('package')
         || $canShowClassScheduleMenu

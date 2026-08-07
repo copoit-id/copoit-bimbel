@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Models\User;
+use App\Support\Pagination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ class StudyGroupController extends Controller
                 ->with(['tentor:id,name', 'package:package_id,name'])
                 ->withCount(['users', 'schedules'])
                 ->orderBy('name')
-                ->paginate(\App\Support\Pagination::perPage(15), ['*'], 'rombel_page')
+                ->paginate(Pagination::perPage(15), ['*'], 'rombel_page')
                 ->withQueryString();
         }
 
@@ -60,7 +61,7 @@ class StudyGroupController extends Controller
                 ])
                 ->when($applicationStatus, fn ($query) => $query->where('status', $applicationStatus))
                 ->latest()
-                ->paginate(\App\Support\Pagination::perPage(15), ['*'], 'pengajuan_page')
+                ->paginate(Pagination::perPage(15), ['*'], 'pengajuan_page')
                 ->withQueryString();
         }
 
@@ -75,8 +76,6 @@ class StudyGroupController extends Controller
 
     public function create(): View
     {
-        $this->abortIfStudyGroupHidden();
-
         return view('admin.pages.study-group.create', [
             'studyGroup' => null,
             'tentors' => $this->tentorOptions(),
@@ -87,8 +86,6 @@ class StudyGroupController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->abortIfStudyGroupHidden();
-
         $validated = $this->validatedData($request);
 
         DB::transaction(function () use ($request, $validated): void {
@@ -108,7 +105,6 @@ class StudyGroupController extends Controller
 
     public function edit(StudyGroup $studyGroup): View
     {
-        $this->abortIfStudyGroupHidden();
         abort_if($studyGroup->package_id, 404);
 
         $selectedUserIds = $studyGroup->users()
@@ -126,8 +122,6 @@ class StudyGroupController extends Controller
 
     public function update(Request $request, StudyGroup $studyGroup): RedirectResponse
     {
-        $this->abortIfStudyGroupHidden();
-
         if ($studyGroup->package_id) {
             return back()->with('error', 'Rombel dari pengajuan paket dikelola melalui paket dan jadwalnya.');
         }
@@ -150,8 +144,6 @@ class StudyGroupController extends Controller
 
     public function destroy(StudyGroup $studyGroup): RedirectResponse
     {
-        $this->abortIfStudyGroupHidden();
-
         if ($studyGroup->package_id) {
             return back()->with('error', 'Rombel dari pengajuan paket tidak dapat dihapus dari halaman ini.');
         }
@@ -177,11 +169,6 @@ class StudyGroupController extends Controller
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => ['integer', 'exists:users,id'],
         ]);
-    }
-
-    private function abortIfStudyGroupHidden(): void
-    {
-        abort_unless((bool) config('client.branding.class_schedule_menu_enabled', false), 404);
     }
 
     private function tentorOptions(?int $currentTentorId = null)

@@ -26,7 +26,9 @@
     $canShowMaterial = $planModules->allows('material');
     $canShowTryout = $planModules->allows('tryout');
     $canShowFaq = $planModules->allows('faq');
-    $canShowAiLearning = $planModules->allows('ai_learning');
+    $canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
+        && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
+    $canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
     $canShowCertificate = $planModules->allows('certificate');
     $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
         && $planModules->allows('affiliate')

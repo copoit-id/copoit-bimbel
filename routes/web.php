@@ -193,10 +193,10 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-chat');
-        Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools/history', [AiLearningToolController::class, 'history'])->middleware('throttle:30,1')->name('user.package.tryout.pembahasan.ai-tools.history');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-tools');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->middleware('throttle:5,1')->name('user.package.tryout.pembahasan.ai-speech');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-chat');
+        Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools/history', [AiLearningToolController::class, 'history'])->middleware(['client-feature:ai-discussion', 'throttle:30,1'])->name('user.package.tryout.pembahasan.ai-tools.history');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-tools');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->middleware(['client-feature:ai-discussion', 'throttle:5,1'])->name('user.package.tryout.pembahasan.ai-speech');
     });
 
     Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');
@@ -212,30 +212,32 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
     Route::get('/tagihan', [UserBillingController::class, 'index'])->name('user.billing.index');
-    Route::get('/paket-ai', [AiGatewaySubscriptionController::class, 'index'])->name('user.ai-gateway.index');
-    Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])
-        ->middleware('throttle:10,1')
-        ->name('user.ai-gateway.checkout');
-    Route::get('/ai-learning-tools', [AiLearningToolController::class, 'index'])->name('user.ai-learning.index');
-    Route::post('/ai-learning-tools/onboarding/skip', [AiLearningToolController::class, 'skipOnboarding'])
-        ->middleware('throttle:10,1')
-        ->name('user.ai-learning.onboarding.skip');
-    Route::post('/ai-learning-tools/generate', [AiLearningToolController::class, 'generateIndependent'])
-        ->middleware('throttle:12,1')
-        ->name('user.ai-learning.generate-independent');
-    Route::post('/catatan-ai/{artifact}/expand', [AiLearningToolController::class, 'expandNote'])
-        ->middleware('throttle:8,1')
-        ->name('user.ai-learning.notes.expand');
-    Route::get('/catatan-ai', [AiLearningToolController::class, 'notes'])->name('user.ai-learning.notes');
-    Route::post('/catatan-ai/{artifact}/save', [AiLearningToolController::class, 'save'])->middleware('throttle:30,1')->name('user.ai-learning.notes.save');
-    Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
-    Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
+    Route::middleware('client-feature:ai-discussion')->group(function (): void {
+        Route::get('/paket-ai', [AiGatewaySubscriptionController::class, 'index'])->name('user.ai-gateway.index');
+        Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])
+            ->middleware('throttle:10,1')
+            ->name('user.ai-gateway.checkout');
+        Route::get('/ai-learning-tools', [AiLearningToolController::class, 'index'])->name('user.ai-learning.index');
+        Route::post('/ai-learning-tools/onboarding/skip', [AiLearningToolController::class, 'skipOnboarding'])
+            ->middleware('throttle:10,1')
+            ->name('user.ai-learning.onboarding.skip');
+        Route::post('/ai-learning-tools/generate', [AiLearningToolController::class, 'generateIndependent'])
+            ->middleware('throttle:12,1')
+            ->name('user.ai-learning.generate-independent');
+        Route::post('/catatan-ai/{artifact}/expand', [AiLearningToolController::class, 'expandNote'])
+            ->middleware('throttle:8,1')
+            ->name('user.ai-learning.notes.expand');
+        Route::get('/catatan-ai', [AiLearningToolController::class, 'notes'])->name('user.ai-learning.notes');
+        Route::post('/catatan-ai/{artifact}/save', [AiLearningToolController::class, 'save'])->middleware('throttle:30,1')->name('user.ai-learning.notes.save');
+        Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
+        Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
+    });
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
     Route::get('/perkembangan-belajar', [UserStudentDevelopmentController::class, 'index'])
         ->middleware('client-feature:learning-progress')
         ->name('user.development.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
-        ->middleware('module:class')
+        ->middleware('module:attendance')
         ->name('user.class-schedule.attend');
     Route::prefix('booking-jadwal')->name('user.booking.')->middleware('client-feature:schedule-booking')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
@@ -379,7 +381,7 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
             ->middleware('throttle:30,1')
             ->name('progress.store');
     });
-    Route::middleware('module:class')->group(function () {
+    Route::middleware('module:attendance')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
         Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
         Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
@@ -673,10 +675,16 @@ Route::prefix('{portal}')
             ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->names('class-schedules')
             ->parameters(['jadwal-kelas' => 'classSchedule']);
-        Route::middleware('module:class')->group(function () {
-            Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])->name('class-schedules.show');
-            Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
-            Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
+        Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])
+            ->middleware('module:attendance')
+            ->name('class-schedules.show');
+        Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])
+            ->middleware('module:schedule')
+            ->name('class-schedules.generate');
+        Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])
+            ->middleware('module:schedule')
+            ->name('class-sessions.update');
+        Route::middleware('module:attendance')->group(function () {
             Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
             Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
             Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');

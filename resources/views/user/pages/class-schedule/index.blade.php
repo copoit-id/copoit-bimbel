@@ -70,7 +70,7 @@
                             $setting = $session->schedule->attendanceSetting;
                             $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 15);
                             $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
-                            $canAttend = $canUseClass && now()->between($openAt, $closeAt) && !$attendance;
+                            $canAttend = $canUseAttendance && now()->between($openAt, $closeAt) && !$attendance;
                             $tentorName = $session->tentor?->name ?? $session->schedule?->tentor?->name ?? $session->class?->tentor?->name ?? $session->class?->mentor;
                         @endphp
 
@@ -90,8 +90,9 @@
                                 <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-map-pin-line"></i>{{ $session->location }}</p>
                             @endif
 
-                            @if($canUseClass)
+                            @if($canUseAttendance || ($canUseClass && $session->meeting_url))
                                 <div class="mt-3 border-t border-gray-100 pt-2.5">
+                                    @if($canUseAttendance)
                                     @if($attendance)
                                         <p class="flex items-center gap-1 text-[11px] font-medium text-emerald-700"><i class="ri-checkbox-circle-fill"></i>Sudah absen</p>
                                     @elseif($canAttend)
@@ -105,8 +106,9 @@
                                     @else
                                         <p class="text-[11px] text-gray-500">Absen {{ $openAt->format('H:i') }}–{{ $closeAt->format('H:i') }}</p>
                                     @endif
+                                    @endif
 
-                                    @if($session->meeting_url)
+                                    @if($canUseClass && $session->meeting_url)
                                         <a href="{{ $session->meeting_url }}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"><i class="ri-video-chat-line"></i>Buka meeting</a>
                                     @endif
                                 </div>

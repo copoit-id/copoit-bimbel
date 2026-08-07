@@ -50,6 +50,7 @@ return [
             'features' => [
                 'package',
                 'schedule',
+                'attendance',
                 'booking',
                 'class',
                 'tentor',
@@ -157,6 +158,11 @@ return [
         'schedule' => [
             'user.class-schedule.',
             'tutor.schedule.',
+            'admin.class-sessions.',
+        ],
+        'attendance' => [
+            'user.class-schedule.attend',
+            'tutor.attendance.',
         ],
         'booking' => [
             'admin.package-booking.',
@@ -166,9 +172,7 @@ return [
             'tutor.development.',
         ],
         'class' => [
-            'admin.class-sessions.',
             'admin.package.class.',
-            'tutor.attendance.',
             'user.class.',
         ],
         'discussion' => [
@@ -205,7 +209,9 @@ return [
     'labels' => [
         'event' => 'Event Gratis',
         'ai_learning' => 'AI Learning Tools',
-        'schedule' => 'Jadwal',
+        'schedule' => 'Kelas & Jadwal',
+        'attendance' => 'Absensi Kelas',
+        'class' => 'Kelas Live & Rombel',
         'booking' => 'Booking Jadwal',
     ],
 ];
