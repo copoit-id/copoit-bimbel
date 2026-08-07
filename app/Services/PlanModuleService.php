@@ -120,7 +120,7 @@ class PlanModuleService
                     ? filter_var($savedFeatures[$feature], FILTER_VALIDATE_BOOL)
                     // Attendance used to be included in the Class module. Preserve
                     // that behavior for saved custom plans until it is configured.
-                    : ($feature === 'attendance' && array_key_exists('class', $savedFeatures)
+                    : (in_array($feature, ['attendance', 'study_group'], true) && array_key_exists('class', $savedFeatures)
                         ? filter_var($savedFeatures['class'], FILTER_VALIDATE_BOOL)
                         : ($presetDefaults[$feature] ?? false)),
             ])

@@ -43,9 +43,11 @@
         && $adminRouteExists('admin.affiliate.index');
     $canShowClassScheduleMenu = $canFeatureView('schedule')
         && $adminRouteExists('admin.class-schedules.index');
+    $canShowLegacyClassMenu = $canFeatureView('class')
+        && $adminRouteExists('admin.class.index');
     $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
         && $canFeatureView('booking');
-    $canShowStudyGroupMenu = $canFeatureView('class')
+    $canShowStudyGroupMenu = $canFeatureView('study_group')
         && $adminRouteExists('admin.study-groups.index');
     $canShowRecurringBillMenu = ($clientBranding['recurring_bill_menu_enabled'] ?? false)
         && $canFeatureView('recurring_bill')
@@ -68,6 +70,7 @@
         && $adminRouteExists('tutor.attendance.index');
     $canShowMasterMenu = $canFeatureView('package')
         || $canShowClassScheduleMenu
+        || $canShowLegacyClassMenu
         || $canFeatureView('tryout')
         || $canShowStudyGroupMenu
         || $canShowMaterialMenu
@@ -89,14 +92,14 @@
         || ($canShowDestinationCategories && request()->routeIs('admin.participant-destination-categories.*'));
     $isClassScheduleActive = $canShowClassScheduleMenu
         && (request()->routeIs('admin.class-schedules.*')
-            || request()->routeIs('admin.class-attendance.*')
-            || request()->routeIs('admin.class.*'));
+            || request()->routeIs('admin.class-attendance.*'));
     $isMasterActive = request()->routeIs('admin.package.*')
         || ($canShowStudyGroupMenu && (
             request()->routeIs('admin.study-groups.*')
             || request()->routeIs('admin.package-booking.*')
         ))
         || $isClassScheduleActive
+        || ($canShowLegacyClassMenu && request()->routeIs('admin.class.*'))
         || request()->routeIs('admin.tryout.*')
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.tes-koran.*')
@@ -140,6 +143,7 @@
                 <li><details id="menu-master" class="group" {{ $isMasterActive ? 'open' : '' }}><summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isMasterActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;"><span class="flex items-center"><i class="ri-stack-line text-[20px] {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Manajemen Master</span></span><i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i></summary><ul class="mt-1 ms-2 space-y-1">
                     @if($canFeatureView('package'))<li><a href="{{ route('admin.package.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.package.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Paket</span></a></li>@endif
                     @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Kelas & Jadwal</span></a></li>@endif
+                    @if($canShowLegacyClassMenu)<li><a href="{{ route('admin.class.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Kelas</span></a></li>@endif
                     @if($canFeatureView('tryout'))<li><a href="{{ route('admin.tryout.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Tryout</span></a></li>@endif
                     @if($canShowStudyGroupMenu)<li><a href="{{ route('admin.study-groups.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.study-groups.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Rombel / Grup Belajar</span></a></li>@endif
                     @if($canShowMaterialMenu)<li><a href="{{ route('admin.material.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Materi</span></a></li>@endif

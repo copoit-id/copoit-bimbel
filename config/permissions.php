@@ -82,6 +82,12 @@ return [
                 'admin.class-schedules.show',
             ],
         ],
+        'study_group' => [
+            'label' => 'Rombel',
+            'routes' => [
+                'admin.study-groups.',
+            ],
+        ],
         'booking' => [
             'label' => 'Booking Jadwal',
             'routes' => [
@@ -89,9 +95,8 @@ return [
             ],
         ],
         'class' => [
-            'label' => 'Kelas Live & Rombel',
+            'label' => 'Manajemen Kelas Live',
             'routes' => [
-                'admin.study-groups.',
                 'admin.class.',
             ],
         ],

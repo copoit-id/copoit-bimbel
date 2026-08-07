@@ -51,6 +51,7 @@ return [
                 'package',
                 'schedule',
                 'attendance',
+                'study_group',
                 'booking',
                 'class',
                 'tentor',
@@ -211,7 +212,8 @@ return [
         'ai_learning' => 'AI Learning Tools',
         'schedule' => 'Kelas & Jadwal',
         'attendance' => 'Absensi Kelas',
-        'class' => 'Kelas Live & Rombel',
+        'class' => 'Manajemen Kelas Live',
+        'study_group' => 'Rombel',
         'booking' => 'Booking Jadwal',
     ],
 ];
