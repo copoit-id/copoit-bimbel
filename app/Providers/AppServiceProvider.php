@@ -49,6 +49,9 @@ class AppServiceProvider extends ServiceProvider
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
             'bimbel_nav_label' => 'Bimbel',
+            'material_nav_label' => 'Kelas & Materi',
+            'package_nav_label' => 'Paket Belajar',
+            'tryout_nav_label' => 'Ujian & Try Out',
             'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
@@ -129,6 +132,9 @@ class AppServiceProvider extends ServiceProvider
             $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
             $defaults['live_session_label'] = $clientProfile->live_session_label ?: $defaults['live_session_label'];
             $defaults['bimbel_nav_label'] = $clientProfile->bimbel_nav_label ?: $defaults['bimbel_nav_label'];
+            $defaults['material_nav_label'] = $clientProfile->material_nav_label ?: $defaults['material_nav_label'];
+            $defaults['package_nav_label'] = $clientProfile->package_nav_label ?: $defaults['package_nav_label'];
+            $defaults['tryout_nav_label'] = $clientProfile->tryout_nav_label ?: $defaults['tryout_nav_label'];
             $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
