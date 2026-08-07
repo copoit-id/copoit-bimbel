@@ -112,6 +112,7 @@ class GeneralSettingController extends Controller
             'tutor_chat_enabled' => ['nullable', 'boolean'],
             'booking_schedule_enabled' => ['nullable', 'boolean'],
             'learning_progress_enabled' => ['nullable', 'boolean'],
+            'tutor_content_enabled' => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($validated, $request, $profile): void {
@@ -138,6 +139,7 @@ class GeneralSettingController extends Controller
                     'tutor_chat_enabled' => $request->boolean('tutor_chat_enabled'),
                     'booking_schedule_enabled' => $request->boolean('booking_schedule_enabled'),
                     'learning_progress_enabled' => $request->boolean('learning_progress_enabled'),
+                    'tutor_content_enabled' => $request->boolean('tutor_content_enabled'),
                 ]);
             }
 

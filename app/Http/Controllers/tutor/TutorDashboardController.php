@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\ClassAttendance;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
+use App\Models\ScheduleBookingRequest;
 use App\Models\TutorAttendance;
+use App\Models\TutorPayroll;
 use App\Services\ClassAttendanceParticipantService;
+use App\Services\PlanModuleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +21,10 @@ class TutorDashboardController extends Controller
     public function index(Request $request): View
     {
         $tentor = $request->user()->tentorProfile;
+        $planModules = app(PlanModuleService::class);
+        $bookingEnabled = (bool) config('client.branding.booking_schedule_enabled', false)
+            && $planModules->allows('booking');
+        $payrollEnabled = $planModules->allows('tutor_payroll');
         $weekStart = now()->startOfWeek();
         $weekEnd = $weekStart->copy()->endOfWeek();
         $weeklySessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
@@ -52,7 +59,90 @@ class TutorDashboardController extends Controller
             7 => 'Minggu',
         ];
 
-        return view('tutor.dashboard', compact('tentor', 'weeklySessions', 'weekDates', 'dayLabels'));
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+        $monthSessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
+            ->whereBetween('session_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->count();
+        $upcomingSessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
+            ->where('start_at', '>=', now())
+            ->limit(5)
+            ->get();
+        $attendanceSummary = TutorAttendance::query()
+            ->where('tentor_id', $tentor->id)
+            ->whereHas('session', fn ($query) => $query->whereBetween('session_date', [
+                $monthStart->toDateString(),
+                $monthEnd->toDateString(),
+            ]))
+            ->selectRaw("SUM(CASE WHEN status IN ('present', 'late') THEN 1 ELSE 0 END) as attended_count")
+            ->selectRaw("SUM(CASE WHEN approval_status = 'pending' THEN 1 ELSE 0 END) as pending_count")
+            ->first();
+        $bookingSummary = [
+            'waiting_count' => 0,
+            'upcoming_count' => 0,
+            'student_count' => 0,
+        ];
+
+        if ($bookingEnabled) {
+            $bookingSummary = [
+                'waiting_count' => ScheduleBookingRequest::query()
+                    ->where('tentor_id', $tentor->id)
+                    ->awaitingResponse()
+                    ->count(),
+                'upcoming_count' => ScheduleBookingRequest::query()
+                    ->where('tentor_id', $tentor->id)
+                    ->whereIn('status', [
+                        ScheduleBookingRequest::STATUS_PENDING,
+                        ScheduleBookingRequest::STATUS_COUNTER_PROPOSED,
+                        ScheduleBookingRequest::STATUS_APPROVED,
+                    ])
+                    ->where('requested_start_at', '>=', now())
+                    ->count(),
+                'student_count' => ScheduleBookingRequest::query()
+                    ->where('tentor_id', $tentor->id)
+                    ->distinct('user_id')
+                    ->count('user_id'),
+            ];
+        }
+
+        $payrollSummary = [
+            'current_amount' => 0,
+            'paid_amount' => 0,
+            'current_count' => 0,
+        ];
+        $recentPayrolls = collect();
+
+        if ($payrollEnabled) {
+            $currentPayrolls = TutorPayroll::query()
+                ->where('tentor_id', $tentor->id)
+                ->whereDate('period_start', '<=', $monthEnd->toDateString())
+                ->whereDate('period_end', '>=', $monthStart->toDateString());
+            $payrollSummary = [
+                'current_amount' => (int) (clone $currentPayrolls)->sum('net_amount'),
+                'paid_amount' => (int) (clone $currentPayrolls)->where('status', 'paid')->sum('net_amount'),
+                'current_count' => (clone $currentPayrolls)->count(),
+            ];
+            $recentPayrolls = TutorPayroll::query()
+                ->where('tentor_id', $tentor->id)
+                ->latest('period_end')
+                ->limit(4)
+                ->get(['id', 'period_start', 'period_end', 'net_amount', 'status', 'paid_at']);
+        }
+
+        return view('tutor.dashboard', compact(
+            'tentor',
+            'weeklySessions',
+            'weekDates',
+            'dayLabels',
+            'bookingEnabled',
+            'payrollEnabled',
+            'monthSessions',
+            'upcomingSessions',
+            'attendanceSummary',
+            'bookingSummary',
+            'payrollSummary',
+            'recentPayrolls',
+        ));
     }
 
     public function attendanceIndex(Request $request): View

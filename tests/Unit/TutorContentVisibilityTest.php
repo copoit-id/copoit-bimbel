@@ -30,6 +30,7 @@ class TutorContentVisibilityTest extends TestCase
 
         Schema::create('client_profile', function (Blueprint $table): void {
             $table->id();
+            $table->boolean('tutor_content_enabled')->default(false);
             $table->string('tutor_content_visibility', 20)->default('shared');
         });
         Schema::create('users', function (Blueprint $table): void {
@@ -68,7 +69,7 @@ class TutorContentVisibilityTest extends TestCase
 
     public function test_isolated_mode_limits_tutor_content_to_its_owner(): void
     {
-        DB::table('client_profile')->insert(['tutor_content_visibility' => 'isolated']);
+        DB::table('client_profile')->insert(['tutor_content_enabled' => true, 'tutor_content_visibility' => 'isolated']);
         DB::table('users')->insert([
             ['id' => 101, 'name' => 'Tutor Satu', 'role' => 'tutor'],
             ['id' => 102, 'name' => 'Tutor Dua', 'role' => 'tutor'],
@@ -118,9 +119,26 @@ class TutorContentVisibilityTest extends TestCase
         $this->assertCount(2, QuestionBankQuestion::query()->get());
     }
 
+    public function test_isolation_is_disabled_until_super_admin_enables_the_feature(): void
+    {
+        DB::table('client_profile')->insert(['tutor_content_enabled' => false, 'tutor_content_visibility' => 'isolated']);
+        DB::table('users')->insert([
+            ['id' => 101, 'name' => 'Tutor Satu', 'role' => 'tutor'],
+            ['id' => 102, 'name' => 'Tutor Dua', 'role' => 'tutor'],
+        ]);
+        DB::table('tryouts')->insert([
+            ['tryout_id' => 1, 'name' => 'Tryout Tutor Satu', 'created_by' => 101],
+            ['tryout_id' => 2, 'name' => 'Tryout Tutor Dua', 'created_by' => 102],
+        ]);
+
+        $this->actingAs(User::findOrFail(101));
+
+        $this->assertCount(2, Tryout::query()->get());
+    }
+
     public function test_direct_content_route_is_rejected_when_the_content_belongs_to_another_tutor(): void
     {
-        DB::table('client_profile')->insert(['tutor_content_visibility' => 'isolated']);
+        DB::table('client_profile')->insert(['tutor_content_enabled' => true, 'tutor_content_visibility' => 'isolated']);
         DB::table('users')->insert([
             ['id' => 101, 'name' => 'Tutor Satu', 'role' => 'tutor'],
             ['id' => 102, 'name' => 'Tutor Dua', 'role' => 'tutor'],

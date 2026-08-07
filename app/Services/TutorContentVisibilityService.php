@@ -13,6 +13,17 @@ class TutorContentVisibilityService
 
     private ?string $mode = null;
 
+    private ?bool $enabled = null;
+
+    public function isEnabled(): bool
+    {
+        if ($this->enabled !== null) {
+            return $this->enabled;
+        }
+
+        return $this->enabled = (bool) ClientProfile::query()->value('tutor_content_enabled');
+    }
+
     public function mode(): string
     {
         if ($this->mode !== null) {
@@ -28,7 +39,7 @@ class TutorContentVisibilityService
 
     public function isIsolated(): bool
     {
-        return $this->mode() === self::MODE_ISOLATED;
+        return $this->isEnabled() && $this->mode() === self::MODE_ISOLATED;
     }
 
     public function shouldScopeToOwner(?User $user): bool

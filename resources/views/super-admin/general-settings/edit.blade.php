@@ -80,6 +80,21 @@
                     Tampilkan
                 </span>
             </label>
+
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Konten Tutor</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Aktifkan agar Admin dapat mengatur mode Gabung atau Isolasi Tutor untuk Tryout, Materi, dan Bank Soal. Default fitur ini mati.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="tutor_content_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('tutor_content_enabled', (bool) ($clientProfile?->tutor_content_enabled ?? false)))>
+                    Tampilkan
+                </span>
+            </label>
         </div>
 
         <div @class(['mb-6', 'hidden' => $activeSettingsTab !== 'general'])>

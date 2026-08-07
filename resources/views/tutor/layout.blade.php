@@ -26,6 +26,7 @@
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
             <a href="{{ route('tutor.schedule.index') }}" class="font-bold text-primary">Portal Tutor</a>
             <div class="flex items-center gap-4 text-sm">
+                <a href="{{ route('tutor.schedule.index') }}" class="font-semibold {{ request()->routeIs('tutor.schedule.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Dashboard</a>
                 @if($canShowTutorProfile)
                     <a href="{{ route('tutor.profile.edit') }}" class="font-semibold {{ request()->routeIs('tutor.profile.*') ? 'text-primary' : 'text-gray-600 hover:text-primary' }}">Profil</a>
                 @endif

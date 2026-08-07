@@ -77,6 +77,7 @@
     }
 
     $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
+    $tutorContentEnabled = (bool) ($profile->tutor_content_enabled ?? ($branding['tutor_content_enabled'] ?? false));
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
@@ -109,10 +110,10 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'wording' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Wording & Label
                 </button>
-                <button type="button" data-settings-tab="tutor-content"
+                @if($tutorContentEnabled)<button type="button" data-settings-tab="tutor-content"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'tutor-content' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Konten Tutor
-                </button>
+                </button>@endif
                 <button type="button" data-settings-tab="visual"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'visual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Logo & Favicon
@@ -291,7 +292,7 @@
             </div>
         </div>
 
-        <div data-settings-panel="tutor-content"
+        @if($tutorContentEnabled)<div data-settings-panel="tutor-content"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'tutor-content' ? 'hidden' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Konten Tutor</p>
@@ -334,7 +335,7 @@
             @error('tutor_content_visibility')
                 <p class="text-xs text-red-500">{{ $message }}</p>
             @enderror
-        </div>
+        </div>@endif
 
         <div data-settings-panel="visual"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'visual' ? 'hidden' : '' }}">
