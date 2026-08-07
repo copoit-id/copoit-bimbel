@@ -30,16 +30,26 @@
         : $days;
     $sessionsByDay = $sessions->getCollection()->groupBy(fn ($session) => $session->start_at->dayOfWeekIso);
     $liveClassesByDay = $liveClasses->groupBy(fn ($class) => $class->schedule_time->dayOfWeekIso);
+    $periodQuery = fn (string $periodKey): array => array_filter([
+        'period' => $periodKey,
+        'package_id' => $selectedPackageId,
+    ]);
 @endphp
 
 <div class="space-y-6">
     <div class="rounded-2xl border border-gray-100 bg-white p-6">
         <h1 class="text-2xl font-bold tracking-tight text-gray-900">Jadwal Kelas</h1>
         <p class="mt-1 text-sm text-gray-500">{{ $periodDescriptions[$period] }}</p>
+        @if($selectedPackageId)
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span class="rounded-full bg-primary/10 px-3 py-1.5 font-semibold text-primary"><i class="ri-filter-3-line mr-1"></i>Menampilkan jadwal dari paket yang dipilih</span>
+                <a href="{{ route('user.class-schedule.index', ['period' => $period]) }}" class="font-semibold text-gray-500 hover:text-primary">Lihat semua jadwal</a>
+            </div>
+        @endif
 
         <nav class="mt-5 flex flex-wrap gap-2" aria-label="Filter periode jadwal">
             @foreach($periodTabs as $periodKey => $periodLabel)
-                <a href="{{ route('user.class-schedule.index', ['period' => $periodKey]) }}"
+                <a href="{{ route('user.class-schedule.index', $periodQuery($periodKey)) }}"
                     @if($period === $periodKey) aria-current="page" @endif
                     class="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors {{ $period === $periodKey
                         ? 'border-primary bg-primary text-white'
@@ -72,6 +82,11 @@
                             $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
                             $canAttend = $canUseAttendance && now()->between($openAt, $closeAt) && !$attendance;
                             $tentorName = $session->tentor?->name ?? $session->schedule?->tentor?->name ?? $session->class?->tentor?->name ?? $session->class?->mentor;
+                            $canChatTutor = $canUseTutorChat
+                                && $session->schedule?->schedule_type === 'recurring'
+                                && $session->schedule?->is_active
+                                && $session->schedule?->tentor?->is_active
+                                && $session->schedule?->tentor?->user_id;
                         @endphp
 
                         <article class="rounded-xl border border-gray-200 bg-white p-3">
@@ -90,7 +105,7 @@
                                 <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-map-pin-line"></i>{{ $session->location }}</p>
                             @endif
 
-                            @if($canUseAttendance || ($canUseClass && $session->meeting_url))
+                            @if($canUseAttendance || ($canUseClass && $session->meeting_url) || $canChatTutor)
                                 <div class="mt-3 border-t border-gray-100 pt-2.5">
                                     @if($canUseAttendance)
                                     @if($attendance)
@@ -110,6 +125,10 @@
 
                                     @if($canUseClass && $session->meeting_url)
                                         <a href="{{ $session->meeting_url }}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"><i class="ri-video-chat-line"></i>Buka meeting</a>
+                                    @endif
+
+                                    @if($canChatTutor)
+                                        <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-tutor-chat'))" class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:underline"><i class="ri-chat-3-line"></i>Chat Tutor</button>
                                     @endif
                                 </div>
                             @endif

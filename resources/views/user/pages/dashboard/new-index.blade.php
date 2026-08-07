@@ -207,7 +207,7 @@ $primaryRgb = "$r, $g, $b";
 @if(!$isGuest)
 <!-- Akses Cepat -->
 <?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
-@if($canShowMaterial || $canShowTryout || $canShowPackage)
+@if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule)
 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     @if($canShowMaterial)
     <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
@@ -224,6 +224,15 @@ $primaryRgb = "$r, $g, $b";
             <i class="ri-file-list-3-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Tryout</h3>
+    </a>
+    @endif
+
+    @if($canShowSchedule)
+    <a href="{{ route('user.class-schedule.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-calendar-check-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Jadwal Kelas</h3>
     </a>
     @endif
 

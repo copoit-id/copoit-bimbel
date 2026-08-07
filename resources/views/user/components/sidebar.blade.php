@@ -16,6 +16,8 @@
     $planModules = app(\App\Services\PlanModuleService::class);
     $canShowDashboard = $planModules->allows('dashboard');
     $canShowPackage = $planModules->allows('package');
+    $canShowSchedule = $planModules->allows('schedule')
+        && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
     $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
         && $planModules->allows('booking')
         && \Illuminate\Support\Facades\Route::has('user.booking.index');
@@ -73,6 +75,15 @@
                     <i
                         class="ri-stack-line text-[20px] {{ request()->routeIs('user.package.my') || request()->routeIs('user.package.show') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
                     <span class="ms-3">Paket Saya</span>
+                </a>
+            </li>
+            @endif
+            @if($canShowSchedule)
+            <li>
+                <a href="{{ route('user.class-schedule.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('user.class-schedule.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-calendar-2-line text-[20px] {{ request()->routeIs('user.class-schedule.*') ? $iconActiveClass : $iconInactiveClass }} font-medium"></i>
+                    <span class="ms-3">Jadwal Kelas</span>
                 </a>
             </li>
             @endif

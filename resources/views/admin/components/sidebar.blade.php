@@ -78,7 +78,11 @@
         && $adminRouteExists('tutor.development.index');
     $canShowTutorChatMenu = $isTutor
         && ($clientBranding['tutor_chat_enabled'] ?? false)
+        && $planModules->allows('discussion')
         && $adminRouteExists('tutor.chat.index');
+    $tutorChatUnreadCount = $canShowTutorChatMenu
+        ? app(\App\Services\TutorChatService::class)->unreadCountFor($authUser)
+        : 0;
     $canShowTutorProfileMenu = $isTutor
         && $planModules->allows('profile')
         && $adminRouteExists('tutor.profile.edit');
@@ -185,7 +189,7 @@
                 <li><a href="{{ route('tutor.development.index') }}" class="flex items-center py-2 px-4 {{ $isTutorDevelopmentActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-line-chart-line text-[20px] {{ $isTutorDevelopmentActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Perkembangan</span></a></li>
             @endif
             @if($canShowTutorChatMenu)
-                <li><a href="{{ route('tutor.chat.index') }}" class="flex items-center py-2 px-4 {{ $isTutorChatActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-chat-3-line text-[20px] {{ $isTutorChatActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Chat Siswa</span></a></li>
+                <li><a href="{{ route('tutor.chat.index') }}" class="flex items-center py-2 px-4 {{ $isTutorChatActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-chat-3-line text-[20px] {{ $isTutorChatActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Chat Siswa</span>@if($tutorChatUnreadCount > 0)<span class="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{{ $tutorChatUnreadCount > 99 ? '99+' : $tutorChatUnreadCount }}</span>@endif</a></li>
             @endif
             @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">{{ $isTutorContentIsolated ? 'Bank Soal Saya' : 'Bank Soal' }}</span></a></li>@endif
             @if($canShowCategoryMenu)

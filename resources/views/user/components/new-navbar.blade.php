@@ -11,6 +11,9 @@ $planModules = app(\App\Services\PlanModuleService::class);
 $canShowDashboard = $planModules->allows('dashboard');
 $canShowProfile = $planModules->allows('profile');
 $canShowPackage = $planModules->allows('package');
+$canShowSchedule = $user
+    && $planModules->allows('schedule')
+    && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
 $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
     && $planModules->allows('booking')
     && \Illuminate\Support\Facades\Route::has('user.booking.index');
@@ -27,9 +30,23 @@ $tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTes
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && $planModules->allows('affiliate')
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
-$canShowBimbel = $canShowPackage || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
+$canUseTutorChat = $user
+    && ! $user->isTutor()
+    && (bool) ($clientBranding['tutor_chat_enabled'] ?? false)
+    && $planModules->allows('discussion')
+    && \Illuminate\Support\Facades\Route::has('user.chat.schedule.show');
+$tutorChatService = $canUseTutorChat ? app(\App\Services\TutorChatService::class) : null;
+$tutorChatContacts = $tutorChatService
+    ? $tutorChatService->chatContactsForStudent($user)
+    : collect();
+$canShowTutorChat = $tutorChatContacts->isNotEmpty();
+$tutorChatUnreadCount = $canShowTutorChat
+    ? $tutorChatService->unreadCountFor($user)
+    : 0;
+$canShowBimbel = $canShowPackage || $canShowSchedule || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
 $bimbelUrl = match (true) {
     $canShowPackage => route('user.package.index'),
+    $canShowSchedule => route('user.class-schedule.index'),
     $canShowBooking => route('user.booking.index'),
     $canShowLearningProgress => route('user.development.index'),
     $canShowMaterial => route('user.material.index'),
@@ -44,6 +61,7 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.tes-kecermatan', $currentRoute)
     || isActive('user.booking', $currentRoute)
     || isActive('user.development', $currentRoute)
+    || isActive('user.class-schedule', $currentRoute)
     || $currentRoute === 'user.package.index'
     || isActive('user.ai-gateway', $currentRoute);
 
@@ -183,6 +201,9 @@ function isActive($route, $current) {
                         @if($canShowPackage || $canShowAiLearning)
                         <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>{{ $packageNavLabel }}</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
                         @endif
+                        @if($canShowSchedule)
+                        <a href="{{ route('user.class-schedule.index') }}" class="dropdown-item {{ isActive('user.class-schedule', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-2-line"></i>Jadwal Kelas</a>
+                        @endif
                         @if($user && $canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item {{ isActive('user.booking', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-schedule-line"></i>Booking Jadwal</a>
                         @endif
@@ -212,6 +233,11 @@ function isActive($route, $current) {
                         <a href="{{ route('user.package.my') }}?tab=packages" class="dropdown-item">
                             <i class="ri-folder-3-line"></i>Daftar Paket
                         </a>
+                        @if($canShowSchedule)
+                        <a href="{{ route('user.class-schedule.index') }}" class="dropdown-item">
+                            <i class="ri-calendar-2-line"></i>Jadwal Kelas
+                        </a>
+                        @endif
                         @if($canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item">
                             <i class="ri-calendar-schedule-line"></i>Booking Jadwal
@@ -239,6 +265,12 @@ function isActive($route, $current) {
                         @endif
                     </div>
                 </div>
+                @endif
+                @if($canShowTutorChat)
+                    @include('user.components.tutor-chat-drawer', [
+                        'chatContacts' => $tutorChatContacts,
+                        'unreadCount' => $tutorChatUnreadCount,
+                    ])
                 @endif
             </div>
             
@@ -350,6 +382,11 @@ function isActive($route, $current) {
             @if($canShowPackage)
             <a href="{{ route('user.package.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
                 <i class="ri-store-3-line text-lg text-gray-400"></i>{{ $packageNavLabel }}
+            </a>
+            @endif
+            @if($canShowSchedule)
+            <a href="{{ route('user.class-schedule.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-calendar-2-line text-lg text-gray-400"></i>Jadwal Kelas
             </a>
             @endif
             @if($user && $canShowBooking)

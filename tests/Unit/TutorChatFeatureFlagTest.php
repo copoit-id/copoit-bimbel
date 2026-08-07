@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\ClassModel;
+use App\Models\ClassSchedule;
 use App\Models\User;
 use App\Services\TutorChatService;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -18,7 +18,7 @@ class TutorChatFeatureFlagTest extends TestCase
 
         app(TutorChatService::class)->openForStudent(
             new User(['role' => 'user']),
-            new ClassModel(),
+            new ClassSchedule(),
         );
     }
 }

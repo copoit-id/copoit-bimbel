@@ -164,11 +164,17 @@ $assetUrl = function (?string $path) {
             </div>
             
             <!-- Actions -->
-            <a href="{{ route('user.package.show', $package->package_id) }}" 
-               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity mt-auto"
-               style="background-color: {{ $primaryColor }}">
-                <i class="ri-play-circle-line mr-1"></i>Lanjutkan Belajar
-            </a>
+            <div class="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <a href="{{ route('user.package.show', $package->package_id) }}"
+                   class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $primaryColor }}">
+                    <i class="ri-play-circle-line mr-1"></i>Belajar
+                </a>
+                <a href="{{ route('user.class-schedule.index', ['package_id' => $package->package_id, 'period' => 'all']) }}"
+                   class="block w-full rounded-xl border border-primary px-3 py-2.5 text-center text-sm font-semibold text-primary hover:bg-primary/5">
+                    <i class="ri-calendar-2-line mr-1"></i>Jadwal
+                </a>
+            </div>
             </div>
         </div>
         @endforeach

@@ -170,11 +170,15 @@ Route::prefix('user')->group(function () {
     Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
 });
 
+Route::get('/chat/attachments/{message}', [ChatController::class, 'downloadAttachment'])
+    ->middleware('auth')
+    ->name('chat.attachments.download');
+
 // User routes (add auth middleware)
 Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('chat')->name('user.chat.')->group(function () {
-        Route::get('kelas/{class}', [ChatController::class, 'studentShow'])->name('class.show');
+        Route::get('jadwal/{classSchedule}', [ChatController::class, 'studentShow'])->name('schedule.show');
         Route::get('conversations/{conversation}/messages', [ChatController::class, 'messages'])->name('messages');
         Route::post('conversations/{conversation}/messages', [ChatController::class, 'store'])
             ->middleware('throttle:60,1')

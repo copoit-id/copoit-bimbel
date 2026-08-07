@@ -16,6 +16,10 @@ class ChatMessage extends Model
         'client_message_id',
         'type',
         'body',
+        'attachment_path',
+        'attachment_name',
+        'attachment_mime',
+        'attachment_size',
     ];
 
     public function conversation(): BelongsTo
@@ -31,7 +35,7 @@ class ChatMessage extends Model
     /**
      * @return array<string, mixed>
      */
-    public function toChatPayload(): array
+    public function toChatPayload(?int $peerLastReadMessageId = null): array
     {
         $this->loadMissing('sender:id,name');
 
@@ -42,6 +46,14 @@ class ChatMessage extends Model
             'sender_name' => $this->sender?->name,
             'type' => $this->type,
             'body' => $this->body,
+            'attachment' => $this->attachment_path ? [
+                'name' => $this->attachment_name,
+                'mime' => $this->attachment_mime,
+                'size' => $this->attachment_size,
+                'url' => route('chat.attachments.download', $this),
+            ] : null,
+            'is_read' => $peerLastReadMessageId !== null
+                && (int) $this->id <= $peerLastReadMessageId,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

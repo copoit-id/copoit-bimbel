@@ -162,7 +162,7 @@
                                         <span>{{ $schedule->packages->pluck('name')->join(', ') }}</span>
                                     </span>
                                 @endif
-                                <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                <?php $tentorName = $schedule->tentor?->name; ?>
                                 @if($tentorName)
                                     <span class="text-[11px] text-gray-500 flex items-center gap-1">
                                         <i class="ri-user-star-line"></i>
@@ -245,7 +245,7 @@
                                 @endif
                                 <td class="px-4 py-3">
                                     <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
-                                    <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                    <?php $tentorName = $schedule->tentor?->name; ?>
                                     @if($tentorName)
                                         <p class="text-xs text-gray-500">Tutor: {{ $tentorName }}</p>
                                     @endif
