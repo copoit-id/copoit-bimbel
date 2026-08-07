@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Http\Middleware\EnsurePlanFeatureEnabled;
 use App\Models\Plan;
+use App\Models\User;
 use App\Services\PlanModuleService;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -157,6 +158,34 @@ class PlanModuleServiceTest extends TestCase
         try {
             $middleware->handle($request, fn () => response('allowed'));
             $this->fail('Disabled module route was not rejected.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+    }
+
+    public function test_middleware_rejects_a_disabled_route_feature_for_super_admin_previewing_admin_panel(): void
+    {
+        $service = \Mockery::mock(PlanModuleService::class);
+        $service->shouldReceive('featureForRoute')
+            ->once()
+            ->with('admin.question-bank.index')
+            ->andReturn('question_bank');
+        $service->shouldReceive('allows')
+            ->once()
+            ->with('question_bank')
+            ->andReturnFalse();
+
+        $request = Request::create('/admin/bank-soal', 'GET');
+        $request->setUserResolver(fn (): User => new User(['role' => 'super_admin']));
+        $route = new Route(['GET'], '/admin/bank-soal', fn () => null);
+        $route->name('admin.question-bank.index');
+        $request->setRouteResolver(fn (): Route => $route);
+
+        $middleware = new EnsurePlanFeatureEnabled($service);
+
+        try {
+            $middleware->handle($request, fn () => response('allowed'));
+            $this->fail('Disabled module route was not rejected for a Super Admin preview.');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
         }

@@ -8,18 +8,13 @@
     $iconActiveClass = 'text-white';
     $iconInactiveClass = $sidebarPrimary ? 'text-white/80' : 'text-black';
     $authUser = auth()->user();
-    $isSuperAdmin = $authUser?->isSuperAdmin() ?? false;
     $isTutor = $authUser?->isTutor() ?? false;
     $isTutorContentIsolated = $isTutor
         && app(\App\Services\TutorContentVisibilityService::class)->isIsolated();
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
     $planModules = app(\App\Services\PlanModuleService::class);
     $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
-    $canFeatureView = function (string $feature) use ($authUser, $isSuperAdmin, $canAccessAdminPanel, $planModules): bool {
-        if ($isSuperAdmin) {
-            return true;
-        }
-
+    $canFeatureView = function (string $feature) use ($authUser, $canAccessAdminPanel, $planModules): bool {
         if (! $planModules->allows($feature)) {
             return false;
         }

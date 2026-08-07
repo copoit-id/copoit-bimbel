@@ -3,8 +3,7 @@
     $profileUrl = auth()->user()?->isTutor()
         ? route('user.profile.index')
         : route('admin.profile.index');
-    $canShowProfile = auth()->user()?->isSuperAdmin()
-        || app(\App\Services\PlanModuleService::class)->allows('profile');
+    $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
     $headerPrimary = $clientBranding['header_primary_color'] ?? false;
     $navClasses = $headerPrimary ? 'bg-primary border-b border-primary text-white' : 'bg-white border-b border-gray-200';
     $toggleButtonClasses = $headerPrimary
