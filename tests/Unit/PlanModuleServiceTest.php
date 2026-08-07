@@ -38,6 +38,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertTrue($packageOnly['package']);
         $this->assertFalse($packageOnly['schedule']);
         $this->assertFalse($packageOnly['class']);
+        $this->assertFalse($packageOnly['parent_portal']);
         $this->assertTrue($packageSchedule['package']);
         $this->assertTrue($packageSchedule['schedule']);
         $this->assertFalse($packageSchedule['attendance']);
@@ -56,6 +57,8 @@ class PlanModuleServiceTest extends TestCase
         $this->assertFalse($administration['tryout']);
         $this->assertTrue($standard['tryout']);
         $this->assertTrue($standard['finance']);
+        $this->assertFalse($standard['parent_portal']);
+        $this->assertTrue($full['parent_portal']);
         $this->assertNotContains(false, $full, true);
     }
 
@@ -80,6 +83,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('certification', $service->featureForRoute('user.package.sertifikasi'));
         $this->assertSame('pembayaran', $service->featureForRoute('user.billing.index'));
         $this->assertSame('discussion', $service->featureForRoute('user.chat.messages'));
+        $this->assertSame('parent_portal', $service->featureForRoute('parent.dashboard'));
         $this->assertSame('discussion', $service->featureForRoute('tutor.chat.messages'));
         $this->assertSame('attendance', $service->featureForRoute('tutor.attendance.index'));
         $this->assertSame('laporan', $service->featureForRoute('laporan.live-score.public'));

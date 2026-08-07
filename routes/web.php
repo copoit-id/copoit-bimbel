@@ -138,7 +138,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
 
 // Parent portal: read-only access to students explicitly linked by Admin.
-Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'no-cache'])->group(function (): void {
+Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'module:parent_portal', 'no-cache'])->group(function (): void {
     Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
     Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');
@@ -725,6 +725,7 @@ Route::prefix('{portal}')
         Route::resource('certification', CertificationController::class);
         Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
         Route::get('/user/export/excel', [UserController::class, 'exportExcel'])->name('user.export-excel');
+        Route::get('/user/relationship-options', [UserController::class, 'searchRelationshipUsers'])->name('user.relationship-options');
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
