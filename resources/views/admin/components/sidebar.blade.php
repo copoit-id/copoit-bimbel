@@ -11,10 +11,9 @@
     $isSuperAdmin = $authUser?->isSuperAdmin() ?? false;
     $isTutor = $authUser?->isTutor() ?? false;
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
-    $permissionSlugs = $authUser?->getEffectivePermissionSlugs() ?? [];
     $planModules = app(\App\Services\PlanModuleService::class);
     $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
-    $canFeatureView = function (string $feature) use ($isSuperAdmin, $canAccessAdminPanel, $permissionSlugs, $planModules): bool {
+    $canFeatureView = function (string $feature) use ($authUser, $isSuperAdmin, $canAccessAdminPanel, $planModules): bool {
         if ($isSuperAdmin) {
             return true;
         }
@@ -27,7 +26,10 @@
             return $canAccessAdminPanel;
         }
 
-        return in_array($feature . '.view', $permissionSlugs, true);
+        // Keep the navigation rule identical to the authorization rule used by
+        // administrative routes. A menu is visible only when the role has its
+        // corresponding `*.view` permission.
+        return $authUser?->hasPermission($feature, 'view') ?? false;
     };
     $canShowDestinationCategories = $canFeatureView('user')
         && $adminRouteExists('admin.participant-destination-categories.index');
