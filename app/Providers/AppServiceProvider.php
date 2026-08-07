@@ -242,7 +242,6 @@ class AppServiceProvider extends ServiceProvider
 
         $liveSessionAvailable = ! $this->app->runningInConsole()
             && request()->is('user/*')
-            && (bool) ($branding['live_session_enabled'] ?? true)
             && Schema::hasTable('materials')
             && Material::query()
                 ->active()
