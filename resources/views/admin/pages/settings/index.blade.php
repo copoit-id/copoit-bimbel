@@ -24,6 +24,8 @@
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
+    } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label'])->isNotEmpty()) {
+    $activeSettingsTab = 'wording';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
     } elseif (collect($settingErrorKeys)->intersect(['website_translation_enabled', 'website_translation_locales'])->isNotEmpty()) {
@@ -95,6 +97,10 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'identity' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Informasi Umum
                 </button>
+                <button type="button" data-settings-tab="wording"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'wording' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Wording & Label
+                </button>
                 <button type="button" data-settings-tab="visual"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'visual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Logo & Favicon
@@ -145,28 +151,6 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
-                    <input type="text" name="faq_label"
-                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Informasi" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan. Contoh: Informasi, Bantuan, atau FAQ.</p>
-                    @error('faq_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
-                    <input type="text" name="live_session_label"
-                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Kelas Belajar" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
-                    @error('live_session_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -197,6 +181,50 @@
                         </div>
                     </div>
                     @error('warna_secondary')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        <div data-settings-panel="wording"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'wording' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Wording Platform</p>
+                <h2 class="text-xl font-semibold text-gray-900">Label Menu & Fitur</h2>
+                <p class="text-gray-500 text-sm">Sesuaikan istilah yang tampil kepada pengguna tanpa mengubah fungsi sistem.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Navbar Bimbel</label>
+                    <input type="text" name="bimbel_nav_label"
+                        value="{{ old('bimbel_nav_label', $profile->bimbel_nav_label ?? ($branding['bimbel_nav_label'] ?? 'Bimbel')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah label menu Bimbel pada navbar user, desktop, dan mobile.</p>
+                    @error('bimbel_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
+                    <input type="text" name="live_session_label"
+                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
+                    @error('live_session_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
+                    <input type="text" name="faq_label"
+                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Informasi" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan.</p>
+                    @error('faq_label')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>

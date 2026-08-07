@@ -12,6 +12,7 @@ class ClientProfile extends Model
         'nama_bimbel',
         'faq_label',
         'live_session_label',
+        'bimbel_nav_label',
         'live_session_enabled',
         'logo',
         'favicon',
