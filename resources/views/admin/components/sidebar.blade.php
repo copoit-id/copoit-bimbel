@@ -69,9 +69,24 @@
     $canShowTutorScheduleMenu = $isTutor
         && $planModules->allows('schedule')
         && $adminRouteExists('tutor.schedule.index');
+    $canShowTutorDashboard = $isTutor && $adminRouteExists('tutor.dashboard');
     $canShowTutorAttendanceMenu = $canShowTutorScheduleMenu
         && $planModules->allows('attendance')
         && $adminRouteExists('tutor.attendance.index');
+    $canShowTutorBookingMenu = $isTutor
+        && ($clientBranding['booking_schedule_enabled'] ?? false)
+        && $planModules->allows('booking')
+        && $adminRouteExists('tutor.booking.index');
+    $canShowTutorDevelopmentMenu = $isTutor
+        && ($clientBranding['learning_progress_enabled'] ?? false)
+        && $planModules->allows('booking')
+        && $adminRouteExists('tutor.development.index');
+    $canShowTutorChatMenu = $isTutor
+        && ($clientBranding['tutor_chat_enabled'] ?? false)
+        && $adminRouteExists('tutor.chat.index');
+    $canShowTutorProfileMenu = $isTutor
+        && $planModules->allows('profile')
+        && $adminRouteExists('tutor.profile.edit');
     $canShowMasterMenu = $canFeatureView('package')
         || $canShowClassScheduleMenu
         || $canShowLegacyClassMenu
@@ -108,8 +123,13 @@
         || request()->routeIs('admin.question.*')
         || request()->routeIs('admin.tes-koran.*')
         || $isMaterialManagementActive;
+    $isTutorDashboardActive = $isTutor && request()->routeIs('tutor.dashboard');
     $isTutorScheduleActive = $isTutor && request()->routeIs('tutor.schedule.*');
     $isTutorAttendanceActive = $isTutor && request()->routeIs('tutor.attendance.*');
+    $isTutorBookingActive = $isTutor && request()->routeIs('tutor.booking.*');
+    $isTutorDevelopmentActive = $isTutor && request()->routeIs('tutor.development.*');
+    $isTutorChatActive = $isTutor && request()->routeIs('tutor.chat.*');
+    $isTutorProfileActive = $isTutor && request()->routeIs('tutor.profile.*');
     $isTesKoranActive = request()->routeIs('admin.tes-koran.*');
     $isUserActive = request()->routeIs('admin.user.*')
         || request()->routeIs('admin.akses.*')
@@ -140,6 +160,9 @@
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
         <p class="{{ $sectionLabelClass }} text-sm">Menu</p>
         <ul class="space-y-1 font-medium">
+            @if($canShowTutorDashboard)
+                <li><a href="{{ route('tutor.dashboard') }}" class="flex items-center py-2 px-4 {{ $isTutorDashboardActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-home-line text-[20px] {{ $isTutorDashboardActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Dashboard</span></a></li>
+            @endif
             @if(! $isTutor && $canFeatureView('dashboard'))
                 <li><a href="{{ route('admin.dashboard') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.dashboard') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-home-line text-[20px] {{ request()->routeIs('admin.dashboard') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Dashboard</span></a></li>
             @endif
@@ -159,6 +182,18 @@
                 @if($canShowTutorAttendanceMenu)
                 <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
                 @endif
+            @endif
+            @if($canShowTutorBookingMenu)
+                <li><a href="{{ route('tutor.booking.index') }}" class="flex items-center py-2 px-4 {{ $isTutorBookingActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-schedule-line text-[20px] {{ $isTutorBookingActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Booking</span></a></li>
+            @endif
+            @if($canShowTutorDevelopmentMenu)
+                <li><a href="{{ route('tutor.development.index') }}" class="flex items-center py-2 px-4 {{ $isTutorDevelopmentActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-line-chart-line text-[20px] {{ $isTutorDevelopmentActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Perkembangan</span></a></li>
+            @endif
+            @if($canShowTutorChatMenu)
+                <li><a href="{{ route('tutor.chat.index') }}" class="flex items-center py-2 px-4 {{ $isTutorChatActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-chat-3-line text-[20px] {{ $isTutorChatActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Chat Siswa</span></a></li>
+            @endif
+            @if($canShowTutorProfileMenu)
+                <li><a href="{{ route('tutor.profile.edit') }}" class="flex items-center py-2 px-4 {{ $isTutorProfileActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-user-settings-line text-[20px] {{ $isTutorProfileActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Profil Saya</span></a></li>
             @endif
             @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">{{ $isTutorContentIsolated ? 'Bank Soal Saya' : 'Bank Soal' }}</span></a></li>@endif
             @if($canShowCategoryMenu)

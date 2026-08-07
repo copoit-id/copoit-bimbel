@@ -1,4 +1,4 @@
-@extends('tutor.layout')
+@extends('admin.layout.admin')
 
 @section('content')
 @php
