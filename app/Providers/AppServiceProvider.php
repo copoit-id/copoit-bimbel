@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Models\ClassSchedule;
 use App\Models\ClientProfile;
-use App\Models\Material;
 use App\Models\Role;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
@@ -241,13 +240,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         $liveSessionAvailable = ! $this->app->runningInConsole()
-            && request()->is('user/*')
-            && Schema::hasTable('materials')
-            && Material::query()
-                ->active()
-                ->where('is_displayed', true)
-                ->byType('live_session')
-                ->exists();
+            && request()->is('user/*');
 
         config(['client.live_session_available' => $liveSessionAvailable]);
 
