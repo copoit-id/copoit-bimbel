@@ -4410,12 +4410,14 @@ class PackageController extends Controller
             ? [
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
                 'materialsThroughDetail.categories',
+                'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
                 'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
                 'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
             ]
             : [
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
                 'materialsThroughDetail.categories',
+                'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
                 'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
             ];
 
@@ -4477,6 +4479,49 @@ class PackageController extends Controller
                 'is_left' => $orderCounter % 2 === 1,
             ]);
             
+            $orderCounter++;
+        }
+
+        // Kelas adalah bagian dari konten paket, sehingga harus dapat diakses dari roadmap paket.
+        foreach ($package->classes->sortBy(fn (ClassModel $class) => $class->schedule_time ?? $class->class_id) as $class) {
+            $classStatus = match (true) {
+                $class->status === 'cancelled' => 'cancelled',
+                $class->status === 'completed' => 'completed',
+                $class->schedule_time?->isFuture() => 'upcoming',
+                default => 'ongoing',
+            };
+            $statusMeta = match ($classStatus) {
+                'upcoming' => ['Akan Datang', 'bg-blue-100 text-blue-700'],
+                'ongoing' => ['Berlangsung', 'bg-emerald-100 text-emerald-700'],
+                'completed' => ['Selesai', 'bg-gray-100 text-gray-600'],
+                default => ['Dibatalkan', 'bg-red-100 text-red-700'],
+            };
+            $schedule = $class->schedule_time?->translatedFormat('d M Y, H:i');
+            $subtitle = collect([
+                $class->tentor?->name ?? $class->mentor,
+                $schedule,
+            ])->filter()->implode(' · ') ?: 'Jadwal akan segera diinformasikan';
+
+            if ($classStatus === 'completed') {
+                $completedCount++;
+            }
+
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'class',
+                'title' => $class->title,
+                'subtitle' => $subtitle,
+                'icon' => 'ri-video-on-line',
+                'route' => route('user.class.zoom', $class),
+                'is_completed' => $classStatus === 'completed',
+                'is_in_progress' => $classStatus === 'ongoing',
+                'progress_percent' => 0,
+                'status_text' => $statusMeta[0],
+                'status_class' => $statusMeta[1],
+                'class_status' => $classStatus,
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+
             $orderCounter++;
         }
         
