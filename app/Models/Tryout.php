@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasIndividualPricing;
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -45,6 +47,19 @@ class Tryout extends Model
         'price' => 'decimal:0',
         'access_duration_value' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            $user = auth()->user();
+
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner($user)) {
+                return;
+            }
+
+            $query->where($query->qualifyColumn('created_by'), $user->id);
+        });
+    }
 
     public function requiresIrtScoring(): bool
     {

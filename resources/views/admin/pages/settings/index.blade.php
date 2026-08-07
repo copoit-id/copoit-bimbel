@@ -26,6 +26,8 @@
     $activeSettingsTab = 'visual';
     } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
     $activeSettingsTab = 'wording';
+    } elseif (collect($settingErrorKeys)->intersect(['tutor_content_visibility'])->isNotEmpty()) {
+    $activeSettingsTab = 'tutor-content';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
     } elseif (collect($settingErrorKeys)->intersect(['website_translation_enabled', 'website_translation_locales'])->isNotEmpty()) {
@@ -106,6 +108,10 @@
                 <button type="button" data-settings-tab="wording"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'wording' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Wording & Label
+                </button>
+                <button type="button" data-settings-tab="tutor-content"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'tutor-content' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Konten Tutor
                 </button>
                 <button type="button" data-settings-tab="visual"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'visual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
@@ -283,6 +289,51 @@
                     @enderror
                 </div>
             </div>
+        </div>
+
+        <div data-settings-panel="tutor-content"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'tutor-content' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Konten Tutor</p>
+                <h2 class="text-xl font-semibold text-gray-900">Visibilitas Konten Operasional</h2>
+                <p class="text-gray-500 text-sm">Pengaturan ini berlaku untuk Tryout, Materi, Bank Soal, dan soal yang dibuat dari menu tersebut. Paket selalu dikelola Admin.</p>
+            </div>
+
+            @php
+                $tutorContentVisibility = old(
+                    'tutor_content_visibility',
+                    $profile->tutor_content_visibility ?? 'shared'
+                );
+            @endphp
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'shared' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="shared"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'shared' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Gabung</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Pengelola yang memiliki izin dapat melihat dan memakai konten bersama. Cocok untuk bank soal dan tryout pusat.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'isolated' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="isolated"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'isolated' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Isolasi Tutor</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap Tutor atau akun operasional hanya melihat konten miliknya. Admin dan Super Admin tetap dapat melihat seluruh konten.</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Data lama yang belum memiliki pembuat hanya tetap terlihat oleh Admin saat mode isolasi aktif. Konten baru otomatis menjadi milik akun yang membuatnya.
+            </div>
+
+            @error('tutor_content_visibility')
+                <p class="text-xs text-red-500">{{ $message }}</p>
+            @enderror
         </div>
 
         <div data-settings-panel="visual"

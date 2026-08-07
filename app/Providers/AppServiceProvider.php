@@ -7,6 +7,7 @@ use App\Models\ClientProfile;
 use App\Models\Role;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
+use App\Services\TutorContentVisibilityService;
 use App\Support\MailSafety;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Blade;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(PlanModuleService::class);
+        $this->app->scoped(TutorContentVisibilityService::class);
     }
 
     /**
@@ -117,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
             'tutor_chat_enabled' => false,
             'booking_schedule_enabled' => false,
             'learning_progress_enabled' => false,
+            'tutor_content_visibility' => 'shared',
             'participant_destination_api_enabled' => false,
             'website_translation_enabled' => false,
             'website_translation_locales' => ['en', 'zh-CN', 'ja', 'ar', 'ko'],
@@ -191,6 +194,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
             $defaults['booking_schedule_enabled'] = (bool) ($clientProfile->booking_schedule_enabled ?? $defaults['booking_schedule_enabled']);
             $defaults['learning_progress_enabled'] = (bool) ($clientProfile->learning_progress_enabled ?? $defaults['learning_progress_enabled']);
+            $defaults['tutor_content_visibility'] = $clientProfile->tutor_content_visibility ?: $defaults['tutor_content_visibility'];
             $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
             $defaults['website_translation_enabled'] = (bool) ($clientProfile->website_translation_enabled ?? $defaults['website_translation_enabled']);
             $defaults['website_translation_locales'] = is_array($clientProfile->website_translation_locales)

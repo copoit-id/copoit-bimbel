@@ -75,6 +75,7 @@ class ClientProfile extends Model
         'tutor_chat_enabled',
         'booking_schedule_enabled',
         'learning_progress_enabled',
+        'tutor_content_visibility',
         'participant_destination_api_enabled',
         'website_translation_enabled',
         'website_translation_locales',

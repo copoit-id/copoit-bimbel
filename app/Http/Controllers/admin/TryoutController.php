@@ -183,6 +183,7 @@ class TryoutController extends Controller
 
         try {
             $tryout = Tryout::create([
+                'created_by' => $request->user()?->id,
                 'name' => $request->name,
                 'description' => $request->input('description') ?? '',
                 'type_tryout' => $request->type_tryout,
@@ -395,8 +396,9 @@ class TryoutController extends Controller
                 'tryoutDetails.questions.questionOptions',
             ]);
 
-            $clone = DB::transaction(function () use ($tryout) {
+            $clone = DB::transaction(function () use ($tryout, $request) {
                 $newTryout = $tryout->replicate();
+                $newTryout->created_by = $request->user()?->id;
                 $newTryout->name = $this->uniqueCloneName($tryout->name);
                 $newTryout->is_active = false;
                 $newTryout->is_displayed = false;

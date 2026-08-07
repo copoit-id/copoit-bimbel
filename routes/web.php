@@ -566,7 +566,7 @@ Route::prefix('{portal}')
         Route::put('/paket/{package_id}/tryout/{tryout_detail_id}/soal/{question_id}/update', [AdminPackageController::class, 'updateSoal'])->name('package.tryout.soal.update');
 
         // Question Management Routes
-        Route::prefix('soal')->name('question.')->group(function () {
+        Route::prefix('soal')->name('question.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}', [QuestionController::class, 'index'])->name('index');
             Route::get('/{tryout_detail_id}/tambah', [QuestionController::class, 'create'])->name('create');
             Route::post('/{tryout_detail_id}/store', [QuestionController::class, 'store'])->name('store');
@@ -580,7 +580,7 @@ Route::prefix('{portal}')
             Route::delete('/{tryout_detail_id}/{question_id}/destroy', [QuestionController::class, 'destroy'])->name('destroy');
         });
 
-        Route::prefix('bank-soal')->name('question-bank.')->group(function () {
+        Route::prefix('bank-soal')->name('question-bank.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/', [QuestionBankController::class, 'index'])->name('index');
             Route::post('/', [QuestionBankController::class, 'store'])->name('store');
 
@@ -611,19 +611,19 @@ Route::prefix('{portal}')
         });
 
         // Question Import Routes (separated)
-        Route::prefix('soal-import')->name('question-import.')->group(function () {
+        Route::prefix('soal-import')->name('question-import.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}/download-template', [QuestionImportController::class, 'downloadTemplate'])->name('download-template');
             Route::post('/{tryout_detail_id}/import', [QuestionImportController::class, 'import'])->name('import');
         });
 
-        Route::resource('tryout', AdminTryoutController::class);
-        Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->name('tryout.clone');
-        Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
-        Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
-        Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
+        Route::resource('tryout', AdminTryoutController::class)->middleware('tutor-content-owner');
+        Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->middleware('tutor-content-owner')->name('tryout.clone');
+        Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->middleware('tutor-content-owner')->name('tryout.preview');
+        Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->middleware('tutor-content-owner')->name('tryout.release-utbk');
+        Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->middleware('tutor-content-owner')->name('tryout.reset-utbk');
 
         // Material Management Routes
-        Route::prefix('materi')->name('material.')->group(function () {
+        Route::prefix('materi')->name('material.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/', [MaterialManagementController::class, 'index'])->name('index');
             Route::get('/create', [MaterialManagementController::class, 'create'])->name('create');
             Route::post('/drive-title', [MaterialManagementController::class, 'driveTitle'])->name('drive-title');

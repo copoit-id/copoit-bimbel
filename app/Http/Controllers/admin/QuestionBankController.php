@@ -77,6 +77,10 @@ class QuestionBankController extends Controller
             'parent_id' => ['nullable', 'exists:question_banks,id'],
         ]);
 
+        if (! empty($validated['parent_id'])) {
+            QuestionBank::query()->findOrFail($validated['parent_id']);
+        }
+
         QuestionBank::create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
@@ -1211,6 +1215,7 @@ class QuestionBankController extends Controller
         }
 
         $targetBankId = (int) $validated['target_question_bank_id'];
+        QuestionBank::query()->findOrFail($targetBankId);
         if ($questions->every(fn ($question) => (int) $question->question_bank_id === $targetBankId)) {
             return back()->with('error', 'Pilih bank tujuan yang berbeda.');
         }

@@ -105,6 +105,7 @@ class SettingController extends Controller
             'material_nav_label' => ['required', 'string', 'max:80'],
             'package_nav_label' => ['required', 'string', 'max:80'],
             'tryout_nav_label' => ['required', 'string', 'max:80'],
+            'tutor_content_visibility' => ['required', 'in:shared,isolated'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             // SVG is executable XML in browsers. Do not place untrusted SVG
@@ -407,6 +408,7 @@ class SettingController extends Controller
         $validated['material_nav_label'] = trim((string) ($validated['material_nav_label'] ?? '')) ?: 'Kelas & Materi';
         $validated['package_nav_label'] = trim((string) ($validated['package_nav_label'] ?? '')) ?: 'Paket Belajar';
         $validated['tryout_nav_label'] = trim((string) ($validated['tryout_nav_label'] ?? '')) ?: 'Ujian & Try Out';
+        $validated['tutor_content_visibility'] = $validated['tutor_content_visibility'] ?? 'shared';
         $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
         $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
         $validated['concurrent_login_limit'] = max(1, (int) ($validated['concurrent_login_limit'] ?? 1));

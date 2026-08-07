@@ -10,6 +10,8 @@
     $authUser = auth()->user();
     $isSuperAdmin = $authUser?->isSuperAdmin() ?? false;
     $isTutor = $authUser?->isTutor() ?? false;
+    $isTutorContentIsolated = $isTutor
+        && app(\App\Services\TutorContentVisibilityService::class)->isIsolated();
     $canAccessAdminPanel = $authUser?->canAccessAdminPanel() ?? false;
     $planModules = app(\App\Services\PlanModuleService::class);
     $adminRouteExists = fn (string $route): bool => \Illuminate\Support\Facades\Route::has($route);
@@ -146,9 +148,9 @@
                     @if($canFeatureView('package'))<li><a href="{{ route('admin.package.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.package.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Paket</span></a></li>@endif
                     @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Kelas & Jadwal</span></a></li>@endif
                     @if($canShowLegacyClassMenu)<li><a href="{{ route('admin.class.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Kelas</span></a></li>@endif
-                    @if($canFeatureView('tryout'))<li><a href="{{ route('admin.tryout.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Tryout</span></a></li>@endif
+                    @if($canFeatureView('tryout'))<li><a href="{{ route('admin.tryout.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>{{ $isTutorContentIsolated ? 'Tryout Saya' : 'Manajemen Tryout' }}</span></a></li>@endif
                     @if($canShowStudyGroupMenu)<li><a href="{{ route('admin.study-groups.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.study-groups.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Rombel / Grup Belajar</span></a></li>@endif
-                    @if($canShowMaterialMenu)<li><a href="{{ route('admin.material.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Materi</span></a></li>@endif
+                    @if($canShowMaterialMenu)<li><a href="{{ route('admin.material.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>{{ $isTutorContentIsolated ? 'Materi Saya' : 'Manajemen Materi' }}</span></a></li>@endif
                     @if($canFeatureView('tes_koran'))<li><a href="{{ route('admin.tes-koran.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isTesKoranActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Tes Koran</span></a></li>@endif
                 </ul></details></li>
             @endif
@@ -158,7 +160,7 @@
                 <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
                 @endif
             @endif
-            @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Bank Soal</span></a></li>@endif
+            @if($canFeatureView('question_bank'))<li><a href="{{ route('admin.question-bank.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.question-bank.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-folder-3-line text-[20px] {{ request()->routeIs('admin.question-bank.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">{{ $isTutorContentIsolated ? 'Bank Soal Saya' : 'Bank Soal' }}</span></a></li>@endif
             @if($canShowCategoryMenu)
                 <li><details id="menu-category" class="group" {{ $isCategoryActive ? 'open' : '' }}><summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isCategoryActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;"><span class="flex items-center"><i class="ri-folder-settings-line text-[20px] {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Kategori</span></span><i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isCategoryActive ? $iconActiveClass : $iconInactiveClass }}"></i></summary><ul class="mt-1 ms-2 space-y-1">
                     @if($canShowMaterialCategoryMenu)<li><a href="{{ route('admin.material.material-category.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.material.material-category.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Kategori Subtest</span></a></li>@endif
