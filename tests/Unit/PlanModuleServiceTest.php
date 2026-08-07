@@ -40,6 +40,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertTrue($packageSchedule['package']);
         $this->assertTrue($packageSchedule['schedule']);
         $this->assertFalse($packageSchedule['attendance']);
+        $this->assertFalse($packageSchedule['study_group']);
         $this->assertTrue($packageSchedule['booking']);
         $this->assertFalse($packageSchedule['class']);
         $this->assertFalse($packageSchedule['tryout']);
@@ -50,6 +51,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertTrue($administration['package']);
         $this->assertTrue($administration['schedule']);
         $this->assertTrue($administration['attendance']);
+        $this->assertTrue($administration['study_group']);
         $this->assertFalse($administration['tryout']);
         $this->assertTrue($standard['tryout']);
         $this->assertTrue($standard['finance']);
@@ -65,6 +67,7 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('material', $service->featureForRoute('admin.package.material.index'));
         $this->assertSame('class', $service->featureForRoute('admin.package.class.index'));
         $this->assertSame('schedule', $service->featureForRoute('admin.class-schedules.index'));
+        $this->assertSame('study_group', $service->featureForRoute('admin.study-groups.index'));
         $this->assertSame('schedule', $service->featureForRoute('user.class-schedule.index'));
         $this->assertSame('attendance', $service->featureForRoute('user.class-schedule.attend'));
         $this->assertSame('schedule', $service->featureForRoute('tutor.schedule.index'));
@@ -129,6 +132,7 @@ class PlanModuleServiceTest extends TestCase
         ]);
 
         $this->assertTrue($service->accessForPlan($plan)['attendance']);
+        $this->assertTrue($service->accessForPlan($plan)['study_group']);
     }
 
     public function test_middleware_rejects_a_disabled_route_feature(): void

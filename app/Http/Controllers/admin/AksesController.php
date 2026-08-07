@@ -356,8 +356,8 @@ class AksesController extends Controller
 
     private function canUseStudyGroupAccess(Request $request): bool
     {
-        return app(PlanModuleService::class)->allows('class')
-            && ($request->user()?->hasPermission('class', 'view') ?? false);
+        return app(PlanModuleService::class)->allows('study_group')
+            && ($request->user()?->hasPermission('study_group', 'view') ?? false);
     }
 
     private function grantAccessToUser(string $normalizedType, int $userId, int $itemId, Request $request): void
