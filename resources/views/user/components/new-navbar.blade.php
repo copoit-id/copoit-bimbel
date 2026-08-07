@@ -49,6 +49,9 @@ function isActive($route, $current) {
 @endphp
 
 <style>
+[x-cloak] {
+    display: none !important;
+}
 .nav-item-active {
     background-color: {{ $primaryColor }}15 !important;
     color: {{ $primaryColor }} !important;
@@ -311,7 +314,55 @@ function isActive($route, $current) {
 </nav>
 
 <!-- Mobile Menu (fixed bottom) -->
-<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
+<div class="md:hidden fixed bottom-0 left-0 right-0 z-50" x-data="{ bimbelOpen: false }">
+    @if($canShowBimbel)
+    <div
+        x-cloak
+        x-show="bimbelOpen"
+        x-transition:enter="transition ease-out duration-150"
+        x-transition:enter-start="translate-y-2 opacity-0"
+        x-transition:enter-end="translate-y-0 opacity-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="translate-y-0 opacity-100"
+        x-transition:leave-end="translate-y-2 opacity-0"
+        class="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+        <div class="flex items-center justify-between px-3 py-2">
+            <span class="text-sm font-semibold text-gray-800">Menu Bimbel</span>
+            <button type="button" @click="bimbelOpen = false" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100" aria-label="Tutup menu Bimbel">
+                <i class="ri-close-line text-lg"></i>
+            </button>
+        </div>
+        <div class="grid grid-cols-2 gap-1">
+            @if($canShowMaterial)
+            <a href="{{ route('user.material.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-book-open-line text-lg text-gray-400"></i>Materi
+            </a>
+            @endif
+            @if($canShowTryout)
+            <a href="{{ route('user.package.tryout.list') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-file-list-3-line text-lg text-gray-400"></i>Tryout
+            </a>
+            @endif
+            @if($canShowPackage)
+            <a href="{{ route('user.package.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-store-3-line text-lg text-gray-400"></i>Paket
+            </a>
+            @endif
+            @if($user && $canShowBooking)
+            <a href="{{ route('user.booking.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-calendar-schedule-line text-lg text-gray-400"></i>Booking
+            </a>
+            @endif
+            @if($user && $canShowLearningProgress)
+            <a href="{{ route('user.development.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-line-chart-line text-lg text-gray-400"></i>Perkembangan
+            </a>
+            @endif
+        </div>
+    </div>
+    @endif
+
+    <div class="bg-white border-t border-gray-100">
     <div class="flex justify-around py-2">
         @if($canShowDashboard)
         <a href="{{ route('user.dashboard.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.dashboard', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
@@ -321,10 +372,10 @@ function isActive($route, $current) {
         @endif
         
         @if($canShowBimbel)
-        <a href="{{ $bimbelUrl }}" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
+        <button type="button" @click="bimbelOpen = !bimbelOpen" :aria-expanded="bimbelOpen.toString()" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-graduation-cap-line text-xl"></i>
             <span class="text-xs mt-0.5">Bimbel</span>
-        </a>
+        </button>
         @endif
         @if($user && $canShowAiLearning)
         <a href="{{ route('user.ai-learning.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.ai-learning', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
@@ -344,5 +395,6 @@ function isActive($route, $current) {
             <span class="text-xs mt-0.5">Masuk</span>
         </a>
         @endif
+    </div>
     </div>
 </div>
