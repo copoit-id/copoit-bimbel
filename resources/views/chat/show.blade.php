@@ -3,6 +3,12 @@
 @section('title', $title)
 
 @section('content')
+@php
+    $displayPeerName = $peerName
+        ?: ((int) $conversation->student_user_id === auth()->id()
+            ? $conversation->tutor?->name
+            : $conversation->student?->name);
+@endphp
 <div class="{{ $embedded || $conversationList ? 'mx-0 max-w-none' : 'mx-auto max-w-4xl' }}" id="chat-app"
     data-conversation-id="{{ $conversation->id }}"
     data-current-user-id="{{ auth()->id() }}"
@@ -50,7 +56,7 @@
         @unless($embedded)
         <header class="flex items-center gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
             <div class="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                {{ strtoupper(mb_substr((int) $conversation->student_user_id === auth()->id() ? $conversation->tutor?->name : $conversation->student?->name, 0, 1)) }}
+                {{ strtoupper(mb_substr($displayPeerName, 0, 1)) }}
             </div>
             <div class="min-w-0">
                 <h1 class="truncate font-bold text-slate-900">{{ $title }}</h1>

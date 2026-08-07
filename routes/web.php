@@ -145,6 +145,11 @@ Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'no-c
     Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
     Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');
     Route::get('/laporan-cetak', [ParentPortalController::class, 'report'])->name('report');
+    Route::get('/chat-tutor', [ChatController::class, 'parentIndex'])->name('chat.index');
+    Route::get('/chat-tutor/anak/{child}/jadwal/{classSchedule}', [ChatController::class, 'parentShow'])->name('chat.schedule.show');
+    Route::get('/chat-tutor/conversations/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
+    Route::post('/chat-tutor/conversations/{conversation}/messages', [ChatController::class, 'store'])->middleware('throttle:60,1')->name('chat.messages.store');
+    Route::post('/chat-tutor/conversations/{conversation}/read', [ChatController::class, 'markRead'])->middleware('throttle:120,1')->name('chat.read');
 });
 
 // Public user routes (no auth required)

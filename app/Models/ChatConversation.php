@@ -78,7 +78,8 @@ class ChatConversation extends Model
     {
         return $query->where(function (Builder $query) use ($userId) {
             $query->where('student_user_id', $userId)
-                ->orWhere('tutor_user_id', $userId);
+                ->orWhere('tutor_user_id', $userId)
+                ->orWhereHas('student.parents', fn (Builder $parentQuery) => $parentQuery->where('users.id', $userId));
         });
     }
 

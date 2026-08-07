@@ -65,6 +65,24 @@ class TutorChatService
         return [$conversation, $conversation->wasRecentlyCreated];
     }
 
+    /**
+     * Opens the child's tutor room for a linked parent. The room deliberately
+     * remains shared with the child so every message keeps one schedule context.
+     *
+     * @return array{0: ChatConversation, 1: bool}
+     */
+    public function openForParent(User $parent, User $child, ClassSchedule $schedule): array
+    {
+        $this->ensureFeatureEnabled();
+        abort_unless($parent->isParent(), 403, 'Akun ini bukan akun orang tua.');
+        abort_unless($parent->children()->whereKey($child->id)->exists(), 403, 'Anak tidak terhubung ke akun Anda.');
+
+        [$conversation, $created] = $this->openForStudent($child, $schedule);
+        $this->ensureReadState($conversation, $parent->id);
+
+        return [$conversation, $created];
+    }
+
     public function ensureAccessible(User $user, ChatConversation $conversation): void
     {
         $this->ensureFeatureEnabled();
@@ -73,6 +91,17 @@ class TutorChatService
 
     public function isAccessibleBy(User $user, ChatConversation $conversation): bool
     {
+        if ($user->isParent()) {
+            $conversation->loadMissing('student', 'schedule');
+
+            return $conversation->student
+                && $conversation->schedule
+                && $conversation->schedule->schedule_type === 'recurring'
+                && $conversation->schedule->is_active
+                && $user->children()->whereKey($conversation->student_user_id)->exists()
+                && $this->studentCanAccessSchedule($conversation->student, $conversation->schedule);
+        }
+
         if ((int) $conversation->student_user_id === (int) $user->id) {
             $conversation->loadMissing('schedule');
 
@@ -224,6 +253,33 @@ class TutorChatService
                     'embed' => 1,
                 ]),
             ])
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array{child_id: int, child_name: string, schedule_id: int, schedule_title: string, tutor_name: string, url: string}>
+     */
+    public function chatContactsForParent(User $parent): Collection
+    {
+        $this->ensureFeatureEnabled();
+        abort_unless($parent->isParent(), 403, 'Akun ini bukan akun orang tua.');
+
+        return $parent->children()
+            ->select('users.id', 'users.name')
+            ->get()
+            ->flatMap(function (User $child): Collection {
+                return $this->chatContactsForStudent($child)
+                    ->map(fn (array $contact): array => [
+                        'child_id' => $child->id,
+                        'child_name' => $child->name,
+                        ...$contact,
+                        'url' => route('parent.chat.schedule.show', [
+                            'child' => $child,
+                            'classSchedule' => $contact['schedule_id'],
+                        ]),
+                    ]);
+            })
+            ->sortBy(fn (array $contact): string => $contact['child_name'].'|'.$contact['schedule_title'])
             ->values();
     }
 
@@ -419,7 +475,11 @@ class TutorChatService
 
     private function ensureFeatureEnabled(): void
     {
-        abort_unless((bool) config('client.branding.tutor_chat_enabled', false), 404);
+        abort_unless(
+            (bool) config('client.branding.tutor_chat_enabled', false)
+                && app(PlanModuleService::class)->allows('discussion'),
+            404
+        );
     }
 
     private function studentCanAccessSchedule(User $student, ClassSchedule $schedule): bool

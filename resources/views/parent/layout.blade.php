@@ -41,12 +41,14 @@
     <div class="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside class="h-fit rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:sticky lg:top-24">
             <nav class="space-y-1 text-sm font-semibold">
+                @php($canShowTutorChat = (bool) config('client.branding.tutor_chat_enabled', false) && app(\App\Services\PlanModuleService::class)->allows('discussion'))
                 @foreach([
                     ['parent.dashboard', 'ri-home-5-line', 'Ringkasan'],
                     ['parent.attendance', 'ri-calendar-check-line', 'Presensi'],
                     ['parent.packages', 'ri-bank-card-line', 'Paket & Pembayaran'],
                     ['parent.assessments', 'ri-bar-chart-box-line', 'Riwayat Ujian'],
                     ['parent.development', 'ri-line-chart-line', 'Perkembangan'],
+                    ...($canShowTutorChat ? [['parent.chat.index', 'ri-chat-3-line', 'Chat Tutor']] : []),
                     ['parent.report', 'ri-file-chart-line', 'Laporan Cetak'],
                 ] as [$route, $icon, $label])
                     <a href="{{ $parentLink($route) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ $currentRoute === $route ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-primary' }}"><i class="{{ $icon }} text-lg"></i>{{ $label }}</a>

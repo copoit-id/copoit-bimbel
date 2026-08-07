@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\ClassSchedule;
+use App\Models\User;
 use App\Services\PlanModuleService;
 use App\Services\TutorChatService;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,42 @@ class ChatController extends Controller
             'user.chat.messages.store',
             'user.chat.read',
             $embedded,
+        );
+    }
+
+    public function parentIndex(Request $request): View
+    {
+        $parent = $request->user();
+        $children = $parent->children()->orderBy('name')->get(['users.id', 'users.name']);
+
+        return view('parent.chat-index', [
+            'children' => $children,
+            'child' => $children->first(),
+            'contacts' => $this->chatService->chatContactsForParent($parent),
+        ]);
+    }
+
+    public function parentShow(Request $request, User $child, ClassSchedule $classSchedule): View
+    {
+        [$conversation] = $this->chatService->openForParent($request->user(), $child, $classSchedule);
+        $children = $request->user()->children()->orderBy('name')->get(['users.id', 'users.name']);
+
+        return $this->showConversation(
+            $request,
+            $conversation,
+            'parent.layout',
+            'Chat Tutor · '.$child->name,
+            route('parent.chat.index'),
+            'Daftar Tutor',
+            'parent.chat.messages',
+            'parent.chat.messages.store',
+            'parent.chat.read',
+            false,
+            null,
+            null,
+            $conversation->tutor()->value('name'),
+            $children,
+            $child,
         );
     }
 
@@ -215,6 +252,9 @@ class ChatController extends Controller
         bool $embedded = false,
         mixed $conversationList = null,
         ?Collection $unreadCounts = null,
+        ?string $peerName = null,
+        ?Collection $parentChildren = null,
+        ?User $parentChild = null,
     ): View {
         $conversation->load([
             'classRoom:class_id,title',
@@ -228,6 +268,8 @@ class ChatController extends Controller
         $unreadCounts ??= $conversationList
             ? $this->chatService->unreadCountsFor($request->user())
             : collect();
+        $children = $parentChildren;
+        $child = $parentChild;
 
         return view('chat.show', compact(
             'layout',
@@ -243,6 +285,9 @@ class ChatController extends Controller
             'conversationList',
             'unreadCounts',
             'peerLastReadMessageId',
+            'peerName',
+            'children',
+            'child',
         ));
     }
 }
