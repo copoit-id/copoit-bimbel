@@ -142,7 +142,7 @@
             </div>
             @endif
 
-            @if($canUseClass)
+            @if($canUseAttendance)
                 <!-- Link Meeting -->
                 <div class="md:col-span-2">
                     <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>

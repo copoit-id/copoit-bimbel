@@ -235,7 +235,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
         ->middleware('client-feature:learning-progress')
         ->name('user.development.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
-        ->middleware('module:class')
+        ->middleware('module:attendance')
         ->name('user.class-schedule.attend');
     Route::prefix('booking-jadwal')->name('user.booking.')->middleware('client-feature:schedule-booking')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
@@ -379,7 +379,7 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
             ->middleware('throttle:30,1')
             ->name('progress.store');
     });
-    Route::middleware('module:class')->group(function () {
+    Route::middleware('module:attendance')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
         Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
         Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
@@ -673,10 +673,16 @@ Route::prefix('{portal}')
             ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->names('class-schedules')
             ->parameters(['jadwal-kelas' => 'classSchedule']);
-        Route::middleware('module:class')->group(function () {
-            Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])->name('class-schedules.show');
-            Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
-            Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
+        Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])
+            ->middleware('module:attendance')
+            ->name('class-schedules.show');
+        Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])
+            ->middleware('module:schedule')
+            ->name('class-schedules.generate');
+        Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])
+            ->middleware('module:schedule')
+            ->name('class-sessions.update');
+        Route::middleware('module:attendance')->group(function () {
             Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
             Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
             Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');

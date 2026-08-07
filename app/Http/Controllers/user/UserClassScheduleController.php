@@ -19,6 +19,7 @@ class UserClassScheduleController extends Controller
     {
         $user = $request->user()->loadMissing('participantDestinationCategory');
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
         $requestedPeriod = $request->query('period', 'week');
         $period = is_string($requestedPeriod) ? strtolower($requestedPeriod) : 'week';
         $period = in_array($period, ['today', 'week', 'month', 'all'], true)
@@ -123,6 +124,7 @@ class UserClassScheduleController extends Controller
             'liveClasses',
             'period',
             'canUseClass',
+            'canUseAttendance',
         ));
     }
 

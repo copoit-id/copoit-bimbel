@@ -5,6 +5,7 @@ namespace App\Http\Controllers\superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Services\PlanModuleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -12,13 +13,22 @@ class RoleController extends Controller
 {
     private array $protectedRoles = ['super_admin'];
 
+    public function __construct(
+        private PlanModuleService $planModules
+    ) {}
+
     public function index()
     {
         $roles = Role::with('permissions')->orderBy('name')->get();
         $features = config('permissions.features', []);
         $actions = config('permissions.actions', []);
+        $availableFeatures = collect($features)
+            ->mapWithKeys(fn (array $feature, string $featureKey): array => [
+                $featureKey => $this->planModules->allows($featureKey),
+            ])
+            ->all();
 
-        return view('super-admin.roles.index', compact('roles', 'features', 'actions'));
+        return view('super-admin.roles.index', compact('roles', 'features', 'actions', 'availableFeatures'));
     }
 
     public function store(Request $request)
@@ -31,7 +41,7 @@ class RoleController extends Controller
         $baseSlug = $slug;
         $suffix = 1;
         while (Role::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '_' . $suffix;
+            $slug = $baseSlug.'_'.$suffix;
             $suffix++;
         }
 
@@ -84,8 +94,26 @@ class RoleController extends Controller
                 ->with('error', 'Role ini tidak dapat diubah.');
         }
 
-        $permissionSlugs = $request->input('permissions', []);
-        $permissionIds = Permission::whereIn('slug', $permissionSlugs)->pluck('id')->all();
+        $availableFeatureKeys = collect(array_keys(config('permissions.features', [])))
+            ->filter(fn (string $feature): bool => $this->planModules->allows($feature));
+        $managedPermissionSlugs = $availableFeatureKeys
+            ->flatMap(fn (string $feature): array => collect(array_keys(config('permissions.actions', [])))
+                ->map(fn (string $action): string => $feature.'.'.$action)
+                ->all())
+            ->all();
+        $submittedPermissionSlugs = collect($request->input('permissions', []))
+            ->filter(fn (mixed $slug): bool => is_string($slug) && in_array($slug, $managedPermissionSlugs, true))
+            ->all();
+        $preservedPermissionIds = $role->permissions()
+            ->whereNotIn('permissions.slug', $managedPermissionSlugs)
+            ->pluck('permissions.id')
+            ->all();
+        $permissionIds = Permission::query()
+            ->whereIn('slug', $submittedPermissionSlugs)
+            ->pluck('id')
+            ->merge($preservedPermissionIds)
+            ->unique()
+            ->all();
 
         $role->permissions()->sync($permissionIds);
 
