@@ -6,23 +6,36 @@
     <div class="flex items-center justify-between">
         <div>
             <h2 class="text-2xl font-bold">Admin Demo</h2>
-            <p class="text-gray-500">Buat akun admin dengan batas akses waktu.</p>
+            <p class="text-gray-500">Kelola akun admin dan batas akses waktunya.</p>
         </div>
+        <button type="button" data-open-modal="create-admin-modal" class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90">
+            <i class="ri-user-add-line text-lg"></i>
+            Tambah Admin
+        </button>
     </div>
 
-    <div class="bg-white border border-border rounded-xl p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Tambah Admin</h3>
-        @if ($errors->any())
-            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                <ul class="list-disc pl-5 space-y-1">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
+    <div id="create-admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto px-4 py-6">
+        <div class="absolute inset-0 bg-black/50" data-close-modal></div>
+        <div class="relative my-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <div class="mb-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Admin Demo</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Tambah Admin</h3>
+                </div>
+                <button type="button" class="text-2xl leading-none text-gray-400 hover:text-gray-600" data-close-modal>&times;</button>
             </div>
-        @endif
-        <form method="POST" action="{{ route('super-admin.admins.store') }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            @if (old('form_context') === 'create-admin' && $errors->any())
+                <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <ul class="list-disc space-y-1 pl-5">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            <form method="POST" action="{{ route('super-admin.admins.store') }}" class="grid grid-cols-1 gap-4 md:grid-cols-2">
             @csrf
+            <input type="hidden" name="form_context" value="create-admin">
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Nama</label>
                 <input type="text" name="name" value="{{ old('name') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
@@ -62,20 +75,50 @@
                 </div>
                 <p class="text-xs text-gray-500 mt-2">Isi salah satu atau keduanya.</p>
             </div>
-            <div class="md:col-span-2 flex justify-end">
+            <div class="flex justify-end gap-2 md:col-span-2">
+                <button type="button" data-close-modal class="px-5 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Batal</button>
                 <button type="submit" class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Buat Admin</button>
             </div>
-        </form>
+            </form>
+        </div>
     </div>
 
     <div class="bg-white border border-border rounded-xl p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Daftar Admin</h3>
+        <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Daftar Admin</h3>
+                <p class="text-sm text-gray-500">Cari, filter status, dan urutkan data admin demo.</p>
+            </div>
+            <form method="GET" action="{{ route('super-admin.admins.index') }}" class="flex flex-col gap-2 sm:flex-row">
+                <input type="hidden" name="status" value="{{ $status }}">
+                <input type="search" name="search" value="{{ request('search') }}" placeholder="Cari nama, email, username"
+                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm sm:w-56">
+                <select name="sort" class="rounded-lg border border-gray-200 px-3 py-2 text-sm" onchange="this.form.submit()">
+                    @foreach ($sortOptions as $value => $label)
+                        <option value="{{ $value }}" @selected($sort === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <button type="submit" class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Terapkan</button>
+            </form>
+        </div>
+
+        <div class="mb-5 flex flex-wrap gap-2 border-b border-gray-200">
+            @foreach (['all' => 'Semua', 'active' => 'Aktif', 'expired' => 'Expired'] as $tabStatus => $label)
+                <a href="{{ route('super-admin.admins.index', array_filter(['status' => $tabStatus, 'sort' => $sort, 'search' => request('search')])) }}"
+                    class="inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold transition {{ $status === $tabStatus ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}">
+                    {{ $label }}
+                    <span class="rounded-full px-2 py-0.5 text-xs {{ $status === $tabStatus ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600' }}">{{ $counts[$tabStatus] }}</span>
+                </a>
+            @endforeach
+        </div>
+
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-gray-600">
                 <thead class="text-xs text-gray-500 uppercase bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-left">Nama</th>
                         <th class="px-4 py-3 text-left">Email</th>
+                        <th class="px-4 py-3 text-center">Ditambahkan</th>
                         <th class="px-4 py-3 text-center">Expired</th>
                         <th class="px-4 py-3 text-center">Status</th>
                         <th class="px-4 py-3 text-center">Aksi</th>
@@ -89,6 +132,7 @@
                         <tr class="border-t border-gray-100">
                             <td class="px-4 py-3 font-medium text-gray-900">{{ $admin->name }}</td>
                             <td class="px-4 py-3">{{ $admin->email }}</td>
+                            <td class="px-4 py-3 text-center">{{ $admin->created_at?->format('d M Y H:i') ?? '-' }}</td>
                             <td class="px-4 py-3 text-center">
                                 {{ $admin->admin_expires_at ? $admin->admin_expires_at->format('d M Y H:i') : '-' }}
                             </td>
@@ -98,12 +142,12 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <button type="button" data-open-edit-modal="edit-admin-{{ $admin->id }}"
+                                <button type="button" data-open-modal="edit-admin-{{ $admin->id }}"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
                                     <i class="ri-edit-line text-base"></i>
                                     Edit
                                 </button>
-                                <button type="button" data-open-edit-modal="extend-admin-{{ $admin->id }}"
+                                <button type="button" data-open-modal="extend-admin-{{ $admin->id }}"
                                     class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition">
                                     <i class="ri-time-line text-base"></i>
                                     Perpanjang
@@ -112,11 +156,15 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-6 text-center text-gray-500">Belum ada admin demo.</td>
+                            <td colspan="6" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
+        </div>
+
+        <div class="mt-5">
+            {{ $admins->links() }}
         </div>
 
         @foreach($admins as $admin)
@@ -130,9 +178,19 @@
                         </div>
                         <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" data-close-edit-modal>&times;</button>
                     </div>
+                    @if (old('form_context') === 'edit-admin-'.$admin->id && $errors->any())
+                        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <ul class="list-disc space-y-1 pl-5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('super-admin.admins.update', $admin) }}" class="space-y-4">
                                     @csrf
                                     @method('PUT')
+                                    <input type="hidden" name="form_context" value="edit-admin-{{ $admin->id }}">
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Nama</label>
                                         <input type="text" name="name" value="{{ old('name', $admin->name) }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
@@ -175,10 +233,20 @@
                         </div>
                         <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" data-close-edit-modal>&times;</button>
                     </div>
+                    @if (old('form_context') === 'extend-admin-'.$admin->id && $errors->any())
+                        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <ul class="list-disc space-y-1 pl-5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <p class="mb-4 text-sm text-gray-500">Akses saat ini: {{ $admin->admin_expires_at?->copy()->setTimezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}.</p>
                     <form method="POST" action="{{ route('super-admin.admins.extend', $admin) }}" class="space-y-4">
                         @csrf
                         @method('PATCH')
+                        <input type="hidden" name="form_context" value="extend-admin-{{ $admin->id }}">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Cara memperpanjang</label>
                             <select name="expiry_type" class="w-full border border-gray-200 rounded-lg px-4 py-2" data-expiry-select>
@@ -231,19 +299,23 @@
         select.addEventListener('change', toggleFields);
         toggleFields();
 
-        document.querySelectorAll('[data-open-edit-modal]').forEach(button => {
+        const openModal = (modalId) => {
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        document.querySelectorAll('[data-open-modal]').forEach(button => {
             button.addEventListener('click', () => {
-                const targetId = button.getAttribute('data-open-edit-modal');
-                const modal = document.getElementById(targetId);
-                if (!modal) return;
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                openModal(button.getAttribute('data-open-modal'));
             });
         });
 
-        document.querySelectorAll('[data-close-edit-modal]').forEach(button => {
+        document.querySelectorAll('[data-close-modal], [data-close-edit-modal]').forEach(button => {
             button.addEventListener('click', () => {
-                const modal = button.closest('[id^=\"edit-admin-\"], [id^=\"extend-admin-\"]');
+                const modal = button.closest('[id="create-admin-modal"], [id^="edit-admin-"], [id^="extend-admin-"]');
                 if (!modal) return;
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
@@ -269,6 +341,11 @@
             selectEl.addEventListener('change', toggle);
             toggle();
         });
+
+        const formWithError = @json(old('form_context'));
+        if (formWithError) {
+            openModal(formWithError);
+        }
     });
 </script>
 @endpush

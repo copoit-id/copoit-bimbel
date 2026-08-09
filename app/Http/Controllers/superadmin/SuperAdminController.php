@@ -14,13 +14,67 @@ use Illuminate\View\View;
 
 class SuperAdminController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $admins = User::where('role', 'admin_demo')
-            ->orderByDesc('created_at')
-            ->get();
+        $status = $request->input('status', 'all');
+        $status = in_array($status, ['all', 'active', 'expired'], true) ? $status : 'all';
 
-        return view('super-admin.admins.index', compact('admins'));
+        $sort = $request->input('sort', 'latest');
+        $sortOptions = [
+            'latest' => 'Terbaru ditambahkan',
+            'oldest' => 'Terlama ditambahkan',
+            'name_asc' => 'Nama A-Z',
+            'name_desc' => 'Nama Z-A',
+            'expiry_asc' => 'Masa berlaku terdekat',
+            'expiry_desc' => 'Masa berlaku terjauh',
+        ];
+        $sort = array_key_exists($sort, $sortOptions) ? $sort : 'latest';
+
+        $now = now();
+        $baseQuery = User::query()
+            ->select(['id', 'name', 'email', 'username', 'role', 'admin_expires_at', 'created_at'])
+            ->where('role', 'admin_demo')
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim((string) $request->input('search'));
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
+                });
+            });
+
+        $counts = [
+            'all' => (clone $baseQuery)->count(),
+            'active' => (clone $baseQuery)->where('admin_expires_at', '>', $now)->count(),
+            'expired' => (clone $baseQuery)->where(function ($query) use ($now) {
+                $query->whereNull('admin_expires_at')
+                    ->orWhere('admin_expires_at', '<=', $now);
+            })->count(),
+        ];
+
+        $admins = (clone $baseQuery)
+            ->when($status === 'active', fn ($query) => $query->where('admin_expires_at', '>', $now))
+            ->when($status === 'expired', function ($query) use ($now) {
+                $query->where(function ($query) use ($now) {
+                    $query->whereNull('admin_expires_at')
+                        ->orWhere('admin_expires_at', '<=', $now);
+                });
+            })
+            ->tap(function ($query) use ($sort) {
+                match ($sort) {
+                    'oldest' => $query->orderBy('created_at'),
+                    'name_asc' => $query->orderBy('name'),
+                    'name_desc' => $query->orderByDesc('name'),
+                    'expiry_asc' => $query->orderBy('admin_expires_at'),
+                    'expiry_desc' => $query->orderByDesc('admin_expires_at'),
+                    default => $query->orderByDesc('created_at'),
+                };
+            })
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status'));
     }
 
     public function store(Request $request): RedirectResponse
