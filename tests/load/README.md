@@ -6,13 +6,35 @@
 
 ## Menyiapkan akun
 
-Salin template lalu isi akun peserta khusus uji. File asli sengaja tidak disediakan dan diabaikan Git agar password tidak masuk repository.
+Jangan membuat akun satu per satu. Setelah code ini dideploy ke VPS, buat batch peserta dari terminal VPS:
 
 ```bash
-cp tests/load/users.example.csv tests/load/users.csv
+php artisan test:create-tryout-users \
+  --count=324 \
+  --tryout=8 \
+  --package=free \
+  --batch=loadtest-t8-20260811 \
+  --force
 ```
 
-Formatnya `email,password`, satu akun unik per baris. Jumlah akun harus minimal sama dengan `VUS`. Semua akun harus dapat mengakses package/tryout yang diuji; untuk package berbayar, berikan akses package terlebih dahulu.
+Command tersebut membuat 324 akun ber-email `loadtest-t8-20260811-...@loadtest.invalid`, memberi akses langsung ke tryout free, dan mencetak lokasi CSV pada VPS, misalnya `storage/app/load-tests/loadtest-t8-20260811/users.csv`.
+
+Salin CSV itu secara aman ke komputer yang menjalankan k6:
+
+```bash
+scp user@ip-vps:/var/www/copoit-bimbel/storage/app/load-tests/loadtest-t8-20260811/users.csv \
+  tests/load/users.csv
+```
+
+File asli sengaja diabaikan Git agar password tidak masuk repository. Formatnya `email,password`, satu akun unik per baris. Jumlah akun harus minimal sama dengan `VUS`.
+
+Setelah pengujian, hapus seluruh akun dan data batch itu saja:
+
+```bash
+php artisan test:delete-tryout-users \
+  --batch=loadtest-t8-20260811 \
+  --force
+```
 
 ## Menjalankan burst 324 peserta dan 40 soal
 
