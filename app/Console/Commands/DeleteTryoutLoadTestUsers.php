@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -35,11 +36,19 @@ class DeleteTryoutLoadTestUsers extends Command
             return self::FAILURE;
         }
 
+        $batchDirectory = storage_path("app/load-tests/{$batch}");
         $users = User::query()
             ->where('email', 'like', $batch.'-%@'.$domain)
             ->get(['id', 'email']);
 
         if ($users->isEmpty()) {
+            if (File::isDirectory($batchDirectory)) {
+                File::deleteDirectory($batchDirectory);
+                $this->info("Deleted credential export for empty test batch {$batch}.");
+
+                return self::SUCCESS;
+            }
+
             $this->warn("No accounts were found for batch {$batch}.");
 
             return self::SUCCESS;
@@ -68,7 +77,9 @@ class DeleteTryoutLoadTestUsers extends Command
             User::whereIn('id', $userIds)->delete();
         });
 
-        $this->info("Deleted test batch {$batch}. User-answer, access, leaderboard, and other foreign-key dependent data were deleted with the accounts.");
+        File::deleteDirectory($batchDirectory);
+
+        $this->info("Deleted test batch {$batch}. User-answer, access, leaderboard, dependent data, and the credential CSV were deleted.");
 
         return self::SUCCESS;
     }
