@@ -8,11 +8,13 @@ import exec from 'k6/execution';
 /*
  * End-to-end tryout load test.
  *
- * Each VU uses one unique user, opens the lobby, starts the tryout, saves an
- * answer for EVERY rendered question, then submits the attempt. This writes
- * real UserAnswer/UserAnswerDetail data, so only run it against a dedicated
- * test tryout and test accounts. ARRIVAL_WINDOW_SECONDS and the delay options
- * can spread this flow to resemble normal participant behaviour.
+ * Each VU uses one unique user, opens the lobby, starts the tryout, answers
+ * every rendered question locally, then submits the attempt. This matches the
+ * application's default client_side persistence mode: answer clicks are local
+ * browser work and the server receives one final answers_payload on submit.
+ *
+ * Set ANSWER_PERSISTENCE_MODE=per_answer_save only for a deliberately harsher
+ * endpoint stress test. It is not the normal browser behaviour.
  *
  * See tests/load/README.md for the required users.csv and run commands.
  */
@@ -38,6 +40,9 @@ const START_DELAY_MAX_SECONDS = nonNegativeNumber(
     __ENV.START_DELAY_MAX_SECONDS || '0',
     'START_DELAY_MAX_SECONDS'
 );
+const ANSWER_PERSISTENCE_MODE = parseAnswerPersistenceMode(
+    __ENV.ANSWER_PERSISTENCE_MODE || 'client_side'
+);
 const FINISH_TRYOUT = parseBoolean(__ENV.FINISH_TRYOUT, true);
 const TEXT_ANSWER = __ENV.TEXT_ANSWER || 'Jawaban simulasi beban tryout';
 const USERS_FILE = __ENV.USERS_FILE || './users.csv';
@@ -46,8 +51,10 @@ const GRACEFUL_STOP = __ENV.GRACEFUL_STOP || '0s';
 
 const answersSaved = new Counter('tryout_answers_saved');
 const answersFailed = new Counter('tryout_answers_failed');
+const answersAnsweredLocally = new Counter('tryout_answers_answered_locally');
 const attemptsCompleted = new Counter('tryout_attempts_completed');
 const saveAnswerDuration = new Trend('tryout_save_answer_duration', true);
+const finishDuration = new Trend('tryout_finish_duration', true);
 
 const users = new SharedArray('tryout-test-users', () => parseUsersCsv(open(USERS_FILE)));
 const VUS = optionalPositiveInteger(__ENV.VUS, 'VUS') || users.length;
@@ -115,6 +122,16 @@ function parseBoolean(value, defaultValue) {
     }
 
     return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
+}
+
+function parseAnswerPersistenceMode(value) {
+    const mode = String(value).trim().toLowerCase();
+
+    if (!['client_side', 'per_answer_save'].includes(mode)) {
+        throw new Error('ANSWER_PERSISTENCE_MODE must be client_side or per_answer_save.');
+    }
+
+    return mode;
 }
 
 function randomBetween(minimum, maximum) {
@@ -428,6 +445,27 @@ function saveEveryAnswer(questionSet) {
     });
 }
 
+function answerEveryQuestionLocally(questionSet) {
+    return group('03 - answer locally', () => {
+        for (let index = 0; index < questionSet.questions.length; index += 1) {
+            answersAnsweredLocally.add(1);
+
+            if (index < questionSet.questions.length - 1) {
+                const answerDelay = ANSWER_INTERVAL_SECONDS
+                    + (ANSWER_INTERVAL_JITTER_SECONDS > 0
+                        ? Math.random() * ANSWER_INTERVAL_JITTER_SECONDS
+                        : 0);
+
+                if (answerDelay > 0) {
+                    sleep(answerDelay);
+                }
+            }
+        }
+
+        return true;
+    });
+}
+
 function finishTryout(questionSet) {
     if (!FINISH_TRYOUT) {
         return true;
@@ -435,21 +473,30 @@ function finishTryout(questionSet) {
 
     return group('04 - submit tryout', () => {
         const url = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/finish`;
+        const isClientSide = ANSWER_PERSISTENCE_MODE === 'client_side';
         const response = http.post(url, {
             _token: questionSet.csrfToken,
-            answers_payload: '[]',
+            answers_payload: isClientSide
+                ? JSON.stringify(questionSet.questions.map((question) => question.payload))
+                : '[]',
             attempt_token: questionSet.attemptToken,
             current_question_number: questionSet.questions.length,
-        }, requestOptions('tryout-finish', {
-            headers: {
-                Accept: 'application/json',
-                'X-CSRF-TOKEN': questionSet.csrfToken,
-            },
-        }));
+        }, isClientSide
+            ? requestOptions('tryout-finish', { redirects: 0 })
+            : requestOptions('tryout-finish', {
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': questionSet.csrfToken,
+                },
+            }));
         const body = responseJson(response);
         const completed = check(response, {
-            'tryout is submitted successfully': (result) => result.status === 200 && body && body.success === true,
+            'tryout is submitted successfully': (result) => isClientSide
+                ? [302, 303].includes(result.status)
+                : result.status === 200 && body && body.success === true,
         });
+
+        finishDuration.add(response.timings.duration);
 
         if (!completed) {
             return false;
@@ -486,7 +533,11 @@ export default function () {
 
     const questionSet = extractQuestions(tryoutPage);
 
-    if (!saveEveryAnswer(questionSet)) {
+    const answersHandled = ANSWER_PERSISTENCE_MODE === 'per_answer_save'
+        ? saveEveryAnswer(questionSet)
+        : answerEveryQuestionLocally(questionSet);
+
+    if (!answersHandled) {
         return;
     }
 

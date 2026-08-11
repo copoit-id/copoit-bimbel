@@ -1,6 +1,8 @@
 # Uji Beban Tryout k6
 
-`k6-tryout-simple.js` adalah uji HTTP end-to-end. Setiap virtual user memakai satu akun berbeda, login, membuka lobby, memulai tryout, menyimpan jawaban untuk seluruh soal yang dirender, lalu menyelesaikan tryout. Dengan begitu beban yang diuji mencakup session, query tryout, penyimpanan jawaban, perhitungan hasil, dan pembuatan data attempt yang benar-benar dipakai aplikasi.
+`k6-tryout-simple.js` adalah uji HTTP end-to-end. Secara default, setiap virtual user memakai satu akun berbeda, login, membuka lobby, memulai tryout, menjawab seluruh soal secara lokal, lalu mengirim satu submit akhir berisi semua jawaban. Ini meniru mode tryout aplikasi `client_side`: klik jawaban disimpan browser terlebih dahulu dan tidak membuat request `/save` per soal.
+
+Set `ANSWER_PERSISTENCE_MODE=per_answer_save` hanya untuk stress test ekstrem endpoint `/save`. Mode tersebut sengaja lebih berat daripada perilaku peserta normal.
 
 > Peringatan: skrip ini membuat data `UserAnswer` dan `UserAnswerDetail` sungguhan serta menandai tryout selesai jika `FINISH_TRYOUT` tidak diubah. Jalankan hanya pada tryout dan akun khusus pengujian. Pastikan limit attempt cukup atau tidak dibatasi.
 
@@ -38,7 +40,7 @@ php artisan test:delete-tryout-users \
 
 ## Simulasi normal 324 peserta dan 40 soal
 
-Ini profil yang disarankan untuk memperkirakan ujian besok. Semua peserta hadir dalam jendela 5 menit, membaca lobby 10–45 detik sebelum mulai, lalu jawaban dikirim rata-rata setiap 3,5 detik (2–5 detik). Ini masih dipercepat dibanding waktu peserta membaca soal sebenarnya, tetapi beban simpan jawabannya sudah tersebar seperti manusia dan test selesai sekitar 10–12 menit, bukan berjam-jam.
+Ini profil yang disarankan untuk memperkirakan ujian besok. Semua peserta hadir dalam jendela 5 menit, membaca lobby 10–45 detik sebelum mulai, lalu waktu menjawab disimulasikan rata-rata setiap 3,5 detik (2–5 detik). Tidak ada request server saat memilih jawaban; server menerima beban utama saat halaman tryout pertama dibuka dan saat submit akhir. Test selesai sekitar 10–12 menit, bukan berjam-jam.
 
 ```bash
 k6 run \
@@ -52,6 +54,7 @@ k6 run \
   -e START_DELAY_MAX_SECONDS=45 \
   -e ANSWER_INTERVAL_SECONDS=2 \
   -e ANSWER_INTERVAL_JITTER_SECONDS=3 \
+  -e ANSWER_PERSISTENCE_MODE=client_side \
   -e MAX_DURATION=12m \
   -e GRACEFUL_STOP=0s \
   -e USERS_FILE="$PWD/data/users.csv" \
@@ -60,7 +63,7 @@ k6 run \
 
 ## Menjalankan burst 324 peserta dan 40 soal
 
-Perintah berikut melepas 324 peserta bersamaan dengan batas keras 30 detik. Nilai `ANSWER_INTERVAL_SECONDS=0` sengaja merupakan kondisi terberat: setelah halaman tryout dibuka, seluruh peserta mengirim simpan jawaban tanpa jeda. `QUESTION_COUNT=40` adalah penjaga supaya pengujian langsung gagal jika ternyata halaman tidak memuat tepat 40 soal.
+Perintah berikut melepas 324 peserta bersamaan dengan batas keras 30 detik. Ini menguji burst halaman awal dan submit akhir sesuai mode aplikasi `client_side`. `QUESTION_COUNT=40` adalah penjaga supaya pengujian langsung gagal jika ternyata halaman tidak memuat tepat 40 soal.
 
 ```bash
 k6 run \
@@ -69,6 +72,7 @@ k6 run \
   -e TRYOUT_ID=8 \
   -e VUS=324 \
   -e QUESTION_COUNT=40 \
+  -e ANSWER_PERSISTENCE_MODE=client_side \
   -e ANSWER_INTERVAL_SECONDS=0 \
   -e MAX_DURATION=30s \
   tests/load/k6-tryout-simple.js
@@ -93,10 +97,17 @@ Durasi 30 detik adalah deadline, bukan jeda tambahan. Jika seluruh peserta belum
 | `START_DELAY_MAX_SECONDS` | `0` | Jeda maksimum setelah lobby sebelum peserta klik mulai. |
 | `ANSWER_INTERVAL_SECONDS` | `0` | Jeda dasar antar jawaban setiap peserta. |
 | `ANSWER_INTERVAL_JITTER_SECONDS` | `0` | Tambahan acak pada jeda jawaban. `2` + `3` berarti 2–5 detik per jawaban. |
+| `ANSWER_PERSISTENCE_MODE` | `client_side` | `client_side` meniru browser asli: jawaban lokal, lalu satu submit akhir. `per_answer_save` mengirim POST `/save` untuk tiap soal sebagai stress test ekstrem. |
 | `FINISH_TRYOUT` | `true` | Set `false` untuk hanya menguji simpan jawaban tanpa proses hasil akhir. |
 | `MAX_DURATION` | `30s` | Batas keras total waktu skenario. Gunakan `20s` bila ingin lebih singkat. |
 | `GRACEFUL_STOP` | `0s` | Tidak menambah waktu tunggu setelah batas durasi tercapai. |
 
 Skrip memilih opsi jawaban pertama yang tersedia; targetnya adalah beban dan alur penyimpanan, bukan nilai yang benar. Soal pilihan ganda, multiple answer, matching, multiple true/false, jawaban singkat, dan essay ditangani. Soal audio sengaja membuat test gagal karena upload audio harus memakai file rekaman yang valid dan tidak boleh dipalsukan sebagai jawaban lengkap.
+
+Untuk stress endpoint simpan satu per satu, gunakan parameter tambahan berikut pada command mana pun:
+
+```bash
+-e ANSWER_PERSISTENCE_MODE=per_answer_save
+```
 
 Untuk tryout yang memiliki essay dengan koreksi AI, menjalankan `FINISH_TRYOUT=true` dapat menambah antrean koreksi. Gunakan tryout tanpa essay untuk baseline platform, atau jadikan antrean AI tersebut bagian dari skenario yang memang ingin diuji.
