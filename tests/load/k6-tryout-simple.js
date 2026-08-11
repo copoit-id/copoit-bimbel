@@ -24,6 +24,8 @@ const ANSWER_INTERVAL_SECONDS = nonNegativeNumber(__ENV.ANSWER_INTERVAL_SECONDS 
 const FINISH_TRYOUT = parseBoolean(__ENV.FINISH_TRYOUT, true);
 const TEXT_ANSWER = __ENV.TEXT_ANSWER || 'Jawaban simulasi beban tryout';
 const USERS_FILE = __ENV.USERS_FILE || './users.csv';
+const MAX_DURATION = __ENV.MAX_DURATION || '30s';
+const GRACEFUL_STOP = __ENV.GRACEFUL_STOP || '0s';
 
 const answersSaved = new Counter('tryout_answers_saved');
 const answersFailed = new Counter('tryout_answers_failed');
@@ -47,8 +49,8 @@ export const options = {
             executor: 'per-vu-iterations',
             vus: VUS,
             iterations: 1,
-            maxDuration: __ENV.MAX_DURATION || '20m',
-            gracefulStop: '30s',
+            maxDuration: MAX_DURATION,
+            gracefulStop: GRACEFUL_STOP,
         },
     },
     thresholds: {
@@ -161,12 +163,16 @@ function login(user) {
         });
 
         if (!loginPageOk) {
-            fail(`Login page is unavailable for ${user.email}.`);
+            return false;
         }
 
         const csrfToken = extractValue(parseHTML(loginPage.body).find('input[name="_token"]'));
         if (!csrfToken) {
-            fail('Unable to extract the login CSRF token.');
+            check(loginPage, {
+                'login page includes a CSRF token': () => false,
+            });
+
+            return false;
         }
 
         const response = http.post(`${BASE_URL}/login`, {
@@ -182,10 +188,14 @@ function login(user) {
         });
 
         if (!loginOk) {
-            fail(`Login failed for ${user.email}. Check the unique test account credentials.`);
+            return false;
         }
 
-        http.get(absoluteUrl(location), requestOptions('tryout-login-redirect'));
+        const redirectResponse = http.get(absoluteUrl(location), requestOptions('tryout-login-redirect'));
+
+        return check(redirectResponse, {
+            'authenticated redirect is reachable': (result) => result.status >= 200 && result.status < 400,
+        });
     });
 }
 
@@ -198,7 +208,7 @@ function openTryout() {
         });
 
         if (!lobbyOk) {
-            fail('Tryout lobby is not accessible. Give every test account access and a remaining attempt.');
+            return null;
         }
 
         const pageUrl = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/tryout/1`;
@@ -208,7 +218,7 @@ function openTryout() {
         });
 
         if (!tryoutPageOk) {
-            fail('Tryout did not start. The attempt may be restricted or the tryout may have no questions.');
+            return null;
         }
 
         return tryoutPage;
@@ -340,7 +350,7 @@ function extractQuestions(tryoutPage) {
 
 function saveEveryAnswer(questionSet) {
     return group('03 - save every answer', () => {
-        questionSet.questions.forEach((question) => {
+        for (const question of questionSet.questions) {
             const url = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/tryout/${question.number}/save`;
             const response = http.post(url, JSON.stringify(question.payload), requestOptions('tryout-save-answer', {
                 headers: {
@@ -358,7 +368,8 @@ function saveEveryAnswer(questionSet) {
 
             if (!saved) {
                 answersFailed.add(1);
-                fail(`Failed to save question ${question.id}: HTTP ${response.status}.`);
+
+                return false;
             }
 
             answersSaved.add(1);
@@ -366,16 +377,18 @@ function saveEveryAnswer(questionSet) {
             if (ANSWER_INTERVAL_SECONDS > 0) {
                 sleep(ANSWER_INTERVAL_SECONDS);
             }
-        });
+        }
+
+        return true;
     });
 }
 
 function finishTryout(questionSet) {
     if (!FINISH_TRYOUT) {
-        return;
+        return true;
     }
 
-    group('04 - submit tryout', () => {
+    return group('04 - submit tryout', () => {
         const url = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/finish`;
         const response = http.post(url, {
             _token: questionSet.csrfToken,
@@ -394,10 +407,12 @@ function finishTryout(questionSet) {
         });
 
         if (!completed) {
-            fail(`Failed to finish the tryout: HTTP ${response.status}.`);
+            return false;
         }
 
         attemptsCompleted.add(1);
+
+        return true;
     });
 }
 
@@ -408,10 +423,20 @@ export default function () {
         fail(`No unique account assigned to VU ${exec.vu.idInTest}.`);
     }
 
-    login(user);
+    if (!login(user)) {
+        return;
+    }
+
     const tryoutPage = openTryout();
+    if (!tryoutPage) {
+        return;
+    }
+
     const questionSet = extractQuestions(tryoutPage);
 
-    saveEveryAnswer(questionSet);
+    if (!saveEveryAnswer(questionSet)) {
+        return;
+    }
+
     finishTryout(questionSet);
 }

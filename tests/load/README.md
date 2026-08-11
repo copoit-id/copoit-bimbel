@@ -38,7 +38,7 @@ php artisan test:delete-tryout-users \
 
 ## Menjalankan burst 324 peserta dan 40 soal
 
-Perintah berikut melepas 324 peserta bersamaan. Nilai `ANSWER_INTERVAL_SECONDS=0` sengaja merupakan kondisi terberat: setelah halaman tryout dibuka, seluruh peserta mengirim simpan jawaban tanpa jeda. `QUESTION_COUNT=40` adalah penjaga supaya pengujian langsung gagal jika ternyata halaman tidak memuat tepat 40 soal.
+Perintah berikut melepas 324 peserta bersamaan dengan batas keras 30 detik. Nilai `ANSWER_INTERVAL_SECONDS=0` sengaja merupakan kondisi terberat: setelah halaman tryout dibuka, seluruh peserta mengirim simpan jawaban tanpa jeda. `QUESTION_COUNT=40` adalah penjaga supaya pengujian langsung gagal jika ternyata halaman tidak memuat tepat 40 soal.
 
 ```bash
 k6 run \
@@ -48,10 +48,13 @@ k6 run \
   -e VUS=324 \
   -e QUESTION_COUNT=40 \
   -e ANSWER_INTERVAL_SECONDS=0 \
+  -e MAX_DURATION=30s \
   tests/load/k6-tryout-simple.js
 ```
 
 Jumlah VU dinamis: ubah `-e VUS=324`. Bila `VUS` tidak diisi, skrip memakai seluruh baris akun pada `users.csv`. Jika jumlah akun kurang, skrip berhenti sebelum mengirim request apa pun.
+
+Durasi 30 detik adalah deadline, bukan jeda tambahan. Jika seluruh peserta belum menyimpan semua jawaban dan submit sebelum deadline, test berhenti dan metrik `tryout_answers_saved` serta `tryout_attempts_completed` akan menunjukkan jumlah yang benar-benar berhasil. Itu berarti kapasitas belum cukup untuk skenario burst tersebut.
 
 ## Parameter penting
 
@@ -65,7 +68,8 @@ Jumlah VU dinamis: ubah `-e VUS=324`. Bila `VUS` tidak diisi, skrip memakai selu
 | `QUESTION_COUNT` | seluruh soal | Jika diisi, harus sama persis dengan jumlah soal yang dirender. |
 | `ANSWER_INTERVAL_SECONDS` | `0` | Jeda antar jawaban setiap peserta. Gunakan `0.5` atau `1` untuk pola manusiawi. |
 | `FINISH_TRYOUT` | `true` | Set `false` untuk hanya menguji simpan jawaban tanpa proses hasil akhir. |
-| `MAX_DURATION` | `20m` | Batas total waktu skenario. |
+| `MAX_DURATION` | `30s` | Batas keras total waktu skenario. Gunakan `20s` bila ingin lebih singkat. |
+| `GRACEFUL_STOP` | `0s` | Tidak menambah waktu tunggu setelah batas durasi tercapai. |
 
 Skrip memilih opsi jawaban pertama yang tersedia; targetnya adalah beban dan alur penyimpanan, bukan nilai yang benar. Soal pilihan ganda, multiple answer, matching, multiple true/false, jawaban singkat, dan essay ditangani. Soal audio sengaja membuat test gagal karena upload audio harus memakai file rekaman yang valid dan tidak boleh dipalsukan sebagai jawaban lengkap.
 
