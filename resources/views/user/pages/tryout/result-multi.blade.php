@@ -269,6 +269,12 @@
             <i class="ri-book-open-line mr-2"></i>Lihat Pembahasan
         </a>
         @endif
+        @if($tryout->show_leaderboard)
+        <a href="{{ route('user.package.tryout.ranking', ['id_package' => 'free', 'id_tryout' => $tryout->tryout_id]) }}"
+            class="flex-1 bg-yellow-600 text-white text-center py-3 px-4 rounded-lg hover:bg-yellow-700 transition-colors">
+            <i class="ri-trophy-line mr-2"></i>Lihat Ranking
+        </a>
+        @endif
         <a href="{{ route('user.event.index') }}"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event

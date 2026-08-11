@@ -179,8 +179,8 @@
         </a>
         @endif
 
-        @if($package && $tryout->is_toefl == 1 && $tryout->show_leaderboard)
-        <a href="{{ route('user.package.tryout.ranking', ['id_package' => request()->route('id_package'), 'id_tryout' => $tryout->tryout_id]) }}"
+        @if($tryout->is_toefl == 1 && $tryout->show_leaderboard)
+        <a href="{{ route('user.package.tryout.ranking', ['id_package' => request()->route('id_package') ?? ($package->package_id ?? 'free'), 'id_tryout' => $tryout->tryout_id]) }}"
             class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
             <i class="ri-trophy-line"></i>
             Lihat Ranking

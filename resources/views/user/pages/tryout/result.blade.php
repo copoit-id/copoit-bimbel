@@ -351,6 +351,12 @@
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
                     </a>
+                    @if($tryout->show_leaderboard)
+                    <a href="{{ route('user.package.tryout.ranking', ['id_package' => 'free', 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+                        <i class="ri-trophy-line mr-2"></i>Ranking
+                    </a>
+                    @endif
                     @if($tryout->show_discussion)
                     <a href="{{ route('user.package.tryout.pembahasan', ['free', $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
