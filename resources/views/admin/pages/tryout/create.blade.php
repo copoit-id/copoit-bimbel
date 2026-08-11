@@ -188,7 +188,7 @@
                         <input type="file" id="thumbnail" name="thumbnail" accept="image/*"
                             data-has-current="{{ isset($tryout) && filled($tryout->thumbnail_url) ? '1' : '0' }}"
                             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, GIF, atau WEBP. Maksimal 2MB.</p>
+                        <p class="mt-2 text-xs text-gray-500">Ukuran ideal: 1280 × 720 px (rasio 16:9). Format: JPG, PNG, GIF, atau WEBP. Maksimal 2MB.</p>
                     </div>
                 </div>
 

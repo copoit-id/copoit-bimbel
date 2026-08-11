@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -478,8 +479,18 @@ class TryoutController extends Controller
         }
     }
 
-    private function createTryoutDetails($tryout, $request)
+    private function createTryoutDetails(Tryout $tryout, Request $request): void
     {
+        $dynamicSubtestCategories = $this->dynamicSubtestCategoriesFor($tryout->type_tryout);
+
+        if ($dynamicSubtestCategories->isNotEmpty()) {
+            foreach ($dynamicSubtestCategories as $category) {
+                $this->createSubtestForMaterialCategory($tryout, $category, $request);
+            }
+
+            return;
+        }
+
         switch ($tryout->type_tryout) {
             case 'utbk_full':
                 $this->syncUtbkFullSubtests($tryout, $request);
@@ -599,6 +610,21 @@ class TryoutController extends Controller
         ]);
     }
 
+    /**
+     * Buat detail subtest dari subkategori yang dipilih pada kategori induk.
+     */
+    private function createSubtestForMaterialCategory(Tryout $tryout, MaterialCategory $category, Request $request): void
+    {
+        TryoutDetail::create([
+            'tryout_id' => $tryout->tryout_id,
+            'type_subtest' => $category->code,
+            'material_category_id' => $category->category_id,
+            'duration' => $request->input('duration_general', 60),
+            'passing_score' => $request->input('passing_score_general', 60),
+            'passing_type' => $request->input('passing_type_general', 'score'),
+        ]);
+    }
+
     private function updateOrCreateSubtest(Tryout $tryout, string $type, $duration, $passingScore, $passingType): void
     {
         $detail = $tryout->tryoutDetails()->where('type_subtest', $type)->first();
@@ -616,6 +642,14 @@ class TryoutController extends Controller
 
     private function updateTryoutDetails(Tryout $tryout, Request $request): void
     {
+        $dynamicSubtestCategories = $this->dynamicSubtestCategoriesFor($tryout->type_tryout);
+
+        if ($dynamicSubtestCategories->isNotEmpty()) {
+            $this->syncDynamicCategorySubtests($tryout, $dynamicSubtestCategories, $request);
+
+            return;
+        }
+
         switch ($tryout->type_tryout) {
             case 'utbk_full':
                 $this->syncUtbkFullSubtests($tryout, $request);
@@ -704,6 +738,56 @@ class TryoutController extends Controller
                 $tryout->tryoutDetails()->where('type_subtest', '!=', $tryout->type_tryout)->delete();
                 break;
         }
+    }
+
+    /**
+     * Sinkronkan detail saat subkategori pada kategori tryout dinamis berubah.
+     * Subtest lama yang tidak lagi terdaftar di kategori akan dihapus.
+     */
+    private function syncDynamicCategorySubtests(Tryout $tryout, Collection $categories, Request $request): void
+    {
+        $types = $categories->pluck('code')->all();
+
+        foreach ($categories as $category) {
+            $tryout->tryoutDetails()->updateOrCreate(
+                ['type_subtest' => $category->code],
+                [
+                    'material_category_id' => $category->category_id,
+                    'duration' => $request->input('duration_general', 60),
+                    'passing_score' => $request->input('passing_score_general', 60),
+                    'passing_type' => $request->input('passing_type_general', 'score'),
+                ]
+            );
+        }
+
+        $tryout->tryoutDetails()->whereNotIn('type_subtest', $types)->delete();
+    }
+
+    /**
+     * Kategori induk kustom dengan subkategori aktif adalah tryout multi-subtest.
+     * Tipe bawaan tetap memakai konfigurasi khususnya masing-masing.
+     */
+    private function dynamicSubtestCategoriesFor(?string $type): Collection
+    {
+        if (
+            blank($type)
+            || in_array($type, self::LEGACY_TRYOUT_TYPES, true)
+            || ! Schema::hasTable('material_categories')
+            || ! Schema::hasColumn('material_categories', 'code')
+        ) {
+            return collect();
+        }
+
+        $parentCategory = MaterialCategory::query()
+            ->active()
+            ->whereNull('parent_id')
+            ->where('code', $type)
+            ->with([
+                'children' => fn ($query) => $query->active()->withCode()->ordered(),
+            ])
+            ->first();
+
+        return $parentCategory?->children ?? collect();
     }
 
     private function syncUtbkFullSubtests(Tryout $tryout, Request $request): void
@@ -1040,6 +1124,7 @@ class TryoutController extends Controller
             ->mapWithKeys(fn ($type) => [$type => $this->categoryCodeForTryoutType($type)]);
         $categoriesByCode = MaterialCategory::query()
             ->with('parent')
+            ->withCount('activeChildren')
             ->withCode()
             ->active()
             ->whereIn('code', $categoryCodesByType->values()->unique()->all())
@@ -1058,7 +1143,11 @@ class TryoutController extends Controller
                     $type => [
                         'label' => $this->tryoutOptionLabel($type, $category),
                         'category_id' => $category->category_id,
-                        'group' => $category->parent_id ? 'single' : $this->tryoutOptionGroup($type),
+                        'group' => $category->parent_id
+                            ? 'single'
+                            : ($this->isDynamicMultiSubtestCategory($type, $category)
+                                ? 'full'
+                                : $this->tryoutOptionGroup($type)),
                     ],
                 ];
             })
@@ -1137,6 +1226,10 @@ class TryoutController extends Controller
             return $category->display_name;
         }
 
+        if ($this->isDynamicMultiSubtestCategory($type, $category)) {
+            return "{$category->name} ({$category->active_children_count} Subtest)";
+        }
+
         $subtestCounts = [
             'skd_full' => 3,
             'utbk_full' => 7,
@@ -1148,6 +1241,13 @@ class TryoutController extends Controller
         return isset($subtestCounts[$type])
             ? "{$category->name} ({$subtestCounts[$type]} Subtest)"
             : $category->name;
+    }
+
+    private function isDynamicMultiSubtestCategory(string $type, MaterialCategory $category): bool
+    {
+        return ! in_array($type, self::LEGACY_TRYOUT_TYPES, true)
+            && ! $category->parent_id
+            && (int) ($category->active_children_count ?? 0) > 0;
     }
 
     private function categoryIdForCode(?string $code): ?int

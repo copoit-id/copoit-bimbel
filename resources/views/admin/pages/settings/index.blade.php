@@ -355,7 +355,7 @@
                             class="h-20 object-contain" alt="Logo Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Logo Baru</p>
-                            <p class="text-xs text-gray-500">PNG/JPG/SVG maks 4MB</p>
+                            <p class="text-xs text-gray-500">Rasio bebas; tinggi ideal 160 px (contoh 512 × 160 px). PNG/JPG/SVG maks 4MB</p>
                         </div>
                         <input id="logo-input" type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml"
                             class="hidden"
@@ -374,7 +374,7 @@
                             class="h-12 w-12 object-contain" alt="Favicon Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Favicon Baru</p>
-                            <p class="text-xs text-gray-500">PNG/JPG/ICO maks 2MB</p>
+                            <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG/JPG/ICO maks 2MB</p>
                         </div>
                         <input id="favicon-input" type="file" name="favicon" accept="image/png,image/jpeg,image/x-icon"
                             class="hidden"

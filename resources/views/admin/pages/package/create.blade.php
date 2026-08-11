@@ -104,9 +104,9 @@
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             <p class="text-sm text-gray-500 mt-1">
                                 @if($allowVideoThumbnail)
-                                Format gambar: JPG, PNG, WEBP (2MB). Video: MP4/WEBM/MOV (maks 50MB).
+                                Ukuran gambar ideal: 1500 × 600 px (rasio 5:2). Format gambar: JPG, PNG, WEBP (2MB). Video: MP4/WEBM/MOV (maks 50MB).
                                 @else
-                                Format: JPG, PNG, WEBP (Max: 2MB)
+                                Ukuran ideal: 1500 × 600 px (rasio 5:2). Format: JPG, PNG, WEBP (maks. 2MB).
                                 @endif
                             </p>
                         </div>
