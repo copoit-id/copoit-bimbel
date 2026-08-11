@@ -382,36 +382,52 @@
                         </span>
                     </label>
 
-                    <div>
-                        <label class="flex items-center gap-3">
-                            <input type="checkbox" id="show_result_scores" name="show_result_scores" value="1"
-                                {{ $showResultScoresChecked ? 'checked' : '' }}
-                                class="sr-only peer tryout-toggle-input">
-                            <span
-                                class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
-                                <span
-                                    class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
-                            </span>
-                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                Tampilkan Nilai di User
-                                <x-ui.tooltip>Jika dimatikan, peserta tetap melihat status hasil tetapi tidak melihat angka nilai.</x-ui.tooltip>
-                            </span>
-                        </label>
+                    <div class="rounded-xl border border-primary/15 bg-primary/5 p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <p class="text-sm font-semibold text-gray-800">Tampilan Nilai Peserta</p>
+                                    <x-ui.tooltip>Jika dimatikan, peserta tetap melihat status hasil tetapi tidak melihat angka nilai.</x-ui.tooltip>
+                                </div>
+                                <p class="mt-1 text-xs leading-relaxed text-gray-500">
+                                    Atur nilai apa yang muncul pada halaman hasil tryout peserta.
+                                </p>
+                            </div>
 
-                        <div id="resultScoreDisplayOptions" class="ml-14 mt-3 space-y-2 {{ $showResultScoresChecked ? '' : 'hidden' }}">
-                            <label class="flex items-center gap-2 text-sm text-gray-700">
-                                <input type="radio" name="result_score_display" value="total_and_subtest"
-                                    @checked($resultScoreDisplay === 'total_and_subtest')
-                                    class="border-gray-300 text-primary focus:ring-primary">
-                                <span>Total skor dan skor per subtest</span>
-                            </label>
-                            <label class="flex items-center gap-2 text-sm text-gray-700">
-                                <input type="radio" name="result_score_display" value="subtest_only"
-                                    @checked($resultScoreDisplay === 'subtest_only')
-                                    class="border-gray-300 text-primary focus:ring-primary">
-                                <span>Skor per subtest saja</span>
+                            <label class="flex shrink-0 cursor-pointer items-center gap-2">
+                                <span class="text-xs font-medium text-gray-600">Tampilkan</span>
+                                <input type="checkbox" id="show_result_scores" name="show_result_scores" value="1"
+                                    {{ $showResultScoresChecked ? 'checked' : '' }}
+                                    class="sr-only peer tryout-toggle-input">
+                                <span
+                                    class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                    <span
+                                        class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                                </span>
                             </label>
                         </div>
+
+                        <fieldset id="resultScoreDisplayOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
+                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Jenis nilai yang ditampilkan</legend>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="result_score_display" value="total_and_subtest"
+                                        @checked($resultScoreDisplay === 'total_and_subtest') class="peer sr-only">
+                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
+                                        <span class="block font-semibold">Total + subtest</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Tampilkan nilai keseluruhan dan setiap subtest.</span>
+                                    </span>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="result_score_display" value="subtest_only"
+                                        @checked($resultScoreDisplay === 'subtest_only') class="peer sr-only">
+                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
+                                        <span class="block font-semibold">Subtest saja</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Sembunyikan nilai total, tampilkan nilai tiap subtest.</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
                     </div>
 
                     <div class="md:col-span-2">
