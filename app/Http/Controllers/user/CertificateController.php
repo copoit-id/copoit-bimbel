@@ -3,45 +3,48 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Models\Certificate;
 use App\Models\Package;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
 use App\Models\UserPackageAcces;
-use App\Models\Certificate;
+use App\Services\TkaCertificateRenderer;
+use App\Services\ToeflScoringService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Facades\Image;
-use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Str;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager; // ⬅️ ditambahkan
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use App\Services\ToeflScoringService; // ⬅️ ditambahkan
 
 class CertificateController extends Controller
 {
+    public function __construct(
+        private readonly TkaCertificateRenderer $tkaCertificateRenderer
+    ) {}
+
     public function preview($id_package, $id_tryout, $token)
     {
         $package = Package::findOrFail($id_package);
-        $tryout  = Tryout::findOrFail($id_tryout);
+        $tryout = Tryout::findOrFail($id_tryout);
 
         // Check if this is a certification tryout
         if (
-            !$tryout->is_certification &&
+            ! $tryout->is_certification &&
             ($tryout->type_tryout !== 'certification' && $tryout->type_tryout !== 'computer')
         ) {
             return redirect()->back()->with('error', 'Sertifikat hanya tersedia untuk ujian sertifikasi');
         }
 
         // Check access
-        if (!$this->hasAccess($id_package)) {
+        if (! $this->hasAccess($id_package)) {
             return redirect()->route('user.package.index')->with('error', 'Anda tidak memiliki akses ke paket ini');
         }
 
         // Get user's completed answers
-        $userAnswers = UserAnswer::with('tryoutDetail')->where('user_id', Auth::id())
+        $userAnswers = UserAnswer::with('tryoutDetail.materialCategory')->where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->where('status', 'completed')
             ->where('attempt_token', $token)
@@ -59,43 +62,43 @@ class CertificateController extends Controller
 
         if ($tryout->is_toefl == 1) {
             // Hitung skor TOEFL lewat service (bukan ambil dari record pertama)
-            $toeflResults     = ToeflScoringService::processToeflScoring($userAnswers);
-            $toeflTotalScore  = (int)($toeflResults['total_score'] ?? 0);
+            $toeflResults = ToeflScoringService::processToeflScoring($userAnswers);
+            $toeflTotalScore = (int) ($toeflResults['total_score'] ?? 0);
 
             if ($tryout->type_tryout == 'computer') {
                 // (Kasus jarang: TOEFL + computer) → tetap tampilkan tiga skor computer dan total gabungan rata-rata
-                $wordAnswer  = $userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'word');
-                $excelAnswer = $userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'excel');
-                $pptAnswer   = $userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'ppt');
+                $wordAnswer = $userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'word');
+                $excelAnswer = $userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'excel');
+                $pptAnswer = $userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'ppt');
 
-                $wordScore  = $wordAnswer  ? (float)$wordAnswer->score  : 0;
-                $excelScore = $excelAnswer ? (float)$excelAnswer->score : 0;
-                $pptScore   = $pptAnswer   ? (float)$pptAnswer->score   : 0;
+                $wordScore = $wordAnswer ? (float) $wordAnswer->score : 0;
+                $excelScore = $excelAnswer ? (float) $excelAnswer->score : 0;
+                $pptScore = $pptAnswer ? (float) $pptAnswer->score : 0;
 
                 $overallPercentage = $this->calculateAverage([$wordScore, $excelScore, $pptScore]);
 
                 $score = [
-                    'score'       => $overallPercentage,
-                    'word_score'  => (int)round($wordScore),
-                    'excel_score' => (int)round($excelScore),
-                    'ppt_score'   => (int)round($pptScore),
+                    'score' => $overallPercentage,
+                    'word_score' => (int) round($wordScore),
+                    'excel_score' => (int) round($excelScore),
+                    'ppt_score' => (int) round($pptScore),
                 ];
             } else {
                 // TOEFL murni: gunakan total ETP + tampilkan section scaled (sudah disimpan per-subtest juga)
-                $writingAnswer   = $userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'writing');
-                $listeningAnswer = $userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'listening');
-                $readingAnswer   = $userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'reading');
+                $writingAnswer = $userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'writing');
+                $listeningAnswer = $userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'listening');
+                $readingAnswer = $userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'reading');
 
                 // Fallback pakai nilai yang ada di userAnswer->score (yang sebelumnya sudah diisi scaled per section)
-                $listeningScore = $listeningAnswer ? (int)$listeningAnswer->score : (int)($toeflResults['section1']['scaled_score'] ?? 0);
-                $writingScore   = $writingAnswer   ? (int)$writingAnswer->score   : (int)($toeflResults['section2']['scaled_score'] ?? 0);
-                $readingScore   = $readingAnswer   ? (int)$readingAnswer->score   : (int)($toeflResults['section3']['scaled_score'] ?? 0);
+                $listeningScore = $listeningAnswer ? (int) $listeningAnswer->score : (int) ($toeflResults['section1']['scaled_score'] ?? 0);
+                $writingScore = $writingAnswer ? (int) $writingAnswer->score : (int) ($toeflResults['section2']['scaled_score'] ?? 0);
+                $readingScore = $readingAnswer ? (int) $readingAnswer->score : (int) ($toeflResults['section3']['scaled_score'] ?? 0);
 
                 $score = [
-                    'score'           => $toeflTotalScore,
+                    'score' => $toeflTotalScore,
                     'listening_score' => $listeningScore,
-                    'writing_score'   => $writingScore,
-                    'reading_score'   => $readingScore,
+                    'writing_score' => $writingScore,
+                    'reading_score' => $readingScore,
                 ];
 
                 $overallPercentage = $toeflTotalScore;
@@ -103,36 +106,37 @@ class CertificateController extends Controller
         } else {
             if ($tryout->type_tryout == 'computer') {
                 // Computer: total gabungan = rata-rata Word, Excel, PPT
-                $wordScore  = optional($userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'word'))->score ?? 0;
-                $excelScore = optional($userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'excel'))->score ?? 0;
-                $pptScore   = optional($userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'ppt'))->score ?? 0;
+                $wordScore = optional($userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'word'))->score ?? 0;
+                $excelScore = optional($userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'excel'))->score ?? 0;
+                $pptScore = optional($userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'ppt'))->score ?? 0;
 
-                $overallPercentage = $this->calculateAverage([(float)$wordScore, (float)$excelScore, (float)$pptScore]);
+                $overallPercentage = $this->calculateAverage([(float) $wordScore, (float) $excelScore, (float) $pptScore]);
 
                 $score = [
-                    'score'       => $overallPercentage,
-                    'word_score'  => (int)round($wordScore),
-                    'excel_score' => (int)round($excelScore),
-                    'ppt_score'   => (int)round($pptScore),
+                    'score' => $overallPercentage,
+                    'word_score' => (int) round($wordScore),
+                    'excel_score' => (int) round($excelScore),
+                    'ppt_score' => (int) round($pptScore),
                 ];
             } else {
                 // Regular certification (non-computer): pertahankan perhitungan existing
-                $writingScore   = optional($userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'writing'))->score ?? 0;
-                $listeningScore = optional($userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'listening'))->score ?? 0;
-                $readingScore   = optional($userAnswers->firstWhere(fn($a) => optional($a->tryoutDetail)->type_subtest === 'reading'))->score ?? 0;
+                $writingScore = optional($userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'writing'))->score ?? 0;
+                $listeningScore = optional($userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'listening'))->score ?? 0;
+                $readingScore = optional($userAnswers->firstWhere(fn ($a) => optional($a->tryoutDetail)->type_subtest === 'reading'))->score ?? 0;
 
                 $overallPercentage = $this->calculateOverallScore($userAnswers); // dibiarkan sesuai logic lama (menjumlah)
                 $score = [
-                    'score'           => $overallPercentage,
-                    'listening_score' => (int)$listeningScore,
-                    'writing_score'   => (int)$writingScore,
-                    'reading_score'   => (int)$readingScore
+                    'score' => $overallPercentage,
+                    'listening_score' => (int) $listeningScore,
+                    'writing_score' => (int) $writingScore,
+                    'reading_score' => (int) $readingScore,
                 ];
             }
         }
 
         // Get or create certificate
-        $existingCertificate = $this->getOrCreateCertificate($package, $tryout, $userAnswers, $score, $token);
+        $tkaCertificateMetadata = $this->tkaCertificateRenderer->buildMetadata($userAnswers, Auth::user());
+        $existingCertificate = $this->getOrCreateCertificate($package, $tryout, $userAnswers, $score, $token, $tkaCertificateMetadata);
         $token = $token;
 
         return view('user.pages.certificate.preview', compact(
@@ -152,6 +156,10 @@ class CertificateController extends Controller
                 ->firstOrFail();
         } else {
             $certificate = $this->getCertificate($certificateId);
+        }
+
+        if ($this->tkaCertificateRenderer->usesTkaLayout($certificate)) {
+            return $this->tkaCertificateRenderer->response($certificate, false);
         }
 
         // Get tryout to determine certificate type
@@ -174,6 +182,10 @@ class CertificateController extends Controller
             $certificate = $this->getCertificate($certificateId);
         }
 
+        if ($this->tkaCertificateRenderer->usesTkaLayout($certificate)) {
+            return $this->tkaCertificateRenderer->response($certificate, true);
+        }
+
         // Get tryout to determine certificate type
         $tryout = Tryout::find($certificate->tryout_id);
 
@@ -188,17 +200,17 @@ class CertificateController extends Controller
     {
         $templatePath = storage_path('app/private/certificates/certificate-template.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data from certificate
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -293,11 +305,11 @@ class CertificateController extends Controller
             $font->valign('top');
         });
 
-        $fileName = 'qrcode-' . $certificate->certificate_number . '.png';
-        $filePath = 'qrcodes/' . $fileName;
+        $fileName = 'qrcode-'.$certificate->certificate_number.'.png';
+        $filePath = 'qrcodes/'.$fileName;
 
         Storage::disk('public')->put($filePath, QrCode::format('png')->size(300)->generate($certificate->certificate_number));
-        $publicQrPath = public_path('storage/' . $filePath);
+        $publicQrPath = public_path('storage/'.$filePath);
         $image->place($publicQrPath, 'bottom-right', 100, 100);
 
         return response($image->toPng()->toString(), 200)
@@ -309,11 +321,11 @@ class CertificateController extends Controller
     {
         if ($score >= 80) {
             return 'Baik Sekali';
-        } else if ($score >= 60) {
+        } elseif ($score >= 60) {
             return 'Baik';
-        } else if ($score >= 40) {
+        } elseif ($score >= 40) {
             return 'Cukup';
-        } else if ($score >= 20) {
+        } elseif ($score >= 20) {
             return 'Kurang';
         } else {
             return 'Sangat Kurang';
@@ -324,17 +336,17 @@ class CertificateController extends Controller
     {
         $templatePath = storage_path('app/private/certificates/certificate-template-computer.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat computer tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data from certificate
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -502,11 +514,11 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
             }
         );
 
-        $fileName = 'qrcode-' . $certificate->certificate_number . '.png';
-        $filePath = 'qrcodes/' . $fileName;
+        $fileName = 'qrcode-'.$certificate->certificate_number.'.png';
+        $filePath = 'qrcodes/'.$fileName;
 
         Storage::disk('public')->put($filePath, QrCode::format('png')->size(300)->generate($certificate->certificate_number));
-        $publicQrPath = public_path('storage/' . $filePath);
+        $publicQrPath = public_path('storage/'.$filePath);
         $image->place($publicQrPath, 'bottom-right', 100, 120);
 
         return response($image->toPng()->toString(), 200)
@@ -518,17 +530,17 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
     {
         $templatePath = storage_path('app/private/certificates/certificate-template.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data (sama seperti view)
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -624,20 +636,20 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
         });
 
         // QR Code (samakan dengan view)
-        $fileName = 'qrcode-' . $certificate->certificate_number . '.png';
-        $filePath = 'qrcodes/' . $fileName;
+        $fileName = 'qrcode-'.$certificate->certificate_number.'.png';
+        $filePath = 'qrcodes/'.$fileName;
 
         Storage::disk('public')->put($filePath, QrCode::format('png')->size(300)->generate($certificate->certificate_number));
-        $publicQrPath = public_path('storage/' . $filePath);
+        $publicQrPath = public_path('storage/'.$filePath);
         $image->place($publicQrPath, 'bottom-right', 100, 100);
 
         // Generate filename
-        $certificateName = 'Certificate_' . str_replace(['/', '-'], '_', $certificate->certificate_number) . '.png';
+        $certificateName = 'Certificate_'.str_replace(['/', '-'], '_', $certificate->certificate_number).'.png';
 
         return response($image->toPng()->toString(), 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="' . $certificateName . '"',
-            'Cache-Control' => 'no-cache, must-revalidate'
+            'Content-Disposition' => 'attachment; filename="'.$certificateName.'"',
+            'Cache-Control' => 'no-cache, must-revalidate',
         ]);
     }
 
@@ -645,17 +657,17 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
     {
         $templatePath = storage_path('app/private/certificates/certificate-template-computer.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat computer tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data (sama seperti view)
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -803,20 +815,20 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
         );
 
         // QR Code dan filename (samakan dengan view)
-        $fileName = 'qrcode-' . $certificate->certificate_number . '.png';
-        $filePath = 'qrcodes/' . $fileName;
+        $fileName = 'qrcode-'.$certificate->certificate_number.'.png';
+        $filePath = 'qrcodes/'.$fileName;
 
         Storage::disk('public')->put($filePath, QrCode::format('png')->size(300)->generate($certificate->certificate_number));
-        $publicQrPath = public_path('storage/' . $filePath);
+        $publicQrPath = public_path('storage/'.$filePath);
         $image->place($publicQrPath, 'bottom-right', 100, 120);
 
         // Generate filename
-        $certificateName = 'Certificate_Computer_' . str_replace(['/', '-'], '_', $certificate->certificate_number) . '.png';
+        $certificateName = 'Certificate_Computer_'.str_replace(['/', '-'], '_', $certificate->certificate_number).'.png';
 
         return response($image->toPng()->toString(), 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="' . $certificateName . '"',
-            'Cache-Control' => 'no-cache, must-revalidate'
+            'Content-Disposition' => 'attachment; filename="'.$certificateName.'"',
+            'Cache-Control' => 'no-cache, must-revalidate',
         ]);
     }
 
@@ -836,22 +848,28 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
     /**
      * Get or create a new certificate for the given tryout and user.
      *
-     * @param Package $package
-     * @param Tryout $tryout
-     * @param Collection $userAnswers
-     * @param array $score
+     * @param  Package  $package
+     * @param  Tryout  $tryout
+     * @param  Collection  $userAnswers
+     * @param  array  $score
      * @return Certificate
      */
     /*******  237ca336-8bc5-41fe-a2b3-e5453a5fd923  *******/
-    private function getOrCreateCertificate($package, $tryout, $userAnswers, $score, $token)
+    private function getOrCreateCertificate($package, $tryout, $userAnswers, $score, $token, ?array $tkaCertificateMetadata = null)
     {
         // Check existing
         $certificate = Certificate::where('tryout_id', $tryout->tryout_id)
-            ->whereJsonContains('metadata->user_id', (string)Auth::id())
+            ->whereJsonContains('metadata->user_id', (string) Auth::id())
             ->whereJsonContains('metadata->token', $token)
             ->first();
 
         if ($certificate) {
+            if ($tkaCertificateMetadata !== null) {
+                $certificate->update([
+                    'metadata' => array_replace($certificate->metadata ?? [], $tkaCertificateMetadata),
+                ]);
+            }
+
             return $certificate;
         }
 
@@ -871,19 +889,19 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                 'status' => 'active',
                 'issued_by' => Auth::id(),
                 'tryout_id' => $tryout->tryout_id,
-                'metadata' => [
-                    'user_id'       => (string)Auth::id(),
-                    'user_name'     => Auth::user()->name,
-                    'user_email'    => Auth::user()->email,
-                    'package_name'  => $package->name,
-                    'token'         => $token,
-                    'word_score'    => $score['word_score'],
-                    'excel_score'   => $score['excel_score'],
-                    'ppt_score'     => $score['ppt_score'],
-                    'score'         => $score['score'], // total gabungan (rata-rata)
-                    'exam_date'     => $userAnswers->min('started_at'),
+                'metadata' => array_merge([
+                    'user_id' => (string) Auth::id(),
+                    'user_name' => Auth::user()->name,
+                    'user_email' => Auth::user()->email,
+                    'package_name' => $package->name,
+                    'token' => $token,
+                    'word_score' => $score['word_score'],
+                    'excel_score' => $score['excel_score'],
+                    'ppt_score' => $score['ppt_score'],
+                    'score' => $score['score'], // total gabungan (rata-rata)
+                    'exam_date' => $userAnswers->min('started_at'),
                     'completion_date' => $userAnswers->max('finished_at'),
-                ]
+                ], $tkaCertificateMetadata ?? []),
             ]);
         } else {
             return Certificate::create([
@@ -898,19 +916,19 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                 'status' => 'active',
                 'issued_by' => Auth::id(),
                 'tryout_id' => $tryout->tryout_id,
-                'metadata' => [
-                    'user_id'         => (string)Auth::id(),
-                    'user_name'       => Auth::user()->name,
-                    'user_email'      => Auth::user()->email,
-                    'package_name'    => $package->name,
-                    'token'           => $token,
+                'metadata' => array_merge([
+                    'user_id' => (string) Auth::id(),
+                    'user_name' => Auth::user()->name,
+                    'user_email' => Auth::user()->email,
+                    'package_name' => $package->name,
+                    'token' => $token,
                     'listening_score' => $score['listening_score'] ?? null,
-                    'writing_score'   => $score['writing_score']   ?? null,
-                    'reading_score'   => $score['reading_score']   ?? null,
-                    'score'           => $score['score'], // TOEFL total (310–677) atau total existing
-                    'exam_date'       => $userAnswers->min('started_at'),
+                    'writing_score' => $score['writing_score'] ?? null,
+                    'reading_score' => $score['reading_score'] ?? null,
+                    'score' => $score['score'], // TOEFL total (310–677) atau total existing
+                    'exam_date' => $userAnswers->min('started_at'),
                     'completion_date' => $userAnswers->max('finished_at'),
-                ]
+                ], $tkaCertificateMetadata ?? []),
             ]);
         }
     }
@@ -918,7 +936,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
     private function getCertificate($certificateId)
     {
         return Certificate::where('certificate_id', $certificateId)
-            ->whereJsonContains('metadata->user_id', (string)Auth::id())
+            ->whereJsonContains('metadata->user_id', (string) Auth::id())
             ->firstOrFail();
     }
 
@@ -936,7 +954,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
 
             $exists = Certificate::where('certificate_number', $certificateNumber)->exists();
 
-            if (!$exists) {
+            if (! $exists) {
                 return $certificateNumber;
             }
         } while ($exists && $attempts < $maxAttempts);
@@ -944,6 +962,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
         $timestamp = time();
         $month = date('m');
         $year = date('Y');
+
         return "{$timestamp}/CA/{$month}/{$year}";
     }
 
@@ -961,9 +980,12 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
     // ⬇️ Helper baru (dipakai khusus total gabungan untuk "computer")
     private function calculateAverage(array $values): float
     {
-        $nums = array_filter(array_map(fn($v) => is_numeric($v) ? (float)$v : null, $values), fn($v) => $v !== null);
+        $nums = array_filter(array_map(fn ($v) => is_numeric($v) ? (float) $v : null, $values), fn ($v) => $v !== null);
         $count = count($nums);
-        if ($count === 0) return 0.0;
+        if ($count === 0) {
+            return 0.0;
+        }
+
         return array_sum($nums) / $count;
     }
 

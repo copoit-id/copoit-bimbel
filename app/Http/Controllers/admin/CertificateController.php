@@ -5,15 +5,21 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
 use App\Models\Tryout;
+use App\Services\TkaCertificateRenderer;
+use App\Support\Pagination;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 class CertificateController extends Controller
 {
+    public function __construct(
+        private readonly TkaCertificateRenderer $tkaCertificateRenderer
+    ) {}
+
     public function index(Request $request)
     {
         $query = Certificate::with('issuedBy');
@@ -41,7 +47,7 @@ class CertificateController extends Controller
         }
 
         $certificates = $query->orderBy('issued_date', 'desc')
-            ->paginate(\App\Support\Pagination::perPage(15))
+            ->paginate(Pagination::perPage(15))
             ->withQueryString();
 
         return view('admin.pages.certificate.index', compact('certificates'));
@@ -63,7 +69,7 @@ class CertificateController extends Controller
             'issued_date' => 'required|date',
             'expired_date' => 'nullable|date|after:issued_date',
             'template' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'metadata' => 'nullable|array'
+            'metadata' => 'nullable|array',
         ]);
 
         $data = $request->except(['template']);
@@ -87,6 +93,7 @@ class CertificateController extends Controller
     public function show(Certificate $certificate)
     {
         $certificate->load('issuedBy');
+
         return view('admin.pages.certificate.show', compact('certificate'));
     }
 
@@ -107,7 +114,7 @@ class CertificateController extends Controller
             'expired_date' => 'nullable|date|after:issued_date',
             'status' => 'required|in:active,revoked,expired',
             'template' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'metadata' => 'nullable|array'
+            'metadata' => 'nullable|array',
         ]);
 
         $data = $request->except(['template']);
@@ -145,6 +152,10 @@ class CertificateController extends Controller
 
     public function downloadTemplate(Certificate $certificate)
     {
+        if ($this->tkaCertificateRenderer->usesTkaLayout($certificate)) {
+            return $this->tkaCertificateRenderer->response($certificate, true);
+        }
+
         // Get tryout to determine certificate type
         $tryout = Tryout::find($certificate->tryout_id);
 
@@ -159,17 +170,17 @@ class CertificateController extends Controller
     {
         $templatePath = storage_path('app/private/certificates/certificate-template.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data from certificate
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -268,12 +279,12 @@ class CertificateController extends Controller
         });
 
         // Generate filename untuk download
-        $certificateName = 'Certificate_' . str_replace(['/', '-'], '_', $certificate->certificate_number) . '.png';
+        $certificateName = 'Certificate_'.str_replace(['/', '-'], '_', $certificate->certificate_number).'.png';
 
         return response($image->toPng()->toString(), 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="' . $certificateName . '"',
-            'Cache-Control' => 'no-cache, must-revalidate'
+            'Content-Disposition' => 'attachment; filename="'.$certificateName.'"',
+            'Cache-Control' => 'no-cache, must-revalidate',
         ]);
     }
 
@@ -281,17 +292,17 @@ class CertificateController extends Controller
     {
         $templatePath = storage_path('app/private/certificates/certificate-template-computer.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat computer tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data from certificate
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -390,12 +401,12 @@ class CertificateController extends Controller
         });
 
         // Generate filename untuk download
-        $certificateName = 'Certificate_Computer_' . str_replace(['/', '-'], '_', $certificate->certificate_number) . '.png';
+        $certificateName = 'Certificate_Computer_'.str_replace(['/', '-'], '_', $certificate->certificate_number).'.png';
 
         return response($image->toPng()->toString(), 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="' . $certificateName . '"',
-            'Cache-Control' => 'no-cache, must-revalidate'
+            'Content-Disposition' => 'attachment; filename="'.$certificateName.'"',
+            'Cache-Control' => 'no-cache, must-revalidate',
         ]);
     }
 
@@ -404,7 +415,7 @@ class CertificateController extends Controller
         $request->validate([
             'action' => 'required|in:activate,revoke,delete',
             'certificate_ids' => 'required|array',
-            'certificate_ids.*' => 'exists:certificates,certificate_id'
+            'certificate_ids.*' => 'exists:certificates,certificate_id',
         ]);
 
         $certificates = Certificate::whereIn('certificate_id', $request->certificate_ids);

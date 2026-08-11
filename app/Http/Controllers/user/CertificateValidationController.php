@@ -4,14 +4,20 @@ namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
+use App\Services\TkaCertificateRenderer;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 class CertificateValidationController extends Controller
 {
+    public function __construct(
+        private readonly TkaCertificateRenderer $tkaCertificateRenderer
+    ) {}
+
     public function index()
     {
         return view('user.pages.certificate.validation');
@@ -20,19 +26,19 @@ class CertificateValidationController extends Controller
     public function validateCertificate(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'certificate_number' => 'required|string|min:3|max:50'
+            'certificate_number' => 'required|string|min:3|max:50',
         ], [
             'certificate_number.required' => 'Nomor sertifikat wajib diisi',
             'certificate_number.string' => 'Nomor sertifikat harus berupa teks',
             'certificate_number.min' => 'Nomor sertifikat minimal 3 karakter',
-            'certificate_number.max' => 'Nomor sertifikat maksimal 50 karakter'
+            'certificate_number.max' => 'Nomor sertifikat maksimal 50 karakter',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => $validator->errors()->first(),
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -42,7 +48,7 @@ class CertificateValidationController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$certificate) {
+        if (! $certificate) {
             return response()->json([
                 'success' => false,
                 'valid' => false,
@@ -59,9 +65,9 @@ class CertificateValidationController extends Controller
             'institution_name' => $certificate->institution_name,
             'issued_date' => $certificate->issued_date->format('d F Y'),
             'expired_date' => $certificate->expired_date->format('d F Y'),
-            'verification_code' => substr($certificate->verification_code, 0, 8) . '...',
+            'verification_code' => substr($certificate->verification_code, 0, 8).'...',
             'package_name' => $metadata['package_name'] ?? 'Unknown Package',
-            'exam_date' => isset($metadata['exam_date']) ? \Carbon\Carbon::parse($metadata['exam_date'])->format('d F Y') : $certificate->issued_date->format('d F Y'),
+            'exam_date' => isset($metadata['exam_date']) ? Carbon::parse($metadata['exam_date'])->format('d F Y') : $certificate->issued_date->format('d F Y'),
             'is_expired' => $certificate->expired_date->isPast(),
             'preview_url' => URL::temporarySignedRoute(
                 'user.certificate.validation.preview',
@@ -79,20 +85,20 @@ class CertificateValidationController extends Controller
             'success' => true,
             'valid' => true,
             'message' => 'Sertifikat valid dan ditemukan',
-            'data' => $certificateData
+            'data' => $certificateData,
         ]);
     }
 
     public function downloadCertificate(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'certificate_number' => 'required|string'
+            'certificate_number' => 'required|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nomor sertifikat tidak valid'
+                'message' => 'Nomor sertifikat tidak valid',
             ], 422);
         }
 
@@ -100,10 +106,10 @@ class CertificateValidationController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$certificate) {
+        if (! $certificate) {
             return response()->json([
                 'success' => false,
-                'message' => 'Sertifikat tidak ditemukan'
+                'message' => 'Sertifikat tidak ditemukan',
             ], 404);
         }
 
@@ -115,7 +121,7 @@ class CertificateValidationController extends Controller
 
         return response()->json([
             'success' => true,
-            'download_url' => $downloadUrl
+            'download_url' => $downloadUrl,
         ]);
     }
 
@@ -125,19 +131,23 @@ class CertificateValidationController extends Controller
             ->where('status', 'active')
             ->firstOrFail();
 
+        if ($this->tkaCertificateRenderer->usesTkaLayout($certificate)) {
+            return $this->tkaCertificateRenderer->response($certificate, true);
+        }
+
         $templatePath = storage_path('app/private/certificates/certificate-template.png');
 
-        if (!file_exists($templatePath)) {
+        if (! file_exists($templatePath)) {
             abort(404, 'Template sertifikat tidak ditemukan.');
         }
 
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->read($templatePath);
 
         // Get real data from certificate
         $metadata = is_array($certificate->metadata) ? $certificate->metadata : json_decode($certificate->metadata, true);
         $userName = $metadata['user_name'] ?? 'Unknown User';
-        $dateOfBirth = $certificate->date_of_birth instanceof \Carbon\Carbon ? $certificate->date_of_birth : \Carbon\Carbon::parse($certificate->date_of_birth);
+        $dateOfBirth = $certificate->date_of_birth instanceof Carbon ? $certificate->date_of_birth : Carbon::parse($certificate->date_of_birth);
 
         // Add certificate number
         $image->text($certificate->certificate_number, 1805, 580, function ($font) {
@@ -208,12 +218,12 @@ class CertificateValidationController extends Controller
         });
 
         // Generate filename untuk download
-        $certificateName = 'Certificate_' . str_replace(['/', '-'], '_', $certificate->certificate_number) . '.png';
+        $certificateName = 'Certificate_'.str_replace(['/', '-'], '_', $certificate->certificate_number).'.png';
 
         return response($image->toPng()->toString(), 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="' . $certificateName . '"',
-            'Cache-Control' => 'no-cache, must-revalidate'
+            'Content-Disposition' => 'attachment; filename="'.$certificateName.'"',
+            'Cache-Control' => 'no-cache, must-revalidate',
         ]);
     }
 }
