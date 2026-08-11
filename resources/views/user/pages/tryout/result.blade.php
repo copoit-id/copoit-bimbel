@@ -102,68 +102,79 @@
                     @endif
                 </div>
 
-                <!-- Answer Summary Chart -->
+                <!-- Answer Chart -->
                 @php
-                    $answerSummary = [
-                        'correct' => (int) $correctAnswers,
-                        'wrong' => (int) $wrongAnswers,
-                        'unanswered' => (int) ($unansweredCount ?? 0),
-                        'pending' => (int) ($pendingReviewCount ?? 0),
-                    ];
-                    $answerTotal = array_sum($answerSummary);
-                    $answerTotalForPercentage = max(1, $answerTotal);
-                    $correctPercentage = round(($answerSummary['correct'] / $answerTotalForPercentage) * 100);
-                    $wrongPercentage = round(($answerSummary['wrong'] / $answerTotalForPercentage) * 100);
-                    $unansweredPercentage = round(($answerSummary['unanswered'] / $answerTotalForPercentage) * 100);
-                    $pendingPercentage = round(($answerSummary['pending'] / $answerTotalForPercentage) * 100);
-                    $correctEnd = ($answerSummary['correct'] / $answerTotalForPercentage) * 100;
-                    $wrongEnd = $correctEnd + (($answerSummary['wrong'] / $answerTotalForPercentage) * 100);
-                    $pendingEnd = $wrongEnd + (($answerSummary['pending'] / $answerTotalForPercentage) * 100);
+                    $answerChartItems = collect($subtestResults ?? [])
+                        ->map(fn (array $subtest): array => [
+                            'name' => (string) ($subtest['name'] ?? 'Subtest'),
+                            'correct' => (int) ($subtest['correct_answers'] ?? 0),
+                            'wrong' => (int) ($subtest['wrong_answers'] ?? 0),
+                        ])
+                        ->values();
+
+                    if ($answerChartItems->isEmpty()) {
+                        $answerChartItems = collect([[
+                            'name' => 'Tryout',
+                            'correct' => (int) $correctAnswers,
+                            'wrong' => (int) $wrongAnswers,
+                        ]]);
+                    }
+
+                    $answerChartMaximum = max(1, $answerChartItems->flatMap(
+                        fn (array $item): array => [$item['correct'], $item['wrong']]
+                    )->max());
+                    $answerChartItemCount = $answerChartItems->count();
+                    $answerChartWidth = max(620, $answerChartItemCount * 180);
                 @endphp
 
-                @if($answerTotal > 0)
-                    <section class="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-white p-5 sm:p-6">
-                        <div class="mb-5">
+                <section class="mt-8 border-t border-gray-100 pt-6">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
                             <p class="text-sm font-semibold text-gray-900">Grafik Jawaban</p>
-                            <p class="mt-1 text-xs text-gray-500">Ringkasan seluruh jawaban pada tryout ini.</p>
+                            <p class="mt-1 text-xs text-gray-500">Jumlah jawaban benar dan salah pada setiap subtest.</p>
                         </div>
+                        <div class="flex items-center gap-4 text-xs text-gray-500">
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-primary"></span>Benar</span>
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-400"></span>Salah</span>
+                        </div>
+                    </div>
 
-                        <div class="flex flex-col items-center gap-7 sm:flex-row sm:items-center sm:justify-center sm:gap-10">
-                            <div class="relative grid h-44 w-44 shrink-0 place-items-center rounded-full p-3 shadow-sm"
-                                style="background: conic-gradient(#22c55e 0% {{ $correctEnd }}%, #ef4444 {{ $correctEnd }}% {{ $wrongEnd }}%, #6b7280 {{ $wrongEnd }}% {{ $pendingEnd }}%, #d1d5db {{ $pendingEnd }}% 100%);"
-                                role="img"
-                                aria-label="{{ $answerSummary['correct'] }} jawaban benar, {{ $answerSummary['wrong'] }} jawaban salah, {{ $answerSummary['unanswered'] }} jawaban kosong{{ $answerSummary['pending'] > 0 ? ', ' . $answerSummary['pending'] . ' jawaban menunggu koreksi' : '' }}">
-                                <div class="grid h-full w-full place-items-center rounded-full bg-white text-center">
-                                    <div>
-                                        <p class="text-3xl font-bold tracking-tight text-gray-900">{{ $answerTotal }}</p>
-                                        <p class="mt-0.5 text-xs font-medium text-gray-500">Total Soal</p>
-                                    </div>
+                    <div class="mt-7 overflow-x-auto pb-2">
+                        <div class="mx-auto" style="width: {{ $answerChartWidth }}px">
+                            <div class="relative ml-7 h-60 border-b border-l border-gray-200">
+                                <div class="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                                    <span class="border-t border-dashed border-gray-100"></span>
+                                    <span class="border-t border-dashed border-gray-100"></span>
+                                    <span class="border-t border-dashed border-gray-100"></span>
+                                    <span></span>
+                                </div>
+
+                                <div class="absolute inset-0 grid" style="grid-template-columns: repeat({{ $answerChartItemCount }}, minmax(0, 1fr));">
+                                    @foreach($answerChartItems as $item)
+                                        @php
+                                            $correctHeight = ($item['correct'] / $answerChartMaximum) * 100;
+                                            $wrongHeight = ($item['wrong'] / $answerChartMaximum) * 100;
+                                        @endphp
+                                        <div class="flex h-full items-end justify-center gap-3 px-5">
+                                            <div class="relative w-11 rounded-t-sm bg-primary" style="height: {{ $correctHeight }}%">
+                                                <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['correct'] }}</span>
+                                            </div>
+                                            <div class="relative w-11 rounded-t-sm bg-gray-400" style="height: {{ $wrongHeight }}%">
+                                                <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['wrong'] }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
 
-                            <dl class="w-full max-w-sm space-y-3">
-                                <div class="flex items-center justify-between rounded-lg border border-green-100 bg-green-50 px-4 py-3">
-                                    <dt class="flex items-center gap-2 text-sm font-medium text-green-800"><span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>Benar</dt>
-                                    <dd class="text-sm font-semibold text-green-800">{{ $answerSummary['correct'] }} <span class="font-medium text-green-700">({{ $correctPercentage }}%)</span></dd>
-                                </div>
-                                <div class="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-4 py-3">
-                                    <dt class="flex items-center gap-2 text-sm font-medium text-red-800"><span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>Salah</dt>
-                                    <dd class="text-sm font-semibold text-red-800">{{ $answerSummary['wrong'] }} <span class="font-medium text-red-700">({{ $wrongPercentage }}%)</span></dd>
-                                </div>
-                                <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
-                                    <dt class="flex items-center gap-2 text-sm font-medium text-gray-700"><span class="h-2.5 w-2.5 rounded-full bg-gray-300"></span>Kosong</dt>
-                                    <dd class="text-sm font-semibold text-gray-800">{{ $answerSummary['unanswered'] }} <span class="font-medium text-gray-500">({{ $unansweredPercentage }}%)</span></dd>
-                                </div>
-                                @if($answerSummary['pending'] > 0)
-                                    <div class="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-100 px-4 py-3">
-                                        <dt class="flex items-center gap-2 text-sm font-medium text-gray-700"><span class="h-2.5 w-2.5 rounded-full bg-gray-500"></span>Menunggu Koreksi</dt>
-                                        <dd class="text-sm font-semibold text-gray-800">{{ $answerSummary['pending'] }} <span class="font-medium text-gray-500">({{ $pendingPercentage }}%)</span></dd>
-                                    </div>
-                                @endif
-                            </dl>
+                            <div class="ml-7 mt-3 grid" style="grid-template-columns: repeat({{ $answerChartItemCount }}, minmax(0, 1fr));">
+                                @foreach($answerChartItems as $item)
+                                    <p class="px-3 text-center text-xs font-medium leading-5 text-gray-500">{{ $item['name'] }}</p>
+                                @endforeach
+                            </div>
                         </div>
-                    </section>
-                @endif
+                    </div>
+                </section>
             </div>
 
             @php
