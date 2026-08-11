@@ -6,6 +6,9 @@
     $utbkSingleTypes = $utbkSingleTypes ?? [];
     $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
     $tryoutTypeOptions = $tryoutTypeOptions ?? [];
+    $dynamicTryoutSubtests = collect($tryoutTypeOptions)
+        ->mapWithKeys(fn ($option, $type) => !empty($option['subtests']) ? [$type => $option['subtests']] : [])
+        ->all();
     $selectedTryoutType = old('type_tryout', $tryout->type_tryout ?? '');
     $storedScoringMethod = isset($tryout) ? ($tryout->scoring_method ?? null) : null;
     $storedScoringMethod = $storedScoringMethod === 'irt' ? 'irt_utbk' : $storedScoringMethod;
@@ -403,6 +406,49 @@
                 <!-- Dynamic Configuration Sections -->
                 <div class="border-t pt-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-4">Konfigurasi Subtest</h3>
+
+                    <!-- Dynamic Category Configuration -->
+                    <div id="dynamic_category_config" class="config-section hidden space-y-4">
+                        @foreach($dynamicTryoutSubtests as $type => $subtests)
+                            <div class="dynamic-category-card hidden" data-dynamic-category-card="{{ $type }}">
+                                <h4 class="font-medium text-gray-800">Konfigurasi {{ $tryoutTypeOptions[$type]['label'] ?? \Illuminate\Support\Str::headline($type) }}</h4>
+                                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    @foreach($subtests as $subtest)
+                                        @php
+                                            $subtestCode = $subtest['code'];
+                                            $subtestDetail = isset($tryout) ? $tryout->tryoutDetails->firstWhere('type_subtest', $subtestCode) : null;
+                                            $durationValue = old('duration_'.$subtestCode, $subtestDetail?->duration ?? 60);
+                                            $passingValue = old('passing_score_'.$subtestCode, $subtestDetail?->passing_score ?? 60);
+                                            $passingType = old('passing_type_'.$subtestCode, $subtestDetail?->passing_type ?? 'score');
+                                        @endphp
+                                        <div class="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                            <h5 class="font-medium text-sm text-gray-800">{{ $subtest['name'] }}</h5>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
+                                                <input type="number" name="duration_{{ $subtestCode }}" min="1" max="300"
+                                                    value="{{ $durationValue }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
+                                                <input type="number" name="passing_score_{{ $subtestCode }}" min="0" max="100" step="0.1"
+                                                    value="{{ $passingValue }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                                <select name="passing_type_{{ $subtestCode }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                                    <option value="score" @selected($passingType === 'score')>Skor</option>
+                                                    <option value="percentage" @selected($passingType === 'percentage')>Persentase</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
 
                     <!-- SKD Full Configuration -->
                     <!-- UTBK Full Configuration -->
@@ -959,6 +1005,7 @@
 <script>
     (function () {
   const utbkSingleTypeMap = @json(collect($utbkSingleTypes ?? [])->mapWithKeys(fn($config, $type) => [$type => $config['slug']])->toArray());
+  const dynamicTryoutSubtests = @json($dynamicTryoutSubtests);
   function setSectionEnabled(sectionEl, enabled) {
     if (!sectionEl) return;
     const fields = sectionEl.querySelectorAll('input, select, textarea, button');
@@ -983,6 +1030,7 @@
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
+      const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
       if (!typeSelect || typeSelect.__tryoutBound) return;
 
     const configSectionMap = {
@@ -1013,6 +1061,19 @@
     Object.keys(utbkSingleTypeMap).forEach(type => {
       configSectionMap[type] = 'utbk_single_config';
     });
+    Object.keys(dynamicTryoutSubtests).forEach(type => {
+      configSectionMap[type] = 'dynamic_category_config';
+    });
+
+    function toggleDynamicCategoryCards(selectedType) {
+      dynamicCategoryCards.forEach(card => {
+        const isSelected = card.dataset.dynamicCategoryCard === selectedType;
+        card.classList.toggle('hidden', !isSelected);
+        card.querySelectorAll('input, select, textarea, button').forEach(field => {
+          field.disabled = !isSelected;
+        });
+      });
+    }
 
     function showConfigSection() {
       const selectedType = String(typeSelect.value || '').trim();
@@ -1033,6 +1094,7 @@
 
       syncScoringMethod(selectedType);
       toggleUtbkSingleCards(selectedType);
+      toggleDynamicCategoryCards(selectedType);
     }
 
     function syncScoringMethod(selectedType) {

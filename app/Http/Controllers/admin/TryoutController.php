@@ -619,9 +619,9 @@ class TryoutController extends Controller
             'tryout_id' => $tryout->tryout_id,
             'type_subtest' => $category->code,
             'material_category_id' => $category->category_id,
-            'duration' => $request->input('duration_general', 60),
-            'passing_score' => $request->input('passing_score_general', 60),
-            'passing_type' => $request->input('passing_type_general', 'score'),
+            'duration' => $this->dynamicSubtestInput($request, 'duration', $category->code, 60),
+            'passing_score' => $this->dynamicSubtestInput($request, 'passing_score', $category->code, 60),
+            'passing_type' => $this->dynamicSubtestInput($request, 'passing_type', $category->code, 'score'),
         ]);
     }
 
@@ -753,14 +753,19 @@ class TryoutController extends Controller
                 ['type_subtest' => $category->code],
                 [
                     'material_category_id' => $category->category_id,
-                    'duration' => $request->input('duration_general', 60),
-                    'passing_score' => $request->input('passing_score_general', 60),
-                    'passing_type' => $request->input('passing_type_general', 'score'),
+                    'duration' => $this->dynamicSubtestInput($request, 'duration', $category->code, 60),
+                    'passing_score' => $this->dynamicSubtestInput($request, 'passing_score', $category->code, 60),
+                    'passing_type' => $this->dynamicSubtestInput($request, 'passing_type', $category->code, 'score'),
                 ]
             );
         }
 
         $tryout->tryoutDetails()->whereNotIn('type_subtest', $types)->delete();
+    }
+
+    private function dynamicSubtestInput(Request $request, string $field, string $code, mixed $default): mixed
+    {
+        return $request->input("{$field}_{$code}", $request->input("{$field}_general", $default));
     }
 
     /**
@@ -1123,7 +1128,10 @@ class TryoutController extends Controller
         $categoryCodesByType = collect($codes)
             ->mapWithKeys(fn ($type) => [$type => $this->categoryCodeForTryoutType($type)]);
         $categoriesByCode = MaterialCategory::query()
-            ->with('parent')
+            ->with([
+                'parent',
+                'activeChildren' => fn ($query) => $query->withCode()->ordered(),
+            ])
             ->withCount('activeChildren')
             ->withCode()
             ->active()
@@ -1143,6 +1151,15 @@ class TryoutController extends Controller
                     $type => [
                         'label' => $this->tryoutOptionLabel($type, $category),
                         'category_id' => $category->category_id,
+                        'subtests' => $this->isDynamicMultiSubtestCategory($type, $category)
+                            ? $category->activeChildren
+                                ->map(fn (MaterialCategory $child) => [
+                                    'code' => $child->code,
+                                    'name' => $child->name,
+                                ])
+                                ->values()
+                                ->all()
+                            : [],
                         'group' => $category->parent_id
                             ? 'single'
                             : ($this->isDynamicMultiSubtestCategory($type, $category)

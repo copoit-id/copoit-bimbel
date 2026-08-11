@@ -80,9 +80,15 @@ class DynamicTryoutCategorySubtestTest extends TestCase
             'type_tryout' => $parent->code,
         ]);
         $request = Request::create('/', 'POST', [
-            'duration_general' => 45,
-            'passing_score_general' => 70,
-            'passing_type_general' => 'score',
+            'duration_subtest_1' => 35,
+            'duration_subtest_2' => 45,
+            'duration_subtest_3' => 55,
+            'passing_score_subtest_1' => 65,
+            'passing_score_subtest_2' => 70,
+            'passing_score_subtest_3' => 75,
+            'passing_type_subtest_1' => 'score',
+            'passing_type_subtest_2' => 'percentage',
+            'passing_type_subtest_3' => 'score',
         ]);
 
         $method = new \ReflectionMethod(TryoutController::class, 'createTryoutDetails');
@@ -92,6 +98,26 @@ class DynamicTryoutCategorySubtestTest extends TestCase
 
         $this->assertCount(3, $details);
         $this->assertSame($children->pluck('category_id')->sort()->values()->all(), $details->pluck('material_category_id')->sort()->values()->all());
-        $this->assertTrue($details->every(fn (TryoutDetail $detail) => $detail->duration === 45));
+        $this->assertSame([35, 45, 55], $details->pluck('duration')->all());
+        $this->assertSame(['score', 'percentage', 'score'], $details->pluck('passing_type')->all());
+
+        $updateRequest = Request::create('/', 'POST', [
+            'duration_subtest_1' => 40,
+            'duration_subtest_2' => 50,
+            'duration_subtest_3' => 60,
+            'passing_score_subtest_1' => 66,
+            'passing_score_subtest_2' => 71,
+            'passing_score_subtest_3' => 76,
+            'passing_type_subtest_1' => 'percentage',
+            'passing_type_subtest_2' => 'score',
+            'passing_type_subtest_3' => 'percentage',
+        ]);
+        $updateMethod = new \ReflectionMethod(TryoutController::class, 'updateTryoutDetails');
+        $updateMethod->invoke(app(TryoutController::class), $tryout, $updateRequest);
+
+        $updatedDetails = TryoutDetail::query()->orderBy('type_subtest')->get();
+
+        $this->assertSame([40, 50, 60], $updatedDetails->pluck('duration')->all());
+        $this->assertSame(['percentage', 'score', 'percentage'], $updatedDetails->pluck('passing_type')->all());
     }
 }
