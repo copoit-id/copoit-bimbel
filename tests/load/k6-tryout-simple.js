@@ -368,10 +368,11 @@ function extractQuestions(tryoutPage) {
     const document = parseHTML(tryoutPage.body);
     const csrfToken = extractValue(document.find('form.answer-form input[name="_token"]'));
     const attemptToken = extractValue(document.find('#finishForm input[name="attempt_token"]'));
+    const totalQuestions = Number(document.find('#tryoutPage').attr('data-total-questions'));
     const questions = [];
 
-    if (!csrfToken || !attemptToken) {
-        fail('Tryout page is missing its CSRF token or attempt token.');
+    if (!csrfToken || !attemptToken || !Number.isInteger(totalQuestions) || totalQuestions < 1) {
+        fail('Tryout page is missing its CSRF token, attempt token, or total question count.');
     }
 
     document.find('.question-wrapper').each((_, wrapper) => {
@@ -395,11 +396,37 @@ function extractQuestions(tryoutPage) {
         fail('No questions were found on the started tryout page.');
     }
 
-    if (EXPECTED_QUESTION_COUNT && questions.length !== EXPECTED_QUESTION_COUNT) {
-        fail(`Expected ${EXPECTED_QUESTION_COUNT} questions, but the tryout rendered ${questions.length}.`);
+    return { csrfToken, attemptToken, questions, totalQuestions };
+}
+
+function openNextSubtest(firstQuestionNumber) {
+    const pageUrl = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/tryout/${firstQuestionNumber}`;
+    let tryoutPage = http.get(pageUrl, requestOptions('tryout-next-subtest'));
+    let pageOk = check(tryoutPage, {
+        'next subtest page starts successfully': (response) => response.status === 200,
+    });
+
+    if (!pageOk) {
+        return null;
     }
 
-    return { csrfToken, attemptToken, questions };
+    if (!tryoutPage.body.includes('id="break-countdown"')) {
+        return tryoutPage;
+    }
+
+    const countdownMatch = tryoutPage.body.match(/let remaining = (\d+);/);
+    if (!countdownMatch) {
+        fail('The subtest break page is missing its countdown duration.');
+    }
+
+    // The browser waits for the countdown, then navigates back to this same URL.
+    sleep(Number(countdownMatch[1]) + 1.5);
+    tryoutPage = http.get(pageUrl, requestOptions('tryout-next-subtest-after-break'));
+    pageOk = check(tryoutPage, {
+        'next subtest page opens after break': (response) => response.status === 200,
+    });
+
+    return pageOk ? tryoutPage : null;
 }
 
 function saveEveryAnswer(questionSet) {
@@ -508,6 +535,66 @@ function finishTryout(questionSet) {
     });
 }
 
+function completeTryout(firstTryoutPage) {
+    let currentQuestionSet = extractQuestions(firstTryoutPage);
+    const allQuestions = [];
+    const seenQuestionNumbers = {};
+    let csrfToken = currentQuestionSet.csrfToken;
+    let attemptToken = currentQuestionSet.attemptToken;
+    const totalQuestions = currentQuestionSet.totalQuestions;
+
+    while (true) {
+        const answersHandled = ANSWER_PERSISTENCE_MODE === 'per_answer_save'
+            ? saveEveryAnswer(currentQuestionSet)
+            : answerEveryQuestionLocally(currentQuestionSet);
+
+        if (!answersHandled) {
+            return null;
+        }
+
+        currentQuestionSet.questions.forEach((question) => {
+            if (seenQuestionNumbers[question.number]) {
+                fail(`Question number ${question.number} was rendered more than once.`);
+            }
+
+            seenQuestionNumbers[question.number] = true;
+            allQuestions.push(question);
+        });
+
+        csrfToken = currentQuestionSet.csrfToken;
+        attemptToken = currentQuestionSet.attemptToken;
+
+        if (allQuestions.length >= totalQuestions) {
+            break;
+        }
+
+        const nextQuestionNumber = Math.max(...currentQuestionSet.questions.map((question) => question.number)) + 1;
+        const nextTryoutPage = openNextSubtest(nextQuestionNumber);
+        if (!nextTryoutPage) {
+            return null;
+        }
+
+        currentQuestionSet = extractQuestions(nextTryoutPage);
+        if (currentQuestionSet.totalQuestions !== totalQuestions) {
+            fail('The total question count changed between subtest pages.');
+        }
+
+        if (currentQuestionSet.attemptToken !== attemptToken) {
+            fail('The attempt token changed between subtest pages.');
+        }
+    }
+
+    if (allQuestions.length !== totalQuestions) {
+        fail(`Expected ${totalQuestions} questions across all subtests, but rendered ${allQuestions.length}.`);
+    }
+
+    if (EXPECTED_QUESTION_COUNT && allQuestions.length !== EXPECTED_QUESTION_COUNT) {
+        fail(`Expected ${EXPECTED_QUESTION_COUNT} questions, but the tryout rendered ${allQuestions.length}.`);
+    }
+
+    return { csrfToken, attemptToken, questions: allQuestions };
+}
+
 export default function () {
     const user = users[exec.vu.idInTest - 1];
 
@@ -531,13 +618,8 @@ export default function () {
         return;
     }
 
-    const questionSet = extractQuestions(tryoutPage);
-
-    const answersHandled = ANSWER_PERSISTENCE_MODE === 'per_answer_save'
-        ? saveEveryAnswer(questionSet)
-        : answerEveryQuestionLocally(questionSet);
-
-    if (!answersHandled) {
+    const questionSet = completeTryout(tryoutPage);
+    if (!questionSet) {
         return;
     }
 

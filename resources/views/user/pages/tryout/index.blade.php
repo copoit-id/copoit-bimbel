@@ -2,6 +2,9 @@
 @section('title', 'Tryout - Soal ' . $number)
 @section('content')
     <div id="tryoutPage" class="min-h-screen bg-gray-50 pt-16 {{ $effectiveProctoringSettings['enable_anti_copy'] ? 'select-none' : '' }}"
+        data-total-questions="{{ $totalQuestions }}"
+        data-rendered-question-count="{{ $renderedQuestions->count() }}"
+        data-combined-subtest-view="{{ ($isCombinedSubtestView ?? false) ? '1' : '0' }}"
         @if($effectiveProctoringSettings['enable_anti_copy']) oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false" @endif>
         <div class="max-w-7xl mx-auto py-2 sm:px-4 sm:py-6">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -25,9 +28,9 @@
 
                         <!-- Questions Loop -->
                         <div id="questions-container">
-                            @foreach ($allQuestions as $index => $q)
+                            @foreach ($renderedQuestions as $q)
                                 @php
-                                    $qNum = $index + 1;
+                                    $qNum = (int) $q->tryout_number;
                                     $userAnswerDetail = $allAnswerDetails->get($q->question_id);
                                     $rawQuestionType = $q->question_type ?? 'multiple_choice';
                                     $qType =
