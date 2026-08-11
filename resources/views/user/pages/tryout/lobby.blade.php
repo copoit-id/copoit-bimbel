@@ -111,9 +111,6 @@
                         <i class="ri-checkbox-circle-fill text-lg"></i>
                         <p>Pastikan koneksi internet stabil.</p>
                     </span>
-                    <div class="pt-2 text-left">
-                        <x-network-signal :interval="30000" />
-                    </div>
                     <span class="flex items-center gap-2 justify-start">
                         <i class="ri-checkbox-circle-fill text-lg"></i>
                         <p>Jawab semua soal dengan teliti.</p>
@@ -158,6 +155,11 @@
                         <p id="proctoringLobbyError" class="mt-3 hidden rounded-lg bg-red/5 px-3 py-2 text-sm font-semibold text-red"></p>
                     </div>
                 @endif
+
+                <div class="mt-6 flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                    <p class="text-xs font-medium text-gray-600">Status koneksi ke server tryout</p>
+                    <x-network-signal :interval="5000" />
+                </div>
 
                 @if($isAttemptLimitReached ?? false)
                     <button type="button" disabled

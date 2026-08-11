@@ -32,23 +32,30 @@
 
                 function initialiseSignal(element) {
                     const pingUrl = element.dataset.pingUrl;
-                    const interval = Math.max(15000, Number(element.dataset.interval) || 45000);
+                    const interval = Math.max(5000, Number(element.dataset.interval) || 45000);
                     const label = element.querySelector('[data-network-label]');
                     const bars = Array.from(element.querySelectorAll('[data-network-bar]'));
                     let timer = null;
+                    let connectionChangeTimer = null;
                     let checking = false;
+                    let currentState = 'checking';
+                    const networkInformation = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 
                     function render(stateName, latency = null) {
                         const state = states[stateName];
                         if (!state || !label) return;
 
+                        if (currentState !== stateName) {
+                            element.classList.remove('text-gray-600', 'text-red-600', 'text-yellow-700', 'text-green-700');
+                            element.classList.add(state.text);
+                            bars.forEach((bar, index) => {
+                                bar.classList.remove('bg-gray-300', 'bg-red-400', 'bg-red-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600');
+                                bar.classList.add(index < state.level ? state.color : 'bg-gray-300');
+                            });
+                            currentState = stateName;
+                        }
+
                         label.textContent = latency === null ? state.label : `${state.label} (${Math.round(latency)} ms)`;
-                        element.classList.remove('text-gray-600', 'text-red-600', 'text-yellow-700', 'text-green-700');
-                        element.classList.add(state.text);
-                        bars.forEach((bar, index) => {
-                            bar.classList.remove('bg-gray-300', 'bg-red-400', 'bg-red-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600');
-                            bar.classList.add(index < state.level ? state.color : 'bg-gray-300');
-                        });
                     }
 
                     function stateForLatency(latency) {
@@ -67,6 +74,7 @@
 
                     async function checkConnection() {
                         if (checking || document.hidden) return;
+                        window.clearTimeout(timer);
                         if (!navigator.onLine) {
                             render('offline');
                             scheduleNextCheck();
@@ -74,7 +82,9 @@
                         }
 
                         checking = true;
-                        render('checking');
+                        if (currentState === 'checking') {
+                            render('checking');
+                        }
                         const controller = new AbortController();
                         const timeout = window.setTimeout(() => controller.abort(), 5000);
                         const startedAt = performance.now();
@@ -97,15 +107,22 @@
                         }
                     }
 
-                    window.addEventListener('online', checkConnection);
+                    function queueConnectionCheck() {
+                        window.clearTimeout(connectionChangeTimer);
+                        connectionChangeTimer = window.setTimeout(checkConnection, 300);
+                    }
+
+                    window.addEventListener('online', queueConnectionCheck);
                     window.addEventListener('offline', () => render('offline'));
+                    window.addEventListener('focus', queueConnectionCheck);
+                    networkInformation?.addEventListener?.('change', queueConnectionCheck);
                     document.addEventListener('visibilitychange', () => {
                         if (document.hidden) {
                             window.clearTimeout(timer);
                             return;
                         }
 
-                        checkConnection();
+                        queueConnectionCheck();
                     });
 
                     checkConnection();
