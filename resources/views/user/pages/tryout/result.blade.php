@@ -102,103 +102,83 @@
                     @endif
                 </div>
 
-                <!-- Time Per Question Line Chart -->
+                <!-- Accurate Answer Distribution -->
                 @php
-                    // Build time per question data with sequential timestamps
-                    $questionTimeData = [];
-                    $qIndex = 1;
-                    $prevTime = null;
-                    
-                    foreach ($latestUserAnswers as $userAnswer) {
-                        $details = $userAnswer->userAnswerDetails->sortBy('user_answer_detail_id');
-                        foreach ($details as $detail) {
-                            // Calculate time spent on this question (difference from previous answer)
-                            if ($prevTime === null) {
-                                $qTime = $avgSecondsPerQuestion > 0 ? $avgSecondsPerQuestion : 60;
-                            } else {
-                                $currentTime = $detail->created_at ? $detail->created_at->timestamp : $prevTime + 60;
-                                $qTime = max(5, $currentTime - $prevTime); // Minimum 5 seconds
-                            }
-                            $prevTime = $detail->created_at ? $detail->created_at->timestamp : ($prevTime + $qTime);
-                            
-                            $questionTimeData[] = [
-                                'number' => $qIndex,
-                                'time' => $qTime,
-                                'isCorrect' => $detail->is_correct,
-                                'pending' => $detail->answer_json['pending_review'] ?? false
+                    $answerDistribution = collect($subtestResults ?? [])
+                        ->map(function (array $subtest): array {
+                            $correct = (int) ($subtest['correct_answers'] ?? 0);
+                            $wrong = (int) ($subtest['wrong_answers'] ?? 0);
+                            $unanswered = (int) ($subtest['unanswered'] ?? 0);
+                            $pending = (int) ($subtest['pending_count'] ?? 0);
+                            $total = max(1, $correct + $wrong + $unanswered + $pending);
+
+                            return [
+                                'name' => $subtest['name'] ?? 'Subtest',
+                                'correct' => $correct,
+                                'wrong' => $wrong,
+                                'unanswered' => $unanswered,
+                                'pending' => $pending,
+                                'correct_percent' => ($correct / $total) * 100,
+                                'wrong_percent' => ($wrong / $total) * 100,
+                                'unanswered_percent' => ($unanswered / $total) * 100,
+                                'pending_percent' => ($pending / $total) * 100,
                             ];
-                            $qIndex++;
-                        }
-                    }
-                    
-                    $totalQuestionsChart = count($questionTimeData);
+                        })
+                        ->values();
                 @endphp
 
-                @if($totalQuestionsChart > 0)
-                @php
-                    $maxTime = max(30, collect($questionTimeData)->max('time'));
-                    $chartHeight = 200;
-                    $chartWidth = max(600, $totalQuestionsChart * 25);
-                    $paddingX = 40;
-                    $paddingY = 20;
-                    $plotWidth = $chartWidth - ($paddingX * 2);
-                    $plotHeight = $chartHeight - ($paddingY * 2);
-                    $stepX = $totalQuestionsChart > 1 ? $plotWidth / ($totalQuestionsChart - 1) : 0;
-                @endphp
-                <div class="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-                    <h4 class="text-sm font-semibold text-gray-900 mb-4">Waktu per Soal (detik)</h4>
-                    <div class="overflow-x-auto">
-                        <svg width="{{ $chartWidth }}" height="{{ $chartHeight + 30 }}" class="block" style="min-width: 100%;">
-                            <!-- Grid lines horizontal -->
-                            @for($i = 0; $i <= 5; $i++)
-                                @php
-                                    $y = $paddingY + ($plotHeight / 5) * $i;
-                                    $value = round($maxTime - ($maxTime / 5) * $i);
-                                @endphp
-                                <line x1="{{ $paddingX }}" y1="{{ $y }}" x2="{{ $chartWidth - $paddingX }}" y2="{{ $y }}" stroke="#e5e7eb" stroke-width="1"/>
-                                <text x="{{ $paddingX - 5 }}" y="{{ $y + 4 }}" text-anchor="end" font-size="10" fill="#6b7280">{{ $value }}</text>
-                            @endfor
-                            
-                            <!-- Line path -->
-                            @php
-                                $points = [];
-                                foreach($questionTimeData as $i => $qData) {
-                                    $x = $paddingX + ($i * $stepX);
-                                    $y = $paddingY + $plotHeight - (($qData['time'] / $maxTime) * $plotHeight);
-                                    $points[] = "{$x},{$y}";
-                                }
-                                $pathData = implode(' L ', $points);
-                            @endphp
-                            <path d="M {{ $pathData }}" fill="none" stroke="#3b82f6" stroke-width="2"/>
-                            
-                            <!-- Data points -->
-                            @foreach($questionTimeData as $i => $qData)
-                                @php
-                                    $x = $paddingX + ($i * $stepX);
-                                    $y = $paddingY + $plotHeight - (($qData['time'] / $maxTime) * $plotHeight);
-                                    $color = $qData['pending'] ? '#9ca3af' : ($qData['isCorrect'] ? '#22c55e' : '#ef4444');
-                                @endphp
-                                <circle cx="{{ $x }}" cy="{{ $y }}" r="4" fill="{{ $color }}" stroke="white" stroke-width="2"/>
-                                
-                                <!-- X axis labels -->
-                                @if($totalQuestionsChart <= 15 || $i % 2 == 0 || $i == $totalQuestionsChart - 1)
-                                    <text x="{{ $x }}" y="{{ $chartHeight - 5 }}" text-anchor="middle" font-size="10" fill="#6b7280">{{ $qData['number'] }}</text>
+                @if($answerDistribution->isNotEmpty())
+                    <div class="mt-6 rounded-lg border border-gray-200 bg-white p-5">
+                        <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h4 class="text-sm font-semibold text-gray-900">Distribusi Jawaban</h4>
+                                <p class="mt-1 text-xs text-gray-500">Berdasarkan hasil jawaban yang tersimpan pada tryout ini.</p>
+                            </div>
+                            <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-green-500"></span>Benar</span>
+                                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500"></span>Salah</span>
+                                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-gray-300"></span>Kosong</span>
+                                @if(($pendingReviewCount ?? 0) > 0)
+                                    <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-gray-500"></span>Menunggu</span>
                                 @endif
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            @foreach($answerDistribution as $distribution)
+                                <div>
+                                    <div class="mb-2 flex items-center justify-between gap-3">
+                                        <p class="truncate text-sm font-medium text-gray-800">{{ $distribution['name'] }}</p>
+                                        <p class="shrink-0 text-xs text-gray-500">
+                                            {{ $distribution['correct'] + $distribution['wrong'] + $distribution['pending'] }} / {{ $distribution['correct'] + $distribution['wrong'] + $distribution['unanswered'] + $distribution['pending'] }} terjawab
+                                        </p>
+                                    </div>
+                                    <div class="flex h-3 overflow-hidden rounded-full bg-gray-100" role="img" aria-label="Distribusi jawaban {{ $distribution['name'] }}">
+                                        @if($distribution['correct_percent'] > 0)
+                                            <span class="bg-green-500" style="width: {{ $distribution['correct_percent'] }}%"></span>
+                                        @endif
+                                        @if($distribution['wrong_percent'] > 0)
+                                            <span class="bg-red-500" style="width: {{ $distribution['wrong_percent'] }}%"></span>
+                                        @endif
+                                        @if($distribution['pending_percent'] > 0)
+                                            <span class="bg-gray-500" style="width: {{ $distribution['pending_percent'] }}%"></span>
+                                        @endif
+                                        @if($distribution['unanswered_percent'] > 0)
+                                            <span class="bg-gray-300" style="width: {{ $distribution['unanswered_percent'] }}%"></span>
+                                        @endif
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500 sm:grid-cols-4">
+                                        <span>Benar: <strong class="text-gray-700">{{ $distribution['correct'] }}</strong></span>
+                                        <span>Salah: <strong class="text-gray-700">{{ $distribution['wrong'] }}</strong></span>
+                                        <span>Kosong: <strong class="text-gray-700">{{ $distribution['unanswered'] }}</strong></span>
+                                        @if($distribution['pending'] > 0)
+                                            <span>Menunggu: <strong class="text-gray-700">{{ $distribution['pending'] }}</strong></span>
+                                        @endif
+                                    </div>
+                                </div>
                             @endforeach
-                            
-                            <!-- Axes -->
-                            <line x1="{{ $paddingX }}" y1="{{ $paddingY + $plotHeight }}" x2="{{ $chartWidth - $paddingX }}" y2="{{ $paddingY + $plotHeight }}" stroke="#9ca3af" stroke-width="1"/>
-                            <line x1="{{ $paddingX }}" y1="{{ $paddingY }}" x2="{{ $paddingX }}" y2="{{ $paddingY + $plotHeight }}" stroke="#9ca3af" stroke-width="1"/>
-                        </svg>
+                        </div>
                     </div>
-                    <div class="mt-4 flex items-center gap-4 text-xs text-gray-500">
-                        <span><span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span>Benar</span>
-                        <span><span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-1"></span>Salah</span>
-                        @if(($pendingReviewCount ?? 0) > 0)
-                            <span><span class="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1"></span>Menunggu</span>
-                        @endif
-                    </div>
-                </div>
                 @endif
             </div>
 
