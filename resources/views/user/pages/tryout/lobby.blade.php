@@ -156,11 +156,6 @@
                     </div>
                 @endif
 
-                <div class="mt-6 flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                    <p class="text-xs font-medium text-gray-600">Status koneksi ke server tryout</p>
-                    <x-network-signal :interval="5000" />
-                </div>
-
                 <div id="networkWarningModal" class="fixed inset-0 z-[2147483647] hidden items-center justify-center bg-gray-950/60 px-4 backdrop-blur-sm">
                     <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
                         <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">

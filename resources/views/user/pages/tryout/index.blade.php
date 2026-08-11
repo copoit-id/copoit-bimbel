@@ -19,7 +19,6 @@
                                         class="text-xs md:text-sm text-gray-600 font-medium px-3 py-1 bg-gray-100 rounded-full">
                                         {{ $currentSubtest['name'] }}</p>
                                 @endif
-                                <x-network-signal :interval="10000" />
                             </div>
                             <div id="timer" hidden class="text-2xl font-bold text-primary">00:00:00</div>
                         </div>

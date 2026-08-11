@@ -1,11 +1,12 @@
 @props([
     'interval' => 45000,
+    'compactOnMobile' => false,
 ])
 
 <div data-network-signal
     data-ping-url="{{ route('user.network-ping') }}"
     data-interval="{{ $interval }}"
-    class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm"
+    class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600"
     role="status"
     aria-live="polite">
     <span class="flex items-end gap-0.5" aria-hidden="true">
@@ -14,7 +15,7 @@
         <span data-network-bar="3" class="h-3.5 w-1 rounded-sm bg-gray-300"></span>
         <span data-network-bar="4" class="h-4.5 w-1 rounded-sm bg-gray-300"></span>
     </span>
-    <span data-network-label>Mengecek koneksi…</span>
+    <span data-network-label @class(['hidden sm:inline' => $compactOnMobile])>Mengecek koneksi…</span>
 </div>
 
 @once
@@ -57,6 +58,7 @@
                         }
 
                         label.textContent = latency === null ? state.label : `${state.label} (${Math.round(latency)} ms)`;
+                        element.setAttribute('aria-label', label.textContent);
                         window.dispatchEvent(new CustomEvent('network-signal:update', {
                             detail: {
                                 state: stateName,
