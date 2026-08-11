@@ -24,6 +24,7 @@
                 const states = {
                     checking: { label: 'Mengecek koneksi…', level: 0, color: 'bg-gray-300', text: 'text-gray-600' },
                     offline: { label: 'Tidak ada koneksi', level: 0, color: 'bg-red-400', text: 'text-red-600' },
+                    critical: { label: 'Koneksi sangat lambat', level: 1, color: 'bg-red-600', text: 'text-red-700' },
                     weak: { label: 'Koneksi lemah', level: 1, color: 'bg-red-500', text: 'text-red-600' },
                     fair: { label: 'Koneksi cukup', level: 2, color: 'bg-yellow-500', text: 'text-yellow-700' },
                     stable: { label: 'Koneksi stabil', level: 3, color: 'bg-green-500', text: 'text-green-700' },
@@ -46,23 +47,32 @@
                         if (!state || !label) return;
 
                         if (currentState !== stateName) {
-                            element.classList.remove('text-gray-600', 'text-red-600', 'text-yellow-700', 'text-green-700');
+                            element.classList.remove('text-gray-600', 'text-red-600', 'text-red-700', 'text-yellow-700', 'text-green-700');
                             element.classList.add(state.text);
                             bars.forEach((bar, index) => {
-                                bar.classList.remove('bg-gray-300', 'bg-red-400', 'bg-red-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600');
+                                bar.classList.remove('bg-gray-300', 'bg-red-400', 'bg-red-500', 'bg-red-600', 'bg-yellow-500', 'bg-green-500', 'bg-green-600');
                                 bar.classList.add(index < state.level ? state.color : 'bg-gray-300');
                             });
                             currentState = stateName;
                         }
 
                         label.textContent = latency === null ? state.label : `${state.label} (${Math.round(latency)} ms)`;
+                        window.dispatchEvent(new CustomEvent('network-signal:update', {
+                            detail: {
+                                state: stateName,
+                                label: state.label,
+                                latency,
+                                blocking: ['offline', 'critical'].includes(stateName),
+                            },
+                        }));
                     }
 
                     function stateForLatency(latency) {
                         if (latency < 150) return 'excellent';
                         if (latency < 300) return 'stable';
                         if (latency < 700) return 'fair';
-                        return 'weak';
+                        if (latency < 2000) return 'weak';
+                        return 'critical';
                     }
 
                     function scheduleNextCheck() {
@@ -115,6 +125,7 @@
                     window.addEventListener('online', queueConnectionCheck);
                     window.addEventListener('offline', () => render('offline'));
                     window.addEventListener('focus', queueConnectionCheck);
+                    window.addEventListener('network-signal:check', queueConnectionCheck);
                     networkInformation?.addEventListener?.('change', queueConnectionCheck);
                     document.addEventListener('visibilitychange', () => {
                         if (document.hidden) {
