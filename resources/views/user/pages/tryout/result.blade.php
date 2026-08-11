@@ -122,9 +122,10 @@
                         ]]);
                     }
 
-                    $answerChartMaximum = max(1, $answerChartItems->flatMap(
+                    $answerChartHighestValue = max(1, $answerChartItems->flatMap(
                         fn (array $item): array => [$item['correct'], $item['wrong'], $item['unanswered']]
                     )->max());
+                    $answerChartMaximum = $answerChartHighestValue + max(1, (int) ceil($answerChartHighestValue * 0.15));
                     $answerChartItemCount = $answerChartItems->count();
                     $answerChartWidth = max(660, $answerChartItemCount * 210);
                 @endphp
