@@ -233,7 +233,7 @@ function firstNonEmptyOptionValue(select) {
             return;
         }
 
-        const candidate = option.attr('value');
+        const candidate = option.selection().attr('value');
         if (candidate) {
             value = candidate;
         }
@@ -265,8 +265,9 @@ function buildPayload(wrapper, questionId, questionType) {
         const matchingAnswers = {};
 
         wrapper.find('select.matching-select').each((_, select) => {
-            const left = select.attr('data-left');
-            const selected = firstNonEmptyOptionValue(select);
+            const selectSelection = select.selection();
+            const left = selectSelection.attr('data-left');
+            const selected = firstNonEmptyOptionValue(selectSelection);
 
             if (!left || !selected) {
                 fail(`Question ${questionId} has an incomplete matching configuration.`);
@@ -286,9 +287,10 @@ function buildPayload(wrapper, questionId, questionType) {
         const mtfAnswers = {};
 
         wrapper.find('input.mtf-radio').each((_, radio) => {
-            const statementId = radio.attr('data-statement-id');
+            const radioSelection = radio.selection();
+            const statementId = radioSelection.attr('data-statement-id');
             if (statementId && mtfAnswers[statementId] === undefined) {
-                mtfAnswers[statementId] = radio.attr('value');
+                mtfAnswers[statementId] = radioSelection.attr('value');
             }
         });
 
@@ -322,9 +324,10 @@ function extractQuestions(tryoutPage) {
     }
 
     document.find('.question-wrapper').each((_, wrapper) => {
-        const questionId = wrapper.attr('data-question-id');
-        const questionNumber = wrapper.attr('data-number');
-        const questionType = wrapper.attr('data-question-type');
+        const wrapperSelection = wrapper.selection();
+        const questionId = wrapperSelection.attr('data-question-id');
+        const questionNumber = wrapperSelection.attr('data-number');
+        const questionType = wrapperSelection.attr('data-question-type');
 
         if (!questionId || !questionNumber || !questionType) {
             fail('A rendered question is missing required data attributes.');
@@ -333,7 +336,7 @@ function extractQuestions(tryoutPage) {
         questions.push({
             id: Number(questionId),
             number: Number(questionNumber),
-            payload: buildPayload(wrapper, questionId, questionType),
+            payload: buildPayload(wrapperSelection, questionId, questionType),
         });
     });
 
