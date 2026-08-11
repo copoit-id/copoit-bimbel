@@ -348,21 +348,14 @@
                             </div>
                         </div>
                     </div>
-                    <!-- SKD Progress (if multiple subtests) -->
+                    <!-- Subtest Progress (if multiple subtests) -->
                     @if (isset($subtestInfo) && count($subtestInfo) > 1 && !($isCombinedSubtestView ?? false))
-                        @php
-                            $usesIrtScoring =
-                                isset($tryout) &&
-                                method_exists($tryout, 'requiresIrtScoring') &&
-                                $tryout->requiresIrtScoring();
-                            $subtestProgressTitle = $usesIrtScoring ? 'Progress IRT' : 'Progress SKD Full';
-                        @endphp
                         <div class="mb-6 p-4 bg-white border border-border mt-4 rounded-lg">
-                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                                <span class="text-sm font-medium text-gray-700">{{ $subtestProgressTitle }}</span>
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <span class="text-sm font-medium text-gray-700">Progress Subtest</span>
                                 <span class="text-sm text-gray-600">{{ count($subtestInfo) }} Subtest</span>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            <div class="space-y-3">
                                 @foreach ($subtestInfo as $index => $subtest)
                                     @php
                                         $isCurrentSubtest =
@@ -371,17 +364,24 @@
                                         $displayLabel =
                                             $subtest['alias'] ?? \Illuminate\Support\Str::limit($subtest['name'], 18);
                                     @endphp
-                                    <div class="text-center">
-                                        <div
-                                            class="w-9 h-9 rounded-full mx-auto mb-1 flex items-center justify-center text-sm font-semibold
-                                    {{ $isCompleted
-                                        ? 'bg-green text-white'
-                                        : ($isCurrentSubtest
-                                            ? 'bg-primary text-white'
-                                            : 'bg-gray-200 text-gray-600') }}">
-                                            {{ $index + 1 }}
+                                    <div class="w-full rounded-lg border border-gray-100 px-3 py-2.5">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold
+                                            {{ $isCompleted
+                                                ? 'bg-green text-white'
+                                                : ($isCurrentSubtest
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-gray-200 text-gray-600') }}">
+                                                {{ $index + 1 }}
+                                            </div>
+                                            <p class="min-w-0 flex-1 text-sm font-medium leading-tight text-gray-700">{{ $displayLabel }}</p>
+                                            @if ($isCompleted)
+                                                <i class="ri-check-line text-lg text-green" title="Selesai"></i>
+                                            @elseif ($isCurrentSubtest)
+                                                <span class="text-xs font-semibold text-primary">Berjalan</span>
+                                            @endif
                                         </div>
-                                        <p class="text-[11px] leading-tight text-gray-600">{{ $displayLabel }}</p>
                                         @if ($isCurrentSubtest)
                                             <div class="mt-2">
                                                 @php
