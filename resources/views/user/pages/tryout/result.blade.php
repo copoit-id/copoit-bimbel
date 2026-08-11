@@ -102,83 +102,67 @@
                     @endif
                 </div>
 
-                <!-- Accurate Answer Distribution -->
+                <!-- Answer Summary Chart -->
                 @php
-                    $answerDistribution = collect($subtestResults ?? [])
-                        ->map(function (array $subtest): array {
-                            $correct = (int) ($subtest['correct_answers'] ?? 0);
-                            $wrong = (int) ($subtest['wrong_answers'] ?? 0);
-                            $unanswered = (int) ($subtest['unanswered'] ?? 0);
-                            $pending = (int) ($subtest['pending_count'] ?? 0);
-                            $total = max(1, $correct + $wrong + $unanswered + $pending);
-
-                            return [
-                                'name' => $subtest['name'] ?? 'Subtest',
-                                'correct' => $correct,
-                                'wrong' => $wrong,
-                                'unanswered' => $unanswered,
-                                'pending' => $pending,
-                                'correct_percent' => ($correct / $total) * 100,
-                                'wrong_percent' => ($wrong / $total) * 100,
-                                'unanswered_percent' => ($unanswered / $total) * 100,
-                                'pending_percent' => ($pending / $total) * 100,
-                            ];
-                        })
-                        ->values();
+                    $answerSummary = [
+                        'correct' => (int) $correctAnswers,
+                        'wrong' => (int) $wrongAnswers,
+                        'unanswered' => (int) ($unansweredCount ?? 0),
+                        'pending' => (int) ($pendingReviewCount ?? 0),
+                    ];
+                    $answerTotal = array_sum($answerSummary);
+                    $answerTotalForPercentage = max(1, $answerTotal);
+                    $correctPercentage = round(($answerSummary['correct'] / $answerTotalForPercentage) * 100);
+                    $wrongPercentage = round(($answerSummary['wrong'] / $answerTotalForPercentage) * 100);
+                    $unansweredPercentage = round(($answerSummary['unanswered'] / $answerTotalForPercentage) * 100);
+                    $pendingPercentage = round(($answerSummary['pending'] / $answerTotalForPercentage) * 100);
+                    $correctEnd = ($answerSummary['correct'] / $answerTotalForPercentage) * 100;
+                    $wrongEnd = $correctEnd + (($answerSummary['wrong'] / $answerTotalForPercentage) * 100);
+                    $pendingEnd = $wrongEnd + (($answerSummary['pending'] / $answerTotalForPercentage) * 100);
                 @endphp
 
-                @if($answerDistribution->isNotEmpty())
-                    <div class="mt-6 rounded-lg border border-gray-200 bg-white p-5">
-                        <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h4 class="text-sm font-semibold text-gray-900">Distribusi Jawaban</h4>
-                                <p class="mt-1 text-xs text-gray-500">Berdasarkan hasil jawaban yang tersimpan pada tryout ini.</p>
-                            </div>
-                            <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
-                                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-green-500"></span>Benar</span>
-                                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500"></span>Salah</span>
-                                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-gray-300"></span>Kosong</span>
-                                @if(($pendingReviewCount ?? 0) > 0)
-                                    <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-gray-500"></span>Menunggu</span>
-                                @endif
-                            </div>
+                @if($answerTotal > 0)
+                    <section class="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-white p-5 sm:p-6">
+                        <div class="mb-5">
+                            <p class="text-sm font-semibold text-gray-900">Grafik Jawaban</p>
+                            <p class="mt-1 text-xs text-gray-500">Ringkasan seluruh jawaban pada tryout ini.</p>
                         </div>
 
-                        <div class="space-y-4">
-                            @foreach($answerDistribution as $distribution)
-                                <div>
-                                    <div class="mb-2 flex items-center justify-between gap-3">
-                                        <p class="truncate text-sm font-medium text-gray-800">{{ $distribution['name'] }}</p>
-                                        <p class="shrink-0 text-xs text-gray-500">
-                                            {{ $distribution['correct'] + $distribution['wrong'] + $distribution['pending'] }} / {{ $distribution['correct'] + $distribution['wrong'] + $distribution['unanswered'] + $distribution['pending'] }} terjawab
-                                        </p>
-                                    </div>
-                                    <div class="flex h-3 overflow-hidden rounded-full bg-gray-100" role="img" aria-label="Distribusi jawaban {{ $distribution['name'] }}">
-                                        @if($distribution['correct_percent'] > 0)
-                                            <span class="bg-green-500" style="width: {{ $distribution['correct_percent'] }}%"></span>
-                                        @endif
-                                        @if($distribution['wrong_percent'] > 0)
-                                            <span class="bg-red-500" style="width: {{ $distribution['wrong_percent'] }}%"></span>
-                                        @endif
-                                        @if($distribution['pending_percent'] > 0)
-                                            <span class="bg-gray-500" style="width: {{ $distribution['pending_percent'] }}%"></span>
-                                        @endif
-                                        @if($distribution['unanswered_percent'] > 0)
-                                            <span class="bg-gray-300" style="width: {{ $distribution['unanswered_percent'] }}%"></span>
-                                        @endif
-                                    </div>
-                                    <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500 sm:grid-cols-4">
-                                        <span>Benar: <strong class="text-gray-700">{{ $distribution['correct'] }}</strong></span>
-                                        <span>Salah: <strong class="text-gray-700">{{ $distribution['wrong'] }}</strong></span>
-                                        <span>Kosong: <strong class="text-gray-700">{{ $distribution['unanswered'] }}</strong></span>
-                                        @if($distribution['pending'] > 0)
-                                            <span>Menunggu: <strong class="text-gray-700">{{ $distribution['pending'] }}</strong></span>
-                                        @endif
+                        <div class="flex flex-col items-center gap-7 sm:flex-row sm:items-center sm:justify-center sm:gap-10">
+                            <div class="relative grid h-44 w-44 shrink-0 place-items-center rounded-full p-3 shadow-sm"
+                                style="background: conic-gradient(#22c55e 0% {{ $correctEnd }}%, #ef4444 {{ $correctEnd }}% {{ $wrongEnd }}%, #6b7280 {{ $wrongEnd }}% {{ $pendingEnd }}%, #d1d5db {{ $pendingEnd }}% 100%);"
+                                role="img"
+                                aria-label="{{ $answerSummary['correct'] }} jawaban benar, {{ $answerSummary['wrong'] }} jawaban salah, {{ $answerSummary['unanswered'] }} jawaban kosong{{ $answerSummary['pending'] > 0 ? ', ' . $answerSummary['pending'] . ' jawaban menunggu koreksi' : '' }}">
+                                <div class="grid h-full w-full place-items-center rounded-full bg-white text-center">
+                                    <div>
+                                        <p class="text-3xl font-bold tracking-tight text-gray-900">{{ $answerTotal }}</p>
+                                        <p class="mt-0.5 text-xs font-medium text-gray-500">Total Soal</p>
                                     </div>
                                 </div>
-                            @endforeach
+                            </div>
+
+                            <dl class="w-full max-w-sm space-y-3">
+                                <div class="flex items-center justify-between rounded-lg border border-green-100 bg-green-50 px-4 py-3">
+                                    <dt class="flex items-center gap-2 text-sm font-medium text-green-800"><span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>Benar</dt>
+                                    <dd class="text-sm font-semibold text-green-800">{{ $answerSummary['correct'] }} <span class="font-medium text-green-700">({{ $correctPercentage }}%)</span></dd>
+                                </div>
+                                <div class="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-4 py-3">
+                                    <dt class="flex items-center gap-2 text-sm font-medium text-red-800"><span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>Salah</dt>
+                                    <dd class="text-sm font-semibold text-red-800">{{ $answerSummary['wrong'] }} <span class="font-medium text-red-700">({{ $wrongPercentage }}%)</span></dd>
+                                </div>
+                                <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
+                                    <dt class="flex items-center gap-2 text-sm font-medium text-gray-700"><span class="h-2.5 w-2.5 rounded-full bg-gray-300"></span>Kosong</dt>
+                                    <dd class="text-sm font-semibold text-gray-800">{{ $answerSummary['unanswered'] }} <span class="font-medium text-gray-500">({{ $unansweredPercentage }}%)</span></dd>
+                                </div>
+                                @if($answerSummary['pending'] > 0)
+                                    <div class="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-100 px-4 py-3">
+                                        <dt class="flex items-center gap-2 text-sm font-medium text-gray-700"><span class="h-2.5 w-2.5 rounded-full bg-gray-500"></span>Menunggu Koreksi</dt>
+                                        <dd class="text-sm font-semibold text-gray-800">{{ $answerSummary['pending'] }} <span class="font-medium text-gray-500">({{ $pendingPercentage }}%)</span></dd>
+                                    </div>
+                                @endif
+                            </dl>
                         </div>
-                    </div>
+                    </section>
                 @endif
             </div>
 
