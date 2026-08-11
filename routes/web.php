@@ -154,6 +154,13 @@ Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'modu
 
 // Public user routes (no auth required)
 Route::prefix('user')->group(function () {
+    Route::get('/network-ping', static fn () => response()
+        ->noContent()
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache'))
+        ->middleware('throttle:240,1')
+        ->name('user.network-ping');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('user.dashboard.index');
 
     // Public package listing (berbayar & gratis)

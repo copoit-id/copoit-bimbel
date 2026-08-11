@@ -9,8 +9,10 @@ use App\Models\TryoutDetail;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
 use Tests\TestCase;
 
+#[RunClassInSeparateProcess]
 class DynamicTryoutCategorySubtestTest extends TestCase
 {
     protected function setUp(): void
@@ -44,6 +46,16 @@ class DynamicTryoutCategorySubtestTest extends TestCase
             $table->string('passing_type');
             $table->timestamps();
         });
+    }
+
+    protected function tearDown(): void
+    {
+        Schema::dropIfExists('tryout_details');
+        Schema::dropIfExists('tryouts');
+        Schema::dropIfExists('material_categories');
+        \Illuminate\Database\Eloquent\Model::clearBootedModels();
+
+        parent::tearDown();
     }
 
     public function test_custom_parent_category_creates_one_subtest_per_active_child(): void

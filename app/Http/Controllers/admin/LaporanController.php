@@ -27,6 +27,7 @@ class LaporanController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
         $status = $request->query('status');
+        $scoreDisplay = $this->scoreDisplayMode($request);
 
         if (! in_array($status, ['active', 'inactive'], true)) {
             $status = null;
@@ -38,7 +39,7 @@ class LaporanController extends Controller
             ->paginate(\App\Support\Pagination::perPage(10))
             ->withQueryString();
 
-        $this->hydrateTryoutReport($tryouts->getCollection());
+        $this->hydrateTryoutReport($tryouts->getCollection(), $scoreDisplay);
 
         $summary = [
             'total_tryouts' => Tryout::count(),
@@ -47,13 +48,14 @@ class LaporanController extends Controller
             'completed_attempts' => UserAnswer::where('status', 'completed')->count(),
         ];
 
-        return view('admin.pages.laporan.index', compact('tryouts', 'summary', 'search', 'status'));
+        return view('admin.pages.laporan.index', compact('tryouts', 'summary', 'search', 'status', 'scoreDisplay'));
     }
 
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
+        $scoreDisplay = $this->scoreDisplayMode($request);
         $tryouts = $this->buildTryoutReportQuery()->get();
-        $this->hydrateTryoutReport($tryouts);
+        $this->hydrateTryoutReport($tryouts, $scoreDisplay);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -67,7 +69,7 @@ class LaporanController extends Controller
             'Peserta',
             'Selesai',
             'Completion (%)',
-            'Rata-rata Skor',
+            $scoreDisplay === 'percentage' ? 'Rata-rata Persentase' : 'Rata-rata Skor',
             'Status',
         ];
 
@@ -85,7 +87,7 @@ class LaporanController extends Controller
                 $tryout->total_attempts,
                 $tryout->completed_attempts,
                 $tryout->completion_rate,
-                $tryout->avg_score . '%',
+                $this->formatReportScore($tryout->report_score, $scoreDisplay),
                 $tryout->is_active ? 'Aktif' : 'Tidak Aktif',
             ], null, 'A' . $row);
 
@@ -106,13 +108,15 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function exportPdf()
+    public function exportPdf(Request $request)
     {
+        $scoreDisplay = $this->scoreDisplayMode($request);
         $tryouts = $this->buildTryoutReportQuery()->get();
-        $this->hydrateTryoutReport($tryouts);
+        $this->hydrateTryoutReport($tryouts, $scoreDisplay);
 
         $html = view('admin.pages.laporan.export-pdf', [
             'tryouts' => $tryouts,
+            'scoreDisplay' => $scoreDisplay,
         ])->render();
 
         $options = new Options();
@@ -603,15 +607,28 @@ class LaporanController extends Controller
             ->latest();
     }
 
-    private function hydrateTryoutReport($tryouts): void
+    private function hydrateTryoutReport($tryouts, string $scoreDisplay = 'score'): void
     {
         $globalProctoringSettings = PlanQuotaService::getDefaultProctoringSettings();
+        $tryoutIds = $tryouts->pluck('tryout_id')->filter()->values();
+        $scoreStatsByTryout = UserAnswer::query()
+            ->selectRaw('tryout_id, AVG(score) as average_score, SUM(correct_answers) as total_correct, SUM(correct_answers + wrong_answers + unanswered) as total_questions')
+            ->whereIn('tryout_id', $tryoutIds)
+            ->where('status', 'completed')
+            ->groupBy('tryout_id')
+            ->get()
+            ->keyBy('tryout_id');
 
-        $tryouts->transform(function (Tryout $tryout) use ($globalProctoringSettings) {
-            $tryout->avg_score = round(
-                $tryout->userAnswers()->where('status', 'completed')->avg('score') ?? 0,
-                1
+        $tryouts->transform(function (Tryout $tryout) use ($globalProctoringSettings, $scoreStatsByTryout, $scoreDisplay) {
+            $scoreStats = $scoreStatsByTryout->get($tryout->tryout_id);
+            $tryout->avg_score = round((float) ($scoreStats->average_score ?? 0), 1);
+            $tryout->avg_percentage = $this->percentageFromCorrectAnswers(
+                (int) ($scoreStats->total_correct ?? 0),
+                (int) ($scoreStats->total_questions ?? 0)
             );
+            $tryout->report_score = $scoreDisplay === 'percentage'
+                ? $tryout->avg_percentage
+                : $tryout->avg_score;
             $tryout->completion_rate = $tryout->total_attempts > 0
                 ? round(($tryout->completed_attempts / $tryout->total_attempts) * 100)
                 : 0;
@@ -622,6 +639,27 @@ class LaporanController extends Controller
 
             return $tryout;
         });
+    }
+
+    private function scoreDisplayMode(Request $request): string
+    {
+        return $request->query('score_display') === 'percentage' ? 'percentage' : 'score';
+    }
+
+    private function percentageFromCorrectAnswers(int $correctAnswers, int $totalQuestions): float
+    {
+        if ($totalQuestions <= 0) {
+            return 0.0;
+        }
+
+        return round(($correctAnswers / $totalQuestions) * 100, 1);
+    }
+
+    private function formatReportScore(float|int|null $score, string $scoreDisplay): string
+    {
+        $formatted = rtrim(rtrim(number_format((float) $score, 1, '.', ''), '0'), '.');
+
+        return $scoreDisplay === 'percentage' ? $formatted.'%' : $formatted;
     }
 
     private function hasSnapshotProctoring(Tryout $tryout, ?array $globalProctoringSettings = null): bool

@@ -54,7 +54,7 @@
                 <th class="text-center">Peserta</th>
                 <th class="text-center">Selesai</th>
                 <th class="text-center">Completion</th>
-                <th class="text-center">Rata-rata</th>
+                <th class="text-center">Rata-rata {{ ($scoreDisplay ?? 'score') === 'percentage' ? 'Persentase' : 'Skor' }}</th>
                 <th class="text-center">Status</th>
             </tr>
         </thead>
@@ -68,7 +68,9 @@
                     <td class="text-center">{{ $tryout->total_attempts }}</td>
                     <td class="text-center">{{ $tryout->completed_attempts }}</td>
                     <td class="text-center">{{ $tryout->completion_rate }}%</td>
-                    <td class="text-center">{{ $tryout->avg_score }}%</td>
+                    <td class="text-center">
+                        {{ ($scoreDisplay ?? 'score') === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
+                    </td>
                     <td class="text-center">{{ $tryout->is_active ? 'Aktif' : 'Tidak Aktif' }}</td>
                 </tr>
             @empty

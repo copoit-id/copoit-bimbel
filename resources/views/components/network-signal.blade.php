@@ -1,0 +1,126 @@
+@props([
+    'interval' => 45000,
+])
+
+<div data-network-signal
+    data-ping-url="{{ route('user.network-ping') }}"
+    data-interval="{{ $interval }}"
+    class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm"
+    role="status"
+    aria-live="polite">
+    <span class="flex items-end gap-0.5" aria-hidden="true">
+        <span data-network-bar="1" class="h-1.5 w-1 rounded-sm bg-gray-300"></span>
+        <span data-network-bar="2" class="h-2.5 w-1 rounded-sm bg-gray-300"></span>
+        <span data-network-bar="3" class="h-3.5 w-1 rounded-sm bg-gray-300"></span>
+        <span data-network-bar="4" class="h-4.5 w-1 rounded-sm bg-gray-300"></span>
+    </span>
+    <span data-network-label>Mengecek koneksi…</span>
+</div>
+
+@once
+    @push('scripts')
+        <script>
+            (function () {
+                const states = {
+                    checking: { label: 'Mengecek koneksi…', level: 0, color: 'bg-gray-300', text: 'text-gray-600' },
+                    offline: { label: 'Tidak ada koneksi', level: 0, color: 'bg-red-400', text: 'text-red-600' },
+                    weak: { label: 'Koneksi lemah', level: 1, color: 'bg-red-500', text: 'text-red-600' },
+                    fair: { label: 'Koneksi cukup', level: 2, color: 'bg-yellow-500', text: 'text-yellow-700' },
+                    stable: { label: 'Koneksi stabil', level: 3, color: 'bg-green-500', text: 'text-green-700' },
+                    excellent: { label: 'Koneksi sangat stabil', level: 4, color: 'bg-green-600', text: 'text-green-700' },
+                };
+
+                function initialiseSignal(element) {
+                    const pingUrl = element.dataset.pingUrl;
+                    const interval = Math.max(15000, Number(element.dataset.interval) || 45000);
+                    const label = element.querySelector('[data-network-label]');
+                    const bars = Array.from(element.querySelectorAll('[data-network-bar]'));
+                    let timer = null;
+                    let checking = false;
+
+                    function render(stateName, latency = null) {
+                        const state = states[stateName];
+                        if (!state || !label) return;
+
+                        label.textContent = latency === null ? state.label : `${state.label} (${Math.round(latency)} ms)`;
+                        element.classList.remove('text-gray-600', 'text-red-600', 'text-yellow-700', 'text-green-700');
+                        element.classList.add(state.text);
+                        bars.forEach((bar, index) => {
+                            bar.classList.remove('bg-gray-300', 'bg-red-400', 'bg-red-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600');
+                            bar.classList.add(index < state.level ? state.color : 'bg-gray-300');
+                        });
+                    }
+
+                    function stateForLatency(latency) {
+                        if (latency < 150) return 'excellent';
+                        if (latency < 300) return 'stable';
+                        if (latency < 700) return 'fair';
+                        return 'weak';
+                    }
+
+                    function scheduleNextCheck() {
+                        window.clearTimeout(timer);
+                        if (!document.hidden) {
+                            timer = window.setTimeout(checkConnection, interval);
+                        }
+                    }
+
+                    async function checkConnection() {
+                        if (checking || document.hidden) return;
+                        if (!navigator.onLine) {
+                            render('offline');
+                            scheduleNextCheck();
+                            return;
+                        }
+
+                        checking = true;
+                        render('checking');
+                        const controller = new AbortController();
+                        const timeout = window.setTimeout(() => controller.abort(), 5000);
+                        const startedAt = performance.now();
+
+                        try {
+                            const response = await fetch(pingUrl, {
+                                cache: 'no-store',
+                                credentials: 'same-origin',
+                                signal: controller.signal,
+                            });
+                            const latency = performance.now() - startedAt;
+
+                            render(response.ok ? stateForLatency(latency) : 'offline', response.ok ? latency : null);
+                        } catch (error) {
+                            render('offline');
+                        } finally {
+                            window.clearTimeout(timeout);
+                            checking = false;
+                            scheduleNextCheck();
+                        }
+                    }
+
+                    window.addEventListener('online', checkConnection);
+                    window.addEventListener('offline', () => render('offline'));
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.hidden) {
+                            window.clearTimeout(timer);
+                            return;
+                        }
+
+                        checkConnection();
+                    });
+
+                    checkConnection();
+                }
+
+                function initialiseAllSignals() {
+                    document.querySelectorAll('[data-network-signal]').forEach(initialiseSignal);
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initialiseAllSignals, { once: true });
+                } else {
+                    initialiseAllSignals();
+                }
+            })();
+        </script>
+    @endpush
+@endonce

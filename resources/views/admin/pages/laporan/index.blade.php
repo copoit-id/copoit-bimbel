@@ -9,12 +9,12 @@
         </x-slot>
     </x-breadcrumb>
     <div class="flex gap-2">
-        <a href="{{ route('admin.laporan.export-excel') }}"
+        <a href="{{ route('admin.laporan.export-excel', request()->only('score_display')) }}"
             class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
             <i class="ri-file-excel-line"></i>
             Export Excel
         </a>
-        <a href="{{ route('admin.laporan.export-pdf') }}"
+        <a href="{{ route('admin.laporan.export-pdf', request()->only('score_display')) }}"
             class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
             <i class="ri-file-pdf-line"></i>
             Export PDF
@@ -37,6 +37,11 @@
                     <option value="">Semua Status</option>
                     <option value="active" @selected($status === 'active')>Aktif</option>
                     <option value="inactive" @selected($status === 'inactive')>Tidak Aktif</option>
+                </select>
+                <select name="score_display"
+                    class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="score" @selected($scoreDisplay === 'score')>Tampilkan Skor</option>
+                    <option value="percentage" @selected($scoreDisplay === 'percentage')>Tampilkan Persentase</option>
                 </select>
             </div>
             <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 w-full sm:w-auto">
@@ -100,7 +105,9 @@
                     <th scope="col" class="px-6 py-3 text-center">Total Soal</th>
                     <th scope="col" class="px-6 py-3 text-center">Peserta</th>
                     <th scope="col" class="px-6 py-3 text-center">Completion</th>
-                    <th scope="col" class="px-6 py-3 text-center">Rata-rata</th>
+                    <th scope="col" class="px-6 py-3 text-center">
+                        Rata-rata {{ $scoreDisplay === 'percentage' ? 'Persentase' : 'Skor' }}
+                    </th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
                     <th scope="col" class="px-6 py-3 text-center">Action</th>
                 </tr>
@@ -131,7 +138,9 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}%</span>
+                        <span class="text-gray-800 font-medium">
+                            {{ $scoreDisplay === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
+                        </span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         @php

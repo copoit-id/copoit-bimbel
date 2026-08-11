@@ -111,6 +111,9 @@
                         <i class="ri-checkbox-circle-fill text-lg"></i>
                         <p>Pastikan koneksi internet stabil.</p>
                     </span>
+                    <div class="pt-2 text-left">
+                        <x-network-signal :interval="30000" />
+                    </div>
                     <span class="flex items-center gap-2 justify-start">
                         <i class="ri-checkbox-circle-fill text-lg"></i>
                         <p>Jawab semua soal dengan teliti.</p>
