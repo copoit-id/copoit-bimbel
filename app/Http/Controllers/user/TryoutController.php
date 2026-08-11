@@ -884,15 +884,28 @@ class TryoutController extends Controller
         // Calculate total duration dan questions untuk SKD Full
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
         $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
-        $totalQuestions = 0;
-        foreach ($tryoutDetails as $detail) {
-            $totalQuestions += Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
-        }
+        $totalQuestions = Question::whereIn(
+            'tryout_detail_id',
+            $tryoutDetails->pluck('tryout_detail_id')
+        )->count();
 
-        $attempts = $tryout->completedAttemptCountForUser(Auth::id());
-        $remainingAttempts = $tryout->remainingAttemptsForUser(Auth::id());
-        $hasInProgressAttempt = $tryout->hasInProgressAttemptForUser(Auth::id());
-        $isAttemptLimitReached = $tryout->hasReachedAttemptLimitForUser(Auth::id()) && ! $hasInProgressAttempt;
+        // Ringkas status percobaan dalam satu query. Sebelumnya lobby menjalankan
+        // query hitung percobaan yang sama hingga tiga kali untuk setiap peserta.
+        $attemptsByStatus = $tryout->userAnswers()
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['completed', 'pending_release', 'in_progress'])
+            ->selectRaw('status, COUNT(DISTINCT attempt_token) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $attempts = (int) ($attemptsByStatus['completed'] ?? 0)
+            + (int) ($attemptsByStatus['pending_release'] ?? 0);
+        $hasInProgressAttempt = (int) ($attemptsByStatus['in_progress'] ?? 0) > 0;
+        $maxAttempts = (int) ($tryout->max_attempts ?? 0);
+        $remainingAttempts = $maxAttempts > 0 ? max(0, $maxAttempts - $attempts) : null;
+        $isAttemptLimitReached = $maxAttempts > 0
+            && $attempts >= $maxAttempts
+            && ! $hasInProgressAttempt;
 
         ActivityLogger::log('tryout_lobby_opened', 'success', Auth::user(), [
             'package_id' => $id_package,
@@ -987,11 +1000,19 @@ class TryoutController extends Controller
         $allQuestions = collect();
         $subtestInfo = [];
 
+        // Ambil semua soal dan pilihannya sekali saja. Ini menjaga urutan subtest
+        // tetap sama, tetapi menghindari satu query soal per subtest untuk tiap user.
+        $questionsByDetail = Question::whereIn(
+            'tryout_detail_id',
+            $tryoutDetails->pluck('tryout_detail_id')
+        )
+            ->with('questionOptions')
+            ->orderBy('question_id')
+            ->get()
+            ->groupBy('tryout_detail_id');
+
         foreach ($tryoutDetails as $detail) {
-            $questions = Question::where('tryout_detail_id', $detail->tryout_detail_id)
-                ->with('questionOptions')
-                ->orderBy('question_id')
-                ->get();
+            $questions = $questionsByDetail->get($detail->tryout_detail_id, collect());
 
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
