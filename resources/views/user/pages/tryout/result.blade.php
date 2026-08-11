@@ -109,6 +109,7 @@
                             'name' => (string) ($subtest['name'] ?? 'Subtest'),
                             'correct' => (int) ($subtest['correct_answers'] ?? 0),
                             'wrong' => (int) ($subtest['wrong_answers'] ?? 0),
+                            'unanswered' => (int) ($subtest['unanswered'] ?? 0),
                         ])
                         ->values();
 
@@ -117,25 +118,27 @@
                             'name' => 'Tryout',
                             'correct' => (int) $correctAnswers,
                             'wrong' => (int) $wrongAnswers,
+                            'unanswered' => (int) ($unansweredCount ?? 0),
                         ]]);
                     }
 
                     $answerChartMaximum = max(1, $answerChartItems->flatMap(
-                        fn (array $item): array => [$item['correct'], $item['wrong']]
+                        fn (array $item): array => [$item['correct'], $item['wrong'], $item['unanswered']]
                     )->max());
                     $answerChartItemCount = $answerChartItems->count();
-                    $answerChartWidth = max(620, $answerChartItemCount * 180);
+                    $answerChartWidth = max(660, $answerChartItemCount * 210);
                 @endphp
 
                 <section class="mt-8 border-t border-gray-100 pt-6">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="text-center">
                         <div>
                             <p class="text-sm font-semibold text-gray-900">Grafik Jawaban</p>
-                            <p class="mt-1 text-xs text-gray-500">Jumlah jawaban benar dan salah pada setiap subtest.</p>
+                            <p class="mt-1 text-xs text-gray-500">Jumlah jawaban benar, salah, dan tidak terjawab pada setiap subtest.</p>
                         </div>
-                        <div class="flex items-center gap-4 text-xs text-gray-500">
-                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-primary"></span>Benar</span>
-                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-400"></span>Salah</span>
+                        <div class="mt-3 flex items-center justify-center gap-4 text-xs text-gray-500">
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-green-500"></span>Benar</span>
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-red-500"></span>Salah</span>
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-300"></span>Tidak Terjawab</span>
                         </div>
                     </div>
 
@@ -154,13 +157,17 @@
                                         @php
                                             $correctHeight = ($item['correct'] / $answerChartMaximum) * 100;
                                             $wrongHeight = ($item['wrong'] / $answerChartMaximum) * 100;
+                                            $unansweredHeight = ($item['unanswered'] / $answerChartMaximum) * 100;
                                         @endphp
                                         <div class="flex h-full items-end justify-center gap-3 px-5">
-                                            <div class="relative w-11 rounded-t-sm bg-primary" style="height: {{ $correctHeight }}%">
+                                            <div class="relative w-10 rounded-t-sm bg-green-500" style="height: {{ $correctHeight }}%">
                                                 <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['correct'] }}</span>
                                             </div>
-                                            <div class="relative w-11 rounded-t-sm bg-gray-400" style="height: {{ $wrongHeight }}%">
+                                            <div class="relative w-10 rounded-t-sm bg-red-500" style="height: {{ $wrongHeight }}%">
                                                 <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['wrong'] }}</span>
+                                            </div>
+                                            <div class="relative w-10 rounded-t-sm bg-gray-300" style="height: {{ $unansweredHeight }}%">
+                                                <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['unanswered'] }}</span>
                                             </div>
                                         </div>
                                     @endforeach
