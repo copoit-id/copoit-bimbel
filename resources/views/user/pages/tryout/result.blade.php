@@ -28,7 +28,7 @@
                         @elseif (! $showResultScores)
                             <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
                         @endif
-                        @if (isset($rawScore) && isset($maxScore))
+                        @if (isset($rawScore) && isset($maxScore) && ($showTotalResultScore || ! $showResultScores))
                             @if (($pendingReviewCount ?? 0) > 0)
                                 <p class="mb-4 text-sm text-gray-600">
                                     {{ $pendingReviewCount }} jawaban masih menunggu koreksi AI
