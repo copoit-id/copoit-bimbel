@@ -3,6 +3,10 @@
 @section('content')
 
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
+    @php
+        $showResultScores = $tryout->shouldShowResultScores();
+        $showTotalResultScore = $tryout->shouldShowTotalResultScore();
+    @endphp
     <div class="text-center mb-6">
         <h1 class="text-3xl font-bold text-gray-800 mb-2">Hasil {{ $tryout->name }}</h1>
         @if(filled($tryout->description))
@@ -11,6 +15,7 @@
     </div>
 
     <!-- Overall Score Card -->
+    @if($showTotalResultScore)
     <div class="bg-gradient-to-r from-primary to-blue-600 text-white rounded-lg p-6 mb-6">
         <div class="text-center">
             <h2 class="text-2xl font-bold mb-2">Skor Total</h2>
@@ -40,6 +45,11 @@
             @endif
         </div>
     </div>
+    @elseif(! $showResultScores)
+    <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-5 text-center text-sm text-gray-500">
+        Nilai tryout ini tidak ditampilkan.
+    </div>
+    @endif
 
     @php
         $totalPending = collect($subtestResults ?? [])->sum('pending_count');
@@ -174,7 +184,7 @@
                         </div>
                         <h4 class="font-medium text-gray-900">{{ $subtest['name'] }}</h4>
                     </div>
-                    @if(($subtest['pending_count'] ?? 0) > 0)
+                    @if($showResultScores && ($subtest['pending_count'] ?? 0) > 0)
                         <div class="flex items-center gap-2">
                             <span class="text-xl font-semibold text-gray-900">{{ number_format($subtest['percentage'], 1) }}%</span>
                             <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
@@ -182,17 +192,26 @@
                                 {{ $subtest['pending_count'] }} menunggu
                             </span>
                         </div>
-                    @else
+                    @elseif($showResultScores)
                         <span class="text-xl font-semibold text-gray-900">{{ number_format($subtest['percentage'], 1) }}%</span>
+                    @elseif(($subtest['pending_count'] ?? 0) > 0)
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
+                            <i class="ri-time-line animate-pulse"></i>
+                            {{ $subtest['pending_count'] }} menunggu
+                        </span>
                     @endif
                 </div>
                 
                 <div class="flex items-center justify-between">
-                    <p class="text-sm text-gray-500">
-                        {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }} 
-                        <span class="mx-1">-</span> 
-                        Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
-                    </p>
+                    @if($showResultScores)
+                        <p class="text-sm text-gray-500">
+                            {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
+                            <span class="mx-1">-</span>
+                            Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
+                        </p>
+                    @else
+                        <span></span>
+                    @endif
                     @if(($subtest['pending_count'] ?? 0) > 0)
                         <span class="inline-flex px-3 py-1 text-xs font-medium rounded bg-gray-300 text-gray-700">
                             Menunggu
@@ -209,7 +228,7 @@
     </div>
 
     <!-- Recommendations -->
-    @if($tryout->type_tryout === 'computer')
+    @if($showResultScores && $tryout->type_tryout === 'computer')
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <h4 class="font-medium text-blue-800 mb-2">
             <i class="ri-lightbulb-line mr-2"></i>Rekomendasi Peningkatan
@@ -225,7 +244,7 @@
                 @endif
         </ul>
     </div>
-    @elseif($tryout->type_tryout === 'pppk_full')
+    @elseif($showResultScores && $tryout->type_tryout === 'pppk_full')
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
         <h4 class="font-medium text-yellow-800 mb-2">
             <i class="ri-information-line mr-2"></i>Analisis Hasil PPPK

@@ -27,6 +27,8 @@
     $isCertificationChecked = $hasOldInput ? (bool) old('is_certification') : ($tryout->is_certification ?? false);
     $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
+    $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
+    $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
     $securityOptions = [
         'enable_anti_copy' => [
             'label' => 'Anti Copy Soal',
@@ -379,6 +381,38 @@
                             <x-ui.tooltip>Jika dimatikan, tombol ranking disembunyikan dan URL ranking akan ditolak.</x-ui.tooltip>
                         </span>
                     </label>
+
+                    <div>
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" id="show_result_scores" name="show_result_scores" value="1"
+                                {{ $showResultScoresChecked ? 'checked' : '' }}
+                                class="sr-only peer tryout-toggle-input">
+                            <span
+                                class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                <span
+                                    class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                            </span>
+                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                Tampilkan Nilai di User
+                                <x-ui.tooltip>Jika dimatikan, peserta tetap melihat status hasil tetapi tidak melihat angka nilai.</x-ui.tooltip>
+                            </span>
+                        </label>
+
+                        <div id="resultScoreDisplayOptions" class="ml-14 mt-3 space-y-2 {{ $showResultScoresChecked ? '' : 'hidden' }}">
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="radio" name="result_score_display" value="total_and_subtest"
+                                    @checked($resultScoreDisplay === 'total_and_subtest')
+                                    class="border-gray-300 text-primary focus:ring-primary">
+                                <span>Total skor dan skor per subtest</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="radio" name="result_score_display" value="subtest_only"
+                                    @checked($resultScoreDisplay === 'subtest_only')
+                                    class="border-gray-300 text-primary focus:ring-primary">
+                                <span>Skor per subtest saja</span>
+                            </label>
+                        </div>
+                    </div>
 
                     <div class="md:col-span-2">
                         <label for="scoring_method" class="block text-sm font-medium text-gray-700 mb-2">
@@ -1028,6 +1062,8 @@
       const answerModeSelect = root.querySelector('#answer_persistence_mode');
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
+      const showResultScoresCheckbox = root.querySelector('#show_result_scores');
+      const resultScoreDisplayOptions = root.querySelector('#resultScoreDisplayOptions');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
       const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
@@ -1259,12 +1295,17 @@
       }
     }
 
+    function syncResultScoreDisplay() {
+      resultScoreDisplayOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
+    }
+
     window.__tryoutChange = function () {
       showConfigSection();
       updateFieldNames();
       syncAllPassingScoreLimits();
       syncAnswerPersistenceAvailability();
       syncUserCardDisplay();
+      syncResultScoreDisplay();
     };
 
     window.__tryoutChange();
@@ -1282,6 +1323,10 @@
 
       if (event.target && event.target.matches('input[name="user_card_display"]')) {
         syncUserCardDisplay();
+      }
+
+      if (event.target && event.target.matches('#show_result_scores')) {
+        syncResultScoreDisplay();
       }
     });
     bindPassingScoreInputs();

@@ -1,6 +1,10 @@
 @extends('user.layout.tryout')
 @section('title', 'Test Results')
 @section('content')
+@php
+    $showResultScores = $tryout->shouldShowResultScores();
+    $showTotalResultScore = $tryout->shouldShowTotalResultScore();
+@endphp
 
 <div class="flex flex-col gap-6 bg-gray-50 py-8 pt-18">
     <!-- Header Section -->
@@ -16,6 +20,7 @@
                     @endif
                 </p>
             </div>
+            @if($showTotalResultScore)
             <div class="text-center">
                 <div class="bg-primary/10 rounded-lg p-4">
                     <p class="text-sm text-primary font-medium">
@@ -31,10 +36,13 @@
                     @endif
                 </div>
             </div>
+            @elseif(! $showResultScores)
+            <p class="text-sm text-gray-500">Nilai tidak ditampilkan</p>
+            @endif
         </div>
 
         <!-- Score Interpretation for TOEFL only -->
-        @if($tryout->is_toefl == 1 && isset($toeflResults['score_interpretation']))
+        @if($showTotalResultScore && $tryout->is_toefl == 1 && isset($toeflResults['score_interpretation']))
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 class="font-semibold text-blue-800 mb-2">Score Interpretation</h3>
             <p class="text-blue-700">{{ $toeflResults['score_interpretation']['description'] }}</p>
@@ -45,21 +53,24 @@
     <!-- Section Scores -->
     <div class="bg-white rounded-lg p-6 shadow-sm">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Section Scores</h3>
-        <div class="grid grid-cols-1 md:grid-cols-{{ count($sectionResults) + 1 }} gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-{{ count($sectionResults) + ($showTotalResultScore ? 1 : 0) }} gap-4">
             @foreach($sectionResults as $result)
             <div class="text-center p-4 bg-gray-50 rounded-lg">
                 <h4 class="font-medium text-gray-700 mb-2">{{ $result['name'] }}</h4>
-                <p class="text-sm text-gray-600">Raw Score: {{ $result['raw_score'] }}</p>
-                <p class="text-2xl font-bold text-primary">{{ $result['scaled_score'] }}</p>
-                <p class="text-xs text-gray-500">
-                    @if($tryout->is_toefl == 1)
-                    Scaled Score
-                    @else
-                    Section Score
-                    @endif
-                </p>
+                @if($showResultScores)
+                    <p class="text-sm text-gray-600">Raw Score: {{ $result['raw_score'] }}</p>
+                    <p class="text-2xl font-bold text-primary">{{ $result['scaled_score'] }}</p>
+                    <p class="text-xs text-gray-500">
+                        @if($tryout->is_toefl == 1)
+                        Scaled Score
+                        @else
+                        Section Score
+                        @endif
+                    </p>
+                @endif
             </div>
             @endforeach
+            @if($showTotalResultScore)
             <div class="text-center p-4 bg-primary/10 rounded-lg">
                 <h4 class="font-medium text-primary mb-2">Total Score</h4>
                 <p class="text-3xl font-bold text-primary">{{ $toeflResults['total_score'] }}</p>
@@ -71,6 +82,7 @@
                     @endif
                 </p>
             </div>
+            @endif
         </div>
     </div>
 
@@ -81,20 +93,22 @@
             <h3 class="font-semibold text-gray-900 mb-4">{{ $result['name'] }}</h3>
 
             <div class="space-y-3">
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Raw Score:</span>
-                    <span class="font-medium">{{ $result['raw_score'] }}/{{ $result['total_questions'] }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">
-                        @if($tryout->is_toefl == 1)
-                        Scaled Score:
-                        @else
-                        Section Score:
-                        @endif
-                    </span>
-                    <span class="font-medium text-primary">{{ $result['scaled_score'] }}</span>
-                </div>
+                @if($showResultScores)
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Raw Score:</span>
+                        <span class="font-medium">{{ $result['raw_score'] }}/{{ $result['total_questions'] }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">
+                            @if($tryout->is_toefl == 1)
+                            Scaled Score:
+                            @else
+                            Section Score:
+                            @endif
+                        </span>
+                        <span class="font-medium text-primary">{{ $result['scaled_score'] }}</span>
+                    </div>
+                @endif
                 <div class="flex justify-between">
                     <span class="text-gray-600">Correct:</span>
                     <span class="font-medium text-green-600">{{ $result['correct_answers'] }}</span>
@@ -113,7 +127,7 @@
     </div>
 
     <!-- Score Scale (only for TOEFL) -->
-    @if($tryout->is_toefl == 1)
+    @if($showTotalResultScore && $tryout->is_toefl == 1)
     <div class="bg-white rounded-lg p-6 shadow-sm">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">TOEFL ITP Score Scale</h3>
         <div class="space-y-2">

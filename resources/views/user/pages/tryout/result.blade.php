@@ -15,14 +15,20 @@
                                     ? (bool) $singleIsPassed
                                     : (bool) optional($latestUserAnswers->first())->is_passed);
                         $firstUserAnswer = $latestUserAnswers->first();
+                        $showResultScores = $tryout->shouldShowResultScores();
+                        $showTotalResultScore = $tryout->shouldShowTotalResultScore();
                     @endphp
                     <div class="flex flex-col justify-center items-center">
                         <p class="text-xl font-semibold text-gray-900 mb-2">{{ $tryout->name }}</p>
-                        @if (isset($rawScore) && isset($maxScore))
+                        @if ($showTotalResultScore && isset($rawScore) && isset($maxScore))
                             <div class="flex justify-center items-end text-center gap-2 my-6">
                                 <p class="text-5xl font-semibold text-gray-900">{{ $rawScore }}</p>
                                 <p class="text-xl text-gray-500">/ {{ $maxScore }}</p>
                             </div>
+                        @elseif (! $showResultScores)
+                            <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
+                        @endif
+                        @if (isset($rawScore) && isset($maxScore))
                             @if (($pendingReviewCount ?? 0) > 0)
                                 <p class="mb-4 text-sm text-gray-600">
                                     {{ $pendingReviewCount }} jawaban masih menunggu koreksi AI
@@ -263,17 +269,21 @@
                                         <div>
                                             <p class="font-medium text-gray-900">{{ $result['name'] }}</p>
                                             <div class="text-sm text-gray-500">
-                                                <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                    {{ $result['raw_score'] }}/{{ $result['max_score'] }}
-                                                </span>
+                                                @if ($showResultScores)
+                                                    <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
+                                                        {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                                    </span>
+                                                @endif
                                                 @if (($result['pending_count'] ?? 0) > 0)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded ml-2">
                                                         <i class="ri-time-line animate-pulse"></i>
                                                         {{ $result['pending_count'] }} menunggu
                                                     </span>
                                                 @endif
-                                                <span class="mx-1">-</span>
-                                                Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
+                                                @if ($showResultScores)
+                                                    <span class="mx-1">-</span>
+                                                    Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
+                                                @endif
                                             </div>
                                         </div>
                                     </div>

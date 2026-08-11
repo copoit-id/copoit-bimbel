@@ -3,6 +3,10 @@
 @section('title', 'Hasil IRT')
 
 @section('content')
+@php
+    $showResultScores = $tryout->shouldShowResultScores();
+    $showTotalResultScore = $tryout->shouldShowTotalResultScore();
+@endphp
 <div class="min-h-screen bg-gray-50 pt-30 pb-10">
     <div class="max-w-5xl mx-auto space-y-6">
         <div class="bg-white border border-border rounded-2xl p-8">
@@ -13,9 +17,13 @@
                     <p class="text-gray-500 text-sm mt-2">Attempt token: {{ $attemptToken }}</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-sm text-gray-500">Nilai Total</p>
-                    <p class="text-4xl font-bold text-primary">{{ number_format($totalScore) }}</p>
-                    <p class="text-xs text-gray-400 mt-1">Skala 0 - 1000</p>
+                    @if($showTotalResultScore)
+                        <p class="text-sm text-gray-500">Nilai Total</p>
+                        <p class="text-4xl font-bold text-primary">{{ number_format($totalScore) }}</p>
+                        <p class="text-xs text-gray-400 mt-1">Skala 0 - 1000</p>
+                    @elseif(! $showResultScores)
+                        <p class="text-sm text-gray-500">Nilai tidak ditampilkan</p>
+                    @endif
                     <span class="inline-flex mt-2 px-3 py-1 rounded-full text-xs font-semibold {{ $overallPassed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
                         {{ $overallPassed ? 'Lulus' : 'Tidak Lulus' }}
                     </span>
@@ -33,7 +41,9 @@
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Benar</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Salah</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Kosong</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Skor Subtest</th>
+                            @if($showResultScores)
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Skor Subtest</th>
+                            @endif
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
@@ -47,9 +57,11 @@
                             <td class="px-4 py-3 text-center text-sm text-gray-900">{{ $subtest['correct'] }}</td>
                             <td class="px-4 py-3 text-center text-sm text-gray-900">{{ $subtest['wrong'] }}</td>
                             <td class="px-4 py-3 text-center text-sm text-gray-900">{{ $subtest['unanswered'] }}</td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ number_format($subtest['score']) }}</span>
-                            </td>
+                            @if($showResultScores)
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ number_format($subtest['score']) }}</span>
+                                </td>
+                            @endif
                             <td class="px-4 py-3 text-center">
                                 <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $subtest['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
                                     {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
@@ -62,6 +74,7 @@
             </div>
         </div>
 
+        @if($showResultScores)
         <div class="bg-white border border-border rounded-2xl p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-2">Catatan</h2>
             <p class="text-sm text-gray-600 leading-relaxed">
@@ -69,6 +82,7 @@
                 semakin kecil bobot soal tersebut pada perhitungan nilai akhir Anda. Skor ditampilkan setelah seluruh peserta menyelesaikan tryout.
             </p>
         </div>
+        @endif
 
         @php
             $packageRouteId = $package?->package_id ?? request()->route('id_package') ?? 'free';
