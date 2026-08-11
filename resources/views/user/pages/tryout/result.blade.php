@@ -2,7 +2,7 @@
 @section('title', 'Hasil Tryout')
 @section('content')
     <div class="min-h-screen bg-gray-50 py-8 pt-18 flex items-center">
-        <div class="max-w-4xl mx-auto">
+        <div class="w-full max-w-5xl mx-auto px-4 sm:px-6">
             <!-- Main Result -->
             <div class="bg-white rounded-lg border border-border p-4 md:p-8 text-center mb-6">
                 <div>
@@ -67,34 +67,34 @@
                 @endphp
 
                 <!-- Quick Stats -->
-                <div class="flex gap-3 w-full mt-6">
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                <div class="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-3 {{ ($pendingReviewCount ?? 0) > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5' }}">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-check-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $correctAnswers }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Benar</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-close-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $wrongAnswers }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Salah</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-checkbox-blank-circle-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $unansweredCount ?? 0 }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Kosong</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-time-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $formattedTime }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Waktu</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-timer-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $avgTimeText }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Rata-rata</p>
                     </div>
                     @if (($pendingReviewCount ?? 0) > 0)
-                        <div class="flex-1 text-center p-4 bg-gray-100 rounded-lg border border-gray-300 min-w-0">
+                        <div class="text-center p-4 bg-gray-100 rounded-lg border border-gray-300 min-w-0">
                             <i class="ri-time-line text-xl text-gray-700 mb-1"></i>
                             <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $pendingReviewCount }}</p>
                             <p class="text-xs md:text-sm text-gray-600">Menunggu</p>
