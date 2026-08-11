@@ -1,6 +1,6 @@
 # Uji Beban Tryout k6
 
-`k6-tryout-simple.js` adalah uji HTTP end-to-end untuk skenario burst. Setiap virtual user memakai satu akun berbeda, login, membuka lobby, memulai tryout, menyimpan jawaban untuk seluruh soal yang dirender, lalu menyelesaikan tryout. Dengan begitu beban yang diuji mencakup session, query tryout, penyimpanan jawaban, perhitungan hasil, dan pembuatan data attempt yang benar-benar dipakai aplikasi.
+`k6-tryout-simple.js` adalah uji HTTP end-to-end. Setiap virtual user memakai satu akun berbeda, login, membuka lobby, memulai tryout, menyimpan jawaban untuk seluruh soal yang dirender, lalu menyelesaikan tryout. Dengan begitu beban yang diuji mencakup session, query tryout, penyimpanan jawaban, perhitungan hasil, dan pembuatan data attempt yang benar-benar dipakai aplikasi.
 
 > Peringatan: skrip ini membuat data `UserAnswer` dan `UserAnswerDetail` sungguhan serta menandai tryout selesai jika `FINISH_TRYOUT` tidak diubah. Jalankan hanya pada tryout dan akun khusus pengujian. Pastikan limit attempt cukup atau tidak dibatasi.
 
@@ -36,6 +36,28 @@ php artisan test:delete-tryout-users \
   --force
 ```
 
+## Simulasi normal 324 peserta dan 40 soal
+
+Ini profil yang disarankan untuk memperkirakan ujian besok. Semua peserta hadir dalam jendela 5 menit, membaca lobby 10–45 detik sebelum mulai, lalu jawaban dikirim rata-rata setiap 3,5 detik (2–5 detik). Ini masih dipercepat dibanding waktu peserta membaca soal sebenarnya, tetapi beban simpan jawabannya sudah tersebar seperti manusia dan test selesai sekitar 10–12 menit, bukan berjam-jam.
+
+```bash
+k6 run \
+  -e BASE_URL=http://127.0.0.1:8000 \
+  -e PACKAGE_ID=free \
+  -e TRYOUT_ID=8 \
+  -e VUS=324 \
+  -e QUESTION_COUNT=40 \
+  -e ARRIVAL_WINDOW_SECONDS=300 \
+  -e START_DELAY_MIN_SECONDS=10 \
+  -e START_DELAY_MAX_SECONDS=45 \
+  -e ANSWER_INTERVAL_SECONDS=2 \
+  -e ANSWER_INTERVAL_JITTER_SECONDS=3 \
+  -e MAX_DURATION=12m \
+  -e GRACEFUL_STOP=0s \
+  -e USERS_FILE="$PWD/data/users.csv" \
+  tests/load/k6-tryout-simple.js
+```
+
 ## Menjalankan burst 324 peserta dan 40 soal
 
 Perintah berikut melepas 324 peserta bersamaan dengan batas keras 30 detik. Nilai `ANSWER_INTERVAL_SECONDS=0` sengaja merupakan kondisi terberat: setelah halaman tryout dibuka, seluruh peserta mengirim simpan jawaban tanpa jeda. `QUESTION_COUNT=40` adalah penjaga supaya pengujian langsung gagal jika ternyata halaman tidak memuat tepat 40 soal.
@@ -66,7 +88,11 @@ Durasi 30 detik adalah deadline, bukan jeda tambahan. Jika seluruh peserta belum
 | `USERS_FILE` | `./users.csv` | Lokasi CSV akun uji relatif terhadap skrip. |
 | `VUS` | jumlah akun CSV | Jumlah peserta serentak. |
 | `QUESTION_COUNT` | seluruh soal | Jika diisi, harus sama persis dengan jumlah soal yang dirender. |
-| `ANSWER_INTERVAL_SECONDS` | `0` | Jeda antar jawaban setiap peserta. Gunakan `0.5` atau `1` untuk pola manusiawi. |
+| `ARRIVAL_WINDOW_SECONDS` | `0` | Rentang acak kedatangan sebelum login. `300` menyebar peserta selama 5 menit. |
+| `START_DELAY_MIN_SECONDS` | `0` | Jeda minimum setelah lobby sebelum peserta klik mulai. |
+| `START_DELAY_MAX_SECONDS` | `0` | Jeda maksimum setelah lobby sebelum peserta klik mulai. |
+| `ANSWER_INTERVAL_SECONDS` | `0` | Jeda dasar antar jawaban setiap peserta. |
+| `ANSWER_INTERVAL_JITTER_SECONDS` | `0` | Tambahan acak pada jeda jawaban. `2` + `3` berarti 2–5 detik per jawaban. |
 | `FINISH_TRYOUT` | `true` | Set `false` untuk hanya menguji simpan jawaban tanpa proses hasil akhir. |
 | `MAX_DURATION` | `30s` | Batas keras total waktu skenario. Gunakan `20s` bila ingin lebih singkat. |
 | `GRACEFUL_STOP` | `0s` | Tidak menambah waktu tunggu setelah batas durasi tercapai. |

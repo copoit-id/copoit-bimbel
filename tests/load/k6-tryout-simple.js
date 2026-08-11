@@ -6,12 +6,13 @@ import { parseHTML } from 'k6/html';
 import exec from 'k6/execution';
 
 /*
- * Burst test tryout end-to-end.
+ * End-to-end tryout load test.
  *
  * Each VU uses one unique user, opens the lobby, starts the tryout, saves an
  * answer for EVERY rendered question, then submits the attempt. This writes
  * real UserAnswer/UserAnswerDetail data, so only run it against a dedicated
- * test tryout and test accounts.
+ * test tryout and test accounts. ARRIVAL_WINDOW_SECONDS and the delay options
+ * can spread this flow to resemble normal participant behaviour.
  *
  * See tests/load/README.md for the required users.csv and run commands.
  */
@@ -21,6 +22,22 @@ const PACKAGE_ID = __ENV.PACKAGE_ID || 'free';
 const TRYOUT_ID = requirePositiveInteger(__ENV.TRYOUT_ID, 'TRYOUT_ID');
 const EXPECTED_QUESTION_COUNT = optionalPositiveInteger(__ENV.QUESTION_COUNT, 'QUESTION_COUNT');
 const ANSWER_INTERVAL_SECONDS = nonNegativeNumber(__ENV.ANSWER_INTERVAL_SECONDS || '0', 'ANSWER_INTERVAL_SECONDS');
+const ANSWER_INTERVAL_JITTER_SECONDS = nonNegativeNumber(
+    __ENV.ANSWER_INTERVAL_JITTER_SECONDS || '0',
+    'ANSWER_INTERVAL_JITTER_SECONDS'
+);
+const ARRIVAL_WINDOW_SECONDS = nonNegativeNumber(
+    __ENV.ARRIVAL_WINDOW_SECONDS || '0',
+    'ARRIVAL_WINDOW_SECONDS'
+);
+const START_DELAY_MIN_SECONDS = nonNegativeNumber(
+    __ENV.START_DELAY_MIN_SECONDS || '0',
+    'START_DELAY_MIN_SECONDS'
+);
+const START_DELAY_MAX_SECONDS = nonNegativeNumber(
+    __ENV.START_DELAY_MAX_SECONDS || '0',
+    'START_DELAY_MAX_SECONDS'
+);
 const FINISH_TRYOUT = parseBoolean(__ENV.FINISH_TRYOUT, true);
 const TEXT_ANSWER = __ENV.TEXT_ANSWER || 'Jawaban simulasi beban tryout';
 const USERS_FILE = __ENV.USERS_FILE || './users.csv';
@@ -41,6 +58,10 @@ if (users.length === 0) {
 
 if (users.length < VUS) {
     throw new Error(`VUS=${VUS} requires ${VUS} unique accounts, but ${USERS_FILE} only contains ${users.length}.`);
+}
+
+if (START_DELAY_MAX_SECONDS < START_DELAY_MIN_SECONDS) {
+    throw new Error('START_DELAY_MAX_SECONDS must be greater than or equal to START_DELAY_MIN_SECONDS.');
 }
 
 export const options = {
@@ -94,6 +115,14 @@ function parseBoolean(value, defaultValue) {
     }
 
     return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
+}
+
+function randomBetween(minimum, maximum) {
+    if (maximum <= minimum) {
+        return minimum;
+    }
+
+    return minimum + (Math.random() * (maximum - minimum));
 }
 
 function parseUsersCsv(content) {
@@ -209,6 +238,11 @@ function openTryout() {
 
         if (!lobbyOk) {
             return null;
+        }
+
+        const startDelay = randomBetween(START_DELAY_MIN_SECONDS, START_DELAY_MAX_SECONDS);
+        if (startDelay > 0) {
+            sleep(startDelay);
         }
 
         const pageUrl = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/tryout/1`;
@@ -353,7 +387,8 @@ function extractQuestions(tryoutPage) {
 
 function saveEveryAnswer(questionSet) {
     return group('03 - save every answer', () => {
-        for (const question of questionSet.questions) {
+        for (let index = 0; index < questionSet.questions.length; index += 1) {
+            const question = questionSet.questions[index];
             const url = `${BASE_URL}/user/tryout/${PACKAGE_ID}/${TRYOUT_ID}/tryout/${question.number}/save`;
             const response = http.post(url, JSON.stringify(question.payload), requestOptions('tryout-save-answer', {
                 headers: {
@@ -377,8 +412,15 @@ function saveEveryAnswer(questionSet) {
 
             answersSaved.add(1);
 
-            if (ANSWER_INTERVAL_SECONDS > 0) {
-                sleep(ANSWER_INTERVAL_SECONDS);
+            if (index < questionSet.questions.length - 1) {
+                const answerDelay = ANSWER_INTERVAL_SECONDS
+                    + (ANSWER_INTERVAL_JITTER_SECONDS > 0
+                        ? Math.random() * ANSWER_INTERVAL_JITTER_SECONDS
+                        : 0);
+
+                if (answerDelay > 0) {
+                    sleep(answerDelay);
+                }
             }
         }
 
@@ -424,6 +466,13 @@ export default function () {
 
     if (!user) {
         fail(`No unique account assigned to VU ${exec.vu.idInTest}.`);
+    }
+
+    const arrivalDelay = ARRIVAL_WINDOW_SECONDS > 0
+        ? Math.random() * ARRIVAL_WINDOW_SECONDS
+        : 0;
+    if (arrivalDelay > 0) {
+        sleep(arrivalDelay);
     }
 
     if (!login(user)) {
