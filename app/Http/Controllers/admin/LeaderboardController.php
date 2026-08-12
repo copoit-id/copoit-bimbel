@@ -14,13 +14,19 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
 class LeaderboardController extends Controller
 {
+    /** @var array<string, float> */
+    private array $maxPossibleScoreCache = [];
+
     public function index()
     {
         // Get all tryouts with their packages and participant counts - GROUP BY tryout
@@ -132,7 +138,7 @@ class LeaderboardController extends Controller
     public function exportExcel(Request $request, $package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
-        $tryout = Tryout::findOrFail($tryout_id);
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
@@ -142,13 +148,23 @@ class LeaderboardController extends Controller
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Peringkat');
+        $subtests = $this->exportSubtests($tryout);
 
         $headers = [
             'Peringkat',
             'Nama Peserta',
             'Email',
             'Tujuan / Instansi',
-            'Skor',
+        ];
+
+        foreach ($subtests as $subtest) {
+            $headers[] = 'Skor '.$subtest['alias'];
+        }
+
+        $headers = [
+            ...$headers,
+            'Skor Total',
             'Skor Maks',
             'Status',
             'Waktu Selesai',
@@ -157,7 +173,6 @@ class LeaderboardController extends Controller
         ];
 
         $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
 
         $row = 2;
         foreach ($rankings as $index => $ranking) {
@@ -168,25 +183,39 @@ class LeaderboardController extends Controller
             $startedAt = $ranking->started_at;
             $duration = $this->formatDuration($startedAt, $finishedAt);
 
-            $sheet->fromArray([
+            $values = [
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
                 $ranking->user?->participant_destination_display_name ?? '-',
+            ];
+
+            foreach ($subtests as $subtest) {
+                $values[] = $this->formatScore($ranking->subtest_scores[$subtest['id']] ?? 0);
+            }
+
+            $sheet->fromArray([
+                ...$values,
                 $score,
                 $maxScore,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
                 $finishedAt ? $finishedAt->format('H:i') : '-',
                 $duration,
                 $ranking->created_at ? $ranking->created_at->format('d M Y H:i') : '-',
-            ], null, 'A' . $row);
+            ], null, 'A'.$row);
 
             $row++;
         }
 
-        foreach (range('A', 'J') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
+        $lastColumn = $sheet->getHighestColumn();
+        $sheet->getColumnDimension('A')->setWidth(12);
+        $sheet->getColumnDimension('B')->setWidth(28);
+        $sheet->getColumnDimension('C')->setWidth(32);
+        $sheet->getColumnDimension('D')->setWidth(28);
+        for ($column = 5; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column))->setWidth(15);
         }
+        $this->styleExportSheet($sheet, $lastColumn, $row - 1);
 
         $filename = sprintf(
             'leaderboard-%s-%s-%s.xlsx',
@@ -207,7 +236,7 @@ class LeaderboardController extends Controller
     public function exportPdf(Request $request, $package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
-        $tryout = Tryout::findOrFail($tryout_id);
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
@@ -219,6 +248,7 @@ class LeaderboardController extends Controller
             'package' => $package,
             'tryout' => $tryout,
             'rankings' => $rankings,
+            'subtests' => $this->exportSubtests($tryout),
             'destinationFilter' => $destinationFilter,
         ])->render();
 
@@ -227,7 +257,7 @@ class LeaderboardController extends Controller
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->setPaper('A4', $tryout->tryoutDetails->count() > 1 ? 'landscape' : 'portrait');
         $dompdf->render();
 
         $filename = sprintf(
@@ -267,7 +297,12 @@ class LeaderboardController extends Controller
                     $userQuery->whereIn('participant_destination_category_id', $destinationCategoryIds);
                 });
             })
-            ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
+            ->with([
+                'user.participantDestinationCategory.parent',
+                'tryoutDetail',
+                'userAnswerDetails.question.questionOptions',
+                'userAnswerDetails.questionOption',
+            ])
             ->orderBy('score', 'desc')
             ->orderBy('finished_at', 'asc');
     }
@@ -414,9 +449,11 @@ class LeaderboardController extends Controller
     {
         $totalScore = 0.0;
 
-        $details = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
-            ->get();
+        $details = $userAnswer->relationLoaded('userAnswerDetails')
+            ? $userAnswer->userAnswerDetails
+            : UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                ->with(['questionOption', 'question'])
+                ->get();
 
         foreach ($details as $detail) {
             $question = $detail->question;
@@ -622,12 +659,17 @@ class LeaderboardController extends Controller
 
     private function getMaxPossibleScoreForDetail(int $tryoutDetailId, ?string $type_subtest): float
     {
+        $cacheKey = $tryoutDetailId.'|'.($type_subtest ?? '');
+        if (isset($this->maxPossibleScoreCache[$cacheKey])) {
+            return $this->maxPossibleScoreCache[$cacheKey];
+        }
+
         $questions = Question::where('tryout_detail_id', $tryoutDetailId)
             ->with('questionOptions')
             ->get();
 
         if ($questions->isEmpty()) {
-            return 0;
+            return $this->maxPossibleScoreCache[$cacheKey] = 0;
         }
 
         $total = 0.0;
@@ -699,7 +741,7 @@ class LeaderboardController extends Controller
             }
         }
 
-        return $total;
+        return $this->maxPossibleScoreCache[$cacheKey] = $total;
     }
 
     private function getDefaultPassingScore(?string $type_subtest): int
@@ -725,6 +767,60 @@ class LeaderboardController extends Controller
         }
 
         return $rawScore >= $passingScore;
+    }
+
+    private function exportSubtests(Tryout $tryout): Collection
+    {
+        $aliases = [
+            'twk' => 'TWK',
+            'tiu' => 'TIU',
+            'tkp' => 'TKP',
+            'penalaran_umum' => 'PU',
+            'pengetahuan_umum' => 'PPU',
+            'pengetahuan_kuantitatif' => 'PK',
+            'pemahaman_bacaan_menulis' => 'PBM',
+            'literasi_bahasa_indonesia' => 'LBI',
+            'literasi_bahasa_inggris' => 'LBE',
+            'penalaran_matematika' => 'PM',
+            'writing' => 'WT',
+            'reading' => 'RD',
+            'listening' => 'LS',
+        ];
+
+        return $tryout->tryoutDetails
+            ->sortBy('tryout_detail_id')
+            ->values()
+            ->map(function (TryoutDetail $detail) use ($aliases) {
+                $type = Str::lower((string) ($detail->type_subtest ?? ''));
+
+                return [
+                    'id' => (int) $detail->tryout_detail_id,
+                    'alias' => $aliases[$type] ?? Str::upper(Str::limit($type ?: 'Subtest', 6, '')),
+                    'name' => Str::headline(str_replace('_', ' ', $type ?: 'Subtest')),
+                ];
+            });
+    }
+
+    private function formatScore(float|int|null $score): string
+    {
+        return rtrim(rtrim(number_format((float) $score, 2, '.', ''), '0'), '.');
+    }
+
+    private function styleExportSheet($sheet, string $lastColumn, int $lastRow): void
+    {
+        $sheet->getStyle('A1:'.$lastColumn.'1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1D4ED8']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+        ]);
+        if ($lastRow >= 2) {
+            $sheet->getStyle('A2:'.$lastColumn.$lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        }
+        $sheet->getRowDimension(1)->setRowHeight(32);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:'.$lastColumn.max(1, $lastRow));
+        $sheet->getPageSetup()->setOrientation('landscape')->setFitToWidth(1)->setFitToHeight(0);
+        $sheet->getPageMargins()->setTop(0.4)->setBottom(0.4)->setLeft(0.25)->setRight(0.25);
     }
 
     private function formatDuration(?Carbon $startedAt, ?Carbon $finishedAt): string
