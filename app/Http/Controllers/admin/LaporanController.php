@@ -137,7 +137,7 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function show(Request $request, $id)
+    public function show($id)
     {
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
@@ -275,23 +275,27 @@ class LaporanController extends Controller
 
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
 
-        $showLiveScore = $request->boolean('ranking');
-        $liveScore = $showLiveScore ? $this->buildLiveScoreBoard($tryout) : null;
-        $publicLiveScoreUrl = $showLiveScore
-            ? URL::signedRoute('laporan.live-score.public', ['tryout' => $tryout->tryout_id])
-            : null;
         $hasSnapshotProctoring = $this->hasSnapshotProctoring($tryout);
 
         return view('admin.pages.laporan.show', compact(
             'tryout',
             'statistics',
             'participants',
+            'subtestDefinitions',
             'leaderboardPackageId',
-            'showLiveScore',
-            'liveScore',
-            'publicLiveScoreUrl',
             'hasSnapshotProctoring'
         ));
+    }
+
+    public function ranking($tryoutId)
+    {
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
+        $liveScore = $this->buildLiveScoreBoard($tryout);
+        $publicLiveScoreUrl = URL::signedRoute('laporan.live-score.public', [
+            'tryout' => $tryout->tryout_id,
+        ]);
+
+        return view('admin.pages.laporan.ranking', compact('tryout', 'liveScore', 'publicLiveScoreUrl'));
     }
 
     public function addTime(Request $request, $tryoutId, $userId)

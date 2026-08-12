@@ -24,6 +24,10 @@
                 class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white">
                 <i class="ri-eye-line"></i> Preview Tryout
             </a>
+            <a href="{{ route('admin.laporan.ranking', $tryout->tryout_id) }}"
+                class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white">
+                <i class="ri-bar-chart-grouped-line"></i> Peringkat Nilai
+            </a>
             @if ($hasSnapshotProctoring)
                 <a href="{{ route('admin.laporan.proctoring-snapshots', $tryout->tryout_id) }}"
                     class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white">
@@ -60,32 +64,27 @@
                 <h3 class="mt-1 text-lg font-semibold text-gray-900">Ringkasan Pengerjaan</h3>
                 <p class="mt-1 text-sm text-gray-500">Menampilkan attempt terakhir setiap peserta beserta hasil seluruh subtest.</p>
             </div>
-            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                <div class="relative w-full sm:w-72">
-                    <input type="search" id="participant-search" placeholder="Cari peserta..."
-                        class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10">
-                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                </div>
-                <a href="{{ route('admin.laporan.show', array_filter([$tryout->tryout_id, 'ranking' => $showLiveScore ? null : 1], fn ($value) => $value !== null)) }}"
-                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white">
-                    <i class="{{ $showLiveScore ? 'ri-eye-off-line' : 'ri-bar-chart-grouped-line' }}"></i>
-                    {{ $showLiveScore ? 'Sembunyikan Peringkat' : 'Tampilkan Peringkat Nilai' }}
-                </a>
+            <div class="relative w-full lg:w-72">
+                <input type="search" id="participant-search" placeholder="Cari peserta..."
+                    class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10">
+                <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
             </div>
         </div>
 
         <div class="mt-6 overflow-x-auto rounded-lg border border-gray-100">
-            <table class="w-full min-w-[1050px] text-left text-sm text-gray-600">
+            <table class="w-full min-w-[1180px] text-left text-sm text-gray-600">
                 <thead class="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-600">
                     <tr>
                         <th class="px-4 py-3">Peserta</th>
-                        @foreach ($tryout->tryoutDetails as $detail)
+                        @foreach ($subtestDefinitions as $subtest)
                             <th class="px-4 py-3 text-center">
-                                {{ strtoupper($detail->type_subtest) }}
+                                {{ $subtest['alias'] }}
+                                <span class="mt-1 block max-w-32 normal-case text-[11px] font-medium text-gray-500">{{ $subtest['name'] }}</span>
                                 <span class="mt-1 block normal-case text-[10px] font-normal text-gray-400">Skor · B / S / K</span>
                             </th>
                         @endforeach
                         <th class="px-4 py-3 text-center">Total</th>
+                        <th class="px-4 py-3 text-center">Waktu Pengerjaan</th>
                         <th class="px-4 py-3 text-center">Status</th>
                         <th class="px-4 py-3 text-center">Aksi</th>
                     </tr>
@@ -96,16 +95,17 @@
                             $user = $participant['user'];
                             $attempt = $participant['latest_attempt'];
                             $subtests = $participant['subtests'];
-                            $lastFinished = $participant['last_finished'] ? Carbon::parse($participant['last_finished']) : null;
+                            $startedAt = $attempt->started_at ? Carbon::parse($attempt->started_at) : null;
+                            $finishedAt = $attempt->finished_at ? Carbon::parse($attempt->finished_at) : null;
+                            $durationLabel = $startedAt && $finishedAt ? $startedAt->diffForHumans($finishedAt, true) : '-';
                             $statusLabel = match ($participant['status']) {
                                 'sedang_mengerjakan' => 'Sedang Mengerjakan',
                                 'selesai' => 'Selesai',
                                 default => 'Belum Selesai',
                             };
                             $statusClass = match ($participant['status']) {
-                                'sedang_mengerjakan' => 'border-amber-200 bg-amber-50 text-amber-700',
-                                'selesai' => 'border-green-200 bg-green-50 text-green-700',
-                                default => 'border-gray-200 bg-gray-100 text-gray-600',
+                                'sedang_mengerjakan' => 'border-primary/20 bg-primary/5 text-primary',
+                                default => 'border-gray-200 bg-gray-50 text-gray-700',
                             };
                         @endphp
                         <tr data-participant-row data-name="{{ strtolower($user->name ?? '') }}" class="border-b border-gray-100 transition hover:bg-gray-50/70">
@@ -114,30 +114,28 @@
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $user->email ?? '-' }}</p>
                                 <p class="mt-1 text-[11px] text-gray-400">
                                     Attempt terakhir{{ $participant['total_attempts'] > 1 ? ' · Riwayat '.$participant['total_attempts'].'x' : '' }}
-                                    {{ $lastFinished ? ' · '.$lastFinished->format('d M Y H:i') : '' }}
                                 </p>
                             </td>
                             @foreach ($subtests as $subtest)
                                 <td class="px-4 py-4 text-center">
                                     <p class="font-bold text-gray-900">{{ $subtest['score'] }}</p>
-                                    <p class="mt-1 whitespace-nowrap text-xs font-semibold">
-                                        <span class="text-green-600">{{ $subtest['correct'] }}</span>
-                                        <span class="text-gray-300">/</span>
-                                        <span class="text-red-500">{{ $subtest['wrong'] }}</span>
-                                        <span class="text-gray-300">/</span>
-                                        <span class="text-gray-500">{{ $subtest['unanswered'] }}</span>
+                                    <p class="mt-1 whitespace-nowrap text-xs font-medium text-gray-500">
+                                        B {{ $subtest['correct'] }} · S {{ $subtest['wrong'] }} · K {{ $subtest['unanswered'] }}
                                     </p>
                                 </td>
                             @endforeach
                             <td class="px-4 py-4 text-center">
                                 <p class="font-bold text-primary">{{ $participant['latest_score'] }}</p>
-                                <p class="mt-1 whitespace-nowrap text-xs font-semibold">
-                                    <span class="text-green-600">{{ $participant['total_correct'] }}</span>
-                                    <span class="text-gray-300">/</span>
-                                    <span class="text-red-500">{{ $participant['total_wrong'] }}</span>
-                                    <span class="text-gray-300">/</span>
-                                    <span class="text-gray-500">{{ $participant['total_unanswered'] }}</span>
+                                <p class="mt-1 whitespace-nowrap text-xs font-medium text-gray-500">
+                                    B {{ $participant['total_correct'] }} · S {{ $participant['total_wrong'] }} · K {{ $participant['total_unanswered'] }}
                                 </p>
+                            </td>
+                            <td class="px-4 py-4">
+                                <div class="min-w-[175px] space-y-1 text-xs">
+                                    <p class="text-gray-500"><span class="inline-block w-12 text-gray-400">Mulai</span><span class="font-medium text-gray-700">{{ $startedAt ? $startedAt->format('d M Y, H:i') : '-' }}</span></p>
+                                    <p class="text-gray-500"><span class="inline-block w-12 text-gray-400">Selesai</span><span class="font-medium text-gray-700">{{ $finishedAt ? $finishedAt->format('d M Y, H:i') : '-' }}</span></p>
+                                    <p class="pt-0.5 text-gray-500"><span class="inline-block w-12 text-gray-400">Durasi</span><span class="font-semibold text-gray-800">{{ $durationLabel }}</span></p>
+                                </div>
                             </td>
                             <td class="px-4 py-4 text-center">
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
@@ -169,7 +167,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ 4 + $tryout->tryoutDetails->count() }}" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="{{ 5 + $tryout->tryoutDetails->count() }}" class="px-6 py-12 text-center text-gray-500">
                                 Belum ada peserta untuk tryout ini.
                             </td>
                         </tr>
@@ -177,55 +175,8 @@
                 </tbody>
             </table>
         </div>
-        <p class="mt-3 text-xs text-gray-500"><span class="font-semibold text-green-600">B</span> benar · <span class="font-semibold text-red-500">S</span> salah · <span class="font-semibold text-gray-500">K</span> kosong</p>
+        <p class="mt-3 text-xs text-gray-500"><span class="font-semibold text-gray-700">B</span> benar · <span class="font-semibold text-gray-700">S</span> salah · <span class="font-semibold text-gray-700">K</span> kosong</p>
     </section>
-
-    @if ($showLiveScore)
-        <section class="mt-6 rounded-xl border border-border bg-white p-5 sm:p-6">
-            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Live Score</p>
-                    <h3 class="mt-1 text-lg font-semibold text-gray-900">Peringkat Nilai Per Subtest</h3>
-                </div>
-                <div class="flex items-center gap-2">
-                    <a href="{{ $publicLiveScoreUrl }}" target="_blank" class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white">
-                        <i class="ri-external-link-line"></i> Public Link
-                    </a>
-                    <button type="button" id="copy-live-score-link" data-link="{{ $publicLiveScoreUrl }}" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90">
-                        <i class="ri-link-m"></i> Copy Link
-                    </button>
-                </div>
-            </div>
-            <div class="mt-5 overflow-x-auto">
-                <table class="w-full min-w-[700px] text-left text-sm text-gray-600">
-                    <thead class="bg-gray-50 text-xs uppercase text-gray-700">
-                        <tr>
-                            <th class="px-4 py-3">No</th><th class="px-4 py-3">Nama</th>
-                            @foreach ($liveScore['subtests'] ?? [] as $subtest)
-                                <th class="px-4 py-3 text-center">{{ $subtest['label'] }}</th>
-                            @endforeach
-                            <th class="px-4 py-3 text-center">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($liveScore['rows'] ?? [] as $row)
-                            <tr class="border-b border-gray-100">
-                                <td class="px-4 py-3 font-semibold text-gray-800">{{ $row['rank'] }}</td>
-                                <td class="px-4 py-3 font-medium text-gray-900">{{ $row['name'] }}</td>
-                                @foreach ($liveScore['subtests'] ?? [] as $subtest)
-                                    @php $scoreValue = $row['scores'][$subtest['tryout_detail_id']] ?? null; @endphp
-                                    <td class="px-4 py-3 text-center font-semibold {{ is_null($scoreValue) ? 'text-gray-400' : 'text-gray-800' }}">{{ is_null($scoreValue) ? '-' : rtrim(rtrim(number_format((float) $scoreValue, 2, '.', ''), '0'), '.') }}</td>
-                                @endforeach
-                                <td class="px-4 py-3 text-center font-bold text-gray-900">{{ rtrim(rtrim(number_format((float) ($row['total'] ?? 0), 2, '.', ''), '0'), '.') }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="{{ 3 + count($liveScore['subtests'] ?? []) }}" class="px-4 py-8 text-center text-gray-500">Belum ada data live score yang tersubmit.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    @endif
 
     <div id="time-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
         <div class="absolute inset-0 bg-black/50" data-close-time-modal></div>
@@ -273,16 +224,6 @@
                 timeModal.classList.remove('flex');
             }));
 
-            document.getElementById('copy-live-score-link')?.addEventListener('click', async (event) => {
-                const button = event.currentTarget;
-                try {
-                    await navigator.clipboard.writeText(button.dataset.link || '');
-                    button.innerHTML = '<i class="ri-check-line"></i> Link Tersalin';
-                    setTimeout(() => { button.innerHTML = '<i class="ri-link-m"></i> Copy Link'; }, 1500);
-                } catch (_) {
-                    button.textContent = 'Gagal menyalin';
-                }
-            });
         });
     </script>
 @endsection
