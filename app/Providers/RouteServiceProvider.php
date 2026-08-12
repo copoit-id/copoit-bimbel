@@ -33,8 +33,12 @@ class RouteServiceProvider extends ServiceProvider
             $email = Str::lower(trim((string) $request->input('email')));
 
             return [
+                // Keep this generous for schools that share one public IP address.
                 Limit::perMinute(500)->by('login-ip|'.$request->ip()),
                 Limit::perMinute(10)->by('login-account|'.$email.'|'.$request->ip()),
+                // The account guard must not be tied to the source IP. Otherwise an
+                // attacker can bypass it simply by rotating IP addresses.
+                Limit::perMinute(12)->by('login-account-global|'.hash('sha256', $email)),
             ];
         });
 
