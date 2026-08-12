@@ -137,7 +137,7 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
@@ -165,10 +165,49 @@ class LaporanController extends Controller
             ->with('user:id,name,email')
             ->get();
 
+        $subtestSummariesByAttempt = UserAnswer::query()
+            ->selectRaw('
+                user_id,
+                attempt_token,
+                tryout_detail_id,
+                SUM(score) as score,
+                SUM(correct_answers) as correct_answers,
+                SUM(wrong_answers) as wrong_answers,
+                SUM(unanswered) as unanswered
+            ')
+            ->where('tryout_id', $tryout->tryout_id)
+            ->groupBy('user_id', 'attempt_token', 'tryout_detail_id')
+            ->get()
+            ->groupBy(fn (UserAnswer $answer) => $answer->user_id.'|'.$answer->attempt_token);
+
+        $answerStatsBySubtest = UserAnswerDetail::query()
+            ->join('user_answers', 'user_answer_details.user_answer_id', '=', 'user_answers.user_answer_id')
+            ->where('user_answers.tryout_id', $tryout->tryout_id)
+            ->selectRaw('
+                user_answers.user_id,
+                user_answers.attempt_token,
+                user_answers.tryout_detail_id,
+                COUNT(DISTINCT user_answer_details.question_id) as answered_questions,
+                COUNT(DISTINCT CASE WHEN user_answer_details.is_correct = 1 THEN user_answer_details.question_id END) as correct_answers
+            ')
+            ->groupBy('user_answers.user_id', 'user_answers.attempt_token', 'user_answers.tryout_detail_id')
+            ->get()
+            ->keyBy(fn ($row) => $row->user_id.'|'.$row->attempt_token.'|'.$row->tryout_detail_id);
+
+        $subtestDefinitions = $tryout->tryoutDetails->mapWithKeys(fn ($detail) => [
+            $detail->tryout_detail_id => [
+                'name' => $this->formatSubtestName($detail->type_subtest),
+                'alias' => $this->formatSubtestAlias($detail->type_subtest),
+                'total_questions' => (int) $detail->questions_count,
+            ],
+        ]);
+
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) {
+            ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions) {
                 $sortedAttempts = $attempts->sortByDesc('last_activity_at')->values();
                 $latest = $sortedAttempts->first();
+                $latestSubtestRows = $subtestSummariesByAttempt->get($latest->user_id.'|'.$latest->attempt_token, collect())
+                    ->keyBy('tryout_detail_id');
 
                 $status = 'belum_mengerjakan';
                 if ($attempts->where('attempt_status', 'in_progress')->count() > 0) {
@@ -177,11 +216,32 @@ class LaporanController extends Controller
                     $status = 'selesai';
                 }
 
+                $subtests = $subtestDefinitions->map(function (array $definition, int $detailId) use ($answerStatsBySubtest, $latest, $latestSubtestRows) {
+                    $row = $latestSubtestRows->get($detailId);
+                    $answerStats = $answerStatsBySubtest->get($latest->user_id.'|'.$latest->attempt_token.'|'.$detailId);
+                    $answered = min((int) $definition['total_questions'], (int) ($answerStats->answered_questions ?? 0));
+                    $correct = min($answered, (int) ($answerStats->correct_answers ?? 0));
+                    $wrong = max(0, $answered - $correct);
+
+                    return [
+                        ...$definition,
+                        'score' => round((float) ($row->score ?? 0), 1),
+                        'correct' => $correct,
+                        'wrong' => $wrong,
+                        'unanswered' => max(0, (int) $definition['total_questions'] - $answered),
+                    ];
+                })->values();
+
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
                     'latest_score' => round($latest->total_score ?? 0, 1),
                     'last_finished' => $latest->finished_at,
+                    'latest_attempt' => $latest,
+                    'total_correct' => $subtests->sum('correct'),
+                    'total_wrong' => $subtests->sum('wrong'),
+                    'total_unanswered' => $subtests->sum('unanswered'),
+                    'subtests' => $subtests,
                     // Keep the report compact: one latest logical attempt per participant.
                     // Older attempts remain represented by total_attempts, without repeating rows.
                     'attempts' => collect([$latest]),
@@ -215,10 +275,11 @@ class LaporanController extends Controller
 
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
 
-        $liveScore = $this->buildLiveScoreBoard($tryout);
-        $publicLiveScoreUrl = URL::signedRoute('laporan.live-score.public', [
-            'tryout' => $tryout->tryout_id,
-        ]);
+        $showLiveScore = $request->boolean('ranking');
+        $liveScore = $showLiveScore ? $this->buildLiveScoreBoard($tryout) : null;
+        $publicLiveScoreUrl = $showLiveScore
+            ? URL::signedRoute('laporan.live-score.public', ['tryout' => $tryout->tryout_id])
+            : null;
         $hasSnapshotProctoring = $this->hasSnapshotProctoring($tryout);
 
         return view('admin.pages.laporan.show', compact(
@@ -226,6 +287,7 @@ class LaporanController extends Controller
             'statistics',
             'participants',
             'leaderboardPackageId',
+            'showLiveScore',
             'liveScore',
             'publicLiveScoreUrl',
             'hasSnapshotProctoring'
