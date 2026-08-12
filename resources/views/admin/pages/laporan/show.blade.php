@@ -137,7 +137,7 @@
                                         <span class="mx-1.5 text-gray-300">—</span>
                                         {{ $finishedAt ? $finishedAt->format('d M Y, H:i') : '-' }}
                                     </p>
-                                    <p class="mt-1 text-xs text-gray-500">
+                                    <p class="mt-1 text-center text-xs text-gray-500">
                                         Durasi <span class="font-semibold text-gray-700">{{ $durationLabel }}</span>
                                     </p>
                                 </div>
