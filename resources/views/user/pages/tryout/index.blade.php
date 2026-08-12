@@ -1570,6 +1570,48 @@
                 const timerDisplay = document.getElementById('timer-display');
                 let isHandlingTimeout = false;
 
+                function openTimeoutActionModal({ title, message, confirmLabel, icon, onConfirm }) {
+                    let remainingAutoContinueSeconds = 5;
+                    let autoContinueTimeout = null;
+                    let countdownInterval = null;
+
+                    const clearAutoContinue = () => {
+                        if (autoContinueTimeout) clearTimeout(autoContinueTimeout);
+                        if (countdownInterval) clearInterval(countdownInterval);
+                    };
+
+                    const autoContinueMessage = () =>
+                        `${message} Akan dilanjutkan otomatis dalam ${remainingAutoContinueSeconds} detik.`;
+
+                    const updateMessage = () => {
+                        const messageElement = document.getElementById('tryoutActionModalMessage');
+                        if (messageElement) {
+                            messageElement.textContent = autoContinueMessage();
+                        }
+                    };
+
+                    openTryoutActionModal({
+                        title,
+                        message: autoContinueMessage(),
+                        confirmLabel,
+                        showCancel: false,
+                        icon,
+                        onConfirm: async () => {
+                            clearAutoContinue();
+                            return onConfirm();
+                        }
+                    });
+
+                    countdownInterval = setInterval(() => {
+                        remainingAutoContinueSeconds--;
+                        if (remainingAutoContinueSeconds > 0) updateMessage();
+                    }, 1000);
+
+                    autoContinueTimeout = setTimeout(() => {
+                        window.tryoutActionModalConfirm?.();
+                    }, remainingAutoContinueSeconds * 1000);
+                }
+
                 async function handleTimeout() {
                     if (isHandlingTimeout) return;
                     isHandlingTimeout = true;
@@ -1582,11 +1624,10 @@
                         const hasNextSubtest = currentRangeIdx < subtestRanges.length - 1;
 
                         if (currentRange && hasNextSubtest) {
-                            openTryoutActionModal({
+                            openTimeoutActionModal({
                                 title: 'Waktu Subtest Habis',
                                 message: 'Waktu untuk subtest ini sudah selesai. Lanjutkan ke subtest berikutnya.',
                                 confirmLabel: 'Lanjutkan',
-                                showCancel: false,
                                 icon: 'ri-time-line',
                                 onConfirm: async () => {
                                     const moved = await transitionToNextSubtest(
@@ -1603,11 +1644,10 @@
                         }
                     }
 
-                    openTryoutActionModal({
+                    openTimeoutActionModal({
                         title: 'Waktu Tryout Habis',
                         message: 'Waktu pengerjaan telah berakhir. Jawaban yang sudah terisi akan dikirim sekarang.',
                         confirmLabel: 'Kirim Jawaban',
-                        showCancel: false,
                         icon: 'ri-time-line',
                         onConfirm: () => {
                             finishSubmissionConfirmed = true;
