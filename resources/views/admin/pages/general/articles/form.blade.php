@@ -80,7 +80,7 @@
                 </div>
                 <input type="file" id="cover_image" name="cover_image" accept="image/png,image/jpeg,image/webp"
                     class="mt-3 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                <p class="mt-2 text-xs text-gray-500">JPG, PNG, atau WebP maksimal 5MB.</p>
+                <p class="mt-2 text-xs text-gray-500">Ukuran ideal: 1200 × 750 px (rasio 16:10). JPG, PNG, atau WebP maksimal 5MB.</p>
                 @if($isEdit && $article->cover_image)
                     <label class="mt-3 flex items-center gap-2 text-sm text-gray-600">
                         <input type="checkbox" name="remove_cover" value="1" class="rounded border-gray-300 text-primary focus:ring-primary">

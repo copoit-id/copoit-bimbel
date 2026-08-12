@@ -97,12 +97,12 @@
             </div>
         @endif
 
-        <div class="relative overflow-x-auto mt-4">
-            <table class="w-full text-left rtl:text-right text-gray-500">
-                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+        <div class="relative mt-4 overflow-x-auto rounded-lg border border-gray-200">
+            <table class="w-full min-w-[640px] text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-600">
                     <tr>
-                        <th scope="col" class="px-6 py-3">Peringkat</th>
-                        <th scope="col" class="px-6 py-3">Peserta</th>
+                        <th scope="col" class="px-3 py-2.5">Rank</th>
+                        <th scope="col" class="px-3 py-2.5">Peserta</th>
                         @php
                             $hasMultipleSubtests = $tryout->tryoutDetails->count() > 1;
                         @endphp
@@ -127,14 +127,13 @@
                                     ];
                                     $alias = $map[strtolower($subtestName)] ?? strtoupper(\Illuminate\Support\Str::limit($subtestName, 3, ''));
                                 @endphp
-                                <th scope="col" class="px-6 py-3 text-center">Score {{ $alias }}</th>
+                                <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $alias }}</th>
                             @endforeach
                         @endif
-                        <th scope="col" class="px-6 py-3 text-center">{{ $hasMultipleSubtests ? 'Final Score' : 'Skor' }}
+                        <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $hasMultipleSubtests ? 'Final Score' : 'Skor' }}
                         </th>
-                        <th scope="col" class="px-6 py-3 text-center">Waktu Selesai</th>
-                        <th scope="col" class="px-6 py-3 text-center">Tanggal</th>
-                        <th scope="col" class="px-6 py-3 text-center">Status</th>
+                        <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">Selesai</th>
+                        <th scope="col" class="px-3 py-2.5 text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -161,50 +160,50 @@
                                     elseif (Auth::id() == $ranking['user']->id)
                                         $bgClass = 'bg-primary/5';
                                 @endphp
-                                <tr class="bg-white border-b border-dashed border-gray-200 text-grey3 {{ $bgClass }}">
-                                    <td class="py-3 px-4">
-                                        <div class="flex items-center gap-3">
+                                <tr class="border-b border-dashed border-gray-200 bg-white text-gray-700 {{ $bgClass }}">
+                                    <td class="px-3 py-2.5">
+                                        <div class="flex items-center gap-2">
                                             @if($rank == 1)
                                                 <div class="relative">
-                                                    <i class="ri-medal-fill text-3xl text-yellow-500"></i>
+                                                    <i class="ri-medal-fill text-2xl text-yellow-500"></i>
                                                     <span
                                                         class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-white">1</span>
                                                 </div>
                                             @elseif($rank == 2)
                                                 <div class="relative">
-                                                    <i class="ri-medal-fill text-3xl text-gray-400"></i>
+                                                    <i class="ri-medal-fill text-2xl text-gray-400"></i>
                                                     <span
                                                         class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-white">2</span>
                                                 </div>
                                             @elseif($rank == 3)
                                                 <div class="relative">
-                                                    <i class="ri-medal-fill text-3xl text-orange-500"></i>
+                                                    <i class="ri-medal-fill text-2xl text-orange-500"></i>
                                                     <span
                                                         class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-white">3</span>
                                                 </div>
                                             @else
-                                                <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                                                    <span class="text-sm font-medium text-gray-600">{{ $rank }}</span>
+                                                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
+                                                    <span class="text-xs font-semibold text-gray-600">{{ $rank }}</span>
                                                 </div>
                                             @endif
                                         </div>
                                     </td>
 
-                                    <td class="py-3 px-4">
-                                        <div class="flex items-center gap-3">
+                                    <td class="px-3 py-2.5">
+                                        <div class="flex min-w-[180px] items-center gap-2">
                                             <img src="https://ui-avatars.com/api/?name={{ urlencode($ranking['user']->name) }}&background=444444&color=fff"
-                                                class="w-10 h-10 rounded-full">
-                                            <div>
-                                                <div class="flex items-center gap-2">
+                                                class="h-8 w-8 rounded-full" alt="">
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-1.5">
                                                     <p
-                                                        class="font-semibold capitalize {{ Auth::id() == $ranking['user']->id ? 'text-dark' : '' }}">
+                                                        class="truncate text-sm font-semibold capitalize {{ Auth::id() == $ranking['user']->id ? 'text-dark' : '' }}">
                                                         {{ $ranking['user']->name }}
                                                     </p>
                                                     @if(Auth::id() == $ranking['user']->id)
-                                                        <span class="text-xs bg-primary text-white px-2 py-0.5 rounded-md">Anda</span>
+                                                        <span class="rounded bg-primary px-1.5 py-0.5 text-[10px] text-white">Anda</span>
                                                     @endif
                                                 </div>
-                                                <p class="text-sm text-gray-500">{{ $ranking['user']->email }}</p>
+                                                <p class="truncate text-xs text-gray-500">{{ $ranking['user']->email }}</p>
                                             </div>
                                         </div>
                                     </td>
@@ -217,61 +216,50 @@
                                                     ? number_format($subscoreValue, 0)
                                                     : number_format($subscoreValue, 2);
                                             @endphp
-                                            <td class="px-6 py-4 text-center">
-                                                <span class="text-xl font-semibold">{{ $subscoreDisplay }}</span>
+                                            <td class="px-3 py-2.5 text-center">
+                                                <span class="font-semibold">{{ $subscoreDisplay }}</span>
                                             </td>
                                         @endforeach
                                     @endif
-                                    <td class="px-6 py-4 text-center">
+                                    <td class="px-3 py-2.5 text-center">
                                         <div class="flex justify-center items-center">
-                                            <span class="text-xl font-semibold">{{ $rawScoreDisplay }}</span>
+                                            <span class="text-base font-semibold">{{ $rawScoreDisplay }}</span>
                                             @if($maxScoreDisplay)
-                                                <span class="text-md text-gray-500 ml-1">/ {{ $maxScoreDisplay }}</span>
+                                                <span class="ml-1 text-xs text-gray-500">/ {{ $maxScoreDisplay }}</span>
                                             @endif
                                         </div>
                                     </td>
 
-                                    <td class="px-6 py-4">
+                                    <td class="px-3 py-2.5">
                                         <div class="flex justify-center">
-                                            <span class="flex flex-col items-center">
+                                            <span class="flex flex-col items-center whitespace-nowrap">
                                                 @if($ranking['finished_at'])
                                                     @php
                                                         $finishedTime = \Carbon\Carbon::parse($ranking['finished_at']);
                                                     @endphp
-                                                    <p class="font-medium">{{ $finishedTime->format('H:i') }}</p>
-                                                    <p class="text-sm text-gray-500">WIB</p>
+                                                    <p class="text-xs font-medium">{{ $finishedTime->format('d M Y') }}</p>
+                                                    <p class="text-[11px] text-gray-500">{{ $finishedTime->format('H:i') }} WIB</p>
                                                 @else
-                                                    <p class="font-medium text-gray-400">-</p>
-                                                    <p class="text-sm text-gray-400">Belum selesai</p>
+                                                    <p class="text-xs font-medium text-gray-400">Belum selesai</p>
                                                 @endif
                                             </span>
                                         </div>
                                     </td>
 
-                                    <td class="px-6 py-4">
-                                        <div class="flex justify-center">
-                                            <span class="flex flex-col items-center">
-                                                <p>{{ \Carbon\Carbon::parse($ranking['finished_at'])->format('d M Y') }}</p>
-                                                <p class="text-sm text-gray-500">{{
-                        \Carbon\Carbon::parse($ranking['finished_at'])->format('H:i') }} WIB</p>
-                                            </span>
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4">
+                                    <td class="px-3 py-2.5">
                                         <div class="flex justify-center items-center">
                                             @if($ranking['is_passed'])
                                                 <span
-                                                    class="flex items-center gap-1 border border-green bg-green-light px-4 py-1 rounded-lg">
-                                                    <i class="ri-checkbox-circle-fill text-green text-lg"></i>
-                                                    <span class="text-green">
+                                                    class="flex items-center gap-1 rounded-md border border-green bg-green-light px-2 py-1 text-xs">
+                                                    <i class="ri-checkbox-circle-fill text-green"></i>
+                                                    <span class="text-green whitespace-nowrap">
                                                         Lulus
                                                     </span>
                                                 </span>
                                             @else
-                                                <span class="flex items-center gap-1 border border-red bg-red-light px-4 py-1 rounded-lg">
-                                                    <i class="ri-close-circle-fill text-red text-lg"></i>
-                                                    <span class="text-red">
+                                                <span class="flex items-center gap-1 rounded-md border border-red bg-red-light px-2 py-1 text-xs">
+                                                    <i class="ri-close-circle-fill text-red"></i>
+                                                    <span class="text-red whitespace-nowrap">
                                                         Belum Lulus
                                                     </span>
                                                 </span>
@@ -281,7 +269,7 @@
                                 </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <td colspan="{{ 5 + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
                                     <p>Belum ada peserta yang menyelesaikan tryout ini</p>

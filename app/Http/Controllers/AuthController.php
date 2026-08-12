@@ -42,6 +42,9 @@ class AuthController extends Controller
             if ($user->isTutor()) {
                 return redirect()->route('tutor.schedule.index');
             }
+            if ($user->isParent()) {
+                return redirect()->route('parent.dashboard');
+            }
 
             return $user->canAccessAdminPanel()
                 ? redirect()->route('admin.dashboard')
@@ -112,6 +115,9 @@ class AuthController extends Controller
             }
             if ($user->isTutor()) {
                 return redirect()->route('tutor.schedule.index');
+            }
+            if ($user->isParent()) {
+                return redirect()->intended(route('parent.dashboard'));
             }
             if ($user->canAccessAdminPanel()) {
                 if ($user->role === 'admin_demo') {

@@ -15,6 +15,7 @@ $canShowTryout = $planModules->allows('tryout');
 $canShowPayments = $planModules->allows('pembayaran');
 $canShowSchedule = $planModules->allows('schedule');
 $canShowClass = $planModules->allows('class');
+$canShowAttendance = $planModules->allows('attendance');
 $canShowGeneralPage = $planModules->allows('general_page');
 $showStatisticsDashboard = ($showStatisticsDashboard ?? false) && $canShowGeneralPage;
 $showLandingDashboard = ($showLandingDashboard ?? false) && $canShowGeneralPage;
@@ -206,7 +207,7 @@ $primaryRgb = "$r, $g, $b";
 @if(!$isGuest)
 <!-- Akses Cepat -->
 <?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
-@if($canShowMaterial || $canShowTryout || $canShowPackage)
+@if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule)
 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     @if($canShowMaterial)
     <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
@@ -223,6 +224,15 @@ $primaryRgb = "$r, $g, $b";
             <i class="ri-file-list-3-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Tryout</h3>
+    </a>
+    @endif
+
+    @if($canShowSchedule)
+    <a href="{{ route('user.class-schedule.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-calendar-check-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Jadwal Kelas</h3>
     </a>
     @endif
 
@@ -303,7 +313,7 @@ $primaryRgb = "$r, $g, $b";
             </div>
             <div>
                 <h3 class="font-bold text-gray-800 text-lg">Jadwal Terdekat</h3>
-                <p class="text-xs text-gray-400">{{ $canShowClass ? 'Ikuti kelas tepat waktu & jangan lupa absensi' : 'Lihat waktu dan lokasi kegiatan belajarmu' }}</p>
+                <p class="text-xs text-gray-400">{{ $canShowAttendance ? 'Ikuti kelas tepat waktu & jangan lupa absensi' : 'Lihat waktu dan lokasi kegiatan belajarmu' }}</p>
             </div>
         </div>
         <a href="{{ route('user.class-schedule.index') }}" class="text-sm font-semibold hover:underline flex items-center gap-1 shrink-0" style="color: {{ $primaryColor }}">
@@ -381,12 +391,12 @@ $primaryRgb = "$r, $g, $b";
             
             <!-- Actions -->
             <div class="flex items-center gap-2.5 self-start sm:self-center w-full sm:w-auto shrink-0 sm:justify-end">
-                <?php if ($canShowClass && $attendance): ?>
+                <?php if ($canShowAttendance && $attendance): ?>
                     <span class="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 rounded-xl flex items-center gap-1 shrink-0">
                         <i class="ri-checkbox-circle-fill text-base text-green-500"></i>
                         Hadir
                     </span>
-                <?php elseif ($canShowClass && $canAttend): ?>
+                <?php elseif ($canShowAttendance && $canAttend): ?>
                     <?php if (($setting?->mode ?? 'button') === 'button'): ?>
                         <form method="POST" action="{{ route('user.class-schedule.attend', $session) }}" class="w-full sm:w-auto shrink-0">
                             @csrf

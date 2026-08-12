@@ -173,12 +173,12 @@
                 @if ($package->type_package == 'bimbel')
                 @if($canManageSchedule)
                 <a href="{{ route('admin.class-schedules.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Kelas
                 </a>
                 @elseif($canManageClass)
                 <a href="{{ route('admin.package.class.index', ['package_id' => $package->package_id]) }}"
-                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center border border-primary text-primary px-3 py-2 rounded-lg text-sm hover:bg-primary hover:text-white">
+                    class="flex-1 min-w-[4.5rem] inline-flex items-center justify-center text-center bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary/90">
                     Kelas
                 </a>
                 @endif

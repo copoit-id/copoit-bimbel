@@ -3,6 +3,7 @@
 .env
 .env.backup
 .env.production
+tests/load/users.csv
 .phpactor.json
 .phpunit.result.cache
 /.fleet

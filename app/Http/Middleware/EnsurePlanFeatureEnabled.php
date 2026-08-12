@@ -15,10 +15,6 @@ class EnsurePlanFeatureEnabled
 
     public function handle(Request $request, Closure $next, ?string $feature = null): Response
     {
-        if ($request->user()?->isSuperAdmin()) {
-            return $next($request);
-        }
-
         $resolvedFeature = $feature ?: $this->planModules->featureForRoute($request->route()?->getName());
 
         if ($resolvedFeature && ! $this->planModules->allows($resolvedFeature)) {

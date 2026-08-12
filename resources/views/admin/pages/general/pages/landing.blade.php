@@ -119,6 +119,7 @@
                             <label class="mt-3 block">
                                 <span class="mb-2 block text-sm font-medium text-gray-700">Upload Hero Image</span>
                                 <input type="file" name="landing_images[hero_image]" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                                <span class="mt-1 block text-xs text-gray-500">Ukuran ideal: 1200 × 1200 px (rasio 1:1).</span>
                             </label>
                             @error('landing_images.hero_image')
                                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
@@ -188,7 +189,7 @@
                                         <label class="block">
                                             <span class="mb-2 block text-sm font-medium text-gray-700">Upload Logo</span>
                                             <input type="file" :name="`landing_images[logo_stack][${index}][src]`" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
-                                            <span class="mt-1 block text-xs text-gray-500">Upload gambar untuk logo baru. Sistem akan menyimpan path otomatis.</span>
+                                            <span class="mt-1 block text-xs text-gray-500">Gunakan rasio 1:1, minimal 512 × 512 px; PNG transparan direkomendasikan. Sistem akan menyimpan path otomatis.</span>
                                         </label>
                                         <input type="text" :name="`content[hero][logo_stack][${index}][alt]`" x-model="item.alt" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Nama/Alt logo">
                                     </div>
@@ -440,6 +441,7 @@
                                     <label class="block">
                                         <span class="mb-2 block text-sm font-medium text-gray-700">Upload Foto</span>
                                         <input type="file" :name="`landing_images[testimonials][${index}][image]`" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                                        <span class="mt-1 block text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1).</span>
                                     </label>
                                     <textarea :name="`content[testimonials][items][${index}][quote]`" x-model="item.quote" rows="3" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Testimoni"></textarea>
                                 </div>
@@ -510,6 +512,7 @@
                                     <label class="block">
                                         <span class="mb-2 block text-sm font-medium text-gray-700">Upload Logo</span>
                                         <input type="file" :name="`landing_images[partners][${index}][logo]`" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                                        <span class="mt-1 block text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1); PNG transparan direkomendasikan.</span>
                                     </label>
                                     <input type="text" :name="`content[partners][items][${index}][alt]`" x-model="item.alt" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Alt logo">
                                 </div>
@@ -584,6 +587,7 @@
                             <label class="mt-3 block">
                                 <span class="mb-2 block text-sm font-medium text-gray-700">Upload SEO Image</span>
                                 <input type="file" name="landing_images[seo_image]" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                                <span class="mt-1 block text-xs text-gray-500">Ukuran ideal: 1200 × 630 px (rasio 1.91:1).</span>
                             </label>
                             @error('landing_images.seo_image')
                                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>

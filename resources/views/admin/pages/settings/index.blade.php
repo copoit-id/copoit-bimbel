@@ -24,6 +24,10 @@
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
     if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
+    } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
+    $activeSettingsTab = 'wording';
+    } elseif (collect($settingErrorKeys)->intersect(['tutor_content_visibility'])->isNotEmpty()) {
+    $activeSettingsTab = 'tutor-content';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
     } elseif (collect($settingErrorKeys)->intersect(['website_translation_enabled', 'website_translation_locales'])->isNotEmpty()) {
@@ -67,13 +71,20 @@
     }
     }
 
+    $activeWordingTab = old('wording_tab', session('active_wording_tab', 'general'));
+    if ($errors->isNotEmpty() && collect($settingErrorKeys)->intersect(['bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
+    $activeWordingTab = 'navbar';
+    }
+
     $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
+    $tutorContentEnabled = (bool) ($profile->tutor_content_enabled ?? ($branding['tutor_content_enabled'] ?? false));
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
+        <input type="hidden" name="wording_tab" id="wording_tab" value="{{ $activeWordingTab }}">
 
         @if ($isDemoAdmin)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -95,6 +106,14 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'identity' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Informasi Umum
                 </button>
+                <button type="button" data-settings-tab="wording"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'wording' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Wording & Label
+                </button>
+                @if($tutorContentEnabled)<button type="button" data-settings-tab="tutor-content"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'tutor-content' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Konten Tutor
+                </button>@endif
                 <button type="button" data-settings-tab="visual"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'visual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Logo & Favicon
@@ -145,28 +164,6 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
-                    <input type="text" name="faq_label"
-                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Informasi" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan. Contoh: Informasi, Bantuan, atau FAQ.</p>
-                    @error('faq_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
-                    <input type="text" name="live_session_label"
-                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Kelas Belajar" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
-                    @error('live_session_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -203,6 +200,143 @@
             </div>
         </div>
 
+        <div data-settings-panel="wording"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'wording' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Wording Platform</p>
+                <h2 class="text-xl font-semibold text-gray-900">Label Menu & Fitur</h2>
+                <p class="text-gray-500 text-sm">Sesuaikan istilah yang tampil kepada pengguna tanpa mengubah fungsi sistem.</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 border-b border-gray-100 pb-4">
+                <button type="button" data-wording-tab="general"
+                    class="wording-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeWordingTab === 'general' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Umum
+                </button>
+                <button type="button" data-wording-tab="navbar"
+                    class="wording-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeWordingTab === 'navbar' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Navbar
+                </button>
+            </div>
+
+            <div data-wording-panel="general" class="wording-tab-panel grid grid-cols-1 md:grid-cols-2 gap-6 {{ $activeWordingTab !== 'general' ? 'hidden' : '' }}">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
+                    <input type="text" name="live_session_label"
+                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
+                    @error('live_session_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
+                    <input type="text" name="faq_label"
+                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Informasi" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan.</p>
+                    @error('faq_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
+            <div data-wording-panel="navbar" class="wording-tab-panel grid grid-cols-1 md:grid-cols-2 gap-6 {{ $activeWordingTab !== 'navbar' ? 'hidden' : '' }}">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Navbar Bimbel</label>
+                    <input type="text" name="bimbel_nav_label"
+                        value="{{ old('bimbel_nav_label', $profile->bimbel_nav_label ?? ($branding['bimbel_nav_label'] ?? 'Bimbel')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah label menu Bimbel pada navbar user, desktop, dan mobile.</p>
+                    @error('bimbel_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Materi</label>
+                    <input type="text" name="material_nav_label"
+                        value="{{ old('material_nav_label', $profile->material_nav_label ?? ($branding['material_nav_label'] ?? 'Kelas & Materi')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas & Materi" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu materi di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('material_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Paket</label>
+                    <input type="text" name="package_nav_label"
+                        value="{{ old('package_nav_label', $profile->package_nav_label ?? ($branding['package_nav_label'] ?? 'Paket Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Paket Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu paket di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('package_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Try Out</label>
+                    <input type="text" name="tryout_nav_label"
+                        value="{{ old('tryout_nav_label', $profile->tryout_nav_label ?? ($branding['tryout_nav_label'] ?? 'Ujian & Try Out')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Ujian & Try Out" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu try out di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('tryout_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        @if($tutorContentEnabled)<div data-settings-panel="tutor-content"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'tutor-content' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Konten Tutor</p>
+                <h2 class="text-xl font-semibold text-gray-900">Visibilitas Konten Operasional</h2>
+                <p class="text-gray-500 text-sm">Pengaturan ini berlaku untuk Tryout, Materi, Bank Soal, dan soal yang dibuat dari menu tersebut. Paket selalu dikelola Admin.</p>
+            </div>
+
+            @php
+                $tutorContentVisibility = old(
+                    'tutor_content_visibility',
+                    $profile->tutor_content_visibility ?? 'shared'
+                );
+            @endphp
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'shared' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="shared"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'shared' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Gabung</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Pengelola yang memiliki izin dapat melihat dan memakai konten bersama. Cocok untuk bank soal dan tryout pusat.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'isolated' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="isolated"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'isolated' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Isolasi Tutor</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap Tutor atau akun operasional hanya melihat konten miliknya. Admin dan Super Admin tetap dapat melihat seluruh konten.</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Data lama yang belum memiliki pembuat hanya tetap terlihat oleh Admin saat mode isolasi aktif. Konten baru otomatis menjadi milik akun yang membuatnya.
+            </div>
+
+            @error('tutor_content_visibility')
+                <p class="text-xs text-red-500">{{ $message }}</p>
+            @enderror
+        </div>@endif
+
         <div data-settings-panel="visual"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'visual' ? 'hidden' : '' }}">
             <div>
@@ -221,7 +355,7 @@
                             class="h-20 object-contain" alt="Logo Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Logo Baru</p>
-                            <p class="text-xs text-gray-500">PNG/JPG/SVG maks 4MB</p>
+                            <p class="text-xs text-gray-500">Rasio bebas; tinggi ideal 160 px (contoh 512 × 160 px). PNG/JPG/SVG maks 4MB</p>
                         </div>
                         <input id="logo-input" type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml"
                             class="hidden"
@@ -240,7 +374,7 @@
                             class="h-12 w-12 object-contain" alt="Favicon Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Favicon Baru</p>
-                            <p class="text-xs text-gray-500">PNG/JPG/ICO maks 2MB</p>
+                            <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG/JPG/ICO maks 2MB</p>
                         </div>
                         <input id="favicon-input" type="file" name="favicon" accept="image/png,image/jpeg,image/x-icon"
                             class="hidden"
@@ -1235,6 +1369,38 @@
         });
 
         setActiveTab(settingsTabInput?.value || 'identity');
+
+        const wordingTabInput = document.getElementById('wording_tab');
+        const wordingTabButtons = document.querySelectorAll('[data-wording-tab]');
+        const wordingPanels = document.querySelectorAll('[data-wording-panel]');
+
+        const setActiveWordingTab = (tab) => {
+            wordingTabButtons.forEach((button) => {
+                const isActive = button.getAttribute('data-wording-tab') === tab;
+                button.classList.toggle('bg-primary', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-100', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+                button.classList.toggle('hover:bg-gray-200', !isActive);
+            });
+
+            wordingPanels.forEach((panel) => {
+                const isActive = panel.getAttribute('data-wording-panel') === tab;
+                panel.classList.toggle('hidden', !isActive);
+            });
+
+            if (wordingTabInput) {
+                wordingTabInput.value = tab;
+            }
+        };
+
+        wordingTabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                setActiveWordingTab(button.getAttribute('data-wording-tab'));
+            });
+        });
+
+        setActiveWordingTab(wordingTabInput?.value || 'general');
 
         document.querySelectorAll('input[data-preview-target]').forEach(input => {
             input.addEventListener('change', (event) => {

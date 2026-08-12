@@ -6,6 +6,7 @@
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
+$liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
 $user = auth()->user();
 $currentTab = request('tab', 'packages');
 
@@ -56,6 +57,12 @@ $assetUrl = function (?string $path) {
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'documents' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-text-line mr-1"></i>Dokumen
     </a>
+    @if($liveSessionAvailable)
+    <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'live-sessions'])) }}"
+       class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'live-sessions' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-live-line mr-1"></i>{{ $liveSessionLabel }}
+    </a>
+    @endif
     <a href="{{ route('user.package.my', array_merge(request()->only(['search', 'sort']), ['tab' => 'classes'])) }}"
        class="px-5 py-2.5 rounded-xl font-medium transition-all text-sm {{ $currentTab === 'classes' ? 'tab-active' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-video-on-line mr-1"></i>Kelas Zoom
@@ -157,11 +164,17 @@ $assetUrl = function (?string $path) {
             </div>
             
             <!-- Actions -->
-            <a href="{{ route('user.package.show', $package->package_id) }}" 
-               class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity mt-auto"
-               style="background-color: {{ $primaryColor }}">
-                <i class="ri-play-circle-line mr-1"></i>Lanjutkan Belajar
-            </a>
+            <div class="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <a href="{{ route('user.package.show', $package->package_id) }}"
+                   class="block w-full py-2.5 text-white text-center rounded-xl font-medium hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $primaryColor }}">
+                    <i class="ri-play-circle-line mr-1"></i>Belajar
+                </a>
+                <a href="{{ route('user.class-schedule.index', ['package_id' => $package->package_id, 'period' => 'all']) }}"
+                   class="block w-full rounded-xl border border-primary px-3 py-2.5 text-center text-sm font-semibold text-primary hover:bg-primary/5">
+                    <i class="ri-calendar-2-line mr-1"></i>Jadwal
+                </a>
+            </div>
             </div>
         </div>
         @endforeach
@@ -294,6 +307,53 @@ $assetUrl = function (?string $path) {
         <a href="{{ route('user.package.index') }}" class="inline-flex items-center px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
             <i class="ri-store-3-line mr-2"></i>Lihat Paket
         </a>
+    </div>
+    @endif
+
+{{-- ==================== TAB: LIVE SESSIONS ==================== --}}
+@elseif($currentTab === 'live-sessions')
+    @if($liveSessionMaterials->count() > 0)
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach($liveSessionMaterials as $material)
+        @php
+        $userAccess = $material->userAccess->first();
+        @endphp
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col h-full">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100 text-purple-600 overflow-hidden">
+                    @if($material->thumbnail_url)
+                    <img src="{{ $material->thumbnail_url }}" alt="{{ $material->title }}" loading="lazy" decoding="async" width="96" height="96" class="w-full h-full object-cover">
+                    @else
+                    <i class="ri-live-line text-xl"></i>
+                    @endif
+                </div>
+                @if($userAccess?->is_completed)
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Sudah diikuti</span>
+                @elseif($userAccess?->is_in_progress)
+                <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">Akses aktif</span>
+                @else
+                <span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">{{ $liveSessionLabel }}</span>
+                @endif
+            </div>
+
+            <h3 class="font-bold text-gray-800 mb-2 line-clamp-2">{{ $material->title }}</h3>
+            <p class="text-sm text-gray-400 line-clamp-2 mb-5">{{ $material->description ?? 'Kelas online interaktif' }}</p>
+
+            <a href="{{ route('user.material.show', $material->material_id) }}"
+               class="block w-full py-2.5 text-white text-center rounded-xl text-sm font-medium hover:opacity-90 transition-opacity mt-auto"
+               style="background-color: {{ $primaryColor }}">
+                <i class="ri-live-line mr-1"></i>{{ $userAccess?->is_completed ? 'Lihat Lagi' : 'Ikuti Kelas' }}
+            </a>
+        </div>
+        @endforeach
+    </div>
+    @else
+    <div class="text-center py-16">
+        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="ri-live-line text-4xl text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada {{ strtolower($liveSessionLabel) }}</h3>
+        <p class="text-gray-400 text-sm">{{ $liveSessionLabel }} akan muncul di sini setelah kamu memiliki akses.</p>
     </div>
     @endif
 

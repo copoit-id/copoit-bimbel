@@ -3,10 +3,17 @@ $user = auth()->user();
 $currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
+$bimbelNavLabel = $clientBranding['bimbel_nav_label'] ?? 'Bimbel';
+$materialNavLabel = $clientBranding['material_nav_label'] ?? 'Kelas & Materi';
+$packageNavLabel = $clientBranding['package_nav_label'] ?? 'Paket Belajar';
+$tryoutNavLabel = $clientBranding['tryout_nav_label'] ?? 'Ujian & Try Out';
 $planModules = app(\App\Services\PlanModuleService::class);
 $canShowDashboard = $planModules->allows('dashboard');
 $canShowProfile = $planModules->allows('profile');
 $canShowPackage = $planModules->allows('package');
+$canShowSchedule = $user
+    && $planModules->allows('schedule')
+    && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
 $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
     && $planModules->allows('booking')
     && \Illuminate\Support\Facades\Route::has('user.booking.index');
@@ -16,14 +23,30 @@ $canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? fals
 $canShowMaterial = $planModules->allows('material');
 $canShowTryout = $planModules->allows('tryout');
 $canShowTesKoran = $planModules->allows('tes_koran');
-$canShowAiLearning = $planModules->allows('ai_learning');
+$canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
+    && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
+$canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
 $tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTesKoran;
 $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
     && $planModules->allows('affiliate')
     && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
-$canShowBimbel = $canShowPackage || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
+$canUseTutorChat = $user
+    && ! $user->isTutor()
+    && (bool) ($clientBranding['tutor_chat_enabled'] ?? false)
+    && $planModules->allows('discussion')
+    && \Illuminate\Support\Facades\Route::has('user.chat.schedule.show');
+$tutorChatService = $canUseTutorChat ? app(\App\Services\TutorChatService::class) : null;
+$tutorChatContacts = $tutorChatService
+    ? $tutorChatService->chatContactsForStudent($user)
+    : collect();
+$canShowTutorChat = $tutorChatContacts->isNotEmpty();
+$tutorChatUnreadCount = $canShowTutorChat
+    ? $tutorChatService->unreadCountFor($user)
+    : 0;
+$canShowBimbel = $canShowPackage || $canShowSchedule || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
 $bimbelUrl = match (true) {
     $canShowPackage => route('user.package.index'),
+    $canShowSchedule => route('user.class-schedule.index'),
     $canShowBooking => route('user.booking.index'),
     $canShowLearningProgress => route('user.development.index'),
     $canShowMaterial => route('user.material.index'),
@@ -38,6 +61,7 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.tes-kecermatan', $currentRoute)
     || isActive('user.booking', $currentRoute)
     || isActive('user.development', $currentRoute)
+    || isActive('user.class-schedule', $currentRoute)
     || $currentRoute === 'user.package.index'
     || isActive('user.ai-gateway', $currentRoute);
 
@@ -47,6 +71,9 @@ function isActive($route, $current) {
 @endphp
 
 <style>
+[x-cloak] {
+    display: none !important;
+}
 .nav-item-active {
     background-color: {{ $primaryColor }}15 !important;
     color: {{ $primaryColor }} !important;
@@ -160,19 +187,22 @@ function isActive($route, $current) {
                 
                 @if($canShowBimbel)
                 <div class="relative group">
-                    <a href="{{ $bimbelUrl }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>Bimbel<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
+                    <a href="{{ $bimbelUrl }}" class="flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $bimbelActive ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}"><i class="ri-graduation-cap-line mr-1.5 {{ $bimbelActive ? '' : 'text-gray-400' }}"></i>{{ $bimbelNavLabel }}<i class="ri-arrow-down-s-line ml-1 text-gray-400"></i></a>
                     <div class="dropdown-menu min-w-52">
                         @if($canShowMaterial)
-                        <div class="dropdown-submenu"><a href="{{ route('user.material.index') }}" class="dropdown-item justify-between {{ isActive('user.material', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-book-open-line"></i>Materi</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.material.index') }}" class="dropdown-item">Semua Materi</a><a href="{{ route('user.material.videos') }}" class="dropdown-item">Video</a><a href="{{ route('user.material.documents') }}" class="dropdown-item">Dokumen</a>@if($liveSessionAvailable)<a href="{{ route('user.material.live-sessions') }}" class="dropdown-item">{{ $liveSessionLabel }}</a>@endif</div></div>
+                        <div class="dropdown-submenu"><a href="{{ route('user.material.index') }}" class="dropdown-item justify-between {{ isActive('user.material', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-book-open-line"></i>{{ $materialNavLabel }}</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.material.index') }}" class="dropdown-item">Semua Materi</a><a href="{{ route('user.material.videos') }}" class="dropdown-item">Video</a><a href="{{ route('user.material.documents') }}" class="dropdown-item">Dokumen</a>@if($liveSessionAvailable)<a href="{{ route('user.material.live-sessions') }}" class="dropdown-item">{{ $liveSessionLabel }}</a>@endif</div></div>
                         @endif
                         @if($canShowTryout)
-                        <div class="dropdown-submenu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item justify-between {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.tes-kecermatan', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-file-list-3-line"></i>Tryout</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item">Daftar Tryout</a>
+                        <div class="dropdown-submenu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item justify-between {{ isActive('user.tryout', $currentRoute) || isActive('user.package.tryout', $currentRoute) || isActive('user.tes-koran', $currentRoute) || isActive('user.tes-kecermatan', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-file-list-3-line"></i>{{ $tryoutNavLabel }}</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu"><a href="{{ route('user.package.tryout.list') }}" class="dropdown-item">Daftar Tryout</a>
                             @if($tesKoranEnabled)<a href="{{ route('user.tes-koran.index') }}" class="dropdown-item">Tes Koran</a>@endif
                             @if($canShowTesKoran && \Illuminate\Support\Facades\Route::has('user.tes-kecermatan.index'))<a href="{{ route('user.tes-kecermatan.index') }}" class="dropdown-item">Tes Kecermatan</a>@endif
                         </div></div>
                         @endif
                         @if($canShowPackage || $canShowAiLearning)
-                        <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>Paket</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
+                        <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>{{ $packageNavLabel }}</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
+                        @endif
+                        @if($canShowSchedule)
+                        <a href="{{ route('user.class-schedule.index') }}" class="dropdown-item {{ isActive('user.class-schedule', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-2-line"></i>Jadwal Kelas</a>
                         @endif
                         @if($user && $canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item {{ isActive('user.booking', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-schedule-line"></i>Booking Jadwal</a>
@@ -203,6 +233,11 @@ function isActive($route, $current) {
                         <a href="{{ route('user.package.my') }}?tab=packages" class="dropdown-item">
                             <i class="ri-folder-3-line"></i>Daftar Paket
                         </a>
+                        @if($canShowSchedule)
+                        <a href="{{ route('user.class-schedule.index') }}" class="dropdown-item">
+                            <i class="ri-calendar-2-line"></i>Jadwal Kelas
+                        </a>
+                        @endif
                         @if($canShowBooking)
                         <a href="{{ route('user.booking.index') }}" class="dropdown-item">
                             <i class="ri-calendar-schedule-line"></i>Booking Jadwal
@@ -230,6 +265,12 @@ function isActive($route, $current) {
                         @endif
                     </div>
                 </div>
+                @endif
+                @if($canShowTutorChat)
+                    @include('user.components.tutor-chat-drawer', [
+                        'chatContacts' => $tutorChatContacts,
+                        'unreadCount' => $tutorChatUnreadCount,
+                    ])
                 @endif
             </div>
             
@@ -309,7 +350,60 @@ function isActive($route, $current) {
 </nav>
 
 <!-- Mobile Menu (fixed bottom) -->
-<div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
+<div class="md:hidden fixed bottom-0 left-0 right-0 z-50" x-data="{ bimbelOpen: false }">
+    @if($canShowBimbel)
+    <div
+        x-cloak
+        x-show="bimbelOpen"
+        x-transition:enter="transition ease-out duration-150"
+        x-transition:enter-start="translate-y-2 opacity-0"
+        x-transition:enter-end="translate-y-0 opacity-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="translate-y-0 opacity-100"
+        x-transition:leave-end="translate-y-2 opacity-0"
+        class="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+        <div class="flex items-center justify-between px-3 py-2">
+            <span class="text-sm font-semibold text-gray-800">Menu {{ $bimbelNavLabel }}</span>
+            <button type="button" @click="bimbelOpen = false" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100" aria-label="Tutup menu {{ $bimbelNavLabel }}">
+                <i class="ri-close-line text-lg"></i>
+            </button>
+        </div>
+        <div class="grid grid-cols-2 gap-1">
+            @if($canShowMaterial)
+            <a href="{{ route('user.material.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-book-open-line text-lg text-gray-400"></i>{{ $materialNavLabel }}
+            </a>
+            @endif
+            @if($canShowTryout)
+            <a href="{{ route('user.package.tryout.list') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-file-list-3-line text-lg text-gray-400"></i>{{ $tryoutNavLabel }}
+            </a>
+            @endif
+            @if($canShowPackage)
+            <a href="{{ route('user.package.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-store-3-line text-lg text-gray-400"></i>{{ $packageNavLabel }}
+            </a>
+            @endif
+            @if($canShowSchedule)
+            <a href="{{ route('user.class-schedule.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-calendar-2-line text-lg text-gray-400"></i>Jadwal Kelas
+            </a>
+            @endif
+            @if($user && $canShowBooking)
+            <a href="{{ route('user.booking.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-calendar-schedule-line text-lg text-gray-400"></i>Booking
+            </a>
+            @endif
+            @if($user && $canShowLearningProgress)
+            <a href="{{ route('user.development.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <i class="ri-line-chart-line text-lg text-gray-400"></i>Perkembangan
+            </a>
+            @endif
+        </div>
+    </div>
+    @endif
+
+    <div class="bg-white border-t border-gray-100">
     <div class="flex justify-around py-2">
         @if($canShowDashboard)
         <a href="{{ route('user.dashboard.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.dashboard', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.dashboard', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
@@ -319,10 +413,10 @@ function isActive($route, $current) {
         @endif
         
         @if($canShowBimbel)
-        <a href="{{ $bimbelUrl }}" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
+        <button type="button" @click="bimbelOpen = !bimbelOpen" :aria-expanded="bimbelOpen.toString()" class="flex flex-col items-center p-2 {{ $bimbelActive ? '' : 'text-gray-400' }}" style="{{ $bimbelActive ? 'color: ' . $primaryColor : '' }}">
             <i class="ri-graduation-cap-line text-xl"></i>
-            <span class="text-xs mt-0.5">Bimbel</span>
-        </a>
+            <span class="text-xs mt-0.5">{{ $bimbelNavLabel }}</span>
+        </button>
         @endif
         @if($user && $canShowAiLearning)
         <a href="{{ route('user.ai-learning.index') }}" class="flex flex-col items-center p-2 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}" style="{{ isActive('user.ai-learning', $currentRoute) ? 'color: ' . $primaryColor : '' }}">
@@ -342,5 +436,6 @@ function isActive($route, $current) {
             <span class="text-xs mt-0.5">Masuk</span>
         </a>
         @endif
+    </div>
     </div>
 </div>

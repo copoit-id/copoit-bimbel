@@ -162,7 +162,7 @@
                                         <span>{{ $schedule->packages->pluck('name')->join(', ') }}</span>
                                     </span>
                                 @endif
-                                <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                <?php $tentorName = $schedule->tentor?->name; ?>
                                 @if($tentorName)
                                     <span class="text-[11px] text-gray-500 flex items-center gap-1">
                                         <i class="ri-user-star-line"></i>
@@ -174,7 +174,7 @@
                             <!-- Actions -->
                             <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2 text-xs">
                                 <div class="flex items-center gap-1.5">
-                                    @if($canUseClass)
+                                    @if($canUseAttendance)
                                         <a href="{{ route('admin.class-schedules.show', $schedule) }}"
                                             class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
                                             title="Absensi" aria-label="Absensi">
@@ -245,7 +245,7 @@
                                 @endif
                                 <td class="px-4 py-3">
                                     <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
-                                    <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                    <?php $tentorName = $schedule->tentor?->name; ?>
                                     @if($tentorName)
                                         <p class="text-xs text-gray-500">Tutor: {{ $tentorName }}</p>
                                     @endif
@@ -267,7 +267,7 @@
                                 <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-1.5">
-                                        @if($canUseClass)
+                                        @if($canUseAttendance)
                                             <a href="{{ route('admin.class-schedules.show', $schedule) }}"
                                                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
                                                 title="Absensi" aria-label="Absensi">

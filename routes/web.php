@@ -33,12 +33,12 @@ use App\Http\Controllers\admin\ProfileController;
 use App\Http\Controllers\admin\QuestionBankController;
 use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionImportController;
-use App\Http\Controllers\admin\TryoutAiQuestionGeneratorController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\StudyGroupController;
 use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
+use App\Http\Controllers\admin\TryoutAiQuestionGeneratorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\TutorPayrollController;
 use App\Http\Controllers\admin\UpdateNotificationController;
@@ -49,6 +49,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
+use App\Http\Controllers\parent\ParentPortalController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
@@ -122,7 +123,7 @@ Route::get('/live-score/{tryout}', [LaporanController::class, 'publicLiveScore']
 // Authentication routes
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'authenticate'])->middleware('throttle:10,1')->name('login.authenticate');
+Route::post('/login', [AuthController::class, 'authenticate'])->middleware('throttle:login')->name('login.authenticate');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1')->name('register.store');
 
@@ -137,8 +138,30 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 // Route untuk logout as (admin kembali ke akun admin)
 Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth')->name('logout-as');
 
+// Parent portal: read-only access to students explicitly linked by Admin.
+Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'module:parent_portal', 'no-cache'])->group(function (): void {
+    Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
+    Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');
+    Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
+    Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');
+    Route::get('/laporan-cetak', [ParentPortalController::class, 'report'])->name('report');
+    Route::get('/chat-tutor', [ChatController::class, 'parentIndex'])->name('chat.index');
+    Route::get('/chat-tutor/anak/{child}/jadwal/{classSchedule}', [ChatController::class, 'parentShow'])->name('chat.schedule.show');
+    Route::get('/chat-tutor/conversations/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
+    Route::post('/chat-tutor/conversations/{conversation}/messages', [ChatController::class, 'store'])->middleware('throttle:60,1')->name('chat.messages.store');
+    Route::post('/chat-tutor/conversations/{conversation}/read', [ChatController::class, 'markRead'])->middleware('throttle:120,1')->name('chat.read');
+});
+
 // Public user routes (no auth required)
 Route::prefix('user')->group(function () {
+    Route::get('/network-ping', static fn () => response()
+        ->noContent()
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache'))
+        ->middleware('throttle:240,1')
+        ->name('user.network-ping');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('user.dashboard.index');
 
     // Public package listing (berbayar & gratis)
@@ -160,11 +183,15 @@ Route::prefix('user')->group(function () {
     Route::get('/tryout-list', [PackageController::class, 'listTryout'])->name('user.package.tryout.list');
 });
 
+Route::get('/chat/attachments/{message}', [ChatController::class, 'downloadAttachment'])
+    ->middleware('auth')
+    ->name('chat.attachments.download');
+
 // User routes (add auth middleware)
 Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('chat')->name('user.chat.')->group(function () {
-        Route::get('kelas/{class}', [ChatController::class, 'studentShow'])->name('class.show');
+        Route::get('jadwal/{classSchedule}', [ChatController::class, 'studentShow'])->name('schedule.show');
         Route::get('conversations/{conversation}/messages', [ChatController::class, 'messages'])->name('messages');
         Route::post('conversations/{conversation}/messages', [ChatController::class, 'store'])
             ->middleware('throttle:60,1')
@@ -194,10 +221,10 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-chat');
-        Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools/history', [AiLearningToolController::class, 'history'])->middleware('throttle:30,1')->name('user.package.tryout.pembahasan.ai-tools.history');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware('throttle:12,1')->name('user.package.tryout.pembahasan.ai-tools');
-        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->middleware('throttle:5,1')->name('user.package.tryout.pembahasan.ai-speech');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-chat');
+        Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools/history', [AiLearningToolController::class, 'history'])->middleware(['client-feature:ai-discussion', 'throttle:30,1'])->name('user.package.tryout.pembahasan.ai-tools.history');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-tools');
+        Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-speech', [PackageController::class, 'speakPembahasanAi'])->middleware(['client-feature:ai-discussion', 'throttle:5,1'])->name('user.package.tryout.pembahasan.ai-speech');
     });
 
     Route::get('/affiliate', [UserAffiliateController::class, 'index'])->name('user.affiliate.index');
@@ -213,30 +240,32 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::get('/bantuan', [HelpController::class, 'index'])->name('user.help.index');
     Route::get('/tagihan', [UserBillingController::class, 'index'])->name('user.billing.index');
-    Route::get('/paket-ai', [AiGatewaySubscriptionController::class, 'index'])->name('user.ai-gateway.index');
-    Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])
-        ->middleware('throttle:10,1')
-        ->name('user.ai-gateway.checkout');
-    Route::get('/ai-learning-tools', [AiLearningToolController::class, 'index'])->name('user.ai-learning.index');
-    Route::post('/ai-learning-tools/onboarding/skip', [AiLearningToolController::class, 'skipOnboarding'])
-        ->middleware('throttle:10,1')
-        ->name('user.ai-learning.onboarding.skip');
-    Route::post('/ai-learning-tools/generate', [AiLearningToolController::class, 'generateIndependent'])
-        ->middleware('throttle:12,1')
-        ->name('user.ai-learning.generate-independent');
-    Route::post('/catatan-ai/{artifact}/expand', [AiLearningToolController::class, 'expandNote'])
-        ->middleware('throttle:8,1')
-        ->name('user.ai-learning.notes.expand');
-    Route::get('/catatan-ai', [AiLearningToolController::class, 'notes'])->name('user.ai-learning.notes');
-    Route::post('/catatan-ai/{artifact}/save', [AiLearningToolController::class, 'save'])->middleware('throttle:30,1')->name('user.ai-learning.notes.save');
-    Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
-    Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
+    Route::middleware('client-feature:ai-discussion')->group(function (): void {
+        Route::get('/paket-ai', [AiGatewaySubscriptionController::class, 'index'])->name('user.ai-gateway.index');
+        Route::post('/paket-ai/checkout', [AiGatewaySubscriptionController::class, 'checkout'])
+            ->middleware('throttle:10,1')
+            ->name('user.ai-gateway.checkout');
+        Route::get('/ai-learning-tools', [AiLearningToolController::class, 'index'])->name('user.ai-learning.index');
+        Route::post('/ai-learning-tools/onboarding/skip', [AiLearningToolController::class, 'skipOnboarding'])
+            ->middleware('throttle:10,1')
+            ->name('user.ai-learning.onboarding.skip');
+        Route::post('/ai-learning-tools/generate', [AiLearningToolController::class, 'generateIndependent'])
+            ->middleware('throttle:12,1')
+            ->name('user.ai-learning.generate-independent');
+        Route::post('/catatan-ai/{artifact}/expand', [AiLearningToolController::class, 'expandNote'])
+            ->middleware('throttle:8,1')
+            ->name('user.ai-learning.notes.expand');
+        Route::get('/catatan-ai', [AiLearningToolController::class, 'notes'])->name('user.ai-learning.notes');
+        Route::post('/catatan-ai/{artifact}/save', [AiLearningToolController::class, 'save'])->middleware('throttle:30,1')->name('user.ai-learning.notes.save');
+        Route::get('/catatan-ai/{artifact}/pdf', [AiLearningToolController::class, 'exportPdf'])->middleware('throttle:10,1')->name('user.ai-learning.notes.pdf');
+        Route::delete('/catatan-ai/{artifact}', [AiLearningToolController::class, 'destroy'])->name('user.ai-learning.notes.destroy');
+    });
     Route::get('/jadwal-kelas', [UserClassScheduleController::class, 'index'])->name('user.class-schedule.index');
     Route::get('/perkembangan-belajar', [UserStudentDevelopmentController::class, 'index'])
         ->middleware('client-feature:learning-progress')
         ->name('user.development.index');
     Route::post('/jadwal-kelas/{session}/absen', [UserClassScheduleController::class, 'attend'])
-        ->middleware('module:class')
+        ->middleware('module:attendance')
         ->name('user.class-schedule.attend');
     Route::prefix('booking-jadwal')->name('user.booking.')->middleware('client-feature:schedule-booking')->group(function () {
         Route::get('/', [UserScheduleBookingController::class, 'index'])->name('index');
@@ -343,7 +372,13 @@ Route::prefix('user')->middleware('auth')->group(function () {
 });
 
 // Keep the former short URL working for existing bookmarks.
-Route::redirect('/tutor', '/tutor/jadwal-tutor');
+Route::redirect('/tutor', '/tutor/dashboard');
+
+// Tutor dashboard shares the same Admin panel shell as Tutor content such as
+// Bank Soal. Define this static route before the {portal}/dashboard route.
+Route::get('/tutor/dashboard', [TutorDashboardController::class, 'index'])
+    ->middleware(['auth', 'tutor', 'no-cache'])
+    ->name('tutor.dashboard');
 
 // Tutor portal: a Tutor may only access sessions assigned to their linked tentor profile.
 Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor', 'no-cache'])->group(function () {
@@ -356,7 +391,9 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     Route::post('chat/{conversation}/read', [ChatController::class, 'markRead'])
         ->middleware('throttle:120,1')
         ->name('chat.read');
-    Route::get('/', [TutorDashboardController::class, 'index'])->name('schedule.index');
+    // Legacy URL retained for existing links/bookmarks.
+    Route::redirect('dashboard', '/tutor/dashboard')->name('dashboard.legacy');
+    Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
     Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
     Route::prefix('booking')->name('booking.')->middleware('client-feature:schedule-booking')->group(function () {
@@ -380,7 +417,7 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
             ->middleware('throttle:30,1')
             ->name('progress.store');
     });
-    Route::middleware('module:class')->group(function () {
+    Route::middleware('module:attendance')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
         Route::get('absensi/jadwal/{classSchedule}', [TutorDashboardController::class, 'showAttendanceSchedule'])->name('attendance.schedule.show');
         Route::get('absensi/{session}', [TutorDashboardController::class, 'showSession'])->name('attendance.show');
@@ -405,6 +442,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
+    Route::patch('/admins/{admin}/extend', [SuperAdminController::class, 'extend'])->name('admins.extend');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
@@ -565,7 +603,7 @@ Route::prefix('{portal}')
         Route::put('/paket/{package_id}/tryout/{tryout_detail_id}/soal/{question_id}/update', [AdminPackageController::class, 'updateSoal'])->name('package.tryout.soal.update');
 
         // Question Management Routes
-        Route::prefix('soal')->name('question.')->group(function () {
+        Route::prefix('soal')->name('question.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}', [QuestionController::class, 'index'])->name('index');
             Route::get('/{tryout_detail_id}/tambah', [QuestionController::class, 'create'])->name('create');
             Route::post('/{tryout_detail_id}/store', [QuestionController::class, 'store'])->name('store');
@@ -579,7 +617,7 @@ Route::prefix('{portal}')
             Route::delete('/{tryout_detail_id}/{question_id}/destroy', [QuestionController::class, 'destroy'])->name('destroy');
         });
 
-        Route::prefix('bank-soal')->name('question-bank.')->group(function () {
+        Route::prefix('bank-soal')->name('question-bank.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/', [QuestionBankController::class, 'index'])->name('index');
             Route::post('/', [QuestionBankController::class, 'store'])->name('store');
 
@@ -610,19 +648,19 @@ Route::prefix('{portal}')
         });
 
         // Question Import Routes (separated)
-        Route::prefix('soal-import')->name('question-import.')->group(function () {
+        Route::prefix('soal-import')->name('question-import.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}/download-template', [QuestionImportController::class, 'downloadTemplate'])->name('download-template');
             Route::post('/{tryout_detail_id}/import', [QuestionImportController::class, 'import'])->name('import');
         });
 
-        Route::resource('tryout', AdminTryoutController::class);
-        Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->name('tryout.clone');
-        Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->name('tryout.preview');
-        Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->name('tryout.release-utbk');
-        Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->name('tryout.reset-utbk');
+        Route::resource('tryout', AdminTryoutController::class)->middleware('tutor-content-owner');
+        Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->middleware('tutor-content-owner')->name('tryout.clone');
+        Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->middleware('tutor-content-owner')->name('tryout.preview');
+        Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->middleware('tutor-content-owner')->name('tryout.release-utbk');
+        Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->middleware('tutor-content-owner')->name('tryout.reset-utbk');
 
         // Material Management Routes
-        Route::prefix('materi')->name('material.')->group(function () {
+        Route::prefix('materi')->name('material.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/', [MaterialManagementController::class, 'index'])->name('index');
             Route::get('/create', [MaterialManagementController::class, 'create'])->name('create');
             Route::post('/drive-title', [MaterialManagementController::class, 'driveTitle'])->name('drive-title');
@@ -674,10 +712,16 @@ Route::prefix('{portal}')
             ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->names('class-schedules')
             ->parameters(['jadwal-kelas' => 'classSchedule']);
-        Route::middleware('module:class')->group(function () {
-            Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])->name('class-schedules.show');
-            Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])->name('class-schedules.generate');
-            Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])->name('class-sessions.update');
+        Route::get('jadwal-kelas/{classSchedule}', [ClassScheduleController::class, 'show'])
+            ->middleware('module:attendance')
+            ->name('class-schedules.show');
+        Route::post('jadwal-kelas/{classSchedule}/generate', [ClassScheduleController::class, 'generate'])
+            ->middleware('module:schedule')
+            ->name('class-schedules.generate');
+        Route::put('sesi-kelas/{session}', [ClassScheduleController::class, 'updateSession'])
+            ->middleware('module:schedule')
+            ->name('class-sessions.update');
+        Route::middleware('module:attendance')->group(function () {
             Route::get('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'show'])->name('class-attendance.show');
             Route::post('sesi-kelas/{session}/absensi', [ClassAttendanceController::class, 'mark'])->name('class-attendance.mark');
             Route::post('sesi-kelas/{session}/absensi-tutor', [ClassAttendanceController::class, 'markTutor'])->name('class-attendance.tutor.mark');
@@ -690,6 +734,7 @@ Route::prefix('{portal}')
         Route::resource('certification', CertificationController::class);
         Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
         Route::get('/user/export/excel', [UserController::class, 'exportExcel'])->name('user.export-excel');
+        Route::get('/user/relationship-options', [UserController::class, 'searchRelationshipUsers'])->name('user.relationship-options');
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
@@ -751,6 +796,7 @@ Route::prefix('{portal}')
             Route::get('/{tryout}/proctoring-snapshots', [LaporanController::class, 'proctoringSnapshots'])->name('proctoring-snapshots');
             Route::delete('/{tryout}/proctoring-snapshots', [LaporanController::class, 'destroyAllProctoringSnapshots'])->name('proctoring-snapshots.destroy-all');
             Route::delete('/{tryout}/proctoring-snapshots/{snapshot}', [LaporanController::class, 'destroyProctoringSnapshot'])->name('proctoring-snapshots.destroy');
+            Route::get('/{tryout}/ranking', [LaporanController::class, 'ranking'])->name('ranking');
             Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
             Route::post('/{tryout}/attempt/{token}/reset', [LaporanController::class, 'resetAttempt'])->name('reset-attempt');
             Route::post('/{tryout}/user/{user}/add-time', [LaporanController::class, 'addTime'])->name('add-time');

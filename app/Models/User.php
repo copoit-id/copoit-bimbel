@@ -143,6 +143,20 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
+    public function children(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'parent_student', 'parent_id', 'child_id')
+            ->withPivot(['relationship', 'receive_notifications'])
+            ->withTimestamps();
+    }
+
+    public function parents(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'parent_student', 'child_id', 'parent_id')
+            ->withPivot(['relationship', 'receive_notifications'])
+            ->withTimestamps();
+    }
+
     public function tentorProfile(): HasOne
     {
         return $this->hasOne(Tentor::class, 'user_id');
@@ -321,6 +335,11 @@ class User extends Authenticatable
     public function isTutor(): bool
     {
         return $this->role === 'tutor';
+    }
+
+    public function isParent(): bool
+    {
+        return $this->role === 'parent';
     }
 
     public function hasPermission(string $feature, string $action): bool

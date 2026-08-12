@@ -24,6 +24,10 @@ class SettingController extends Controller
             'name' => config('app.name'),
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'bimbel_nav_label' => 'Bimbel',
+            'material_nav_label' => 'Kelas & Materi',
+            'package_nav_label' => 'Paket Belajar',
+            'tryout_nav_label' => 'Ujian & Try Out',
             'logo_url' => asset('img/logo/logo-copoit.png'),
             'favicon_url' => asset('img/logo/logo-copoit.png'),
             'primary_color' => '#1C3259',
@@ -97,6 +101,11 @@ class SettingController extends Controller
             'nama_bimbel' => ['required', 'string', 'max:255'],
             'faq_label' => ['required', 'string', 'max:80'],
             'live_session_label' => ['required', 'string', 'max:80'],
+            'bimbel_nav_label' => ['required', 'string', 'max:80'],
+            'material_nav_label' => ['required', 'string', 'max:80'],
+            'package_nav_label' => ['required', 'string', 'max:80'],
+            'tryout_nav_label' => ['required', 'string', 'max:80'],
+            'tutor_content_visibility' => ['nullable', 'in:shared,isolated'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             // SVG is executable XML in browsers. Do not place untrusted SVG
@@ -395,6 +404,13 @@ class SettingController extends Controller
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
         $validated['faq_label'] = trim((string) ($validated['faq_label'] ?? '')) ?: 'FAQ';
         $validated['live_session_label'] = trim((string) ($validated['live_session_label'] ?? '')) ?: 'Kelas Belajar';
+        $validated['bimbel_nav_label'] = trim((string) ($validated['bimbel_nav_label'] ?? '')) ?: 'Bimbel';
+        $validated['material_nav_label'] = trim((string) ($validated['material_nav_label'] ?? '')) ?: 'Kelas & Materi';
+        $validated['package_nav_label'] = trim((string) ($validated['package_nav_label'] ?? '')) ?: 'Paket Belajar';
+        $validated['tryout_nav_label'] = trim((string) ($validated['tryout_nav_label'] ?? '')) ?: 'Ujian & Try Out';
+        $validated['tutor_content_visibility'] = $validated['tutor_content_visibility']
+            ?? $profile->tutor_content_visibility
+            ?? 'shared';
         $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
         $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
         $validated['concurrent_login_limit'] = max(1, (int) ($validated['concurrent_login_limit'] ?? 1));
@@ -506,7 +522,8 @@ class SettingController extends Controller
         return redirect()
             ->route('admin.settings.index')
             ->with('success', 'Pengaturan berhasil diperbarui.')
-            ->with('active_tab', $request->input('settings_tab', 'identity'));
+            ->with('active_tab', $request->input('settings_tab', 'identity'))
+            ->with('active_wording_tab', $request->input('wording_tab', 'general'));
     }
 
     private function buildAiQuestionGeneratorSettings(Request $request, ClientProfile $profile): array

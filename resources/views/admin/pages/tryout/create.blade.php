@@ -6,6 +6,9 @@
     $utbkSingleTypes = $utbkSingleTypes ?? [];
     $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
     $tryoutTypeOptions = $tryoutTypeOptions ?? [];
+    $dynamicTryoutSubtests = collect($tryoutTypeOptions)
+        ->mapWithKeys(fn ($option, $type) => !empty($option['subtests']) ? [$type => $option['subtests']] : [])
+        ->all();
     $selectedTryoutType = old('type_tryout', $tryout->type_tryout ?? '');
     $storedScoringMethod = isset($tryout) ? ($tryout->scoring_method ?? null) : null;
     $storedScoringMethod = $storedScoringMethod === 'irt' ? 'irt_utbk' : $storedScoringMethod;
@@ -24,6 +27,8 @@
     $isCertificationChecked = $hasOldInput ? (bool) old('is_certification') : ($tryout->is_certification ?? false);
     $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
+    $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
+    $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
     $securityOptions = [
         'enable_anti_copy' => [
             'label' => 'Anti Copy Soal',
@@ -188,7 +193,7 @@
                         <input type="file" id="thumbnail" name="thumbnail" accept="image/*"
                             data-has-current="{{ isset($tryout) && filled($tryout->thumbnail_url) ? '1' : '0' }}"
                             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, GIF, atau WEBP. Maksimal 2MB.</p>
+                        <p class="mt-2 text-xs text-gray-500">Ukuran ideal: 1280 × 720 px (rasio 16:9). Format: JPG, PNG, GIF, atau WEBP. Maksimal 2MB.</p>
                     </div>
                 </div>
 
@@ -377,6 +382,54 @@
                         </span>
                     </label>
 
+                    <div class="rounded-xl border border-primary/15 bg-primary/5 p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <p class="text-sm font-semibold text-gray-800">Tampilan Nilai Peserta</p>
+                                    <x-ui.tooltip>Jika dimatikan, peserta tetap melihat status hasil tetapi tidak melihat angka nilai.</x-ui.tooltip>
+                                </div>
+                                <p class="mt-1 text-xs leading-relaxed text-gray-500">
+                                    Atur nilai apa yang muncul pada halaman hasil tryout peserta.
+                                </p>
+                            </div>
+
+                            <label class="flex shrink-0 cursor-pointer items-center gap-2">
+                                <span class="text-xs font-medium text-gray-600">Tampilkan</span>
+                                <input type="checkbox" id="show_result_scores" name="show_result_scores" value="1"
+                                    {{ $showResultScoresChecked ? 'checked' : '' }}
+                                    class="sr-only peer tryout-toggle-input">
+                                <span
+                                    class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                    <span
+                                        class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <fieldset id="resultScoreDisplayOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
+                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Jenis nilai yang ditampilkan</legend>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="result_score_display" value="total_and_subtest"
+                                        @checked($resultScoreDisplay === 'total_and_subtest') class="peer sr-only">
+                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
+                                        <span class="block font-semibold">Total + subtest</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Tampilkan nilai keseluruhan dan setiap subtest.</span>
+                                    </span>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="result_score_display" value="subtest_only"
+                                        @checked($resultScoreDisplay === 'subtest_only') class="peer sr-only">
+                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
+                                        <span class="block font-semibold">Subtest saja</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Sembunyikan nilai total, tampilkan nilai tiap subtest.</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
+                    </div>
+
                     <div class="md:col-span-2">
                         <label for="scoring_method" class="block text-sm font-medium text-gray-700 mb-2">
                             Metode Scoring
@@ -403,6 +456,49 @@
                 <!-- Dynamic Configuration Sections -->
                 <div class="border-t pt-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-4">Konfigurasi Subtest</h3>
+
+                    <!-- Dynamic Category Configuration -->
+                    <div id="dynamic_category_config" class="config-section hidden space-y-4">
+                        @foreach($dynamicTryoutSubtests as $type => $subtests)
+                            <div class="dynamic-category-card hidden" data-dynamic-category-card="{{ $type }}">
+                                <h4 class="font-medium text-gray-800">Konfigurasi {{ $tryoutTypeOptions[$type]['label'] ?? \Illuminate\Support\Str::headline($type) }}</h4>
+                                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    @foreach($subtests as $subtest)
+                                        @php
+                                            $subtestCode = $subtest['code'];
+                                            $subtestDetail = isset($tryout) ? $tryout->tryoutDetails->firstWhere('type_subtest', $subtestCode) : null;
+                                            $durationValue = old('duration_'.$subtestCode, $subtestDetail?->duration ?? 60);
+                                            $passingValue = old('passing_score_'.$subtestCode, $subtestDetail?->passing_score ?? 60);
+                                            $passingType = old('passing_type_'.$subtestCode, $subtestDetail?->passing_type ?? 'score');
+                                        @endphp
+                                        <div class="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                            <h5 class="font-medium text-sm text-gray-800">{{ $subtest['name'] }}</h5>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
+                                                <input type="number" name="duration_{{ $subtestCode }}" min="1" max="300"
+                                                    value="{{ $durationValue }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
+                                                <input type="number" name="passing_score_{{ $subtestCode }}" min="0" max="100" step="0.1"
+                                                    value="{{ $passingValue }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-gray-600 mb-1">Tipe Passing</label>
+                                                <select name="passing_type_{{ $subtestCode }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                                    <option value="score" @selected($passingType === 'score')>Skor</option>
+                                                    <option value="percentage" @selected($passingType === 'percentage')>Persentase</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
 
                     <!-- SKD Full Configuration -->
                     <!-- UTBK Full Configuration -->
@@ -959,6 +1055,7 @@
 <script>
     (function () {
   const utbkSingleTypeMap = @json(collect($utbkSingleTypes ?? [])->mapWithKeys(fn($config, $type) => [$type => $config['slug']])->toArray());
+  const dynamicTryoutSubtests = @json($dynamicTryoutSubtests);
   function setSectionEnabled(sectionEl, enabled) {
     if (!sectionEl) return;
     const fields = sectionEl.querySelectorAll('input, select, textarea, button');
@@ -981,8 +1078,11 @@
       const answerModeSelect = root.querySelector('#answer_persistence_mode');
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
+      const showResultScoresCheckbox = root.querySelector('#show_result_scores');
+      const resultScoreDisplayOptions = root.querySelector('#resultScoreDisplayOptions');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
+      const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
       if (!typeSelect || typeSelect.__tryoutBound) return;
 
     const configSectionMap = {
@@ -1013,6 +1113,19 @@
     Object.keys(utbkSingleTypeMap).forEach(type => {
       configSectionMap[type] = 'utbk_single_config';
     });
+    Object.keys(dynamicTryoutSubtests).forEach(type => {
+      configSectionMap[type] = 'dynamic_category_config';
+    });
+
+    function toggleDynamicCategoryCards(selectedType) {
+      dynamicCategoryCards.forEach(card => {
+        const isSelected = card.dataset.dynamicCategoryCard === selectedType;
+        card.classList.toggle('hidden', !isSelected);
+        card.querySelectorAll('input, select, textarea, button').forEach(field => {
+          field.disabled = !isSelected;
+        });
+      });
+    }
 
     function showConfigSection() {
       const selectedType = String(typeSelect.value || '').trim();
@@ -1033,6 +1146,7 @@
 
       syncScoringMethod(selectedType);
       toggleUtbkSingleCards(selectedType);
+      toggleDynamicCategoryCards(selectedType);
     }
 
     function syncScoringMethod(selectedType) {
@@ -1197,12 +1311,17 @@
       }
     }
 
+    function syncResultScoreDisplay() {
+      resultScoreDisplayOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
+    }
+
     window.__tryoutChange = function () {
       showConfigSection();
       updateFieldNames();
       syncAllPassingScoreLimits();
       syncAnswerPersistenceAvailability();
       syncUserCardDisplay();
+      syncResultScoreDisplay();
     };
 
     window.__tryoutChange();
@@ -1220,6 +1339,10 @@
 
       if (event.target && event.target.matches('input[name="user_card_display"]')) {
         syncUserCardDisplay();
+      }
+
+      if (event.target && event.target.matches('#show_result_scores')) {
+        syncResultScoreDisplay();
       }
     });
     bindPassingScoreInputs();

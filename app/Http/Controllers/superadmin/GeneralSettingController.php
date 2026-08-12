@@ -34,7 +34,7 @@ class GeneralSettingController extends Controller
         $aiModelPricings = AiModelPricing::query()
             ->orderBy('model')
             ->get()
-            ->keyBy(fn (AiModelPricing $pricing): string => $pricing->provider . ':' . $pricing->model);
+            ->keyBy(fn (AiModelPricing $pricing): string => $pricing->provider.':'.$pricing->model);
 
         return view('super-admin.general-settings.edit', compact(
             'pages', 'clientProfile', 'aiDiscussionModels', 'availableModels', 'aiModelPricings', 'activeSettingsTab'
@@ -111,11 +111,11 @@ class GeneralSettingController extends Controller
             'ai_gateway_telegram_message_thread_id' => ['nullable', 'integer', 'min:1'],
             'ai_gateway_telegram_notify_free' => ['nullable', 'boolean'],
             'ai_gateway_telegram_notify_paid' => ['nullable', 'boolean'],
-            'class_schedule_menu_enabled' => ['nullable', 'boolean'],
             'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
             'tutor_chat_enabled' => ['nullable', 'boolean'],
             'booking_schedule_enabled' => ['nullable', 'boolean'],
             'learning_progress_enabled' => ['nullable', 'boolean'],
+            'tutor_content_enabled' => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($validated, $request, $profile, $settingsTab): void {
@@ -133,11 +133,11 @@ class GeneralSettingController extends Controller
                 $profile->update([
                     'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
                     'live_session_enabled' => $request->boolean('live_session_enabled'),
-                    'class_schedule_menu_enabled' => $request->boolean('class_schedule_menu_enabled'),
                     'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
                     'tutor_chat_enabled' => $request->boolean('tutor_chat_enabled'),
                     'booking_schedule_enabled' => $request->boolean('booking_schedule_enabled'),
                     'learning_progress_enabled' => $request->boolean('learning_progress_enabled'),
+                    'tutor_content_enabled' => $request->boolean('tutor_content_enabled'),
                 ]);
             }
 
@@ -311,7 +311,7 @@ class GeneralSettingController extends Controller
         }
 
         $baseUrl = rtrim(trim((string) ($provider['base_url'] ?? config('services.openai.base_url'))), '/');
-        $cacheKey = 'openai-discussion-models:v2:' . hash('sha256', $baseUrl . '|' . $apiKey);
+        $cacheKey = 'openai-discussion-models:v2:'.hash('sha256', $baseUrl.'|'.$apiKey);
         $cachedModels = Cache::get($cacheKey);
 
         if (is_array($cachedModels)) {
@@ -322,7 +322,7 @@ class GeneralSettingController extends Controller
             $response = Http::acceptJson()
                 ->withToken($apiKey)
                 ->timeout(8)
-                ->get($baseUrl . '/models');
+                ->get($baseUrl.'/models');
         } catch (\Throwable) {
             return [];
         }
@@ -338,7 +338,7 @@ class GeneralSettingController extends Controller
             ->values()
             ->map(fn (string $id) => [
                 'id' => $id,
-                'label' => 'OpenAI - ' . $id,
+                'label' => 'OpenAI - '.$id,
                 'provider' => 'openai',
             ])
             ->all();
@@ -406,7 +406,7 @@ class GeneralSettingController extends Controller
             ->pluck('model')
             ->map(fn (string $model) => [
                 'id' => $model,
-                'label' => 'OpenAI - ' . $model,
+                'label' => 'OpenAI - '.$model,
                 'provider' => 'openai',
             ]);
 
@@ -432,7 +432,7 @@ class GeneralSettingController extends Controller
 
         if ($apiKey !== '') {
             $baseUrl = rtrim(trim((string) ($provider['base_url'] ?? config('services.gemini.base_url'))), '/');
-            $cacheKey = 'gemini-discussion-models:v2:' . hash('sha256', $baseUrl . '|' . $apiKey);
+            $cacheKey = 'gemini-discussion-models:v2:'.hash('sha256', $baseUrl.'|'.$apiKey);
             $cachedModels = Cache::get($cacheKey);
 
             if (is_array($cachedModels)) {
@@ -442,7 +442,7 @@ class GeneralSettingController extends Controller
                     $response = Http::acceptJson()
                         ->timeout(8)
                         ->withQueryParameters(['key' => $apiKey])
-                        ->get($baseUrl . '/models');
+                        ->get($baseUrl.'/models');
                 } catch (\Throwable) {
                     $response = null;
                 }
@@ -457,7 +457,7 @@ class GeneralSettingController extends Controller
                         ->values()
                         ->map(fn (string $id): array => [
                             'id' => $id,
-                            'label' => 'Gemini - ' . $id,
+                            'label' => 'Gemini - '.$id,
                             'provider' => 'gemini',
                         ])
                         ->all();
@@ -484,7 +484,7 @@ class GeneralSettingController extends Controller
             ->pluck('model')
             ->map(fn (string $model): array => [
                 'id' => $model,
-                'label' => 'Gemini - ' . $model,
+                'label' => 'Gemini - '.$model,
                 'provider' => 'gemini',
             ]);
 

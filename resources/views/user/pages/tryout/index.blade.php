@@ -2,6 +2,9 @@
 @section('title', 'Tryout - Soal ' . $number)
 @section('content')
     <div id="tryoutPage" class="min-h-screen bg-gray-50 pt-16 {{ $effectiveProctoringSettings['enable_anti_copy'] ? 'select-none' : '' }}"
+        data-total-questions="{{ $totalQuestions }}"
+        data-rendered-question-count="{{ $renderedQuestions->count() }}"
+        data-combined-subtest-view="{{ ($isCombinedSubtestView ?? false) ? '1' : '0' }}"
         @if($effectiveProctoringSettings['enable_anti_copy']) oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false" @endif>
         <div class="max-w-7xl mx-auto py-2 sm:px-4 sm:py-6">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -25,9 +28,9 @@
 
                         <!-- Questions Loop -->
                         <div id="questions-container">
-                            @foreach ($allQuestions as $index => $q)
+                            @foreach ($renderedQuestions as $q)
                                 @php
-                                    $qNum = $index + 1;
+                                    $qNum = (int) $q->tryout_number;
                                     $userAnswerDetail = $allAnswerDetails->get($q->question_id);
                                     $rawQuestionType = $q->question_type ?? 'multiple_choice';
                                     $qType =
@@ -253,7 +256,6 @@
                                     <input type="hidden" name="attempt_token" value="{{ $attemptToken }}">
                                     <input type="hidden" name="current_question_number" id="currentQuestionNumberInput" value="{{ $number }}">
                                     <button type="submit"
-                                        onclick="return confirm('Apakah Anda yakin ingin menyelesaikan tryout ini?')"
                                         class="px-5 sm:px-6 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors">
                                         <i class="ri-check-line mr-2"></i>Selesai
                                     </button>
@@ -319,7 +321,6 @@
                         <button type="submit"
                             id="sidebarFinishButton"
                             form="finishForm"
-                            onclick="return confirm('Apakah Anda yakin ingin mengakhiri ujian ini? Jawaban yang sudah terisi akan disubmit.')"
                             class="w-full mb-6 rounded-lg border border-primary bg-white px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white {{ !($isCombinedSubtestView ?? false) && $number < $totalQuestions ? 'hidden' : '' }}">
                             <i class="ri-check-line mr-2"></i>Akhiri Ujian
                         </button>
@@ -347,21 +348,14 @@
                             </div>
                         </div>
                     </div>
-                    <!-- SKD Progress (if multiple subtests) -->
+                    <!-- Subtest Progress (if multiple subtests) -->
                     @if (isset($subtestInfo) && count($subtestInfo) > 1 && !($isCombinedSubtestView ?? false))
-                        @php
-                            $usesIrtScoring =
-                                isset($tryout) &&
-                                method_exists($tryout, 'requiresIrtScoring') &&
-                                $tryout->requiresIrtScoring();
-                            $subtestProgressTitle = $usesIrtScoring ? 'Progress IRT' : 'Progress SKD Full';
-                        @endphp
                         <div class="mb-6 p-4 bg-white border border-border mt-4 rounded-lg">
-                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                                <span class="text-sm font-medium text-gray-700">{{ $subtestProgressTitle }}</span>
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <span class="text-sm font-medium text-gray-700">Progress Subtest</span>
                                 <span class="text-sm text-gray-600">{{ count($subtestInfo) }} Subtest</span>
                             </div>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            <div class="space-y-3">
                                 @foreach ($subtestInfo as $index => $subtest)
                                     @php
                                         $isCurrentSubtest =
@@ -370,17 +364,24 @@
                                         $displayLabel =
                                             $subtest['alias'] ?? \Illuminate\Support\Str::limit($subtest['name'], 18);
                                     @endphp
-                                    <div class="text-center">
-                                        <div
-                                            class="w-9 h-9 rounded-full mx-auto mb-1 flex items-center justify-center text-sm font-semibold
-                                    {{ $isCompleted
-                                        ? 'bg-green text-white'
-                                        : ($isCurrentSubtest
-                                            ? 'bg-primary text-white'
-                                            : 'bg-gray-200 text-gray-600') }}">
-                                            {{ $index + 1 }}
+                                    <div class="w-full rounded-lg border border-gray-100 px-3 py-2.5">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold
+                                            {{ $isCompleted
+                                                ? 'bg-green text-white'
+                                                : ($isCurrentSubtest
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-gray-200 text-gray-600') }}">
+                                                {{ $index + 1 }}
+                                            </div>
+                                            <p class="min-w-0 flex-1 text-sm font-medium leading-tight text-gray-700">{{ $displayLabel }}</p>
+                                            @if ($isCompleted)
+                                                <i class="ri-check-line text-lg text-green" title="Selesai"></i>
+                                            @elseif ($isCurrentSubtest)
+                                                <span class="text-xs font-semibold text-primary">Berjalan</span>
+                                            @endif
                                         </div>
-                                        <p class="text-[11px] leading-tight text-gray-600">{{ $displayLabel }}</p>
                                         @if ($isCurrentSubtest)
                                             <div class="mt-2">
                                                 @php
@@ -423,6 +424,27 @@
                 class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
                 Saya Mengerti
             </button>
+        </div>
+    </div>
+
+    <div id="tryoutActionModal" class="fixed inset-0 hidden items-center justify-center bg-gray-950/80 px-4 backdrop-blur-sm"
+        style="z-index: 2147483647;" role="dialog" aria-modal="true" aria-labelledby="tryoutActionModalTitle">
+        <div class="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                <i id="tryoutActionModalIcon" class="ri-arrow-right-circle-line text-3xl text-primary"></i>
+            </div>
+            <h3 id="tryoutActionModalTitle" class="mb-2 text-lg font-bold text-gray-900"></h3>
+            <p id="tryoutActionModalMessage" class="text-sm leading-relaxed text-gray-600"></p>
+            <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+                <button type="button" id="tryoutActionModalCancel"
+                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
+                    Batal
+                </button>
+                <button type="button" id="tryoutActionModalConfirm"
+                    class="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
+                    Lanjutkan
+                </button>
+            </div>
         </div>
     </div>
 
@@ -541,8 +563,98 @@
             let lastTabSwitchTrackedAt = 0;
             let tabSwitchInFlight = false;
             let isLeavingTryout = false;
+            let actionModalHandler = null;
+            let actionModalBusy = false;
+            let finishSubmissionConfirmed = false;
             const proctoringStreams = {};
             const proctoringTimers = {};
+
+            function closeTryoutActionModal() {
+                const modal = document.getElementById('tryoutActionModal');
+                if (!modal) return;
+
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                actionModalHandler = null;
+                actionModalBusy = false;
+            }
+
+            function openTryoutActionModal({
+                title,
+                message,
+                confirmLabel,
+                showCancel = true,
+                icon = 'ri-arrow-right-circle-line',
+                onConfirm
+            }) {
+                const modal = document.getElementById('tryoutActionModal');
+                const titleElement = document.getElementById('tryoutActionModalTitle');
+                const messageElement = document.getElementById('tryoutActionModalMessage');
+                const iconElement = document.getElementById('tryoutActionModalIcon');
+                const cancelButton = document.getElementById('tryoutActionModalCancel');
+                const confirmButton = document.getElementById('tryoutActionModalConfirm');
+
+                if (!modal || !titleElement || !messageElement || !iconElement || !cancelButton || !confirmButton) {
+                    return;
+                }
+
+                titleElement.textContent = title;
+                messageElement.textContent = message;
+                iconElement.className = `${icon} text-3xl text-primary`;
+                confirmButton.textContent = confirmLabel;
+                confirmButton.disabled = false;
+                cancelButton.classList.toggle('hidden', !showCancel);
+                actionModalHandler = onConfirm;
+                actionModalBusy = false;
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                confirmButton.focus();
+            }
+
+            async function confirmTryoutActionModal() {
+                const confirmButton = document.getElementById('tryoutActionModalConfirm');
+                const cancelButton = document.getElementById('tryoutActionModalCancel');
+
+                if (!actionModalHandler || actionModalBusy) return;
+
+                actionModalBusy = true;
+                const confirmLabel = confirmButton?.textContent ?? '';
+                if (confirmButton) {
+                    confirmButton.disabled = true;
+                    confirmButton.textContent = 'Memproses...';
+                }
+                if (cancelButton) cancelButton.disabled = true;
+
+                try {
+                    const shouldClose = await actionModalHandler();
+                    if (shouldClose !== false) {
+                        closeTryoutActionModal();
+                    }
+                } finally {
+                    const modal = document.getElementById('tryoutActionModal');
+                    if (modal?.classList.contains('flex')) {
+                        actionModalBusy = false;
+                        if (confirmButton) {
+                            confirmButton.disabled = false;
+                            confirmButton.textContent = confirmLabel;
+                        }
+                        if (cancelButton) cancelButton.disabled = false;
+                    }
+                }
+            }
+
+            function setupTryoutActionModal() {
+                const cancelButton = document.getElementById('tryoutActionModalCancel');
+                const confirmButton = document.getElementById('tryoutActionModalConfirm');
+
+                cancelButton?.addEventListener('click', function() {
+                    if (!actionModalBusy) closeTryoutActionModal();
+                });
+                confirmButton?.addEventListener('click', confirmTryoutActionModal);
+            }
+
+            setupTryoutActionModal();
 
             // Sync server answers into local cache if not present or older
             Object.values(allServerAnswers).forEach(ans => {
@@ -1002,6 +1114,28 @@
                 goToQuestion(currentNumber - 1);
             };
 
+            async function transitionToNextSubtest(detailId, nextQuestionNumber) {
+                // Navigation away from this page intentionally changes visibility. Mark it first so the
+                // anti-tab-switch guard does not record a false violation during the transition/break page.
+                isLeavingTryout = true;
+
+                if (answerPersistenceMode === 'hybrid_subtest') {
+                    showSaveIndicator(true, 'Menyinkronkan subtest...');
+                    try {
+                        await flushSubtestAnswers(detailId);
+                    } catch (e) {
+                        isLeavingTryout = false;
+                        showSaveIndicator(false, e.message);
+                        return false;
+                    }
+                }
+
+                // Use assign so this works consistently when the transition was triggered by the
+                // mandatory timeout modal as well as by the normal next-question button.
+                window.location.assign(baseUrlTemplate.replace(':num', nextQuestionNumber));
+                return true;
+            }
+
             window.nextQuestion = async function() {
                 const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
                 const detailId = wrapper.dataset.subtestDetailId;
@@ -1013,22 +1147,12 @@
                 const hasNextSubtest = (currentRangeIdx < subtestRanges.length - 1);
 
                 if (!isCombinedSubtestView && isLastOfSubtest && hasNextSubtest) {
-                    const ok = confirm(
-                        "Anda akan beralih ke subtest berikutnya. Jawaban subtest ini akan dikunci. Lanjutkan?"
-                    );
-                    if (!ok) return;
-
-                    if (answerPersistenceMode === 'hybrid_subtest') {
-                        showSaveIndicator(true, 'Menyinkronkan subtest...');
-                        try {
-                            await flushSubtestAnswers(detailId);
-                        } catch (e) {
-                            showSaveIndicator(false, e.message);
-                            return;
-                        }
-                    }
-
-                    window.location.href = baseUrlTemplate.replace(':num', currentNumber + 1);
+                    openTryoutActionModal({
+                        title: 'Beralih ke Subtest Berikutnya?',
+                        message: 'Jawaban pada subtest ini akan dikunci. Pastikan jawaban Anda sudah sesuai sebelum melanjutkan.',
+                        confirmLabel: 'Ya, Lanjutkan',
+                        onConfirm: () => transitionToNextSubtest(detailId, currentNumber + 1)
+                    });
                 } else {
                     goToQuestion(currentNumber + 1);
                 }
@@ -1311,9 +1435,27 @@
                 return data;
             };
 
+            const finishForm = document.getElementById('finishForm');
             const finishButton = document.querySelector('#finishForm button[type="submit"]');
-            if (finishButton) {
-                finishButton.parentElement.addEventListener('submit', function() {
+
+            if (finishForm) {
+                finishForm.addEventListener('submit', function(event) {
+                    if (!finishSubmissionConfirmed) {
+                        event.preventDefault();
+                        openTryoutActionModal({
+                            title: 'Akhiri Tryout?',
+                            message: 'Jawaban yang sudah terisi akan dikirim dan tryout tidak dapat dilanjutkan.',
+                            confirmLabel: 'Ya, Akhiri',
+                            icon: 'ri-checkbox-circle-line',
+                            onConfirm: () => {
+                                finishSubmissionConfirmed = true;
+                                finishForm.requestSubmit();
+                                return true;
+                            }
+                        });
+                        return;
+                    }
+
                     isLeavingTryout = true;
                     capturePendingTextAnswers();
                     const unsynced = Object.values(answerCache).filter(a => !a.synced);
@@ -1434,29 +1576,39 @@
                         const hasNextSubtest = currentRangeIdx < subtestRanges.length - 1;
 
                         if (currentRange && hasNextSubtest) {
-                            alert("Waktu subtest habis. Anda akan diarahkan ke subtest berikutnya.");
-
-                            if (answerPersistenceMode === 'hybrid_subtest') {
-                                const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
-                                const detailId = wrapper?.dataset.subtestDetailId;
-                                if (detailId) {
-                                    try {
-                                        await flushSubtestAnswers(detailId);
-                                    } catch (e) {
-                                        showSaveIndicator(false, e.message);
+                            openTryoutActionModal({
+                                title: 'Waktu Subtest Habis',
+                                message: 'Waktu untuk subtest ini sudah selesai. Lanjutkan ke subtest berikutnya.',
+                                confirmLabel: 'Lanjutkan',
+                                showCancel: false,
+                                icon: 'ri-time-line',
+                                onConfirm: async () => {
+                                    const moved = await transitionToNextSubtest(
+                                        currentRange.tryout_detail_id,
+                                        currentRange.end_number + 1
+                                    );
+                                    if (!moved) {
                                         isHandlingTimeout = false;
-                                        return;
                                     }
+                                    return moved;
                                 }
-                            }
-
-                            window.location.href = baseUrlTemplate.replace(':num', currentRange.end_number + 1);
+                            });
                             return;
                         }
                     }
 
-                    alert("Waktu habis!");
-                    finishButton.click();
+                    openTryoutActionModal({
+                        title: 'Waktu Tryout Habis',
+                        message: 'Waktu pengerjaan telah berakhir. Jawaban yang sudah terisi akan dikirim sekarang.',
+                        confirmLabel: 'Kirim Jawaban',
+                        showCancel: false,
+                        icon: 'ri-time-line',
+                        onConfirm: () => {
+                            finishSubmissionConfirmed = true;
+                            finishForm?.requestSubmit();
+                            return true;
+                        }
+                    });
                 }
 
                 const interval = setInterval(() => {

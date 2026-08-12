@@ -24,6 +24,13 @@
 
         <div class="grid gap-5 md:grid-cols-2" x-data="{
             scheduleType: @js(old('schedule_type', 'recurring')),
+            startDate: @js(old('start_date', now()->toDateString())),
+            dayOfWeek: Number(@js(old('day_of_week', $preselectedDay))),
+            syncDayToStartDate() {
+                if (this.scheduleType !== 'recurring' || !this.startDate) return;
+                const day = new Date(`${this.startDate}T12:00:00`).getDay();
+                this.dayOfWeek = day === 0 ? 7 : day;
+            },
             allowCustom: {{ $bookingScheduleEnabled && old('allow_custom_booking', false) ? 'true' : 'false' }}
         }">
             <!-- Nama Jadwal -->
@@ -67,7 +74,7 @@
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Tutor</label>
                 <select name="tentor_id" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="">Ikuti Tutor dari rombel</option>
+                    <option value="">Belum ditetapkan</option>
                     @foreach($tentors as $tentor)
                         <option value="{{ $tentor->id }}" @selected(old('tentor_id') == $tentor->id)>
                             {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}
@@ -91,16 +98,17 @@
             <!-- Hari Mingguan -->
             <div x-show="scheduleType === 'recurring'">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Hari Pelaksanaan</label>
-                <select name="day_of_week" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <select name="day_of_week" x-model.number="dayOfWeek" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
                     @foreach([1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'] as $day => $label)
                         <option value="{{ $day }}" @selected(old('day_of_week', $preselectedDay) == $day)>{{ $label }}</option>
                     @endforeach
                 </select>
+                <p class="mt-1.5 text-xs text-gray-500">Hari otomatis mengikuti Tanggal Mulai saat tanggal diubah; tetap bisa Anda ganti bila diperlukan.</p>
             </div>
 
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700" x-text="scheduleType === 'single' ? 'Tanggal Sesi' : 'Tanggal Mulai'"></label>
-                <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="date" name="start_date" x-model="startDate" @change="syncDayToStartDate()" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
             <!-- Lokasi / Ruang -->
@@ -142,7 +150,7 @@
             </div>
             @endif
 
-            @if($canUseClass)
+            @if($canUseAttendance)
                 <!-- Link Meeting -->
                 <div class="md:col-span-2">
                     <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>

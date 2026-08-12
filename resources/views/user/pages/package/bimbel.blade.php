@@ -3,9 +3,17 @@
 @section('content')
 @php
     $tesKoranEnabled = $clientBranding['tes_koran_enabled'] ?? true;
-    $tutorChatEnabled = $clientBranding['tutor_chat_enabled'] ?? false;
 @endphp
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border mt-6">
+    <div class="mb-5 flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <p class="font-semibold text-gray-900">Jadwal dan chat tutor ada di satu tempat</p>
+            <p class="mt-1 text-sm text-gray-600">Lihat jadwal rutin dari paket ini, lalu gunakan Chat Tutor pada jadwal yang tersedia.</p>
+        </div>
+        <a href="{{ route('user.class-schedule.index', ['package_id' => $package->package_id, 'period' => 'all']) }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+            <i class="ri-calendar-2-line"></i>Lihat Jadwal
+        </a>
+    </div>
     <x-page-desc
         :title="__('Bimbel - :name', ['name' => $package->name])"
         :description="$package->description ?: __('Masuk grup untuk baca bimbel')"
@@ -22,9 +30,6 @@
                     <th scope="col" class="px-6 py-3 text-center">Mentor</th>
                     <th scope="col" class="px-6 py-3 text-center">Link Zoom</th>
                     <th scope="col" class="px-6 py-3 text-center">Link Materi</th>
-                    @if($tutorChatEnabled)
-                        <th scope="col" class="px-6 py-3 text-center">Chat Tutor</th>
-                    @endif
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
                 </tr>
             </thead>
@@ -58,20 +63,6 @@
                         </div>
                     </td>
 
-                    @if($tutorChatEnabled)
-                        <td class="px-6 py-4">
-                            <div class="flex justify-center">
-                                @if($class->tentor?->user_id)
-                                    <a href="{{ route('user.chat.class.show', $class) }}" class="flex items-center gap-2 border border-sky-500 px-4 py-1 rounded-xl">
-                                        <i class="ri-chat-3-line text-sky-500"></i>
-                                        <span class="text-sky-600">Chat</span>
-                                    </a>
-                                @else
-                                    <span class="text-xs text-gray-400">Belum tersedia</span>
-                                @endif
-                            </div>
-                        </td>
-                    @endif
 
                     <td class="px-6 py-4">
                         <div class="flex justify-center">

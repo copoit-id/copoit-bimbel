@@ -10,6 +10,10 @@
     $menuSubTextClass = $headerPrimary ? 'text-white/80' : 'text-gray-500';
     $dropdownBgClass = $headerPrimary ? 'bg-white text-gray-900' : 'bg-white';
     $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
+    $tryoutSignalInterval = request()->routeIs('user.tryout.lobby')
+        ? 5000
+        : (request()->routeIs('user.tryout.index') ? 10000 : null);
+    $isTryoutPage = $tryoutSignalInterval !== null;
 @endphp
 
 <nav class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} z-[99998] w-full {{ $navClasses }}">
@@ -29,12 +33,17 @@
                 <a href="/" class="flex min-w-0 ms-2 md:me-12 items-center">
                     <img src="{{ $clientBranding['logo_url'] }}" class="w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
                         alt="{{ $clientBranding['name'] }} Logo" />
-                    <div class="flex min-w-0 flex-col justify-start">
+                    <div @class(['flex min-w-0 flex-col justify-start', 'hidden sm:flex' => $isTryoutPage])>
                         <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>
                         <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">Learning Platform</p>
                     </div>
                 </a>
             </div>
+            @if($tryoutSignalInterval)
+                <div class="mr-2 shrink-0 sm:mr-3">
+                    <x-network-signal :interval="$tryoutSignalInterval" :compact-on-mobile="true" />
+                </div>
+            @endif
             <div class="flex shrink-0 items-center">
                 <div class="flex items-center ms-3">
                     <div>
