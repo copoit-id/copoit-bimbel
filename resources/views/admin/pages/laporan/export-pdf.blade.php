@@ -65,8 +65,8 @@
                     <td class="text-center">{{ $tryout->tryoutDetails->count() }}</td>
                     <td class="text-center">{{ $tryout->total_questions }}</td>
                     <td class="text-center">{{ $tryout->total_duration }} menit</td>
-                    <td class="text-center">{{ $tryout->total_attempts }}</td>
-                    <td class="text-center">{{ $tryout->completed_attempts }}</td>
+                    <td class="text-center">{{ $tryout->total_participants }}</td>
+                    <td class="text-center">{{ $tryout->completed_participants }}</td>
                     <td class="text-center">{{ $tryout->completion_rate }}%</td>
                     <td class="text-center">
                         {{ ($scoreDisplay ?? 'score') === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}

@@ -233,7 +233,7 @@
                                                 </td>
                                                 <td class="px-4 py-3 text-center">
                                                     <p class="text-lg font-semibold text-gray-900">
-                                                        {{ round($attempt->raw_score ?? 0, 1) }}</p>
+                                                        {{ round($attempt->total_score ?? 0, 1) }}</p>
                                                     <p class="text-[11px] text-gray-500">{{ $questions }} soal</p>
                                                 </td>
                                                 <td class="px-4 py-3 text-center">

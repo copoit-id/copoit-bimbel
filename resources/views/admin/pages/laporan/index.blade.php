@@ -79,8 +79,8 @@
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-primary">Total Pengerjaan</p>
-                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['total_attempts']) }}</p>
+                    <p class="text-sm text-primary">Total Peserta</p>
+                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['total_participants']) }}</p>
                 </div>
                 <i class="ri-user-voice-line text-3xl text-primary"></i>
             </div>
@@ -88,8 +88,8 @@
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-primary">Selesai</p>
-                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['completed_attempts']) }}</p>
+                    <p class="text-sm text-primary">Peserta Selesai</p>
+                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['completed_participants']) }}</p>
                 </div>
                 <i class="ri-check-double-line text-3xl text-primary"></i>
             </div>
@@ -129,12 +129,12 @@
                         <p class="text-xs text-gray-500">{{ $tryout->total_duration }} menit</p>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->total_attempts }}</span>
+                        <span class="text-gray-800 font-medium">{{ $tryout->total_participants }}</span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         <div class="inline-flex flex-col items-center">
                             <span class="font-semibold text-gray-800">{{ $tryout->completion_rate }}%</span>
-                            <span class="text-xs text-gray-500">{{ $tryout->completed_attempts }} selesai</span>
+                            <span class="text-xs text-gray-500">{{ $tryout->completed_participants }} selesai</span>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
