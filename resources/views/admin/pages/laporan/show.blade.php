@@ -131,10 +131,19 @@
                                 </p>
                             </td>
                             <td class="px-4 py-4">
-                                <div class="min-w-[175px] space-y-1 text-xs">
-                                    <p class="text-gray-500"><span class="inline-block w-12 text-gray-400">Mulai</span><span class="font-medium text-gray-700">{{ $startedAt ? $startedAt->format('d M Y, H:i') : '-' }}</span></p>
-                                    <p class="text-gray-500"><span class="inline-block w-12 text-gray-400">Selesai</span><span class="font-medium text-gray-700">{{ $finishedAt ? $finishedAt->format('d M Y, H:i') : '-' }}</span></p>
-                                    <p class="pt-0.5 text-gray-500"><span class="inline-block w-12 text-gray-400">Durasi</span><span class="font-semibold text-gray-800">{{ $durationLabel }}</span></p>
+                                <div class="min-w-[220px] space-y-2 text-[13px] leading-none">
+                                    <div class="grid grid-cols-[52px_minmax(0,1fr)] items-center gap-3">
+                                        <span class="text-gray-400">Mulai</span>
+                                        <span class="whitespace-nowrap text-right font-medium text-gray-700">{{ $startedAt ? $startedAt->format('d M Y, H:i') : '-' }}</span>
+                                    </div>
+                                    <div class="grid grid-cols-[52px_minmax(0,1fr)] items-center gap-3">
+                                        <span class="text-gray-400">Selesai</span>
+                                        <span class="whitespace-nowrap text-right font-medium text-gray-700">{{ $finishedAt ? $finishedAt->format('d M Y, H:i') : '-' }}</span>
+                                    </div>
+                                    <div class="grid grid-cols-[52px_minmax(0,1fr)] items-center gap-3 border-t border-gray-100 pt-2">
+                                        <span class="text-gray-400">Durasi</span>
+                                        <span class="whitespace-nowrap text-right font-semibold text-gray-800">{{ $durationLabel }}</span>
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-4 py-4 text-center">
