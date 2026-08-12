@@ -441,6 +441,7 @@
                     Batal
                 </button>
                 <button type="button" id="tryoutActionModalConfirm"
+                    onclick="window.tryoutActionModalConfirm?.()"
                     class="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
                     Lanjutkan
                 </button>
@@ -643,6 +644,11 @@
                     }
                 }
             }
+
+            // The modal is used for mandatory timeout transitions. Expose the same handler on
+            // window as a click fallback so the confirm button remains usable if another script
+            // replaces DOM event listeners during the tryout.
+            window.tryoutActionModalConfirm = confirmTryoutActionModal;
 
             function setupTryoutActionModal() {
                 const cancelButton = document.getElementById('tryoutActionModalCancel');
