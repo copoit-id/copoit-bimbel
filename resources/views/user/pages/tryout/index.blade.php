@@ -619,7 +619,11 @@
                 if (!actionModalHandler || actionModalBusy) return;
 
                 actionModalBusy = true;
-                if (confirmButton) confirmButton.disabled = true;
+                const confirmLabel = confirmButton?.textContent ?? '';
+                if (confirmButton) {
+                    confirmButton.disabled = true;
+                    confirmButton.textContent = 'Memproses...';
+                }
                 if (cancelButton) cancelButton.disabled = true;
 
                 try {
@@ -631,7 +635,10 @@
                     const modal = document.getElementById('tryoutActionModal');
                     if (modal?.classList.contains('flex')) {
                         actionModalBusy = false;
-                        if (confirmButton) confirmButton.disabled = false;
+                        if (confirmButton) {
+                            confirmButton.disabled = false;
+                            confirmButton.textContent = confirmLabel;
+                        }
                         if (cancelButton) cancelButton.disabled = false;
                     }
                 }
@@ -1123,7 +1130,9 @@
                     }
                 }
 
-                window.location.href = baseUrlTemplate.replace(':num', nextQuestionNumber);
+                // Use assign so this works consistently when the transition was triggered by the
+                // mandatory timeout modal as well as by the normal next-question button.
+                window.location.assign(baseUrlTemplate.replace(':num', nextQuestionNumber));
                 return true;
             }
 
@@ -1567,8 +1576,6 @@
                         const hasNextSubtest = currentRangeIdx < subtestRanges.length - 1;
 
                         if (currentRange && hasNextSubtest) {
-                            const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
-                            const detailId = wrapper?.dataset.subtestDetailId;
                             openTryoutActionModal({
                                 title: 'Waktu Subtest Habis',
                                 message: 'Waktu untuk subtest ini sudah selesai. Lanjutkan ke subtest berikutnya.',
@@ -1576,7 +1583,10 @@
                                 showCancel: false,
                                 icon: 'ri-time-line',
                                 onConfirm: async () => {
-                                    const moved = await transitionToNextSubtest(detailId, currentRange.end_number + 1);
+                                    const moved = await transitionToNextSubtest(
+                                        currentRange.tryout_detail_id,
+                                        currentRange.end_number + 1
+                                    );
                                     if (!moved) {
                                         isHandlingTimeout = false;
                                     }
