@@ -793,6 +793,8 @@ Route::prefix('{portal}')
             Route::get('/', [LaporanController::class, 'index'])->name('index');
             Route::get('/export/excel', [LaporanController::class, 'exportExcel'])->name('export-excel');
             Route::get('/export/pdf', [LaporanController::class, 'exportPdf'])->name('export-pdf');
+            Route::get('/{tryout}/export/excel', [LaporanController::class, 'exportTryoutExcel'])->name('tryout.export-excel');
+            Route::get('/{tryout}/export/pdf', [LaporanController::class, 'exportTryoutPdf'])->name('tryout.export-pdf');
             Route::get('/{tryout}/proctoring-snapshots', [LaporanController::class, 'proctoringSnapshots'])->name('proctoring-snapshots');
             Route::delete('/{tryout}/proctoring-snapshots', [LaporanController::class, 'destroyAllProctoringSnapshots'])->name('proctoring-snapshots.destroy-all');
             Route::delete('/{tryout}/proctoring-snapshots/{snapshot}', [LaporanController::class, 'destroyProctoringSnapshot'])->name('proctoring-snapshots.destroy');

@@ -124,7 +124,6 @@ class TryoutController extends Controller
         'skd_full',
         'general',
         'tpa',
-        'tbi',
         'tob',
         'certification',
         'listening',

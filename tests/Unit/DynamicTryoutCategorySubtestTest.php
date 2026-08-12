@@ -120,4 +120,66 @@ class DynamicTryoutCategorySubtestTest extends TestCase
         $this->assertSame([40, 50, 60], $updatedDetails->pluck('duration')->all());
         $this->assertSame(['percentage', 'score', 'percentage'], $updatedDetails->pluck('passing_type')->all());
     }
+
+    public function test_tbi_uses_its_active_material_categories_as_dynamic_subtests(): void
+    {
+        $parent = MaterialCategory::create([
+            'name' => 'TBI',
+            'code' => 'tbi',
+            'is_active' => true,
+        ]);
+
+        $firstChild = MaterialCategory::create([
+            'parent_id' => $parent->category_id,
+            'name' => 'Structure and Written Expression',
+            'code' => 'structure_written_expression',
+            'is_active' => true,
+            'order_number' => 1,
+        ]);
+        $secondChild = MaterialCategory::create([
+            'parent_id' => $parent->category_id,
+            'name' => 'Reading Comprehension',
+            'code' => 'reading_comprehension',
+            'is_active' => true,
+            'order_number' => 2,
+        ]);
+
+        $controller = app(TryoutController::class);
+        $optionsMethod = new \ReflectionMethod(TryoutController::class, 'getTryoutTypeOptions');
+        $options = $optionsMethod->invoke($controller);
+
+        $this->assertSame('TBI (2 Subtest)', $options['tbi']['label']);
+        $this->assertSame([
+            ['code' => $firstChild->code, 'name' => $firstChild->name],
+            ['code' => $secondChild->code, 'name' => $secondChild->name],
+        ], $options['tbi']['subtests']);
+        $this->assertSame('TBI - Structure and Written Expression', $options[$firstChild->code]['label']);
+        $this->assertSame('TBI - Reading Comprehension', $options[$secondChild->code]['label']);
+        $this->assertSame('full', $options['tbi']['group']);
+        $this->assertSame('single', $options[$firstChild->code]['group']);
+        $this->assertSame('single', $options[$secondChild->code]['group']);
+
+        $tryout = Tryout::create([
+            'name' => 'Tryout TBI',
+            'type_tryout' => 'tbi',
+        ]);
+        $request = Request::create('/', 'POST', [
+            'duration_structure_written_expression' => 40,
+            'duration_reading_comprehension' => 50,
+            'passing_score_structure_written_expression' => 70,
+            'passing_score_reading_comprehension' => 75,
+        ]);
+
+        $createMethod = new \ReflectionMethod(TryoutController::class, 'createTryoutDetails');
+        $createMethod->invoke($controller, $tryout, $request);
+
+        $details = TryoutDetail::query()->orderBy('type_subtest')->get();
+
+        $this->assertCount(2, $details);
+        $this->assertSame([
+            'reading_comprehension',
+            'structure_written_expression',
+        ], $details->pluck('type_subtest')->all());
+        $this->assertSame([50, 40], $details->pluck('duration')->all());
+    }
 }

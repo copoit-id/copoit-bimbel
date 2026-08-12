@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class LaporanController extends Controller
@@ -130,6 +132,79 @@ class LaporanController extends Controller
         $dompdf->render();
 
         $filename = 'laporan-tryout-'.Carbon::now()->format('Ymd_His').'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function exportTryoutExcel(Tryout $tryout)
+    {
+        $report = $this->buildTryoutParticipantExport($tryout);
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Laporan Peserta');
+
+        $headers = ['No.', 'Nama Peserta', 'Email'];
+        foreach ($report['subtests'] as $subtest) {
+            $headers[] = 'Nilai '.$subtest['name'];
+        }
+        $headers = [...$headers, 'Total Nilai', 'Durasi', 'Status'];
+        $sheet->fromArray($headers, null, 'A1');
+        $row = 2;
+
+        foreach ($report['participants'] as $index => $participant) {
+            $values = [
+                $index + 1,
+                $participant['name'],
+                $participant['email'],
+            ];
+            foreach ($report['subtests'] as $subtest) {
+                $values[] = $this->formatNumericScore($participant['subtests'][$subtest['id']]['score'] ?? 0);
+            }
+
+            $sheet->fromArray([
+                ...$values,
+                $this->formatNumericScore($participant['total_score']),
+                $this->formatExportDuration($participant['started_at'], $participant['finished_at']),
+                $participant['status_label'],
+            ], null, 'A'.$row++);
+        }
+
+        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+        $widths = [8, 28, 32];
+        $widths = [...$widths, ...array_fill(0, $report['subtests']->count(), 22), 16, 14, 20];
+        $this->styleReportExportSheet($sheet, $lastColumn, $row - 1, $widths);
+
+        $filename = 'laporan-'.Str::slug($tryout->name).'-'.Carbon::now()->format('Ymd_His').'.xlsx';
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function exportTryoutPdf(Tryout $tryout)
+    {
+        $report = $this->buildTryoutParticipantExport($tryout);
+        $html = view('admin.pages.laporan.tryout-export-pdf', [
+            'tryout' => $tryout,
+            'participants' => $report['participants'],
+            'subtests' => $report['subtests'],
+        ])->render();
+
+        $options = new Options;
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $filename = 'laporan-'.Str::slug($tryout->name).'-'.Carbon::now()->format('Ymd_His').'.pdf';
 
         return response($dompdf->output(), 200, [
             'Content-Type' => 'application/pdf',
@@ -613,6 +688,112 @@ class LaporanController extends Controller
             'liveScore' => $liveScore,
             'generatedAt' => Carbon::now('Asia/Jakarta'),
         ]);
+    }
+
+    /**
+     * Build one latest logical attempt per participant for the detailed exports.
+     * The aggregation mirrors the report page without loading question relations.
+     */
+    private function buildTryoutParticipantExport(Tryout $tryout): array
+    {
+        $tryout->loadMissing([
+            'tryoutDetails' => fn ($query) => $query->withCount('questions'),
+        ]);
+
+        $subtests = $tryout->tryoutDetails
+            ->sortBy('tryout_detail_id')
+            ->mapWithKeys(fn ($detail) => [
+                (int) $detail->tryout_detail_id => [
+                    'id' => (int) $detail->tryout_detail_id,
+                    'name' => $this->formatSubtestName($detail->type_subtest),
+                    'alias' => $this->formatSubtestAlias($detail->type_subtest),
+                    'total_questions' => (int) $detail->questions_count,
+                ],
+            ]);
+
+        $attemptSummaries = UserAnswer::query()
+            ->selectRaw('user_id, attempt_token, MIN(started_at) as started_at, MAX(finished_at) as finished_at, MAX(COALESCE(finished_at, started_at)) as last_activity_at, SUM(score) as total_score, MAX(status) as attempt_status')
+            ->where('tryout_id', $tryout->tryout_id)
+            ->groupBy('user_id', 'attempt_token')
+            ->orderByDesc('last_activity_at')
+            ->with('user:id,name,email')
+            ->get();
+
+        $subtestScores = UserAnswer::query()
+            ->selectRaw('user_id, attempt_token, tryout_detail_id, SUM(score) as score')
+            ->where('tryout_id', $tryout->tryout_id)
+            ->groupBy('user_id', 'attempt_token', 'tryout_detail_id')
+            ->get()
+            ->groupBy(fn (UserAnswer $answer) => $answer->user_id.'|'.$answer->attempt_token)
+            ->map(fn ($answers) => $answers->keyBy('tryout_detail_id'));
+
+        $participants = $attemptSummaries
+            ->groupBy('user_id')
+            ->map(function ($attempts) use ($subtests, $subtestScores) {
+                $latest = $attempts->sortByDesc('last_activity_at')->first();
+                $attemptKey = $latest->user_id.'|'.$latest->attempt_token;
+                $scores = $subtestScores->get($attemptKey, collect());
+                $isInProgress = $attempts->contains('attempt_status', 'in_progress');
+
+                $subtestValues = $subtests->mapWithKeys(function (array $subtest, int $detailId) use ($scores) {
+                    $score = $scores->get($detailId);
+
+                    return [$detailId => [
+                        'score' => round((float) ($score->score ?? 0), 2),
+                    ]];
+                });
+
+                return [
+                    'name' => $latest->user?->name ?? 'Peserta',
+                    'email' => $latest->user?->email ?? '-',
+                    'status_label' => $isInProgress ? 'Sedang Mengerjakan' : 'Selesai',
+                    'total_score' => round((float) ($latest->total_score ?? 0), 2),
+                    'started_at' => $latest->started_at ? Carbon::parse($latest->started_at) : null,
+                    'finished_at' => $latest->finished_at ? Carbon::parse($latest->finished_at) : null,
+                    'subtests' => $subtestValues,
+                ];
+            })
+            ->sortBy(fn (array $participant) => Str::lower($participant['name']))
+            ->values();
+
+        return compact('participants', 'subtests');
+    }
+
+    private function styleReportExportSheet($sheet, string $lastColumn, int $lastRow, array $widths): void
+    {
+        $sheet->getStyle('A1:'.$lastColumn.'1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1D4ED8']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+        ]);
+        if ($lastRow >= 2) {
+            $sheet->getStyle('A2:'.$lastColumn.$lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        }
+        $sheet->getRowDimension(1)->setRowHeight(32);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:'.$lastColumn.max(1, $lastRow));
+        $sheet->getPageSetup()->setOrientation('landscape')->setFitToWidth(1)->setFitToHeight(0);
+
+        foreach ($widths as $index => $width) {
+            $column = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+            $sheet->getColumnDimension($column)->setWidth($width);
+        }
+    }
+
+    private function formatExportDuration(?Carbon $startedAt, ?Carbon $finishedAt): string
+    {
+        if (! $startedAt || ! $finishedAt) {
+            return '-';
+        }
+
+        $seconds = $startedAt->diffInSeconds($finishedAt);
+
+        return sprintf('%02d:%02d:%02d', intdiv($seconds, 3600), intdiv($seconds % 3600, 60), $seconds % 60);
+    }
+
+    private function formatNumericScore(float|int|null $score): string
+    {
+        return rtrim(rtrim(number_format((float) $score, 2, '.', ''), '0'), '.');
     }
 
     private function formatSubtestAlias(?string $type): string

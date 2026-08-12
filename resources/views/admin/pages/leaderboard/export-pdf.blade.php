@@ -6,19 +6,19 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            font-size: 12px;
+            font-size: {{ ($subtests ?? collect())->count() > 2 ? '8px' : '10px' }};
             color: #111827;
         }
         .header {
             margin-bottom: 16px;
         }
         .title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             margin-bottom: 4px;
         }
         .meta {
-            font-size: 12px;
+            font-size: 10px;
             color: #4b5563;
         }
         table {
@@ -27,7 +27,7 @@
         }
         th, td {
             border: 1px solid #e5e7eb;
-            padding: 6px 8px;
+            padding: 5px 4px;
         }
         th {
             background: #f9fafb;
@@ -53,7 +53,10 @@
                 <th>Peserta</th>
                 <th>Email</th>
                 <th>Tujuan / Instansi</th>
-                <th class="text-center">Skor</th>
+                @foreach($subtests ?? [] as $subtest)
+                    <th class="text-center">{{ $subtest['alias'] }}</th>
+                @endforeach
+                <th class="text-center">Skor Total</th>
                 <th class="text-center">Skor Maks</th>
                 <th class="text-center">Status</th>
                 <th class="text-center">Waktu Selesai</th>
@@ -78,6 +81,11 @@
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
                     <td>{{ $ranking->user?->participant_destination_display_name ?? '-' }}</td>
+                    @foreach($subtests ?? [] as $subtest)
+                        <td class="text-center">
+                            {{ number_format((float) ($ranking->subtest_scores[$subtest['id']] ?? 0), 2, ',', '.') }}
+                        </td>
+                    @endforeach
                     <td class="text-center">{{ $score }}</td>
                     <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
                     <td class="text-center">{{ $status }}</td>
@@ -90,7 +98,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
+                    <td colspan="{{ 9 + count($subtests ?? []) }}" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
                 </tr>
             @endforelse
         </tbody>

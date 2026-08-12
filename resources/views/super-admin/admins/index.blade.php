@@ -45,6 +45,12 @@
                 <input type="email" name="email" value="{{ old('email') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
             </div>
             <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Nomor WhatsApp Peminta</label>
+                <input type="tel" name="phone" value="{{ old('phone') }}" inputmode="tel" autocomplete="tel"
+                    placeholder="Contoh: 081234567890" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
+                <p class="mt-1 text-xs text-gray-500">Dipakai untuk menghubungi peminta akses demo.</p>
+            </div>
+            <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Username (opsional)</label>
                 <input type="text" name="username" value="{{ old('username') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2">
             </div>
@@ -91,7 +97,7 @@
             </div>
             <form method="GET" action="{{ route('super-admin.admins.index') }}" class="flex flex-col gap-2 sm:flex-row">
                 <input type="hidden" name="status" value="{{ $status }}">
-                <input type="search" name="search" value="{{ request('search') }}" placeholder="Cari nama, email, username"
+                <input type="search" name="search" value="{{ request('search') }}" placeholder="Cari nama, email, WA"
                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm sm:w-56">
                 <select name="sort" class="rounded-lg border border-gray-200 px-3 py-2 text-sm" onchange="this.form.submit()">
                     @foreach ($sortOptions as $value => $label)
@@ -118,6 +124,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left">Nama</th>
                         <th class="px-4 py-3 text-left">Email</th>
+                        <th class="px-4 py-3 text-left">WhatsApp</th>
                         <th class="px-4 py-3 text-center">Ditambahkan</th>
                         <th class="px-4 py-3 text-center">Expired</th>
                         <th class="px-4 py-3 text-center">Status</th>
@@ -132,6 +139,16 @@
                         <tr class="border-t border-gray-100">
                             <td class="px-4 py-3 font-medium text-gray-900">{{ $admin->name }}</td>
                             <td class="px-4 py-3">{{ $admin->email }}</td>
+                            <td class="px-4 py-3">
+                                @if($admin->phone)
+                                    <a href="https://wa.me/{{ $admin->phone }}" target="_blank" rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1.5 font-medium text-emerald-700 hover:text-emerald-800 hover:underline">
+                                        <i class="ri-whatsapp-line text-base"></i>{{ $admin->phone }}
+                                    </a>
+                                @else
+                                    <span class="text-xs font-medium text-red-600">Belum diisi</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-center">{{ $admin->created_at?->format('d M Y H:i') ?? '-' }}</td>
                             <td class="px-4 py-3 text-center">
                                 {{ $admin->admin_expires_at ? $admin->admin_expires_at->format('d M Y H:i') : '-' }}
@@ -156,7 +173,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
+                            <td colspan="7" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -198,6 +215,11 @@
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                                         <input type="email" name="email" value="{{ old('email', $admin->email) }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nomor WhatsApp Peminta</label>
+                                        <input type="tel" name="phone" value="{{ old('phone', $admin->phone) }}" inputmode="tel" autocomplete="tel"
+                                            placeholder="Contoh: 081234567890" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>

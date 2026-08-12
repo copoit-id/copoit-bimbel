@@ -32,7 +32,7 @@ class SuperAdminController extends Controller
 
         $now = now();
         $baseQuery = User::query()
-            ->select(['id', 'name', 'email', 'username', 'role', 'admin_expires_at', 'created_at'])
+            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'admin_expires_at', 'created_at'])
             ->where('role', 'admin_demo')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
@@ -40,7 +40,8 @@ class SuperAdminController extends Controller
                 $query->where(function ($query) use ($search) {
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('username', 'like', "%{$search}%");
+                        ->orWhere('username', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
                 });
             });
 
@@ -79,15 +80,21 @@ class SuperAdminController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $request->merge(['phone' => $this->normalizeWhatsAppNumber($request->input('phone'))]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|email|max:255|unique:users,email',
+            'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username',
             'password' => 'required|string|min:8|confirmed',
             'expiry_type' => 'required|in:date,duration',
             'expires_at' => 'nullable|date',
             'duration_days' => 'nullable|integer|min:0|max:365',
             'duration_hours' => 'nullable|integer|min:0|max:720',
+        ], [
+            'phone.required' => 'Nomor WhatsApp peminta wajib diisi.',
+            'phone.regex' => 'Masukkan nomor WhatsApp aktif, contoh 081234567890.',
         ]);
 
         $expiresAt = null;
@@ -120,6 +127,7 @@ class SuperAdminController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'username' => $username,
+            'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'role' => 'admin_demo',
             'admin_expires_at' => $expiresAt,
@@ -148,17 +156,24 @@ class SuperAdminController extends Controller
             abort(404);
         }
 
+        $request->merge(['phone' => $this->normalizeWhatsAppNumber($request->input('phone'))]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|email|max:255|unique:users,email,'.$admin->id,
+            'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username,'.$admin->id,
             'password' => 'nullable|string|min:8|confirmed',
+        ], [
+            'phone.required' => 'Nomor WhatsApp peminta wajib diisi.',
+            'phone.regex' => 'Masukkan nomor WhatsApp aktif, contoh 081234567890.',
         ]);
 
         $username = $request->input('username') ?: $admin->username;
 
         $admin->name = $request->name;
         $admin->email = $request->email;
+        $admin->phone = $request->phone;
         $admin->username = $username;
 
         if ($request->filled('password')) {
@@ -214,5 +229,16 @@ class SuperAdminController extends Controller
 
         return redirect()->route('super-admin.admins.index')
             ->with('success', 'Masa akses admin demo berhasil diperpanjang.');
+    }
+
+    private function normalizeWhatsAppNumber(?string $phone): string
+    {
+        $normalized = preg_replace('/\D+/', '', (string) $phone) ?: '';
+
+        if (str_starts_with($normalized, '0')) {
+            return '62'.substr($normalized, 1);
+        }
+
+        return str_starts_with($normalized, '8') ? '62'.$normalized : $normalized;
     }
 }

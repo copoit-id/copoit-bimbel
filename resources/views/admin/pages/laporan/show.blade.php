@@ -14,6 +14,14 @@
             </x-slot>
         </x-breadcrumb>
         <div class="flex flex-wrap gap-2">
+            <a href="{{ route('admin.laporan.tryout.export-excel', $tryout->tryout_id) }}"
+                class="inline-flex items-center gap-2 rounded-lg bg-green px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700">
+                <i class="ri-file-excel-line"></i> Laporan Excel
+            </a>
+            <a href="{{ route('admin.laporan.tryout.export-pdf', $tryout->tryout_id) }}"
+                class="inline-flex items-center gap-2 rounded-lg bg-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">
+                <i class="ri-file-pdf-line"></i> Laporan PDF
+            </a>
             @if ($leaderboardPackageId ?? false)
                 <a href="{{ route('admin.leaderboard.show', [$leaderboardPackageId, $tryout->tryout_id]) }}"
                     class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white">
