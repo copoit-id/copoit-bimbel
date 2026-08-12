@@ -131,19 +131,15 @@
                                 </p>
                             </td>
                             <td class="px-4 py-4">
-                                <div class="min-w-[220px] space-y-2 text-[13px] leading-none">
-                                    <div class="grid grid-cols-[52px_minmax(0,1fr)] items-center gap-3">
-                                        <span class="text-gray-400">Mulai</span>
-                                        <span class="whitespace-nowrap text-right font-medium text-gray-700">{{ $startedAt ? $startedAt->format('d M Y, H:i') : '-' }}</span>
-                                    </div>
-                                    <div class="grid grid-cols-[52px_minmax(0,1fr)] items-center gap-3">
-                                        <span class="text-gray-400">Selesai</span>
-                                        <span class="whitespace-nowrap text-right font-medium text-gray-700">{{ $finishedAt ? $finishedAt->format('d M Y, H:i') : '-' }}</span>
-                                    </div>
-                                    <div class="grid grid-cols-[52px_minmax(0,1fr)] items-center gap-3 border-t border-gray-100 pt-2">
-                                        <span class="text-gray-400">Durasi</span>
-                                        <span class="whitespace-nowrap text-right font-semibold text-gray-800">{{ $durationLabel }}</span>
-                                    </div>
+                                <div class="min-w-[255px]">
+                                    <p class="whitespace-nowrap text-[13px] font-medium text-gray-700">
+                                        {{ $startedAt ? $startedAt->format('d M Y, H:i') : '-' }}
+                                        <span class="mx-1.5 text-gray-300">—</span>
+                                        {{ $finishedAt ? $finishedAt->format('d M Y, H:i') : '-' }}
+                                    </p>
+                                    <p class="mt-1 text-center text-xs text-gray-500">
+                                        Durasi <span class="font-semibold text-gray-700">{{ $durationLabel }}</span>
+                                    </p>
                                 </div>
                             </td>
                             <td class="px-4 py-4 text-center">
