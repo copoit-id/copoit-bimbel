@@ -772,14 +772,12 @@ class TryoutController extends Controller
     }
 
     /**
-     * Kategori induk kustom dengan subkategori aktif adalah tryout multi-subtest.
-     * Tipe bawaan tetap memakai konfigurasi khususnya masing-masing.
+     * Kategori induk dengan subkategori aktif adalah tryout multi-subtest.
      */
     private function dynamicSubtestCategoriesFor(?string $type): Collection
     {
         if (
             blank($type)
-            || in_array($type, self::LEGACY_TRYOUT_TYPES, true)
             || ! Schema::hasTable('material_categories')
             || ! Schema::hasColumn('material_categories', 'code')
         ) {
@@ -1267,8 +1265,7 @@ class TryoutController extends Controller
 
     private function isDynamicMultiSubtestCategory(string $type, MaterialCategory $category): bool
     {
-        return ! in_array($type, self::LEGACY_TRYOUT_TYPES, true)
-            && ! $category->parent_id
+        return ! $category->parent_id
             && (int) ($category->active_children_count ?? 0) > 0;
     }
 
