@@ -143,57 +143,41 @@ class LaporanController extends Controller
     {
         $report = $this->buildTryoutParticipantExport($tryout);
         $spreadsheet = new Spreadsheet;
-        $summarySheet = $spreadsheet->getActiveSheet();
-        $summarySheet->setTitle('Ringkasan');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Laporan Peserta');
 
-        $summaryHeaders = ['No.', 'Peserta', 'Email', 'Status', 'Skor Total', 'Benar', 'Salah', 'Kosong', 'Mulai', 'Selesai', 'Durasi'];
-        $summarySheet->fromArray($summaryHeaders, null, 'A1');
+        $headers = ['No.', 'Nama Peserta', 'Email'];
+        foreach ($report['subtests'] as $subtest) {
+            $headers[] = 'Nilai '.$subtest['name'];
+        }
+        $headers = [...$headers, 'Total Nilai', 'Durasi', 'Status'];
+        $sheet->fromArray($headers, null, 'A1');
         $row = 2;
 
         foreach ($report['participants'] as $index => $participant) {
-            $summarySheet->fromArray([
+            $values = [
                 $index + 1,
                 $participant['name'],
                 $participant['email'],
-                $participant['status_label'],
+            ];
+            foreach ($report['subtests'] as $subtest) {
+                $values[] = $this->formatNumericScore($participant['subtests'][$subtest['id']]['score'] ?? 0);
+            }
+
+            $sheet->fromArray([
+                ...$values,
                 $this->formatNumericScore($participant['total_score']),
-                $participant['total_correct'],
-                $participant['total_wrong'],
-                $participant['total_unanswered'],
-                $participant['started_at']?->format('d M Y H:i') ?? '-',
-                $participant['finished_at']?->format('d M Y H:i') ?? '-',
                 $this->formatExportDuration($participant['started_at'], $participant['finished_at']),
+                $participant['status_label'],
             ], null, 'A'.$row++);
         }
 
-        $this->styleReportExportSheet($summarySheet, 'K', $row - 1, [10, 28, 32, 20, 14, 10, 10, 10, 20, 20, 14]);
+        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+        $widths = [8, 28, 32];
+        $widths = [...$widths, ...array_fill(0, $report['subtests']->count(), 22), 16, 14, 20];
+        $this->styleReportExportSheet($sheet, $lastColumn, $row - 1, $widths);
 
-        foreach ($report['subtests'] as $subtestIndex => $subtest) {
-            $sheet = $spreadsheet->createSheet();
-            $sheet->setTitle('Subtest '.($subtestIndex + 1).' '.$subtest['alias']);
-            $sheet->fromArray([
-                'No.', 'Peserta', 'Email', 'Skor '.$subtest['alias'], 'Benar', 'Salah', 'Kosong', 'Total Soal',
-            ], null, 'A1');
-
-            $row = 2;
-            foreach ($report['participants'] as $index => $participant) {
-                $score = $participant['subtests'][$subtest['id']] ?? null;
-                $sheet->fromArray([
-                    $index + 1,
-                    $participant['name'],
-                    $participant['email'],
-                    $this->formatNumericScore($score['score'] ?? 0),
-                    $score['correct'] ?? 0,
-                    $score['wrong'] ?? 0,
-                    $score['unanswered'] ?? $subtest['total_questions'],
-                    $subtest['total_questions'],
-                ], null, 'A'.$row++);
-            }
-
-            $this->styleReportExportSheet($sheet, 'H', $row - 1, [10, 28, 32, 16, 10, 10, 10, 14]);
-        }
-
-        $filename = 'laporan-lengkap-'.Str::slug($tryout->name).'-'.Carbon::now()->format('Ymd_His').'.xlsx';
+        $filename = 'laporan-'.Str::slug($tryout->name).'-'.Carbon::now()->format('Ymd_His').'.xlsx';
         $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
@@ -220,7 +204,7 @@ class LaporanController extends Controller
         $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
 
-        $filename = 'laporan-lengkap-'.Str::slug($tryout->name).'-'.Carbon::now()->format('Ymd_His').'.pdf';
+        $filename = 'laporan-'.Str::slug($tryout->name).'-'.Carbon::now()->format('Ymd_His').'.pdf';
 
         return response($dompdf->output(), 200, [
             'Content-Type' => 'application/pdf',
@@ -743,33 +727,19 @@ class LaporanController extends Controller
             ->groupBy(fn (UserAnswer $answer) => $answer->user_id.'|'.$answer->attempt_token)
             ->map(fn ($answers) => $answers->keyBy('tryout_detail_id'));
 
-        $answerStats = UserAnswerDetail::query()
-            ->join('user_answers', 'user_answer_details.user_answer_id', '=', 'user_answers.user_answer_id')
-            ->where('user_answers.tryout_id', $tryout->tryout_id)
-            ->selectRaw('user_answers.user_id, user_answers.attempt_token, user_answers.tryout_detail_id, COUNT(DISTINCT user_answer_details.question_id) as answered_questions, COUNT(DISTINCT CASE WHEN user_answer_details.is_correct = 1 THEN user_answer_details.question_id END) as correct_answers')
-            ->groupBy('user_answers.user_id', 'user_answers.attempt_token', 'user_answers.tryout_detail_id')
-            ->get()
-            ->keyBy(fn ($answer) => $answer->user_id.'|'.$answer->attempt_token.'|'.$answer->tryout_detail_id);
-
         $participants = $attemptSummaries
             ->groupBy('user_id')
-            ->map(function ($attempts) use ($subtests, $subtestScores, $answerStats) {
+            ->map(function ($attempts) use ($subtests, $subtestScores) {
                 $latest = $attempts->sortByDesc('last_activity_at')->first();
                 $attemptKey = $latest->user_id.'|'.$latest->attempt_token;
                 $scores = $subtestScores->get($attemptKey, collect());
                 $isInProgress = $attempts->contains('attempt_status', 'in_progress');
 
-                $subtestValues = $subtests->mapWithKeys(function (array $subtest, int $detailId) use ($scores, $answerStats, $attemptKey) {
+                $subtestValues = $subtests->mapWithKeys(function (array $subtest, int $detailId) use ($scores) {
                     $score = $scores->get($detailId);
-                    $stats = $answerStats->get($attemptKey.'|'.$detailId);
-                    $answered = min($subtest['total_questions'], (int) ($stats->answered_questions ?? 0));
-                    $correct = min($answered, (int) ($stats->correct_answers ?? 0));
 
                     return [$detailId => [
                         'score' => round((float) ($score->score ?? 0), 2),
-                        'correct' => $correct,
-                        'wrong' => max(0, $answered - $correct),
-                        'unanswered' => max(0, $subtest['total_questions'] - $answered),
                     ]];
                 });
 
@@ -778,9 +748,6 @@ class LaporanController extends Controller
                     'email' => $latest->user?->email ?? '-',
                     'status_label' => $isInProgress ? 'Sedang Mengerjakan' : 'Selesai',
                     'total_score' => round((float) ($latest->total_score ?? 0), 2),
-                    'total_correct' => $subtestValues->sum('correct'),
-                    'total_wrong' => $subtestValues->sum('wrong'),
-                    'total_unanswered' => $subtestValues->sum('unanswered'),
                     'started_at' => $latest->started_at ? Carbon::parse($latest->started_at) : null,
                     'finished_at' => $latest->finished_at ? Carbon::parse($latest->finished_at) : null,
                     'subtests' => $subtestValues,
