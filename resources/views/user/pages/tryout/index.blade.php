@@ -435,6 +435,7 @@
             </div>
             <h3 id="tryoutActionModalTitle" class="mb-2 text-lg font-bold text-gray-900"></h3>
             <p id="tryoutActionModalMessage" class="text-sm leading-relaxed text-gray-600"></p>
+            <p id="tryoutActionModalCountdown" class="mt-3 hidden text-sm font-semibold text-primary" aria-live="polite"></p>
             <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
                 <button type="button" id="tryoutActionModalCancel"
                     class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
@@ -446,6 +447,19 @@
                     Lanjutkan
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div id="tryoutSubmissionOverlay" class="fixed inset-0 hidden items-center justify-center bg-gray-950/80 px-4 backdrop-blur-sm"
+        style="z-index: 2147483647;" role="status" aria-live="assertive" aria-label="Mengirim jawaban">
+        <div class="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                <i class="ri-loader-4-line animate-spin text-3xl text-primary"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900">Mengirim Jawaban</h3>
+            <p class="mt-2 text-sm leading-relaxed text-gray-600">
+                Jangan tutup atau muat ulang halaman. Jawaban sedang disimpan ke server.
+            </p>
         </div>
     </div>
 
@@ -550,6 +564,7 @@
             const answerPersistenceMode = @json($tryout->answer_persistence_mode ?? 'client_side');
             const isCombinedSubtestView = @json($isCombinedSubtestView ?? false);
             const displayRemainingSeconds = @json((int) ($displayRemainingSeconds ?? $remainingSeconds ?? 1));
+            const timeExpiredOnLoad = @json((bool) ($timeExpiredOnLoad ?? false));
             const subtestRanges = @json($subtestRangesForJs);
             const allServerAnswers = @json($allAnswerDetailsForJs);
             const trackTabSwitchUrl =
@@ -566,11 +581,17 @@
             let isLeavingTryout = false;
             let actionModalHandler = null;
             let actionModalBusy = false;
-            let finishSubmissionConfirmed = false;
+            let actionModalCountdownTimer = null;
+            let isFinishingTryout = false;
             const proctoringStreams = {};
             const proctoringTimers = {};
 
             function closeTryoutActionModal() {
+                if (actionModalCountdownTimer) {
+                    clearInterval(actionModalCountdownTimer);
+                    actionModalCountdownTimer = null;
+                }
+
                 const modal = document.getElementById('tryoutActionModal');
                 if (!modal) return;
 
@@ -586,14 +607,21 @@
                 confirmLabel,
                 showCancel = true,
                 icon = 'ri-arrow-right-circle-line',
+                autoConfirmAfterSeconds = null,
                 onConfirm
             }) {
+                if (actionModalCountdownTimer) {
+                    clearInterval(actionModalCountdownTimer);
+                    actionModalCountdownTimer = null;
+                }
+
                 const modal = document.getElementById('tryoutActionModal');
                 const titleElement = document.getElementById('tryoutActionModalTitle');
                 const messageElement = document.getElementById('tryoutActionModalMessage');
                 const iconElement = document.getElementById('tryoutActionModalIcon');
                 const cancelButton = document.getElementById('tryoutActionModalCancel');
                 const confirmButton = document.getElementById('tryoutActionModalConfirm');
+                const countdownElement = document.getElementById('tryoutActionModalCountdown');
 
                 if (!modal || !titleElement || !messageElement || !iconElement || !cancelButton || !confirmButton) {
                     return;
@@ -608,9 +636,39 @@
                 actionModalHandler = onConfirm;
                 actionModalBusy = false;
 
+                if (countdownElement) {
+                    countdownElement.classList.add('hidden');
+                    countdownElement.textContent = '';
+                }
+
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
                 confirmButton.focus();
+
+                if (Number.isInteger(autoConfirmAfterSeconds) && autoConfirmAfterSeconds > 0) {
+                    let remainingSeconds = autoConfirmAfterSeconds;
+                    const renderCountdown = () => {
+                        if (!countdownElement) return;
+
+                        countdownElement.textContent =
+                            `Jawaban akan dikirim otomatis dalam ${remainingSeconds} detik.`;
+                        countdownElement.classList.remove('hidden');
+                    };
+
+                    renderCountdown();
+                    actionModalCountdownTimer = setInterval(() => {
+                        remainingSeconds--;
+
+                        if (remainingSeconds <= 0) {
+                            clearInterval(actionModalCountdownTimer);
+                            actionModalCountdownTimer = null;
+                            confirmTryoutActionModal();
+                            return;
+                        }
+
+                        renderCountdown();
+                    }, 1000);
+                }
             }
 
             async function confirmTryoutActionModal() {
@@ -1442,31 +1500,82 @@
             };
 
             const finishForm = document.getElementById('finishForm');
-            const finishButton = document.querySelector('#finishForm button[type="submit"]');
+
+            function setTryoutSubmissionOverlay(visible) {
+                const overlay = document.getElementById('tryoutSubmissionOverlay');
+                if (!overlay) return;
+
+                overlay.classList.toggle('hidden', !visible);
+                overlay.classList.toggle('flex', visible);
+            }
+
+            async function submitTryout() {
+                if (!finishForm || isFinishingTryout) return false;
+
+                isFinishingTryout = true;
+                isLeavingTryout = true;
+                capturePendingTextAnswers();
+
+                const unsynced = Object.values(answerCache).filter(answer => !answer.synced);
+                document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
+                document.getElementById('currentQuestionNumberInput').value = currentNumber;
+                setTryoutSubmissionOverlay(true);
+
+                let submitted = false;
+
+                try {
+                    const response = await fetch(finishForm.action, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: new FormData(finishForm)
+                    });
+                    const data = await response.json().catch(() => ({}));
+
+                    if (!response.ok || !data.success || !data.redirect) {
+                        throw new Error(data.message || data.error || 'Jawaban belum dapat dikirim. Silakan coba lagi.');
+                    }
+
+                    unsynced.forEach(answer => {
+                        if (answerCache[answer.question_id]) answerCache[answer.question_id].synced = true;
+                    });
+                    persistAnswers();
+
+                    submitted = true;
+                    window.location.assign(data.redirect);
+                    return true;
+                } catch (error) {
+                    isLeavingTryout = false;
+                    const countdownElement = document.getElementById('tryoutActionModalCountdown');
+                    if (countdownElement && !countdownElement.classList.contains('hidden')) {
+                        countdownElement.textContent = 'Pengiriman gagal. Tekan Kirim Jawaban untuk mencoba lagi.';
+                    }
+                    showSaveIndicator(false, error.message || 'Jawaban belum dapat dikirim. Silakan coba lagi.');
+                    return false;
+                } finally {
+                    if (!submitted) {
+                        isFinishingTryout = false;
+                        setTryoutSubmissionOverlay(false);
+                    }
+                }
+            }
 
             if (finishForm) {
                 finishForm.addEventListener('submit', function(event) {
-                    if (!finishSubmissionConfirmed) {
-                        event.preventDefault();
-                        openTryoutActionModal({
-                            title: 'Akhiri Tryout?',
-                            message: 'Jawaban yang sudah terisi akan dikirim dan tryout tidak dapat dilanjutkan.',
-                            confirmLabel: 'Ya, Akhiri',
-                            icon: 'ri-checkbox-circle-line',
-                            onConfirm: () => {
-                                finishSubmissionConfirmed = true;
-                                finishForm.requestSubmit();
-                                return true;
-                            }
-                        });
-                        return;
-                    }
+                    event.preventDefault();
+                    if (isFinishingTryout) return;
 
-                    isLeavingTryout = true;
-                    capturePendingTextAnswers();
-                    const unsynced = Object.values(answerCache).filter(a => !a.synced);
-                    document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
-                    document.getElementById('currentQuestionNumberInput').value = currentNumber;
+                    openTryoutActionModal({
+                        title: 'Akhiri Tryout?',
+                        message: 'Jawaban yang sudah terisi akan dikirim dan tryout tidak dapat dilanjutkan.',
+                        confirmLabel: 'Ya, Akhiri',
+                        icon: 'ri-checkbox-circle-line',
+                        onConfirm: submitTryout
+                    });
                 });
             }
 
@@ -1566,7 +1675,7 @@
 
             // Timer Setup (adapted)
             function setupTimerSPA() {
-                let timeLeft = Math.max(1, displayRemainingSeconds);
+                let timeLeft = Math.max(0, displayRemainingSeconds);
                 const timerDisplay = document.getElementById('timer-display');
                 let isHandlingTimeout = false;
 
@@ -1629,6 +1738,7 @@
                                 message: 'Waktu untuk subtest ini sudah selesai. Lanjutkan ke subtest berikutnya.',
                                 confirmLabel: 'Lanjutkan',
                                 icon: 'ri-time-line',
+                                autoConfirmAfterSeconds: 3,
                                 onConfirm: async () => {
                                     const moved = await transitionToNextSubtest(
                                         currentRange.tryout_detail_id,
@@ -1649,12 +1759,14 @@
                         message: 'Waktu pengerjaan telah berakhir. Jawaban yang sudah terisi akan dikirim sekarang.',
                         confirmLabel: 'Kirim Jawaban',
                         icon: 'ri-time-line',
-                        onConfirm: () => {
-                            finishSubmissionConfirmed = true;
-                            finishForm?.requestSubmit();
-                            return true;
-                        }
+                        autoConfirmAfterSeconds: 3,
+                        onConfirm: submitTryout
                     });
+                }
+
+                if (timeExpiredOnLoad || timeLeft <= 0) {
+                    handleTimeout();
+                    return;
                 }
 
                 const interval = setInterval(() => {

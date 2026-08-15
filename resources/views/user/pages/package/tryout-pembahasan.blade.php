@@ -942,10 +942,10 @@
         </a>
         @endif
 
-        @if($package && ($clientBranding['certificate_management_enabled'] ?? true))
-        <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $token]) }}"
+        @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
+        <a href="{{ route('user.certificate.preview', [$packageRouteId, $tryout->tryout_id, 'token' => $token]) }}"
             class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
-            <i class="ri-award-line mr-2"></i>Preview Sertifikat
+            <i class="ri-award-line mr-2"></i>Unduh Sertifikat
         </a>
         @endif
 

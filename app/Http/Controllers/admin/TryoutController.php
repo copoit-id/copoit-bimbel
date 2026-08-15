@@ -4,6 +4,8 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MaterialCategory;
+use App\Models\CertificateTemplate;
+use App\Models\ClientProfile;
 use App\Models\Package;
 use App\Models\Question;
 use App\Models\Tryout;
@@ -124,7 +126,6 @@ class TryoutController extends Controller
         'skd_full',
         'general',
         'tpa',
-        'tbi',
         'tob',
         'certification',
         'listening',
@@ -157,13 +158,19 @@ class TryoutController extends Controller
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
+        $certificateTemplates = CertificateTemplate::query()
+            ->where('client_profile_id', $this->clientProfileId())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
     {
+        $this->normalizeDurationInputs($request);
         $request->validate($this->tryoutValidationRules());
         $scoringMethod = $this->normalizedScoringMethod($request);
         $saleData = $this->individualSaleData($request);
@@ -202,6 +209,7 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
+                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -238,9 +246,17 @@ class TryoutController extends Controller
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
+            $certificateTemplates = CertificateTemplate::query()
+                ->where('client_profile_id', $this->clientProfileId())
+                ->where(function ($query) use ($tryout): void {
+                    $query->where('is_active', true)
+                        ->orWhere('certificate_template_id', $tryout->certificate_template_id);
+                })
+                ->orderBy('name')
+                ->get();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -256,6 +272,7 @@ class TryoutController extends Controller
                 ->with('error', 'Tryout tidak ditemukan');
         }
 
+        $this->normalizeDurationInputs($request);
         $request->validate($this->tryoutValidationRules($tryout->type_tryout));
         // Metode scoring dikunci sejak tryout dibuat agar perubahan konfigurasi
         // tidak mengubah arti nilai dan riwayat hasil peserta.
@@ -312,6 +329,7 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
+                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -773,14 +791,12 @@ class TryoutController extends Controller
     }
 
     /**
-     * Kategori induk kustom dengan subkategori aktif adalah tryout multi-subtest.
-     * Tipe bawaan tetap memakai konfigurasi khususnya masing-masing.
+     * Kategori induk dengan subkategori aktif adalah tryout multi-subtest.
      */
     private function dynamicSubtestCategoriesFor(?string $type): Collection
     {
         if (
             blank($type)
-            || in_array($type, self::LEGACY_TRYOUT_TYPES, true)
             || ! Schema::hasTable('material_categories')
             || ! Schema::hasColumn('material_categories', 'code')
         ) {
@@ -929,6 +945,11 @@ class TryoutController extends Controller
         Storage::disk('public')->delete(Str::after($thumbnailUrl, '/storage/'));
     }
 
+    private function clientProfileId(): ?int
+    {
+        return ClientProfile::query()->value('id');
+    }
+
     private function tryoutValidationRules(?string $currentType = null): array
     {
         $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
@@ -961,6 +982,11 @@ class TryoutController extends Controller
                 },
             ],
             'is_certification' => 'boolean',
+            'certificate_template_id' => [
+                'nullable',
+                Rule::exists('certificate_templates', 'certificate_template_id')
+                    ->where('client_profile_id', $this->clientProfileId()),
+            ],
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
@@ -981,8 +1007,18 @@ class TryoutController extends Controller
             'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ];
 
+        $durationFields = collect(array_keys($this->durationInputNames()))
+            ->merge(
+                collect(array_keys(request()->all()))
+                    ->filter(fn (string $field): bool => Str::startsWith($field, 'duration_'))
+            )
+            ->unique();
+
+        foreach ($durationFields as $field) {
+            $rules[$field] = 'nullable|numeric|min:0.01|max:300';
+        }
+
         foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
-            $rules['duration_'.$slug] = 'nullable|integer|min:1';
             $rules['passing_score_'.$slug] = 'nullable|numeric|min:0|max:100';
             $rules['passing_type_'.$slug] = 'nullable|in:score,percentage';
         }
@@ -1020,6 +1056,64 @@ class TryoutController extends Controller
         }
 
         return $rules;
+    }
+
+    /**
+     * Normalisasi durasi dari format Indonesia (mis. 0,5) ke format numerik
+     * yang dapat divalidasi dan disimpan MySQL (0.5).
+     */
+    private function normalizeDurationInputs(Request $request): void
+    {
+        $normalized = [];
+
+        $durationFields = collect(array_keys($this->durationInputNames()))
+            ->merge(
+                collect(array_keys($request->all()))
+                    ->filter(fn (string $field): bool => Str::startsWith($field, 'duration_'))
+            )
+            ->unique();
+
+        foreach ($durationFields as $field) {
+            $value = $request->input($field);
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $normalized[$field] = str_replace(',', '.', trim($value));
+        }
+
+        if ($normalized !== []) {
+            $request->merge($normalized);
+        }
+    }
+
+    private function durationInputNames(): array
+    {
+        $knownTypes = [
+            'general',
+            'twk',
+            'tiu',
+            'tkp',
+            'listening',
+            'writing',
+            'reading',
+            'teknis',
+            'social_culture',
+            'management',
+            'interview',
+            'word',
+            'excel',
+            'ppt',
+            'word_single',
+            'excel_single',
+            'ppt_single',
+        ];
+
+        return collect($knownTypes)
+            ->merge(array_keys(self::UTBK_SUBTESTS))
+            ->mapWithKeys(fn (string $type): array => ['duration_'.$type => true])
+            ->all();
     }
 
     private function accessDurationData(Request $request): array
@@ -1268,8 +1362,7 @@ class TryoutController extends Controller
 
     private function isDynamicMultiSubtestCategory(string $type, MaterialCategory $category): bool
     {
-        return ! in_array($type, self::LEGACY_TRYOUT_TYPES, true)
-            && ! $category->parent_id
+        return ! $category->parent_id
             && (int) ($category->active_children_count ?? 0) > 0;
     }
 

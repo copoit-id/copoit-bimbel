@@ -39,7 +39,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Paket:</span>
-                        <span class="font-medium">{{ $package->name }}</span>
+                        <span class="font-medium">{{ $package?->name ?? 'Tryout Gratis' }}</span>
                     </div>
                 </div>
             </div>
