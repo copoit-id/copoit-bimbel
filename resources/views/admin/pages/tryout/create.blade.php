@@ -25,6 +25,8 @@
     $isForSaleChecked = old('is_for_sale', $tryout->is_for_sale ?? false);
     $isActiveChecked = $hasOldInput ? (bool) old('is_active') : ($tryout->is_active ?? true);
     $isCertificationChecked = $hasOldInput ? (bool) old('is_certification') : ($tryout->is_certification ?? false);
+    $certificateTemplates = $certificateTemplates ?? collect();
+    $selectedCertificateTemplateId = old('certificate_template_id', $tryout->certificate_template_id ?? '');
     $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
@@ -336,6 +338,17 @@
                             <x-ui.tooltip>Tryout tidak akan tampil di user jika dinonaktifkan.</x-ui.tooltip>
                         </span>
                     </label>
+
+                    <div id="certificateTemplateField" class="{{ $isCertificationChecked ? '' : 'hidden' }} rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <label for="certificate_template_id" class="mb-1 block text-sm font-semibold text-gray-800">Template Sertifikat</label>
+                        <select id="certificate_template_id" name="certificate_template_id" class="w-full rounded-lg border-gray-300 text-sm focus:border-primary focus:ring-primary">
+                            <option value="">Pilih template</option>
+                            @foreach($certificateTemplates as $certificateTemplate)
+                                <option value="{{ $certificateTemplate->certificate_template_id }}" @selected((string) $selectedCertificateTemplateId === (string) $certificateTemplate->certificate_template_id)>{{ $certificateTemplate->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-2 text-xs text-gray-500">Template yang dipilih akan tersimpan khusus untuk tryout ini. Atur background dan posisi isi di <a href="{{ route('admin.certificate.template.index') }}" class="font-semibold text-primary hover:underline">Template Sertifikat</a>.</p>
+                    </div>
 
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="is_certification" name="is_certification" value="1" {{
@@ -1082,6 +1095,8 @@
       const resultScoreDisplayOptions = root.querySelector('#resultScoreDisplayOptions');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
+      const certificationCheckbox = root.querySelector('#is_certification');
+      const certificateTemplateField = root.querySelector('#certificateTemplateField');
       const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
       if (!typeSelect || typeSelect.__tryoutBound) return;
 
@@ -1315,6 +1330,10 @@
       resultScoreDisplayOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
     }
 
+    function syncCertificateTemplateField() {
+      certificateTemplateField?.classList.toggle('hidden', !certificationCheckbox?.checked);
+    }
+
     window.__tryoutChange = function () {
       showConfigSection();
       updateFieldNames();
@@ -1322,6 +1341,7 @@
       syncAnswerPersistenceAvailability();
       syncUserCardDisplay();
       syncResultScoreDisplay();
+      syncCertificateTemplateField();
     };
 
     window.__tryoutChange();
@@ -1343,6 +1363,10 @@
 
       if (event.target && event.target.matches('#show_result_scores')) {
         syncResultScoreDisplay();
+      }
+
+      if (event.target && event.target.matches('#is_certification')) {
+        syncCertificateTemplateField();
       }
     });
     bindPassingScoreInputs();

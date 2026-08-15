@@ -4,6 +4,8 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MaterialCategory;
+use App\Models\CertificateTemplate;
+use App\Models\ClientProfile;
 use App\Models\Package;
 use App\Models\Question;
 use App\Models\Tryout;
@@ -156,9 +158,14 @@ class TryoutController extends Controller
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
+        $certificateTemplates = CertificateTemplate::query()
+            ->where('client_profile_id', $this->clientProfileId())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
@@ -201,6 +208,7 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
+                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -237,9 +245,17 @@ class TryoutController extends Controller
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
+            $certificateTemplates = CertificateTemplate::query()
+                ->where('client_profile_id', $this->clientProfileId())
+                ->where(function ($query) use ($tryout): void {
+                    $query->where('is_active', true)
+                        ->orWhere('certificate_template_id', $tryout->certificate_template_id);
+                })
+                ->orderBy('name')
+                ->get();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -311,6 +327,7 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
+                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -926,6 +943,11 @@ class TryoutController extends Controller
         Storage::disk('public')->delete(Str::after($thumbnailUrl, '/storage/'));
     }
 
+    private function clientProfileId(): ?int
+    {
+        return ClientProfile::query()->value('id');
+    }
+
     private function tryoutValidationRules(?string $currentType = null): array
     {
         $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
@@ -958,6 +980,11 @@ class TryoutController extends Controller
                 },
             ],
             'is_certification' => 'boolean',
+            'certificate_template_id' => [
+                'nullable',
+                Rule::exists('certificate_templates', 'certificate_template_id')
+                    ->where('client_profile_id', $this->clientProfileId()),
+            ],
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',

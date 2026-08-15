@@ -22,6 +22,7 @@ class Tryout extends Model
         'is_toefl' => 'boolean',
         'is_irt' => 'boolean',
         'material_category_id' => 'integer',
+        'certificate_template_id' => 'integer',
         'scoring_method' => 'string',
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
@@ -107,6 +108,11 @@ class Tryout extends Model
     public function materialCategory()
     {
         return $this->belongsTo(MaterialCategory::class, 'material_category_id', 'category_id');
+    }
+
+    public function certificateTemplate()
+    {
+        return $this->belongsTo(CertificateTemplate::class, 'certificate_template_id', 'certificate_template_id');
     }
 
     // Polymorphic relationship untuk detail packages

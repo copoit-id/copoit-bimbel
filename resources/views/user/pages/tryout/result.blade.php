@@ -329,16 +329,6 @@
                     </a>
                     @endif
 
-                    {{-- Certificate Download Button for Certification Full --}}
-                    @if (
-                        ($clientBranding['certificate_management_enabled'] ?? true) &&
-                            $tryout->is_certification &&
-                            ($tryout->type_tryout === 'certification' || $tryout->type_tryout === 'computer'))
-                        <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
-                            class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                            <i class="ri-award-line mr-2"></i>Unduh Sertifikat
-                        </a>
-                    @endif
                 @else
                     <a href="{{ route('user.event.index') }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
@@ -356,6 +346,12 @@
                         <i class="ri-book-open-line mr-2"></i>Pembahasan
                     </a>
                     @endif
+                @endif
+                @if (($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
+                    <a href="{{ route('user.certificate.preview', [$package ? $package->package_id : 'free', $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
+                        class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+                        <i class="ri-award-line mr-2"></i>Unduh Sertifikat
+                    </a>
                 @endif
                 <a href="{{ route('user.tryout.lobby', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"
                     class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">

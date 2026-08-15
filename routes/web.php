@@ -7,6 +7,7 @@ use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificateController;
+use App\Http\Controllers\admin\CertificateTemplateController;
 use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\ClassAttendanceController;
 use App\Http\Controllers\admin\ClassController;
@@ -836,6 +837,14 @@ Route::prefix('{portal}')
 
         // Certificate Management Routes
         Route::prefix('sertifikat')->name('certificate.')->middleware('certificate.enabled')->group(function () {
+            Route::get('/template', [CertificateTemplateController::class, 'index'])->name('template.index');
+            Route::get('/template/create', [CertificateTemplateController::class, 'create'])->name('template.create');
+            Route::post('/template', [CertificateTemplateController::class, 'store'])->name('template.store');
+            Route::get('/template/{certificateTemplate}/background', [CertificateTemplateController::class, 'background'])->name('template.background');
+            Route::get('/template/{certificateTemplate}/preview', [CertificateTemplateController::class, 'preview'])->name('template.preview');
+            Route::get('/template/{certificateTemplate}/edit', [CertificateTemplateController::class, 'edit'])->name('template.edit');
+            Route::put('/template/{certificateTemplate}', [CertificateTemplateController::class, 'update'])->name('template.update');
+            Route::delete('/template/{certificateTemplate}', [CertificateTemplateController::class, 'destroy'])->name('template.destroy');
             Route::get('/', [CertificateController::class, 'index'])->name('index');
             Route::get('/create', [CertificateController::class, 'create'])->name('create');
             Route::post('/store', [CertificateController::class, 'store'])->name('store');

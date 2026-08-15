@@ -19,13 +19,17 @@ use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use App\Services\ToeflScoringService; // ⬅️ ditambahkan
+use App\Services\CertificateTemplateRenderer;
 
 class CertificateController extends Controller
 {
+    private const DEFAULT_CERTIFICATE_TEMPLATE_PATH = 'certificates/templates/sertif-template.jpeg';
+
     public function preview($id_package, $id_tryout, $token)
     {
-        $package = Package::findOrFail($id_package);
-        $tryout  = Tryout::findOrFail($id_tryout);
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
+        $tryout  = Tryout::with(['tryoutDetails.materialCategory', 'certificateTemplate'])->findOrFail($id_tryout);
 
         // Check if this is a certification tryout
         if (
@@ -36,12 +40,12 @@ class CertificateController extends Controller
         }
 
         // Check access
-        if (!$this->hasAccess($id_package)) {
+        if (! $isFreeTryout && ! $this->hasAccess($id_package)) {
             return redirect()->route('user.package.index')->with('error', 'Anda tidak memiliki akses ke paket ini');
         }
 
         // Get user's completed answers
-        $userAnswers = UserAnswer::with('tryoutDetail')->where('user_id', Auth::id())
+        $userAnswers = UserAnswer::with('tryoutDetail.materialCategory')->where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->where('status', 'completed')
             ->where('attempt_token', $token)
@@ -154,6 +158,13 @@ class CertificateController extends Controller
             $certificate = $this->getCertificate($certificateId);
         }
 
+        if (app(CertificateTemplateRenderer::class)->canRender($certificate)) {
+            return response(app(CertificateTemplateRenderer::class)->render($certificate), 200, [
+                'Content-Type' => 'image/png',
+                'Content-Disposition' => 'inline; filename="sertifikat.png"',
+            ]);
+        }
+
         // Get tryout to determine certificate type
         $tryout = Tryout::find($certificate->tryout_id);
 
@@ -174,6 +185,16 @@ class CertificateController extends Controller
             $certificate = $this->getCertificate($certificateId);
         }
 
+        if (app(CertificateTemplateRenderer::class)->canRender($certificate)) {
+            $certificateName = 'Certificate_'.str_replace(['/', '-'], '_', $certificate->certificate_number).'.png';
+
+            return response(app(CertificateTemplateRenderer::class)->render($certificate), 200, [
+                'Content-Type' => 'image/png',
+                'Content-Disposition' => 'attachment; filename="'.$certificateName.'"',
+                'Cache-Control' => 'no-cache, must-revalidate',
+            ]);
+        }
+
         // Get tryout to determine certificate type
         $tryout = Tryout::find($certificate->tryout_id);
 
@@ -186,11 +207,7 @@ class CertificateController extends Controller
 
     private function viewCertificationCertificate($certificate)
     {
-        $templatePath = storage_path('app/private/certificates/certificate-template.png');
-
-        if (!file_exists($templatePath)) {
-            abort(404, 'Template sertifikat tidak ditemukan.');
-        }
+        $templatePath = $this->certificateTemplatePath($certificate);
 
         $manager = new ImageManager(new Driver());
         $image = $manager->read($templatePath);
@@ -322,11 +339,7 @@ class CertificateController extends Controller
 
     private function viewComputerCertificate($certificate)
     {
-        $templatePath = storage_path('app/private/certificates/certificate-template-computer.png');
-
-        if (!file_exists($templatePath)) {
-            abort(404, 'Template sertifikat computer tidak ditemukan.');
-        }
+        $templatePath = $this->certificateTemplatePath($certificate, true);
 
         $manager = new ImageManager(new Driver());
         $image = $manager->read($templatePath);
@@ -516,11 +529,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
 
     private function downloadCertificationCertificate($certificate)
     {
-        $templatePath = storage_path('app/private/certificates/certificate-template.png');
-
-        if (!file_exists($templatePath)) {
-            abort(404, 'Template sertifikat tidak ditemukan.');
-        }
+        $templatePath = $this->certificateTemplatePath($certificate);
 
         $manager = new ImageManager(new Driver());
         $image = $manager->read($templatePath);
@@ -643,11 +652,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
 
     private function downloadComputerCertificate($certificate)
     {
-        $templatePath = storage_path('app/private/certificates/certificate-template-computer.png');
-
-        if (!file_exists($templatePath)) {
-            abort(404, 'Template sertifikat computer tidak ditemukan.');
-        }
+        $templatePath = $this->certificateTemplatePath($certificate, true);
 
         $manager = new ImageManager(new Driver());
         $image = $manager->read($templatePath);
@@ -821,6 +826,26 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
     }
 
     // Private helper methods
+    private function certificateTemplatePath(Certificate $certificate, bool $computer = false): string
+    {
+        $paths = array_filter([
+            $certificate->template_path,
+            $computer ? 'certificates/certificate-template-computer.png' : 'certificates/certificate-template.png',
+            $computer ? 'certificates/templates/sertif-template-computer.jpeg' : null,
+            self::DEFAULT_CERTIFICATE_TEMPLATE_PATH,
+        ]);
+
+        foreach ($paths as $path) {
+            $templatePath = storage_path('app/private/'.ltrim($path, '/'));
+
+            if (is_file($templatePath)) {
+                return $templatePath;
+            }
+        }
+
+        abort(404, 'Template sertifikat tidak ditemukan.');
+    }
+
     private function hasAccess($packageId)
     {
         return UserPackageAcces::where('user_id', Auth::id())
@@ -852,11 +877,19 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
             ->first();
 
         if ($certificate) {
+            $this->refreshCertificateTemplateData($certificate, $tryout, $userAnswers);
+
             return $certificate;
         }
 
         // Create new
         $certificateNumber = $this->generateCertificateNumber();
+        $certificateTemplate = $tryout->certificateTemplate;
+        $subtestScores = $this->subtestScoresForCertificate($userAnswers);
+        $templateSnapshot = $certificateTemplate ? [
+            'template_name' => $certificateTemplate->name,
+            'template_layout' => $certificateTemplate->layout,
+        ] : [];
 
         if ($tryout->type_tryout == 'computer') {
             return Certificate::create([
@@ -864,6 +897,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                 'certificate_name' => $tryout->name,
                 'date_of_birth' => Auth::user()->date_of_birth ?? Carbon::now()->subYears(25),
                 'description' => 'Certificate of completion for TOEFL ITP test',
+                'template_path' => $certificateTemplate?->background_path,
                 'institution_name' => $this->getBrandName(),
                 'issued_date' => Carbon::now(),
                 'expired_date' => Carbon::now()->addYear(),
@@ -875,14 +909,16 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                     'user_id'       => (string)Auth::id(),
                     'user_name'     => Auth::user()->name,
                     'user_email'    => Auth::user()->email,
-                    'package_name'  => $package->name,
+                    'package_name'  => $package?->name ?? 'Tryout Gratis',
                     'token'         => $token,
                     'word_score'    => $score['word_score'],
                     'excel_score'   => $score['excel_score'],
                     'ppt_score'     => $score['ppt_score'],
                     'score'         => $score['score'], // total gabungan (rata-rata)
+                    'subtest_scores' => $subtestScores,
                     'exam_date'     => $userAnswers->min('started_at'),
                     'completion_date' => $userAnswers->max('finished_at'),
+                    ...$templateSnapshot,
                 ]
             ]);
         } else {
@@ -891,6 +927,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                 'certificate_name' => $tryout->name,
                 'date_of_birth' => Auth::user()->date_of_birth ?? Carbon::now()->subYears(25),
                 'description' => 'Certificate of completion for TOEFL ITP test',
+                'template_path' => $certificateTemplate?->background_path,
                 'institution_name' => $this->getBrandName(),
                 'issued_date' => Carbon::now(),
                 'expired_date' => Carbon::now()->addYear(),
@@ -902,17 +939,66 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
                     'user_id'         => (string)Auth::id(),
                     'user_name'       => Auth::user()->name,
                     'user_email'      => Auth::user()->email,
-                    'package_name'    => $package->name,
+                    'package_name'    => $package?->name ?? 'Tryout Gratis',
                     'token'           => $token,
                     'listening_score' => $score['listening_score'] ?? null,
                     'writing_score'   => $score['writing_score']   ?? null,
                     'reading_score'   => $score['reading_score']   ?? null,
                     'score'           => $score['score'], // TOEFL total (310–677) atau total existing
+                    'subtest_scores'  => $subtestScores,
                     'exam_date'       => $userAnswers->min('started_at'),
                     'completion_date' => $userAnswers->max('finished_at'),
+                    ...$templateSnapshot,
                 ]
             ]);
         }
+    }
+
+    private function refreshCertificateTemplateData(Certificate $certificate, Tryout $tryout, $userAnswers): void
+    {
+        $metadata = is_array($certificate->metadata) ? $certificate->metadata : [];
+        $metadata['subtest_scores'] = $this->subtestScoresForCertificate($userAnswers);
+
+        // Sertifikat lama yang dibuat sebelum template dipilih boleh memakai template
+        // tryout saat ini. Sertifikat yang sudah punya snapshot tidak pernah diubah.
+        if (! isset($metadata['template_layout']) && $tryout->certificateTemplate) {
+            $metadata['template_name'] = $tryout->certificateTemplate->name;
+            $metadata['template_layout'] = $tryout->certificateTemplate->layout;
+            $certificate->template_path = $tryout->certificateTemplate->background_path;
+        }
+
+        $certificate->metadata = $metadata;
+
+        if ($certificate->isDirty()) {
+            $certificate->save();
+        }
+    }
+
+    private function subtestScoresForCertificate($userAnswers): array
+    {
+        return $userAnswers
+            ->sortBy('tryout_detail_id')
+            ->map(function (UserAnswer $answer): array {
+                $detail = $answer->tryoutDetail;
+                $label = $detail?->materialCategory?->name
+                    ?? ucwords(str_replace(['_', '-'], ' ', (string) ($detail?->type_subtest ?? 'Subtest')));
+
+                return [
+                    'label' => $label,
+                    'score' => $this->formatCertificateScore($answer->score),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatCertificateScore(mixed $score): string
+    {
+        if (! is_numeric($score)) {
+            return '-';
+        }
+
+        return rtrim(rtrim(number_format((float) $score, 2, '.', ''), '0'), '.');
     }
 
     private function getCertificate($certificateId)
