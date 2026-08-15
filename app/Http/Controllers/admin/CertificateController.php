@@ -209,7 +209,7 @@ class CertificateController extends Controller
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('d F Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             if (env('APP_ENV') == 'local') {
                 $font->filename(asset('/fonts/Poppins-Semibold.ttf'));
             } else {
@@ -331,7 +331,7 @@ class CertificateController extends Controller
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('d F Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             if (env('APP_ENV') == 'local') {
                 $font->filename(asset('/fonts/Poppins-Semibold.ttf'));
             } else {

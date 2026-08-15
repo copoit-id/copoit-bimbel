@@ -98,7 +98,7 @@ class CertificateTemplateRenderer
             'participant_name' => (string) ($metadata['user_name'] ?? ''),
             'participant_email' => (string) ($metadata['user_email'] ?? ''),
             'date_of_birth' => filled($certificate->date_of_birth)
-                ? Carbon::parse($certificate->date_of_birth)->format('d F Y')
+                ? Carbon::parse($certificate->date_of_birth)->locale('id')->translatedFormat('d F Y')
                 : '',
             'certificate_number' => (string) $certificate->certificate_number,
             'tryout_name' => (string) $certificate->certificate_name,

@@ -168,7 +168,7 @@ class CertificateValidationController extends Controller
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('d F Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             $font->filename(public_path('fonts/Poppins-Semibold.ttf'));
             $font->size(50);
             $font->color('#2B516B');
