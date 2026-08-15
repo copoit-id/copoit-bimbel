@@ -4239,11 +4239,7 @@ class PackageController extends Controller
 
         $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
             ->where('access_source', 'direct')
-            ->whereIn('access_type', ['free', 'purchased', 'paid'])
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
+            ->active()
             ->pluck('tryout_id')
             ->toArray();
 
