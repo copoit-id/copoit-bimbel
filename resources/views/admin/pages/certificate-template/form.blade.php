@@ -6,11 +6,27 @@
     $layout = old('layout', $certificateTemplate->layout ?: []);
     $backgroundUrl = $isEditing ? route('admin.certificate.template.background', $certificateTemplate) : null;
     $additionalCustomTexts = collect($layout)->filter(fn ($config, $field) => str_starts_with((string) $field, 'custom_text_'));
-    $additionalSubtestScores = collect($layout)->filter(fn ($config, $field) => str_starts_with((string) $field, 'subtest_score_'));
+    // subtest_score_1--3 adalah elemen bawaan. Jangan tampilkan ulang sebagai
+    // elemen tambahan karena input bernama sama akan saling menimpa saat submit.
+    $additionalSubtestScores = collect($layout)->filter(
+        fn ($config, $field) => str_starts_with((string) $field, 'subtest_score_') && ! array_key_exists($field, $fieldDefinitions)
+    );
     $additionalOptionalFields = collect($layout)->filter(fn ($config, $field) => str_starts_with((string) $field, 'optional_'));
+    $fontStyleOptions = [
+        'regular' => 'Regular',
+        'semibold' => 'Semibold',
+        'bold' => 'Bold',
+        'italic' => 'Italic',
+        'bold_italic' => 'Bold Italic',
+    ];
 @endphp
 @push('styles')
 <style>
+    @font-face { font-family: 'CertificatePoppins'; src: url('{{ asset('fonts/Poppins-Regular.ttf') }}') format('truetype'); font-style: normal; font-weight: 400; }
+    @font-face { font-family: 'CertificatePoppins'; src: url('{{ asset('fonts/Poppins-SemiBold.ttf') }}') format('truetype'); font-style: normal; font-weight: 600; }
+    @font-face { font-family: 'CertificatePoppins'; src: url('{{ asset('fonts/Poppins-Bold.ttf') }}') format('truetype'); font-style: normal; font-weight: 700; }
+    @font-face { font-family: 'CertificatePoppins'; src: url('{{ asset('fonts/Poppins-Italic.ttf') }}') format('truetype'); font-style: italic; font-weight: 400; }
+    @font-face { font-family: 'CertificatePoppins'; src: url('{{ asset('fonts/Poppins-BoldItalic.ttf') }}') format('truetype'); font-style: italic; font-weight: 700; }
     .certificate-canvas-field.certificate-canvas-selected { border-style: solid; box-shadow: 0 0 0 3px rgb(28 50 89 / .28); z-index: 10; }
     [data-settings-field].certificate-settings-selected { border-color: var(--color-primary, #1C3259); box-shadow: 0 0 0 2px rgb(28 50 89 / .12); }
     #certificate-settings-panel input:not([type='checkbox']):not([type='hidden']):not([type='color']),
@@ -49,6 +65,17 @@
         line-height: 1.15;
         white-space: pre-line;
     }
+    /* Dropdown Tambah Elemen perlu membaca label panjang secara utuh. */
+    .certificate-element-select + .admin-select .admin-select__option {
+        align-items: flex-start;
+    }
+    .certificate-element-select + .admin-select .admin-select__option-label {
+        flex: 1;
+        overflow: visible;
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        white-space: normal;
+    }
 </style>
 @endpush
 <div class="space-y-6">
@@ -80,7 +107,7 @@
                 <div id="certificate-canvas-wrap" class="relative mx-auto hidden max-w-4xl overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
                     <img id="certificate-background" src="{{ $backgroundUrl }}" alt="Preview background sertifikat" class="block h-auto w-full select-none">
                     @foreach($fieldDefinitions as $field => $label)
-                        @php $config = array_merge(['enabled' => false, 'x' => 0, 'y' => 0, 'font_size' => 16, 'color' => '#1C3259', 'align' => 'left', 'text' => ''], $layout[$field] ?? []); @endphp
+                        @php $config = array_merge(['enabled' => false, 'x' => 0, 'y' => 0, 'font_size' => 16, 'font_style' => $field === 'participant_name' ? 'semibold' : 'regular', 'color' => '#1C3259', 'align' => 'left', 'text' => ''], $layout[$field] ?? []); @endphp
                         <button type="button" data-canvas-field="{{ $field }}" class="certificate-canvas-field absolute hidden cursor-move border border-dashed border-primary bg-white/80 text-primary" data-label="{{ $field === 'custom_text' ? ($config['text'] ?: $label) : $label }}">{{ $field === 'custom_text' ? ($config['text'] ?: $label) : $label }}</button>
                     @endforeach
                     @foreach($additionalCustomTexts as $field => $config)
@@ -106,7 +133,7 @@
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700"><input type="checkbox" name="is_active" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked(old('is_active', $certificateTemplate->is_active))> Template aktif dan dapat dipilih di Tryout</label>
                 <div id="certificate-field-settings" class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                     @foreach($fieldDefinitions as $field => $label)
-                        @php $config = array_merge(['enabled' => false, 'x' => 0, 'y' => 0, 'font_size' => 16, 'color' => '#1C3259', 'align' => 'left', 'text' => ''], $layout[$field] ?? []); @endphp
+                        @php $config = array_merge(['enabled' => false, 'x' => 0, 'y' => 0, 'font_size' => 16, 'font_style' => $field === 'participant_name' ? 'semibold' : 'regular', 'color' => '#1C3259', 'align' => 'left', 'text' => ''], $layout[$field] ?? []); @endphp
                         <div class="rounded-lg border border-gray-200 p-3" data-settings-field="{{ $field }}">
                             <label class="flex items-center justify-between gap-2 text-sm font-semibold text-gray-800"><span>{{ $label }}</span><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'])></label>
                             @if(str_starts_with($field, 'subtest_score_'))
@@ -118,6 +145,7 @@
                                 <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="{{ $field }}" type="number" step="0.1" name="layout[{{ $field }}][y]" value="{{ $config['y'] }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                 <label class="text-xs text-gray-500">Ukuran @if($field === 'qr_code') QR @else font @endif<input data-layout-input="font_size" data-field="{{ $field }}" type="number" min="8" max="300" step="1" name="layout[{{ $field }}][font_size]" value="{{ $config['font_size'] }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                 <label class="text-xs text-gray-500">Warna<input type="color" name="layout[{{ $field }}][color]" value="{{ $config['color'] }}" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                                <label class="col-span-2 text-xs text-gray-500">Gaya huruf<select name="layout[{{ $field }}][font_style]" class="mt-1 w-full rounded border-gray-300 text-xs">@foreach($fontStyleOptions as $style => $styleLabel)<option value="{{ $style }}" @selected(($config['font_style'] ?? ($field === 'participant_name' ? 'semibold' : 'regular')) === $style)>{{ $styleLabel }}</option>@endforeach</select></label>
                                 <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[{{ $field }}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left" @selected($config['align'] === 'left')>Kiri</option><option value="center" @selected($config['align'] === 'center')>Tengah</option><option value="right" @selected($config['align'] === 'right')>Kanan</option></select></label>
                             </div>
                         </div>
@@ -132,6 +160,7 @@
                                     <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="{{ $field }}" type="number" step="0.1" name="layout[{{ $field }}][y]" value="{{ $config['y'] ?? 1020 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Ukuran font<input data-layout-input="font_size" data-field="{{ $field }}" type="number" min="8" max="300" step="1" name="layout[{{ $field }}][font_size]" value="{{ $config['font_size'] ?? 16 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Warna<input type="color" name="layout[{{ $field }}][color]" value="{{ $config['color'] ?? '#1C3259' }}" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                                    <label class="col-span-2 text-xs text-gray-500">Gaya huruf<select name="layout[{{ $field }}][font_style]" class="mt-1 w-full rounded border-gray-300 text-xs">@foreach($fontStyleOptions as $style => $styleLabel)<option value="{{ $style }}" @selected(($config['font_style'] ?? 'regular') === $style)>{{ $styleLabel }}</option>@endforeach</select></label>
                                     <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[{{ $field }}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left" @selected(($config['align'] ?? 'center') === 'left')>Kiri</option><option value="center" @selected(($config['align'] ?? 'center') === 'center')>Tengah</option><option value="right" @selected(($config['align'] ?? 'center') === 'right')>Kanan</option></select></label>
                                 </div>
                             </div>
@@ -148,6 +177,7 @@
                                     <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="{{ $field }}" type="number" step="0.1" name="layout[{{ $field }}][y]" value="{{ $config['y'] ?? 1020 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Ukuran font<input data-layout-input="font_size" data-field="{{ $field }}" type="number" min="8" max="300" step="1" name="layout[{{ $field }}][font_size]" value="{{ $config['font_size'] ?? 16 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Warna<input type="color" name="layout[{{ $field }}][color]" value="{{ $config['color'] ?? '#1C3259' }}" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                                    <label class="col-span-2 text-xs text-gray-500">Gaya huruf<select name="layout[{{ $field }}][font_style]" class="mt-1 w-full rounded border-gray-300 text-xs">@foreach($fontStyleOptions as $style => $styleLabel)<option value="{{ $style }}" @selected(($config['font_style'] ?? 'regular') === $style)>{{ $styleLabel }}</option>@endforeach</select></label>
                                     <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[{{ $field }}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left" @selected(($config['align'] ?? 'center') === 'left')>Kiri</option><option value="center" @selected(($config['align'] ?? 'center') === 'center')>Tengah</option><option value="right" @selected(($config['align'] ?? 'center') === 'right')>Kanan</option></select></label>
                                 </div>
                             </div>
@@ -168,11 +198,34 @@
                                 @if($fieldType === 'subtest_score')
                                     <label class="mt-2 block text-xs text-gray-500">Ambil nilai subtest urutan ke-<input data-subtest-index="{{ $field }}" type="number" min="1" max="100" name="layout[{{ $field }}][subtest_index]" value="{{ $config['subtest_index'] ?? 1 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                 @endif
+                                @if($fieldType === 'conditional_text')
+                                    @php $conditionalRules = collect($config['rules'] ?? [])->filter(fn ($rule) => is_array($rule))->values(); @endphp
+                                    <label class="mt-2 block text-xs text-gray-500">Nilai dari subtest urutan ke-<input data-subtest-index="{{ $field }}" type="number" min="1" max="100" name="layout[{{ $field }}][subtest_index]" value="{{ $config['subtest_index'] ?? 1 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
+                                    <div class="mt-3 rounded border border-gray-200 p-2">
+                                        <p class="text-xs font-semibold text-gray-700">Aturan teks</p>
+                                        <p class="mt-1 text-xs text-gray-500">Aturan pertama yang cocok akan dipakai.</p>
+                                        <div data-conditional-rules="{{ $field }}" class="mt-2 space-y-2">
+                                            @foreach($conditionalRules as $ruleIndex => $rule)
+                                                <div data-conditional-rule class="space-y-2 rounded border border-gray-200 p-2">
+                                                    <div class="flex items-center justify-between gap-2"><span class="text-xs font-medium text-gray-600">Jika nilai</span><button type="button" data-remove-conditional-rule class="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50" title="Hapus aturan"><i class="ri-delete-bin-line"></i> Hapus</button></div>
+                                                    <select name="layout[{{ $field }}][rules][{{ $ruleIndex }}][operator]" class="rounded border-gray-300 text-xs"><option value="equals" @selected(($rule['operator'] ?? 'equals') === 'equals')>= Sama dengan</option><option value="gte" @selected(($rule['operator'] ?? '') === 'gte')>≥ Minimal</option><option value="lte" @selected(($rule['operator'] ?? '') === 'lte')>≤ Maksimal</option></select>
+                                                    <input type="text" name="layout[{{ $field }}][rules][{{ $ruleIndex }}][value]" value="{{ $rule['value'] ?? '' }}" placeholder="Nilai pembanding, mis. A atau 80" class="rounded border-gray-300 text-xs">
+                                                    <label class="block text-xs text-gray-500">Tampilkan teks<input type="text" name="layout[{{ $field }}][rules][{{ $ruleIndex }}][text]" value="{{ $rule['text'] ?? '' }}" placeholder="Contoh: SANGAT BAGUS" class="mt-1 rounded border-gray-300 text-xs"></label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        <button type="button" data-add-conditional-rule="{{ $field }}" class="mt-2 text-xs font-semibold text-primary hover:underline"><i class="ri-add-line"></i> Tambah aturan</button>
+                                    </div>
+                                    <label class="mt-2 block text-xs text-gray-500">Teks jika tidak ada aturan yang cocok (opsional)<input type="text" name="layout[{{ $field }}][fallback_text]" value="{{ $config['fallback_text'] ?? '' }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
+                                @endif
                                 <div class="mt-3 grid grid-cols-2 gap-2">
                                     <label class="text-xs text-gray-500">X<input data-layout-input="x" data-field="{{ $field }}" type="number" step="0.1" name="layout[{{ $field }}][x]" value="{{ $config['x'] ?? 527 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="{{ $field }}" type="number" step="0.1" name="layout[{{ $field }}][y]" value="{{ $config['y'] ?? 1020 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Ukuran font<input data-layout-input="font_size" data-field="{{ $field }}" type="number" min="8" max="300" step="1" name="layout[{{ $field }}][font_size]" value="{{ $config['font_size'] ?? 16 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                     <label class="text-xs text-gray-500">Warna<input type="color" name="layout[{{ $field }}][color]" value="{{ $config['color'] ?? '#1C3259' }}" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                                    @if($fieldType !== 'qr_code')
+                                        <label class="col-span-2 text-xs text-gray-500">Gaya huruf<select name="layout[{{ $field }}][font_style]" class="mt-1 w-full rounded border-gray-300 text-xs">@foreach($fontStyleOptions as $style => $styleLabel)<option value="{{ $style }}" @selected(($config['font_style'] ?? 'regular') === $style)>{{ $styleLabel }}</option>@endforeach</select></label>
+                                    @endif
                                     <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[{{ $field }}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left" @selected(($config['align'] ?? 'center') === 'left')>Kiri</option><option value="center" @selected(($config['align'] ?? 'center') === 'center')>Tengah</option><option value="right" @selected(($config['align'] ?? 'center') === 'right')>Kanan</option></select></label>
                                 </div>
                             </div>
@@ -180,7 +233,7 @@
                     </div>
                     <div class="rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3">
                         <label for="add-element-type" class="mb-1 block text-sm font-semibold text-primary">Tambah Elemen</label>
-                        <div class="flex gap-2"><select id="add-element-type" data-admin-select-auto-direction class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-primary"><option value="">Pilih data yang ingin ditampilkan</option>@foreach($addableFieldDefinitions as $type => $label)<option value="{{ $type }}">{{ $label }}</option>@endforeach</select><button id="add-element" type="button" class="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90">Tambah</button></div>
+                        <div class="flex gap-2"><select id="add-element-type" data-admin-select-auto-direction class="certificate-element-select min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-primary"><option value="">Pilih data yang ingin ditampilkan</option>@foreach($addableFieldDefinitions as $type => $label)<option value="{{ $type }}">{{ $label }}</option>@endforeach</select><button id="add-element" type="button" class="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90">Tambah</button></div>
                     </div>
                 </div>
                 <div class="flex gap-3 border-t border-gray-100 pt-4"><a href="{{ route('admin.certificate.template.index') }}" class="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-center text-sm font-semibold text-gray-700">Batal</a><button class="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Simpan</button></div>
@@ -209,6 +262,15 @@
     let naturalWidth = 1054, naturalHeight = 1492;
     let activeField = null;
     let selectedField = null;
+    const fontStyleOptions = '<option value="regular">Regular</option><option value="semibold">Semibold</option><option value="bold">Bold</option><option value="italic">Italic</option><option value="bold_italic">Bold Italic</option>';
+    const fontStyleInput = (field) => `<label class="col-span-2 text-xs text-gray-500">Gaya huruf<select name="layout[${field}][font_style]" class="mt-1 w-full rounded border-gray-300 text-xs">${fontStyleOptions}</select></label>`;
+    const conditionalRuleMarkup = (field, ruleId = Date.now()) => `
+        <div data-conditional-rule class="space-y-2 rounded border border-gray-200 p-2">
+            <div class="flex items-center justify-between gap-2"><span class="text-xs font-medium text-gray-600">Jika nilai</span><button type="button" data-remove-conditional-rule class="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50" title="Hapus aturan"><i class="ri-delete-bin-line"></i> Hapus</button></div>
+            <select name="layout[${field}][rules][${ruleId}][operator]" class="rounded border-gray-300 text-xs"><option value="equals">= Sama dengan</option><option value="gte">≥ Minimal</option><option value="lte">≤ Maksimal</option></select>
+            <input type="text" name="layout[${field}][rules][${ruleId}][value]" placeholder="Nilai pembanding, mis. A atau 80" class="rounded border-gray-300 text-xs">
+            <label class="block text-xs text-gray-500">Tampilkan teks<input type="text" name="layout[${field}][rules][${ruleId}][text]" placeholder="Contoh: SANGAT BAGUS" class="mt-1 rounded border-gray-300 text-xs"></label>
+        </div>`;
 
     const syncSettingsPanelHeight = () => {
         window.requestAnimationFrame(() => {
@@ -225,26 +287,16 @@
         const fieldSettings = document.querySelector(`[data-settings-field="${field}"]`);
         if (shouldScroll && fieldSettings) fieldSettings.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
-    const previewText = (field, fieldType, subtestIndex, customText, fallback) => {
-        if ((field.startsWith('custom_text') || fieldType === 'custom_text') && customText) return customText;
-        if (field.startsWith('subtest_score_') || fieldType === 'subtest_score') return ['86', '82', '89'][Math.max(0, Number(subtestIndex || 1) - 1)] || '85';
+    const editorText = (field, fieldType, subtestIndex, customText, fallback) => {
+        // Editor selalu memakai nama elemen. Nilai contoh hanya ditampilkan
+        // pada halaman Preview agar posisi dan ukuran elemen tidak menyesatkan.
+        if ((field.startsWith('custom_text') || fieldType === 'custom_text') && customText?.trim()) return customText;
+        if (field.startsWith('subtest_score_') || fieldType === 'subtest_score') {
+            return `Nilai Subtest ${Math.max(1, Number(subtestIndex || 1))}`;
+        }
+        if (fieldType === 'conditional_text') return `Teks Kondisional Subtest ${Math.max(1, Number(subtestIndex || 1))}`;
 
-        const valueType = fieldType || field;
-        return {
-            participant_name: 'Nama Peserta',
-            participant_email: 'peserta@example.com',
-            date_of_birth: '15 Januari 2000',
-            certificate_number: 'PREVIEW/001/2026',
-            tryout_name: 'Tryout Contoh',
-            package_name: 'Paket Contoh',
-            institution_name: 'Nama Bimbel Anda',
-            issued_date: '13 Agustus 2026',
-            completion_date: '12 Agustus 2026',
-            exam_date: '12 Agustus 2026',
-            total_score: '85.5',
-            subtest_scores: 'Subtest 1: 86\nSubtest 2: 82\nSubtest 3: 89',
-            qr_code: 'QR',
-        }[valueType] || fallback;
+        return fallback || 'Elemen Sertifikat';
     };
     const syncCanvas = () => {
         if (!image?.src || image.naturalWidth === 0) return;
@@ -267,10 +319,12 @@
             const subtestIndex = document.querySelector(`[data-subtest-index="${field}"]`)?.value;
             const fieldType = document.querySelector(`[name="layout[${field}][field_type]"]`)?.value;
             const isQrCode = (fieldType || field) === 'qr_code';
-            item.textContent = previewText(field, fieldType, subtestIndex, customText, item.dataset.label);
+            const fontStyle = document.querySelector(`[name="layout[${field}][font_style]"]`)?.value || (field === 'participant_name' ? 'semibold' : 'regular');
+            item.textContent = editorText(field, fieldType, subtestIndex, customText, item.dataset.label);
             item.style.fontSize = `${fontSize * imageScale}px`;
-            item.style.fontFamily = 'Poppins, sans-serif';
-            item.style.fontWeight = field === 'participant_name' || fieldType === 'participant_name' ? '600' : '400';
+            item.style.fontFamily = 'CertificatePoppins, Poppins, sans-serif';
+            item.style.fontWeight = ({ regular: '400', semibold: '600', bold: '700', italic: '400', bold_italic: '700' })[fontStyle] || '400';
+            item.style.fontStyle = fontStyle.includes('italic') ? 'italic' : 'normal';
             item.style.textAlign = align;
             item.style.transform = isQrCode
                 ? 'translate(0, 0)'
@@ -318,6 +372,7 @@
                 <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="${field}" type="number" step="0.1" name="layout[${field}][y]" value="1020" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Ukuran font<input data-layout-input="font_size" data-field="${field}" type="number" min="8" max="300" step="1" name="layout[${field}][font_size]" value="16" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Warna<input type="color" name="layout[${field}][color]" value="#1C3259" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                ${fontStyleInput(field)}
                 <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[${field}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left">Kiri</option><option value="center" selected>Tengah</option><option value="right">Kanan</option></select></label>
             </div>`;
         customTextFields.append(card);
@@ -350,6 +405,7 @@
                 <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="${field}" type="number" step="0.1" name="layout[${field}][y]" value="1020" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Ukuran font<input data-layout-input="font_size" data-field="${field}" type="number" min="8" max="300" step="1" name="layout[${field}][font_size]" value="16" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Warna<input type="color" name="layout[${field}][color]" value="#1C3259" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                ${fontStyleInput(field)}
                 <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[${field}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left">Kiri</option><option value="center" selected>Tengah</option><option value="right">Kanan</option></select></label>
             </div>`;
         subtestScoreFields.append(card);
@@ -373,6 +429,7 @@
         const subtestIndex = Math.max(0, ...existingIndexes) + 1;
         const isCustomText = fieldType === 'custom_text';
         const isSubtestScore = fieldType === 'subtest_score';
+        const isConditionalText = fieldType === 'conditional_text';
         const card = document.createElement('div');
         card.className = 'rounded-lg border border-gray-200 p-3';
         card.dataset.settingsField = field;
@@ -381,11 +438,13 @@
             <input type="hidden" name="layout[${field}][field_type]" value="${fieldType}">
             ${isCustomText ? `<input data-custom-text="${field}" type="text" name="layout[${field}][text]" class="mt-2 w-full rounded border-gray-300 text-xs" placeholder="Isi teks bebas">` : ''}
             ${isSubtestScore ? `<label class="mt-2 block text-xs text-gray-500">Ambil nilai subtest urutan ke-<input data-subtest-index="${field}" type="number" min="1" max="100" name="layout[${field}][subtest_index]" value="${subtestIndex}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>` : ''}
+            ${isConditionalText ? `<label class="mt-2 block text-xs text-gray-500">Nilai dari subtest urutan ke-<input data-subtest-index="${field}" type="number" min="1" max="100" name="layout[${field}][subtest_index]" value="${subtestIndex}" class="mt-1 w-full rounded border-gray-300 text-xs"></label><div class="mt-3 rounded border border-gray-200 p-2"><p class="text-xs font-semibold text-gray-700">Aturan teks</p><p class="mt-1 text-xs text-gray-500">Aturan pertama yang cocok akan dipakai.</p><div data-conditional-rules="${field}" class="mt-2 space-y-2">${conditionalRuleMarkup(field)}</div><button type="button" data-add-conditional-rule="${field}" class="mt-2 text-xs font-semibold text-primary hover:underline"><i class="ri-add-line"></i> Tambah aturan</button></div><label class="mt-2 block text-xs text-gray-500">Teks jika tidak ada aturan yang cocok (opsional)<input type="text" name="layout[${field}][fallback_text]" class="mt-1 w-full rounded border-gray-300 text-xs"></label>` : ''}
             <div class="mt-3 grid grid-cols-2 gap-2">
                 <label class="text-xs text-gray-500">X<input data-layout-input="x" data-field="${field}" type="number" step="0.1" name="layout[${field}][x]" value="527" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Y<input data-layout-input="y" data-field="${field}" type="number" step="0.1" name="layout[${field}][y]" value="1020" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Ukuran ${fieldType === 'qr_code' ? 'QR' : 'font'}<input data-layout-input="font_size" data-field="${field}" type="number" min="8" max="300" step="1" name="layout[${field}][font_size]" value="${fieldType === 'qr_code' ? 120 : 16}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                 <label class="text-xs text-gray-500">Warna<input type="color" name="layout[${field}][color]" value="#1C3259" class="mt-1 h-7 w-full rounded border-gray-300 p-0.5"></label>
+                ${fieldType === 'qr_code' ? '' : fontStyleInput(field)}
                 <label class="col-span-2 text-xs text-gray-500">Posisi teks<select name="layout[${field}][align]" class="mt-1 w-full rounded border-gray-300 text-xs"><option value="left">Kiri</option><option value="center" selected>Tengah</option><option value="right">Kanan</option></select></label>
             </div>`;
         optionalFields.append(card);
@@ -413,12 +472,23 @@
         image.src = URL.createObjectURL(file);
     });
     document.addEventListener('input', (event) => {
-        if (event.target.matches('[data-layout-input], [data-enabled], [data-custom-text], [data-subtest-index], [name$="[color]"]')) syncCanvas();
+        if (event.target.matches('[data-layout-input], [data-enabled], [data-custom-text], [data-subtest-index], [name$="[color]"], [name$="[font_style]"]')) syncCanvas();
     });
     document.addEventListener('change', (event) => {
-        if (event.target.matches('[data-layout-input], [data-enabled], [data-custom-text], [data-subtest-index], [name$="[color]"], [name$="[align]"]')) syncCanvas();
+        if (event.target.matches('[data-layout-input], [data-enabled], [data-custom-text], [data-subtest-index], [name$="[color]"], [name$="[font_style]"], [name$="[align]"]')) syncCanvas();
     });
     settings?.addEventListener('click', (event) => {
+        const addConditionalRuleButton = event.target.closest('[data-add-conditional-rule]');
+        if (addConditionalRuleButton) {
+            const field = addConditionalRuleButton.dataset.addConditionalRule;
+            document.querySelector(`[data-conditional-rules="${field}"]`)?.insertAdjacentHTML('beforeend', conditionalRuleMarkup(field));
+            return;
+        }
+        const removeConditionalRuleButton = event.target.closest('[data-remove-conditional-rule]');
+        if (removeConditionalRuleButton) {
+            removeConditionalRuleButton.closest('[data-conditional-rule]')?.remove();
+            return;
+        }
         const removeButton = event.target.closest('[data-remove-field]');
         if (removeButton) {
             const field = removeButton.dataset.removeField;
