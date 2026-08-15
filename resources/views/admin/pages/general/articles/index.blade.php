@@ -8,11 +8,6 @@
             <p class="text-sm text-gray-500">Kelola konten blog yang tampil di halaman General.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('admin.artikel.settings.edit') }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                <i class="ri-settings-3-line"></i>
-                Pengaturan Tampilan
-            </a>
             <a href="{{ route('admin.artikel.create') }}"
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">
                 <i class="ri-add-line"></i>
