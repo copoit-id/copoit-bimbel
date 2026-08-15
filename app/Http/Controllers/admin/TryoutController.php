@@ -170,6 +170,7 @@ class TryoutController extends Controller
 
     public function store(Request $request)
     {
+        $this->normalizeDurationInputs($request);
         $request->validate($this->tryoutValidationRules());
         $scoringMethod = $this->normalizedScoringMethod($request);
         $saleData = $this->individualSaleData($request);
@@ -271,6 +272,7 @@ class TryoutController extends Controller
                 ->with('error', 'Tryout tidak ditemukan');
         }
 
+        $this->normalizeDurationInputs($request);
         $request->validate($this->tryoutValidationRules($tryout->type_tryout));
         // Metode scoring dikunci sejak tryout dibuat agar perubahan konfigurasi
         // tidak mengubah arti nilai dan riwayat hasil peserta.
@@ -1005,8 +1007,18 @@ class TryoutController extends Controller
             'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ];
 
+        $durationFields = collect(array_keys($this->durationInputNames()))
+            ->merge(
+                collect(array_keys(request()->all()))
+                    ->filter(fn (string $field): bool => Str::startsWith($field, 'duration_'))
+            )
+            ->unique();
+
+        foreach ($durationFields as $field) {
+            $rules[$field] = 'nullable|numeric|min:0.01|max:300';
+        }
+
         foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
-            $rules['duration_'.$slug] = 'nullable|integer|min:1';
             $rules['passing_score_'.$slug] = 'nullable|numeric|min:0|max:100';
             $rules['passing_type_'.$slug] = 'nullable|in:score,percentage';
         }
@@ -1044,6 +1056,64 @@ class TryoutController extends Controller
         }
 
         return $rules;
+    }
+
+    /**
+     * Normalisasi durasi dari format Indonesia (mis. 0,5) ke format numerik
+     * yang dapat divalidasi dan disimpan MySQL (0.5).
+     */
+    private function normalizeDurationInputs(Request $request): void
+    {
+        $normalized = [];
+
+        $durationFields = collect(array_keys($this->durationInputNames()))
+            ->merge(
+                collect(array_keys($request->all()))
+                    ->filter(fn (string $field): bool => Str::startsWith($field, 'duration_'))
+            )
+            ->unique();
+
+        foreach ($durationFields as $field) {
+            $value = $request->input($field);
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $normalized[$field] = str_replace(',', '.', trim($value));
+        }
+
+        if ($normalized !== []) {
+            $request->merge($normalized);
+        }
+    }
+
+    private function durationInputNames(): array
+    {
+        $knownTypes = [
+            'general',
+            'twk',
+            'tiu',
+            'tkp',
+            'listening',
+            'writing',
+            'reading',
+            'teknis',
+            'social_culture',
+            'management',
+            'interview',
+            'word',
+            'excel',
+            'ppt',
+            'word_single',
+            'excel_single',
+            'ppt_single',
+        ];
+
+        return collect($knownTypes)
+            ->merge(array_keys(self::UTBK_SUBTESTS))
+            ->mapWithKeys(fn (string $type): array => ['duration_'.$type => true])
+            ->all();
     }
 
     private function accessDurationData(Request $request): array

@@ -24,7 +24,7 @@ class TryoutDetail extends Model
     ];
 
     protected $casts = [
-        'duration' => 'integer',
+        'duration' => 'decimal:2',
         'material_category_id' => 'integer',
         'passing_score' => 'decimal:2',
         'passing_type' => 'string',

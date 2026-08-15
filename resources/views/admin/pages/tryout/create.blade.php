@@ -488,7 +488,7 @@
                                             <h5 class="font-medium text-sm text-gray-800">{{ $subtest['name'] }}</h5>
                                             <div>
                                                 <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                                <input type="number" name="duration_{{ $subtestCode }}" min="1" max="300"
+                                                <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_{{ $subtestCode }}" min="1" max="300" placeholder="Contoh: 0,5"
                                                     value="{{ $durationValue }}"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                             </div>
@@ -529,7 +529,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">{{ $config['label'] }}</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_{{ $slug }}" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_{{ $slug }}" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ $durationValue }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -569,7 +569,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">{{ $config['label'] }}</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_{{ $slug }}" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_{{ $slug }}" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ $singleDuration }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -601,7 +601,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Tes Wawasan Kebangsaan (TWK)</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_twk" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_twk" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'twk')->first()?->duration : old('duration_twk', 35) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -626,7 +626,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Tes Intelegensi Umum (TIU)</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_tiu" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_tiu" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tiu')->first()?->duration : old('duration_tiu', 90) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -651,7 +651,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Tes Karakteristik Pribadi (TKP)</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_tkp" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_tkp" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tkp')->first()?->duration : old('duration_tkp', 45) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -682,7 +682,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Listening Comprehension</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_listening" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_listening" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'listening')->first()?->duration : old('duration_listening', 35) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -707,7 +707,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Structure & Written Expression</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_writing" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_writing" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'writing')->first()?->duration : old('duration_writing', 25) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -732,7 +732,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Reading Comprehension</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_reading" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_reading" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'reading')->first()?->duration : old('duration_reading', 55) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -763,7 +763,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Kompetensi Teknis</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_teknis" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_teknis" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'teknis')->first()?->duration : old('duration_teknis', 90) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -789,7 +789,7 @@
                                 </h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_social_culture" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_social_culture" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'social culture')->first()?->duration : old('duration_social_culture', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -815,7 +815,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Wawancara</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_interview" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_interview" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'interview')->first()?->duration : old('duration_interview', 30) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -846,7 +846,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Microsoft Word</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_word" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_word" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->duration : old('duration_word', 30) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -871,7 +871,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Microsoft Excel</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_excel" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_excel" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->duration : old('duration_excel', 30) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -896,7 +896,7 @@
                                 <h5 class="font-medium text-sm text-gray-700">Microsoft PowerPoint</h5>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Durasi (menit)</label>
-                                    <input type="number" name="duration_ppt" min="1" max="300"
+                                    <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_ppt" min="1" max="300" placeholder="Contoh: 0,5"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->duration : old('duration_ppt', 30) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -924,7 +924,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Durasi (menit)</label>
-                                <input type="number" name="duration_word_single" min="1" max="300"
+                                <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_word_single" min="1" max="300" placeholder="Contoh: 0,5"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->duration : old('duration_word_single', 30) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -950,7 +950,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Durasi (menit)</label>
-                                <input type="number" name="duration_excel_single" min="1" max="300"
+                                <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_excel_single" min="1" max="300" placeholder="Contoh: 0,5"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->duration : old('duration_excel_single', 30) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -976,7 +976,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Durasi (menit)</label>
-                                <input type="number" name="duration_ppt_single" min="1" max="300"
+                                <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_ppt_single" min="1" max="300" placeholder="Contoh: 0,5"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->duration : old('duration_ppt_single', 30) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -1003,7 +1003,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Durasi (menit)</label>
-                                <input type="number" name="duration_general" min="1" max="300"
+                                <input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" name="duration_general" min="1" max="300" placeholder="Contoh: 0,5"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->first()?->duration : old('duration_general', 60) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -1099,6 +1099,22 @@
       const certificateTemplateField = root.querySelector('#certificateTemplateField');
       const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
       if (!typeSelect || typeSelect.__tryoutBound) return;
+
+      const formatDurationInput = (input) => {
+        const value = input.value.trim();
+        if (!/^\d+(?:[.,]\d{1,2})?$/.test(value)) return;
+
+        const duration = Number.parseFloat(value.replace(',', '.'));
+        input.value = duration.toLocaleString('id-ID', {
+          useGrouping: false,
+          maximumFractionDigits: 2,
+        });
+      };
+
+      root.querySelectorAll('input[name^="duration_"]').forEach(input => {
+        formatDurationInput(input);
+        input.addEventListener('blur', () => formatDurationInput(input));
+      });
 
     const configSectionMap = {
       'utbk_full': 'utbk_full_config',
