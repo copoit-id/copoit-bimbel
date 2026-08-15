@@ -195,7 +195,7 @@
                     <div class="header-item">
                         <span class="header-label">Tanggal Lahir:</span>
                         <span class="header-value">{{ isset($certificate) && $certificate->date_of_birth ?
-                            $certificate->date_of_birth->format('d F Y') : '1 Januari 1990' }}</span>
+                            $certificate->date_of_birth->locale('id')->translatedFormat('d F Y') : '1 Januari 1990' }}</span>
                     </div>
                 </div>
                 <div>
