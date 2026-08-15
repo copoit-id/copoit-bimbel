@@ -2,7 +2,13 @@
 
 @php
     $isEdit = $article->exists;
-    $publishedAtValue = old('published_at', $article->published_at ? $article->published_at->format('Y-m-d\TH:i') : '');
+    $selectedStatus = old('status', $article->status ?? \App\Models\Article::STATUS_DRAFT);
+    $publishedAtValue = old(
+        'published_at',
+        $article->published_at
+            ? $article->published_at->format('Y-m-d\TH:i')
+            : ($selectedStatus === \App\Models\Article::STATUS_PUBLISHED ? now('Asia/Jakarta')->format('Y-m-d\TH:i') : '')
+    );
 @endphp
 
 @section('content')
@@ -36,13 +42,7 @@
                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
 
-                <label for="slug" class="mb-2 mt-4 block text-sm font-medium text-gray-700">Slug URL</label>
-                <input type="text" id="slug" name="slug" value="{{ old('slug', $article->slug) }}"
-                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    placeholder="Otomatis dari judul jika dikosongkan">
-                @error('slug')
-                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
+                <p class="mt-2 text-xs text-gray-500">Slug URL dibuat otomatis dari judul artikel saat disimpan.</p>
 
                 <label for="excerpt" class="mb-2 mt-4 block text-sm font-medium text-gray-700">Ringkasan</label>
                 <textarea id="excerpt" name="excerpt" rows="3"
@@ -96,20 +96,23 @@
                 <label for="status" class="mb-2 block text-sm font-medium text-gray-700">Status <span class="text-red-500">*</span></label>
                 <select id="status" name="status" required
                     class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                    <option value="draft" @selected(old('status', $article->status) === 'draft')>Draft</option>
-                    <option value="published" @selected(old('status', $article->status) === 'published')>Published</option>
+                    <option value="draft" @selected($selectedStatus === 'draft')>Draft</option>
+                    <option value="published" @selected($selectedStatus === 'published')>Published</option>
                 </select>
                 @error('status')
                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
 
-                <label for="published_at" class="mb-2 mt-4 block text-sm font-medium text-gray-700">Tanggal Publish</label>
-                <input type="datetime-local" id="published_at" name="published_at" value="{{ $publishedAtValue }}"
-                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                <p class="mt-2 text-xs text-gray-500">Jika status Published dan tanggal kosong, sistem memakai waktu saat ini.</p>
-                @error('published_at')
-                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
+                <div id="published-at-field" class="{{ $selectedStatus === 'published' ? '' : 'hidden' }}">
+                    <label for="published_at" class="mb-2 mt-4 block text-sm font-medium text-gray-700">Tanggal Publish</label>
+                    <input type="datetime-local" id="published_at" name="published_at" value="{{ $publishedAtValue }}"
+                        @disabled($selectedStatus !== 'published')
+                        class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
+                    <p class="mt-2 text-xs text-gray-500">Otomatis memakai waktu saat ini. Ubah hanya bila ingin menjadwalkan publish.</p>
+                    @error('published_at')
+                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             <div class="flex gap-3">
@@ -134,6 +137,30 @@
         const input = document.getElementById('cover_image');
         const preview = document.getElementById('cover-preview');
         const placeholder = document.getElementById('cover-placeholder');
+        const status = document.getElementById('status');
+        const publishedAtField = document.getElementById('published-at-field');
+        const publishedAt = document.getElementById('published_at');
+
+        const currentDateTimeLocal = () => {
+            const now = new Date();
+            const offset = now.getTimezoneOffset() * 60_000;
+
+            return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+        };
+
+        const syncPublishedAtField = () => {
+            const isPublished = status?.value === 'published';
+            publishedAtField?.classList.toggle('hidden', !isPublished);
+
+            if (publishedAt) {
+                publishedAt.disabled = !isPublished;
+                if (isPublished && !publishedAt.value) publishedAt.value = currentDateTimeLocal();
+                if (!isPublished) publishedAt.value = '';
+            }
+        };
+
+        status?.addEventListener('change', syncPublishedAtField);
+        syncPublishedAtField();
 
         input?.addEventListener('change', function () {
             const file = this.files?.[0];
