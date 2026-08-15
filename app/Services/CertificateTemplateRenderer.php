@@ -54,7 +54,7 @@ class CertificateTemplateRenderer
                 continue;
             }
 
-            $fontPath = public_path($field === 'participant_name' ? 'fonts/Poppins-SemiBold.ttf' : 'fonts/Poppins-Regular.ttf');
+            $fontPath = public_path('fonts/'.$this->fontFile($config, $field));
             $image->text($text, $x, $y, function ($font) use ($config, $fontPath): void {
                 $font->file($fontPath);
                 $font->size(max(8, (int) round((float) ($config['font_size'] ?? 16))));
@@ -76,7 +76,22 @@ class CertificateTemplateRenderer
                 return $this->subtestScoreText($metadata['subtest_scores'] ?? [], (int) ($config['subtest_index'] ?? 1));
             }
 
+            if ($fieldType === 'conditional_text') {
+                return $this->conditionalText($metadata['subtest_scores'] ?? [], $config);
+            }
+
             return $fieldType !== '' ? $this->fieldValue($fieldType, $certificate, $metadata, $config) : '';
+        }
+
+        if (str_starts_with($field, 'subtest_score_')) {
+            return $this->subtestScoreText(
+                $metadata['subtest_scores'] ?? [],
+                (int) ($config['subtest_index'] ?? 1)
+            );
+        }
+
+        if (str_starts_with($field, 'custom_text_')) {
+            return trim((string) ($config['text'] ?? ''));
         }
 
         return match ($field) {
@@ -98,8 +113,7 @@ class CertificateTemplateRenderer
                 : '',
             'total_score' => isset($metadata['score']) ? rtrim(rtrim(number_format((float) $metadata['score'], 2, '.', ''), '0'), '.') : '',
             'subtest_scores' => $this->subtestScoresText($metadata['subtest_scores'] ?? []),
-            str_starts_with($field, 'subtest_score_') => $this->subtestScoreText($metadata['subtest_scores'] ?? [], (int) ($config['subtest_index'] ?? 1)),
-            'custom_text', str_starts_with($field, 'custom_text_') => trim((string) ($config['text'] ?? '')),
+            'custom_text' => trim((string) ($config['text'] ?? '')),
             default => '',
         };
     }
@@ -127,6 +141,44 @@ class CertificateTemplateRenderer
         }
 
         return (string) (collect($subtestScores)->values()->get(max(0, $index - 1))['score'] ?? '');
+    }
+
+    private function conditionalText(mixed $subtestScores, array $config): string
+    {
+        $score = trim($this->subtestScoreText($subtestScores, max(1, (int) ($config['subtest_index'] ?? 1))));
+
+        foreach ($config['rules'] ?? [] as $rule) {
+            if (! is_array($rule) || ! filled($rule['value'] ?? null) || ! filled($rule['text'] ?? null)) {
+                continue;
+            }
+
+            $expected = trim((string) $rule['value']);
+            $operator = $rule['operator'] ?? 'equals';
+            $matches = match ($operator) {
+                'gte' => is_numeric($score) && is_numeric($expected) && (float) $score >= (float) $expected,
+                'lte' => is_numeric($score) && is_numeric($expected) && (float) $score <= (float) $expected,
+                default => mb_strtolower($score) === mb_strtolower($expected),
+            };
+
+            if ($matches) {
+                return trim((string) $rule['text']);
+            }
+        }
+
+        return trim((string) ($config['fallback_text'] ?? ''));
+    }
+
+    private function fontFile(array $config, string $field): string
+    {
+        $style = $config['font_style'] ?? ($field === 'participant_name' ? 'semibold' : 'regular');
+
+        return [
+            'regular' => 'Poppins-Regular.ttf',
+            'semibold' => 'Poppins-SemiBold.ttf',
+            'bold' => 'Poppins-Bold.ttf',
+            'italic' => 'Poppins-Italic.ttf',
+            'bold_italic' => 'Poppins-BoldItalic.ttf',
+        ][$style] ?? 'Poppins-Regular.ttf';
     }
 
     private function metadata(Certificate $certificate): array

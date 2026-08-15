@@ -52,7 +52,7 @@ class ArticleController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validateArticle($request);
-        $validated['slug'] = $this->uniqueSlug($validated['slug'] ?? $validated['title']);
+        $validated['slug'] = $this->uniqueSlug($validated['title']);
         $validated['author_id'] = Auth::id();
         $validated['excerpt'] = $this->normalizeExcerpt($validated['excerpt'] ?? null, $validated['content']);
 
@@ -60,7 +60,9 @@ class ArticleController extends Controller
             $validated['cover_image'] = $request->file('cover_image')->store('articles/covers', 'public');
         }
 
-        if (($validated['status'] ?? Article::STATUS_DRAFT) === Article::STATUS_PUBLISHED && empty($validated['published_at'])) {
+        if (($validated['status'] ?? Article::STATUS_DRAFT) === Article::STATUS_DRAFT) {
+            $validated['published_at'] = null;
+        } elseif (empty($validated['published_at'])) {
             $validated['published_at'] = now();
         }
 
@@ -81,7 +83,7 @@ class ArticleController extends Controller
     public function update(Request $request, Article $artikel)
     {
         $validated = $this->validateArticle($request);
-        $validated['slug'] = $this->uniqueSlug($validated['slug'] ?? $validated['title'], $artikel->id);
+        $validated['slug'] = $this->uniqueSlug($validated['title'], $artikel->id);
         $validated['excerpt'] = $this->normalizeExcerpt($validated['excerpt'] ?? null, $validated['content']);
 
         if ($request->hasFile('cover_image')) {
@@ -121,7 +123,6 @@ class ArticleController extends Controller
     {
         return $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255'],
             'excerpt' => ['nullable', 'string', 'max:500'],
             'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'content' => ['required', 'string'],

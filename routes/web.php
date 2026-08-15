@@ -521,6 +521,13 @@ Route::prefix('{portal}')
             ->names('artikel')
             ->parameters(['artikel' => 'artikel']);
 
+        // Kompatibilitas untuk link artikel lama. Pengaturan artikel kini menyatu
+        // dengan halaman daftar artikel, sehingga redirect ini mencegah 500 saat
+        // route cache atau view lama masih memanggil nama route sebelumnya.
+        Route::get('general/artikel/settings', function () {
+            return redirect()->route('admin.artikel.index');
+        })->name('artikel.settings.edit');
+
         Route::get('/general/landing-page', [AdminGeneralPageController::class, 'editLanding'])->name('general-pages.landing.edit');
         Route::put('/general/landing-page', [AdminGeneralPageController::class, 'updateLanding'])->name('general-pages.landing.update');
 
