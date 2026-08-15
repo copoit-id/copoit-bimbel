@@ -64,11 +64,12 @@ return [
         ],
         'extended' => [
             'label' => 'Fitur Tambahan',
-            'description' => 'Materi belajar, komunikasi, affiliate, dan pengelolaan halaman publik.',
+            'description' => 'Materi belajar, komunikasi, portal orang tua, affiliate, dan pengelolaan halaman publik.',
             'features' => [
                 'material_category',
                 'material',
                 'discussion',
+                'parent_portal',
                 'faq',
                 'affiliate',
                 'artikel',
@@ -180,6 +181,7 @@ return [
             'tutor.chat.',
             'user.chat.',
         ],
+        'parent_portal' => ['parent.'],
         'pembayaran' => ['user.billing.'],
         'tes_koran' => [
             'admin.package.tes-koran.',
@@ -215,5 +217,6 @@ return [
         'class' => 'Manajemen Kelas Live',
         'study_group' => 'Rombel',
         'booking' => 'Booking Jadwal',
+        'parent_portal' => 'Portal Orang Tua',
     ],
 ];

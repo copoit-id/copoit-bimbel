@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -41,6 +42,9 @@ class AuthController extends Controller
             }
             if ($user->isTutor()) {
                 return redirect()->route('tutor.schedule.index');
+            }
+            if ($user->isParent()) {
+                return redirect()->route('parent.dashboard');
             }
 
             return $user->canAccessAdminPanel()
@@ -98,7 +102,7 @@ class AuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
-            Cache::forget($this->attemptsKey($throttleKey));
+            RateLimiter::clear($this->attemptsKey($throttleKey));
             Cache::forget($this->lockKey($throttleKey));
             $request->session()->regenerate();
 
@@ -112,6 +116,9 @@ class AuthController extends Controller
             }
             if ($user->isTutor()) {
                 return redirect()->route('tutor.schedule.index');
+            }
+            if ($user->isParent()) {
+                return redirect()->intended(route('parent.dashboard'));
             }
             if ($user->canAccessAdminPanel()) {
                 if ($user->role === 'admin_demo') {
@@ -142,8 +149,11 @@ class AuthController extends Controller
         }
 
         $attemptKey = $this->attemptsKey($throttleKey);
-        $attempts = (int) Cache::get($attemptKey, 0) + 1;
-        Cache::put($attemptKey, $attempts, Carbon::now()->addDay());
+        // RateLimiter increments atomically. Cache::get() followed by Cache::put()
+        // allowed simultaneous failed requests to overwrite one another, effectively
+        // bypassing the lockout counter during a brute-force burst.
+        RateLimiter::hit($attemptKey, 24 * 60 * 60);
+        $attempts = RateLimiter::attempts($attemptKey);
 
         $lockSeconds = $this->lockSecondsForAttempts($attempts);
         if ($lockSeconds > 0) {
@@ -441,7 +451,7 @@ class AuthController extends Controller
 
     private function throttleKey(Request $request): string
     {
-        return 'login:'.sha1(strtolower((string) $request->input('email')).'|'.$request->ip());
+        return 'login:'.sha1(Str::lower(trim((string) $request->input('email'))));
     }
 
     private function lockKey(string $throttleKey): string

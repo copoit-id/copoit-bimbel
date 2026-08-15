@@ -2,7 +2,7 @@
 @section('title', 'Hasil Tryout')
 @section('content')
     <div class="min-h-screen bg-gray-50 py-8 pt-18 flex items-center">
-        <div class="max-w-4xl mx-auto">
+        <div class="w-full max-w-5xl mx-auto px-4 sm:px-6">
             <!-- Main Result -->
             <div class="bg-white rounded-lg border border-border p-4 md:p-8 text-center mb-6">
                 <div>
@@ -15,14 +15,20 @@
                                     ? (bool) $singleIsPassed
                                     : (bool) optional($latestUserAnswers->first())->is_passed);
                         $firstUserAnswer = $latestUserAnswers->first();
+                        $showResultScores = $tryout->shouldShowResultScores();
+                        $showTotalResultScore = $tryout->shouldShowTotalResultScore();
                     @endphp
                     <div class="flex flex-col justify-center items-center">
                         <p class="text-xl font-semibold text-gray-900 mb-2">{{ $tryout->name }}</p>
-                        @if (isset($rawScore) && isset($maxScore))
+                        @if ($showTotalResultScore && isset($rawScore) && isset($maxScore))
                             <div class="flex justify-center items-end text-center gap-2 my-6">
                                 <p class="text-5xl font-semibold text-gray-900">{{ $rawScore }}</p>
                                 <p class="text-xl text-gray-500">/ {{ $maxScore }}</p>
                             </div>
+                        @elseif (! $showResultScores)
+                            <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
+                        @endif
+                        @if (isset($rawScore) && isset($maxScore) && ($showTotalResultScore || ! $showResultScores))
                             @if (($pendingReviewCount ?? 0) > 0)
                                 <p class="mb-4 text-sm text-gray-600">
                                     {{ $pendingReviewCount }} jawaban masih menunggu koreksi AI
@@ -61,34 +67,34 @@
                 @endphp
 
                 <!-- Quick Stats -->
-                <div class="flex gap-3 w-full mt-6">
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                <div class="grid grid-cols-2 gap-3 mt-6 sm:grid-cols-3 {{ ($pendingReviewCount ?? 0) > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5' }}">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-check-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $correctAnswers }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Benar</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-close-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $wrongAnswers }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Salah</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-checkbox-blank-circle-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $unansweredCount ?? 0 }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Kosong</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-time-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $formattedTime }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Waktu</p>
                     </div>
-                    <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg min-w-0">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg min-w-0">
                         <i class="ri-timer-line text-xl text-gray-700 mb-1"></i>
                         <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $avgTimeText }}</p>
                         <p class="text-xs md:text-sm text-gray-500">Rata-rata</p>
                     </div>
                     @if (($pendingReviewCount ?? 0) > 0)
-                        <div class="flex-1 text-center p-4 bg-gray-100 rounded-lg border border-gray-300 min-w-0">
+                        <div class="text-center p-4 bg-gray-100 rounded-lg border border-gray-300 min-w-0">
                             <i class="ri-time-line text-xl text-gray-700 mb-1"></i>
                             <p class="text-xl md:text-2xl font-semibold text-gray-900 truncate">{{ $pendingReviewCount }}</p>
                             <p class="text-xs md:text-sm text-gray-600">Menunggu</p>
@@ -96,104 +102,87 @@
                     @endif
                 </div>
 
-                <!-- Time Per Question Line Chart -->
+                <!-- Answer Chart -->
                 @php
-                    // Build time per question data with sequential timestamps
-                    $questionTimeData = [];
-                    $qIndex = 1;
-                    $prevTime = null;
-                    
-                    foreach ($latestUserAnswers as $userAnswer) {
-                        $details = $userAnswer->userAnswerDetails->sortBy('user_answer_detail_id');
-                        foreach ($details as $detail) {
-                            // Calculate time spent on this question (difference from previous answer)
-                            if ($prevTime === null) {
-                                $qTime = $avgSecondsPerQuestion > 0 ? $avgSecondsPerQuestion : 60;
-                            } else {
-                                $currentTime = $detail->created_at ? $detail->created_at->timestamp : $prevTime + 60;
-                                $qTime = max(5, $currentTime - $prevTime); // Minimum 5 seconds
-                            }
-                            $prevTime = $detail->created_at ? $detail->created_at->timestamp : ($prevTime + $qTime);
-                            
-                            $questionTimeData[] = [
-                                'number' => $qIndex,
-                                'time' => $qTime,
-                                'isCorrect' => $detail->is_correct,
-                                'pending' => $detail->answer_json['pending_review'] ?? false
-                            ];
-                            $qIndex++;
-                        }
+                    $answerChartItems = collect($subtestResults ?? [])
+                        ->map(fn (array $subtest): array => [
+                            'name' => (string) ($subtest['name'] ?? 'Subtest'),
+                            'correct' => (int) ($subtest['correct_answers'] ?? 0),
+                            'wrong' => (int) ($subtest['wrong_answers'] ?? 0),
+                            'unanswered' => (int) ($subtest['unanswered'] ?? 0),
+                        ])
+                        ->values();
+
+                    if ($answerChartItems->isEmpty()) {
+                        $answerChartItems = collect([[
+                            'name' => 'Tryout',
+                            'correct' => (int) $correctAnswers,
+                            'wrong' => (int) $wrongAnswers,
+                            'unanswered' => (int) ($unansweredCount ?? 0),
+                        ]]);
                     }
-                    
-                    $totalQuestionsChart = count($questionTimeData);
+
+                    $answerChartHighestValue = max(1, $answerChartItems->flatMap(
+                        fn (array $item): array => [$item['correct'], $item['wrong'], $item['unanswered']]
+                    )->max());
+                    $answerChartMaximum = $answerChartHighestValue + max(1, (int) ceil($answerChartHighestValue * 0.15));
+                    $answerChartItemCount = $answerChartItems->count();
+                    $answerChartWidth = max(660, $answerChartItemCount * 210);
                 @endphp
 
-                @if($totalQuestionsChart > 0)
-                @php
-                    $maxTime = max(30, collect($questionTimeData)->max('time'));
-                    $chartHeight = 200;
-                    $chartWidth = max(600, $totalQuestionsChart * 25);
-                    $paddingX = 40;
-                    $paddingY = 20;
-                    $plotWidth = $chartWidth - ($paddingX * 2);
-                    $plotHeight = $chartHeight - ($paddingY * 2);
-                    $stepX = $totalQuestionsChart > 1 ? $plotWidth / ($totalQuestionsChart - 1) : 0;
-                @endphp
-                <div class="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-                    <h4 class="text-sm font-semibold text-gray-900 mb-4">Waktu per Soal (detik)</h4>
-                    <div class="overflow-x-auto">
-                        <svg width="{{ $chartWidth }}" height="{{ $chartHeight + 30 }}" class="block" style="min-width: 100%;">
-                            <!-- Grid lines horizontal -->
-                            @for($i = 0; $i <= 5; $i++)
-                                @php
-                                    $y = $paddingY + ($plotHeight / 5) * $i;
-                                    $value = round($maxTime - ($maxTime / 5) * $i);
-                                @endphp
-                                <line x1="{{ $paddingX }}" y1="{{ $y }}" x2="{{ $chartWidth - $paddingX }}" y2="{{ $y }}" stroke="#e5e7eb" stroke-width="1"/>
-                                <text x="{{ $paddingX - 5 }}" y="{{ $y + 4 }}" text-anchor="end" font-size="10" fill="#6b7280">{{ $value }}</text>
-                            @endfor
-                            
-                            <!-- Line path -->
-                            @php
-                                $points = [];
-                                foreach($questionTimeData as $i => $qData) {
-                                    $x = $paddingX + ($i * $stepX);
-                                    $y = $paddingY + $plotHeight - (($qData['time'] / $maxTime) * $plotHeight);
-                                    $points[] = "{$x},{$y}";
-                                }
-                                $pathData = implode(' L ', $points);
-                            @endphp
-                            <path d="M {{ $pathData }}" fill="none" stroke="#3b82f6" stroke-width="2"/>
-                            
-                            <!-- Data points -->
-                            @foreach($questionTimeData as $i => $qData)
-                                @php
-                                    $x = $paddingX + ($i * $stepX);
-                                    $y = $paddingY + $plotHeight - (($qData['time'] / $maxTime) * $plotHeight);
-                                    $color = $qData['pending'] ? '#9ca3af' : ($qData['isCorrect'] ? '#22c55e' : '#ef4444');
-                                @endphp
-                                <circle cx="{{ $x }}" cy="{{ $y }}" r="4" fill="{{ $color }}" stroke="white" stroke-width="2"/>
-                                
-                                <!-- X axis labels -->
-                                @if($totalQuestionsChart <= 15 || $i % 2 == 0 || $i == $totalQuestionsChart - 1)
-                                    <text x="{{ $x }}" y="{{ $chartHeight - 5 }}" text-anchor="middle" font-size="10" fill="#6b7280">{{ $qData['number'] }}</text>
-                                @endif
-                            @endforeach
-                            
-                            <!-- Axes -->
-                            <line x1="{{ $paddingX }}" y1="{{ $paddingY + $plotHeight }}" x2="{{ $chartWidth - $paddingX }}" y2="{{ $paddingY + $plotHeight }}" stroke="#9ca3af" stroke-width="1"/>
-                            <line x1="{{ $paddingX }}" y1="{{ $paddingY }}" x2="{{ $paddingX }}" y2="{{ $paddingY + $plotHeight }}" stroke="#9ca3af" stroke-width="1"/>
-                        </svg>
+                <section class="mt-8 border-t border-gray-100 pt-6">
+                    <div class="text-center">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Grafik Jawaban</p>
+                            <p class="mt-1 text-xs text-gray-500">Jumlah jawaban benar, salah, dan tidak terjawab pada setiap subtest.</p>
+                        </div>
+                        <div class="mt-3 flex items-center justify-center gap-4 text-xs text-gray-500">
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-green-500"></span>Benar</span>
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-red-500"></span>Salah</span>
+                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-300"></span>Tidak Terjawab</span>
+                        </div>
                     </div>
-                    <div class="mt-4 flex items-center gap-4 text-xs text-gray-500">
-                        <span><span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span>Benar</span>
-                        <span><span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-1"></span>Salah</span>
-                        @if(($pendingReviewCount ?? 0) > 0)
-                            <span><span class="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1"></span>Menunggu</span>
-                        @endif
+
+                    <div class="mt-7 overflow-x-auto pb-2">
+                        <div class="mx-auto" style="width: {{ $answerChartWidth }}px">
+                            <div class="relative ml-7 h-60 border-b border-l border-gray-200">
+                                <div class="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                                    <span class="border-t border-dashed border-gray-100"></span>
+                                    <span class="border-t border-dashed border-gray-100"></span>
+                                    <span class="border-t border-dashed border-gray-100"></span>
+                                    <span></span>
+                                </div>
+
+                                <div class="absolute inset-0 grid" style="grid-template-columns: repeat({{ $answerChartItemCount }}, minmax(0, 1fr));">
+                                    @foreach($answerChartItems as $item)
+                                        @php
+                                            $correctHeight = ($item['correct'] / $answerChartMaximum) * 100;
+                                            $wrongHeight = ($item['wrong'] / $answerChartMaximum) * 100;
+                                            $unansweredHeight = ($item['unanswered'] / $answerChartMaximum) * 100;
+                                        @endphp
+                                        <div class="flex h-full items-end justify-center gap-3 px-5">
+                                            <div class="relative w-10 rounded-t-sm bg-green-500" style="height: {{ $correctHeight }}%">
+                                                <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['correct'] }}</span>
+                                            </div>
+                                            <div class="relative w-10 rounded-t-sm bg-red-500" style="height: {{ $wrongHeight }}%">
+                                                <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['wrong'] }}</span>
+                                            </div>
+                                            <div class="relative w-10 rounded-t-sm bg-gray-300" style="height: {{ $unansweredHeight }}%">
+                                                <span class="absolute inset-x-0 -top-6 text-center text-sm font-medium text-gray-700">{{ $item['unanswered'] }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div class="ml-7 mt-3 grid" style="grid-template-columns: repeat({{ $answerChartItemCount }}, minmax(0, 1fr));">
+                                @foreach($answerChartItems as $item)
+                                    <p class="px-3 text-center text-xs font-medium leading-5 text-gray-500">{{ $item['name'] }}</p>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
-                </div>
-                @endif
+                </section>
             </div>
 
             @php
@@ -263,17 +252,21 @@
                                         <div>
                                             <p class="font-medium text-gray-900">{{ $result['name'] }}</p>
                                             <div class="text-sm text-gray-500">
-                                                <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                    {{ $result['raw_score'] }}/{{ $result['max_score'] }}
-                                                </span>
+                                                @if ($showResultScores)
+                                                    <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
+                                                        {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                                    </span>
+                                                @endif
                                                 @if (($result['pending_count'] ?? 0) > 0)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded ml-2">
                                                         <i class="ri-time-line animate-pulse"></i>
                                                         {{ $result['pending_count'] }} menunggu
                                                     </span>
                                                 @endif
-                                                <span class="mx-1">-</span>
-                                                Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
+                                                @if ($showResultScores)
+                                                    <span class="mx-1">-</span>
+                                                    Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
+                                                @endif
                                             </div>
                                         </div>
                                     </div>
@@ -336,27 +329,29 @@
                     </a>
                     @endif
 
-                    {{-- Certificate Download Button for Certification Full --}}
-                    @if (
-                        ($clientBranding['certificate_management_enabled'] ?? true) &&
-                            $tryout->is_certification &&
-                            ($tryout->type_tryout === 'certification' || $tryout->type_tryout === 'computer'))
-                        <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
-                            class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                            <i class="ri-award-line mr-2"></i>Unduh Sertifikat
-                        </a>
-                    @endif
                 @else
                     <a href="{{ route('user.event.index') }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
                     </a>
+                    @if($tryout->show_leaderboard)
+                    <a href="{{ route('user.package.tryout.ranking', ['id_package' => 'free', 'id_tryout' => $tryout->tryout_id]) }}"
+                        class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+                        <i class="ri-trophy-line mr-2"></i>Ranking
+                    </a>
+                    @endif
                     @if($tryout->show_discussion)
                     <a href="{{ route('user.package.tryout.pembahasan', ['free', $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-book-open-line mr-2"></i>Pembahasan
                     </a>
                     @endif
+                @endif
+                @if (($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
+                    <a href="{{ route('user.certificate.preview', [$package ? $package->package_id : 'free', $tryout->tryout_id, 'token' => $latestAttemptToken]) }}"
+                        class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
+                        <i class="ri-award-line mr-2"></i>Unduh Sertifikat
+                    </a>
                 @endif
                 <a href="{{ route('user.tryout.lobby', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}"
                     class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">

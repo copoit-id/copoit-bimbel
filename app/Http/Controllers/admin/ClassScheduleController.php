@@ -139,7 +139,7 @@ class ClassScheduleController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'tentor_id']);
         $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
-        $preselectedDay = $request->query('day_of_week', 1);
+        $preselectedDay = $request->integer('day_of_week') ?: now()->dayOfWeekIso;
         $preselectedPackageId = $request->integer('package_id') ?: null;
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');

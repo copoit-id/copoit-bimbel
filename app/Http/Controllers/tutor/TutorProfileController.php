@@ -18,13 +18,20 @@ class TutorProfileController extends Controller
             ->withCount('visibleReviews')
             ->withAvg('visibleReviews', 'rating')
             ->firstOrFail();
-        $recentReviews = $tentor->visibleReviews()
+        $reviews = $tentor->visibleReviews()
             ->with('user:id,name')
             ->latest()
-            ->limit(5)
-            ->get();
+            ->paginate(10, ['*'], 'reviews_page');
+        $reviewCountsByRating = $tentor->visibleReviews()
+            ->selectRaw('rating, COUNT(*) as total')
+            ->groupBy('rating')
+            ->pluck('total', 'rating');
 
-        return view('tutor.profile.edit', compact('tentor', 'recentReviews'));
+        return view('tutor.profile.edit', compact(
+            'tentor',
+            'reviews',
+            'reviewCountsByRating'
+        ));
     }
 
     public function update(
@@ -39,6 +46,7 @@ class TutorProfileController extends Controller
                 'max:2048',
             ],
             'remove_photo' => ['nullable', 'boolean'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'expertise' => ['nullable', 'string', 'max:255'],
             'bio' => ['nullable', 'string', 'max:2000'],
             'education' => ['nullable', 'string', 'max:2000'],
@@ -71,6 +79,7 @@ class TutorProfileController extends Controller
 
                 $tentor->update([
                     'profile_photo_path' => $profilePhotoPath,
+                    'phone' => $validated['phone'] ?? null,
                     'expertise' => $validated['expertise'] ?? null,
                     'bio' => $validated['bio'] ?? null,
                     'education' => $validated['education'] ?? null,

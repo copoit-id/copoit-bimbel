@@ -95,6 +95,82 @@
                             :value="old('status', $user->status ?? 'aktif')" required />
                     </div>
 
+                    @if($parentPortalEnabled ?? false)
+                    @php
+                        $isParentRole = old('role', $user?->role ?? '') === 'parent';
+                        $isStudentRole = old('role', $user?->role ?? '') === 'user';
+                    @endphp
+                    <section id="parent-child-section" @class(['rounded-xl border border-primary/20 bg-primary/5 p-4', 'hidden' => !$isParentRole])>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Pilih anak yang diasuh</h3>
+                            <p class="mt-1 text-sm text-gray-500">Wajib pilih minimal satu siswa. Gunakan pencarian agar lebih cepat menemukan anak.</p>
+                        </div>
+                        <div class="mt-4">
+                            <label for="child-search" class="sr-only">Cari anak</label>
+                            <div class="relative">
+                                <i class="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input id="child-search" type="search" placeholder="Cari nama atau email anak..."
+                                    class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm focus:border-primary focus:ring-primary">
+                            </div>
+                        </div>
+                        <div id="child-search-results" class="mt-2 space-y-2"></div>
+                        <div id="selected-children" class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            @foreach($childOptions ?? [] as $childOption)
+                                <div data-selected-child data-user-id="{{ $childOption->id }}" class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700">
+                                    <input type="hidden" name="child_ids[]" value="{{ $childOption->id }}">
+                                    <span class="min-w-0 flex-1"><span class="block truncate font-semibold">{{ $childOption->name }}</span><span class="block truncate text-xs text-gray-400">{{ $childOption->email }}</span></span>
+                                    <button type="button" data-remove-child class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" aria-label="Hapus anak"><i class="ri-close-line text-lg"></i></button>
+                                </div>
+                            @endforeach
+                        </div>
+                        <p id="selected-children-empty" @class(['mt-4 text-sm text-gray-500', 'hidden' => ($childOptions ?? collect())->isNotEmpty()])>Belum ada anak yang dipilih.</p>
+                        @error('child_ids')<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </section>
+
+                    <section id="student-parent-section" @class(['rounded-xl border border-primary/20 bg-primary/5 p-4', 'hidden' => !$isStudentRole])>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Orang tua / wali siswa <span class="font-normal text-gray-400">(opsional)</span></h3>
+                            <p class="mt-1 text-sm text-gray-500">Hubungkan wali bila diperlukan. Satu siswa dapat memiliki lebih dari satu wali.</p>
+                        </div>
+                        <div class="mt-4 space-y-3">
+                            <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-primary/20 bg-white px-3 py-3 text-sm font-medium text-gray-700">
+                                <input id="link-parent-account" type="checkbox" value="1" @checked(old('link_parent_account', ($parentOptions ?? collect())->isNotEmpty() || old('add_parent_account'))) class="rounded border-gray-300 text-primary focus:ring-primary">
+                                Hubungkan atau tambahkan akun orang tua / wali
+                            </label>
+
+                            <div id="parent-link-fields" @class(['space-y-3', 'hidden' => !old('link_parent_account', ($parentOptions ?? collect())->isNotEmpty() || old('add_parent_account'))])>
+                            <div>
+                                <label for="parent-account-search" class="block text-sm font-medium text-gray-700">Pilih akun orang tua yang sudah ada</label>
+                                <input id="parent-account-search" type="search" placeholder="Cari nama atau email orang tua..."
+                                    class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-primary focus:ring-primary">
+                                <div id="parent-search-results" class="mt-2 space-y-2"></div>
+                                <div id="selected-parent" class="mt-2">
+                                    @foreach($parentOptions ?? [] as $parentOption)
+                                        <div data-selected-parent data-user-id="{{ $parentOption->id }}" class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700">
+                                            <input type="hidden" name="parent_user_id" value="{{ $parentOption->id }}">
+                                            <span class="min-w-0 flex-1"><span class="block truncate font-semibold">{{ $parentOption->name }}</span><span class="block truncate text-xs text-gray-400">{{ $parentOption->email }}</span></span>
+                                            <button type="button" data-remove-parent class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" aria-label="Hapus orang tua"><i class="ri-close-line text-lg"></i></button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @error('parent_user_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+
+                            <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-primary/30 bg-white px-3 py-3 text-sm font-medium text-gray-700">
+                                <input id="add-parent-account" type="checkbox" name="add_parent_account" value="1" @checked(old('add_parent_account')) class="rounded border-gray-300 text-primary focus:ring-primary">
+                                Buatkan akun orang tua baru untuk siswa ini
+                            </label>
+
+                            <div id="new-parent-fields" @class(['grid grid-cols-1 gap-4 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-3', 'hidden' => !old('add_parent_account')])>
+                                <x-form.input name="parent_name" label="Nama orang tua" :value="old('parent_name')" />
+                                <x-form.input type="email" name="parent_email" label="Email orang tua" :value="old('parent_email')" />
+                                <x-form.input type="password" name="parent_password" label="Password akun orang tua" autocomplete="new-password" />
+                            </div>
+                            </div>
+                        </div>
+                    </section>
+                    @endif
+
                     <div>
                         @php
                             $selectedDestinationId = (int) old('participant_destination_category_id', $user->participant_destination_category_id ?? null);
@@ -184,6 +260,198 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const roleSelect = document.querySelector('select[name="role"]');
+        const parentChildSection = document.getElementById('parent-child-section');
+        const studentParentSection = document.getElementById('student-parent-section');
+        const childSearch = document.getElementById('child-search');
+        const childSearchResults = document.getElementById('child-search-results');
+        const selectedChildren = document.getElementById('selected-children');
+        const selectedChildrenEmpty = document.getElementById('selected-children-empty');
+        const parentAccountSearch = document.getElementById('parent-account-search');
+        const parentSearchResults = document.getElementById('parent-search-results');
+        const selectedParent = document.getElementById('selected-parent');
+        const linkParentAccount = document.getElementById('link-parent-account');
+        const parentLinkFields = document.getElementById('parent-link-fields');
+        const addParentAccount = document.getElementById('add-parent-account');
+        const newParentFields = document.getElementById('new-parent-fields');
+        const relationshipOptionsUrl = @json(route('admin.user.relationship-options'));
+
+        const syncRelationshipSections = () => {
+            const role = roleSelect?.value || '';
+            parentChildSection?.classList.toggle('hidden', role !== 'parent');
+            studentParentSection?.classList.toggle('hidden', role !== 'user');
+        };
+
+        const syncNewParentFields = () => {
+            const wantsParentLink = Boolean(linkParentAccount?.checked);
+            const isCreatingParent = Boolean(addParentAccount?.checked);
+            parentLinkFields?.classList.toggle('hidden', !wantsParentLink);
+            newParentFields?.classList.toggle('hidden', !wantsParentLink || !isCreatingParent);
+            if (addParentAccount) addParentAccount.disabled = !wantsParentLink;
+            parentAccountSearch?.toggleAttribute('disabled', !wantsParentLink || isCreatingParent);
+            selectedParent?.querySelector('input[name="parent_user_id"]')?.toggleAttribute('disabled', !wantsParentLink || isCreatingParent);
+
+            newParentFields?.querySelectorAll('input').forEach((input) => {
+                input.required = wantsParentLink && isCreatingParent;
+                input.disabled = !wantsParentLink || !isCreatingParent;
+            });
+        };
+
+        const renderSearchResults = (container, users, onSelect) => {
+            if (!container) return;
+            container.replaceChildren();
+
+            if (users.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'text-sm text-gray-500';
+                empty.textContent = 'Tidak ada akun yang cocok.';
+                container.appendChild(empty);
+                return;
+            }
+
+            users.forEach((user) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left text-sm transition hover:border-primary hover:bg-primary/5';
+
+                const identity = document.createElement('span');
+                identity.className = 'min-w-0';
+                const name = document.createElement('span');
+                name.className = 'block truncate font-semibold text-gray-800';
+                name.textContent = user.name;
+                const email = document.createElement('span');
+                email.className = 'block truncate text-xs text-gray-400';
+                email.textContent = user.email;
+                identity.append(name, email);
+
+                const action = document.createElement('span');
+                action.className = 'ml-3 shrink-0 text-primary';
+                action.textContent = 'Pilih';
+                button.append(identity, action);
+                button.addEventListener('click', () => onSelect(user));
+                container.appendChild(button);
+            });
+        };
+
+        const refreshSelectedChildrenState = () => {
+            selectedChildrenEmpty?.classList.toggle('hidden', Boolean(selectedChildren?.querySelector('[data-selected-child]')));
+        };
+
+        const addChild = (user) => {
+            if (!selectedChildren || selectedChildren.querySelector(`[data-user-id="${user.id}"]`)) return;
+
+            const card = document.createElement('div');
+            card.dataset.selectedChild = '';
+            card.dataset.userId = user.id;
+            card.className = 'flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'child_ids[]';
+            input.value = user.id;
+            const identity = document.createElement('span');
+            identity.className = 'min-w-0 flex-1';
+            const name = document.createElement('span');
+            name.className = 'block truncate font-semibold';
+            name.textContent = user.name;
+            const email = document.createElement('span');
+            email.className = 'block truncate text-xs text-gray-400';
+            email.textContent = user.email;
+            identity.append(name, email);
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600';
+            remove.setAttribute('aria-label', 'Hapus anak');
+            remove.innerHTML = '<i class="ri-close-line text-lg"></i>';
+            remove.addEventListener('click', () => {
+                card.remove();
+                refreshSelectedChildrenState();
+            });
+            card.append(input, identity, remove);
+            selectedChildren.appendChild(card);
+            refreshSelectedChildrenState();
+        };
+
+        const setParent = (user) => {
+            if (!selectedParent) return;
+            selectedParent.replaceChildren();
+            const card = document.createElement('div');
+            card.dataset.selectedParent = '';
+            card.dataset.userId = user.id;
+            card.className = 'flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'parent_user_id';
+            input.value = user.id;
+            const identity = document.createElement('span');
+            identity.className = 'min-w-0 flex-1';
+            const name = document.createElement('span');
+            name.className = 'block truncate font-semibold';
+            name.textContent = user.name;
+            const email = document.createElement('span');
+            email.className = 'block truncate text-xs text-gray-400';
+            email.textContent = user.email;
+            identity.append(name, email);
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600';
+            remove.setAttribute('aria-label', 'Hapus orang tua');
+            remove.innerHTML = '<i class="ri-close-line text-lg"></i>';
+            remove.addEventListener('click', () => card.remove());
+            card.append(input, identity, remove);
+            selectedParent.appendChild(card);
+            syncNewParentFields();
+        };
+
+        const attachRemoveHandlers = () => {
+            selectedChildren?.querySelectorAll('[data-remove-child]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    button.closest('[data-selected-child]')?.remove();
+                    refreshSelectedChildrenState();
+                });
+            });
+            selectedParent?.querySelectorAll('[data-remove-parent]').forEach((button) => {
+                button.addEventListener('click', () => button.closest('[data-selected-parent]')?.remove());
+            });
+        };
+
+        const setupUserSearch = (input, role, container, onSelect) => {
+            let timer;
+            let requestNumber = 0;
+            input?.addEventListener('input', () => {
+                window.clearTimeout(timer);
+                const query = input.value.trim();
+                if (query.length < 2) {
+                    container?.replaceChildren();
+                    return;
+                }
+
+                timer = window.setTimeout(async () => {
+                    const currentRequest = ++requestNumber;
+                    const response = await fetch(`${relationshipOptionsUrl}?role=${role}&q=${encodeURIComponent(query)}`, {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    if (!response.ok || currentRequest !== requestNumber) return;
+                    const payload = await response.json();
+                    renderSearchResults(container, Array.isArray(payload.data) ? payload.data : [], (user) => {
+                        onSelect(user);
+                        input.value = '';
+                        container?.replaceChildren();
+                    });
+                }, 250);
+            });
+        };
+
+        attachRemoveHandlers();
+        refreshSelectedChildrenState();
+        setupUserSearch(childSearch, 'user', childSearchResults, addChild);
+        setupUserSearch(parentAccountSearch, 'parent', parentSearchResults, setParent);
+
+        roleSelect?.addEventListener('change', syncRelationshipSections);
+        linkParentAccount?.addEventListener('change', syncNewParentFields);
+        addParentAccount?.addEventListener('change', syncNewParentFields);
+        syncRelationshipSections();
+        syncNewParentFields();
+
         const institution = document.getElementById('destination_institution');
         const program = document.getElementById('destination_program');
         const hidden = document.getElementById('participant_destination_category_id');

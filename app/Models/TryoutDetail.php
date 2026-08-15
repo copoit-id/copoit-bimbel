@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -22,11 +24,22 @@ class TryoutDetail extends Model
     ];
 
     protected $casts = [
-        'duration' => 'integer',
+        'duration' => 'decimal:2',
         'material_category_id' => 'integer',
         'passing_score' => 'decimal:2',
         'passing_type' => 'string',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner(auth()->user())) {
+                return;
+            }
+
+            $query->whereHas('tryout');
+        });
+    }
 
     public function tryout()
     {

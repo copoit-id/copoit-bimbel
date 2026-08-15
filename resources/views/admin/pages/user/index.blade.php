@@ -458,7 +458,7 @@
                                         <i class="ri-upload-cloud-2-line text-4xl text-gray-500 mb-2"></i>
                                         <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Klik untuk
                                                 upload</span> atau drag and drop</p>
-                                        <p class="text-xs text-gray-500">PNG atau JPG (MAX. 2MB)</p>
+                                        <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG atau JPG (maks. 2MB)</p>
                                     </div>
                                     <input id="dropzone-file" type="file" name="avatar" accept="image/png,image/jpeg"
                                         class="hidden" />

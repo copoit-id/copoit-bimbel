@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasIndividualPricing;
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -20,6 +22,7 @@ class Tryout extends Model
         'is_toefl' => 'boolean',
         'is_irt' => 'boolean',
         'material_category_id' => 'integer',
+        'certificate_template_id' => 'integer',
         'scoring_method' => 'string',
         'is_active' => 'boolean',
         'is_for_sale' => 'boolean',
@@ -27,6 +30,8 @@ class Tryout extends Model
         'type_price' => 'string',
         'show_discussion' => 'boolean',
         'show_leaderboard' => 'boolean',
+        'show_result_scores' => 'boolean',
+        'result_score_display' => 'string',
         'section_break_duration' => 'integer',
         'max_attempts' => 'integer',
         'start_date' => 'datetime',
@@ -46,11 +51,35 @@ class Tryout extends Model
         'access_duration_value' => 'integer',
     ];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            $user = auth()->user();
+
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner($user)) {
+                return;
+            }
+
+            $query->where($query->qualifyColumn('created_by'), $user->id);
+        });
+    }
+
     public function requiresIrtScoring(): bool
     {
         return $this->scoring_method === 'irt_utbk'
             || $this->scoring_method === 'irt'
             || $this->is_irt;
+    }
+
+    public function shouldShowResultScores(): bool
+    {
+        return $this->show_result_scores ?? true;
+    }
+
+    public function shouldShowTotalResultScore(): bool
+    {
+        return $this->shouldShowResultScores()
+            && ($this->result_score_display ?? 'total_and_subtest') === 'total_and_subtest';
     }
 
     public function hasReleasedUtbk(): bool
@@ -79,6 +108,11 @@ class Tryout extends Model
     public function materialCategory()
     {
         return $this->belongsTo(MaterialCategory::class, 'material_category_id', 'category_id');
+    }
+
+    public function certificateTemplate()
+    {
+        return $this->belongsTo(CertificateTemplate::class, 'certificate_template_id', 'certificate_template_id');
     }
 
     // Polymorphic relationship untuk detail packages

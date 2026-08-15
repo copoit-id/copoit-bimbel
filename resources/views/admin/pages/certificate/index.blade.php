@@ -8,6 +8,9 @@
             <h2 class="text-2xl font-bold text-gray-800">Manajemen Sertifikat</h2>
             <p class="text-gray-600">Kelola sertifikat dan validasi dokumen</p>
         </div>
+        <a href="{{ route('admin.certificate.template.index') }}" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">
+            <i class="ri-layout-4-line"></i> Atur Template Sertifikat
+        </a>
     </div>
 
     <!-- Filter Section -->
