@@ -327,8 +327,12 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 
     // My Packages (Step by Step)
-    Route::get('/paket-saya', [PackageController::class, 'myPackages'])->name('user.package.my');
-    Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])->name('user.package.show');
+    Route::get('/paket-saya', [PackageController::class, 'myPackages'])
+        ->middleware('no-cache')
+        ->name('user.package.my');
+    Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])
+        ->middleware('no-cache')
+        ->name('user.package.show');
 
     // Material Routes yang butuh auth (detail dan actions)
     Route::prefix('materi')->name('user.material.')->group(function () {

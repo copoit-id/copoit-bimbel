@@ -514,16 +514,20 @@ class AksesController extends Controller
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
         $accessType = $request->access_type === 'paid' ? 'purchased' : 'free';
 
-        UserTryoutAccess::create([
-            'user_id' => $userId,
-            'tryout_id' => $tryoutId,
-            'access_type' => $accessType,
-            'access_source' => 'direct',
-            'status' => 'not_started',
-            'expires_at' => $request->end_date
-                ? Carbon::parse($request->end_date)
-                : PurchaseAccessDuration::expiresAt($tryout, $startDate),
-        ]);
+        UserTryoutAccess::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'tryout_id' => $tryoutId,
+            ],
+            [
+                'access_type' => $accessType,
+                'access_source' => 'direct',
+                'status' => 'not_started',
+                'expires_at' => $request->end_date
+                    ? Carbon::parse($request->end_date)
+                    : PurchaseAccessDuration::expiresAt($tryout, $startDate),
+            ]
+        );
     }
 
     private function grantTesKoranAccess($userId, $tesKoranId, $request)
