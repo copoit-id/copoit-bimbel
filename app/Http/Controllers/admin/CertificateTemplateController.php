@@ -40,7 +40,7 @@ class CertificateTemplateController extends Controller
         'total_score' => 'Nilai Total',
         'subtest_score' => 'Nilai Subtest Tertentu',
         'subtest_scores' => 'Daftar Semua Nilai Subtest',
-        'conditional_text' => 'Teks Berdasarkan Nilai Subtest',
+        'conditional_text' => 'Teks Nilai Logic',
         'qr_code' => 'QR Validasi',
         'custom_text' => 'Teks Bebas',
     ];

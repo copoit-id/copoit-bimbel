@@ -153,7 +153,7 @@
                     <div id="custom-text-fields" class="space-y-3">
                         @foreach($additionalCustomTexts as $field => $config)
                             <div class="rounded-lg border border-gray-200 p-3" data-settings-field="{{ $field }}">
-                                <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'] ?? false)> Teks Bebas</label><button type="button" data-remove-field="{{ $field }}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus teks"><i class="ri-delete-bin-line"></i></button></div>
+                                <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'] ?? false)> Teks Bebas</label><span class="flex items-center gap-1"><button type="button" data-clone-field="{{ $field }}" class="rounded p-1 text-primary hover:bg-primary/10" title="Clone teks"><i class="ri-file-copy-line"></i></button><button type="button" data-remove-field="{{ $field }}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus teks"><i class="ri-delete-bin-line"></i></button></span></div>
                                 <input data-custom-text="{{ $field }}" type="text" name="layout[{{ $field }}][text]" value="{{ $config['text'] ?? '' }}" class="mt-2 w-full rounded border-gray-300 text-xs" placeholder="Isi teks bebas">
                                 <div class="mt-3 grid grid-cols-2 gap-2">
                                     <label class="text-xs text-gray-500">X<input data-layout-input="x" data-field="{{ $field }}" type="number" step="0.1" name="layout[{{ $field }}][x]" value="{{ $config['x'] ?? 527 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
@@ -169,7 +169,7 @@
                     <div id="subtest-score-fields" class="space-y-3">
                         @foreach($additionalSubtestScores as $field => $config)
                             <div class="rounded-lg border border-gray-200 p-3" data-settings-field="{{ $field }}">
-                                <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'] ?? false)> Nilai Subtest</label><button type="button" data-remove-field="{{ $field }}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus nilai subtest"><i class="ri-delete-bin-line"></i></button></div>
+                                <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'] ?? false)> Nilai Subtest</label><span class="flex items-center gap-1"><button type="button" data-clone-field="{{ $field }}" class="rounded p-1 text-primary hover:bg-primary/10" title="Clone elemen"><i class="ri-file-copy-line"></i></button><button type="button" data-remove-field="{{ $field }}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus nilai subtest"><i class="ri-delete-bin-line"></i></button></span></div>
                                 <label class="mt-2 block text-xs text-gray-500">Ambil nilai subtest urutan ke-<input data-subtest-index="{{ $field }}" type="number" min="1" max="100" name="layout[{{ $field }}][subtest_index]" value="{{ $config['subtest_index'] ?? 1 }}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
                                 <p class="mt-1 text-xs text-gray-500">Urutan mengikuti konfigurasi subtest Tryout.</p>
                                 <div class="mt-3 grid grid-cols-2 gap-2">
@@ -190,7 +190,7 @@
                                 $optionalLabel = $addableFieldDefinitions[$fieldType] ?? 'Elemen Tambahan';
                             @endphp
                             <div class="rounded-lg border border-gray-200 p-3" data-settings-field="{{ $field }}">
-                                <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'] ?? false)> {{ $optionalLabel }}</label><button type="button" data-remove-field="{{ $field }}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus elemen"><i class="ri-delete-bin-line"></i></button></div>
+                                <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="{{ $field }}" type="checkbox" name="layout[{{ $field }}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" @checked($config['enabled'] ?? false)> {{ $optionalLabel }}</label><span class="flex items-center gap-1"><button type="button" data-clone-field="{{ $field }}" class="rounded p-1 text-primary hover:bg-primary/10" title="Clone elemen"><i class="ri-file-copy-line"></i></button><button type="button" data-remove-field="{{ $field }}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus elemen"><i class="ri-delete-bin-line"></i></button></span></div>
                                 <input type="hidden" name="layout[{{ $field }}][field_type]" value="{{ $fieldType }}">
                                 @if($fieldType === 'custom_text')
                                     <input data-custom-text="{{ $field }}" type="text" name="layout[{{ $field }}][text]" value="{{ $config['text'] ?? '' }}" class="mt-2 w-full rounded border-gray-300 text-xs" placeholder="Isi teks bebas">
@@ -262,6 +262,7 @@
     let naturalWidth = 1054, naturalHeight = 1492;
     let activeField = null;
     let selectedField = null;
+    let cloneSequence = 0;
     const fontStyleOptions = '<option value="regular">Regular</option><option value="semibold">Semibold</option><option value="bold">Bold</option><option value="italic">Italic</option><option value="bold_italic">Bold Italic</option>';
     const fontStyleInput = (field) => `<label class="col-span-2 text-xs text-gray-500">Gaya huruf<select name="layout[${field}][font_style]" class="mt-1 w-full rounded border-gray-300 text-xs">${fontStyleOptions}</select></label>`;
     const conditionalRuleMarkup = (field, ruleId = Date.now()) => `
@@ -294,7 +295,7 @@
         if (field.startsWith('subtest_score_') || fieldType === 'subtest_score') {
             return `Nilai Subtest ${Math.max(1, Number(subtestIndex || 1))}`;
         }
-        if (fieldType === 'conditional_text') return `Teks Kondisional Subtest ${Math.max(1, Number(subtestIndex || 1))}`;
+        if (fieldType === 'conditional_text') return 'Teks Nilai Logic';
 
         return fallback || 'Elemen Sertifikat';
     };
@@ -365,7 +366,7 @@
         card.className = 'rounded-lg border border-gray-200 p-3';
         card.dataset.settingsField = field;
         card.innerHTML = `
-            <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="${field}" type="checkbox" name="layout[${field}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" checked> Teks Bebas</label><button type="button" data-remove-field="${field}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus teks"><i class="ri-delete-bin-line"></i></button></div>
+            <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="${field}" type="checkbox" name="layout[${field}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" checked> Teks Bebas</label><span class="flex items-center gap-1"><button type="button" data-clone-field="${field}" class="rounded p-1 text-primary hover:bg-primary/10" title="Clone teks"><i class="ri-file-copy-line"></i></button><button type="button" data-remove-field="${field}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus teks"><i class="ri-delete-bin-line"></i></button></span></div>
             <input data-custom-text="${field}" type="text" name="layout[${field}][text]" class="mt-2 w-full rounded border-gray-300 text-xs" placeholder="Isi teks bebas">
             <div class="mt-3 grid grid-cols-2 gap-2">
                 <label class="text-xs text-gray-500">X<input data-layout-input="x" data-field="${field}" type="number" step="0.1" name="layout[${field}][x]" value="527" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
@@ -397,7 +398,7 @@
         card.className = 'rounded-lg border border-gray-200 p-3';
         card.dataset.settingsField = field;
         card.innerHTML = `
-            <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="${field}" type="checkbox" name="layout[${field}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" checked> Nilai Subtest</label><button type="button" data-remove-field="${field}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus nilai subtest"><i class="ri-delete-bin-line"></i></button></div>
+            <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="${field}" type="checkbox" name="layout[${field}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" checked> Nilai Subtest</label><span class="flex items-center gap-1"><button type="button" data-clone-field="${field}" class="rounded p-1 text-primary hover:bg-primary/10" title="Clone elemen"><i class="ri-file-copy-line"></i></button><button type="button" data-remove-field="${field}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus nilai subtest"><i class="ri-delete-bin-line"></i></button></span></div>
             <label class="mt-2 block text-xs text-gray-500">Ambil nilai subtest urutan ke-<input data-subtest-index="${field}" type="number" min="1" max="100" name="layout[${field}][subtest_index]" value="${subtestIndex}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>
             <p class="mt-1 text-xs text-gray-500">Urutan mengikuti konfigurasi subtest Tryout.</p>
             <div class="mt-3 grid grid-cols-2 gap-2">
@@ -434,7 +435,7 @@
         card.className = 'rounded-lg border border-gray-200 p-3';
         card.dataset.settingsField = field;
         card.innerHTML = `
-            <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="${field}" type="checkbox" name="layout[${field}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" checked> ${label}</label><button type="button" data-remove-field="${field}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus elemen"><i class="ri-delete-bin-line"></i></button></div>
+            <div class="flex items-center justify-between gap-2"><label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input data-enabled="${field}" type="checkbox" name="layout[${field}][enabled]" value="1" class="rounded border-gray-300 text-primary focus:ring-primary" checked> ${label}</label><span class="flex items-center gap-1"><button type="button" data-clone-field="${field}" class="rounded p-1 text-primary hover:bg-primary/10" title="Clone elemen"><i class="ri-file-copy-line"></i></button><button type="button" data-remove-field="${field}" class="rounded p-1 text-red-600 hover:bg-red-50" title="Hapus elemen"><i class="ri-delete-bin-line"></i></button></span></div>
             <input type="hidden" name="layout[${field}][field_type]" value="${fieldType}">
             ${isCustomText ? `<input data-custom-text="${field}" type="text" name="layout[${field}][text]" class="mt-2 w-full rounded border-gray-300 text-xs" placeholder="Isi teks bebas">` : ''}
             ${isSubtestScore ? `<label class="mt-2 block text-xs text-gray-500">Ambil nilai subtest urutan ke-<input data-subtest-index="${field}" type="number" min="1" max="100" name="layout[${field}][subtest_index]" value="${subtestIndex}" class="mt-1 w-full rounded border-gray-300 text-xs"></label>` : ''}
@@ -462,6 +463,44 @@
         addElementType.value = '';
     };
 
+    const cloneField = (field) => {
+        const sourceCard = document.querySelector(`[data-settings-field="${field}"]`);
+        const sourceCanvasItem = document.querySelector(`[data-canvas-field="${field}"]`);
+        if (!sourceCard || !sourceCanvasItem) return;
+
+        const fieldType = sourceCard.querySelector(`[name="layout[${field}][field_type]"]`)?.value;
+        const suffix = `${Date.now()}_${++cloneSequence}`;
+        const clonedField = field.startsWith('custom_text_')
+            ? `custom_text_${suffix}`
+            : (field.startsWith('subtest_score_') ? `subtest_score_${suffix}` : `optional_${fieldType || 'custom_text'}_${suffix}`);
+        const clonedCard = sourceCard.cloneNode(true);
+
+        [clonedCard, ...clonedCard.querySelectorAll('*')].forEach((element) => {
+            ['name', 'data-enabled', 'data-custom-text', 'data-subtest-index', 'data-remove-field', 'data-clone-field', 'data-conditional-rules', 'data-add-conditional-rule'].forEach((attribute) => {
+                const attributeValue = element.getAttribute(attribute);
+                if (attributeValue) element.setAttribute(attribute, attributeValue.replaceAll(field, clonedField));
+            });
+
+            if (element.dataset.field === field) element.dataset.field = clonedField;
+        });
+        clonedCard.dataset.settingsField = clonedField;
+
+        ['x', 'y'].forEach((property) => {
+            const input = clonedCard.querySelector(`[data-layout-input="${property}"][data-field="${clonedField}"]`);
+            if (input) input.value = (Number(input.value) + 12).toFixed(1);
+        });
+        sourceCard.parentElement?.append(clonedCard);
+
+        const clonedCanvasItem = sourceCanvasItem.cloneNode(true);
+        clonedCanvasItem.dataset.canvasField = clonedField;
+        delete clonedCanvasItem.dataset.bound;
+        canvas.append(clonedCanvasItem);
+        bindCanvasItem(clonedCanvasItem);
+        syncCanvas();
+        selectField(clonedField);
+        clonedCard.querySelector('[data-custom-text]')?.focus();
+    };
+
     image?.addEventListener('load', syncCanvas);
     if (image?.complete && image.naturalWidth) syncCanvas();
     if (canvas && window.ResizeObserver) {
@@ -487,6 +526,11 @@
         const removeConditionalRuleButton = event.target.closest('[data-remove-conditional-rule]');
         if (removeConditionalRuleButton) {
             removeConditionalRuleButton.closest('[data-conditional-rule]')?.remove();
+            return;
+        }
+        const cloneButton = event.target.closest('[data-clone-field]');
+        if (cloneButton) {
+            cloneField(cloneButton.dataset.cloneField);
             return;
         }
         const removeButton = event.target.closest('[data-remove-field]');
