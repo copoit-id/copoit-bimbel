@@ -426,7 +426,9 @@ class SettingController extends Controller
         $validated['footer_instagram'] = trim((string) ($validated['footer_instagram'] ?? '')) ?: null;
         $validated['footer_twitter'] = trim((string) ($validated['footer_twitter'] ?? '')) ?: null;
         $validated['footer_youtube'] = trim((string) ($validated['footer_youtube'] ?? '')) ?: null;
-        $validated['enable_certificate_management'] = false;
+        // Status manajemen sertifikat ditetapkan oleh Super Admin.
+        // Jangan menimpanya saat Admin menyimpan pengaturan lain.
+        unset($validated['enable_certificate_management']);
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['participant_destination_api_enabled'] = $request->boolean('participant_destination_api_enabled');
