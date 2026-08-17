@@ -11,7 +11,24 @@
         default => route('user.material.videos'),
     };
     $embedUrl = $material->embed_url;
+    $embedHost = strtolower((string) parse_url($embedUrl, PHP_URL_HOST));
+    $isGoogleDriveVideo = $material->type === 'video'
+        && ($embedHost === 'drive.google.com' || str_ends_with($embedHost, '.drive.google.com'));
 @endphp
+
+@section('styles')
+<style>
+    .material-drive-video-frame {
+        aspect-ratio: 16 / 9;
+    }
+
+    @media (max-width: 639px) {
+        .material-drive-video-frame {
+            aspect-ratio: 4 / 3;
+        }
+    }
+</style>
+@endsection
 
 <div class="space-y-6">
     <div class="flex items-center gap-3">
@@ -27,7 +44,7 @@
     <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
         <main class="space-y-5">
             <section class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                <div class="aspect-video bg-gray-950">
+                <div class="{{ $isGoogleDriveVideo ? 'material-drive-video-frame' : 'aspect-video' }} w-full bg-gray-950">
                     @if($material->type === 'video')
                         <iframe
                             src="{{ $embedUrl }}"
