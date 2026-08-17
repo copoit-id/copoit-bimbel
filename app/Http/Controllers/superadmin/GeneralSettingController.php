@@ -43,6 +43,7 @@ class GeneralSettingController extends Controller
 
     public function update(Request $request)
     {
+        $activeSettingsTab = $this->activeSettingsTab($request->input('settings_tab'));
         $profile = ClientProfile::query()->first();
         $openAiModels = $this->availableOpenAiDiscussionModels($profile);
         $geminiModels = $this->availableGeminiDiscussionModels($profile);
@@ -62,81 +63,105 @@ class GeneralSettingController extends Controller
             ->all();
         $selectableModels = array_unique([...$pricedModels, ...$submittedPricedModels]);
 
-        $validated = $request->validate([
+        $rules = [
             'settings_tab' => ['nullable', Rule::in(['general', 'ai', 'pricing', 'payment', 'notification'])],
-            'public_visibility' => ['nullable', 'array'],
-            'public_visibility.*' => ['nullable', 'boolean'],
-            'admin_assistant_enabled' => ['nullable', 'boolean'],
-            'live_session_enabled' => ['nullable', 'boolean'],
-            'enable_certificate_management' => ['nullable', 'boolean'],
-            'ai_discussion_feature_enabled' => ['nullable', 'boolean'],
-            'ai_discussion_admin_configurable' => ['nullable', 'boolean'],
-            'ai_discussion_credential_mode' => ['nullable', 'in:custom'],
-            'ai_discussion_model' => ['required', Rule::in($selectableModels)],
-            'ai_discussion_openai_api_key' => ['nullable', 'string', 'max:1000'],
-            'ai_discussion_openai_base_url' => ['nullable', 'url', 'max:255'],
-            'ai_discussion_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
-            'ai_discussion_gemini_api_key' => ['nullable', 'string', 'max:1000'],
-            'ai_discussion_gemini_base_url' => ['nullable', 'url', 'max:255'],
-            'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
-            'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
-            'ai_discussion_feature_token_limits' => ['nullable', 'array'],
-            'ai_discussion_feature_token_limits.discussion' => ['nullable', 'integer', 'min:64', 'max:2000'],
-            'ai_discussion_feature_token_limits.learning_note' => ['nullable', 'integer', 'min:64', 'max:2000'],
-            'ai_discussion_feature_token_limits.learning_flashcard' => ['nullable', 'integer', 'min:64', 'max:2000'],
-            'ai_discussion_feature_token_limits.learning_question' => ['nullable', 'integer', 'min:64', 'max:2000'],
-            'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
-            'ai_model_pricings' => ['nullable', 'array'],
-            'ai_model_pricings.*.provider' => ['required', Rule::in(['openai', 'gemini'])],
-            'ai_model_pricings.*.model' => ['required', 'string', 'max:120'],
-            'ai_model_pricings.*.input_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
-            'ai_model_pricings.*.output_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
-            'ai_model_pricings.*.usd_to_idr' => ['nullable', 'numeric', 'min:1', 'max:1000000'],
-            'ai_gateway_payment_gateway' => ['required', 'in:xendit,midtrans,ipaymu,interactive_qris'],
-            'ai_gateway_payment_gateway_mode' => ['required', 'in:sandbox,production'],
-            'ai_gateway_xendit_secret_key' => ['nullable', 'string', 'max:255'],
-            'ai_gateway_xendit_webhook_token' => ['nullable', 'string', 'max:255'],
-            'ai_gateway_midtrans_server_key' => ['nullable', 'string', 'max:255'],
-            'ai_gateway_midtrans_client_key' => ['nullable', 'string', 'max:255'],
-            'ai_gateway_interactive_qris_api_key' => ['nullable', 'string', 'max:500'],
-            'ai_gateway_interactive_qris_mid' => ['nullable', 'string', 'max:100'],
-            'ai_gateway_interactive_qris_use_tip' => ['nullable', 'boolean'],
-            'ai_gateway_ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
-            'ai_gateway_ipaymu_va' => ['nullable', 'string', 'max:100'],
-            'ai_gateway_telegram_enabled' => ['nullable', 'boolean'],
-            'ai_gateway_telegram_bot_token' => ['nullable', 'string', 'max:255'],
-            'ai_gateway_telegram_chat_id' => ['nullable', 'string', 'max:120'],
-            'ai_gateway_telegram_message_thread_id' => ['nullable', 'integer', 'min:1'],
-            'ai_gateway_telegram_notify_free' => ['nullable', 'boolean'],
-            'ai_gateway_telegram_notify_paid' => ['nullable', 'boolean'],
-            'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
-            'tutor_chat_enabled' => ['nullable', 'boolean'],
-            'booking_schedule_enabled' => ['nullable', 'boolean'],
-            'learning_progress_enabled' => ['nullable', 'boolean'],
-            'tutor_content_enabled' => ['nullable', 'boolean'],
-        ]);
+        ];
 
-        DB::transaction(function () use ($validated, $request, $profile): void {
-            foreach ($this->pageLabels() as $pageKey => $label) {
-                GeneralPage::query()->updateOrCreate(
-                    ['page_key' => $pageKey],
-                    [
-                        'template_key' => 'default',
-                        'is_active' => (bool) data_get($validated, "public_visibility.{$pageKey}", false),
-                    ]
-                );
+        if ($activeSettingsTab === 'general') {
+            $rules += [
+                'public_visibility' => ['nullable', 'array'],
+                'public_visibility.*' => ['nullable', 'boolean'],
+                'admin_assistant_enabled' => ['nullable', 'boolean'],
+                'live_session_enabled' => ['nullable', 'boolean'],
+                'enable_certificate_management' => ['nullable', 'boolean'],
+                'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
+                'tutor_chat_enabled' => ['nullable', 'boolean'],
+                'booking_schedule_enabled' => ['nullable', 'boolean'],
+                'learning_progress_enabled' => ['nullable', 'boolean'],
+                'tutor_content_enabled' => ['nullable', 'boolean'],
+            ];
+        }
+
+        if ($activeSettingsTab === 'ai') {
+            $rules += [
+                'ai_discussion_feature_enabled' => ['nullable', 'boolean'],
+                'ai_discussion_admin_configurable' => ['nullable', 'boolean'],
+                'ai_discussion_credential_mode' => ['nullable', 'in:custom'],
+                'ai_discussion_model' => ['required', Rule::in($selectableModels)],
+                'ai_discussion_openai_api_key' => ['nullable', 'string', 'max:1000'],
+                'ai_discussion_openai_base_url' => ['nullable', 'url', 'max:255'],
+                'ai_discussion_openai_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
+                'ai_discussion_gemini_api_key' => ['nullable', 'string', 'max:1000'],
+                'ai_discussion_gemini_base_url' => ['nullable', 'url', 'max:255'],
+                'ai_discussion_gemini_timeout' => ['nullable', 'integer', 'min:5', 'max:300'],
+                'ai_discussion_max_output_tokens' => ['nullable', 'integer', 'min:200', 'max:2000'],
+                'ai_discussion_feature_token_limits' => ['nullable', 'array'],
+                'ai_discussion_feature_token_limits.discussion' => ['nullable', 'integer', 'min:64', 'max:2000'],
+                'ai_discussion_feature_token_limits.learning_note' => ['nullable', 'integer', 'min:64', 'max:2000'],
+                'ai_discussion_feature_token_limits.learning_flashcard' => ['nullable', 'integer', 'min:64', 'max:2000'],
+                'ai_discussion_feature_token_limits.learning_question' => ['nullable', 'integer', 'min:64', 'max:2000'],
+                'ai_discussion_instruction' => ['nullable', 'string', 'max:2000'],
+            ];
+        }
+
+        if ($activeSettingsTab === 'pricing') {
+            $rules += [
+                'ai_model_pricings' => ['nullable', 'array'],
+                'ai_model_pricings.*.provider' => ['required', Rule::in(['openai', 'gemini'])],
+                'ai_model_pricings.*.model' => ['required', 'string', 'max:120'],
+                'ai_model_pricings.*.input_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+                'ai_model_pricings.*.output_per_million_usd' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+                'ai_model_pricings.*.usd_to_idr' => ['nullable', 'numeric', 'min:1', 'max:1000000'],
+            ];
+        }
+
+        if ($activeSettingsTab === 'payment') {
+            $rules += [
+                'ai_gateway_payment_gateway' => ['required', 'in:xendit,midtrans,ipaymu,interactive_qris'],
+                'ai_gateway_payment_gateway_mode' => ['required', 'in:sandbox,production'],
+                'ai_gateway_xendit_secret_key' => ['nullable', 'string', 'max:255'],
+                'ai_gateway_xendit_webhook_token' => ['nullable', 'string', 'max:255'],
+                'ai_gateway_midtrans_server_key' => ['nullable', 'string', 'max:255'],
+                'ai_gateway_midtrans_client_key' => ['nullable', 'string', 'max:255'],
+                'ai_gateway_interactive_qris_api_key' => ['nullable', 'string', 'max:500'],
+                'ai_gateway_interactive_qris_mid' => ['nullable', 'string', 'max:100'],
+                'ai_gateway_interactive_qris_use_tip' => ['nullable', 'boolean'],
+                'ai_gateway_ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
+                'ai_gateway_ipaymu_va' => ['nullable', 'string', 'max:100'],
+            ];
+        }
+
+        if ($activeSettingsTab === 'notification') {
+            $rules += [
+                'ai_gateway_telegram_enabled' => ['nullable', 'boolean'],
+                'ai_gateway_telegram_bot_token' => ['nullable', 'string', 'max:255'],
+                'ai_gateway_telegram_chat_id' => ['nullable', 'string', 'max:120'],
+                'ai_gateway_telegram_message_thread_id' => ['nullable', 'integer', 'min:1'],
+                'ai_gateway_telegram_notify_free' => ['nullable', 'boolean'],
+                'ai_gateway_telegram_notify_paid' => ['nullable', 'boolean'],
+            ];
+        }
+
+        $validated = $request->validate($rules);
+
+        DB::transaction(function () use ($activeSettingsTab, $validated, $request, $profile): void {
+            if ($activeSettingsTab === 'general') {
+                foreach ($this->pageLabels() as $pageKey => $label) {
+                    GeneralPage::query()->updateOrCreate(
+                        ['page_key' => $pageKey],
+                        [
+                            'template_key' => 'default',
+                            'is_active' => (bool) data_get($validated, "public_visibility.{$pageKey}", false),
+                        ]
+                    );
+                }
             }
 
-            if ($profile) {
+            if ($profile && $activeSettingsTab === 'general') {
                 $profile->update([
                     'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
                     'live_session_enabled' => $request->boolean('live_session_enabled'),
                     'enable_certificate_management' => $request->boolean('enable_certificate_management'),
-                    'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
-                    'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
-                    'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
-                    'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
-                    'ai_gateway_telegram_settings' => $this->aiGatewayTelegramSettings($request, $profile),
                     'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),
                     'tutor_chat_enabled' => $request->boolean('tutor_chat_enabled'),
                     'booking_schedule_enabled' => $request->boolean('booking_schedule_enabled'),
@@ -145,15 +170,40 @@ class GeneralSettingController extends Controller
                 ]);
             }
 
-            $this->syncAiModelPricings($validated['ai_model_pricings'] ?? []);
+            if ($profile && $activeSettingsTab === 'ai') {
+                $profile->update([
+                    'ai_discussion_feature_enabled' => $request->boolean('ai_discussion_feature_enabled'),
+                    'ai_discussion_admin_configurable' => $request->boolean('ai_discussion_admin_configurable'),
+                    'ai_discussion_settings' => $this->aiDiscussionSettings($request, $profile),
+                ]);
+            }
+
+            if ($profile && $activeSettingsTab === 'payment') {
+                $profile->update([
+                    'ai_gateway_payment_settings' => $this->aiGatewayPaymentSettings($request, $profile),
+                ]);
+            }
+
+            if ($profile && $activeSettingsTab === 'notification') {
+                $profile->update([
+                    'ai_gateway_telegram_settings' => $this->aiGatewayTelegramSettings($request, $profile),
+                ]);
+            }
+
+            if ($activeSettingsTab === 'pricing') {
+                $this->syncAiModelPricings($validated['ai_model_pricings'] ?? []);
+            }
         });
-        $this->aiGatewayCostService->forgetCachedPricing();
+
+        if ($activeSettingsTab === 'pricing') {
+            $this->aiGatewayCostService->forgetCachedPricing();
+        }
 
         return redirect()
             ->route('super-admin.general-settings.edit', [
-                'tab' => $this->activeSettingsTab($validated['settings_tab'] ?? null),
+                'tab' => $activeSettingsTab,
             ])
-            ->with('success', 'Pengaturan General berhasil diperbarui.');
+            ->with('success', 'Pengaturan berhasil diperbarui.');
     }
 
     private function activeSettingsTab(?string $tab): string

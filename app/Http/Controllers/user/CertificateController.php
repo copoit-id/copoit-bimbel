@@ -244,7 +244,7 @@ class CertificateController extends Controller
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('F, d Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             if (env('APP_ENV') == 'local') {
                 $font->file(public_path('/fonts/Poppins-SemiBold.ttf'));
             } else {
@@ -566,7 +566,7 @@ yang dilaksanakan pada Tanggal, 24 Juli 2025 dengan perolehan Nilai dan Predikat
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('F, d Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             if (env('APP_ENV') == 'local') {
                 $font->file(public_path('/fonts/Poppins-SemiBold.ttf'));
             } else {
