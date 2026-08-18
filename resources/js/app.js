@@ -37,6 +37,24 @@ const initializeAdminSelects = () => {
 
     const closeActive = () => close(activeInstance);
 
+    const positionMenu = (instance) => {
+        if (!instance || !instance.select.hasAttribute('data-admin-select-auto-direction')) {
+            return;
+        }
+
+        const triggerRect = instance.trigger.getBoundingClientRect();
+        const clippingParent = instance.wrapper.closest('.overflow-y-auto, .overflow-auto, .overflow-hidden');
+        const boundary = clippingParent?.getBoundingClientRect();
+        const spaceBelow = (boundary?.bottom ?? window.innerHeight) - triggerRect.bottom;
+        const spaceAbove = triggerRect.top - (boundary?.top ?? 0);
+        const menuHeight = Math.min(instance.menu.scrollHeight, 288) + 6;
+
+        instance.wrapper.classList.toggle(
+            'admin-select--upward',
+            spaceBelow < menuHeight && spaceAbove > spaceBelow,
+        );
+    };
+
     const createOptionButton = (instance, option) => {
         const button = document.createElement('button');
         const isSelected = option.selected;
@@ -196,6 +214,7 @@ const initializeAdminSelects = () => {
             instance.open = true;
             trigger.setAttribute('aria-expanded', 'true');
             menu.hidden = false;
+            positionMenu(instance);
             activeInstance = instance;
         });
 
@@ -254,6 +273,8 @@ const initializeAdminSelects = () => {
             closeActive();
         }
     });
+
+    window.addEventListener('resize', () => positionMenu(activeInstance));
 
     const pageObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {

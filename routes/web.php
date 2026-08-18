@@ -7,6 +7,7 @@ use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
 use App\Http\Controllers\admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\admin\CertificateController;
+use App\Http\Controllers\admin\CertificateTemplateController;
 use App\Http\Controllers\admin\CertificationController;
 use App\Http\Controllers\admin\ClassAttendanceController;
 use App\Http\Controllers\admin\ClassController;
@@ -327,8 +328,12 @@ Route::prefix('user')->middleware('auth')->group(function () {
     });
 
     // My Packages (Step by Step)
-    Route::get('/paket-saya', [PackageController::class, 'myPackages'])->name('user.package.my');
-    Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])->name('user.package.show');
+    Route::get('/paket-saya', [PackageController::class, 'myPackages'])
+        ->middleware('no-cache')
+        ->name('user.package.my');
+    Route::get('/paket-saya/{package_id}', [PackageController::class, 'showPackage'])
+        ->middleware('no-cache')
+        ->name('user.package.show');
 
     // Material Routes yang butuh auth (detail dan actions)
     Route::prefix('materi')->name('user.material.')->group(function () {
@@ -520,6 +525,13 @@ Route::prefix('{portal}')
             ->except(['show'])
             ->names('artikel')
             ->parameters(['artikel' => 'artikel']);
+
+        // Kompatibilitas untuk link artikel lama. Pengaturan artikel kini menyatu
+        // dengan halaman daftar artikel, sehingga redirect ini mencegah 500 saat
+        // route cache atau view lama masih memanggil nama route sebelumnya.
+        Route::get('general/artikel/settings', function () {
+            return redirect()->route('admin.artikel.index');
+        })->name('artikel.settings.edit');
 
         Route::get('/general/landing-page', [AdminGeneralPageController::class, 'editLanding'])->name('general-pages.landing.edit');
         Route::put('/general/landing-page', [AdminGeneralPageController::class, 'updateLanding'])->name('general-pages.landing.update');
@@ -837,6 +849,14 @@ Route::prefix('{portal}')
 
         // Certificate Management Routes
         Route::prefix('sertifikat')->name('certificate.')->middleware('certificate.enabled')->group(function () {
+            Route::get('/template', [CertificateTemplateController::class, 'index'])->name('template.index');
+            Route::get('/template/create', [CertificateTemplateController::class, 'create'])->name('template.create');
+            Route::post('/template', [CertificateTemplateController::class, 'store'])->name('template.store');
+            Route::get('/template/{certificateTemplate}/background', [CertificateTemplateController::class, 'background'])->name('template.background');
+            Route::get('/template/{certificateTemplate}/preview', [CertificateTemplateController::class, 'preview'])->name('template.preview');
+            Route::get('/template/{certificateTemplate}/edit', [CertificateTemplateController::class, 'edit'])->name('template.edit');
+            Route::put('/template/{certificateTemplate}', [CertificateTemplateController::class, 'update'])->name('template.update');
+            Route::delete('/template/{certificateTemplate}', [CertificateTemplateController::class, 'destroy'])->name('template.destroy');
             Route::get('/', [CertificateController::class, 'index'])->name('index');
             Route::get('/create', [CertificateController::class, 'create'])->name('create');
             Route::post('/store', [CertificateController::class, 'store'])->name('store');

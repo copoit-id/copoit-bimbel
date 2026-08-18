@@ -20,6 +20,23 @@
         @method('PUT')
         <input type="hidden" name="settings_tab" value="{{ $activeSettingsTab }}">
 
+        @if (session('success'))
+            <div class="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p class="font-semibold">Pengaturan belum tersimpan.</p>
+                <ul class="mt-1 list-disc space-y-0.5 pl-5">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <nav class="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200 pb-3" aria-label="Kategori pengaturan">
             @foreach(['general' => 'Umum', 'ai' => 'Diskusi AI', 'pricing' => 'Tarif Model AI', 'payment' => 'Pembayaran AI', 'notification' => 'Notifikasi Telegram'] as $tab => $label)
                 <a href="{{ route('super-admin.general-settings.edit', ['tab' => $tab]) }}"
@@ -110,6 +127,23 @@
                         class="rounded border-gray-300 text-primary focus:ring-primary"
                         @checked(old('live_session_enabled', (bool) ($clientProfile?->live_session_enabled ?? true)))>
                     Tampilkan
+                </span>
+            </label>
+        </div>
+
+        <div @class(['mb-6', 'hidden' => $activeSettingsTab !== 'general'])>
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Manajemen Sertifikat</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Izinkan sertifikat dibuat dan diunduh oleh peserta pada tryout yang mengaktifkan Generate Sertifikat Otomatis.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="enable_certificate_management" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('enable_certificate_management', (bool) ($clientProfile?->enable_certificate_management ?? false)))>
+                    Aktifkan
                 </span>
             </label>
         </div>

@@ -1207,16 +1207,14 @@ class TryoutController extends Controller
         $startTime = Carbon::parse($firstStartTime, 'Asia/Jakarta');
         $endTime = $startTime->copy()->addMinutes($totalDuration);
 
-        // Check if time is up - auto finish if time exceeded
-        if ($now->gt($endTime)) {
-            return $this->finishTryout(request(), $id_package, $id_tryout);
-        }
-
-        $remainingSeconds = (int) $now->diffInSeconds($endTime, false);
-        if ($remainingSeconds <= 0) $remainingSeconds = 1;
+        // Jangan langsung redirect ke hasil saat peserta membuka kembali attempt yang waktunya habis.
+        // Halaman tryout akan menampilkan modal timeout yang sudah ada, lalu mengirim jawaban secara
+        // terkontrol dari browser agar peserta mendapat informasi sebelum melihat hasil.
+        $timeExpiredOnLoad = $now->gte($endTime);
+        $remainingSeconds = $timeExpiredOnLoad ? 0 : (int) $now->diffInSeconds($endTime, false);
 
         // Hitung timer per subtest untuk tampilan
-        $subtestDurationMinutes = max(1, (int) ($currentSubtest['duration'] ?? 60));
+        $subtestDurationMinutes = max(0.01, (float) ($currentSubtest['duration'] ?? 60));
         $subtestTimerKey = sprintf('tryout_subtest_timer_%s_%s', $attemptToken, $currentSubtest['tryout_detail_id']);
         $subtestStartIso = session($subtestTimerKey);
         if (!$subtestStartIso) {
@@ -1229,7 +1227,9 @@ class TryoutController extends Controller
         $subtestRemainingSeconds = $subtestEnd->greaterThan($now)
             ? $now->diffInSeconds($subtestEnd)
             : 0;
-        $displayRemainingSeconds = $isCombinedSubtestView ? $remainingSeconds : max(1, (int) $subtestRemainingSeconds);
+        $displayRemainingSeconds = $timeExpiredOnLoad
+            ? 0
+            : ($isCombinedSubtestView ? $remainingSeconds : max(1, (int) $subtestRemainingSeconds));
 
         // Get all user's answer details for this attempt
         $allAnswerDetails = UserAnswerDetail::whereIn('user_answer_id', $allUserAnswers->pluck('user_answer_id'))
@@ -1287,6 +1287,7 @@ class TryoutController extends Controller
             'currentSubtestRange',
             'isLastQuestionOfSubtest',
             'remainingSeconds',
+            'timeExpiredOnLoad',
             'subtestRemainingSeconds',
             'displayRemainingSeconds',
             'attemptToken',
@@ -1988,6 +1989,13 @@ class TryoutController extends Controller
             ->get();
 
         if ($userAnswers->isEmpty()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'redirect' => route('user.tryout.result', [$id_package, $id_tryout]),
+                ]);
+            }
+
             return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
         }
 
@@ -2019,70 +2027,6 @@ class TryoutController extends Controller
         if ($userAnswers->isEmpty()) {
             return redirect()->route('user.tryout.index', [$id_package, $id_tryout, 1])
                 ->with('error', 'Jawaban belum ditemukan. Silakan lanjutkan tryout.');
-        }
-
-        $currentQuestionNumber = (int) $request->input('current_question_number', 0);
-        if (
-            $currentQuestionNumber > 0
-            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'per_subtest'
-        ) {
-            $tryoutDetails = $tryout->tryoutDetails()->get();
-            if ($tryout->system_tryout === 'toefl') {
-                $order = ['listening', 'writing', 'reading'];
-                $tryoutDetails = $tryoutDetails->sortBy(function ($detail) use ($order) {
-                    $position = array_search($detail->type_subtest, $order, true);
-                    return $position === false ? PHP_INT_MAX : $position;
-                })->values();
-            } else {
-                $tryoutDetails = $tryoutDetails->sortBy('tryout_detail_id')->values();
-            }
-
-            if ($tryoutDetails->count() > 1) {
-                $questionCounts = Question::whereIn('tryout_detail_id', $tryoutDetails->pluck('tryout_detail_id'))
-                    ->select('tryout_detail_id', DB::raw('count(*) as total'))
-                    ->groupBy('tryout_detail_id')
-                    ->pluck('total', 'tryout_detail_id');
-
-                $startNumber = 1;
-                $subtestRanges = [];
-                foreach ($tryoutDetails as $detail) {
-                    $questionCount = (int) ($questionCounts[$detail->tryout_detail_id] ?? 0);
-                    if ($questionCount <= 0) {
-                        continue;
-                    }
-
-                    $endNumber = $startNumber + $questionCount - 1;
-                    $subtestRanges[] = [
-                        'start_number' => $startNumber,
-                        'end_number' => $endNumber,
-                    ];
-                    $startNumber = $endNumber + 1;
-                }
-
-                $totalQuestions = $startNumber - 1;
-                if ($totalQuestions > 0 && $currentQuestionNumber < $totalQuestions) {
-                    $targetNumber = $currentQuestionNumber;
-                    foreach ($subtestRanges as $index => $range) {
-                        if ($currentQuestionNumber >= $range['start_number'] && $currentQuestionNumber <= $range['end_number']) {
-                            if ($currentQuestionNumber >= $range['end_number'] && isset($subtestRanges[$index + 1])) {
-                                $targetNumber = $subtestRanges[$index + 1]['start_number'];
-                            }
-                            break;
-                        }
-                    }
-
-                    if ($request->expectsJson()) {
-                        return response()->json([
-                            'success' => false,
-                            'redirect' => route('user.tryout.index', [$id_package, $id_tryout, $targetNumber]),
-                            'message' => 'Selesaikan semua subtest sebelum mengakhiri tryout.',
-                        ], 422);
-                    }
-
-                    return redirect()->route('user.tryout.index', [$id_package, $id_tryout, $targetNumber])
-                        ->with('error', 'Selesaikan semua subtest sebelum mengakhiri tryout.');
-                }
-            }
         }
 
         if ($tryout->requiresIrtScoring()) {
