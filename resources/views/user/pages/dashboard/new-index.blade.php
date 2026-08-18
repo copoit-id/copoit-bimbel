@@ -34,6 +34,8 @@ $totalCorrect = $totalCorrect ?? 0;
 $accuracyPercent = $accuracyPercent ?? 0;
 $hasUnpaid = $canShowPayments && $unpaidInvoices->isNotEmpty();
 $hasSessions = $canShowSchedule && $upcomingClassSessions->isNotEmpty();
+$whatsappNumber = preg_replace('/\D+/', '', (string) ($clientBranding['contact_whatsapp_number'] ?? '')) ?: '628561078411';
+$communityWhatsappHref = "https://wa.me/{$whatsappNumber}?text=Halo%20Admin%2C%20saya%20ingin%20konsultasi%20program%20persiapan%20PKN%20STAN.";
 
 // Convert hex primary color to RGB for opacity adjustments
 $primaryHex = str_replace('#', '', $primaryColor);
@@ -643,7 +645,7 @@ $primaryRgb = "$r, $g, $b";
 
         <!-- Right: CTA -->
         <div class="lg:col-span-4 flex lg:justify-end">
-            <a href="https://chat.whatsapp.com/DO0KNXJVyoyAWK31EOoo3H"
+            <a href="{{ $communityWhatsappHref }}"
                target="_blank"
                rel="noopener noreferrer"
                class="inline-flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-50 px-7 py-3.5 text-sm font-extrabold shadow-md hover:shadow-lg transition-all active:scale-98"
