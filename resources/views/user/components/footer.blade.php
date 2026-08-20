@@ -28,7 +28,7 @@
                 <div class="flex items-center gap-3">
                     <img src="{{ $clientBranding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}"
                         alt="{{ $clientBranding['name'] ?? config('app.name') }}"
-                        class="h-10 w-10 rounded-xl object-contain shadow-sm">
+                        class="client-brand-logo h-10 w-10 rounded-xl object-contain shadow-sm">
                     <span class="text-lg font-bold text-gray-900 tracking-tight">{{ $clientBranding['name'] ?? config('app.name') }}</span>
                 </div>
                 @if($footerDescription)

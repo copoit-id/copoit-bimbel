@@ -462,7 +462,7 @@
         <div class="md:col-span-6 space-y-6">
             <div class="flex items-center gap-3">
                 <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
-                     class="h-12 w-12 rounded-xl object-contain bg-white p-1 shadow-md">
+                     class="client-brand-logo h-12 w-12 rounded-xl object-contain bg-white p-1 shadow-md">
                 <div>
                     <h3 class="text-lg sm:text-xl font-bold leading-none">{{ $clientBranding['name'] }}</h3>
                     <p class="text-xs text-white/70 font-medium mt-1">{{ $landingValue('footer.tagline', 'Platform Sukses Tembus PTN Impian') }}</p>

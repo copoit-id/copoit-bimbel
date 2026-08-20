@@ -15,7 +15,7 @@
         <section class="w-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-12">
             <img src="{{ $clientBranding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}"
                 alt="{{ $clientBranding['name'] ?? config('app.name') }}"
-                class="mx-auto h-14 max-w-48 object-contain">
+                class="client-brand-logo mx-auto h-14 w-14 max-w-48 object-contain">
 
             <div class="mx-auto mt-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <i class="@yield('icon') text-3xl" aria-hidden="true"></i>

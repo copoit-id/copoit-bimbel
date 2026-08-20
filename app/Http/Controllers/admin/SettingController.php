@@ -30,6 +30,7 @@ class SettingController extends Controller
             'tryout_nav_label' => 'Ujian & Try Out',
             'logo_url' => asset('img/logo/logo-copoit.png'),
             'favicon_url' => asset('img/logo/logo-copoit.png'),
+            'logo_display_mode' => 'square',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
             'header_primary_color' => false,
@@ -111,6 +112,7 @@ class SettingController extends Controller
             // SVG is executable XML in browsers. Do not place untrusted SVG
             // content in the public web root.
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
+            'logo_display_mode' => ['required', 'in:square,original'],
             'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,webp', 'max:4096'],
             'payment_mode' => ['required', 'in:gateway,manual'],
             'payment_bank_name' => ['nullable', 'string', 'max:255'],
@@ -402,6 +404,7 @@ class SettingController extends Controller
         }
 
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
+        $validated['logo_display_mode'] = $validated['logo_display_mode'] ?? $profile->logo_display_mode ?? 'square';
         $validated['faq_label'] = trim((string) ($validated['faq_label'] ?? '')) ?: 'FAQ';
         $validated['live_session_label'] = trim((string) ($validated['live_session_label'] ?? '')) ?: 'Kelas Belajar';
         $validated['bimbel_nav_label'] = trim((string) ($validated['bimbel_nav_label'] ?? '')) ?: 'Bimbel';

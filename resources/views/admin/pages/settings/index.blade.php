@@ -9,7 +9,7 @@
             <p class="text-gray-500">Perbarui tampilan umum platform bimbel sesuai kebutuhan klien.</p>
         </div>
         <div class="hidden md:flex items-center gap-3 bg-white border border-border rounded-2xl px-4 py-2 shadow-sm">
-            <img src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}" class="w-10 h-10 rounded-full object-cover"
+            <img src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}" class="client-brand-logo w-10 h-10 rounded-full object-cover"
                 alt="Logo Preview">
             <div>
                 <p class="text-xs text-gray-500">Saat ini</p>
@@ -22,7 +22,7 @@
     $settingErrorKeys = $errors->keys();
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
-    if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
+    if (collect($settingErrorKeys)->intersect(['logo', 'logo_display_mode', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
     } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
     $activeSettingsTab = 'wording';
@@ -352,7 +352,7 @@
                         class="border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary hover:bg-primary/5 transition min-h-[220px]">
                         <img id="logo-preview"
                             src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}"
-                            class="h-20 object-contain" alt="Logo Preview">
+                            class="client-brand-logo h-20 w-20 object-contain" alt="Logo Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Logo Baru</p>
                             <p class="text-xs text-gray-500">Rasio bebas; tinggi ideal 160 px (contoh 512 × 160 px). PNG/JPG/SVG maks 4MB</p>
@@ -384,6 +384,40 @@
                     <p class="text-xs text-red-500">{{ $message }}</p>
                     @enderror
                 </div>
+            </div>
+
+            @php
+                $logoDisplayMode = old(
+                    'logo_display_mode',
+                    $profile->logo_display_mode ?? ($branding['logo_display_mode'] ?? 'square')
+                );
+            @endphp
+            <div>
+                <p class="text-sm font-medium text-gray-900">Bentuk Tampilan Logo</p>
+                <p class="mt-1 text-xs text-gray-500">Pilih rasio asli untuk logo memanjang; pilih kotak untuk tampilan ikon yang seragam.</p>
+                <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label class="flex cursor-pointer gap-3 rounded-2xl border p-4 transition {{ $logoDisplayMode === 'original' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                        <input type="radio" name="logo_display_mode" value="original" data-logo-display-mode
+                            class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                            {{ $logoDisplayMode === 'original' ? 'checked' : '' }}>
+                        <span>
+                            <span class="block font-semibold text-gray-900">Rasio asli</span>
+                            <span class="mt-1 block text-xs leading-5 text-gray-500">Lebar mengikuti proporsi file logo. Cocok untuk logo horizontal atau vertikal.</span>
+                        </span>
+                    </label>
+                    <label class="flex cursor-pointer gap-3 rounded-2xl border p-4 transition {{ $logoDisplayMode === 'square' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                        <input type="radio" name="logo_display_mode" value="square" data-logo-display-mode
+                            class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                            {{ $logoDisplayMode === 'square' ? 'checked' : '' }}>
+                        <span>
+                            <span class="block font-semibold text-gray-900">Kotak</span>
+                            <span class="mt-1 block text-xs leading-5 text-gray-500">Logo ditempatkan dalam area persegi yang konsisten di seluruh platform.</span>
+                        </span>
+                    </label>
+                </div>
+                @error('logo_display_mode')
+                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                @enderror
             </div>
         </div>
 

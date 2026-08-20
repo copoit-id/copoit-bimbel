@@ -56,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
             'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
+            'logo_display_mode' => 'square',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
             'certificate_management_enabled' => false,
@@ -141,6 +142,9 @@ class AppServiceProvider extends ServiceProvider
             $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
+            $defaults['logo_display_mode'] = in_array($clientProfile->logo_display_mode, ['square', 'original'], true)
+                ? $clientProfile->logo_display_mode
+                : $defaults['logo_display_mode'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
             $defaults['secondary_color'] = $clientProfile->warna_secondary ?: $defaults['secondary_color'];
             $defaults['certificate_management_enabled'] = (bool) ($clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled']);

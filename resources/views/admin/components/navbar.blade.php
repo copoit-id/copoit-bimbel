@@ -33,7 +33,7 @@
                     </svg>
                 </button>
                 <a href="#" class="flex min-w-0 ms-2 md:me-12 items-center">
-                    <img src="{{ $clientBranding['logo_url'] }}" class="w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
+                    <img src="{{ $clientBranding['logo_url'] }}" class="client-brand-logo w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
                         alt="{{ $clientBranding['name'] }} Logo" />
                     <div class="flex min-w-0 flex-col justify-start">
                         <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>

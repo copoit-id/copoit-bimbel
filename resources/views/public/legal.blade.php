@@ -17,7 +17,7 @@
     <header class="bg-white border-b border-gray-100">
         <div class="max-w-5xl mx-auto px-4 py-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <a href="{{ route('login') }}" class="inline-flex items-center gap-3">
-                <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo" class="h-12 w-12 object-contain">
+                <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo" class="client-brand-logo h-12 w-12 object-contain">
                 <span class="font-bold text-gray-900">{{ $clientBranding['name'] }}</span>
             </a>
             <nav class="flex flex-wrap items-center gap-3 text-sm font-medium text-gray-600">

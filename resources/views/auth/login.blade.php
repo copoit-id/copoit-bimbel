@@ -55,7 +55,7 @@
             <div>
                 <div class="flex justify-center">
                     <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
-                        class="h-32 object-contain">
+                        class="client-brand-logo h-32 w-32 object-contain">
                 </div>
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
                     Masuk ke Akun Anda

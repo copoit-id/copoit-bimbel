@@ -19,6 +19,7 @@ class ClientProfile extends Model
         'live_session_enabled',
         'logo',
         'favicon',
+        'logo_display_mode',
         'warna_primary',
         'warna_secondary',
         'enable_certificate_management',

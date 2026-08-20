@@ -166,7 +166,7 @@ function isActive($route, $current) {
             <div class="flex items-center">
                 <a href="{{ $homeUrl }}" class="flex items-center gap-2">
                     @if(!empty($clientBranding['logo_url']))
-                    <img src="{{ $clientBranding['logo_url'] }}" alt="Logo" class="h-8 w-auto">
+                    <img src="{{ $clientBranding['logo_url'] }}" alt="Logo" class="client-brand-logo h-8 w-8">
                     @else
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}">
                         <i class="ri-book-open-line text-white text-lg"></i>
