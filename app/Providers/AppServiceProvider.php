@@ -102,6 +102,8 @@ class AppServiceProvider extends ServiceProvider
                 ['label' => 'Refund Policy', 'url' => '/refund-policy'],
             ],
             'footer_address' => null,
+            'footer_contacts' => null,
+            'footer_socials' => null,
             'footer_phone' => null,
             'footer_email' => null,
             'footer_whatsapp' => null,
@@ -183,6 +185,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['footer_copyright'] = $clientProfile->footer_copyright ?? $defaults['footer_copyright'];
             $defaults['footer_links'] = $clientProfile->footer_links ?: $defaults['footer_links'];
             $defaults['footer_address'] = $clientProfile->footer_address ?? $defaults['footer_address'];
+            $defaults['footer_contacts'] = $clientProfile->footer_contacts;
+            $defaults['footer_socials'] = $clientProfile->footer_socials;
             $defaults['footer_phone'] = $clientProfile->footer_phone ?? $defaults['footer_phone'];
             $defaults['footer_email'] = $clientProfile->footer_email ?? $defaults['footer_email'];
             $defaults['footer_whatsapp'] = $clientProfile->footer_whatsapp ?? $defaults['footer_whatsapp'];

@@ -66,6 +66,9 @@ class SettingController extends Controller
             'footer_description' => null,
             'footer_copyright' => null,
             'footer_links' => [],
+            'footer_address' => null,
+            'footer_contacts' => null,
+            'footer_socials' => null,
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
             'ai_discussion_feature_enabled' => false,
@@ -144,6 +147,14 @@ class SettingController extends Controller
             'footer_links.*.label' => ['nullable', 'string', 'max:80'],
             'footer_links.*.url' => ['nullable', 'string', 'max:2048'],
             'footer_address' => ['nullable', 'string', 'max:1000'],
+            'footer_contacts' => ['nullable', 'array', 'max:12'],
+            'footer_contacts.*.type' => ['nullable', 'in:phone,whatsapp,email,text'],
+            'footer_contacts.*.label' => ['nullable', 'string', 'max:80'],
+            'footer_contacts.*.value' => ['nullable', 'string', 'max:255'],
+            'footer_socials' => ['nullable', 'array', 'max:12'],
+            'footer_socials.*.platform' => ['nullable', 'in:facebook,instagram,twitter,youtube,tiktok,linkedin,website,custom'],
+            'footer_socials.*.label' => ['nullable', 'string', 'max:80'],
+            'footer_socials.*.url' => ['nullable', 'url', 'max:2048'],
             'footer_phone' => ['nullable', 'string', 'max:32'],
             'footer_email' => ['nullable', 'email', 'max:255'],
             'footer_whatsapp' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+()\-\s.]+$/'],
@@ -422,13 +433,17 @@ class SettingController extends Controller
         $validated['footer_copyright'] = trim((string) ($validated['footer_copyright'] ?? '')) ?: null;
         $validated['footer_links'] = $this->normalizeFooterLinks($validated['footer_links'] ?? []);
         $validated['footer_address'] = trim((string) ($validated['footer_address'] ?? '')) ?: null;
-        $validated['footer_phone'] = trim((string) ($validated['footer_phone'] ?? '')) ?: null;
-        $validated['footer_email'] = trim((string) ($validated['footer_email'] ?? '')) ?: null;
-        $validated['footer_whatsapp'] = $this->normalizeWhatsappNumber($validated['footer_whatsapp'] ?? null);
-        $validated['footer_facebook'] = trim((string) ($validated['footer_facebook'] ?? '')) ?: null;
-        $validated['footer_instagram'] = trim((string) ($validated['footer_instagram'] ?? '')) ?: null;
-        $validated['footer_twitter'] = trim((string) ($validated['footer_twitter'] ?? '')) ?: null;
-        $validated['footer_youtube'] = trim((string) ($validated['footer_youtube'] ?? '')) ?: null;
+        $validated['footer_contacts'] = $this->normalizeFooterContacts($validated['footer_contacts'] ?? []);
+        $validated['footer_socials'] = $this->normalizeFooterSocials($validated['footer_socials'] ?? []);
+        unset(
+            $validated['footer_phone'],
+            $validated['footer_email'],
+            $validated['footer_whatsapp'],
+            $validated['footer_facebook'],
+            $validated['footer_instagram'],
+            $validated['footer_twitter'],
+            $validated['footer_youtube']
+        );
         // Status manajemen sertifikat ditetapkan oleh Super Admin.
         // Jangan menimpanya saat Admin menyimpan pengaturan lain.
         unset($validated['enable_certificate_management']);
@@ -797,6 +812,64 @@ class SettingController extends Controller
             })
             ->filter()
             ->take(8)
+            ->values()
+            ->all();
+    }
+
+    private function normalizeFooterContacts(array $contacts): array
+    {
+        return collect($contacts)
+            ->map(function ($contact) {
+                $type = $contact['type'] ?? 'text';
+                $label = trim((string) ($contact['label'] ?? ''));
+                $value = trim((string) ($contact['value'] ?? ''));
+
+                if ($value === '') {
+                    return null;
+                }
+
+                if ($type === 'email' && ! filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return null;
+                }
+
+                if ($type === 'whatsapp') {
+                    $value = $this->normalizeWhatsappNumber($value);
+                }
+
+                if ($value === null || $value === '') {
+                    return null;
+                }
+
+                return [
+                    'type' => $type,
+                    'label' => $label,
+                    'value' => $value,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeFooterSocials(array $socials): array
+    {
+        return collect($socials)
+            ->map(function ($social) {
+                $platform = $social['platform'] ?? 'custom';
+                $label = trim((string) ($social['label'] ?? ''));
+                $url = trim((string) ($social['url'] ?? ''));
+
+                if ($url === '') {
+                    return null;
+                }
+
+                return [
+                    'platform' => $platform,
+                    'label' => $label,
+                    'url' => $url,
+                ];
+            })
+            ->filter()
             ->values()
             ->all();
     }

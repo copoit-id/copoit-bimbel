@@ -59,6 +59,8 @@
     'footer_copyright',
     'footer_links',
     'footer_address',
+    'footer_contacts',
+    'footer_socials',
     'footer_phone',
     'footer_email',
     'footer_whatsapp',
@@ -957,6 +959,23 @@
             if (empty($footerLinks)) {
                 $footerLinks = $defaultFooterLinks;
             }
+            $legacyFooterContacts = array_values(array_filter([
+                ['type' => 'phone', 'label' => 'Telepon', 'value' => $profile->footer_phone ?? ($branding['footer_phone'] ?? null)],
+                ['type' => 'whatsapp', 'label' => 'WhatsApp', 'value' => $profile->footer_whatsapp ?? ($branding['footer_whatsapp'] ?? null)],
+                ['type' => 'email', 'label' => 'Email', 'value' => $profile->footer_email ?? ($branding['footer_email'] ?? null)],
+            ], fn ($contact) => filled($contact['value'])));
+            $legacyFooterSocials = array_values(array_filter([
+                ['platform' => 'facebook', 'label' => 'Facebook', 'url' => $profile->footer_facebook ?? ($branding['footer_facebook'] ?? null)],
+                ['platform' => 'instagram', 'label' => 'Instagram', 'url' => $profile->footer_instagram ?? ($branding['footer_instagram'] ?? null)],
+                ['platform' => 'twitter', 'label' => 'X/Twitter', 'url' => $profile->footer_twitter ?? ($branding['footer_twitter'] ?? null)],
+                ['platform' => 'youtube', 'label' => 'YouTube', 'url' => $profile->footer_youtube ?? ($branding['footer_youtube'] ?? null)],
+            ], fn ($social) => filled($social['url'])));
+            $footerContacts = old('footer_contacts', is_array($profile->footer_contacts ?? null)
+                ? $profile->footer_contacts
+                : $legacyFooterContacts);
+            $footerSocials = old('footer_socials', is_array($profile->footer_socials ?? null)
+                ? $profile->footer_socials
+                : $legacyFooterSocials);
             @endphp
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Footer User</p>
@@ -998,99 +1017,86 @@
             </div>
 
             <div class="border-t border-gray-100 pt-5 mt-5 space-y-4">
-                <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <i class="ri-contacts-book-line text-primary text-lg"></i>
-                    Alamat & Kontak Kantor
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="md:col-span-2">
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Alamat Lengkap</label>
-                        <textarea name="footer_address" rows="3"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Alamat fisik kantor atau bimbel">{{ old('footer_address', $profile->footer_address ?? ($branding['footer_address'] ?? '')) }}</textarea>
-                        @error('footer_address')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">No. Telepon</label>
-                        <input type="text" name="footer_phone"
-                            value="{{ old('footer_phone', $profile->footer_phone ?? ($branding['footer_phone'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: (021) 123456">
-                        @error('footer_phone')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">No. WhatsApp</label>
-                        <input type="text" name="footer_whatsapp"
-                            value="{{ old('footer_whatsapp', $profile->footer_whatsapp ?? ($branding['footer_whatsapp'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: 628123456789">
-                        @error('footer_whatsapp')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Email Kontak</label>
-                        <input type="email" name="footer_email"
-                            value="{{ old('footer_email', $profile->footer_email ?? ($branding['footer_email'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: info@bimbel.com">
-                        @error('footer_email')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
+                <div class="md:col-span-2">
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Alamat Lengkap</label>
+                    <textarea name="footer_address" rows="3"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Alamat fisik kantor atau bimbel">{{ old('footer_address', $profile->footer_address ?? ($branding['footer_address'] ?? '')) }}</textarea>
+                    @error('footer_address')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
-            </div>
 
-            <div class="border-t border-gray-100 pt-5 mt-5 space-y-4">
-                <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <i class="ri-share-line text-primary text-lg"></i>
-                    Media Sosial
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link Facebook</label>
-                        <input type="text" name="footer_facebook"
-                            value="{{ old('footer_facebook', $profile->footer_facebook ?? ($branding['footer_facebook'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://facebook.com/namahalaman">
-                        @error('footer_facebook')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                <div class="rounded-2xl border border-gray-200 p-4">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-900"><i class="ri-contacts-book-line text-lg text-primary"></i> Kontak</h3>
+                            <p class="mt-1 text-xs text-gray-500">Tambahkan telepon, WhatsApp, email, atau informasi kontak lainnya.</p>
+                        </div>
+                        <button type="button" id="add-footer-contact" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><i class="ri-add-line"></i> Tambah Kontak</button>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link Instagram</label>
-                        <input type="text" name="footer_instagram"
-                            value="{{ old('footer_instagram', $profile->footer_instagram ?? ($branding['footer_instagram'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://instagram.com/akunanda">
-                        @error('footer_instagram')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                    <div id="footer-contacts-wrapper" class="space-y-3">
+                        @foreach($footerContacts as $index => $contact)
+                        <div class="footer-contact-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Jenis kontak</label>
+                                <select name="footer_contacts[{{ $index }}][type]" data-footer-field="type" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30">
+                                    @foreach(['phone' => 'Telepon', 'whatsapp' => 'WhatsApp', 'email' => 'Email', 'text' => 'Teks lain'] as $type => $label)
+                                    <option value="{{ $type }}" @selected(($contact['type'] ?? 'text') === $type)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label>
+                                <input type="text" name="footer_contacts[{{ $index }}][label]" data-footer-field="label" value="{{ $contact['label'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Admin pendaftaran">
+                            </div>
+                            <div class="md:col-span-5">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Kontak</label>
+                                <input type="text" name="footer_contacts[{{ $index }}][value]" data-footer-field="value" value="{{ $contact['value'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nomor, email, atau keterangan">
+                            </div>
+                            <div class="flex items-end md:col-span-1">
+                                <button type="button" class="remove-footer-contact inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus kontak"><i class="ri-delete-bin-line"></i></button>
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link X/Twitter</label>
-                        <input type="text" name="footer_twitter"
-                            value="{{ old('footer_twitter', $profile->footer_twitter ?? ($branding['footer_twitter'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://twitter.com/akunanda">
-                        @error('footer_twitter')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                    @error('footer_contacts')<p class="mt-2 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+
+                <div class="rounded-2xl border border-gray-200 p-4">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-900"><i class="ri-share-line text-lg text-primary"></i> Media Sosial</h3>
+                            <p class="mt-1 text-xs text-gray-500">Pilih platform yang ingin ditampilkan sebagai ikon di footer.</p>
+                        </div>
+                        <button type="button" id="add-footer-social" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><i class="ri-add-line"></i> Tambah Medsos</button>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link YouTube</label>
-                        <input type="text" name="footer_youtube"
-                            value="{{ old('footer_youtube', $profile->footer_youtube ?? ($branding['footer_youtube'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://youtube.com/channel/idchannel">
-                        @error('footer_youtube')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                    <div id="footer-socials-wrapper" class="space-y-3">
+                        @foreach($footerSocials as $index => $social)
+                        <div class="footer-social-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Platform</label>
+                                <select name="footer_socials[{{ $index }}][platform]" data-footer-field="platform" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30">
+                                    @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'twitter' => 'X/Twitter', 'youtube' => 'YouTube', 'tiktok' => 'TikTok', 'linkedin' => 'LinkedIn', 'website' => 'Website', 'custom' => 'Lainnya'] as $platform => $label)
+                                    <option value="{{ $platform }}" @selected(($social['platform'] ?? 'custom') === $platform)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label>
+                                <input type="text" name="footer_socials[{{ $index }}][label]" data-footer-field="label" value="{{ $social['label'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nama akun (opsional)">
+                            </div>
+                            <div class="md:col-span-5">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Tautan profil</label>
+                                <input type="url" name="footer_socials[{{ $index }}][url]" data-footer-field="url" value="{{ $social['url'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="https://...">
+                            </div>
+                            <div class="flex items-end md:col-span-1">
+                                <button type="button" class="remove-footer-social inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus media sosial"><i class="ri-delete-bin-line"></i></button>
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
+                    @error('footer_socials')<p class="mt-2 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -1574,6 +1580,67 @@
             `;
             footerLinksWrapper.appendChild(row);
             bindFooterRemoveButtons();
+        });
+
+        const configureDynamicFooterItems = ({ wrapperId, addButtonId, rowClass, removeClass, fieldName, rowTemplate }) => {
+            const wrapper = document.getElementById(wrapperId);
+            const addButton = document.getElementById(addButtonId);
+
+            const reindex = () => {
+                wrapper?.querySelectorAll(`.${rowClass}`).forEach((row, index) => {
+                    row.querySelectorAll('[data-footer-field]').forEach((field) => {
+                        field.name = `${fieldName}[${index}][${field.dataset.footerField}]`;
+                    });
+                });
+            };
+
+            const bindRemoveButtons = () => {
+                wrapper?.querySelectorAll(`.${removeClass}`).forEach((button) => {
+                    button.onclick = () => {
+                        button.closest(`.${rowClass}`)?.remove();
+                        reindex();
+                    };
+                });
+            };
+
+            addButton?.addEventListener('click', () => {
+                if (!wrapper || wrapper.querySelectorAll(`.${rowClass}`).length >= 12) return;
+                wrapper.insertAdjacentHTML('beforeend', rowTemplate());
+                bindRemoveButtons();
+                reindex();
+            });
+
+            bindRemoveButtons();
+        };
+
+        configureDynamicFooterItems({
+            wrapperId: 'footer-contacts-wrapper',
+            addButtonId: 'add-footer-contact',
+            rowClass: 'footer-contact-row',
+            removeClass: 'remove-footer-contact',
+            fieldName: 'footer_contacts',
+            rowTemplate: () => `
+                <div class="footer-contact-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Jenis kontak</label><select data-footer-field="type" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30"><option value="phone">Telepon</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="text">Teks lain</option></select></div>
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label><input type="text" data-footer-field="label" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Admin pendaftaran"></div>
+                    <div class="md:col-span-5"><label class="mb-1.5 block text-xs font-medium text-gray-600">Kontak</label><input type="text" data-footer-field="value" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nomor, email, atau keterangan"></div>
+                    <div class="flex items-end md:col-span-1"><button type="button" class="remove-footer-contact inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus kontak"><i class="ri-delete-bin-line"></i></button></div>
+                </div>`,
+        });
+
+        configureDynamicFooterItems({
+            wrapperId: 'footer-socials-wrapper',
+            addButtonId: 'add-footer-social',
+            rowClass: 'footer-social-row',
+            removeClass: 'remove-footer-social',
+            fieldName: 'footer_socials',
+            rowTemplate: () => `
+                <div class="footer-social-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Platform</label><select data-footer-field="platform" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="twitter">X/Twitter</option><option value="youtube">YouTube</option><option value="tiktok">TikTok</option><option value="linkedin">LinkedIn</option><option value="website">Website</option><option value="custom">Lainnya</option></select></div>
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label><input type="text" data-footer-field="label" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nama akun (opsional)"></div>
+                    <div class="md:col-span-5"><label class="mb-1.5 block text-xs font-medium text-gray-600">Tautan profil</label><input type="url" data-footer-field="url" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="https://..."></div>
+                    <div class="flex items-end md:col-span-1"><button type="button" class="remove-footer-social inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus media sosial"><i class="ri-delete-bin-line"></i></button></div>
+                </div>`,
         });
 
         bindFooterRemoveButtons();
