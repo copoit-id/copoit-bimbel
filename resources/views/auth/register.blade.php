@@ -93,6 +93,29 @@
                         <p class="text-xs text-gray-500 mt-1">Format: 62xxxxxxxxxx (contoh: 6281234567890)</p>
                     </div>
 
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="education_level" class="block text-sm font-medium text-gray-700">Kelas / Level <span class="text-gray-400">(Opsional)</span></label>
+                            <input id="education_level" name="education_level" type="text" value="{{ old('education_level') }}" placeholder="Contoh: Kelas 12"
+                                class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-primary">
+                        </div>
+                        <div>
+                            <label for="origin_institution" class="block text-sm font-medium text-gray-700">Asal Sekolah / Instansi <span class="text-gray-400">(Opsional)</span></label>
+                            <input id="origin_institution" name="origin_institution" type="text" value="{{ old('origin_institution') }}" placeholder="Contoh: SMA Negeri 1 Jakarta"
+                                class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-primary">
+                        </div>
+                        <div>
+                            <label for="major_choice_1" class="block text-sm font-medium text-gray-700">Pilihan Jurusan 1 <span class="text-gray-400">(Opsional)</span></label>
+                            <input id="major_choice_1" name="major_choice_1" type="text" value="{{ old('major_choice_1') }}" placeholder="Contoh: Teknik Informatika"
+                                class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-primary">
+                        </div>
+                        <div>
+                            <label for="major_choice_2" class="block text-sm font-medium text-gray-700">Pilihan Jurusan 2 <span class="text-gray-400">(Opsional)</span></label>
+                            <input id="major_choice_2" name="major_choice_2" type="text" value="{{ old('major_choice_2') }}" placeholder="Contoh: Sistem Informasi"
+                                class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-primary">
+                        </div>
+                    </div>
+
                     <div>
                         @php
                             $selectedDestinationId = (int) old('participant_destination_category_id');
