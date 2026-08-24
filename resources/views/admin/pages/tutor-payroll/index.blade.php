@@ -7,7 +7,7 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Penggajian Tutor</h1>
-            <p class="text-sm text-gray-500">{{ $activeTab === 'payroll' ? 'Rekap dan nominal dihitung otomatis saat absensi Hadir/Terlambat disetujui admin.' : 'Atur honor per kehadiran tutor. Halaman ini tidak terikat periode penggajian.' }}</p>
+            <p class="text-sm text-gray-500">{{ $activeTab === 'payroll' ? 'Rekap dan nominal dihitung otomatis saat absensi Hadir/Terlambat disetujui admin.' : 'Atur tarif per paket yang diajar. Honor default dipakai jika paket belum memiliki tarif khusus.' }}</p>
         </div>
     </div>
 
@@ -66,10 +66,10 @@
             <tbody>
                 @foreach($payrolls as $payroll)
                     @php
-                        $needsHonor = (int) $payroll->tentor->honor_per_attendance < 1;
+                        $needsHonor = $payroll->items->isNotEmpty() && (int) $payroll->gross_amount < 1;
                     @endphp
                     <tr class="border-t border-gray-100 align-top">
-                        <td class="px-4 py-3"><p class="font-semibold text-gray-900">{{ $payroll->tentor->name }}</p><p class="text-xs text-gray-500">Honor aktif: Rp {{ number_format($payroll->tentor->honor_per_attendance, 0, ',', '.') }} / kehadiran</p></td>
+                        <td class="px-4 py-3"><p class="font-semibold text-gray-900">{{ $payroll->tentor->name }}</p><p class="text-xs text-gray-500">Honor default: Rp {{ number_format($payroll->tentor->honor_per_attendance, 0, ',', '.') }} / kehadiran</p></td>
                         <td class="px-4 py-3">
                             <p>{{ $payroll->items->count() }} sesi masuk gaji</p>
                             @if($pendingAttendanceCounts->get($payroll->tentor_id, 0))
@@ -228,7 +228,7 @@
     <div class="border border-gray-200 bg-white">
         <div class="border-b border-gray-100 px-4 py-4 sm:px-5">
             <h2 class="font-semibold text-gray-900">Honor per Kehadiran</h2>
-            <p class="mt-1 text-sm text-gray-500">Honor ini berlaku untuk semua kelas tutor dan langsung disinkronkan ke absensi yang sudah disetujui tetapi belum dibayar.</p>
+            <p class="mt-1 text-sm text-gray-500">Tarif paket diprioritaskan pada sesi yang terhubung ke paket. Honor default dipakai sebagai cadangan.</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm text-gray-600">
@@ -236,7 +236,8 @@
                     <tr>
                         <th class="px-4 py-3">Tutor</th>
                         <th class="px-4 py-3">Bidang</th>
-                        <th class="px-4 py-3">Honor aktif</th>
+                        <th class="px-4 py-3">Honor default</th>
+                        <th class="px-4 py-3">Tarif paket</th>
                         <th class="px-4 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
@@ -249,12 +250,23 @@
                             </td>
                             <td class="px-4 py-3">{{ $tentor->expertise ?: '-' }}</td>
                             <td class="px-4 py-3 font-semibold text-gray-900">Rp {{ number_format($tentor->honor_per_attendance, 0, ',', '.') }} <span class="font-normal text-gray-500">/ kehadiran</span></td>
+                            <td class="px-4 py-3">
+                                @if($tentor->packageRates->isNotEmpty())
+                                    <span class="text-sm font-semibold text-gray-900">{{ $tentor->packageRates->count() }} paket diatur</span>
+                                    <p class="mt-0.5 text-xs text-gray-500">Tarif khusus aktif</p>
+                                @else
+                                    <span class="text-sm text-gray-500">Belum ada tarif khusus</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-right">
-                                <button type="button" data-modal-target="edit-tutor-honor-modal-{{ $tentor->id }}" data-modal-toggle="edit-tutor-honor-modal-{{ $tentor->id }}" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Edit honor</button>
+                                <div class="flex justify-end gap-2">
+                                    <x-ui.button type="button" variant="outline" size="sm" data-modal-target="edit-tutor-package-rates-modal-{{ $tentor->id }}" data-modal-toggle="edit-tutor-package-rates-modal-{{ $tentor->id }}">Tarif paket</x-ui.button>
+                                    <x-ui.button type="button" variant="secondary" size="sm" data-modal-target="edit-tutor-honor-modal-{{ $tentor->id }}" data-modal-toggle="edit-tutor-honor-modal-{{ $tentor->id }}">Honor default</x-ui.button>
+                                </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-10 text-center text-gray-500">Belum ada tutor aktif.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-10 text-center text-gray-500">Belum ada tutor aktif.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -263,6 +275,44 @@
     {{ $honorTentors->links() }}
 
     @foreach($honorTentors as $tentor)
+        @php($packageRatesByPackage = $tentor->packageRates->keyBy('package_id'))
+        <div id="edit-tutor-package-rates-modal-{{ $tentor->id }}" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0">
+            <div class="relative max-h-full w-full max-w-2xl">
+                <div class="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+                    <div class="flex items-center justify-between border-b border-gray-100 p-5">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Tarif Paket Tutor</h3>
+                            <p class="mt-1 text-sm text-gray-500">{{ $tentor->name }} · Kosongkan tarif untuk memakai honor default.</p>
+                        </div>
+                        <button type="button" data-modal-hide="edit-tutor-package-rates-modal-{{ $tentor->id }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"><i class="ri-close-line text-xl"></i></button>
+                    </div>
+                    <form method="POST" action="{{ route('admin.tutor-payrolls.package-rates.update') }}">
+                        @csrf
+                        <input type="hidden" name="tentor_id" value="{{ $tentor->id }}">
+                        <div class="max-h-[60vh] space-y-3 overflow-y-auto p-5">
+                            @forelse($packages as $package)
+                                <div class="grid gap-2 rounded-lg border border-gray-200 p-3 sm:grid-cols-[1fr_190px] sm:items-center">
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900">{{ $package->name }}</p>
+                                        <p class="mt-0.5 text-xs text-gray-500">Kosong = honor default Rp {{ number_format($tentor->honor_per_attendance, 0, ',', '.') }}</p>
+                                    </div>
+                                    <div class="relative">
+                                        <span class="pointer-events-none absolute left-3 top-2.5 text-sm text-gray-500">Rp</span>
+                                        <input type="number" min="0" max="999999999" name="package_rates[{{ $package->package_id }}]" value="{{ old('package_rates.'.$package->package_id, $packageRatesByPackage->get($package->package_id)?->amount) }}" placeholder="Honor default" class="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="py-8 text-center text-sm text-gray-500">Belum ada paket yang dapat diberi tarif.</p>
+                            @endforelse
+                        </div>
+                        <div class="flex items-center justify-end gap-3 border-t px-6 py-4">
+                            <x-ui.button type="button" variant="secondary" size="sm" data-modal-hide="edit-tutor-package-rates-modal-{{ $tentor->id }}">Batal</x-ui.button>
+                            <x-ui.button type="submit" size="sm">Simpan Tarif Paket</x-ui.button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
         <div id="edit-tutor-honor-modal-{{ $tentor->id }}" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0">
             <div class="relative max-h-full w-full max-w-md">
                 <div class="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">

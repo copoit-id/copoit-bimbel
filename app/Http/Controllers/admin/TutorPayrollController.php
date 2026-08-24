@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tentor;
+use App\Models\Package;
 use App\Models\TutorAttendance;
 use App\Models\TutorPayroll;
 use App\Services\TutorPayrollService;
@@ -23,11 +24,16 @@ class TutorPayrollController extends Controller
         if ($activeTab === 'honor') {
             $honorTentors = Tentor::query()
                 ->active()
+                ->with('packageRates:tentor_id,package_id,amount')
                 ->orderBy('name')
                 ->paginate(\App\Support\Pagination::perPage(20), ['id', 'name', 'email', 'expertise', 'honor_per_attendance'], 'honor_page')
                 ->withQueryString();
 
-            return view('admin.pages.tutor-payroll.index', compact('activeTab', 'honorTentors'));
+            $packages = Package::query()
+                ->orderBy('name')
+                ->get(['package_id', 'name']);
+
+            return view('admin.pages.tutor-payroll.index', compact('activeTab', 'honorTentors', 'packages'));
         }
 
         $validated = $request->validate([
@@ -143,12 +149,52 @@ class TutorPayrollController extends Controller
         return back()->with('success', "Honor {$tentor->name} berhasil diperbarui dan rekap absensi yang sudah disetujui telah disinkronkan otomatis.");
     }
 
+    public function updatePackageRates(Request $request, TutorPayrollService $payrollService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'tentor_id' => ['required', 'exists:tentors,id'],
+            'package_rates' => ['nullable', 'array'],
+            'package_rates.*' => ['nullable', 'integer', 'min:0', 'max:999999999'],
+        ]);
+        $packageRates = collect($validated['package_rates'] ?? [])
+            ->filter(fn ($amount): bool => ! is_null($amount))
+            ->mapWithKeys(fn ($amount, $packageId): array => [(int) $packageId => (int) $amount]);
+        $existingPackageIds = Package::query()
+            ->whereIn('package_id', $packageRates->keys())
+            ->pluck('package_id')
+            ->map(fn ($packageId): int => (int) $packageId);
+
+        if ($existingPackageIds->count() !== $packageRates->count()) {
+            return back()->withErrors(['package_rates' => 'Salah satu paket yang dipilih tidak ditemukan.']);
+        }
+
+        $tentor = Tentor::query()->findOrFail($validated['tentor_id']);
+
+        DB::transaction(function () use ($tentor, $packageRates): void {
+            $tentor->packageRates()
+                ->when($packageRates->isNotEmpty(), fn ($query) => $query->whereNotIn('package_id', $packageRates->keys()))
+                ->when($packageRates->isEmpty(), fn ($query) => $query)
+                ->delete();
+
+            foreach ($packageRates as $packageId => $amount) {
+                $tentor->packageRates()->updateOrCreate(
+                    ['package_id' => $packageId],
+                    ['amount' => $amount]
+                );
+            }
+        });
+
+        $payrollService->syncApprovedAttendancesForTutor($tentor->fresh(), $request->user());
+
+        return back()->with('success', "Tarif paket {$tentor->name} berhasil disimpan. Rekap yang belum lunas telah disinkronkan.");
+    }
+
     public function update(Request $request, TutorPayroll $tutorPayroll, TutorPayrollService $payrollService): RedirectResponse
     {
         $tutorPayroll->loadMissing('tentor:id,honor_per_attendance');
 
-        if (! $tutorPayroll->tentor || (int) $tutorPayroll->tentor->honor_per_attendance < 1) {
-            return back()->with('error', 'Honor tutor belum diatur. Atur honor terlebih dahulu sebelum mengelola pembayaran.');
+        if (! $tutorPayroll->tentor || (int) $tutorPayroll->gross_amount < 1) {
+            return back()->with('error', 'Tarif tutor belum menghasilkan nominal penggajian. Atur tarif paket atau honor default terlebih dahulu.');
         }
 
         $validated = $request->validate([

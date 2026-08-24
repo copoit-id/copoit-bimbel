@@ -746,6 +746,7 @@ Route::prefix('{portal}')
         Route::get('penggajian-tutor', [TutorPayrollController::class, 'index'])->name('tutor-payrolls.index');
         Route::post('penggajian-tutor/generate', [TutorPayrollController::class, 'generate'])->name('tutor-payrolls.generate');
         Route::post('penggajian-tutor/honor', [TutorPayrollController::class, 'updateHonor'])->name('tutor-payrolls.honor.update');
+        Route::post('penggajian-tutor/tarif-paket', [TutorPayrollController::class, 'updatePackageRates'])->name('tutor-payrolls.package-rates.update');
         Route::put('penggajian-tutor/{tutorPayroll}', [TutorPayrollController::class, 'update'])->name('tutor-payrolls.update');
         Route::resource('class', ClassController::class);
         Route::resource('certification', CertificationController::class);
