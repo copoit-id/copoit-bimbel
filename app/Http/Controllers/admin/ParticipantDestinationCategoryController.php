@@ -160,6 +160,7 @@ class ParticipantDestinationCategoryController extends Controller
         }
 
         $records = [];
+        $duplicateRowsInFile = 0;
         $errors = [];
 
         foreach (array_slice($rows, 1) as $offset => $row) {
@@ -200,7 +201,15 @@ class ParticipantDestinationCategoryController extends Controller
                 continue;
             }
 
-            $records[] = [
+            $recordKey = $this->normalizedDestinationImportKey($institution, $program);
+
+            if (isset($records[$recordKey])) {
+                $duplicateRowsInFile++;
+
+                continue;
+            }
+
+            $records[$recordKey] = [
                 'institution' => $institution,
                 'program' => $program,
                 'is_active' => $status,
@@ -217,13 +226,14 @@ class ParticipantDestinationCategoryController extends Controller
         }
 
         try {
-            [$created, $updated] = DB::transaction(function () use ($records): array {
+            [$created, $skippedExisting] = DB::transaction(function () use ($records): array {
                 $created = 0;
-                $updated = 0;
+                $skippedExisting = 0;
                 $parents = ParticipantDestinationCategory::query()
                     ->root()
                     ->get(['id', 'name', 'slug', 'is_active', 'sort_order'])
                     ->keyBy(fn (ParticipantDestinationCategory $category): string => $this->normalizeImportValue($category->name));
+                $existingParentKeys = $parents->keys()->flip();
                 $usedRootSlugs = $parents
                     ->pluck('slug')
                     ->map(fn (string $slug): string => Str::lower($slug))
@@ -247,9 +257,6 @@ class ParticipantDestinationCategoryController extends Controller
                         ]);
                         $parents->put($key, $parent);
                         $created++;
-                    } elseif ($parent->is_active !== $attributes['is_active'] || $parent->sort_order !== $attributes['sort_order']) {
-                        $parent->update($attributes);
-                        $updated++;
                     }
                 }
 
@@ -277,23 +284,31 @@ class ParticipantDestinationCategoryController extends Controller
                         'sort_order' => $record['sort_order'],
                     ];
 
-                    if (! $child) {
-                        $usedChildSlugs[$parentId] ??= [];
-                        $child = ParticipantDestinationCategory::create([
-                            'parent_id' => (int) $parentId,
-                            'name' => $record['program'],
-                            'slug' => $this->makeImportSlug($record['program'], $usedChildSlugs[$parentId]),
-                            ...$attributes,
-                        ]);
-                        $childrenByKey->put($key, $child);
-                        $created++;
-                    } elseif ($child->is_active !== $attributes['is_active'] || $child->sort_order !== $attributes['sort_order']) {
-                        $child->update($attributes);
-                        $updated++;
+                    if ($child) {
+                        $skippedExisting++;
+
+                        continue;
+                    }
+
+                    $usedChildSlugs[$parentId] ??= [];
+                    $child = ParticipantDestinationCategory::create([
+                        'parent_id' => (int) $parentId,
+                        'name' => $record['program'],
+                        'slug' => $this->makeImportSlug($record['program'], $usedChildSlugs[$parentId]),
+                        ...$attributes,
+                    ]);
+                    $childrenByKey->put($key, $child);
+                    $created++;
+                }
+
+                foreach ($records as $record) {
+                    if ($record['program'] === ''
+                        && isset($existingParentKeys[$this->normalizeImportValue($record['institution'])])) {
+                        $skippedExisting++;
                     }
                 }
 
-                return [$created, $updated];
+                return [$created, $skippedExisting];
             });
         } catch (\Throwable $exception) {
             report($exception);
@@ -301,9 +316,16 @@ class ParticipantDestinationCategoryController extends Controller
             return back()->with('error', 'Impor gagal diproses. Tidak ada data yang disimpan.');
         }
 
+        $skippedDuplicates = $duplicateRowsInFile + $skippedExisting;
+        $message = "Impor selesai: {$created} data baru ditambahkan.";
+
+        if ($skippedDuplicates > 0) {
+            $message .= " {$skippedDuplicates} data duplikat dilewati.";
+        }
+
         return redirect()
             ->route('admin.participant-destination-categories.index')
-            ->with('success', "Impor selesai: {$created} data baru dan {$updated} data diperbarui.");
+            ->with('success', $message);
     }
 
     public function officialInstitutions(Request $request, OfficialParticipantDestinationService $destinationService)
@@ -443,6 +465,11 @@ class ParticipantDestinationCategoryController extends Controller
     private function normalizeImportValue(string $value): string
     {
         return Str::lower(trim(preg_replace('/\s+/', ' ', $value)));
+    }
+
+    private function normalizedDestinationImportKey(string $institution, string $program): string
+    {
+        return $this->normalizeImportValue($institution).'|'.$this->normalizeImportValue($program);
     }
 
     private function makeImportSlug(string $name, array &$usedSlugs): string

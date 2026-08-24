@@ -15,19 +15,13 @@
             <h1 class="text-2xl font-bold text-gray-800">Tujuan / Instansi</h1>
             <p class="text-gray-600">Kelola instansi tujuan dan sub tujuan peserta untuk profile dan filter leaderboard.</p>
         </div>
-        <div class="flex flex-col gap-2 sm:flex-row">
-            <a href="{{ route('admin.participant-destination-categories.import.template') }}" class="border border-primary/30 text-primary hover:bg-primary/5 px-4 py-2 rounded-lg flex items-center justify-center gap-2">
-                <i class="ri-file-excel-2-line"></i>
-                Download Template
-            </a>
-            <button onclick="openModal('importModal')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
-                <i class="ri-upload-2-line"></i>
+        <div class="flex flex-wrap gap-2">
+            <x-ui.button type="button" variant="outline" size="sm" icon="ri-upload-2-line" onclick="openModal('importModal')">
                 Import Excel
-            </button>
-            <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
-                <i class="ri-add-line"></i>
+            </x-ui.button>
+            <x-ui.button type="button" size="sm" icon="ri-add-line" onclick="openModal('createModal')">
                 Tambah Instansi
-            </button>
+            </x-ui.button>
         </div>
     </div>
 
@@ -169,7 +163,7 @@
         <div class="flex justify-between items-center p-5 border-b border-gray-100">
             <div>
                 <h3 class="text-lg font-semibold text-gray-800">Import Universitas & Jurusan</h3>
-                <p class="text-sm text-gray-500">Tambahkan atau perbarui data dari Excel.</p>
+                <p class="text-sm text-gray-500">Tambahkan data dari Excel.</p>
             </div>
             <button onclick="closeModal('importModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
                 <i class="ri-close-line text-xl"></i>
@@ -178,9 +172,15 @@
         <form action="{{ route('admin.participant-destination-categories.import') }}" method="POST" enctype="multipart/form-data" class="p-5">
             @csrf
             <div class="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-                <p class="font-semibold">Kolom template</p>
-                <p class="mt-1"><code>Universitas</code>, <code>Jurusan</code>, <code>Status</code>, dan <code>Urutan</code>.</p>
-                <p class="mt-1 text-xs">Status menerima <strong>aktif</strong> atau <strong>nonaktif</strong>. Jurusan boleh dikosongkan untuk menambahkan universitas saja.</p>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="font-semibold">Gunakan template Excel</p>
+                        <p class="mt-1 text-xs">Isi data universitas dan jurusan sesuai contoh yang tersedia.</p>
+                    </div>
+                    <x-ui.button :href="route('admin.participant-destination-categories.import.template')" variant="outline" size="sm" icon="ri-file-excel-2-line" class="shrink-0 border-blue-300 text-blue-800 hover:bg-blue-100">
+                        Download Template
+                    </x-ui.button>
+                </div>
             </div>
             <div class="mt-4">
                 <label for="excel_file" class="block text-sm font-medium text-gray-700 mb-1">File Excel <span class="text-red-500">*</span></label>
@@ -188,9 +188,9 @@
                     class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20">
                 <p class="mt-1 text-xs text-gray-500">Format .xlsx atau .xls, maksimal 10 MB.</p>
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-                <button type="button" onclick="closeModal('importModal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Import Data</button>
+            <div class="mt-6 flex justify-end gap-2">
+                <x-ui.button type="button" variant="secondary" size="sm" onclick="closeModal('importModal')">Batal</x-ui.button>
+                <x-ui.button type="submit" size="sm" icon="ri-upload-2-line">Import Data</x-ui.button>
             </div>
         </form>
     </div>

@@ -72,6 +72,37 @@ class ParticipantDestinationCategoryImportTest extends TestCase
         $this->assertSame(3, $itb->children()->firstOrFail()->sort_order);
     }
 
+    public function test_it_skips_existing_destinations_case_insensitively(): void
+    {
+        $this->writeSpreadsheet([
+            ['Universitas', 'Jurusan', 'Status', 'Urutan'],
+            ['Universitas Indonesia', 'Ilmu Komputer', 'aktif', 1],
+        ]);
+
+        $this->importSpreadsheet();
+
+        $this->writeSpreadsheet([
+            ['Universitas', 'Jurusan', 'Status', 'Urutan'],
+            ['UNIVERSITAS INDONESIA', 'ILMU KOMPUTER', 'nonaktif', 9],
+            ['universitas indonesia', 'Sistem Informasi', 'aktif', 2],
+            ['Universitas Indonesia', 'sistem informasi', 'aktif', 3],
+        ]);
+
+        $this->importSpreadsheet();
+
+        $university = ParticipantDestinationCategory::query()
+            ->root()
+            ->where('name', 'Universitas Indonesia')
+            ->firstOrFail();
+
+        $this->assertSame(1, ParticipantDestinationCategory::query()->root()->count());
+        $this->assertSame(2, $university->children()->count());
+        $this->assertSame(1, $university->children()->where('name', 'Ilmu Komputer')->count());
+        $this->assertSame(1, $university->children()->where('name', 'Sistem Informasi')->count());
+        $this->assertTrue($university->children()->where('name', 'Ilmu Komputer')->firstOrFail()->is_active);
+        $this->assertSame(1, $university->children()->where('name', 'Ilmu Komputer')->firstOrFail()->sort_order);
+    }
+
     private function writeSpreadsheet(array $rows): void
     {
         $spreadsheet = new Spreadsheet();
