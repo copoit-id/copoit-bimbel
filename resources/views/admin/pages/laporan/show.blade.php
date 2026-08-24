@@ -59,9 +59,9 @@
             <p class="text-sm text-gray-400">{{ $statistics['completion_rate'] }}% selesai</p>
         </div>
         <div class="rounded-xl border border-border bg-white p-5">
-            <p class="text-sm text-gray-500">Rata-rata skor{{ $isIrtTryout ? ' (IRT)' : '' }}</p>
+            <p class="text-sm text-gray-500">Rata-rata skor</p>
             <p class="text-3xl font-bold text-gray-900">{{ $statistics['average_score'] }}</p>
-            <p class="text-sm text-gray-400">{{ $isIrtTryout ? 'Skala 0–1000 · ' : '' }}Tertinggi {{ $statistics['highest_score'] }}</p>
+            <p class="text-sm text-gray-400">Tertinggi {{ $statistics['highest_score'] }}</p>
         </div>
     </div>
 
@@ -134,9 +134,6 @@
                             @endforeach
                             <td class="px-4 py-4 text-center">
                                 <p class="font-bold text-primary">{{ $participant['latest_score'] }}</p>
-                                @if($isIrtTryout)
-                                    <p class="text-[10px] text-gray-500">IRT</p>
-                                @endif
                                 <p class="mt-1 whitespace-nowrap text-xs font-medium text-gray-500">
                                     B {{ $participant['total_correct'] }} · S {{ $participant['total_wrong'] }} · K {{ $participant['total_unanswered'] }}
                                 </p>

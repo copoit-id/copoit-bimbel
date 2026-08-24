@@ -48,7 +48,6 @@
         <thead>
             <tr>
                 <th>Tryout</th>
-                <th class="text-center">IRT</th>
                 <th class="text-center">Subtest</th>
                 <th class="text-center">Total Soal</th>
                 <th class="text-center">Durasi</th>
@@ -63,7 +62,6 @@
             @forelse($tryouts as $tryout)
                 <tr>
                     <td>{{ $tryout->name }}</td>
-                    <td class="text-center">{{ $tryout->is_irt ? 'Ya' : '-' }}</td>
                     <td class="text-center">{{ $tryout->tryoutDetails->count() }}</td>
                     <td class="text-center">{{ $tryout->total_questions }}</td>
                     <td class="text-center">{{ $tryout->total_duration }} menit</td>
@@ -71,13 +69,13 @@
                     <td class="text-center">{{ $tryout->completed_participants }}</td>
                     <td class="text-center">{{ $tryout->completion_rate }}%</td>
                     <td class="text-center">
-                        {{ $tryout->is_irt ? $tryout->avg_score . ' (skala 0–1000)' : (($scoreDisplay ?? 'score') === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score) }}
+                        {{ ($scoreDisplay ?? 'score') === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
                     </td>
                     <td class="text-center">{{ $tryout->is_active ? 'Aktif' : 'Tidak Aktif' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="text-center">Belum ada data tryout</td>
+                    <td colspan="9" class="text-center">Belum ada data tryout</td>
                 </tr>
             @endforelse
         </tbody>

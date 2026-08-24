@@ -126,14 +126,9 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        @if($tryout->is_irt)
-                            <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}</span>
-                            <p class="text-xs text-gray-500">skala 0–1000</p>
-                        @else
                         <span class="text-gray-800 font-medium">
                             {{ $scoreDisplay === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
                         </span>
-                        @endif
                     </td>
                     <td class="px-6 py-4 text-center">
                         @php

@@ -65,11 +65,8 @@
             <p class="mt-1 text-2xl font-bold text-gray-600">{{ $overallStats['unanswered'] }}</p>
         </div>
         <div class="col-span-2 rounded-xl border border-border bg-white p-4 text-center md:col-span-1">
-            <p class="text-xs text-gray-500">Total Skor{{ $isIrtTryout ? ' (IRT)' : '' }}</p>
+            <p class="text-xs text-gray-500">Total Skor</p>
             <p class="mt-1 text-2xl font-bold text-primary">{{ $overallStats['score'] }}</p>
-            @if($isIrtTryout)
-                <p class="mt-1 text-xs text-gray-400">Skala 0–1000</p>
-            @endif
         </div>
     </div>
 

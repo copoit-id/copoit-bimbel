@@ -221,8 +221,6 @@ class LaporanController extends Controller
             'packages',
         ])->findOrFail($id);
 
-        $isIrtTryout = $tryout->requiresIrtScoring();
-
         $attemptSummaries = UserAnswer::selectRaw('
                 user_id,
                 tryout_id,
@@ -234,7 +232,6 @@ class LaporanController extends Controller
                 SUM(wrong_answers) as total_wrong,
                 SUM(unanswered) as total_unanswered,
                 SUM(score) as total_score,
-                MAX(utbk_total_score) as utbk_total_score,
                 MAX(status) as attempt_status
             ')
             ->where('tryout_id', $tryout->tryout_id)
@@ -281,7 +278,7 @@ class LaporanController extends Controller
         ]);
 
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions, $isIrtTryout) {
+            ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions) {
                 $sortedAttempts = $attempts->sortByDesc('last_activity_at')->values();
                 $latest = $sortedAttempts->first();
                 $latestSubtestRows = $subtestSummariesByAttempt->get($latest->user_id.'|'.$latest->attempt_token, collect())
@@ -313,9 +310,7 @@ class LaporanController extends Controller
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
-                    'latest_score' => $isIrtTryout
-                        ? round((float) ($latest->utbk_total_score ?? 0), 0)
-                        : round((float) ($latest->total_score ?? 0), 1),
+                    'latest_score' => round($latest->total_score ?? 0, 1),
                     'last_finished' => $latest->finished_at,
                     'latest_attempt' => $latest,
                     'total_correct' => $subtests->sum('correct'),
@@ -345,8 +340,8 @@ class LaporanController extends Controller
             'total_duration' => $tryout->tryoutDetails->sum('duration'),
             'total_participants' => $participants->count(),
             'completed_participants' => $participants->where('status', 'selesai')->count(),
-            'average_score' => round($participants->avg('latest_score') ?? 0, $isIrtTryout ? 0 : 1),
-            'highest_score' => round($participants->max('latest_score') ?? 0, $isIrtTryout ? 0 : 1),
+            'average_score' => round($participants->avg('latest_score') ?? 0, 1),
+            'highest_score' => round($participants->max('latest_score') ?? 0, 1),
         ];
 
         $statistics['completion_rate'] = $statistics['total_participants'] > 0
@@ -363,8 +358,7 @@ class LaporanController extends Controller
             'participants',
             'subtestDefinitions',
             'leaderboardPackageId',
-            'hasSnapshotProctoring',
-            'isIrtTryout'
+            'hasSnapshotProctoring'
         ));
     }
 
@@ -439,7 +433,6 @@ class LaporanController extends Controller
     public function attemptDetail(Request $request, $tryoutId, $attemptToken)
     {
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
-        $isIrtTryout = $tryout->requiresIrtScoring();
 
         $attemptAnswers = UserAnswer::with([
             'user',
@@ -513,9 +506,7 @@ class LaporanController extends Controller
             'correct' => $subtests->sum('correct'),
             'wrong' => $subtests->sum('wrong'),
             'unanswered' => $subtests->sum('unanswered'),
-            'score' => $isIrtTryout
-                ? round((float) ($attemptAnswers->max('utbk_total_score') ?? 0), 0)
-                : round($subtests->sum('score'), 1),
+            'score' => round($subtests->sum('score'), 1),
             'started_at' => $attemptAnswers->min('started_at'),
             'finished_at' => $attemptAnswers->max('finished_at'),
         ];
@@ -528,8 +519,7 @@ class LaporanController extends Controller
             'overallStats',
             'subtests',
             'activeSubtestId',
-            'questionPreviews',
-            'isIrtTryout'
+            'questionPreviews'
         ));
     }
 
@@ -887,7 +877,7 @@ class LaporanController extends Controller
         $globalProctoringSettings = PlanQuotaService::getDefaultProctoringSettings();
         $tryoutIds = $tryouts->pluck('tryout_id')->filter()->values();
         $scoreStatsByTryout = UserAnswer::query()
-            ->selectRaw('tryout_id, AVG(score) as average_score, AVG(utbk_total_score) as average_irt_score, SUM(correct_answers) as total_correct, SUM(correct_answers + wrong_answers + unanswered) as total_questions')
+            ->selectRaw('tryout_id, AVG(score) as average_score, SUM(correct_answers) as total_correct, SUM(correct_answers + wrong_answers + unanswered) as total_questions')
             ->whereIn('tryout_id', $tryoutIds)
             ->where('status', 'completed')
             ->groupBy('tryout_id')
@@ -896,14 +886,12 @@ class LaporanController extends Controller
 
         $tryouts->transform(function (Tryout $tryout) use ($globalProctoringSettings, $scoreStatsByTryout, $scoreDisplay) {
             $scoreStats = $scoreStatsByTryout->get($tryout->tryout_id);
-            $tryout->avg_score = $tryout->requiresIrtScoring()
-                ? round((float) ($scoreStats->average_irt_score ?? 0), 0)
-                : round((float) ($scoreStats->average_score ?? 0), 1);
+            $tryout->avg_score = round((float) ($scoreStats->average_score ?? 0), 1);
             $tryout->avg_percentage = $this->percentageFromCorrectAnswers(
                 (int) ($scoreStats->total_correct ?? 0),
                 (int) ($scoreStats->total_questions ?? 0)
             );
-            $tryout->report_score = ! $tryout->requiresIrtScoring() && $scoreDisplay === 'percentage'
+            $tryout->report_score = $scoreDisplay === 'percentage'
                 ? $tryout->avg_percentage
                 : $tryout->avg_score;
             $tryout->completion_rate = $tryout->total_participants > 0
