@@ -119,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
             'ai_discussion_settings' => [],
             'admin_assistant_enabled' => false,
             'recurring_bill_menu_enabled' => false,
+            'billing_dashboard_enabled' => true,
             'tutor_chat_enabled' => false,
             'booking_schedule_enabled' => false,
             'learning_progress_enabled' => false,
@@ -200,6 +201,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['ai_discussion_settings'] = $clientProfile->ai_discussion_settings ?: $defaults['ai_discussion_settings'];
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
+            $defaults['billing_dashboard_enabled'] = (bool) ($clientProfile->billing_dashboard_enabled ?? $defaults['billing_dashboard_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
             $defaults['booking_schedule_enabled'] = (bool) ($clientProfile->booking_schedule_enabled ?? $defaults['booking_schedule_enabled']);
             $defaults['learning_progress_enabled'] = (bool) ($clientProfile->learning_progress_enabled ?? $defaults['learning_progress_enabled']);

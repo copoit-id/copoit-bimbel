@@ -19,6 +19,7 @@ $canShowAttendance = $planModules->allows('attendance');
 $canShowGeneralPage = $planModules->allows('general_page');
 $showStatisticsDashboard = ($showStatisticsDashboard ?? false) && $canShowGeneralPage;
 $showLandingDashboard = ($showLandingDashboard ?? false) && $canShowGeneralPage;
+$showBillingDashboard = $showBillingDashboard ?? true;
 $activePackages = collect($activePackages ?? []);
 $recentTryouts = collect($recentTryouts ?? []);
 $publicPackages = collect($publicPackages ?? []);
@@ -32,7 +33,7 @@ $destinationKeketatan = $destinationKeketatan ?? [
 $totalAnswered = $totalAnswered ?? 0;
 $totalCorrect = $totalCorrect ?? 0;
 $accuracyPercent = $accuracyPercent ?? 0;
-$hasUnpaid = $canShowPayments && $unpaidInvoices->isNotEmpty();
+$hasUnpaid = $showBillingDashboard && $canShowPayments && $unpaidInvoices->isNotEmpty();
 $hasSessions = $canShowSchedule && $upcomingClassSessions->isNotEmpty();
 $whatsappNumber = preg_replace('/\D+/', '', (string) ($clientBranding['contact_whatsapp_number'] ?? '')) ?: '628561078411';
 $communityWhatsappHref = "https://wa.me/{$whatsappNumber}?text=Halo%20Admin%2C%20saya%20ingin%20konsultasi%20program%20persiapan%20PKN%20STAN.";
