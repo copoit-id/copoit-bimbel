@@ -24,8 +24,13 @@ class SettingController extends Controller
             'name' => config('app.name'),
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'bimbel_nav_label' => 'Bimbel',
+            'material_nav_label' => 'Kelas & Materi',
+            'package_nav_label' => 'Paket Belajar',
+            'tryout_nav_label' => 'Ujian & Try Out',
             'logo_url' => asset('img/logo/logo-copoit.png'),
             'favicon_url' => asset('img/logo/logo-copoit.png'),
+            'logo_display_mode' => 'square',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
             'header_primary_color' => false,
@@ -61,6 +66,9 @@ class SettingController extends Controller
             'footer_description' => null,
             'footer_copyright' => null,
             'footer_links' => [],
+            'footer_address' => null,
+            'footer_contacts' => null,
+            'footer_socials' => null,
             'ai_question_generator_enabled' => false,
             'ai_question_generator_settings' => [],
             'ai_discussion_feature_enabled' => false,
@@ -97,11 +105,17 @@ class SettingController extends Controller
             'nama_bimbel' => ['required', 'string', 'max:255'],
             'faq_label' => ['required', 'string', 'max:80'],
             'live_session_label' => ['required', 'string', 'max:80'],
+            'bimbel_nav_label' => ['required', 'string', 'max:80'],
+            'material_nav_label' => ['required', 'string', 'max:80'],
+            'package_nav_label' => ['required', 'string', 'max:80'],
+            'tryout_nav_label' => ['required', 'string', 'max:80'],
+            'tutor_content_visibility' => ['nullable', 'in:shared,isolated'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             // SVG is executable XML in browsers. Do not place untrusted SVG
             // content in the public web root.
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
+            'logo_display_mode' => ['required', 'in:square,original'],
             'favicon' => ['nullable', 'mimes:ico,png,jpg,jpeg,webp', 'max:4096'],
             'payment_mode' => ['required', 'in:gateway,manual'],
             'payment_bank_name' => ['nullable', 'string', 'max:255'],
@@ -133,6 +147,14 @@ class SettingController extends Controller
             'footer_links.*.label' => ['nullable', 'string', 'max:80'],
             'footer_links.*.url' => ['nullable', 'string', 'max:2048'],
             'footer_address' => ['nullable', 'string', 'max:1000'],
+            'footer_contacts' => ['nullable', 'array', 'max:12'],
+            'footer_contacts.*.type' => ['nullable', 'in:phone,whatsapp,email,text'],
+            'footer_contacts.*.label' => ['nullable', 'string', 'max:80'],
+            'footer_contacts.*.value' => ['nullable', 'string', 'max:255'],
+            'footer_socials' => ['nullable', 'array', 'max:12'],
+            'footer_socials.*.platform' => ['nullable', 'in:facebook,instagram,twitter,youtube,tiktok,linkedin,website,custom'],
+            'footer_socials.*.label' => ['nullable', 'string', 'max:80'],
+            'footer_socials.*.url' => ['nullable', 'url', 'max:2048'],
             'footer_phone' => ['nullable', 'string', 'max:32'],
             'footer_email' => ['nullable', 'email', 'max:255'],
             'footer_whatsapp' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+()\-\s.]+$/'],
@@ -393,8 +415,16 @@ class SettingController extends Controller
         }
 
         $validated['warna_secondary'] = $validated['warna_secondary'] ?? '#F3F3F3';
+        $validated['logo_display_mode'] = $validated['logo_display_mode'] ?? $profile->logo_display_mode ?? 'square';
         $validated['faq_label'] = trim((string) ($validated['faq_label'] ?? '')) ?: 'FAQ';
         $validated['live_session_label'] = trim((string) ($validated['live_session_label'] ?? '')) ?: 'Kelas Belajar';
+        $validated['bimbel_nav_label'] = trim((string) ($validated['bimbel_nav_label'] ?? '')) ?: 'Bimbel';
+        $validated['material_nav_label'] = trim((string) ($validated['material_nav_label'] ?? '')) ?: 'Kelas & Materi';
+        $validated['package_nav_label'] = trim((string) ($validated['package_nav_label'] ?? '')) ?: 'Paket Belajar';
+        $validated['tryout_nav_label'] = trim((string) ($validated['tryout_nav_label'] ?? '')) ?: 'Ujian & Try Out';
+        $validated['tutor_content_visibility'] = $validated['tutor_content_visibility']
+            ?? $profile->tutor_content_visibility
+            ?? 'shared';
         $validated['contact_whatsapp_number'] = $this->normalizeWhatsappNumber($validated['contact_whatsapp_number'] ?? null);
         $validated['contact_whatsapp_button_text'] = trim((string) ($validated['contact_whatsapp_button_text'] ?? '')) ?: 'Chat Admin';
         $validated['concurrent_login_limit'] = max(1, (int) ($validated['concurrent_login_limit'] ?? 1));
@@ -403,14 +433,20 @@ class SettingController extends Controller
         $validated['footer_copyright'] = trim((string) ($validated['footer_copyright'] ?? '')) ?: null;
         $validated['footer_links'] = $this->normalizeFooterLinks($validated['footer_links'] ?? []);
         $validated['footer_address'] = trim((string) ($validated['footer_address'] ?? '')) ?: null;
-        $validated['footer_phone'] = trim((string) ($validated['footer_phone'] ?? '')) ?: null;
-        $validated['footer_email'] = trim((string) ($validated['footer_email'] ?? '')) ?: null;
-        $validated['footer_whatsapp'] = $this->normalizeWhatsappNumber($validated['footer_whatsapp'] ?? null);
-        $validated['footer_facebook'] = trim((string) ($validated['footer_facebook'] ?? '')) ?: null;
-        $validated['footer_instagram'] = trim((string) ($validated['footer_instagram'] ?? '')) ?: null;
-        $validated['footer_twitter'] = trim((string) ($validated['footer_twitter'] ?? '')) ?: null;
-        $validated['footer_youtube'] = trim((string) ($validated['footer_youtube'] ?? '')) ?: null;
-        $validated['enable_certificate_management'] = false;
+        $validated['footer_contacts'] = $this->normalizeFooterContacts($validated['footer_contacts'] ?? []);
+        $validated['footer_socials'] = $this->normalizeFooterSocials($validated['footer_socials'] ?? []);
+        unset(
+            $validated['footer_phone'],
+            $validated['footer_email'],
+            $validated['footer_whatsapp'],
+            $validated['footer_facebook'],
+            $validated['footer_instagram'],
+            $validated['footer_twitter'],
+            $validated['footer_youtube']
+        );
+        // Status manajemen sertifikat ditetapkan oleh Super Admin.
+        // Jangan menimpanya saat Admin menyimpan pengaturan lain.
+        unset($validated['enable_certificate_management']);
         $validated['header_primary_color'] = $request->boolean('header_primary_color');
         $validated['sidebar_primary_color'] = $request->boolean('sidebar_primary_color');
         $validated['participant_destination_api_enabled'] = $request->boolean('participant_destination_api_enabled');
@@ -506,7 +542,8 @@ class SettingController extends Controller
         return redirect()
             ->route('admin.settings.index')
             ->with('success', 'Pengaturan berhasil diperbarui.')
-            ->with('active_tab', $request->input('settings_tab', 'identity'));
+            ->with('active_tab', $request->input('settings_tab', 'identity'))
+            ->with('active_wording_tab', $request->input('wording_tab', 'general'));
     }
 
     private function buildAiQuestionGeneratorSettings(Request $request, ClientProfile $profile): array
@@ -775,6 +812,64 @@ class SettingController extends Controller
             })
             ->filter()
             ->take(8)
+            ->values()
+            ->all();
+    }
+
+    private function normalizeFooterContacts(array $contacts): array
+    {
+        return collect($contacts)
+            ->map(function ($contact) {
+                $type = $contact['type'] ?? 'text';
+                $label = trim((string) ($contact['label'] ?? ''));
+                $value = trim((string) ($contact['value'] ?? ''));
+
+                if ($value === '') {
+                    return null;
+                }
+
+                if ($type === 'email' && ! filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return null;
+                }
+
+                if ($type === 'whatsapp') {
+                    $value = $this->normalizeWhatsappNumber($value);
+                }
+
+                if ($value === null || $value === '') {
+                    return null;
+                }
+
+                return [
+                    'type' => $type,
+                    'label' => $label,
+                    'value' => $value,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeFooterSocials(array $socials): array
+    {
+        return collect($socials)
+            ->map(function ($social) {
+                $platform = $social['platform'] ?? 'custom';
+                $label = trim((string) ($social['label'] ?? ''));
+                $url = trim((string) ($social['url'] ?? ''));
+
+                if ($url === '') {
+                    return null;
+                }
+
+                return [
+                    'platform' => $platform,
+                    'label' => $label,
+                    'url' => $url,
+                ];
+            })
+            ->filter()
             ->values()
             ->all();
     }

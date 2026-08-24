@@ -13,6 +13,9 @@ $affiliateDiscountPreview = $affiliateDiscountPreview ?? null;
 $tryoutCount = $package->tryouts->count();
 $tesKoranCount = $tesKoranEnabled ? $package->tesKorans->count() : 0;
 $classCount = $package->classes->count();
+$requiresCompletedTryout = $package->type_price === 'free_conditional'
+    && $package->free_claim_requirement_type === 'completed_tryout'
+    && $package->freeClaimTryout;
 @endphp
 
 <!-- Header -->
@@ -80,7 +83,22 @@ $classCount = $package->classes->count();
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div class="flex-1">
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">{{ $package->name }}</h2>
-                <div class="text-gray-600 mb-4 package-description">{!! $package->description ?? 'Paket pembelajaran lengkap untuk meningkatkan skill dan persiapan ujianmu.' !!}</div>
+                @php
+                    $packageDescription = $package->description ?? 'Paket pembelajaran lengkap untuk meningkatkan skill dan persiapan ujianmu.';
+                    $packageDescriptionNeedsToggle = mb_strlen($packageDescription) > 240
+                        || substr_count(str_replace("\r\n", "\n", $packageDescription), "\n") > 4;
+                @endphp
+                @if($packageDescriptionNeedsToggle)
+                <div x-data="{ expanded: false }" class="mb-4">
+                    <p class="whitespace-pre-line text-gray-600" :style="expanded ? null : 'display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 10; overflow: hidden;'">{{ $packageDescription }}</p>
+                    <button type="button" @click="expanded = !expanded" class="mt-2 inline-flex items-center gap-1 text-sm font-semibold hover:opacity-75" style="color: {{ $primaryColor }}" :aria-expanded="expanded.toString()">
+                        <span x-text="expanded ? 'Sembunyikan' : 'Lihat lengkap'"></span>
+                        <i class="ri-arrow-down-s-line text-base transition-transform" :class="{ 'rotate-180': expanded }"></i>
+                    </button>
+                </div>
+                @else
+                <div class="text-gray-600 mb-4 whitespace-pre-line">{{ $packageDescription }}</div>
+                @endif
                 
                 <!-- Stats -->
                 <div class="flex flex-wrap gap-4">
@@ -100,7 +118,7 @@ $classCount = $package->classes->count();
                         <span>{{ $totalDocuments }} Dokumen</span>
                     </div>
                     @endif
-                    @if($totalLiveSessions > 0)
+                    @if($liveSessionAvailable && $totalLiveSessions > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
                             <i class="ri-live-line" style="color: {{ $primaryColor }}"></i>
@@ -161,7 +179,7 @@ $classCount = $package->classes->count();
                             <i class="ri-gift-line"></i><span>Klaim Paket Gratis</span>
                         </button>
                     </form>
-                    @elseif($package->type_price === 'free_conditional' && $isPendingConditional)
+                    @elseif($package->type_price === 'free_conditional' && !$requiresCompletedTryout && $isPendingConditional)
                     <button type="button" disabled
                             class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 cursor-not-allowed">
                         <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
@@ -180,6 +198,14 @@ $classCount = $package->classes->count();
                             <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
                         </button>
                     </form>
+                    @elseif($requiresCompletedTryout)
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="claim-form">
+                        @csrf
+                        <button type="submit" class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                            <i class="ri-file-list-3-line"></i><span>Klaim setelah {{ $package->freeClaimTryout->name }}</span>
+                        </button>
+                    </form>
+                    <p class="text-xs text-gray-500 text-center">Selesaikan Tryout tersebut, lalu tekan tombol klaim.</p>
                     @elseif($package->type_price === 'free_conditional')
                     <button type="button"
                             onclick="openConditionalModal({{ $package->package_id }}, @js($package->name), @js($package->conditional_requirement ?: 'Kirim bukti pemenuhan syarat untuk diverifikasi admin.'))"

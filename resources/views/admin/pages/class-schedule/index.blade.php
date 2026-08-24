@@ -134,7 +134,7 @@
                                 <h3 class="font-bold text-gray-900 text-sm leading-snug group-hover:text-primary transition-colors">
                                     {{ $schedule->title }}
                                 </h3>
-                                @if($schedule->allow_custom_booking)
+                                @if(($clientBranding['booking_schedule_enabled'] ?? false) && $schedule->allow_custom_booking)
                                     <span class="w-fit rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary">
                                         Bisa request custom · {{ $schedule->booking_session_quota }} sesi
                                     </span>
@@ -162,7 +162,7 @@
                                         <span>{{ $schedule->packages->pluck('name')->join(', ') }}</span>
                                     </span>
                                 @endif
-                                <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                <?php $tentorName = $schedule->tentor?->name; ?>
                                 @if($tentorName)
                                     <span class="text-[11px] text-gray-500 flex items-center gap-1">
                                         <i class="ri-user-star-line"></i>
@@ -174,7 +174,7 @@
                             <!-- Actions -->
                             <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2 text-xs">
                                 <div class="flex items-center gap-1.5">
-                                    @if($canUseClass)
+                                    @if($canUseAttendance)
                                         <a href="{{ route('admin.class-schedules.show', $schedule) }}"
                                             class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
                                             title="Absensi" aria-label="Absensi">
@@ -245,7 +245,7 @@
                                 @endif
                                 <td class="px-4 py-3">
                                     <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
-                                    <?php $tentorName = $schedule->tentor?->name ?? $schedule->studyGroup?->tentor?->name ?? $schedule->class?->tentor?->name ?? $schedule->class?->mentor; ?>
+                                    <?php $tentorName = $schedule->tentor?->name; ?>
                                     @if($tentorName)
                                         <p class="text-xs text-gray-500">Tutor: {{ $tentorName }}</p>
                                     @endif
@@ -260,14 +260,14 @@
                                     <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
                                         {{ ucfirst($schedule->schedule_type) }}
                                     </span>
-                                    @if($schedule->allow_custom_booking)
+                                    @if(($clientBranding['booking_schedule_enabled'] ?? false) && $schedule->allow_custom_booking)
                                         <span class="ml-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">Custom</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-1.5">
-                                        @if($canUseClass)
+                                        @if($canUseAttendance)
                                             <a href="{{ route('admin.class-schedules.show', $schedule) }}"
                                                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
                                                 title="Absensi" aria-label="Absensi">

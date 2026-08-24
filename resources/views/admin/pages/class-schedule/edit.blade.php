@@ -10,7 +10,7 @@
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Edit Kelas & Jadwal</h1>
-        <p class="text-sm text-gray-500">Perbarui pola kelas, peserta, dan izin request jadwal custom.</p>
+        <p class="text-sm text-gray-500">Perbarui pola kelas dan peserta sesuai kebutuhan.</p>
     </div>
 
     <form method="POST" action="{{ route('admin.class-schedules.update', $classSchedule) }}" class="rounded-lg border border-gray-200 bg-white p-6">
@@ -27,7 +27,14 @@
 
         <div class="grid gap-5 md:grid-cols-2" x-data="{
             scheduleType: @js(old('schedule_type', $classSchedule->schedule_type ?: 'recurring')),
-            allowCustom: {{ old('allow_custom_booking', $classSchedule->allow_custom_booking) ? 'true' : 'false' }}
+            startDate: @js(old('start_date', $classSchedule->start_date?->toDateString() ?: now()->toDateString())),
+            dayOfWeek: Number(@js(old('day_of_week', $preselectedDay))),
+            syncDayToStartDate() {
+                if (this.scheduleType !== 'recurring' || !this.startDate) return;
+                const day = new Date(`${this.startDate}T12:00:00`).getDay();
+                this.dayOfWeek = day === 0 ? 7 : day;
+            },
+            allowCustom: {{ $bookingScheduleEnabled && old('allow_custom_booking', $classSchedule->allow_custom_booking) ? 'true' : 'false' }}
         }">
             <div class="md:col-span-2">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Nama Jadwal</label>
@@ -69,7 +76,7 @@
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Tutor</label>
                 <select name="tentor_id" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="">Ikuti Tutor dari rombel</option>
+                    <option value="">Belum ditetapkan</option>
                     @foreach($tentors as $tentor)
                         <option value="{{ $tentor->id }}" @selected(old('tentor_id', $classSchedule->tentor_id) == $tentor->id)>
                             {{ $tentor->name }}{{ $tentor->expertise ? ' - ' . $tentor->expertise : '' }}
@@ -92,16 +99,17 @@
 
             <div x-show="scheduleType === 'recurring'">
                 <label class="mb-2 block text-sm font-semibold text-gray-700">Hari Pelaksanaan</label>
-                <select name="day_of_week" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <select name="day_of_week" x-model.number="dayOfWeek" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
                     @foreach([1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'] as $day => $label)
                         <option value="{{ $day }}" @selected(old('day_of_week', $preselectedDay) == $day)>{{ $label }}</option>
                     @endforeach
                 </select>
+                <p class="mt-1.5 text-xs text-gray-500">Hari otomatis mengikuti Tanggal Mulai saat tanggal diubah; tetap bisa Anda ganti bila diperlukan.</p>
             </div>
 
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700" x-text="scheduleType === 'single' ? 'Tanggal Sesi' : 'Tanggal Mulai'"></label>
-                <input type="date" name="start_date" value="{{ old('start_date', $classSchedule->start_date?->toDateString() ?: now()->toDateString()) }}" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="date" name="start_date" x-model="startDate" @change="syncDayToStartDate()" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
             <div>
@@ -119,6 +127,7 @@
                 <input type="time" name="end_time" value="{{ old('end_time', $classSchedule->end_time ? substr((string) $classSchedule->end_time, 0, 5) : '') }}" :required="allowCustom" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
+            @if($bookingScheduleEnabled)
             <div class="md:col-span-2 rounded-xl border border-gray-200 p-4">
                 <label class="flex cursor-pointer items-start gap-3">
                     <input type="hidden" name="allow_custom_booking" value="0">
@@ -137,8 +146,9 @@
                 </div>
                 <input type="hidden" name="booking_session_quota" value="1" :disabled="allowCustom">
             </div>
+            @endif
 
-            @if($canUseClass)
+            @if($canUseAttendance)
                 <div class="md:col-span-2">
                     <label class="mb-2 block text-sm font-semibold text-gray-700">Link Meeting (Opsional)</label>
                     <input type="url" name="meeting_url" value="{{ old('meeting_url', $classSchedule->meeting_url) }}" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://zoom.us/...">

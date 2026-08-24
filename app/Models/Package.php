@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -22,6 +23,11 @@ class Package extends Model
         'price' => 'decimal:0',
         'access_duration_value' => 'integer',
     ];
+
+    public function freeClaimTryout(): BelongsTo
+    {
+        return $this->belongsTo(Tryout::class, 'free_claim_tryout_id', 'tryout_id');
+    }
 
     // Detail package relationships (sistem baru dengan checklist)
     public function detailPackages()

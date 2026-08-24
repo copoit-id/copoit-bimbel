@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -15,6 +17,17 @@ class QuestionBankQuestion extends Model
         'default_weight' => 'decimal:2',
         'metadata' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner(auth()->user())) {
+                return;
+            }
+
+            $query->whereHas('bank');
+        });
+    }
 
     public function bank()
     {

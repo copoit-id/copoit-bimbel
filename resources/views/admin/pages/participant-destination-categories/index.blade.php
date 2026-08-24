@@ -15,11 +15,13 @@
             <h1 class="text-2xl font-bold text-gray-800">Tujuan / Instansi</h1>
             <p class="text-gray-600">Kelola instansi tujuan dan sub tujuan peserta untuk profile dan filter leaderboard.</p>
         </div>
-        <div class="flex flex-col gap-2 sm:flex-row">
-            <button onclick="openModal('createModal')" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2">
-                <i class="ri-add-line"></i>
+        <div class="flex flex-wrap gap-2">
+            <x-ui.button type="button" variant="outline" size="sm" icon="ri-upload-2-line" onclick="openModal('importModal')">
+                Import Excel
+            </x-ui.button>
+            <x-ui.button type="button" size="sm" icon="ri-add-line" onclick="openModal('createModal')">
                 Tambah Instansi
-            </button>
+            </x-ui.button>
         </div>
     </div>
 
@@ -153,6 +155,44 @@
                 @endforelse
             </tbody>
         </table>
+    </div>
+</div>
+
+<div id="importModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 transform transition-all">
+        <div class="flex justify-between items-center p-5 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Import Universitas & Jurusan</h3>
+                <p class="text-sm text-gray-500">Tambahkan data dari Excel.</p>
+            </div>
+            <button onclick="closeModal('importModal')" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <form action="{{ route('admin.participant-destination-categories.import') }}" method="POST" enctype="multipart/form-data" class="p-5">
+            @csrf
+            <div class="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="font-semibold">Gunakan template Excel</p>
+                        <p class="mt-1 text-xs">Isi data universitas dan jurusan sesuai contoh yang tersedia.</p>
+                    </div>
+                    <x-ui.button :href="route('admin.participant-destination-categories.import.template')" variant="outline" size="sm" icon="ri-file-excel-2-line" class="shrink-0 border-blue-300 text-blue-800 hover:bg-blue-100">
+                        Download Template
+                    </x-ui.button>
+                </div>
+            </div>
+            <div class="mt-4">
+                <label for="excel_file" class="block text-sm font-medium text-gray-700 mb-1">File Excel <span class="text-red-500">*</span></label>
+                <input id="excel_file" name="excel_file" type="file" accept=".xlsx,.xls" required
+                    class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20">
+                <p class="mt-1 text-xs text-gray-500">Format .xlsx atau .xls, maksimal 10 MB.</p>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <x-ui.button type="button" variant="secondary" size="sm" onclick="closeModal('importModal')">Batal</x-ui.button>
+                <x-ui.button type="submit" size="sm" icon="ri-upload-2-line">Import Data</x-ui.button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -295,7 +335,7 @@
 
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
-            ['createModal', 'editModal', 'subcategoryModal'].forEach(closeModal);
+            ['importModal', 'createModal', 'editModal', 'subcategoryModal'].forEach(closeModal);
         }
     });
 </script>

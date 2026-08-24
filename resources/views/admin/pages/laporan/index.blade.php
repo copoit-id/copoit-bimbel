@@ -8,18 +8,6 @@
             <x-breadcrumb-item href="" title="Laporan Tryout" />
         </x-slot>
     </x-breadcrumb>
-    <div class="flex gap-2">
-        <a href="{{ route('admin.laporan.export-excel') }}"
-            class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
-            <i class="ri-file-excel-line"></i>
-            Export Excel
-        </a>
-        <a href="{{ route('admin.laporan.export-pdf') }}"
-            class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
-            <i class="ri-file-pdf-line"></i>
-            Export PDF
-        </a>
-    </div>
 </div>
 <x-page-desc title="Monitor performa setiap tryout dan akses detail jawaban peserta"></x-page-desc>
 
@@ -37,6 +25,11 @@
                     <option value="">Semua Status</option>
                     <option value="active" @selected($status === 'active')>Aktif</option>
                     <option value="inactive" @selected($status === 'inactive')>Tidak Aktif</option>
+                </select>
+                <select name="score_display"
+                    class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="score" @selected($scoreDisplay === 'score')>Tampilkan Skor</option>
+                    <option value="percentage" @selected($scoreDisplay === 'percentage')>Tampilkan Persentase</option>
                 </select>
             </div>
             <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 w-full sm:w-auto">
@@ -74,8 +67,8 @@
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-primary">Total Pengerjaan</p>
-                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['total_attempts']) }}</p>
+                    <p class="text-sm text-primary">Total Peserta</p>
+                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['total_participants']) }}</p>
                 </div>
                 <i class="ri-user-voice-line text-3xl text-primary"></i>
             </div>
@@ -83,8 +76,8 @@
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-primary">Selesai</p>
-                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['completed_attempts']) }}</p>
+                    <p class="text-sm text-primary">Peserta Selesai</p>
+                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['completed_participants']) }}</p>
                 </div>
                 <i class="ri-check-double-line text-3xl text-primary"></i>
             </div>
@@ -100,7 +93,9 @@
                     <th scope="col" class="px-6 py-3 text-center">Total Soal</th>
                     <th scope="col" class="px-6 py-3 text-center">Peserta</th>
                     <th scope="col" class="px-6 py-3 text-center">Completion</th>
-                    <th scope="col" class="px-6 py-3 text-center">Rata-rata</th>
+                    <th scope="col" class="px-6 py-3 text-center">
+                        Rata-rata {{ $scoreDisplay === 'percentage' ? 'Persentase' : 'Skor' }}
+                    </th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
                     <th scope="col" class="px-6 py-3 text-center">Action</th>
                 </tr>
@@ -122,16 +117,18 @@
                         <p class="text-xs text-gray-500">{{ $tryout->total_duration }} menit</p>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->total_attempts }}</span>
+                        <span class="text-gray-800 font-medium">{{ $tryout->total_participants }}</span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         <div class="inline-flex flex-col items-center">
                             <span class="font-semibold text-gray-800">{{ $tryout->completion_rate }}%</span>
-                            <span class="text-xs text-gray-500">{{ $tryout->completed_attempts }} selesai</span>
+                            <span class="text-xs text-gray-500">{{ $tryout->completed_participants }} selesai</span>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}%</span>
+                        <span class="text-gray-800 font-medium">
+                            {{ $scoreDisplay === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
+                        </span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         @php

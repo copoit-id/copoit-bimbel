@@ -11,13 +11,22 @@
     $videos = $roadmapItems->filter(fn ($item) => ($item['type'] ?? null) === 'material' && ($item['material_type'] ?? null) === 'video')->values();
     $documents = $roadmapItems->filter(fn ($item) => ($item['type'] ?? null) === 'material' && ($item['material_type'] ?? null) === 'document')->values();
     $liveSessions = $roadmapItems->filter(fn ($item) => ($item['type'] ?? null) === 'material' && ($item['material_type'] ?? null) === 'live_session')->values();
+    $classes = $roadmapItems->where('type', 'class')->values();
     $tryouts = $roadmapItems->where('type', 'tryout')->values();
     $tesKorans = $roadmapItems->where('type', 'tes_koran')->values();
+    $classStatusTabs = [
+        ['key' => 'all', 'label' => 'Semua', 'count' => $classes->count()],
+        ['key' => 'upcoming', 'label' => 'Akan Datang', 'count' => $classes->where('class_status', 'upcoming')->count()],
+        ['key' => 'ongoing', 'label' => 'Berlangsung', 'count' => $classes->where('class_status', 'ongoing')->count()],
+        ['key' => 'completed', 'label' => 'Selesai', 'count' => $classes->where('class_status', 'completed')->count()],
+        ['key' => 'cancelled', 'label' => 'Dibatalkan', 'count' => $classes->where('class_status', 'cancelled')->count()],
+    ];
 
     $sections = [
         ['key' => 'videos', 'title' => 'Video Materi', 'icon' => 'ri-video-line', 'items' => $videos, 'empty' => 'Belum ada video di paket ini.'],
         ['key' => 'documents', 'title' => 'Dokumen', 'icon' => 'ri-file-text-line', 'items' => $documents, 'empty' => 'Belum ada dokumen di paket ini.'],
-        ['key' => 'live', 'title' => $clientBranding['live_session_label'] ?? 'Kelas Belajar', 'icon' => 'ri-live-line', 'items' => $liveSessions, 'empty' => 'Belum ada ' . strtolower($clientBranding['live_session_label'] ?? 'kelas belajar') . ' di paket ini.'],
+        ...($liveSessionAvailable ? [['key' => 'live', 'title' => $clientBranding['live_session_label'] ?? 'Kelas Belajar', 'icon' => 'ri-live-line', 'items' => $liveSessions, 'empty' => 'Belum ada ' . strtolower($clientBranding['live_session_label'] ?? 'kelas belajar') . ' di paket ini.']] : []),
+        ['key' => 'classes', 'title' => 'Kelas', 'icon' => 'ri-video-on-line', 'items' => $classes, 'empty' => 'Belum ada kelas di paket ini.'],
         ['key' => 'tryouts', 'title' => 'Tryout', 'icon' => 'ri-file-list-3-line', 'items' => $tryouts, 'empty' => 'Belum ada tryout di paket ini.'],
         ['key' => 'tes-koran', 'title' => 'Tes Koran', 'icon' => 'ri-file-edit-line', 'items' => $tesKorans, 'empty' => 'Belum ada tes koran di paket ini.'],
     ];
@@ -55,7 +64,7 @@
         $initialTab = collect($sections)->first(fn ($s) => $s['items']->count() > 0)['key'] ?? 'videos';
     @endphp
 
-    <div x-data="{ activeTab: '{{ $initialTab }}' }" class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div x-data="{ activeTab: '{{ $initialTab }}', classStatus: 'all' }" class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div class="flex flex-wrap gap-2 p-3 border-b border-gray-100">
             @foreach($sections as $section)
                 @php $count = $section['items']->count(); @endphp
@@ -79,14 +88,42 @@
         @foreach($sections as $section)
             @php $items = $section['items']; @endphp
             <div x-show="activeTab === '{{ $section['key'] }}'" x-cloak class="p-5">
+                @if($section['key'] === 'classes' && $items->isNotEmpty())
+                    <div class="mb-5 flex flex-wrap gap-2" aria-label="Filter status kelas">
+                        @foreach($classStatusTabs as $statusTab)
+                            <button type="button"
+                                @click="classStatus = '{{ $statusTab['key'] }}'"
+                                :class="classStatus === '{{ $statusTab['key'] }}'
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'"
+                                class="rounded-lg border px-3 py-2 text-xs font-semibold transition-colors">
+                                {{ $statusTab['label'] }} ({{ $statusTab['count'] }})
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
                 @if($items->count() > 0)
                     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         @foreach($items as $item)
                             @php
-                                $cardClass = $item['is_completed'] ? 'border-green-200 bg-green-50/40' : ($item['is_in_progress'] ? 'border-yellow-200 bg-yellow-50/40' : 'border-gray-100');
-                                $statusClass = $item['is_completed'] ? 'bg-green-100 text-green-700' : ($item['is_in_progress'] ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600');
+                                $isClass = ($item['type'] ?? null) === 'class';
+                                $classStatus = $item['class_status'] ?? null;
+                                $cardClass = $isClass
+                                    ? 'border-gray-100 bg-white'
+                                    : ($item['is_completed'] ? 'border-green-200 bg-green-50/40' : ($item['is_in_progress'] ? 'border-yellow-200 bg-yellow-50/40' : 'border-gray-100'));
+                                $statusClass = $isClass
+                                    ? match ($classStatus) {
+                                        'upcoming' => 'bg-blue-100 text-blue-700',
+                                        'ongoing' => 'bg-amber-100 text-amber-700',
+                                        'completed' => 'bg-green-100 text-green-700',
+                                        'cancelled' => 'bg-red-100 text-red-700',
+                                        default => 'bg-gray-100 text-gray-500',
+                                    }
+                                    : ($item['status_class'] ?? ($item['is_completed'] ? 'bg-green-100 text-green-700' : ($item['is_in_progress'] ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600')));
                             @endphp
-                            <a href="{{ $item['route'] }}" class="block rounded-xl border {{ $cardClass }} p-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                            <a href="{{ $item['route'] }}"
+                                @if(($item['type'] ?? null) === 'class') x-show="classStatus === 'all' || classStatus === '{{ $item['class_status'] }}'" @endif
+                                class="block rounded-xl border {{ $cardClass }} p-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
                                 <div class="flex items-start gap-3">
                                     <div class="w-11 h-11 rounded-xl bg-white border border-gray-100 flex items-center justify-center shrink-0" style="color: {{ $primaryColor }}">
                                         <i class="{{ $item['icon'] }} text-xl"></i>

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MaterialCategory;
+use App\Models\CertificateTemplate;
+use App\Models\ClientProfile;
 use App\Models\Package;
 use App\Models\Question;
 use App\Models\Tryout;
@@ -15,8 +17,10 @@ use App\Services\PurchaseAccessDuration;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -123,7 +127,6 @@ class TryoutController extends Controller
         'skd_full',
         'general',
         'tpa',
-        'tbi',
         'tob',
         'certification',
         'listening',
@@ -156,16 +159,23 @@ class TryoutController extends Controller
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
+        $certificateTemplates = CertificateTemplate::query()
+            ->where('client_profile_id', $this->clientProfileId())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
     {
+        $this->normalizeDurationInputs($request);
         $request->validate($this->tryoutValidationRules());
         $scoringMethod = $this->normalizedScoringMethod($request);
         $saleData = $this->individualSaleData($request);
+        $lobbyTokenData = $this->lobbyTokenData($request);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
@@ -183,6 +193,7 @@ class TryoutController extends Controller
 
         try {
             $tryout = Tryout::create([
+                'created_by' => $request->user()?->id,
                 'name' => $request->name,
                 'description' => $request->input('description') ?? '',
                 'type_tryout' => $request->type_tryout,
@@ -200,6 +211,7 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
+                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -209,7 +221,11 @@ class TryoutController extends Controller
                 ...$saleData,
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
+                ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
+                'show_passing_grade' => $request->has('show_passing_grade'),
+                'show_result_scores' => $request->has('show_result_scores'),
+                'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
                 'results_released_at' => null,
                 ...$this->accessDurationData($request),
@@ -234,9 +250,17 @@ class TryoutController extends Controller
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
+            $certificateTemplates = CertificateTemplate::query()
+                ->where('client_profile_id', $this->clientProfileId())
+                ->where(function ($query) use ($tryout): void {
+                    $query->where('is_active', true)
+                        ->orWhere('certificate_template_id', $tryout->certificate_template_id);
+                })
+                ->orderBy('name')
+                ->get();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -252,11 +276,13 @@ class TryoutController extends Controller
                 ->with('error', 'Tryout tidak ditemukan');
         }
 
+        $this->normalizeDurationInputs($request);
         $request->validate($this->tryoutValidationRules($tryout->type_tryout));
         // Metode scoring dikunci sejak tryout dibuat agar perubahan konfigurasi
         // tidak mengubah arti nilai dan riwayat hasil peserta.
         $scoringMethod = $this->storedScoringMethod($tryout);
         $saleData = $this->individualSaleData($request);
+        $lobbyTokenData = $this->lobbyTokenData($request, $tryout);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
 
@@ -308,6 +334,7 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
+                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -317,7 +344,11 @@ class TryoutController extends Controller
                 ...$saleData,
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
+                ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
+                'show_passing_grade' => $request->has('show_passing_grade'),
+                'show_result_scores' => $request->has('show_result_scores'),
+                'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
                 'results_release_at' => $isIrtEnabled ? $request->input('end_date') : null,
                 'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
                 ...$this->accessDurationData($request),
@@ -395,8 +426,9 @@ class TryoutController extends Controller
                 'tryoutDetails.questions.questionOptions',
             ]);
 
-            $clone = DB::transaction(function () use ($tryout) {
+            $clone = DB::transaction(function () use ($tryout, $request) {
                 $newTryout = $tryout->replicate();
+                $newTryout->created_by = $request->user()?->id;
                 $newTryout->name = $this->uniqueCloneName($tryout->name);
                 $newTryout->is_active = false;
                 $newTryout->is_displayed = false;
@@ -476,8 +508,18 @@ class TryoutController extends Controller
         }
     }
 
-    private function createTryoutDetails($tryout, $request)
+    private function createTryoutDetails(Tryout $tryout, Request $request): void
     {
+        $dynamicSubtestCategories = $this->dynamicSubtestCategoriesFor($tryout->type_tryout);
+
+        if ($dynamicSubtestCategories->isNotEmpty()) {
+            foreach ($dynamicSubtestCategories as $category) {
+                $this->createSubtestForMaterialCategory($tryout, $category, $request);
+            }
+
+            return;
+        }
+
         switch ($tryout->type_tryout) {
             case 'utbk_full':
                 $this->syncUtbkFullSubtests($tryout, $request);
@@ -597,6 +639,21 @@ class TryoutController extends Controller
         ]);
     }
 
+    /**
+     * Buat detail subtest dari subkategori yang dipilih pada kategori induk.
+     */
+    private function createSubtestForMaterialCategory(Tryout $tryout, MaterialCategory $category, Request $request): void
+    {
+        TryoutDetail::create([
+            'tryout_id' => $tryout->tryout_id,
+            'type_subtest' => $category->code,
+            'material_category_id' => $category->category_id,
+            'duration' => $this->dynamicSubtestInput($request, 'duration', $category->code, 60),
+            'passing_score' => $this->dynamicSubtestInput($request, 'passing_score', $category->code, 60),
+            'passing_type' => $this->dynamicSubtestInput($request, 'passing_type', $category->code, 'score'),
+        ]);
+    }
+
     private function updateOrCreateSubtest(Tryout $tryout, string $type, $duration, $passingScore, $passingType): void
     {
         $detail = $tryout->tryoutDetails()->where('type_subtest', $type)->first();
@@ -614,6 +671,14 @@ class TryoutController extends Controller
 
     private function updateTryoutDetails(Tryout $tryout, Request $request): void
     {
+        $dynamicSubtestCategories = $this->dynamicSubtestCategoriesFor($tryout->type_tryout);
+
+        if ($dynamicSubtestCategories->isNotEmpty()) {
+            $this->syncDynamicCategorySubtests($tryout, $dynamicSubtestCategories, $request);
+
+            return;
+        }
+
         switch ($tryout->type_tryout) {
             case 'utbk_full':
                 $this->syncUtbkFullSubtests($tryout, $request);
@@ -702,6 +767,59 @@ class TryoutController extends Controller
                 $tryout->tryoutDetails()->where('type_subtest', '!=', $tryout->type_tryout)->delete();
                 break;
         }
+    }
+
+    /**
+     * Sinkronkan detail saat subkategori pada kategori tryout dinamis berubah.
+     * Subtest lama yang tidak lagi terdaftar di kategori akan dihapus.
+     */
+    private function syncDynamicCategorySubtests(Tryout $tryout, Collection $categories, Request $request): void
+    {
+        $types = $categories->pluck('code')->all();
+
+        foreach ($categories as $category) {
+            $tryout->tryoutDetails()->updateOrCreate(
+                ['type_subtest' => $category->code],
+                [
+                    'material_category_id' => $category->category_id,
+                    'duration' => $this->dynamicSubtestInput($request, 'duration', $category->code, 60),
+                    'passing_score' => $this->dynamicSubtestInput($request, 'passing_score', $category->code, 60),
+                    'passing_type' => $this->dynamicSubtestInput($request, 'passing_type', $category->code, 'score'),
+                ]
+            );
+        }
+
+        $tryout->tryoutDetails()->whereNotIn('type_subtest', $types)->delete();
+    }
+
+    private function dynamicSubtestInput(Request $request, string $field, string $code, mixed $default): mixed
+    {
+        return $request->input("{$field}_{$code}", $request->input("{$field}_general", $default));
+    }
+
+    /**
+     * Kategori induk dengan subkategori aktif adalah tryout multi-subtest.
+     */
+    private function dynamicSubtestCategoriesFor(?string $type): Collection
+    {
+        if (
+            blank($type)
+            || ! Schema::hasTable('material_categories')
+            || ! Schema::hasColumn('material_categories', 'code')
+        ) {
+            return collect();
+        }
+
+        $parentCategory = MaterialCategory::query()
+            ->active()
+            ->whereNull('parent_id')
+            ->where('code', $type)
+            ->with([
+                'children' => fn ($query) => $query->active()->withCode()->ordered(),
+            ])
+            ->first();
+
+        return $parentCategory?->children ?? collect();
     }
 
     private function syncUtbkFullSubtests(Tryout $tryout, Request $request): void
@@ -834,6 +952,11 @@ class TryoutController extends Controller
         Storage::disk('public')->delete(Str::after($thumbnailUrl, '/storage/'));
     }
 
+    private function clientProfileId(): ?int
+    {
+        return ClientProfile::query()->value('id');
+    }
+
     private function tryoutValidationRules(?string $currentType = null): array
     {
         $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
@@ -866,12 +989,22 @@ class TryoutController extends Controller
                 },
             ],
             'is_certification' => 'boolean',
+            'certificate_template_id' => [
+                'nullable',
+                Rule::exists('certificate_templates', 'certificate_template_id')
+                    ->where('client_profile_id', $this->clientProfileId()),
+            ],
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
             'scoring_method' => ['nullable', Rule::in(['normal', 'irt', 'irt_utbk', 'toefl_itp'])],
             'show_discussion' => 'boolean',
+            'lobby_token_enabled' => 'boolean',
+            'lobby_token' => 'nullable|string|min:6|max:100',
             'show_leaderboard' => 'boolean',
+            'show_passing_grade' => 'boolean',
+            'show_result_scores' => 'boolean',
+            'result_score_display' => ['nullable', Rule::in(['total_and_subtest', 'subtest_only'])],
             'enable_anti_copy' => 'boolean',
             'enable_tab_switch_detection' => 'boolean',
             'enable_webcam_check' => 'boolean',
@@ -884,8 +1017,18 @@ class TryoutController extends Controller
             'access_duration_value' => 'nullable|integer|min:1|max:1200',
         ];
 
+        $durationFields = collect(array_keys($this->durationInputNames()))
+            ->merge(
+                collect(array_keys(request()->all()))
+                    ->filter(fn (string $field): bool => Str::startsWith($field, 'duration_'))
+            )
+            ->unique();
+
+        foreach ($durationFields as $field) {
+            $rules[$field] = 'nullable|numeric|min:0.01|max:300';
+        }
+
         foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
-            $rules['duration_'.$slug] = 'nullable|integer|min:1';
             $rules['passing_score_'.$slug] = 'nullable|numeric|min:0|max:100';
             $rules['passing_type_'.$slug] = 'nullable|in:score,percentage';
         }
@@ -923,6 +1066,83 @@ class TryoutController extends Controller
         }
 
         return $rules;
+    }
+
+    private function lobbyTokenData(Request $request, ?Tryout $tryout = null): array
+    {
+        $enabled = $request->boolean('lobby_token_enabled');
+        $token = trim((string) $request->input('lobby_token'));
+
+        if ($enabled && $token === '' && blank($tryout?->lobby_token_hash)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'lobby_token' => 'Token lobby wajib diisi saat pengaman token diaktifkan.',
+            ]);
+        }
+
+        return [
+            'lobby_token_enabled' => $enabled,
+            'lobby_token_hash' => ! $enabled
+                ? null
+                : ($token !== '' ? Hash::make($token) : $tryout?->lobby_token_hash),
+        ];
+    }
+
+    /**
+     * Normalisasi durasi dari format Indonesia (mis. 0,5) ke format numerik
+     * yang dapat divalidasi dan disimpan MySQL (0.5).
+     */
+    private function normalizeDurationInputs(Request $request): void
+    {
+        $normalized = [];
+
+        $durationFields = collect(array_keys($this->durationInputNames()))
+            ->merge(
+                collect(array_keys($request->all()))
+                    ->filter(fn (string $field): bool => Str::startsWith($field, 'duration_'))
+            )
+            ->unique();
+
+        foreach ($durationFields as $field) {
+            $value = $request->input($field);
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $normalized[$field] = str_replace(',', '.', trim($value));
+        }
+
+        if ($normalized !== []) {
+            $request->merge($normalized);
+        }
+    }
+
+    private function durationInputNames(): array
+    {
+        $knownTypes = [
+            'general',
+            'twk',
+            'tiu',
+            'tkp',
+            'listening',
+            'writing',
+            'reading',
+            'teknis',
+            'social_culture',
+            'management',
+            'interview',
+            'word',
+            'excel',
+            'ppt',
+            'word_single',
+            'excel_single',
+            'ppt_single',
+        ];
+
+        return collect($knownTypes)
+            ->merge(array_keys(self::UTBK_SUBTESTS))
+            ->mapWithKeys(fn (string $type): array => ['duration_'.$type => true])
+            ->all();
     }
 
     private function accessDurationData(Request $request): array
@@ -1037,7 +1257,11 @@ class TryoutController extends Controller
         $categoryCodesByType = collect($codes)
             ->mapWithKeys(fn ($type) => [$type => $this->categoryCodeForTryoutType($type)]);
         $categoriesByCode = MaterialCategory::query()
-            ->with('parent')
+            ->with([
+                'parent',
+                'activeChildren' => fn ($query) => $query->withCode()->ordered(),
+            ])
+            ->withCount('activeChildren')
             ->withCode()
             ->active()
             ->whereIn('code', $categoryCodesByType->values()->unique()->all())
@@ -1056,7 +1280,20 @@ class TryoutController extends Controller
                     $type => [
                         'label' => $this->tryoutOptionLabel($type, $category),
                         'category_id' => $category->category_id,
-                        'group' => $category->parent_id ? 'single' : $this->tryoutOptionGroup($type),
+                        'subtests' => $this->isDynamicMultiSubtestCategory($type, $category)
+                            ? $category->activeChildren
+                                ->map(fn (MaterialCategory $child) => [
+                                    'code' => $child->code,
+                                    'name' => $child->name,
+                                ])
+                                ->values()
+                                ->all()
+                            : [],
+                        'group' => $category->parent_id
+                            ? 'single'
+                            : ($this->isDynamicMultiSubtestCategory($type, $category)
+                                ? 'full'
+                                : $this->tryoutOptionGroup($type)),
                     ],
                 ];
             })
@@ -1135,6 +1372,10 @@ class TryoutController extends Controller
             return $category->display_name;
         }
 
+        if ($this->isDynamicMultiSubtestCategory($type, $category)) {
+            return "{$category->name} ({$category->active_children_count} Subtest)";
+        }
+
         $subtestCounts = [
             'skd_full' => 3,
             'utbk_full' => 7,
@@ -1146,6 +1387,12 @@ class TryoutController extends Controller
         return isset($subtestCounts[$type])
             ? "{$category->name} ({$subtestCounts[$type]} Subtest)"
             : $category->name;
+    }
+
+    private function isDynamicMultiSubtestCategory(string $type, MaterialCategory $category): bool
+    {
+        return ! $category->parent_id
+            && (int) ($category->active_children_count ?? 0) > 0;
     }
 
     private function categoryIdForCode(?string $code): ?int

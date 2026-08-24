@@ -9,7 +9,7 @@
             <p class="text-gray-500">Perbarui tampilan umum platform bimbel sesuai kebutuhan klien.</p>
         </div>
         <div class="hidden md:flex items-center gap-3 bg-white border border-border rounded-2xl px-4 py-2 shadow-sm">
-            <img src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}" class="w-10 h-10 rounded-full object-cover"
+            <img src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}" class="client-brand-logo w-10 h-10 rounded-full object-cover"
                 alt="Logo Preview">
             <div>
                 <p class="text-xs text-gray-500">Saat ini</p>
@@ -22,8 +22,12 @@
     $settingErrorKeys = $errors->keys();
     $activeSettingsTab = old('settings_tab', session('active_tab', 'identity'));
     if ($errors->isNotEmpty() && !old('settings_tab') && !session('active_tab')) {
-    if (collect($settingErrorKeys)->intersect(['logo', 'favicon'])->isNotEmpty()) {
+    if (collect($settingErrorKeys)->intersect(['logo', 'logo_display_mode', 'favicon'])->isNotEmpty()) {
     $activeSettingsTab = 'visual';
+    } elseif (collect($settingErrorKeys)->intersect(['faq_label', 'live_session_label', 'bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
+    $activeSettingsTab = 'wording';
+    } elseif (collect($settingErrorKeys)->intersect(['tutor_content_visibility'])->isNotEmpty()) {
+    $activeSettingsTab = 'tutor-content';
     } elseif (collect($settingErrorKeys)->intersect(['header_primary_color', 'sidebar_primary_color'])->isNotEmpty()) {
     $activeSettingsTab = 'ui';
     } elseif (collect($settingErrorKeys)->intersect(['website_translation_enabled', 'website_translation_locales'])->isNotEmpty()) {
@@ -55,6 +59,8 @@
     'footer_copyright',
     'footer_links',
     'footer_address',
+    'footer_contacts',
+    'footer_socials',
     'footer_phone',
     'footer_email',
     'footer_whatsapp',
@@ -67,13 +73,20 @@
     }
     }
 
+    $activeWordingTab = old('wording_tab', session('active_wording_tab', 'general'));
+    if ($errors->isNotEmpty() && collect($settingErrorKeys)->intersect(['bimbel_nav_label', 'material_nav_label', 'package_nav_label', 'tryout_nav_label'])->isNotEmpty()) {
+    $activeWordingTab = 'navbar';
+    }
+
     $isDemoAdmin = auth()->user()?->isDemoAdmin() ?? false;
+    $tutorContentEnabled = (bool) ($profile->tutor_content_enabled ?? ($branding['tutor_content_enabled'] ?? false));
     @endphp
 
     <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
+        <input type="hidden" name="wording_tab" id="wording_tab" value="{{ $activeWordingTab }}">
 
         @if ($isDemoAdmin)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -95,6 +108,14 @@
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'identity' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Informasi Umum
                 </button>
+                <button type="button" data-settings-tab="wording"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'wording' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Wording & Label
+                </button>
+                @if($tutorContentEnabled)<button type="button" data-settings-tab="tutor-content"
+                    class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'tutor-content' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Konten Tutor
+                </button>@endif
                 <button type="button" data-settings-tab="visual"
                     class="settings-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeSettingsTab === 'visual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                     Logo & Favicon
@@ -145,28 +166,6 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
-                    <input type="text" name="faq_label"
-                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Informasi" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan. Contoh: Informasi, Bantuan, atau FAQ.</p>
-                    @error('faq_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div>
-                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
-                    <input type="text" name="live_session_label"
-                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
-                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                        placeholder="Contoh: Kelas Belajar" required>
-                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
-                    @error('live_session_label')
-                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -203,6 +202,143 @@
             </div>
         </div>
 
+        <div data-settings-panel="wording"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'wording' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Wording Platform</p>
+                <h2 class="text-xl font-semibold text-gray-900">Label Menu & Fitur</h2>
+                <p class="text-gray-500 text-sm">Sesuaikan istilah yang tampil kepada pengguna tanpa mengubah fungsi sistem.</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 border-b border-gray-100 pb-4">
+                <button type="button" data-wording-tab="general"
+                    class="wording-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeWordingTab === 'general' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Umum
+                </button>
+                <button type="button" data-wording-tab="navbar"
+                    class="wording-tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition {{ $activeWordingTab === 'navbar' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    Navbar
+                </button>
+            </div>
+
+            <div data-wording-panel="general" class="wording-tab-panel grid grid-cols-1 md:grid-cols-2 gap-6 {{ $activeWordingTab !== 'general' ? 'hidden' : '' }}">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Kelas Belajar</label>
+                    <input type="text" name="live_session_label"
+                        value="{{ old('live_session_label', $profile->live_session_label ?? ($branding['live_session_label'] ?? 'Kelas Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman live session.</p>
+                    @error('live_session_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label FAQ</label>
+                    <input type="text" name="faq_label"
+                        value="{{ old('faq_label', $profile->faq_label ?? ($branding['faq_label'] ?? 'FAQ')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Informasi" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah tulisan menu dan halaman bantuan.</p>
+                    @error('faq_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
+            <div data-wording-panel="navbar" class="wording-tab-panel grid grid-cols-1 md:grid-cols-2 gap-6 {{ $activeWordingTab !== 'navbar' ? 'hidden' : '' }}">
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Navbar Bimbel</label>
+                    <input type="text" name="bimbel_nav_label"
+                        value="{{ old('bimbel_nav_label', $profile->bimbel_nav_label ?? ($branding['bimbel_nav_label'] ?? 'Bimbel')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Mengubah label menu Bimbel pada navbar user, desktop, dan mobile.</p>
+                    @error('bimbel_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Materi</label>
+                    <input type="text" name="material_nav_label"
+                        value="{{ old('material_nav_label', $profile->material_nav_label ?? ($branding['material_nav_label'] ?? 'Kelas & Materi')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Kelas & Materi" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu materi di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('material_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Paket</label>
+                    <input type="text" name="package_nav_label"
+                        value="{{ old('package_nav_label', $profile->package_nav_label ?? ($branding['package_nav_label'] ?? 'Paket Belajar')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Paket Belajar" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu paket di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('package_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Label Menu Try Out</label>
+                    <input type="text" name="tryout_nav_label"
+                        value="{{ old('tryout_nav_label', $profile->tryout_nav_label ?? ($branding['tryout_nav_label'] ?? 'Ujian & Try Out')) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Contoh: Ujian & Try Out" required>
+                    <p class="text-xs text-gray-500 mt-1">Label submenu try out di menu {{ $branding['bimbel_nav_label'] ?? 'Bimbel' }}.</p>
+                    @error('tryout_nav_label')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        @if($tutorContentEnabled)<div data-settings-panel="tutor-content"
+            class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-5 {{ $activeSettingsTab !== 'tutor-content' ? 'hidden' : '' }}">
+            <div>
+                <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Konten Tutor</p>
+                <h2 class="text-xl font-semibold text-gray-900">Visibilitas Konten Operasional</h2>
+                <p class="text-gray-500 text-sm">Pengaturan ini berlaku untuk Tryout, Materi, Bank Soal, dan soal yang dibuat dari menu tersebut. Paket selalu dikelola Admin.</p>
+            </div>
+
+            @php
+                $tutorContentVisibility = old(
+                    'tutor_content_visibility',
+                    $profile->tutor_content_visibility ?? 'shared'
+                );
+            @endphp
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'shared' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="shared"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'shared' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Gabung</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Pengelola yang memiliki izin dapat melihat dan memakai konten bersama. Cocok untuk bank soal dan tryout pusat.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'isolated' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="isolated"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'isolated' ? 'checked' : '' }}>
+                    <div>
+                        <p class="font-semibold text-gray-900">Isolasi Tutor</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap Tutor atau akun operasional hanya melihat konten miliknya. Admin dan Super Admin tetap dapat melihat seluruh konten.</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Data lama yang belum memiliki pembuat hanya tetap terlihat oleh Admin saat mode isolasi aktif. Konten baru otomatis menjadi milik akun yang membuatnya.
+            </div>
+
+            @error('tutor_content_visibility')
+                <p class="text-xs text-red-500">{{ $message }}</p>
+            @enderror
+        </div>@endif
+
         <div data-settings-panel="visual"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-6 {{ $activeSettingsTab !== 'visual' ? 'hidden' : '' }}">
             <div>
@@ -218,10 +354,10 @@
                         class="border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary hover:bg-primary/5 transition min-h-[220px]">
                         <img id="logo-preview"
                             src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}"
-                            class="h-20 object-contain" alt="Logo Preview">
+                            class="client-brand-logo h-20 w-20 object-contain" alt="Logo Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Logo Baru</p>
-                            <p class="text-xs text-gray-500">PNG/JPG/SVG maks 4MB</p>
+                            <p class="text-xs text-gray-500">Rasio bebas; tinggi ideal 160 px (contoh 512 × 160 px). PNG/JPG/SVG maks 4MB</p>
                         </div>
                         <input id="logo-input" type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml"
                             class="hidden"
@@ -240,7 +376,7 @@
                             class="h-12 w-12 object-contain" alt="Favicon Preview">
                         <div class="text-center">
                             <p class="font-semibold text-gray-900">Unggah Favicon Baru</p>
-                            <p class="text-xs text-gray-500">PNG/JPG/ICO maks 2MB</p>
+                            <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG/JPG/ICO maks 2MB</p>
                         </div>
                         <input id="favicon-input" type="file" name="favicon" accept="image/png,image/jpeg,image/x-icon"
                             class="hidden"
@@ -250,6 +386,40 @@
                     <p class="text-xs text-red-500">{{ $message }}</p>
                     @enderror
                 </div>
+            </div>
+
+            @php
+                $logoDisplayMode = old(
+                    'logo_display_mode',
+                    $profile->logo_display_mode ?? ($branding['logo_display_mode'] ?? 'square')
+                );
+            @endphp
+            <div>
+                <p class="text-sm font-medium text-gray-900">Bentuk Tampilan Logo</p>
+                <p class="mt-1 text-xs text-gray-500">Pilih rasio asli untuk logo memanjang; pilih kotak untuk tampilan ikon yang seragam.</p>
+                <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label class="flex cursor-pointer gap-3 rounded-2xl border p-4 transition {{ $logoDisplayMode === 'original' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                        <input type="radio" name="logo_display_mode" value="original" data-logo-display-mode
+                            class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                            {{ $logoDisplayMode === 'original' ? 'checked' : '' }}>
+                        <span>
+                            <span class="block font-semibold text-gray-900">Rasio asli</span>
+                            <span class="mt-1 block text-xs leading-5 text-gray-500">Lebar mengikuti proporsi file logo. Cocok untuk logo horizontal atau vertikal.</span>
+                        </span>
+                    </label>
+                    <label class="flex cursor-pointer gap-3 rounded-2xl border p-4 transition {{ $logoDisplayMode === 'square' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                        <input type="radio" name="logo_display_mode" value="square" data-logo-display-mode
+                            class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                            {{ $logoDisplayMode === 'square' ? 'checked' : '' }}>
+                        <span>
+                            <span class="block font-semibold text-gray-900">Kotak</span>
+                            <span class="mt-1 block text-xs leading-5 text-gray-500">Logo ditempatkan dalam area persegi yang konsisten di seluruh platform.</span>
+                        </span>
+                    </label>
+                </div>
+                @error('logo_display_mode')
+                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                @enderror
             </div>
         </div>
 
@@ -789,6 +959,23 @@
             if (empty($footerLinks)) {
                 $footerLinks = $defaultFooterLinks;
             }
+            $legacyFooterContacts = array_values(array_filter([
+                ['type' => 'phone', 'label' => 'Telepon', 'value' => $profile->footer_phone ?? ($branding['footer_phone'] ?? null)],
+                ['type' => 'whatsapp', 'label' => 'WhatsApp', 'value' => $profile->footer_whatsapp ?? ($branding['footer_whatsapp'] ?? null)],
+                ['type' => 'email', 'label' => 'Email', 'value' => $profile->footer_email ?? ($branding['footer_email'] ?? null)],
+            ], fn ($contact) => filled($contact['value'])));
+            $legacyFooterSocials = array_values(array_filter([
+                ['platform' => 'facebook', 'label' => 'Facebook', 'url' => $profile->footer_facebook ?? ($branding['footer_facebook'] ?? null)],
+                ['platform' => 'instagram', 'label' => 'Instagram', 'url' => $profile->footer_instagram ?? ($branding['footer_instagram'] ?? null)],
+                ['platform' => 'twitter', 'label' => 'X/Twitter', 'url' => $profile->footer_twitter ?? ($branding['footer_twitter'] ?? null)],
+                ['platform' => 'youtube', 'label' => 'YouTube', 'url' => $profile->footer_youtube ?? ($branding['footer_youtube'] ?? null)],
+            ], fn ($social) => filled($social['url'])));
+            $footerContacts = old('footer_contacts', is_array($profile->footer_contacts ?? null)
+                ? $profile->footer_contacts
+                : $legacyFooterContacts);
+            $footerSocials = old('footer_socials', is_array($profile->footer_socials ?? null)
+                ? $profile->footer_socials
+                : $legacyFooterSocials);
             @endphp
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Footer User</p>
@@ -830,99 +1017,86 @@
             </div>
 
             <div class="border-t border-gray-100 pt-5 mt-5 space-y-4">
-                <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <i class="ri-contacts-book-line text-primary text-lg"></i>
-                    Alamat & Kontak Kantor
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="md:col-span-2">
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Alamat Lengkap</label>
-                        <textarea name="footer_address" rows="3"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Alamat fisik kantor atau bimbel">{{ old('footer_address', $profile->footer_address ?? ($branding['footer_address'] ?? '')) }}</textarea>
-                        @error('footer_address')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">No. Telepon</label>
-                        <input type="text" name="footer_phone"
-                            value="{{ old('footer_phone', $profile->footer_phone ?? ($branding['footer_phone'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: (021) 123456">
-                        @error('footer_phone')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">No. WhatsApp</label>
-                        <input type="text" name="footer_whatsapp"
-                            value="{{ old('footer_whatsapp', $profile->footer_whatsapp ?? ($branding['footer_whatsapp'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: 628123456789">
-                        @error('footer_whatsapp')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Email Kontak</label>
-                        <input type="email" name="footer_email"
-                            value="{{ old('footer_email', $profile->footer_email ?? ($branding['footer_email'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: info@bimbel.com">
-                        @error('footer_email')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
+                <div class="md:col-span-2">
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Alamat Lengkap</label>
+                    <textarea name="footer_address" rows="3"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="Alamat fisik kantor atau bimbel">{{ old('footer_address', $profile->footer_address ?? ($branding['footer_address'] ?? '')) }}</textarea>
+                    @error('footer_address')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
-            </div>
 
-            <div class="border-t border-gray-100 pt-5 mt-5 space-y-4">
-                <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <i class="ri-share-line text-primary text-lg"></i>
-                    Media Sosial
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link Facebook</label>
-                        <input type="text" name="footer_facebook"
-                            value="{{ old('footer_facebook', $profile->footer_facebook ?? ($branding['footer_facebook'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://facebook.com/namahalaman">
-                        @error('footer_facebook')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                <div class="rounded-2xl border border-gray-200 p-4">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-900"><i class="ri-contacts-book-line text-lg text-primary"></i> Kontak</h3>
+                            <p class="mt-1 text-xs text-gray-500">Tambahkan telepon, WhatsApp, email, atau informasi kontak lainnya.</p>
+                        </div>
+                        <button type="button" id="add-footer-contact" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><i class="ri-add-line"></i> Tambah Kontak</button>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link Instagram</label>
-                        <input type="text" name="footer_instagram"
-                            value="{{ old('footer_instagram', $profile->footer_instagram ?? ($branding['footer_instagram'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://instagram.com/akunanda">
-                        @error('footer_instagram')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                    <div id="footer-contacts-wrapper" class="space-y-3">
+                        @foreach($footerContacts as $index => $contact)
+                        <div class="footer-contact-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Jenis kontak</label>
+                                <select name="footer_contacts[{{ $index }}][type]" data-footer-field="type" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30">
+                                    @foreach(['phone' => 'Telepon', 'whatsapp' => 'WhatsApp', 'email' => 'Email', 'text' => 'Teks lain'] as $type => $label)
+                                    <option value="{{ $type }}" @selected(($contact['type'] ?? 'text') === $type)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label>
+                                <input type="text" name="footer_contacts[{{ $index }}][label]" data-footer-field="label" value="{{ $contact['label'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Admin pendaftaran">
+                            </div>
+                            <div class="md:col-span-5">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Kontak</label>
+                                <input type="text" name="footer_contacts[{{ $index }}][value]" data-footer-field="value" value="{{ $contact['value'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nomor, email, atau keterangan">
+                            </div>
+                            <div class="flex items-end md:col-span-1">
+                                <button type="button" class="remove-footer-contact inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus kontak"><i class="ri-delete-bin-line"></i></button>
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link X/Twitter</label>
-                        <input type="text" name="footer_twitter"
-                            value="{{ old('footer_twitter', $profile->footer_twitter ?? ($branding['footer_twitter'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://twitter.com/akunanda">
-                        @error('footer_twitter')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                    @error('footer_contacts')<p class="mt-2 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+
+                <div class="rounded-2xl border border-gray-200 p-4">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-900"><i class="ri-share-line text-lg text-primary"></i> Media Sosial</h3>
+                            <p class="mt-1 text-xs text-gray-500">Pilih platform yang ingin ditampilkan sebagai ikon di footer.</p>
+                        </div>
+                        <button type="button" id="add-footer-social" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><i class="ri-add-line"></i> Tambah Medsos</button>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Link YouTube</label>
-                        <input type="text" name="footer_youtube"
-                            value="{{ old('footer_youtube', $profile->footer_youtube ?? ($branding['footer_youtube'] ?? '')) }}"
-                            class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
-                            placeholder="Contoh: https://youtube.com/channel/idchannel">
-                        @error('footer_youtube')
-                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                        @enderror
+                    <div id="footer-socials-wrapper" class="space-y-3">
+                        @foreach($footerSocials as $index => $social)
+                        <div class="footer-social-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Platform</label>
+                                <select name="footer_socials[{{ $index }}][platform]" data-footer-field="platform" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30">
+                                    @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'twitter' => 'X/Twitter', 'youtube' => 'YouTube', 'tiktok' => 'TikTok', 'linkedin' => 'LinkedIn', 'website' => 'Website', 'custom' => 'Lainnya'] as $platform => $label)
+                                    <option value="{{ $platform }}" @selected(($social['platform'] ?? 'custom') === $platform)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label>
+                                <input type="text" name="footer_socials[{{ $index }}][label]" data-footer-field="label" value="{{ $social['label'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nama akun (opsional)">
+                            </div>
+                            <div class="md:col-span-5">
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Tautan profil</label>
+                                <input type="url" name="footer_socials[{{ $index }}][url]" data-footer-field="url" value="{{ $social['url'] ?? '' }}" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="https://...">
+                            </div>
+                            <div class="flex items-end md:col-span-1">
+                                <button type="button" class="remove-footer-social inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus media sosial"><i class="ri-delete-bin-line"></i></button>
+                            </div>
+                        </div>
+                        @endforeach
                     </div>
+                    @error('footer_socials')<p class="mt-2 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -1236,6 +1410,38 @@
 
         setActiveTab(settingsTabInput?.value || 'identity');
 
+        const wordingTabInput = document.getElementById('wording_tab');
+        const wordingTabButtons = document.querySelectorAll('[data-wording-tab]');
+        const wordingPanels = document.querySelectorAll('[data-wording-panel]');
+
+        const setActiveWordingTab = (tab) => {
+            wordingTabButtons.forEach((button) => {
+                const isActive = button.getAttribute('data-wording-tab') === tab;
+                button.classList.toggle('bg-primary', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-100', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+                button.classList.toggle('hover:bg-gray-200', !isActive);
+            });
+
+            wordingPanels.forEach((panel) => {
+                const isActive = panel.getAttribute('data-wording-panel') === tab;
+                panel.classList.toggle('hidden', !isActive);
+            });
+
+            if (wordingTabInput) {
+                wordingTabInput.value = tab;
+            }
+        };
+
+        wordingTabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                setActiveWordingTab(button.getAttribute('data-wording-tab'));
+            });
+        });
+
+        setActiveWordingTab(wordingTabInput?.value || 'general');
+
         document.querySelectorAll('input[data-preview-target]').forEach(input => {
             input.addEventListener('change', (event) => {
                 const targetId = input.getAttribute('data-preview-target');
@@ -1374,6 +1580,67 @@
             `;
             footerLinksWrapper.appendChild(row);
             bindFooterRemoveButtons();
+        });
+
+        const configureDynamicFooterItems = ({ wrapperId, addButtonId, rowClass, removeClass, fieldName, rowTemplate }) => {
+            const wrapper = document.getElementById(wrapperId);
+            const addButton = document.getElementById(addButtonId);
+
+            const reindex = () => {
+                wrapper?.querySelectorAll(`.${rowClass}`).forEach((row, index) => {
+                    row.querySelectorAll('[data-footer-field]').forEach((field) => {
+                        field.name = `${fieldName}[${index}][${field.dataset.footerField}]`;
+                    });
+                });
+            };
+
+            const bindRemoveButtons = () => {
+                wrapper?.querySelectorAll(`.${removeClass}`).forEach((button) => {
+                    button.onclick = () => {
+                        button.closest(`.${rowClass}`)?.remove();
+                        reindex();
+                    };
+                });
+            };
+
+            addButton?.addEventListener('click', () => {
+                if (!wrapper || wrapper.querySelectorAll(`.${rowClass}`).length >= 12) return;
+                wrapper.insertAdjacentHTML('beforeend', rowTemplate());
+                bindRemoveButtons();
+                reindex();
+            });
+
+            bindRemoveButtons();
+        };
+
+        configureDynamicFooterItems({
+            wrapperId: 'footer-contacts-wrapper',
+            addButtonId: 'add-footer-contact',
+            rowClass: 'footer-contact-row',
+            removeClass: 'remove-footer-contact',
+            fieldName: 'footer_contacts',
+            rowTemplate: () => `
+                <div class="footer-contact-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Jenis kontak</label><select data-footer-field="type" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30"><option value="phone">Telepon</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="text">Teks lain</option></select></div>
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label><input type="text" data-footer-field="label" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Admin pendaftaran"></div>
+                    <div class="md:col-span-5"><label class="mb-1.5 block text-xs font-medium text-gray-600">Kontak</label><input type="text" data-footer-field="value" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nomor, email, atau keterangan"></div>
+                    <div class="flex items-end md:col-span-1"><button type="button" class="remove-footer-contact inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus kontak"><i class="ri-delete-bin-line"></i></button></div>
+                </div>`,
+        });
+
+        configureDynamicFooterItems({
+            wrapperId: 'footer-socials-wrapper',
+            addButtonId: 'add-footer-social',
+            rowClass: 'footer-social-row',
+            removeClass: 'remove-footer-social',
+            fieldName: 'footer_socials',
+            rowTemplate: () => `
+                <div class="footer-social-row grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:grid-cols-12">
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Platform</label><select data-footer-field="platform" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="twitter">X/Twitter</option><option value="youtube">YouTube</option><option value="tiktok">TikTok</option><option value="linkedin">LinkedIn</option><option value="website">Website</option><option value="custom">Lainnya</option></select></div>
+                    <div class="md:col-span-3"><label class="mb-1.5 block text-xs font-medium text-gray-600">Label</label><input type="text" data-footer-field="label" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="Nama akun (opsional)"></div>
+                    <div class="md:col-span-5"><label class="mb-1.5 block text-xs font-medium text-gray-600">Tautan profil</label><input type="url" data-footer-field="url" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/30" placeholder="https://..."></div>
+                    <div class="flex items-end md:col-span-1"><button type="button" class="remove-footer-social inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus media sosial"><i class="ri-delete-bin-line"></i></button></div>
+                </div>`,
         });
 
         bindFooterRemoveButtons();

@@ -50,6 +50,8 @@ return [
             'features' => [
                 'package',
                 'schedule',
+                'attendance',
+                'study_group',
                 'booking',
                 'class',
                 'tentor',
@@ -62,11 +64,12 @@ return [
         ],
         'extended' => [
             'label' => 'Fitur Tambahan',
-            'description' => 'Materi belajar, komunikasi, affiliate, dan pengelolaan halaman publik.',
+            'description' => 'Materi belajar, komunikasi, portal orang tua, affiliate, dan pengelolaan halaman publik.',
             'features' => [
                 'material_category',
                 'material',
                 'discussion',
+                'parent_portal',
                 'faq',
                 'affiliate',
                 'artikel',
@@ -157,6 +160,11 @@ return [
         'schedule' => [
             'user.class-schedule.',
             'tutor.schedule.',
+            'admin.class-sessions.',
+        ],
+        'attendance' => [
+            'user.class-schedule.attend',
+            'tutor.attendance.',
         ],
         'booking' => [
             'admin.package-booking.',
@@ -166,15 +174,14 @@ return [
             'tutor.development.',
         ],
         'class' => [
-            'admin.class-sessions.',
             'admin.package.class.',
-            'tutor.attendance.',
             'user.class.',
         ],
         'discussion' => [
             'tutor.chat.',
             'user.chat.',
         ],
+        'parent_portal' => ['parent.'],
         'pembayaran' => ['user.billing.'],
         'tes_koran' => [
             'admin.package.tes-koran.',
@@ -205,7 +212,11 @@ return [
     'labels' => [
         'event' => 'Event Gratis',
         'ai_learning' => 'AI Learning Tools',
-        'schedule' => 'Jadwal',
+        'schedule' => 'Kelas & Jadwal',
+        'attendance' => 'Absensi Kelas',
+        'class' => 'Manajemen Kelas Live',
+        'study_group' => 'Rombel',
         'booking' => 'Booking Jadwal',
+        'parent_portal' => 'Portal Orang Tua',
     ],
 ];

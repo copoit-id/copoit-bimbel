@@ -26,6 +26,7 @@ class DashboardController extends Controller
         $user = Auth::user();
         $showStatisticsDashboard = $this->showStatisticsDashboard();
         $showLandingDashboard = $this->showLandingDashboard();
+        $showBillingDashboard = (bool) config('client.branding.billing_dashboard_enabled', true);
 
         // If no user, just show guest view with public packages
         if (! $user) {
@@ -48,6 +49,7 @@ class DashboardController extends Controller
                 ],
                 'showStatisticsDashboard' => $showStatisticsDashboard,
                 'showLandingDashboard' => $showLandingDashboard,
+                'showBillingDashboard' => $showBillingDashboard,
             ]);
         }
 
@@ -135,11 +137,13 @@ class DashboardController extends Controller
             ->with('package')
             ->get();
 
-        $unpaidInvoices = BillInvoice::where('user_id', $user->id)
-            ->whereIn('status', ['unpaid', 'overdue'])
-            ->orderBy('due_date')
-            ->limit(3)
-            ->get();
+        $unpaidInvoices = $showBillingDashboard
+            ? BillInvoice::where('user_id', $user->id)
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->orderBy('due_date')
+                ->limit(3)
+                ->get()
+            : collect();
 
         $activePackageIds = $activePackages->pluck('package_id');
         $user->loadMissing('participantDestinationCategory');
@@ -269,7 +273,8 @@ class DashboardController extends Controller
             'upcomingClassSessions',
             'destinationKeketatan',
             'showStatisticsDashboard',
-            'showLandingDashboard'
+            'showLandingDashboard',
+            'showBillingDashboard'
         ));
     }
 

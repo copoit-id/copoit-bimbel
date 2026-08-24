@@ -75,19 +75,23 @@ $selectedValue = $value ?? old($name);
                 <option value="" {{ !$selectedValue ? 'selected' : '' }} disabled>{{ $placeholder }}</option>
             @endif
             
-            @foreach($options as $optionValue => $optionLabel)
-                @if(is_int($optionValue) && is_string($optionLabel))
-                    {{-- Simple array --}}
-                    <option value="{{ $optionLabel }}" {{ $selectedValue == $optionLabel ? 'selected' : '' }}>
-                        {{ $optionLabel }}
-                    </option>
-                @else
-                    {{-- Associative array --}}
-                    <option value="{{ $optionValue }}" {{ $selectedValue == $optionValue ? 'selected' : '' }}>
-                        {{ $optionLabel }}
-                    </option>
-                @endif
-            @endforeach
+            @if(trim((string) $slot) !== '')
+                {{ $slot }}
+            @else
+                @foreach($options as $optionValue => $optionLabel)
+                    @if(is_int($optionValue) && is_string($optionLabel))
+                        {{-- Simple array --}}
+                        <option value="{{ $optionLabel }}" {{ $selectedValue == $optionLabel ? 'selected' : '' }}>
+                            {{ $optionLabel }}
+                        </option>
+                    @else
+                        {{-- Associative array --}}
+                        <option value="{{ $optionValue }}" {{ $selectedValue == $optionValue ? 'selected' : '' }}>
+                            {{ $optionLabel }}
+                        </option>
+                    @endif
+                @endforeach
+            @endif
         </select>
 
         {{-- Dropdown Icon --}}

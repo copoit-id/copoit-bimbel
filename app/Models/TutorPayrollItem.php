@@ -14,6 +14,7 @@ class TutorPayrollItem extends Model
         'tutor_payroll_id',
         'tutor_attendance_id',
         'class_session_id',
+        'package_id',
         'session_date',
         'description',
         'amount',
@@ -37,5 +38,10 @@ class TutorPayrollItem extends Model
     public function session(): BelongsTo
     {
         return $this->belongsTo(ClassSession::class, 'class_session_id');
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'package_id', 'package_id');
     }
 }

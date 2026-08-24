@@ -6,6 +6,7 @@
 @php
 $user = auth()->user();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
 @endphp
 
 <style>
@@ -37,9 +38,11 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
     <a href="{{ route('user.material.documents') }}" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap tab-active">
         <i class="ri-file-text-line mr-1"></i>Dokumen
     </a>
+    @if($liveSessionAvailable)
     <a href="{{ route('user.material.live-sessions') }}" class="px-4 py-2 bg-white text-gray-600 border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 whitespace-nowrap">
-        <i class="ri-live-line mr-1"></i>Live
+        <i class="ri-live-line mr-1"></i>{{ $liveSessionLabel }}
     </a>
+    @endif
 </div>
 
 <!-- Categories Filter -->

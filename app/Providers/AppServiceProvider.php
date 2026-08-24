@@ -7,6 +7,7 @@ use App\Models\ClientProfile;
 use App\Models\Role;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
+use App\Services\TutorContentVisibilityService;
 use App\Support\MailSafety;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Blade;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(PlanModuleService::class);
+        $this->app->scoped(TutorContentVisibilityService::class);
     }
 
     /**
@@ -47,8 +49,14 @@ class AppServiceProvider extends ServiceProvider
             'name' => 'Copoit Academy',
             'faq_label' => 'FAQ',
             'live_session_label' => 'Kelas Belajar',
+            'bimbel_nav_label' => 'Bimbel',
+            'material_nav_label' => 'Kelas & Materi',
+            'package_nav_label' => 'Paket Belajar',
+            'tryout_nav_label' => 'Ujian & Try Out',
+            'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
+            'logo_display_mode' => 'square',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
             'certificate_management_enabled' => false,
@@ -94,6 +102,8 @@ class AppServiceProvider extends ServiceProvider
                 ['label' => 'Refund Policy', 'url' => '/refund-policy'],
             ],
             'footer_address' => null,
+            'footer_contacts' => null,
+            'footer_socials' => null,
             'footer_phone' => null,
             'footer_email' => null,
             'footer_whatsapp' => null,
@@ -108,9 +118,13 @@ class AppServiceProvider extends ServiceProvider
             'ai_discussion_admin_configurable' => false,
             'ai_discussion_settings' => [],
             'admin_assistant_enabled' => false,
-            'class_schedule_menu_enabled' => false,
             'recurring_bill_menu_enabled' => false,
+            'billing_dashboard_enabled' => true,
             'tutor_chat_enabled' => false,
+            'booking_schedule_enabled' => false,
+            'learning_progress_enabled' => false,
+            'tutor_content_enabled' => false,
+            'tutor_content_visibility' => 'shared',
             'participant_destination_api_enabled' => false,
             'website_translation_enabled' => false,
             'website_translation_locales' => ['en', 'zh-CN', 'ja', 'ar', 'ko'],
@@ -124,8 +138,16 @@ class AppServiceProvider extends ServiceProvider
             $defaults['name'] = $clientProfile->nama_bimbel ?: $defaults['name'];
             $defaults['faq_label'] = $clientProfile->faq_label ?: $defaults['faq_label'];
             $defaults['live_session_label'] = $clientProfile->live_session_label ?: $defaults['live_session_label'];
+            $defaults['bimbel_nav_label'] = $clientProfile->bimbel_nav_label ?: $defaults['bimbel_nav_label'];
+            $defaults['material_nav_label'] = $clientProfile->material_nav_label ?: $defaults['material_nav_label'];
+            $defaults['package_nav_label'] = $clientProfile->package_nav_label ?: $defaults['package_nav_label'];
+            $defaults['tryout_nav_label'] = $clientProfile->tryout_nav_label ?: $defaults['tryout_nav_label'];
+            $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
+            $defaults['logo_display_mode'] = in_array($clientProfile->logo_display_mode, ['square', 'original'], true)
+                ? $clientProfile->logo_display_mode
+                : $defaults['logo_display_mode'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
             $defaults['secondary_color'] = $clientProfile->warna_secondary ?: $defaults['secondary_color'];
             $defaults['certificate_management_enabled'] = (bool) ($clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled']);
@@ -164,6 +186,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['footer_copyright'] = $clientProfile->footer_copyright ?? $defaults['footer_copyright'];
             $defaults['footer_links'] = $clientProfile->footer_links ?: $defaults['footer_links'];
             $defaults['footer_address'] = $clientProfile->footer_address ?? $defaults['footer_address'];
+            $defaults['footer_contacts'] = $clientProfile->footer_contacts;
+            $defaults['footer_socials'] = $clientProfile->footer_socials;
             $defaults['footer_phone'] = $clientProfile->footer_phone ?? $defaults['footer_phone'];
             $defaults['footer_email'] = $clientProfile->footer_email ?? $defaults['footer_email'];
             $defaults['footer_whatsapp'] = $clientProfile->footer_whatsapp ?? $defaults['footer_whatsapp'];
@@ -176,9 +200,13 @@ class AppServiceProvider extends ServiceProvider
             $defaults['ai_discussion_admin_configurable'] = (bool) ($clientProfile->ai_discussion_admin_configurable ?? $defaults['ai_discussion_admin_configurable']);
             $defaults['ai_discussion_settings'] = $clientProfile->ai_discussion_settings ?: $defaults['ai_discussion_settings'];
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
-            $defaults['class_schedule_menu_enabled'] = (bool) ($clientProfile->class_schedule_menu_enabled ?? $defaults['class_schedule_menu_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
+            $defaults['billing_dashboard_enabled'] = (bool) ($clientProfile->billing_dashboard_enabled ?? $defaults['billing_dashboard_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
+            $defaults['booking_schedule_enabled'] = (bool) ($clientProfile->booking_schedule_enabled ?? $defaults['booking_schedule_enabled']);
+            $defaults['learning_progress_enabled'] = (bool) ($clientProfile->learning_progress_enabled ?? $defaults['learning_progress_enabled']);
+            $defaults['tutor_content_enabled'] = (bool) ($clientProfile->tutor_content_enabled ?? $defaults['tutor_content_enabled']);
+            $defaults['tutor_content_visibility'] = $clientProfile->tutor_content_visibility ?: $defaults['tutor_content_visibility'];
             $defaults['participant_destination_api_enabled'] = (bool) ($clientProfile->participant_destination_api_enabled ?? $defaults['participant_destination_api_enabled']);
             $defaults['website_translation_enabled'] = (bool) ($clientProfile->website_translation_enabled ?? $defaults['website_translation_enabled']);
             $defaults['website_translation_locales'] = is_array($clientProfile->website_translation_locales)
@@ -227,11 +255,17 @@ class AppServiceProvider extends ServiceProvider
             'app.name' => $branding['name'],
         ]);
 
+        $liveSessionAvailable = ! $this->app->runningInConsole()
+            && request()->is('user/*');
+
+        config(['client.live_session_available' => $liveSessionAvailable]);
+
         $this->applyDynamicPaymentConfiguration($branding);
         $this->applyDynamicMailConfiguration($branding);
 
         view()->share('clientProfile', $clientProfile);
         view()->share('clientBranding', $branding);
+        view()->share('liveSessionAvailable', $liveSessionAvailable);
     }
 
     private function applyDynamicMailConfiguration(array $branding): void

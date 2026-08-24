@@ -15,10 +15,16 @@ use Illuminate\View\View;
 
 class UserClassScheduleController extends Controller
 {
-    public function index(Request $request, PlanModuleService $planModules): View
+    public function index(
+        Request $request,
+        PlanModuleService $planModules,
+    ): View
     {
         $user = $request->user()->loadMissing('participantDestinationCategory');
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
+        $canUseTutorChat = (bool) config('client.branding.tutor_chat_enabled', false)
+            && $planModules->allows('discussion');
         $requestedPeriod = $request->query('period', 'week');
         $period = is_string($requestedPeriod) ? strtolower($requestedPeriod) : 'week';
         $period = in_array($period, ['today', 'week', 'month', 'all'], true)
@@ -40,6 +46,10 @@ class UserClassScheduleController extends Controller
             ->where('user_id', $user->id)
             ->active()
             ->pluck('package_id');
+        $requestedPackageId = $request->integer('package_id');
+        $selectedPackageId = $packageIds->contains($requestedPackageId)
+            ? $requestedPackageId
+            : null;
 
         $sessions = ClassSession::with(['class.tentor', 'tentor', 'schedule.tentor', 'schedule.attendanceSetting', 'schedule.destinationCategories', 'schedule.packages:package_id,name', 'attendances' => function ($query) use ($user) {
             $query->where('user_id', $user->id);
@@ -84,6 +94,14 @@ class UserClassScheduleController extends Controller
                 });
             })
             ->whereHas('schedule', fn ($scheduleQuery) => $scheduleQuery->where('is_active', true))
+            ->when($selectedPackageId, function ($query, int $packageId): void {
+                $query->where(function ($packageQuery) use ($packageId): void {
+                    $packageQuery->whereHas('schedule.packages', fn ($schedulePackageQuery) => $schedulePackageQuery
+                        ->where('packages.package_id', $packageId));
+                    $packageQuery->orWhereHas('class.packages', fn ($classPackageQuery) => $classPackageQuery
+                        ->where('packages.package_id', $packageId));
+                });
+            })
             ->where('status', 'scheduled')
             ->when($dateRange, fn ($query, array $range) => $query->whereBetween('session_date', [
                 $range[0]->toDateString(),
@@ -123,6 +141,9 @@ class UserClassScheduleController extends Controller
             'liveClasses',
             'period',
             'canUseClass',
+            'canUseAttendance',
+            'canUseTutorChat',
+            'selectedPackageId',
         ));
     }
 

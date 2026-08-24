@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Expense;
+use App\Models\Package;
 use App\Models\Tentor;
 use App\Models\TutorAttendance;
 use App\Models\TutorPayroll;
@@ -27,7 +28,7 @@ class TutorPayrollService
             }
 
             $attendances = TutorAttendance::query()
-                ->with(['session.class:class_id,title', 'session.schedule:id,title', 'tentor:id,honor_per_attendance'])
+                ->with($this->payrollAttendanceRelations())
                 ->where('tentor_id', $tentor->id)
                 ->whereIn('status', ['present', 'late'])
                 ->where('approval_status', 'approved')
@@ -46,13 +47,9 @@ class TutorPayrollService
 
             $payroll->items()->delete();
             foreach ($attendances as $attendance) {
-                $session = $attendance->session;
                 $payroll->items()->create([
                     'tutor_attendance_id' => $attendance->id,
-                    'class_session_id' => $session?->id,
-                    'session_date' => $session?->session_date,
-                    'description' => $session?->schedule?->title ?? $session?->class?->title ?? 'Sesi kelas',
-                    'amount' => $this->honorFor($attendance),
+                    ...$this->payrollItemData($attendance),
                 ]);
             }
 
@@ -63,7 +60,7 @@ class TutorPayrollService
     public function syncApprovedAttendance(TutorAttendance $attendance, ?User $generatedBy = null): void
     {
         DB::transaction(function () use ($attendance, $generatedBy): void {
-            $attendance->loadMissing(['session.schedule:id,title', 'session.class:class_id,title', 'tentor:id,honor_per_attendance']);
+            $attendance->loadMissing($this->payrollAttendanceRelations());
             $existingItems = TutorPayrollItem::query()
                 ->with('payroll')
                 ->where('tutor_attendance_id', $attendance->id)
@@ -112,10 +109,7 @@ class TutorPayrollService
             $payroll->items()->updateOrCreate(
                 ['tutor_attendance_id' => $attendance->id],
                 [
-                    'class_session_id' => $attendance->session->id,
-                    'session_date' => $attendance->session->session_date,
-                    'description' => $attendance->session->schedule?->title ?? $attendance->session->class?->title ?? 'Sesi kelas',
-                    'amount' => $this->honorFor($attendance),
+                    ...$this->payrollItemData($attendance),
                 ]
             );
 
@@ -166,9 +160,44 @@ class TutorPayrollService
             && $attendance->session !== null;
     }
 
-    private function honorFor(TutorAttendance $attendance): int
+    private function payrollAttendanceRelations(): array
     {
-        return (int) ($attendance->tentor?->honor_per_attendance ?? 0);
+        return [
+            'session.schedule.packages:package_id,name',
+            'session.class.packages:package_id,name',
+            'tentor:id,honor_per_attendance',
+            'tentor.packageRates:tentor_id,package_id,amount',
+        ];
+    }
+
+    private function payrollItemData(TutorAttendance $attendance): array
+    {
+        $session = $attendance->session;
+        $packages = collect($session?->schedule?->packages ?? [])
+            ->concat($session?->class?->packages ?? [])
+            ->unique('package_id')
+            ->sortBy('package_id')
+            ->values();
+        $ratesByPackage = ($attendance->tentor?->packageRates ?? collect())
+            ->keyBy('package_id');
+        $package = $packages->first(fn (Package $package): bool => $ratesByPackage->has($package->package_id))
+            ?? $packages->first();
+        $amount = $package && $ratesByPackage->has($package->package_id)
+            ? (int) $ratesByPackage->get($package->package_id)->amount
+            : (int) ($attendance->tentor?->honor_per_attendance ?? 0);
+        $description = $session?->schedule?->title ?? $session?->class?->title ?? 'Sesi kelas';
+
+        if ($package) {
+            $description .= ' · Paket: '.$package->name;
+        }
+
+        return [
+            'class_session_id' => $session?->id,
+            'package_id' => $package?->package_id,
+            'session_date' => $session?->session_date,
+            'description' => $description,
+            'amount' => $amount,
+        ];
     }
 
     private function recalculate(TutorPayroll $payroll): TutorPayroll

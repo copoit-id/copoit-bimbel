@@ -56,6 +56,23 @@ class TryoutController extends Controller
         return null;
     }
 
+    private function lobbyTokenSessionKey(Tryout $tryout): string
+    {
+        return 'tryout_lobby_token.'.$tryout->tryout_id.'.'.Auth::id();
+    }
+
+    private function hasVerifiedLobbyToken(Tryout $tryout): bool
+    {
+        if (! $tryout->requiresLobbyToken()) {
+            return true;
+        }
+
+        return hash_equals(
+            hash('sha256', (string) $tryout->lobby_token_hash),
+            (string) session($this->lobbyTokenSessionKey($tryout))
+        );
+    }
+
     private function getSubtestIndex(array $subtests, array $currentSubtest): int
     {
         foreach ($subtests as $index => $info) {
@@ -884,15 +901,28 @@ class TryoutController extends Controller
         // Calculate total duration dan questions untuk SKD Full
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
         $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
-        $totalQuestions = 0;
-        foreach ($tryoutDetails as $detail) {
-            $totalQuestions += Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
-        }
+        $totalQuestions = Question::whereIn(
+            'tryout_detail_id',
+            $tryoutDetails->pluck('tryout_detail_id')
+        )->count();
 
-        $attempts = $tryout->completedAttemptCountForUser(Auth::id());
-        $remainingAttempts = $tryout->remainingAttemptsForUser(Auth::id());
-        $hasInProgressAttempt = $tryout->hasInProgressAttemptForUser(Auth::id());
-        $isAttemptLimitReached = $tryout->hasReachedAttemptLimitForUser(Auth::id()) && ! $hasInProgressAttempt;
+        // Ringkas status percobaan dalam satu query. Sebelumnya lobby menjalankan
+        // query hitung percobaan yang sama hingga tiga kali untuk setiap peserta.
+        $attemptsByStatus = $tryout->userAnswers()
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['completed', 'pending_release', 'in_progress'])
+            ->selectRaw('status, COUNT(DISTINCT attempt_token) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $attempts = (int) ($attemptsByStatus['completed'] ?? 0)
+            + (int) ($attemptsByStatus['pending_release'] ?? 0);
+        $hasInProgressAttempt = (int) ($attemptsByStatus['in_progress'] ?? 0) > 0;
+        $maxAttempts = (int) ($tryout->max_attempts ?? 0);
+        $remainingAttempts = $maxAttempts > 0 ? max(0, $maxAttempts - $attempts) : null;
+        $isAttemptLimitReached = $maxAttempts > 0
+            && $attempts >= $maxAttempts
+            && ! $hasInProgressAttempt;
 
         ActivityLogger::log('tryout_lobby_opened', 'success', Auth::user(), [
             'package_id' => $id_package,
@@ -900,6 +930,8 @@ class TryoutController extends Controller
             'attempts' => $attempts,
         ]);
         $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
+
+        $hasVerifiedLobbyToken = $this->hasVerifiedLobbyToken($tryout);
 
         return view('user.pages.tryout.lobby', compact(
             'package',
@@ -911,8 +943,46 @@ class TryoutController extends Controller
             'effectiveProctoringSettings',
             'remainingAttempts',
             'hasInProgressAttempt',
-            'isAttemptLimitReached'
+            'isAttemptLimitReached',
+            'hasVerifiedLobbyToken'
         ));
+    }
+
+    public function verifyLobbyToken(Request $request, $id_package, $id_tryout)
+    {
+        $request->validate(['lobby_token' => 'required|string|max:100']);
+
+        $tryout = Tryout::findOrFail($id_tryout);
+        $now = Carbon::now('Asia/Jakarta');
+
+        if ($id_package !== 'free') {
+            $package = Package::findOrFail($id_package);
+            $hasPackageAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query) use ($now): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            abort_unless($hasPackageAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        if (! $tryout->requiresLobbyToken()) {
+            return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id]);
+        }
+
+        if (! $tryout->lobbyTokenIsValid((string) $request->input('lobby_token'))) {
+            return back()->withErrors(['lobby_token' => 'Token lobby tidak sesuai.'])->withInput();
+        }
+
+        session([
+            $this->lobbyTokenSessionKey($tryout) => hash('sha256', (string) $tryout->lobby_token_hash),
+        ]);
+
+        return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id])
+            ->with('success', 'Token lobby berhasil diverifikasi.');
     }
 
     public function indexTryout($id_package, $id_tryout, $number)
@@ -970,6 +1040,12 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', $availabilityError);
         }
 
+        if (! $this->hasVerifiedLobbyToken($tryout)) {
+            return redirect()
+                ->route('user.tryout.lobby', [$package?->package_id ?? 'free', $tryout->tryout_id])
+                ->with('error', 'Masukkan token lobby terlebih dahulu untuk memulai tryout.');
+        }
+
         // Get all tryout details dalam urutan yang benar
         $tryoutDetails = $tryout->tryoutDetails()->get(); // ambil semua dulu
 
@@ -987,11 +1063,21 @@ class TryoutController extends Controller
         $allQuestions = collect();
         $subtestInfo = [];
 
+        // The navigation only needs IDs and subtest order. Loading question text,
+        // options, metadata, and media for every subtest here made the first page
+        // unnecessarily large. Full question data is loaded below for the active
+        // subtest only (or for all questions in deliberate combined-view mode).
+        $questionSummariesByDetail = Question::whereIn(
+            'tryout_detail_id',
+            $tryoutDetails->pluck('tryout_detail_id')
+        )
+            ->select(['question_id', 'tryout_detail_id'])
+            ->orderBy('question_id')
+            ->get()
+            ->groupBy('tryout_detail_id');
+
         foreach ($tryoutDetails as $detail) {
-            $questions = Question::where('tryout_detail_id', $detail->tryout_detail_id)
-                ->with('questionOptions')
-                ->orderBy('question_id')
-                ->get();
+            $questions = $questionSummariesByDetail->get($detail->tryout_detail_id, collect());
 
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
@@ -1013,6 +1099,11 @@ class TryoutController extends Controller
             ];
         }
 
+        $allQuestions = $allQuestions->values();
+        $allQuestions->each(function (Question $question, int $index): void {
+            $question->setAttribute('tryout_number', $index + 1);
+        });
+
         $isCombinedSubtestView = count($subtestInfo) > 1
             && ($tryout->subtest_display_mode ?? 'per_subtest') === 'combined';
 
@@ -1020,10 +1111,21 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Tryout belum memiliki soal');
         }
 
-        $existingUserAnswer = UserAnswer::where('user_id', Auth::id())
+        // Load all in-progress subtest attempts once. The previous implementation
+        // queried the same table once for every subtest, then queried it again for
+        // the current subtest and the navigation state.
+        $inProgressAnswersByDetail = UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->where('status', 'in_progress')
-            ->first();
+            ->get()
+            ->keyBy('tryout_detail_id');
+        $existingUserAnswer = $inProgressAnswersByDetail->first();
+
+        if ($existingUserAnswer) {
+            $inProgressAnswersByDetail = $inProgressAnswersByDetail
+                ->where('attempt_token', $existingUserAnswer->attempt_token)
+                ->keyBy('tryout_detail_id');
+        }
 
         if (! $existingUserAnswer && $tryout->hasReachedAttemptLimitForUser(Auth::id())) {
             return redirect()
@@ -1035,7 +1137,6 @@ class TryoutController extends Controller
             return $this->finishTryout(request(), $id_package, $id_tryout);
         }
 
-        $currentQuestion = $allQuestions[$number - 1];
         $totalQuestions = $allQuestions->count();
 
         // Tentukan subtest saat ini
@@ -1055,42 +1156,76 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Subtest tryout tidak ditemukan');
         }
 
-        // Get or create user answer sessions untuk SKD Full
+        // Per-subtest tryouts navigate to the next subtest as a separate page.
+        // Rendering only the active subtest keeps the initial response small,
+        // while combined mode intentionally preserves its all-question SPA view.
+        $renderedDetailIds = $isCombinedSubtestView
+            ? $tryoutDetails->pluck('tryout_detail_id')
+            : collect([$currentSubtest['tryout_detail_id']]);
+        $renderedQuestionsByDetail = Question::whereIn('tryout_detail_id', $renderedDetailIds)
+            ->with('questionOptions')
+            ->orderBy('question_id')
+            ->get()
+            ->groupBy('tryout_detail_id');
+        $questionNumbersById = $allQuestions->pluck('tryout_number', 'question_id');
+        $renderedQuestions = collect();
+
+        foreach ($tryoutDetails as $detail) {
+            if (! $renderedDetailIds->contains($detail->tryout_detail_id)) {
+                continue;
+            }
+
+            $questions = $renderedQuestionsByDetail->get($detail->tryout_detail_id, collect());
+            foreach ($questions as $question) {
+                $question->subtest_type = $detail->type_subtest;
+                $question->subtest_name = $this->getSubtestName($detail->type_subtest);
+                $question->tryout_detail = $detail;
+                $question->setAttribute('tryout_number', $questionNumbersById->get($question->question_id));
+            }
+
+            $renderedQuestions = $renderedQuestions->concat($questions);
+        }
+
+        $renderedQuestions = $renderedQuestions->values();
+        $currentQuestion = $renderedQuestions->firstWhere('tryout_number', $number);
+
+        if (! $currentQuestion) {
+            return redirect()->back()->with('error', 'Soal tryout tidak ditemukan');
+        }
+
+        // Get or create every subtest attempt in one read and (when needed) one
+        // bulk insert. This runs when participants first enter a tryout, so it
+        // avoids multiplying small queries during a concurrent start burst.
+        $attemptWasStarted = ! $existingUserAnswer;
         $attemptToken = $existingUserAnswer ? $existingUserAnswer->attempt_token : Str::uuid()->toString();
 
-        // Untuk SKD Full: buat UserAnswer terpisah untuk setiap subtest dengan token yang sama
-        if ($tryoutDetails->count() > 1) {
-            foreach ($tryoutDetails as $detail) {
-                $userAnswerForSubtest = UserAnswer::where('user_id', Auth::id())
-                    ->where('tryout_id', $id_tryout)
-                    ->where('tryout_detail_id', $detail->tryout_detail_id)
-                    ->where('status', 'in_progress')
-                    ->first();
+        $missingAttemptRows = $tryoutDetails
+            ->reject(fn (TryoutDetail $detail): bool => $inProgressAnswersByDetail->has($detail->tryout_detail_id))
+            ->map(fn (TryoutDetail $detail): array => [
+                'user_id' => Auth::id(),
+                'tryout_id' => $id_tryout,
+                'tryout_detail_id' => $detail->tryout_detail_id,
+                'attempt_token' => $attemptToken,
+                'started_at' => $now,
+                'status' => 'in_progress',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            ->values()
+            ->all();
 
-                if (!$userAnswerForSubtest) {
-                    UserAnswer::create([
-                        'user_id' => Auth::id(),
-                        'tryout_id' => $id_tryout,
-                        'tryout_detail_id' => $detail->tryout_detail_id,
-                        'attempt_token' => $attemptToken,
-                        'started_at' => $now,
-                        'status' => 'in_progress'
-                    ]);
-                }
-            }
-        } else {
-            // Single subtest: buat satu UserAnswer saja
-            if (!$existingUserAnswer) {
-                UserAnswer::create([
-                    'user_id' => Auth::id(),
-                    'tryout_id' => $id_tryout,
-                    'tryout_detail_id' => $tryoutDetails->first()->tryout_detail_id,
-                    'attempt_token' => $attemptToken,
-                    'started_at' => $now,
-                    'status' => 'in_progress'
-                ]);
-            }
+        if ($missingAttemptRows !== []) {
+            UserAnswer::insert($missingAttemptRows);
+
+            $inProgressAnswersByDetail = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('attempt_token', $attemptToken)
+                ->where('status', 'in_progress')
+                ->get()
+                ->keyBy('tryout_detail_id');
         }
+
+        $allUserAnswers = $inProgressAnswersByDetail->values();
 
         $currentSubtestIndex = $this->getSubtestIndex($subtestInfo, $currentSubtest ?? []);
         if (count($subtestInfo) > 1 && !$isCombinedSubtestView) {
@@ -1119,12 +1254,8 @@ class TryoutController extends Controller
             }
         }
 
-        // Get current subtest's UserAnswer untuk menyimpan jawaban
-        $currentUserAnswer = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->where('tryout_detail_id', $currentSubtest['tryout_detail_id'])
-            ->where('status', 'in_progress')
-            ->first();
+        // Get current subtest's UserAnswer dari hasil query awal.
+        $currentUserAnswer = $inProgressAnswersByDetail->get($currentSubtest['tryout_detail_id']);
 
         if (!$currentUserAnswer) {
             return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
@@ -1134,21 +1265,19 @@ class TryoutController extends Controller
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
         $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
 
-        // Find the earliest started_at for this attempt to ensure a consistent total timer
-        $firstStartTime = UserAnswer::where('attempt_token', $attemptToken)->min('started_at');
+        // Find the earliest started_at from the already loaded attempt rows.
+        $firstStartTime = $allUserAnswers->min('started_at');
         $startTime = Carbon::parse($firstStartTime, 'Asia/Jakarta');
         $endTime = $startTime->copy()->addMinutes($totalDuration);
 
-        // Check if time is up - auto finish if time exceeded
-        if ($now->gt($endTime)) {
-            return $this->finishTryout(request(), $id_package, $id_tryout);
-        }
-
-        $remainingSeconds = (int) $now->diffInSeconds($endTime, false);
-        if ($remainingSeconds <= 0) $remainingSeconds = 1;
+        // Jangan langsung redirect ke hasil saat peserta membuka kembali attempt yang waktunya habis.
+        // Halaman tryout akan menampilkan modal timeout yang sudah ada, lalu mengirim jawaban secara
+        // terkontrol dari browser agar peserta mendapat informasi sebelum melihat hasil.
+        $timeExpiredOnLoad = $now->gte($endTime);
+        $remainingSeconds = $timeExpiredOnLoad ? 0 : (int) $now->diffInSeconds($endTime, false);
 
         // Hitung timer per subtest untuk tampilan
-        $subtestDurationMinutes = max(1, (int) ($currentSubtest['duration'] ?? 60));
+        $subtestDurationMinutes = max(0.01, (float) ($currentSubtest['duration'] ?? 60));
         $subtestTimerKey = sprintf('tryout_subtest_timer_%s_%s', $attemptToken, $currentSubtest['tryout_detail_id']);
         $subtestStartIso = session($subtestTimerKey);
         if (!$subtestStartIso) {
@@ -1161,14 +1290,9 @@ class TryoutController extends Controller
         $subtestRemainingSeconds = $subtestEnd->greaterThan($now)
             ? $now->diffInSeconds($subtestEnd)
             : 0;
-        $displayRemainingSeconds = $isCombinedSubtestView ? $remainingSeconds : max(1, (int) $subtestRemainingSeconds);
-
-        // Get all user answers untuk navigation status dari semua subtest
-        $allUserAnswers = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->where('attempt_token', $attemptToken)
-            ->where('status', 'in_progress')
-            ->get();
+        $displayRemainingSeconds = $timeExpiredOnLoad
+            ? 0
+            : ($isCombinedSubtestView ? $remainingSeconds : max(1, (int) $subtestRemainingSeconds));
 
         // Get all user's answer details for this attempt
         $allAnswerDetails = UserAnswerDetail::whereIn('user_answer_id', $allUserAnswers->pluck('user_answer_id'))
@@ -1193,12 +1317,14 @@ class TryoutController extends Controller
             ];
         $isLastQuestionOfSubtest = $number === ($currentSubtest['end_number'] ?? $number);
 
-        ActivityLogger::log('tryout_started', 'success', Auth::user(), [
-            'package_id' => $id_package,
-            'tryout_id' => $id_tryout,
-            'question_number' => $number,
-            'attempt_token' => $attemptToken,
-        ]);
+        if ($attemptWasStarted) {
+            ActivityLogger::log('tryout_started', 'success', Auth::user(), [
+                'package_id' => $id_package,
+                'tryout_id' => $id_tryout,
+                'question_number' => $number,
+                'attempt_token' => $attemptToken,
+            ]);
+        }
         $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
         return view('user.pages.tryout.index', compact(
@@ -1211,6 +1337,7 @@ class TryoutController extends Controller
             'number',
             'totalQuestions',
             'allQuestions',
+            'renderedQuestions',
             'userAnswerDetails',
             'allAnswerDetails',
             'flaggedQuestions',
@@ -1223,6 +1350,7 @@ class TryoutController extends Controller
             'currentSubtestRange',
             'isLastQuestionOfSubtest',
             'remainingSeconds',
+            'timeExpiredOnLoad',
             'subtestRemainingSeconds',
             'displayRemainingSeconds',
             'attemptToken',
@@ -1924,6 +2052,13 @@ class TryoutController extends Controller
             ->get();
 
         if ($userAnswers->isEmpty()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'redirect' => route('user.tryout.result', [$id_package, $id_tryout]),
+                ]);
+            }
+
             return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
         }
 
@@ -1955,70 +2090,6 @@ class TryoutController extends Controller
         if ($userAnswers->isEmpty()) {
             return redirect()->route('user.tryout.index', [$id_package, $id_tryout, 1])
                 ->with('error', 'Jawaban belum ditemukan. Silakan lanjutkan tryout.');
-        }
-
-        $currentQuestionNumber = (int) $request->input('current_question_number', 0);
-        if (
-            $currentQuestionNumber > 0
-            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'per_subtest'
-        ) {
-            $tryoutDetails = $tryout->tryoutDetails()->get();
-            if ($tryout->system_tryout === 'toefl') {
-                $order = ['listening', 'writing', 'reading'];
-                $tryoutDetails = $tryoutDetails->sortBy(function ($detail) use ($order) {
-                    $position = array_search($detail->type_subtest, $order, true);
-                    return $position === false ? PHP_INT_MAX : $position;
-                })->values();
-            } else {
-                $tryoutDetails = $tryoutDetails->sortBy('tryout_detail_id')->values();
-            }
-
-            if ($tryoutDetails->count() > 1) {
-                $questionCounts = Question::whereIn('tryout_detail_id', $tryoutDetails->pluck('tryout_detail_id'))
-                    ->select('tryout_detail_id', DB::raw('count(*) as total'))
-                    ->groupBy('tryout_detail_id')
-                    ->pluck('total', 'tryout_detail_id');
-
-                $startNumber = 1;
-                $subtestRanges = [];
-                foreach ($tryoutDetails as $detail) {
-                    $questionCount = (int) ($questionCounts[$detail->tryout_detail_id] ?? 0);
-                    if ($questionCount <= 0) {
-                        continue;
-                    }
-
-                    $endNumber = $startNumber + $questionCount - 1;
-                    $subtestRanges[] = [
-                        'start_number' => $startNumber,
-                        'end_number' => $endNumber,
-                    ];
-                    $startNumber = $endNumber + 1;
-                }
-
-                $totalQuestions = $startNumber - 1;
-                if ($totalQuestions > 0 && $currentQuestionNumber < $totalQuestions) {
-                    $targetNumber = $currentQuestionNumber;
-                    foreach ($subtestRanges as $index => $range) {
-                        if ($currentQuestionNumber >= $range['start_number'] && $currentQuestionNumber <= $range['end_number']) {
-                            if ($currentQuestionNumber >= $range['end_number'] && isset($subtestRanges[$index + 1])) {
-                                $targetNumber = $subtestRanges[$index + 1]['start_number'];
-                            }
-                            break;
-                        }
-                    }
-
-                    if ($request->expectsJson()) {
-                        return response()->json([
-                            'success' => false,
-                            'redirect' => route('user.tryout.index', [$id_package, $id_tryout, $targetNumber]),
-                            'message' => 'Selesaikan semua subtest sebelum mengakhiri tryout.',
-                        ], 422);
-                    }
-
-                    return redirect()->route('user.tryout.index', [$id_package, $id_tryout, $targetNumber])
-                        ->with('error', 'Selesaikan semua subtest sebelum mengakhiri tryout.');
-                }
-            }
         }
 
         if ($tryout->requiresIrtScoring()) {

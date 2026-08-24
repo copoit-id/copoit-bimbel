@@ -86,6 +86,33 @@ $user = auth()->user();
                            style="--tw-ring-color: {{ $primaryColor }}40">
                 </div>
 
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label for="education_level" class="block text-sm font-medium text-gray-700 mb-1">Kelas / Level <span class="text-gray-400">(Opsional)</span></label>
+                        <input id="education_level" name="education_level" type="text" value="{{ old('education_level', $user->education_level ?? '') }}" placeholder="Contoh: Kelas 12"
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
+                            style="--tw-ring-color: {{ $primaryColor }}40">
+                    </div>
+                    <div>
+                        <label for="origin_institution" class="block text-sm font-medium text-gray-700 mb-1">Asal Sekolah / Instansi <span class="text-gray-400">(Opsional)</span></label>
+                        <input id="origin_institution" name="origin_institution" type="text" value="{{ old('origin_institution', $user->origin_institution ?? '') }}" placeholder="Contoh: SMA Negeri 1 Jakarta"
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
+                            style="--tw-ring-color: {{ $primaryColor }}40">
+                    </div>
+                    <div>
+                        <label for="major_choice_1" class="block text-sm font-medium text-gray-700 mb-1">Pilihan Jurusan 1 <span class="text-gray-400">(Opsional)</span></label>
+                        <input id="major_choice_1" name="major_choice_1" type="text" value="{{ old('major_choice_1', $user->major_choice_1 ?? '') }}" placeholder="Contoh: Teknik Informatika"
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
+                            style="--tw-ring-color: {{ $primaryColor }}40">
+                    </div>
+                    <div>
+                        <label for="major_choice_2" class="block text-sm font-medium text-gray-700 mb-1">Pilihan Jurusan 2 <span class="text-gray-400">(Opsional)</span></label>
+                        <input id="major_choice_2" name="major_choice_2" type="text" value="{{ old('major_choice_2', $user->major_choice_2 ?? '') }}" placeholder="Contoh: Sistem Informasi"
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
+                            style="--tw-ring-color: {{ $primaryColor }}40">
+                    </div>
+                </div>
+
                 <div>
                     @php
                         $selectedDestinationId = (int) old('participant_destination_category_id', $user->participant_destination_category_id);

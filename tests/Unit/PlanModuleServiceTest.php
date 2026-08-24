@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Http\Middleware\EnsurePlanFeatureEnabled;
 use App\Models\Plan;
+use App\Models\User;
 use App\Services\PlanModuleService;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -37,8 +38,11 @@ class PlanModuleServiceTest extends TestCase
         $this->assertTrue($packageOnly['package']);
         $this->assertFalse($packageOnly['schedule']);
         $this->assertFalse($packageOnly['class']);
+        $this->assertFalse($packageOnly['parent_portal']);
         $this->assertTrue($packageSchedule['package']);
         $this->assertTrue($packageSchedule['schedule']);
+        $this->assertFalse($packageSchedule['attendance']);
+        $this->assertFalse($packageSchedule['study_group']);
         $this->assertTrue($packageSchedule['booking']);
         $this->assertFalse($packageSchedule['class']);
         $this->assertFalse($packageSchedule['tryout']);
@@ -48,9 +52,13 @@ class PlanModuleServiceTest extends TestCase
         $this->assertTrue($administration['finance']);
         $this->assertTrue($administration['package']);
         $this->assertTrue($administration['schedule']);
+        $this->assertTrue($administration['attendance']);
+        $this->assertTrue($administration['study_group']);
         $this->assertFalse($administration['tryout']);
         $this->assertTrue($standard['tryout']);
         $this->assertTrue($standard['finance']);
+        $this->assertFalse($standard['parent_portal']);
+        $this->assertTrue($full['parent_portal']);
         $this->assertNotContains(false, $full, true);
     }
 
@@ -63,7 +71,9 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('material', $service->featureForRoute('admin.package.material.index'));
         $this->assertSame('class', $service->featureForRoute('admin.package.class.index'));
         $this->assertSame('schedule', $service->featureForRoute('admin.class-schedules.index'));
+        $this->assertSame('study_group', $service->featureForRoute('admin.study-groups.index'));
         $this->assertSame('schedule', $service->featureForRoute('user.class-schedule.index'));
+        $this->assertSame('attendance', $service->featureForRoute('user.class-schedule.attend'));
         $this->assertSame('schedule', $service->featureForRoute('tutor.schedule.index'));
         $this->assertSame('profile', $service->featureForRoute('tutor.profile.edit'));
         $this->assertSame('booking', $service->featureForRoute('admin.package-booking.edit'));
@@ -73,8 +83,9 @@ class PlanModuleServiceTest extends TestCase
         $this->assertSame('certification', $service->featureForRoute('user.package.sertifikasi'));
         $this->assertSame('pembayaran', $service->featureForRoute('user.billing.index'));
         $this->assertSame('discussion', $service->featureForRoute('user.chat.messages'));
+        $this->assertSame('parent_portal', $service->featureForRoute('parent.dashboard'));
         $this->assertSame('discussion', $service->featureForRoute('tutor.chat.messages'));
-        $this->assertSame('class', $service->featureForRoute('tutor.attendance.index'));
+        $this->assertSame('attendance', $service->featureForRoute('tutor.attendance.index'));
         $this->assertSame('laporan', $service->featureForRoute('laporan.live-score.public'));
         $this->assertSame('artikel', $service->featureForRoute('general.articles.index'));
         $this->assertSame('general_page', $service->featureForRoute('general.statistics'));
@@ -111,6 +122,24 @@ class PlanModuleServiceTest extends TestCase
         $this->assertFalse($access['finance']);
     }
 
+    public function test_existing_custom_plans_inherit_class_access_for_attendance(): void
+    {
+        $service = app(PlanModuleService::class);
+        $plan = new Plan([
+            'features_json' => [
+                'module_access' => [
+                    'preset' => 'custom',
+                    'features' => [
+                        'class' => true,
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertTrue($service->accessForPlan($plan)['attendance']);
+        $this->assertTrue($service->accessForPlan($plan)['study_group']);
+    }
+
     public function test_middleware_rejects_a_disabled_route_feature(): void
     {
         $service = \Mockery::mock(PlanModuleService::class);
@@ -133,6 +162,34 @@ class PlanModuleServiceTest extends TestCase
         try {
             $middleware->handle($request, fn () => response('allowed'));
             $this->fail('Disabled module route was not rejected.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+    }
+
+    public function test_middleware_rejects_a_disabled_route_feature_for_super_admin_previewing_admin_panel(): void
+    {
+        $service = \Mockery::mock(PlanModuleService::class);
+        $service->shouldReceive('featureForRoute')
+            ->once()
+            ->with('admin.question-bank.index')
+            ->andReturn('question_bank');
+        $service->shouldReceive('allows')
+            ->once()
+            ->with('question_bank')
+            ->andReturnFalse();
+
+        $request = Request::create('/admin/bank-soal', 'GET');
+        $request->setUserResolver(fn (): User => new User(['role' => 'super_admin']));
+        $route = new Route(['GET'], '/admin/bank-soal', fn () => null);
+        $route->name('admin.question-bank.index');
+        $request->setRouteResolver(fn (): Route => $route);
+
+        $middleware = new EnsurePlanFeatureEnabled($service);
+
+        try {
+            $middleware->handle($request, fn () => response('allowed'));
+            $this->fail('Disabled module route was not rejected for a Super Admin preview.');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
         }

@@ -9,6 +9,19 @@
                     <p class="text-gray-600 mb-6">{{ $tryout->description }}</p>
                 @endif
 
+                @if($tryout->requiresLobbyToken() && !($hasVerifiedLobbyToken ?? false))
+                    <form action="{{ route('user.tryout.lobby.token.verify', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}" method="POST" class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-left">
+                        @csrf
+                        <label for="lobby_token" class="block text-sm font-semibold text-amber-900">Token akses lobby</label>
+                        <p class="mt-1 text-xs text-amber-800">Masukkan token dari penyelenggara untuk membuka tombol mulai Tryout.</p>
+                        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                            <input type="text" id="lobby_token" name="lobby_token" required autofocus autocomplete="off" class="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Masukkan token">
+                            <button type="submit" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Verifikasi Token</button>
+                        </div>
+                        @error('lobby_token')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                    </form>
+                @endif
+
                 @if (isset($tryoutDetails) && $tryoutDetails->count() > 1)
                     <!-- SKD Full Information -->
                     {{-- <div class="bg-blue-50 border border-primary/10 rounded-lg p-6 mb-6">
@@ -156,7 +169,31 @@
                     </div>
                 @endif
 
-                @if($isAttemptLimitReached ?? false)
+                <div id="networkWarningModal" class="fixed inset-0 z-[2147483647] hidden items-center justify-center bg-gray-950/60 px-4 backdrop-blur-sm">
+                    <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+                        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+                            <i class="ri-signal-wifi-warning-line text-2xl"></i>
+                        </div>
+                        <h3 class="mt-4 text-lg font-bold text-gray-900">Koneksi Kurang Stabil</h3>
+                        <p id="networkWarningMessage" class="mt-2 text-sm leading-relaxed text-gray-600"></p>
+                        <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+                            <button type="button" id="recheckNetworkBtn"
+                                class="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                Cek Lagi
+                            </button>
+                            <button type="button" id="continueWithWeakNetworkBtn"
+                                class="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">
+                                Tetap Mulai Tryout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                @if($tryout->requiresLobbyToken() && !($hasVerifiedLobbyToken ?? false))
+                    <button type="button" disabled class="mx-auto mt-4 flex cursor-not-allowed items-center justify-center rounded-xl bg-gray-300 px-8 py-1.5 text-gray-600">
+                        Verifikasi Token untuk Mulai
+                    </button>
+                @elseif($isAttemptLimitReached ?? false)
                     <button type="button" disabled
                         class="mx-auto mt-4 flex items-center justify-center px-8 py-1.5 bg-gray-300 text-gray-600 rounded-xl cursor-not-allowed">
                         Batas Pengerjaan Habis
@@ -230,6 +267,17 @@
             const resumeOverlay = document.getElementById('proctoringResumeOverlay');
             const resumeMessage = document.getElementById('proctoringResumeMessage');
             const resumeButton = document.getElementById('resumeProctoringBtn');
+            const networkWarningModal = document.getElementById('networkWarningModal');
+            const networkWarningMessage = document.getElementById('networkWarningMessage');
+            const recheckNetworkButton = document.getElementById('recheckNetworkBtn');
+            const continueWithWeakNetworkButton = document.getElementById('continueWithWeakNetworkBtn');
+            let networkStatus = {
+                state: 'checking',
+                label: 'Mengecek koneksi',
+                latency: null,
+                blocking: false,
+            };
+            let networkWarningConfirmed = false;
 
             function showError(message) {
                 if (!errorBox) return;
@@ -272,12 +320,15 @@
             }
 
             function updateStartButton() {
-                const ready = checkState.webcam && checkState.screen;
+                const ready = checkState.webcam && checkState.screen && !networkStatus.blocking;
                 if (!startButton) return;
 
                 startButton.classList.toggle('pointer-events-none', !ready);
                 startButton.classList.toggle('opacity-50', !ready);
                 startButton.setAttribute('aria-disabled', ready ? 'false' : 'true');
+                startButton.title = networkStatus.blocking
+                    ? 'Koneksi terlalu lambat atau terputus. Tunggu hingga koneksi membaik.'
+                    : '';
 
                 if (ready) {
                     sessionStorage.setItem(storageKey, JSON.stringify({
@@ -324,6 +375,36 @@
                 resumeOverlay.classList.add('hidden');
                 resumeOverlay.classList.remove('flex');
                 delete resumeOverlay.dataset.type;
+            }
+
+            function showNetworkWarning() {
+                if (!networkWarningModal) return;
+
+                const latencyLabel = networkStatus.latency === null ? '' : ` (${Math.round(networkStatus.latency)} ms)`;
+                if (networkWarningMessage) {
+                    networkWarningMessage.textContent = `Koneksi saat ini ${networkStatus.label.toLowerCase()}${latencyLabel}. Anda tetap dapat memulai, tetapi proses menyimpan jawaban dapat lebih lambat.`;
+                }
+
+                networkWarningModal.classList.remove('hidden');
+                networkWarningModal.classList.add('flex');
+            }
+
+            function hideNetworkWarning() {
+                if (!networkWarningModal) return;
+                networkWarningModal.classList.add('hidden');
+                networkWarningModal.classList.remove('flex');
+            }
+
+            function guardStartForNetwork(event) {
+                if (!startButton || networkStatus.blocking) {
+                    event.preventDefault();
+                    return;
+                }
+
+                if (['fair', 'weak'].includes(networkStatus.state) && !networkWarningConfirmed) {
+                    event.preventDefault();
+                    showNetworkWarning();
+                }
             }
 
             function clearSnapshotTimer(type) {
@@ -552,6 +633,7 @@
             }
 
             async function startTryoutInFrame(event) {
+                if (event?.defaultPrevented) return;
                 if (!proctoringSettings.webcam && !proctoringSettings.screen) return;
 
                 event.preventDefault();
@@ -608,7 +690,26 @@
 
             document.getElementById('checkWebcamBtn')?.addEventListener('click', checkWebcam);
             document.getElementById('checkScreenBtn')?.addEventListener('click', checkScreen);
+            startButton?.addEventListener('click', guardStartForNetwork);
             startButton?.addEventListener('click', startTryoutInFrame);
+            recheckNetworkButton?.addEventListener('click', function() {
+                hideNetworkWarning();
+                networkWarningConfirmed = false;
+                window.dispatchEvent(new Event('network-signal:check'));
+            });
+            continueWithWeakNetworkButton?.addEventListener('click', function() {
+                hideNetworkWarning();
+                networkWarningConfirmed = true;
+                startButton?.click();
+            });
+            window.addEventListener('network-signal:update', function(event) {
+                networkStatus = event.detail;
+                if (networkStatus.blocking) {
+                    hideNetworkWarning();
+                    networkWarningConfirmed = false;
+                }
+                updateStartButton();
+            });
             resumeButton?.addEventListener('click', async function() {
                 const type = resumeOverlay?.dataset.type;
                 if (!type) return;

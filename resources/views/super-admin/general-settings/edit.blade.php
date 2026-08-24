@@ -20,6 +20,23 @@
         @method('PUT')
         <input type="hidden" name="settings_tab" value="{{ $activeSettingsTab }}">
 
+        @if (session('success'))
+            <div class="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p class="font-semibold">Pengaturan belum tersimpan.</p>
+                <ul class="mt-1 list-disc space-y-0.5 pl-5">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <nav class="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200 pb-3" aria-label="Kategori pengaturan">
             @foreach(['general' => 'Umum', 'ai' => 'Diskusi AI', 'pricing' => 'Tarif Model AI', 'payment' => 'Pembayaran AI', 'notification' => 'Notifikasi Telegram'] as $tab => $label)
                 <a href="{{ route('super-admin.general-settings.edit', ['tab' => $tab]) }}"
@@ -46,6 +63,87 @@
                         class="rounded border-gray-300 text-primary focus:ring-primary"
                         @checked(old('admin_assistant_enabled', (bool) ($clientProfile?->admin_assistant_enabled ?? false)))>
                     Tampilkan
+                </span>
+            </label>
+        </div>
+
+        <div @class(['mb-6 grid gap-4 md:grid-cols-2', 'hidden' => $activeSettingsTab !== 'general'])>
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Booking Jadwal</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Tampilkan dan aktifkan booking jadwal untuk siswa, tutor, serta pengaturan booking di Admin. Default fitur ini mati.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="booking_schedule_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('booking_schedule_enabled', (bool) ($clientProfile?->booking_schedule_enabled ?? false)))>
+                    Tampilkan
+                </span>
+            </label>
+
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Perkembangan Belajar</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Tampilkan perkembangan belajar untuk siswa dan form pencatatan perkembangan oleh tutor. Default fitur ini mati.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="learning_progress_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('learning_progress_enabled', (bool) ($clientProfile?->learning_progress_enabled ?? false)))>
+                    Tampilkan
+                </span>
+            </label>
+
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Konten Tutor</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Aktifkan agar Admin dapat mengatur mode Gabung atau Isolasi Tutor untuk Tryout, Materi, dan Bank Soal. Default fitur ini mati.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="tutor_content_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('tutor_content_enabled', (bool) ($clientProfile?->tutor_content_enabled ?? false)))>
+                    Tampilkan
+                </span>
+            </label>
+        </div>
+
+        <div @class(['mb-6', 'hidden' => $activeSettingsTab !== 'general'])>
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Kelas Belajar / Live Session</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Tampilkan menu di header dan sidebar user, serta tab Live pada halaman materi. Saat dimatikan, halaman Live Session juga tidak dapat diakses user.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="live_session_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('live_session_enabled', (bool) ($clientProfile?->live_session_enabled ?? true)))>
+                    Tampilkan
+                </span>
+            </label>
+        </div>
+
+        <div @class(['mb-6', 'hidden' => $activeSettingsTab !== 'general'])>
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
+                    <span class="block text-base font-semibold text-gray-900">Manajemen Sertifikat</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Izinkan sertifikat dibuat dan diunduh oleh peserta pada tryout yang mengaktifkan Generate Sertifikat Otomatis.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="enable_certificate_management" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('enable_certificate_management', (bool) ($clientProfile?->enable_certificate_management ?? false)))>
+                    Aktifkan
                 </span>
             </label>
         </div>
@@ -240,21 +338,6 @@
         <div @class(['mb-6 grid gap-4 md:grid-cols-2', 'hidden' => $activeSettingsTab !== 'general'])>
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
-                    <span class="block text-base font-semibold text-gray-900">Menu Jadwal, Absensi & Rombel</span>
-                    <span class="mt-1 block text-sm text-gray-500">
-                        Tampilkan menu jadwal kelas, absensi, rombel, dan assign akses via rombel. Default fitur ini mati.
-                    </span>
-                </span>
-                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
-                    <input type="checkbox" name="class_schedule_menu_enabled" value="1"
-                        class="rounded border-gray-300 text-primary focus:ring-primary"
-                        @checked(old('class_schedule_menu_enabled', (bool) ($clientProfile?->class_schedule_menu_enabled ?? false)))>
-                    Tampilkan
-                </span>
-            </label>
-
-            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
-                <span>
                     <span class="block text-base font-semibold text-gray-900">Menu Tagihan Rutin</span>
                     <span class="mt-1 block text-sm text-gray-500">
                         Tampilkan menu tagihan rutin di sidebar keuangan admin. Default fitur ini mati.
@@ -270,9 +353,24 @@
 
             <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
                 <span>
+                    <span class="block text-base font-semibold text-gray-900">Pengingat Tagihan di Dashboard Siswa</span>
+                    <span class="mt-1 block text-sm text-gray-500">
+                        Tampilkan kartu pengingat tagihan belum lunas pada dashboard siswa. Halaman tagihan tetap dapat diakses oleh siswa.
+                    </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">
+                    <input type="checkbox" name="billing_dashboard_enabled" value="1"
+                        class="rounded border-gray-300 text-primary focus:ring-primary"
+                        @checked(old('billing_dashboard_enabled', (bool) ($clientProfile?->billing_dashboard_enabled ?? true)))>
+                    Tampilkan
+                </span>
+            </label>
+
+            <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 p-4 hover:border-primary/40">
+                <span>
                     <span class="block text-base font-semibold text-gray-900">Chat Tutor–Siswa</span>
                     <span class="mt-1 block text-sm text-gray-500">
-                        Tampilkan chat antara tutor dan siswa. Saat nonaktif, menu, tombol, route, API, dan channel realtime chat tidak dapat diakses. Default fitur ini mati.
+                        Tampilkan chat antara tutor dan siswa. Saat nonaktif, menu, tombol, route, API, dan channel realtime chat tidak dapat diakses. Fitur <strong>Diskusi</strong> juga harus aktif pada Plan yang digunakan. Default fitur ini mati.
                     </span>
                 </span>
                 <span class="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-700">

@@ -22,6 +22,7 @@ class ChatConversation extends Model
     protected $fillable = [
         'id',
         'class_id',
+        'class_schedule_id',
         'student_user_id',
         'tutor_user_id',
         'tentor_id',
@@ -36,6 +37,11 @@ class ChatConversation extends Model
     public function classRoom(): BelongsTo
     {
         return $this->belongsTo(ClassModel::class, 'class_id', 'class_id');
+    }
+
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(ClassSchedule::class, 'class_schedule_id');
     }
 
     public function student(): BelongsTo
@@ -72,7 +78,8 @@ class ChatConversation extends Model
     {
         return $query->where(function (Builder $query) use ($userId) {
             $query->where('student_user_id', $userId)
-                ->orWhere('tutor_user_id', $userId);
+                ->orWhere('tutor_user_id', $userId)
+                ->orWhereHas('student.parents', fn (Builder $parentQuery) => $parentQuery->where('users.id', $userId));
         });
     }
 
@@ -81,16 +88,4 @@ class ChatConversation extends Model
         return in_array($user->id, [$this->student_user_id, $this->tutor_user_id], true);
     }
 
-    public function isAccessibleBy(User $user): bool
-    {
-        if ((int) $this->student_user_id === (int) $user->id) {
-            return $this->classRoom()->first()?->canUserAccess($user->id) ?? false;
-        }
-
-        return (int) $this->tutor_user_id === (int) $user->id
-            && $this->tentor()
-                ->where('user_id', $user->id)
-                ->where('is_active', true)
-                ->exists();
-    }
 }

@@ -27,6 +27,7 @@ class ClassScheduleController extends Controller
     {
         $activeTab = $request->query('tab', 'schedules');
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
         $activeTab = $activeTab === 'zoom' && $canUseClass ? 'zoom' : 'schedules';
         $filteredPackage = $request->integer('package_id')
             ? Package::query()
@@ -93,6 +94,7 @@ class ClassScheduleController extends Controller
             'otherSchedules',
             'liveClasses',
             'canUseClass',
+            'canUseAttendance',
             'filteredPackage',
             'packageOptions',
             'selectedScheduleIds',
@@ -137,9 +139,11 @@ class ClassScheduleController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'tentor_id']);
         $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
-        $preselectedDay = $request->query('day_of_week', 1);
+        $preselectedDay = $request->integer('day_of_week') ?: now()->dayOfWeekIso;
         $preselectedPackageId = $request->integer('package_id') ?: null;
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
 
         return view('admin.pages.class-schedule.create', compact(
             'classes',
@@ -149,6 +153,8 @@ class ClassScheduleController extends Controller
             'preselectedDay',
             'preselectedPackageId',
             'canUseClass',
+            'canUseAttendance',
+            'bookingScheduleEnabled',
         ));
     }
 
@@ -207,20 +213,25 @@ class ClassScheduleController extends Controller
             'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
             'allow_custom_booking' => ['nullable', 'boolean'],
-            'booking_session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
+            'booking_session_quota' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $allowCustomBooking = $bookingScheduleEnabled && $request->boolean('allow_custom_booking');
 
         DB::transaction(function () use (
             $request,
             $validated,
             $scheduleService,
             $bookingConfigurator,
-            $canUseClass
+            $canUseClass,
+            $canUseAttendance,
+            $allowCustomBooking
         ): void {
             $packageIds = $validated['package_ids'] ?? [];
-            if ($request->boolean('allow_custom_booking')) {
+            if ($allowCustomBooking) {
                 Package::query()
                     ->whereKey($packageIds)
                     ->orderBy('package_id')
@@ -245,14 +256,16 @@ class ClassScheduleController extends Controller
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
                 'created_by' => $request->user()?->id,
-                'allow_custom_booking' => $request->boolean('allow_custom_booking'),
-                'booking_session_quota' => $validated['booking_session_quota'],
+                'allow_custom_booking' => $allowCustomBooking,
+                'booking_session_quota' => $allowCustomBooking
+                    ? (int) ($validated['booking_session_quota'] ?? 1)
+                    : 1,
             ]);
 
             $schedule->attendanceSetting()->create([
-                'mode' => $canUseClass ? $validated['attendance_mode'] : 'button',
-                'open_minutes_before' => $canUseClass ? $validated['open_minutes_before'] : 15,
-                'close_minutes_after' => $canUseClass ? $validated['close_minutes_after'] : 30,
+                'mode' => $canUseAttendance ? $validated['attendance_mode'] : 'button',
+                'open_minutes_before' => $canUseAttendance ? $validated['open_minutes_before'] : 15,
+                'close_minutes_after' => $canUseAttendance ? $validated['close_minutes_after'] : 30,
                 'allow_admin_override' => true,
             ]);
             $schedule->destinationCategories()->sync($validated['destination_category_ids'] ?? []);
@@ -347,6 +360,8 @@ class ClassScheduleController extends Controller
             ->get(['id', 'name', 'expertise']);
         $preselectedDay = $classSchedule->day_of_week ?: 1;
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
 
         return view('admin.pages.class-schedule.edit', compact(
             'classSchedule',
@@ -356,6 +371,8 @@ class ClassScheduleController extends Controller
             'tentors',
             'preselectedDay',
             'canUseClass',
+            'canUseAttendance',
+            'bookingScheduleEnabled',
         ));
     }
 
@@ -403,10 +420,15 @@ class ClassScheduleController extends Controller
             'package_ids.*' => ['integer', 'distinct', 'exists:packages,package_id'],
             'is_active' => ['nullable', 'boolean'],
             'allow_custom_booking' => ['nullable', 'boolean'],
-            'booking_session_quota' => ['required', 'integer', 'min:1', 'max:1000'],
+            'booking_session_quota' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $canUseClass = $planModules->allows('class');
+        $canUseAttendance = $planModules->allows('attendance');
+        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $allowCustomBooking = $bookingScheduleEnabled
+            ? $request->boolean('allow_custom_booking')
+            : (bool) $classSchedule->allow_custom_booking;
 
         $previousPackageIds = $classSchedule->packages()->pluck('packages.package_id')->all();
         $wasCustom = (bool) $classSchedule->allow_custom_booking;
@@ -418,6 +440,8 @@ class ClassScheduleController extends Controller
             $scheduleService,
             $bookingConfigurator,
             $canUseClass,
+            $canUseAttendance,
+            $allowCustomBooking,
             $previousPackageIds,
             $wasCustom
         ): void {
@@ -427,7 +451,7 @@ class ClassScheduleController extends Controller
                 ->orderBy('package_id')
                 ->lockForUpdate()
                 ->get(['package_id']);
-            if ($request->boolean('allow_custom_booking')) {
+            if ($allowCustomBooking) {
                 $bookingConfigurator->ensurePackagesAvailable($packageIds, $classSchedule->id);
             }
             $classSchedule->update([
@@ -448,16 +472,18 @@ class ClassScheduleController extends Controller
                     : $classSchedule->meeting_url,
                 'location' => $validated['location'] ?? null,
                 'is_active' => $request->boolean('is_active'),
-                'allow_custom_booking' => $request->boolean('allow_custom_booking'),
-                'booking_session_quota' => $validated['booking_session_quota'],
+                'allow_custom_booking' => $allowCustomBooking,
+                'booking_session_quota' => $allowCustomBooking
+                    ? (int) ($validated['booking_session_quota'] ?? $classSchedule->booking_session_quota ?? 1)
+                    : 1,
             ]);
 
             $classSchedule->attendanceSetting()->updateOrCreate(
                 ['class_schedule_id' => $classSchedule->id],
                 [
-                    'mode' => $canUseClass ? $validated['attendance_mode'] : 'button',
-                    'open_minutes_before' => $canUseClass ? $validated['open_minutes_before'] : 15,
-                    'close_minutes_after' => $canUseClass ? $validated['close_minutes_after'] : 30,
+                    'mode' => $canUseAttendance ? $validated['attendance_mode'] : 'button',
+                    'open_minutes_before' => $canUseAttendance ? $validated['open_minutes_before'] : 15,
+                    'close_minutes_after' => $canUseAttendance ? $validated['close_minutes_after'] : 30,
                     'allow_admin_override' => true,
                 ]
             );

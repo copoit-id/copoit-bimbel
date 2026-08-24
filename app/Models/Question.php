@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\TryoutDetail;
 use App\Models\QuestionOption;
 use App\Models\UserAnswerDetail;
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 
 class Question extends Model
 {
@@ -23,6 +25,17 @@ class Question extends Model
         'essay_score_correct' => 'decimal:2',
         'essay_score_wrong' => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner(auth()->user())) {
+                return;
+            }
+
+            $query->whereHas('tryoutDetail');
+        });
+    }
 
     public function tryoutDetail()
     {

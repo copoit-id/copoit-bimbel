@@ -6,6 +6,7 @@
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
+        $showPassingGrade = $tryout->shouldShowPassingGrade();
         $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         $aiDiscussionEnabled = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
@@ -14,6 +15,8 @@
         $aiLearningToolEndpointUrl = route('user.package.tryout.pembahasan.ai-tools', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiLearningHistoryEndpointUrl = route('user.package.tryout.pembahasan.ai-tools.history', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
+        $downloadQuestionsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'soal']);
+        $downloadExplanationsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'pembahasan']);
         $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
         $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
         $hasAnyActiveAiGatewayPackage = $activeAiGatewaySubscriptions->isNotEmpty();
@@ -237,17 +240,19 @@
                 <div class="mt-2 text-xs text-gray-600 text-center">
                     {{ $summary['correct_answers'] }} benar, {{ $summary['wrong_answers'] }} salah
                 </div>
-                <div class="mt-1 text-xs text-gray-500 text-center">
-                    Passing grade:
-                    @if(($summary['passing_type'] ?? 'score') === 'percentage')
-                        {{ number_format($summary['passing_score'] ?? 0, 1) }}%
-                    @else
-                        {{ $summary['passing_score'] ?? '-' }}
-                        @if(!is_null($summary['passing_percentage'] ?? null))
-                            ({{ number_format($summary['passing_percentage'], 1) }}%)
+                @if($showPassingGrade)
+                    <div class="mt-1 text-xs text-gray-500 text-center">
+                        Passing grade:
+                        @if(($summary['passing_type'] ?? 'score') === 'percentage')
+                            {{ number_format($summary['passing_score'] ?? 0, 1) }}%
+                        @else
+                            {{ $summary['passing_score'] ?? '-' }}
+                            @if(!is_null($summary['passing_percentage'] ?? null))
+                                ({{ number_format($summary['passing_percentage'], 1) }}%)
+                            @endif
                         @endif
-                    @endif
-                </div>
+                    </div>
+                @endif
             </div>
             @endforeach
         </div>
@@ -294,6 +299,18 @@
                 {{ $navIndex + 1 }}
             </button>
             @endforeach
+        </div>
+        <div class="mt-5 border-t border-gray-200 pt-4">
+            <p class="text-sm font-semibold text-gray-700">Unduh Materi</p>
+            <p class="mt-1 text-xs text-gray-500">Simpan soal atau pembahasannya untuk dipelajari kembali.</p>
+            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                <x-ui.button :href="$downloadQuestionsUrl" variant="outline" size="sm" icon="ri-download-2-line" :full-width="true" class="sm:w-auto">
+                    Unduh Soal
+                </x-ui.button>
+                <x-ui.button :href="$downloadExplanationsUrl" size="sm" icon="ri-file-download-line" :full-width="true" class="sm:w-auto">
+                    Unduh Pembahasan
+                </x-ui.button>
+            </div>
         </div>
     </div>
     @endif
@@ -942,10 +959,10 @@
         </a>
         @endif
 
-        @if($package && ($clientBranding['certificate_management_enabled'] ?? true))
-        <a href="{{ route('user.certificate.preview', [$package->package_id, $tryout->tryout_id, 'token' => $token]) }}"
+        @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
+        <a href="{{ route('user.certificate.preview', [$packageRouteId, $tryout->tryout_id, 'token' => $token]) }}"
             class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
-            <i class="ri-award-line mr-2"></i>Preview Sertifikat
+            <i class="ri-award-line mr-2"></i>Unduh Sertifikat
         </a>
         @endif
 

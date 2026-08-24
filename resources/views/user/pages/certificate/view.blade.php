@@ -190,8 +190,8 @@
             </div>
             <div style="text-align: right;">
                 <div>Date of Birth: {{ $certificate->date_of_birth instanceof \Carbon\Carbon ?
-                    $certificate->date_of_birth->format('d F Y') :
-                    \Carbon\Carbon::parse($certificate->date_of_birth)->format('d F Y') }}</div>
+                    $certificate->date_of_birth->locale('id')->translatedFormat('d F Y') :
+                    \Carbon\Carbon::parse($certificate->date_of_birth)->locale('id')->translatedFormat('d F Y') }}</div>
             </div>
         </div>
 

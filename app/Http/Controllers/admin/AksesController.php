@@ -15,7 +15,9 @@ use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use App\Models\UserPackageAcces;
 use App\Models\UserTryoutAccess;
+use App\Services\PlanModuleService;
 use App\Services\PurchaseAccessDuration;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,18 +31,18 @@ class AksesController extends Controller
         $canManageTesKoran = $request->user()?->hasPermission('tes_koran', 'view') ?? false;
         $canUseStudyGroupAccess = $this->canUseStudyGroupAccess($request);
 
-        if ($tab === 'tes_koran' && !$canManageTesKoran) {
+        if ($tab === 'tes_koran' && ! $canManageTesKoran) {
             $tab = 'packages';
         }
-        
+
         // Get items based on tab
-        $items = match($tab) {
+        $items = match ($tab) {
             'packages' => Package::withCount([
                 'userAccess',
-                'userAccess as active_users_count' => fn($q) => $q->where('status', 'active')
-                    ->where(fn($query) => $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now())),
-                'userAccess as expired_users_count' => fn($q) => $q->where('status', 'expired')->orWhere('end_date', '<', Carbon::now()),
-                'userAccess as pending_requests_count' => fn($q) => $q->where('requirement_status', 'pending'),
+                'userAccess as active_users_count' => fn ($q) => $q->where('status', 'active')
+                    ->where(fn ($query) => $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now())),
+                'userAccess as expired_users_count' => fn ($q) => $q->where('status', 'expired')->orWhere('end_date', '<', Carbon::now()),
+                'userAccess as pending_requests_count' => fn ($q) => $q->where('requirement_status', 'pending'),
             ])->get(),
             'videos' => Material::where('type', 'video')->where('is_active', true)->withCount('userAccess')->get(),
             'documents' => Material::where('type', 'document')->where('is_active', true)->withCount('userAccess')->get(),
@@ -49,7 +51,7 @@ class AksesController extends Controller
             'tryouts' => Tryout::where('is_active', true)->withCount('userAccess')->get(),
             'tes_koran' => TesKoran::where('is_active', true)
                 ->withCount([
-                    'individualPurchases as user_access_count' => fn($q) => $q->where('status', IndividualPurchase::STATUS_APPROVED),
+                    'individualPurchases as user_access_count' => fn ($q) => $q->where('status', IndividualPurchase::STATUS_APPROVED),
                 ])
                 ->get(),
             default => collect(),
@@ -78,16 +80,20 @@ class AksesController extends Controller
         $type = $request->get('type', 'packages');
         $itemId = $request->integer('item_id');
         $normalizedType = rtrim($type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
-        if ($normalizedType === 'classe') $normalizedType = 'class';
+        if ($normalizedType === 'live') {
+            $normalizedType = 'live_session';
+        }
+        if ($normalizedType === 'classe') {
+            $normalizedType = 'class';
+        }
 
-        abort_if(!$itemId, 404);
+        abort_if(! $itemId, 404);
         abort_if(
-            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
+            $normalizedType === 'tes_koran' && ! ($request->user()?->hasPermission('tes_koran', 'view') ?? false),
             403
         );
 
-        $item = match($normalizedType) {
+        $item = match ($normalizedType) {
             'package' => Package::findOrFail($itemId),
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
             'classe', 'class' => ClassModel::findOrFail($itemId),
@@ -118,20 +124,24 @@ class AksesController extends Controller
         $type = $request->get('type', 'package');
         $itemId = $request->get('item_id');
         $normalizedType = rtrim($type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
-        if ($normalizedType === 'classe') $normalizedType = 'class';
+        if ($normalizedType === 'live') {
+            $normalizedType = 'live_session';
+        }
+        if ($normalizedType === 'classe') {
+            $normalizedType = 'class';
+        }
 
         abort_if(
-            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'view') ?? false),
+            $normalizedType === 'tes_koran' && ! ($request->user()?->hasPermission('tes_koran', 'view') ?? false),
             403
         );
-        
-        if (!$itemId) {
+
+        if (! $itemId) {
             return redirect()->route('admin.akses.index');
         }
-        
+
         // Get item details
-        $item = match($normalizedType) {
+        $item = match ($normalizedType) {
             'package' => Package::findOrFail($itemId),
             'video', 'document', 'live_session' => Material::findOrFail($itemId),
             'class' => ClassModel::findOrFail($itemId),
@@ -139,9 +149,9 @@ class AksesController extends Controller
             'tes_koran' => TesKoran::findOrFail($itemId),
             default => abort(404),
         };
-        
+
         // Get users with access
-        $usersWithAccess = match($normalizedType) {
+        $usersWithAccess = match ($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)
                 ->with('user')
                 ->orderBy('created_at', 'desc')
@@ -166,18 +176,18 @@ class AksesController extends Controller
                 ->get(),
             default => collect(),
         };
-        
+
         // Get all users (with pagination and search)
         $search = $request->get('search');
         $usersQuery = User::where('status', 'aktif')
-            ->when($search, fn($q, $s) => $q->where(function ($query) use ($s) {
+            ->when($search, fn ($q, $s) => $q->where(function ($query) use ($s) {
                 $query->where('name', 'like', "%{$s}%")
                     ->orWhere('email', 'like', "%{$s}%");
             }))
             ->orderBy('name');
-        
-        $allUsers = $usersQuery->paginate(\App\Support\Pagination::perPage(20))->withQueryString();
-        
+
+        $allUsers = $usersQuery->paginate(Pagination::perPage(20))->withQueryString();
+
         // Mark users who already have active access, while allowing expired access to be extended.
         $accessByUserId = $usersWithAccess->keyBy('user_id');
         foreach ($allUsers as $user) {
@@ -196,7 +206,7 @@ class AksesController extends Controller
                 ->orderBy('name')
                 ->get()
             : collect();
-        
+
         return view('admin.pages.akses.manage', compact(
             'type', 'item', 'usersWithAccess', 'allUsers', 'search', 'studyGroups', 'canUseStudyGroupAccess'
         ));
@@ -215,30 +225,34 @@ class AksesController extends Controller
             'end_date' => 'nullable|date|after:start_date',
             'access_type' => 'required|in:free,paid',
         ]);
-        
+
         $type = $request->type;
         $itemId = $request->item_id;
         $userId = $request->user_id;
-        
+
         // Normalize type
         $normalizedType = rtrim($type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
-        if ($normalizedType === 'classe') $normalizedType = 'class';
+        if ($normalizedType === 'live') {
+            $normalizedType = 'live_session';
+        }
+        if ($normalizedType === 'classe') {
+            $normalizedType = 'class';
+        }
 
         abort_if(
-            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'update') ?? false),
+            $normalizedType === 'tes_koran' && ! ($request->user()?->hasPermission('tes_koran', 'update') ?? false),
             403
         );
-        
+
         // Check if already has access
         $hasAccess = $this->hasActiveAccess($normalizedType, (int) $userId, (int) $itemId);
-        
+
         if ($hasAccess) {
             return response()->json(['success' => false, 'message' => 'User sudah memiliki akses']);
         }
-        
+
         $this->grantAccessToUser($normalizedType, (int) $userId, (int) $itemId, $request);
-        
+
         return response()->json(['success' => true, 'message' => 'Akses berhasil diberikan']);
     }
 
@@ -258,11 +272,15 @@ class AksesController extends Controller
         ]);
 
         $normalizedType = rtrim($request->type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
-        if ($normalizedType === 'classe') $normalizedType = 'class';
+        if ($normalizedType === 'live') {
+            $normalizedType = 'live_session';
+        }
+        if ($normalizedType === 'classe') {
+            $normalizedType = 'class';
+        }
 
         abort_if(
-            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'update') ?? false),
+            $normalizedType === 'tes_koran' && ! ($request->user()?->hasPermission('tes_koran', 'update') ?? false),
             403
         );
 
@@ -280,6 +298,7 @@ class AksesController extends Controller
             foreach ($groupUserIds as $userId) {
                 if ($this->hasActiveAccess($normalizedType, $userId, $request->integer('item_id'))) {
                     $skipped++;
+
                     continue;
                 }
 
@@ -296,7 +315,7 @@ class AksesController extends Controller
 
     private function hasActiveAccess(string $normalizedType, int $userId, int $itemId): bool
     {
-        return match($normalizedType) {
+        return match ($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)
                 ->where('user_id', $userId)
                 ->where('status', 'active')
@@ -337,13 +356,13 @@ class AksesController extends Controller
 
     private function canUseStudyGroupAccess(Request $request): bool
     {
-        return (bool) config('client.branding.class_schedule_menu_enabled', false)
-            && ($request->user()?->hasPermission('class', 'view') ?? false);
+        return app(PlanModuleService::class)->allows('study_group')
+            && ($request->user()?->hasPermission('study_group', 'view') ?? false);
     }
 
     private function grantAccessToUser(string $normalizedType, int $userId, int $itemId, Request $request): void
     {
-        match($normalizedType) {
+        match ($normalizedType) {
             'package' => $this->grantPackageAccess($userId, $itemId, $request),
             'video', 'document', 'live_session' => $this->grantMaterialAccess($userId, $itemId, $request),
             'class' => $this->grantClassAccess($userId, $itemId, $request),
@@ -363,22 +382,26 @@ class AksesController extends Controller
             'item_id' => 'required|integer',
             'user_id' => 'required|exists:users,id',
         ]);
-        
+
         $type = $request->type;
         $itemId = $request->item_id;
         $userId = $request->user_id;
-        
+
         // Normalize type
         $normalizedType = rtrim($type, 's');
-        if ($normalizedType === 'live') $normalizedType = 'live_session';
-        if ($normalizedType === 'classe') $normalizedType = 'class';
+        if ($normalizedType === 'live') {
+            $normalizedType = 'live_session';
+        }
+        if ($normalizedType === 'classe') {
+            $normalizedType = 'class';
+        }
 
         abort_if(
-            $normalizedType === 'tes_koran' && !($request->user()?->hasPermission('tes_koran', 'delete') ?? false),
+            $normalizedType === 'tes_koran' && ! ($request->user()?->hasPermission('tes_koran', 'delete') ?? false),
             403
         );
-        
-        match($normalizedType) {
+
+        match ($normalizedType) {
             'package' => UserPackageAcces::where('package_id', $itemId)->where('user_id', $userId)->delete(),
             'video', 'document', 'live_session' => UserMaterialAccess::where('material_id', $itemId)->where('user_id', $userId)->delete(),
             'class' => UserClassAccess::where('class_id', $itemId)->where('user_id', $userId)->delete(),
@@ -389,7 +412,7 @@ class AksesController extends Controller
                 ->delete(),
             default => null,
         };
-        
+
         return response()->json(['success' => true, 'message' => 'Akses berhasil dicabut']);
     }
 
@@ -398,7 +421,7 @@ class AksesController extends Controller
         $package = Package::findOrFail($packageId);
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : PurchaseAccessDuration::expiresAt($package, $startDate);
-        
+
         UserPackageAcces::updateOrCreate(
             [
                 'user_id' => $userId,
@@ -418,7 +441,7 @@ class AksesController extends Controller
 
     private function accessStatusFor(string $type, $access): string
     {
-        if (!$access) {
+        if (! $access) {
             return 'none';
         }
 
@@ -491,16 +514,20 @@ class AksesController extends Controller
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now();
         $accessType = $request->access_type === 'paid' ? 'purchased' : 'free';
 
-        UserTryoutAccess::create([
-            'user_id' => $userId,
-            'tryout_id' => $tryoutId,
-            'access_type' => $accessType,
-            'access_source' => 'direct',
-            'status' => 'not_started',
-            'expires_at' => $request->end_date
-                ? Carbon::parse($request->end_date)
-                : PurchaseAccessDuration::expiresAt($tryout, $startDate),
-        ]);
+        UserTryoutAccess::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'tryout_id' => $tryoutId,
+            ],
+            [
+                'access_type' => $accessType,
+                'access_source' => 'direct',
+                'status' => 'not_started',
+                'expires_at' => $request->end_date
+                    ? Carbon::parse($request->end_date)
+                    : PurchaseAccessDuration::expiresAt($tryout, $startDate),
+            ]
+        );
     }
 
     private function grantTesKoranAccess($userId, $tesKoranId, $request)
@@ -517,7 +544,7 @@ class AksesController extends Controller
             'total_amount' => $request->access_type === 'paid' ? ($tesKoran->price ?? 0) : 0,
             'payment_method' => 'direct',
             'status' => IndividualPurchase::STATUS_APPROVED,
-            'transaction_id' => 'DIRECT-TES-KORAN-' . $tesKoranId . '-' . $userId . '-' . time(),
+            'transaction_id' => 'DIRECT-TES-KORAN-'.$tesKoranId.'-'.$userId.'-'.time(),
             'approved_at' => $approvedAt,
             'access_expires_at' => $request->end_date
                 ? Carbon::parse($request->end_date)
@@ -540,7 +567,7 @@ class AksesController extends Controller
         $purchasableType = $this->individualPurchasableTypeForTab($tab);
         $itemIds = collect($itemIds)->filter()->values();
 
-        if (!$purchasableType || (!$itemId && $itemIds->isEmpty())) {
+        if (! $purchasableType || (! $itemId && $itemIds->isEmpty())) {
             return collect();
         }
 
@@ -548,7 +575,7 @@ class AksesController extends Controller
             ->where('purchasable_type', $purchasableType)
             ->where('status', IndividualPurchase::STATUS_PENDING)
             ->when($itemId, fn ($query) => $query->where('purchasable_id', $itemId))
-            ->when(!$itemId, fn ($query) => $query->whereIn('purchasable_id', $itemIds))
+            ->when(! $itemId, fn ($query) => $query->whereIn('purchasable_id', $itemIds))
             ->orderBy('created_at', 'asc')
             ->get();
     }
@@ -558,7 +585,7 @@ class AksesController extends Controller
         $purchasableType = $this->individualPurchasableTypeForTab($tab);
         $itemIds = collect($itemIds)->filter()->values();
 
-        if (!$purchasableType || $itemIds->isEmpty()) {
+        if (! $purchasableType || $itemIds->isEmpty()) {
             return collect();
         }
 

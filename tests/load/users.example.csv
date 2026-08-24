@@ -1,0 +1,4 @@
+# Satu akun unik per baris. Jangan commit users.csv berisi password asli.
+email,password
+peserta-001@example.test,PasswordAman123!
+peserta-002@example.test,PasswordAman123!

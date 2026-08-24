@@ -36,6 +36,8 @@ use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Symfony\Component\Process\Process;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class PackageController extends Controller
 {
@@ -69,7 +71,7 @@ class PackageController extends Controller
         
         $packagesQuery = Package::where('status', 'active')
             ->where('is_displayed', true)
-            ->with(['detailPackages'])
+            ->with(['detailPackages', 'freeClaimTryout:tryout_id,name'])
             ->withCount(['materials', 'tryouts', 'tesKorans']);
 
         if ($search !== '') {
@@ -212,6 +214,34 @@ class PackageController extends Controller
                     ]);
 
                 case 'free_conditional':
+                    if ($package->free_claim_requirement_type === 'completed_tryout') {
+                        $requiredTryout = $package->freeClaimTryout;
+
+                        if (! $requiredTryout) {
+                            return $this->freeClaimError($request, 'Tryout syarat klaim belum diatur oleh admin.');
+                        }
+
+                        $hasCompletedTryout = UserAnswer::query()
+                            ->where('user_id', Auth::id())
+                            ->where('tryout_id', $requiredTryout->tryout_id)
+                            ->where('status', 'completed')
+                            ->exists();
+
+                        if (! $hasCompletedTryout) {
+                            return $this->freeClaimError(
+                                $request,
+                                'Selesaikan Tryout "'.$requiredTryout->name.'" terlebih dahulu untuk mengklaim paket ini.'
+                            );
+                        }
+
+                        $this->grantFreeAccess($package);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Syarat Tryout sudah terpenuhi. Paket gratis berhasil diaktifkan!',
+                        ]);
+                    }
+
                     $validated = $request->validate([
                         'requirement_proofs' => 'required|array|min:1',
                         'requirement_proofs.*' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:2048',
@@ -1193,6 +1223,15 @@ class PackageController extends Controller
                 'requirement_status' => 'none',
             ]
         );
+    }
+
+    private function freeClaimError(Request $request, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $message], 422);
+        }
+
+        return back()->with('error', $message);
     }
 
     private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, array $proofs, ?string $userNotes = null): void
@@ -3866,6 +3905,62 @@ class PackageController extends Controller
         ));
     }
 
+    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type)
+    {
+        abort_unless(in_array($type, ['soal', 'pembahasan'], true), 404);
+
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
+        $tryout = Tryout::findOrFail($id_tryout);
+        abort_unless($tryout->show_discussion, 404);
+
+        if (! $isFreeTryout) {
+            $hasAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            abort_unless($hasAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        $attemptAnswers = UserAnswer::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->where('status', 'completed')
+            ->get(['tryout_detail_id']);
+
+        if ($attemptAnswers->isEmpty()) {
+            return redirect()->route('user.package.tryout', $id_package)
+                ->with('error', 'Anda belum mengerjakan tryout ini.');
+        }
+
+        $questions = \App\Models\Question::query()
+            ->with(['questionOptions', 'tryoutDetail'])
+            ->whereIn('tryout_detail_id', $attemptAnswers->pluck('tryout_detail_id'))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        $options = new Options;
+        $options->set('isRemoteEnabled', false);
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml(view('user.pages.package.tryout-download', compact('tryout', 'questions', 'type'))->render());
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = Str::slug($tryout->name).'-'.$type.'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
     public function chatPembahasanAi(Request $request, $id_package, $id_tryout, $token, AiDiscussionService $aiDiscussionService)
     {
         $validated = $request->validate([
@@ -4239,11 +4334,7 @@ class PackageController extends Controller
 
         $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
             ->where('access_source', 'direct')
-            ->whereIn('access_type', ['free', 'purchased', 'paid'])
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
+            ->active()
             ->pluck('tryout_id')
             ->toArray();
 
@@ -4327,6 +4418,7 @@ class PackageController extends Controller
 
         $videoMaterials = $myMaterials->where('type', 'video')->values();
         $documentMaterials = $myMaterials->where('type', 'document')->values();
+        $liveSessionMaterials = $myMaterials->where('type', 'live_session')->values();
 
         $completedMaterialIds = UserMaterialAccess::where('user_id', $user->id)
             ->where('status', 'completed')
@@ -4383,6 +4475,7 @@ class PackageController extends Controller
             'myClasses',
             'videoMaterials',
             'documentMaterials',
+            'liveSessionMaterials',
             'myTryouts',
             'myTesKorans',
             'packageProgress',
@@ -4405,16 +4498,19 @@ class PackageController extends Controller
         
         $user = Auth::user();
         $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $liveSessionAvailable = config('client.live_session_available', false);
         $relations = $tesKoranEnabled
             ? [
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
                 'materialsThroughDetail.categories',
+                'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
                 'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
                 'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
             ]
             : [
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
                 'materialsThroughDetail.categories',
+                'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
                 'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
             ];
 
@@ -4446,6 +4542,10 @@ class PackageController extends Controller
         });
         
         foreach ($sortedMaterials as $material) {
+            if (! $liveSessionAvailable && $material->type === 'live_session') {
+                continue;
+            }
+
             $progress = UserMaterialAccess::where('user_id', $user->id)
                 ->where('material_id', $material->material_id)
                 ->first();
@@ -4472,6 +4572,49 @@ class PackageController extends Controller
                 'is_left' => $orderCounter % 2 === 1,
             ]);
             
+            $orderCounter++;
+        }
+
+        // Kelas adalah bagian dari konten paket, sehingga harus dapat diakses dari roadmap paket.
+        foreach ($package->classes->sortBy(fn (ClassModel $class) => $class->schedule_time ?? $class->class_id) as $class) {
+            $classStatus = match (true) {
+                $class->status === 'cancelled' => 'cancelled',
+                $class->status === 'completed' => 'completed',
+                $class->schedule_time?->isFuture() => 'upcoming',
+                default => 'ongoing',
+            };
+            $statusMeta = match ($classStatus) {
+                'upcoming' => ['Akan Datang', 'bg-blue-100 text-blue-700'],
+                'ongoing' => ['Berlangsung', 'bg-emerald-100 text-emerald-700'],
+                'completed' => ['Selesai', 'bg-gray-100 text-gray-600'],
+                default => ['Dibatalkan', 'bg-red-100 text-red-700'],
+            };
+            $schedule = $class->schedule_time?->translatedFormat('d M Y, H:i');
+            $subtitle = collect([
+                $class->tentor?->name ?? $class->mentor,
+                $schedule,
+            ])->filter()->implode(' · ') ?: 'Jadwal akan segera diinformasikan';
+
+            if ($classStatus === 'completed') {
+                $completedCount++;
+            }
+
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'class',
+                'title' => $class->title,
+                'subtitle' => $subtitle,
+                'icon' => 'ri-video-on-line',
+                'route' => route('user.class.zoom', $class),
+                'is_completed' => $classStatus === 'completed',
+                'is_in_progress' => $classStatus === 'ongoing',
+                'progress_percent' => 0,
+                'status_text' => $statusMeta[0],
+                'status_class' => $statusMeta[1],
+                'class_status' => $classStatus,
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+
             $orderCounter++;
         }
         
@@ -4663,7 +4806,7 @@ class PackageController extends Controller
                 'detailPackages',
             ];
 
-        $package = Package::with($relations)
+        $package = Package::with(array_merge($relations, ['freeClaimTryout:tryout_id,name']))
             ->where('status', 'active')
             ->where('is_displayed', true)
             ->findOrFail($package_id);

@@ -39,7 +39,7 @@ $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         <i class="ri-file-text-line mr-1"></i>Dokumen
     </a>
     <a href="{{ route('user.material.live-sessions') }}" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap tab-active">
-        <i class="ri-live-line mr-1"></i>Live
+        <i class="ri-live-line mr-1"></i>{{ $liveSessionLabel }}
     </a>
 </div>
 

@@ -3,8 +3,7 @@
     $profileUrl = auth()->user()?->isTutor()
         ? route('user.profile.index')
         : route('admin.profile.index');
-    $canShowProfile = auth()->user()?->isSuperAdmin()
-        || app(\App\Services\PlanModuleService::class)->allows('profile');
+    $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
     $headerPrimary = $clientBranding['header_primary_color'] ?? false;
     $navClasses = $headerPrimary ? 'bg-primary border-b border-primary text-white' : 'bg-white border-b border-gray-200';
     $toggleButtonClasses = $headerPrimary
@@ -34,7 +33,7 @@
                     </svg>
                 </button>
                 <a href="#" class="flex min-w-0 ms-2 md:me-12 items-center">
-                    <img src="{{ $clientBranding['logo_url'] }}" class="w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
+                    <img src="{{ $clientBranding['logo_url'] }}" class="client-brand-logo w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
                         alt="{{ $clientBranding['name'] }} Logo" />
                     <div class="flex min-w-0 flex-col justify-start">
                         <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>

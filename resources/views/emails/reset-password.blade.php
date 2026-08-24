@@ -37,7 +37,7 @@
                     <tr>
                         <td style="padding-bottom: 24px; padding-left: 4px;">
                             @if(!empty($clientBranding['logo_url']))
-                                <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] ?? config('client.branding.name') }}" style="height: 40px; max-height: 48px; width: auto; display: block; border: 0;">
+                                <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] ?? config('client.branding.name') }}" style="height: 40px; max-height: 48px; width: {{ ($clientBranding['logo_display_mode'] ?? 'square') === 'original' ? 'auto' : '40px' }}; display: block; border: 0;">
                             @else
                                 <span style="font-size: 20px; font-weight: 700; color: {{ $clientBranding['primary_color'] ?? '#1c3259' }}; letter-spacing: -0.5px;">
                                     {{ $clientBranding['name'] ?? config('client.branding.name') }}
