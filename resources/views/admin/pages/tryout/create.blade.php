@@ -28,6 +28,7 @@
     $certificateTemplates = $certificateTemplates ?? collect();
     $selectedCertificateTemplateId = old('certificate_template_id', $tryout->certificate_template_id ?? '');
     $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
+    $lobbyTokenEnabled = old('lobby_token_enabled', $tryout->lobby_token_enabled ?? false);
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
     $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
@@ -364,6 +365,25 @@
                             <x-ui.tooltip>Sertifikat akan digenerate jika diaktifkan. Wajib memiliki template.</x-ui.tooltip>
                         </span>
                     </label>
+
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" id="lobby_token_enabled" name="lobby_token_enabled" value="1"
+                                {{ $lobbyTokenEnabled ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
+                            <span class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                <span class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                            </span>
+                            <span class="text-sm font-medium text-gray-700">Wajibkan Token di Lobby</span>
+                        </label>
+                        <div id="lobby-token-input-wrapper" class="mt-3 {{ $lobbyTokenEnabled ? '' : 'hidden' }}">
+                            <label for="lobby_token" class="mb-2 block text-sm font-medium text-gray-700">Token Lobby</label>
+                            <input type="text" id="lobby_token" name="lobby_token" minlength="6" maxlength="100" autocomplete="off"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="{{ isset($tryout) && $tryout->lobby_token_hash ? 'Kosongkan untuk mempertahankan token lama' : 'Minimal 6 karakter' }}">
+                            <p class="mt-2 text-xs text-gray-600">Peserta wajib memasukkan token ini di lobby sebelum dapat memulai. Ini berbeda dari syarat klaim paket.</p>
+                            @error('lobby_token')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
 
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="show_discussion" name="show_discussion" value="1"
@@ -1395,6 +1415,9 @@
     const priceWrapper = root.querySelector('#price-wrapper');
     const requirementWrapper = root.querySelector('#conditional-requirement-wrapper');
     const requirementInput = root.querySelector('#conditional_requirement');
+    const lobbyTokenEnabled = root.querySelector('#lobby_token_enabled');
+    const lobbyTokenInputWrapper = root.querySelector('#lobby-token-input-wrapper');
+    const lobbyTokenInput = root.querySelector('#lobby_token');
     const durationWrapper = root.querySelector('#access-duration-wrapper');
     const syncAccessDuration = () => {
       if (!durationUnit || !durationValue) return;
@@ -1412,9 +1435,17 @@
       durationValue.disabled = !isForSale || durationUnit.value === 'forever';
     };
     syncAccessDuration();
+    const hasExistingLobbyToken = @json(isset($tryout) && filled($tryout->lobby_token_hash));
+    const syncLobbyToken = () => {
+      const enabled = Boolean(lobbyTokenEnabled?.checked);
+      lobbyTokenInputWrapper?.classList.toggle('hidden', !enabled);
+      lobbyTokenInput?.toggleAttribute('required', enabled && !hasExistingLobbyToken);
+    };
+    syncLobbyToken();
     durationUnit?.addEventListener('change', syncAccessDuration);
     saleCheckbox?.addEventListener('change', syncAccessDuration);
     typePriceSelect?.addEventListener('change', syncAccessDuration);
+    lobbyTokenEnabled?.addEventListener('change', syncLobbyToken);
 
     typeSelect.__tryoutBound = true;
   }

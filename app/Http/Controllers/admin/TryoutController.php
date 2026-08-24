@@ -17,6 +17,7 @@ use App\Services\PurchaseAccessDuration;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Collection;
@@ -174,6 +175,7 @@ class TryoutController extends Controller
         $request->validate($this->tryoutValidationRules());
         $scoringMethod = $this->normalizedScoringMethod($request);
         $saleData = $this->individualSaleData($request);
+        $lobbyTokenData = $this->lobbyTokenData($request);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
@@ -219,6 +221,7 @@ class TryoutController extends Controller
                 ...$saleData,
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
+                ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'show_result_scores' => $request->has('show_result_scores'),
                 'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
@@ -278,6 +281,7 @@ class TryoutController extends Controller
         // tidak mengubah arti nilai dan riwayat hasil peserta.
         $scoringMethod = $this->storedScoringMethod($tryout);
         $saleData = $this->individualSaleData($request);
+        $lobbyTokenData = $this->lobbyTokenData($request, $tryout);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
 
@@ -339,6 +343,7 @@ class TryoutController extends Controller
                 ...$saleData,
                 'is_displayed' => $request->has('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
+                ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'show_result_scores' => $request->has('show_result_scores'),
                 'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
@@ -992,6 +997,8 @@ class TryoutController extends Controller
             'is_irt' => 'boolean',
             'scoring_method' => ['nullable', Rule::in(['normal', 'irt', 'irt_utbk', 'toefl_itp'])],
             'show_discussion' => 'boolean',
+            'lobby_token_enabled' => 'boolean',
+            'lobby_token' => 'nullable|string|min:6|max:100',
             'show_leaderboard' => 'boolean',
             'show_result_scores' => 'boolean',
             'result_score_display' => ['nullable', Rule::in(['total_and_subtest', 'subtest_only'])],
@@ -1056,6 +1063,25 @@ class TryoutController extends Controller
         }
 
         return $rules;
+    }
+
+    private function lobbyTokenData(Request $request, ?Tryout $tryout = null): array
+    {
+        $enabled = $request->boolean('lobby_token_enabled');
+        $token = trim((string) $request->input('lobby_token'));
+
+        if ($enabled && $token === '' && blank($tryout?->lobby_token_hash)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'lobby_token' => 'Token lobby wajib diisi saat pengaman token diaktifkan.',
+            ]);
+        }
+
+        return [
+            'lobby_token_enabled' => $enabled,
+            'lobby_token_hash' => ! $enabled
+                ? null
+                : ($token !== '' ? Hash::make($token) : $tryout?->lobby_token_hash),
+        ];
     }
 
     /**

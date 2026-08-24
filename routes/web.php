@@ -221,6 +221,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
+        Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/download/{type}', [PackageController::class, 'downloadPembahasanTryout'])
+            ->whereIn('type', ['soal', 'pembahasan'])
+            ->name('user.package.tryout.pembahasan.download');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-chat');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools/history', [AiLearningToolController::class, 'history'])->middleware(['client-feature:ai-discussion', 'throttle:30,1'])->name('user.package.tryout.pembahasan.ai-tools.history');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-tools');
@@ -292,6 +295,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('tryout')->group(function () {
         Route::get('/{id_package}/{id_tryout}/lobby', [TryoutController::class, 'indexLobby'])->name('user.tryout.lobby');
+        Route::post('/{id_package}/{id_tryout}/lobby/token', [TryoutController::class, 'verifyLobbyToken'])
+            ->middleware('throttle:5,1')
+            ->name('user.tryout.lobby.token.verify');
         Route::get('/{id_package}/{id_tryout}/tryout/{number}', [TryoutController::class, 'indexTryout'])->name('user.tryout.index');
         Route::post('/{id_package}/{id_tryout}/tryout/{number}/save', [TryoutController::class, 'saveAnswer'])->name('user.tryout.save');
         Route::post('/{id_package}/{id_tryout}/subtest/flush', [TryoutController::class, 'flushSubtestAnswers'])->name('user.tryout.subtest.flush');

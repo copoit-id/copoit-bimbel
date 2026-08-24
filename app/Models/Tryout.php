@@ -7,6 +7,7 @@ use App\Services\TutorContentVisibilityService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Hash;
 
 class Tryout extends Model
 {
@@ -29,6 +30,7 @@ class Tryout extends Model
         'is_displayed' => 'boolean',
         'type_price' => 'string',
         'show_discussion' => 'boolean',
+        'lobby_token_enabled' => 'boolean',
         'show_leaderboard' => 'boolean',
         'show_result_scores' => 'boolean',
         'result_score_display' => 'string',
@@ -69,6 +71,16 @@ class Tryout extends Model
         return $this->scoring_method === 'irt_utbk'
             || $this->scoring_method === 'irt'
             || $this->is_irt;
+    }
+
+    public function requiresLobbyToken(): bool
+    {
+        return (bool) $this->lobby_token_enabled && filled($this->lobby_token_hash);
+    }
+
+    public function lobbyTokenIsValid(string $token): bool
+    {
+        return $this->requiresLobbyToken() && Hash::check($token, $this->lobby_token_hash);
     }
 
     public function shouldShowResultScores(): bool

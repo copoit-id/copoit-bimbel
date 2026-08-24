@@ -36,6 +36,8 @@ use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Symfony\Component\Process\Process;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class PackageController extends Controller
 {
@@ -69,7 +71,7 @@ class PackageController extends Controller
         
         $packagesQuery = Package::where('status', 'active')
             ->where('is_displayed', true)
-            ->with(['detailPackages'])
+            ->with(['detailPackages', 'freeClaimTryout:tryout_id,name'])
             ->withCount(['materials', 'tryouts', 'tesKorans']);
 
         if ($search !== '') {
@@ -212,6 +214,34 @@ class PackageController extends Controller
                     ]);
 
                 case 'free_conditional':
+                    if ($package->free_claim_requirement_type === 'completed_tryout') {
+                        $requiredTryout = $package->freeClaimTryout;
+
+                        if (! $requiredTryout) {
+                            return $this->freeClaimError($request, 'Tryout syarat klaim belum diatur oleh admin.');
+                        }
+
+                        $hasCompletedTryout = UserAnswer::query()
+                            ->where('user_id', Auth::id())
+                            ->where('tryout_id', $requiredTryout->tryout_id)
+                            ->where('status', 'completed')
+                            ->exists();
+
+                        if (! $hasCompletedTryout) {
+                            return $this->freeClaimError(
+                                $request,
+                                'Selesaikan Tryout "'.$requiredTryout->name.'" terlebih dahulu untuk mengklaim paket ini.'
+                            );
+                        }
+
+                        $this->grantFreeAccess($package);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Syarat Tryout sudah terpenuhi. Paket gratis berhasil diaktifkan!',
+                        ]);
+                    }
+
                     $validated = $request->validate([
                         'requirement_proofs' => 'required|array|min:1',
                         'requirement_proofs.*' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:2048',
@@ -1193,6 +1223,15 @@ class PackageController extends Controller
                 'requirement_status' => 'none',
             ]
         );
+    }
+
+    private function freeClaimError(Request $request, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $message], 422);
+        }
+
+        return back()->with('error', $message);
     }
 
     private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, array $proofs, ?string $userNotes = null): void
@@ -3866,6 +3905,62 @@ class PackageController extends Controller
         ));
     }
 
+    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type)
+    {
+        abort_unless(in_array($type, ['soal', 'pembahasan'], true), 404);
+
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
+        $tryout = Tryout::findOrFail($id_tryout);
+        abort_unless($tryout->show_discussion, 404);
+
+        if (! $isFreeTryout) {
+            $hasAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            abort_unless($hasAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        $attemptAnswers = UserAnswer::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->where('status', 'completed')
+            ->get(['tryout_detail_id']);
+
+        if ($attemptAnswers->isEmpty()) {
+            return redirect()->route('user.package.tryout', $id_package)
+                ->with('error', 'Anda belum mengerjakan tryout ini.');
+        }
+
+        $questions = \App\Models\Question::query()
+            ->with(['questionOptions', 'tryoutDetail'])
+            ->whereIn('tryout_detail_id', $attemptAnswers->pluck('tryout_detail_id'))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        $options = new Options;
+        $options->set('isRemoteEnabled', false);
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml(view('user.pages.package.tryout-download', compact('tryout', 'questions', 'type'))->render());
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = Str::slug($tryout->name).'-'.$type.'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
     public function chatPembahasanAi(Request $request, $id_package, $id_tryout, $token, AiDiscussionService $aiDiscussionService)
     {
         $validated = $request->validate([
@@ -4711,7 +4806,7 @@ class PackageController extends Controller
                 'detailPackages',
             ];
 
-        $package = Package::with($relations)
+        $package = Package::with(array_merge($relations, ['freeClaimTryout:tryout_id,name']))
             ->where('status', 'active')
             ->where('is_displayed', true)
             ->findOrFail($package_id);

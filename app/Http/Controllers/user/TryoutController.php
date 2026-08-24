@@ -56,6 +56,23 @@ class TryoutController extends Controller
         return null;
     }
 
+    private function lobbyTokenSessionKey(Tryout $tryout): string
+    {
+        return 'tryout_lobby_token.'.$tryout->tryout_id.'.'.Auth::id();
+    }
+
+    private function hasVerifiedLobbyToken(Tryout $tryout): bool
+    {
+        if (! $tryout->requiresLobbyToken()) {
+            return true;
+        }
+
+        return hash_equals(
+            hash('sha256', (string) $tryout->lobby_token_hash),
+            (string) session($this->lobbyTokenSessionKey($tryout))
+        );
+    }
+
     private function getSubtestIndex(array $subtests, array $currentSubtest): int
     {
         foreach ($subtests as $index => $info) {
@@ -914,6 +931,8 @@ class TryoutController extends Controller
         ]);
         $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
+        $hasVerifiedLobbyToken = $this->hasVerifiedLobbyToken($tryout);
+
         return view('user.pages.tryout.lobby', compact(
             'package',
             'tryout',
@@ -924,8 +943,46 @@ class TryoutController extends Controller
             'effectiveProctoringSettings',
             'remainingAttempts',
             'hasInProgressAttempt',
-            'isAttemptLimitReached'
+            'isAttemptLimitReached',
+            'hasVerifiedLobbyToken'
         ));
+    }
+
+    public function verifyLobbyToken(Request $request, $id_package, $id_tryout)
+    {
+        $request->validate(['lobby_token' => 'required|string|max:100']);
+
+        $tryout = Tryout::findOrFail($id_tryout);
+        $now = Carbon::now('Asia/Jakarta');
+
+        if ($id_package !== 'free') {
+            $package = Package::findOrFail($id_package);
+            $hasPackageAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query) use ($now): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            abort_unless($hasPackageAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        if (! $tryout->requiresLobbyToken()) {
+            return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id]);
+        }
+
+        if (! $tryout->lobbyTokenIsValid((string) $request->input('lobby_token'))) {
+            return back()->withErrors(['lobby_token' => 'Token lobby tidak sesuai.'])->withInput();
+        }
+
+        session([
+            $this->lobbyTokenSessionKey($tryout) => hash('sha256', (string) $tryout->lobby_token_hash),
+        ]);
+
+        return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id])
+            ->with('success', 'Token lobby berhasil diverifikasi.');
     }
 
     public function indexTryout($id_package, $id_tryout, $number)
@@ -981,6 +1038,12 @@ class TryoutController extends Controller
 
         if (! $hasDirectAccess && ($availabilityError = $this->tryoutAvailabilityError($tryout, $now))) {
             return redirect()->back()->with('error', $availabilityError);
+        }
+
+        if (! $this->hasVerifiedLobbyToken($tryout)) {
+            return redirect()
+                ->route('user.tryout.lobby', [$package?->package_id ?? 'free', $tryout->tryout_id])
+                ->with('error', 'Masukkan token lobby terlebih dahulu untuk memulai tryout.');
         }
 
         // Get all tryout details dalam urutan yang benar

@@ -14,6 +14,8 @@
         $aiLearningToolEndpointUrl = route('user.package.tryout.pembahasan.ai-tools', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiLearningHistoryEndpointUrl = route('user.package.tryout.pembahasan.ai-tools.history', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
+        $downloadQuestionsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'soal']);
+        $downloadExplanationsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'pembahasan']);
         $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
         $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
         $hasAnyActiveAiGatewayPackage = $activeAiGatewaySubscriptions->isNotEmpty();
@@ -148,6 +150,8 @@
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
+                <a href="{{ $downloadQuestionsUrl }}" class="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"><i class="ri-download-2-line mr-1"></i>Unduh Soal</a>
+                <a href="{{ $downloadExplanationsUrl }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-file-download-line mr-1"></i>Unduh Pembahasan</a>
                 @if($aiDiscussionEnabled)
                     <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-pushpin-2-line mr-1"></i>Catatan Dipin</a>
                 @endif

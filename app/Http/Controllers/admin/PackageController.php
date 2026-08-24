@@ -51,8 +51,9 @@ class PackageController extends Controller
         }
 
         $classes = ClassModel::all();
+        $claimTryouts = Tryout::query()->orderBy('name')->get(['tryout_id', 'name', 'is_active']);
 
-        return view('admin.pages.package.create', compact('classes'));
+        return view('admin.pages.package.create', compact('classes', 'claimTryouts'));
     }
 
     public function store(Request $request)
@@ -80,6 +81,8 @@ class PackageController extends Controller
                 'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
                 'conditional_requirement' => 'nullable|string',
+                'free_claim_requirement_type' => 'nullable|in:manual_proof,completed_tryout',
+                'free_claim_tryout_id' => 'nullable|integer|exists:tryouts,tryout_id',
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
             ];
@@ -95,9 +98,15 @@ class PackageController extends Controller
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
-                $validationRules['conditional_requirement'] = $request->type_price === 'free_conditional'
-                    ? 'required|string'
-                    : 'nullable|string';
+                if ($request->type_price === 'free_conditional') {
+                    $validationRules['free_claim_requirement_type'] = 'required|in:manual_proof,completed_tryout';
+                    $validationRules['conditional_requirement'] = $request->input('free_claim_requirement_type') === 'manual_proof'
+                        ? 'required|string'
+                        : 'nullable|string';
+                    $validationRules['free_claim_tryout_id'] = $request->input('free_claim_requirement_type') === 'completed_tryout'
+                        ? 'required|integer|exists:tryouts,tryout_id'
+                        : 'nullable|integer|exists:tryouts,tryout_id';
+                }
             }
 
             $validated = $request->validate($validationRules);
@@ -116,8 +125,16 @@ class PackageController extends Controller
 
             $validated['features'] = ! empty($features) ? json_encode($features) : null;
 
-            $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
+            $isTryoutClaim = $request->type_price === 'free_conditional'
+                && ($validated['free_claim_requirement_type'] ?? null) === 'completed_tryout';
+            $validated['conditional_requirement'] = $request->type_price === 'free_conditional' && ! $isTryoutClaim
                 ? $validated['conditional_requirement']
+                : null;
+            $validated['free_claim_requirement_type'] = $request->type_price === 'free_conditional'
+                ? ($validated['free_claim_requirement_type'] ?? 'manual_proof')
+                : null;
+            $validated['free_claim_tryout_id'] = $isTryoutClaim
+                ? $validated['free_claim_tryout_id']
                 : null;
 
             if ($request->hasFile('image')) {
@@ -139,8 +156,9 @@ class PackageController extends Controller
         try {
             $package = Package::findOrFail($id);
             $classes = ClassModel::all();
+            $claimTryouts = Tryout::query()->orderBy('name')->get(['tryout_id', 'name', 'is_active']);
 
-            return view('admin.pages.package.create', compact('package', 'classes'));
+            return view('admin.pages.package.create', compact('package', 'classes', 'claimTryouts'));
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
@@ -166,6 +184,8 @@ class PackageController extends Controller
                 'telegram_group_url' => 'nullable|url|max:255',
                 'features' => 'nullable|array',
                 'conditional_requirement' => 'nullable|string',
+                'free_claim_requirement_type' => 'nullable|in:manual_proof,completed_tryout',
+                'free_claim_tryout_id' => 'nullable|integer|exists:tryouts,tryout_id',
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
             ];
@@ -181,9 +201,15 @@ class PackageController extends Controller
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
-                $validationRules['conditional_requirement'] = $request->type_price === 'free_conditional'
-                    ? 'required|string'
-                    : 'nullable|string';
+                if ($request->type_price === 'free_conditional') {
+                    $validationRules['free_claim_requirement_type'] = 'required|in:manual_proof,completed_tryout';
+                    $validationRules['conditional_requirement'] = $request->input('free_claim_requirement_type') === 'manual_proof'
+                        ? 'required|string'
+                        : 'nullable|string';
+                    $validationRules['free_claim_tryout_id'] = $request->input('free_claim_requirement_type') === 'completed_tryout'
+                        ? 'required|integer|exists:tryouts,tryout_id'
+                        : 'nullable|integer|exists:tryouts,tryout_id';
+                }
             }
 
             $validated = $request->validate($validationRules);
@@ -202,8 +228,16 @@ class PackageController extends Controller
 
             $validated['features'] = ! empty($features) ? json_encode($features) : null;
 
-            $validated['conditional_requirement'] = $request->type_price === 'free_conditional'
+            $isTryoutClaim = $request->type_price === 'free_conditional'
+                && ($validated['free_claim_requirement_type'] ?? null) === 'completed_tryout';
+            $validated['conditional_requirement'] = $request->type_price === 'free_conditional' && ! $isTryoutClaim
                 ? $validated['conditional_requirement']
+                : null;
+            $validated['free_claim_requirement_type'] = $request->type_price === 'free_conditional'
+                ? ($validated['free_claim_requirement_type'] ?? 'manual_proof')
+                : null;
+            $validated['free_claim_tryout_id'] = $isTryoutClaim
+                ? $validated['free_claim_tryout_id']
                 : null;
 
             // Handle image upload
