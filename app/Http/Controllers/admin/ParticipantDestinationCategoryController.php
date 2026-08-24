@@ -6,9 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\ClientProfile;
 use App\Models\ParticipantDestinationCategory;
 use App\Services\OfficialParticipantDestinationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ParticipantDestinationCategoryController extends Controller
 {
@@ -94,6 +100,212 @@ class ParticipantDestinationCategoryController extends Controller
             ->with('success', 'Tujuan / instansi berhasil dihapus.');
     }
 
+    public function downloadImportTemplate(): StreamedResponse
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([
+            ['Universitas', 'Jurusan', 'Status', 'Urutan'],
+            ['Universitas Indonesia', 'Ilmu Komputer', 'aktif', 1],
+            ['Universitas Indonesia', 'Sistem Informasi', 'aktif', 2],
+            ['Institut Teknologi Bandung', 'Teknik Informatika', 'aktif', 1],
+        ]);
+        $sheet->getStyle('A1:D1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:D1')->getFill()->setFillType('solid')->getStartColor()->setARGB('FFEFF6FF');
+        $sheet->freezePane('A2');
+
+        foreach (['A' => 34, 'B' => 34, 'C' => 14, 'D' => 12] as $column => $width) {
+            $sheet->getColumnDimension($column)->setWidth($width);
+        }
+
+        return response()->streamDownload(function () use ($spreadsheet): void {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, 'template-import-universitas-jurusan.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'excel_file' => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
+        ]);
+
+        try {
+            $rows = IOFactory::load($request->file('excel_file')->getRealPath())
+                ->getActiveSheet()
+                ->toArray(null, true, true, false);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'File Excel tidak dapat dibaca. Gunakan file .xlsx atau .xls yang valid.');
+        }
+
+        if (count($rows) < 2) {
+            return back()->with('error', 'File Excel belum memiliki data untuk diimpor.');
+        }
+
+        $headers = collect($rows[0])
+            ->map(fn ($header): string => $this->normalizeImportHeader((string) $header))
+            ->all();
+        $columns = [
+            'institution' => $this->findImportColumn($headers, ['universitas', 'university', 'instansi', 'institusi']),
+            'program' => $this->findImportColumn($headers, ['jurusan', 'program_studi', 'prodi', 'program']),
+            'status' => $this->findImportColumn($headers, ['status']),
+            'sort_order' => $this->findImportColumn($headers, ['urutan', 'sort_order', 'nomor_urut']),
+        ];
+
+        if ($columns['institution'] === null || $columns['program'] === null) {
+            return back()->with('error', 'Header wajib: Universitas dan Jurusan. Unduh template agar format sesuai.');
+        }
+
+        $records = [];
+        $errors = [];
+
+        foreach (array_slice($rows, 1) as $offset => $row) {
+            $line = $offset + 2;
+            $institution = trim((string) ($row[$columns['institution']] ?? ''));
+            $program = trim((string) ($row[$columns['program']] ?? ''));
+            $status = $this->parseImportStatus((string) ($columns['status'] === null ? '' : ($row[$columns['status']] ?? '')));
+            $sortOrder = $this->parseImportSortOrder((string) ($columns['sort_order'] === null ? '' : ($row[$columns['sort_order']] ?? '')));
+            $rowErrors = [];
+
+            if ($institution === '' && $program === '') {
+                continue;
+            }
+
+            if ($institution === '') {
+                $rowErrors[] = "Baris {$line}: Universitas wajib diisi.";
+            }
+
+            if (mb_strlen($institution) > 255 || mb_strlen($program) > 255) {
+                $rowErrors[] = "Baris {$line}: Universitas dan jurusan maksimal 255 karakter.";
+            }
+
+            if ($status === null) {
+                $rowErrors[] = "Baris {$line}: Status harus aktif atau nonaktif.";
+            }
+
+            if ($sortOrder === null) {
+                $rowErrors[] = "Baris {$line}: Urutan harus berupa angka dari 0 sampai 999999.";
+            }
+
+            $errors = [...$errors, ...$rowErrors];
+
+            if (count($errors) >= 10) {
+                break;
+            }
+
+            if ($rowErrors !== []) {
+                continue;
+            }
+
+            $records[] = [
+                'institution' => $institution,
+                'program' => $program,
+                'is_active' => $status,
+                'sort_order' => $sortOrder,
+            ];
+        }
+
+        if ($errors !== []) {
+            return back()->with('error', "Impor dibatalkan.\n".implode("\n", $errors));
+        }
+
+        if ($records === []) {
+            return back()->with('error', 'Tidak ada data valid yang dapat diimpor.');
+        }
+
+        try {
+            [$created, $updated] = DB::transaction(function () use ($records): array {
+                $created = 0;
+                $updated = 0;
+                $parents = ParticipantDestinationCategory::query()
+                    ->root()
+                    ->get(['id', 'name', 'slug', 'is_active', 'sort_order'])
+                    ->keyBy(fn (ParticipantDestinationCategory $category): string => $this->normalizeImportValue($category->name));
+                $usedRootSlugs = $parents
+                    ->pluck('slug')
+                    ->map(fn (string $slug): string => Str::lower($slug))
+                    ->flip()
+                    ->all();
+                $institutionRows = collect($records)
+                    ->keyBy(fn (array $record): string => $this->normalizeImportValue($record['institution']));
+
+                foreach ($institutionRows as $key => $record) {
+                    $parent = $parents->get($key);
+                    $attributes = [
+                        'is_active' => $record['is_active'],
+                        'sort_order' => $record['sort_order'],
+                    ];
+
+                    if (! $parent) {
+                        $parent = ParticipantDestinationCategory::create([
+                            'name' => $record['institution'],
+                            'slug' => $this->makeImportSlug($record['institution'], $usedRootSlugs),
+                            ...$attributes,
+                        ]);
+                        $parents->put($key, $parent);
+                        $created++;
+                    } elseif ($parent->is_active !== $attributes['is_active'] || $parent->sort_order !== $attributes['sort_order']) {
+                        $parent->update($attributes);
+                        $updated++;
+                    }
+                }
+
+                $children = ParticipantDestinationCategory::query()
+                    ->whereIn('parent_id', $parents->pluck('id'))
+                    ->get(['id', 'parent_id', 'name', 'slug', 'is_active', 'sort_order']);
+                $childrenByKey = $children->keyBy(fn (ParticipantDestinationCategory $category): string => $category->parent_id.'|'.$this->normalizeImportValue($category->name));
+                $usedChildSlugs = $children
+                    ->groupBy('parent_id')
+                    ->map(fn ($items): array => $items->pluck('slug')->map(fn (string $slug): string => Str::lower($slug))->flip()->all())
+                    ->all();
+                $programRows = collect($records)
+                    ->filter(fn (array $record): bool => $record['program'] !== '')
+                    ->mapWithKeys(function (array $record) use ($parents): array {
+                        $parent = $parents->get($this->normalizeImportValue($record['institution']));
+
+                        return [$parent->id.'|'.$this->normalizeImportValue($record['program']) => $record];
+                    });
+
+                foreach ($programRows as $key => $record) {
+                    [$parentId] = explode('|', $key, 2);
+                    $child = $childrenByKey->get($key);
+                    $attributes = [
+                        'is_active' => $record['is_active'],
+                        'sort_order' => $record['sort_order'],
+                    ];
+
+                    if (! $child) {
+                        $usedChildSlugs[$parentId] ??= [];
+                        $child = ParticipantDestinationCategory::create([
+                            'parent_id' => (int) $parentId,
+                            'name' => $record['program'],
+                            'slug' => $this->makeImportSlug($record['program'], $usedChildSlugs[$parentId]),
+                            ...$attributes,
+                        ]);
+                        $childrenByKey->put($key, $child);
+                        $created++;
+                    } elseif ($child->is_active !== $attributes['is_active'] || $child->sort_order !== $attributes['sort_order']) {
+                        $child->update($attributes);
+                        $updated++;
+                    }
+                }
+
+                return [$created, $updated];
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Impor gagal diproses. Tidak ada data yang disimpan.');
+        }
+
+        return redirect()
+            ->route('admin.participant-destination-categories.index')
+            ->with('success', "Impor selesai: {$created} data baru dan {$updated} data diperbarui.");
+    }
+
     public function officialInstitutions(Request $request, OfficialParticipantDestinationService $destinationService)
     {
         $validated = $request->validate([
@@ -173,6 +385,78 @@ class ParticipantDestinationCategoryController extends Controller
             $slug = $baseSlug . '-' . $counter;
             $counter++;
         }
+
+        return $slug;
+    }
+
+    private function normalizeImportHeader(string $header): string
+    {
+        return Str::of($header)
+            ->ascii()
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->toString();
+    }
+
+    private function findImportColumn(array $headers, array $acceptedHeaders): ?int
+    {
+        foreach ($acceptedHeaders as $header) {
+            $index = array_search($header, $headers, true);
+
+            if ($index !== false) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    private function parseImportStatus(string $value): ?bool
+    {
+        $value = Str::lower(trim($value));
+
+        return match ($value) {
+            '', 'aktif', 'active', '1', 'ya', 'yes' => true,
+            'nonaktif', 'inactive', '0', 'tidak', 'no' => false,
+            default => null,
+        };
+    }
+
+    private function parseImportSortOrder(string $value): ?int
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return 0;
+        }
+
+        if (! preg_match('/^\d+$/', $value)) {
+            return null;
+        }
+
+        $sortOrder = (int) $value;
+
+        return $sortOrder <= 999999 ? $sortOrder : null;
+    }
+
+    private function normalizeImportValue(string $value): string
+    {
+        return Str::lower(trim(preg_replace('/\s+/', ' ', $value)));
+    }
+
+    private function makeImportSlug(string $name, array &$usedSlugs): string
+    {
+        $baseSlug = Str::slug($name) ?: 'kategori';
+        $slug = $baseSlug;
+        $counter = 2;
+
+        while (isset($usedSlugs[Str::lower($slug)])) {
+            $slug = $baseSlug.'-'.$counter;
+            $counter++;
+        }
+
+        $usedSlugs[Str::lower($slug)] = true;
 
         return $slug;
     }

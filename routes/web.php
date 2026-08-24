@@ -756,6 +756,10 @@ Route::prefix('{portal}')
             ->name('participant-destination-categories.official.programs');
         Route::post('participant-destination-categories/official-api-setting', [ParticipantDestinationCategoryController::class, 'updateOfficialApiSetting'])
             ->name('participant-destination-categories.official-api-setting');
+        Route::get('participant-destination-categories/import/template', [ParticipantDestinationCategoryController::class, 'downloadImportTemplate'])
+            ->name('participant-destination-categories.import.template');
+        Route::post('participant-destination-categories/import', [ParticipantDestinationCategoryController::class, 'import'])
+            ->name('participant-destination-categories.import');
         Route::resource('participant-destination-categories', ParticipantDestinationCategoryController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);
