@@ -15,9 +15,13 @@
     @if($recaptcha_enabled)
     <script src="https://www.google.com/recaptcha/api.js?render={{ $recaptcha_site_key }}"></script>
     @endif
+    <style>
+        .auth-page .auth-surface,
+        .auth-page .auth-surface * { box-shadow: none !important; }
+    </style>
 </head>
 
-<body class="bg-gray-50">
+<body class="auth-page bg-gray-50">
     @include('components.flash-alert')
     @php
         $backToDashboardUrl = \App\Models\GeneralPage::findActiveByKey('landing')
@@ -51,105 +55,47 @@
         </div>
     </div> --}}
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8">
-            <div>
-                <div class="flex justify-center">
-                    <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
-                        class="client-brand-logo h-32 w-32 object-contain">
-                </div>
-                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Masuk ke Akun Anda
-                </h2>
-                <p class="mt-2 text-center text-sm text-gray-600">
-                    Atau
-                    <a href="{{ route('register') }}" class="font-medium text-primary hover:text-primary/80">
-                        daftar akun baru
-                    </a>
-                </p>
-            </div>
+        <div class="max-w-md w-full space-y-6">
+            <x-auth.header title="Masuk ke Akun Anda" prompt="Belum punya akun?" :href="route('register')" link-label="Daftar sekarang" />
 
-            @if($errors->any())
-            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                <ul class="list-disc list-inside text-sm">
-                    @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-            @endif
+            <x-ui.card padding="lg" class="auth-surface space-y-6 rounded-2xl">
+                <x-auth.error-summary />
 
-            <form class="mt-8 space-y-6" action="{{ route('login.authenticate') }}" method="POST" id="loginForm">
-                @csrf
-                <div class="space-y-4">
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700">
-                            Email
-                        </label>
-                        <input id="email" name="email" type="email" autocomplete="email" required
-                            value="{{ old('email') }}"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
-                    </div>
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">
-                            Password
-                        </label>
-                        <input id="password" name="password" type="password" autocomplete="current-password" required
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg  placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary">
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <input id="remember" name="remember" type="checkbox"
-                            class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
-                        <label for="remember" class="ml-2 block text-sm text-gray-900">
-                            Ingat saya
-                        </label>
+                <form class="space-y-6" action="{{ route('login.authenticate') }}" method="POST" id="loginForm">
+                    @csrf
+                    <div class="space-y-4">
+                        <x-ui.input name="email" type="email" label="Email" :value="old('email')" required autocomplete="email" />
+                        <x-ui.input name="password" type="password" label="Password" required autocomplete="current-password" />
                     </div>
 
-                    <div class="text-sm">
-                        <a href="{{ route('password.request') }}"
-                            class="font-medium text-primary hover:text-primary/80">
-                            Lupa password?
-                        </a>
+                    <div class="flex items-center justify-between gap-3">
+                        <x-ui.checkbox name="remember" label="Ingat saya" :checked="old('remember')" />
+
+                        <div class="text-sm">
+                            <a href="{{ route('password.request') }}" class="font-medium text-primary hover:text-primary/80">Lupa password?</a>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Hidden field for reCAPTCHA v3 token -->
-                @if($recaptcha_enabled)
-                <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
-                @endif
+                    <!-- Hidden field for reCAPTCHA v3 token -->
+                    @if($recaptcha_enabled)
+                    <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+                    @endif
 
-                <div>
-                    <button type="submit" id="submitBtn"
-                        class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                            <i class="ri-login-box-line text-primary/60 group-hover:text-primary/80"></i>
-                        </span>
-                        Masuk
-                    </button>
-                </div>
+                    <x-ui.button type="submit" id="submitBtn" icon="ri-login-box-line" :full-width="true">Masuk</x-ui.button>
 
-                @if($recaptcha_enabled)
-                <div class="text-center">
-                    <p class="text-xs text-gray-500">
-                        Situs ini dilindungi oleh reCAPTCHA dan berlaku
-                        <a href="https://policies.google.com/privacy" class="text-primary hover:underline"
-                            target="_blank">Kebijakan Privasi</a> dan
-                        <a href="https://policies.google.com/terms" class="text-primary hover:underline"
-                            target="_blank">Persyaratan Layanan</a> Google.
-                    </p>
-                </div>
-                @endif
-            </form>
+                    @if($recaptcha_enabled)
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500">
+                            Situs ini dilindungi oleh reCAPTCHA dan berlaku
+                            <a href="https://policies.google.com/privacy" class="text-primary hover:underline" target="_blank">Kebijakan Privasi</a> dan
+                            <a href="https://policies.google.com/terms" class="text-primary hover:underline" target="_blank">Persyaratan Layanan</a> Google.
+                        </p>
+                    </div>
+                    @endif
+                </form>
+            </x-ui.card>
 
-            <div class="text-center text-xs text-gray-500">
-                <a href="{{ route('public.terms') }}" class="hover:text-primary hover:underline">Syarat dan Ketentuan</a>
-                <span class="mx-1">•</span>
-                <a href="{{ route('public.payment-policy') }}" class="hover:text-primary hover:underline">Kebijakan Pembayaran</a>
-                <span class="mx-1">•</span>
-                <a href="{{ route('public.refund-policy') }}" class="hover:text-primary hover:underline">Refund Policy</a>
-            </div>
+            <x-auth.legal-links />
 
             <div class="text-center">
                 <a href="{{ $backToDashboardUrl }}"

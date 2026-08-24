@@ -36,7 +36,7 @@
 @php
 $hasError = $error || $errors->has($name);
 
-$baseClasses = 'block w-full rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-gray-100 disabled:cursor-not-allowed';
+$baseClasses = 'block w-full rounded-lg border bg-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-gray-100 disabled:cursor-not-allowed';
 
 $sizeClasses = [
     'sm' => 'px-3 py-1.5 text-sm',
